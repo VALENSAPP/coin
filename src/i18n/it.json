@@ -2926,7 +2926,7 @@
     "lockedSubtitle": "I post esclusivi sono disponibili solo per gli abbonati attivi.",
     "notCircleMemberTitle": "Post del cerchio privato",
     "notCircleMemberMessage": "Non puoi visualizzare questo post perché non sei membro del cerchio privato di questo utente."
-      },
+  },
   "battleHub": {
     "heroEyebrow": "Prestazioni nelle Battaglie",
     "heroTitle": "Competi, prevedi e costruisci la tua reputazione su Valens.",
@@ -3305,5 +3305,23 @@
     "blockedMessage": "Il tuo account è stato bloccato perché la verifica del profilo non è stata completata entro 3 giorni.",
     "completeVerification": "Completa il tuo {{verificationType}} per sbloccare il tuo account e continuare a utilizzare Valens.",
     "completeButton": "Completa {{verificationType}}"
+  },
+  "trustCommentModal": {
+    "headerTitle": "Vorresti spiegare il tuo voto?",
+    "headerSubtitle": "La tua prospettiva aiuta la comunità",
+    "voteSuffix": "voto",
+    "agreeLabel": "D'accordo",
+    "notSureLabel": "Non sono sicuro",
+    "disagreeLabel": "In disaccordo",
+    "agreeDetail": "Verifica questo contenuto",
+    "notSureDetail": "Ho bisogno di più informazioni",
+    "disagreeDetail": "Non credibile",
+    "sectionLabel": "Lascia un commento",
+    "optional": "(facoltativo)",
+    "inputPlaceholder": "Perché sei {{label}} con questo post?",
+    "charCount": "{{count}}/280",
+    "infoNote": "Il tuo commento potrebbe apparire accanto al tuo voto nel pannello del punteggio di fiducia.",
+    "skipButton": "Salta",
+    "submitButton": "Invia voto"
   }
 }

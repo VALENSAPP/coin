@@ -5,21 +5,38 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Feather from 'react-native-vector-icons/Feather';
+import { useLanguage } from '../../i18n';
 
 export default function TrustCommentModal({ visible, voteType, onClose, onSubmit }) {
   const [comment, setComment] = useState('');
   const [loading, setLoading] = useState(false);
+  const { t } = useLanguage();
 
   const config = {
-    agree:    { color: '#059669', icon: 'thumbs-up',   label: 'Agree',     detail: 'Verify this content' },
-    not_sure: { color: '#F59E0B', icon: 'help-circle', label: 'Not Sure',  detail: 'Need more info'       },
-    disagree: { color: '#DC2626', icon: 'thumbs-down', label: 'Disagree',  detail: 'Not credible'         },
+    agree: {
+      color: '#059669',
+      icon: 'thumbs-up',
+      label: t('trustCommentModal.agreeLabel'),
+      detail: t('trustCommentModal.agreeDetail'),
+    },
+    not_sure: {
+      color: '#F59E0B',
+      icon: 'help-circle',
+      label: t('trustCommentModal.notSureLabel'),
+      detail: t('trustCommentModal.notSureDetail'),
+    },
+    disagree: {
+      color: '#DC2626',
+      icon: 'thumbs-down',
+      label: t('trustCommentModal.disagreeLabel'),
+      detail: t('trustCommentModal.disagreeDetail'),
+    },
   };
   const c = config[voteType] || config.disagree;
 
   const handleSubmit = async () => {
     setLoading(true);
-    await onSubmit(comment.trim());   // passes comment back to PostItem
+    await onSubmit(comment.trim());
     setLoading(false);
     setComment('');
     onClose();
@@ -43,8 +60,12 @@ export default function TrustCommentModal({ visible, voteType, onClose, onSubmit
                 <Feather name={c.icon} size={17} color="#fff" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.title}>Would you like to explain your vote?</Text>
-                <Text style={styles.sub}>Your perspective helps the community</Text>
+                <Text style={styles.title}>
+                  {t('trustCommentModal.headerTitle')}
+                </Text>
+                <Text style={styles.sub}>
+                  {t('trustCommentModal.headerSubtitle')}
+                </Text>
               </View>
               <TouchableOpacity onPress={onClose} hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}>
                 <Icon name="close" size={20} color="#6B7280" />
@@ -54,37 +75,48 @@ export default function TrustCommentModal({ visible, voteType, onClose, onSubmit
             {/* Vote badge */}
             <View style={[styles.badge, { borderColor: c.color + '44', backgroundColor: c.color + '12' }]}>
               <View style={[styles.dot, { backgroundColor: c.color }]} />
-              <Text style={[styles.badgeLabel, { color: c.color }]}>{c.label} vote</Text>
+              <Text style={[styles.badgeLabel, { color: c.color }]}>
+                {c.label} {t('trustCommentModal.voteSuffix')}
+              </Text>
               <Text style={[styles.badgeDetail, { color: c.color }]}>{c.detail}</Text>
             </View>
 
             {/* Comment input */}
             <Text style={styles.sectionLabel}>
-              Leave a comment <Text style={styles.optionalText}>(optional)</Text>
+              {t('trustCommentModal.sectionLabel')}{' '}
+              <Text style={styles.optionalText}>
+                {t('trustCommentModal.optional')}
+              </Text>
             </Text>
             <TextInput
               style={styles.input}
-              placeholder={`Why do you ${c.label.toLowerCase()} with this post?`}
+              placeholder={t('trustCommentModal.inputPlaceholder', {
+                label: c.label.toLowerCase(),
+              })}
               placeholderTextColor="#9CA3AF"
               multiline
               maxLength={280}
               value={comment}
               onChangeText={setComment}
             />
-            <Text style={styles.charCount}>{comment.length}/280</Text>
+            <Text style={styles.charCount}>
+              {t('trustCommentModal.charCount', { count: comment.length })}
+            </Text>
 
             {/* Info note */}
             <View style={styles.infoNote}>
               <Icon name="information-circle-outline" size={14} color="#6B7280" />
               <Text style={styles.infoText}>
-                Your comment may appear alongside your vote in the trust score panel.
+                {t('trustCommentModal.infoNote')}
               </Text>
             </View>
 
             {/* Actions */}
             <View style={styles.actions}>
               <TouchableOpacity style={styles.skipBtn} onPress={handleSkip} disabled={loading}>
-                <Text style={styles.skipText}>Skip</Text>
+                <Text style={styles.skipText}>
+                  {t('trustCommentModal.skipButton')}
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.submitBtn, { backgroundColor: c.color }, loading && { opacity: 0.6 }]}
@@ -92,7 +124,9 @@ export default function TrustCommentModal({ visible, voteType, onClose, onSubmit
                 disabled={loading}>
                 {loading
                   ? <ActivityIndicator size="small" color="#fff" />
-                  : <Text style={styles.submitText}>Submit vote</Text>}
+                  : <Text style={styles.submitText}>
+                      {t('trustCommentModal.submitButton')}
+                    </Text>}
               </TouchableOpacity>
             </View>
           </View>

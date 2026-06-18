@@ -2926,7 +2926,7 @@
     "lockedSubtitle": "Las publicaciones exclusivas están disponibles solo para suscriptores activos.",
     "notCircleMemberTitle": "Publicación del círculo privado",
     "notCircleMemberMessage": "No puedes ver esta publicación porque no eres miembro del círculo privado de este usuario."
-      },
+  },
   "battleHub": {
     "heroEyebrow": "Rendimiento en Batallas",
     "heroTitle": "Compite, predice y construye tu reputación en Valens.",
@@ -3305,5 +3305,23 @@
     "blockedMessage": "Tu cuenta está bloqueada porque la verificación del perfil no se completó dentro de los 3 días.",
     "completeVerification": "Completa tu {{verificationType}} para desbloquear tu cuenta y seguir usando Valens.",
     "completeButton": "Completar {{verificationType}}"
+  },
+  "trustCommentModal": {
+    "headerTitle": "¿Te gustaría explicar tu voto?",
+    "headerSubtitle": "Tu perspectiva ayuda a la comunidad",
+    "voteSuffix": "voto",
+    "agreeLabel": "De acuerdo",
+    "notSureLabel": "No estoy seguro",
+    "disagreeLabel": "En desacuerdo",
+    "agreeDetail": "Verificar este contenido",
+    "notSureDetail": "Necesito más información",
+    "disagreeDetail": "No es creíble",
+    "sectionLabel": "Deja un comentario",
+    "optional": "(opcional)",
+    "inputPlaceholder": "¿Por qué estás {{label}} con esta publicación?",
+    "charCount": "{{count}}/280",
+    "infoNote": "Tu comentario puede aparecer junto a tu voto en el panel de puntuación de confianza.",
+    "skipButton": "Omitir",
+    "submitButton": "Enviar voto"
   }
 }
