@@ -147,6 +147,7 @@ const CreateMission = () => {
     taggedPeople = [],
     taggedPeopleIds = [],
     taggedPeopleMeta = [],
+    isTrustPost = false,
   } = route.params || {};
 
   const getMediaUri = (media) =>
@@ -363,6 +364,7 @@ const CreateMission = () => {
       })),
       link: link ? link.trim() : '',
       type: profileType === 'company' ? 'support' : 'crowdfunding',
+      isTrustPost: Boolean(isTrustPost),
       raiseAmount: numericValue,
       currency: values.currency,
       start_time: formatDateTime(values.startTime),

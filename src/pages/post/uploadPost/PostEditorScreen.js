@@ -276,6 +276,7 @@ const PostEditorScreen = () => {
         taggedPeople,
         taggedPeopleIds,
         taggedPeopleMeta,
+        isTrustPost: isCommunityTrustPost,
       });
       return;
     }
