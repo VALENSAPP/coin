@@ -121,7 +121,26 @@ const formatMonthlyChartLabel = (timestamp) => format(timestamp, 'MMM yy');
 
 const resolveGraphLabel = (item, timestamp, interval) => {
   const bucket =
-    item?.month ?? item?.weekStart ?? item?.week ?? item?.day ?? item?.date ?? item?.label;
+    item?.month ??
+    item?.weekStart ??
+    item?.week ??
+    item?.day ??
+    item?.date ??
+    item?.label;
+
+  if (interval === 'daily') {
+    const dayName =
+      String(item?.dayname ?? item?.dayName ?? item?.weekday ?? '').trim();
+    if (dayName) return dayName;
+
+    if (bucket != null && String(bucket).trim()) {
+      const bucketTs = parseBucketDate(bucket);
+      if (bucketTs != null) return format(bucketTs, 'EEEE');
+    }
+
+    return format(timestamp, 'EEEE');
+  }
+
   if (bucket != null && String(bucket).trim()) {
     const bucketTs = parseBucketDate(bucket);
     if (bucketTs != null) {
@@ -272,7 +291,7 @@ function SubscriptionTrendSvg({ points, chartWidth, chartHeight, lineColor, inte
     if (Number.isNaN(date.getTime())) return '';
     if (interval === 'monthly') return formatMonthlyChartLabel(date);
     if (interval === 'weekly') return format(date, 'MMM d');
-    return format(date, 'MMM d');
+    return format(date, 'EEEE');
   };
 
   const labelFontSize = interval === 'monthly' && n > 8 ? 8 : 9;

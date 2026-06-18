@@ -120,11 +120,16 @@ const FOLLOWERS_RANGE_BY_PERIOD = {
 
 const pad2 = value => String(value).padStart(2, '0');
 
+function formatActivityDayLabel(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString('en-US', { weekday: 'long' });
+}
+
 const formatActivityBucketLabel = (timestamp, range) => {
   const date = new Date(timestamp);
   if (Number.isNaN(date.getTime())) return '';
   if (range === 'daily') {
-    return `${pad2(date.getHours())}:00`;
+    return formatActivityDayLabel(date);
   }
   return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
 };
@@ -177,6 +182,19 @@ const resolveActivityTimestamp = (item, index, raw, range) => {
 
 const resolveActivityLabel = (item, timestamp, range) => {
   const label = String(item?.label || '').trim();
+  if (range === 'daily') {
+    const dayName = String(item?.dayname ?? item?.dayName ?? item?.weekday ?? '').trim();
+    if (dayName) return dayName;
+
+    const dateFromDay = item?.day ?? item?.date ?? item?.timestamp ?? item?.createdAt ?? item?.time;
+    if (dateFromDay != null && String(dateFromDay).trim()) {
+      const parsed = parseApiTimestamp(dateFromDay);
+      if (Number.isFinite(parsed)) return formatActivityDayLabel(new Date(parsed));
+    }
+
+    return formatActivityDayLabel(new Date(timestamp));
+  }
+
   if (label) return label;
   return formatActivityBucketLabel(timestamp, range);
 };
