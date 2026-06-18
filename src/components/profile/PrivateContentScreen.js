@@ -152,6 +152,7 @@ const PrivateContentScreen = ({
   onSubscribePress,
   isCompany,
   refreshKey,
+  isTabActive = false,
 }) => {
   const [posts, setPosts] = useState([]);
   console.log([posts,'data in pvt content'])
@@ -171,7 +172,7 @@ const PrivateContentScreen = ({
   const canViewPrivateContent = isOwnProfile || resolvedIsSubscribed;
 
   useScreenshotProtection({
-    enabled: isFocused && !isCompany && canViewPrivateContent && !isOwnProfile,
+    enabled: isFocused && isTabActive && !isCompany && !isOwnProfile,
     title: t('postView.screenshotWarningTitle'),
     message: t('postView.screenshotWarningMessage'),
   });

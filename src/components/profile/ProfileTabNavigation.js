@@ -142,32 +142,12 @@ const ProfileTabs = memo(({
         scrollEnabled={false}
       />
     ),
-    privateCircle: (
-      <PrivateCircle
-        isOwnProfile={isOwnProfile}
-        userData={userData}
-        onStartPress={handlePrivateCircleStartPress}
-        loggedInUserId={loggedInUserId}
-      />
-    ),
     reels: (
       <ReelsScreen
         postCheck={post}
         userData={userData}
         isOwnProfile={isOwnProfile}
         onPostPinChanged={onPostPinChanged}
-        scrollEnabled={false}
-      />
-    ),
-    privateContent: (
-      <PrivateContentScreen
-        postCheck={post}
-        userData={userData}
-        isSubscribed={isSubscribed}
-        loggedInUserId={loggedInUserId}
-        onSubscribePress={() => userData?.profile !== 'company' && setShowSubscribeModal(true)}
-        isCompany={userData?.profile === 'company'}
-        refreshKey={`${refreshKey ?? 0}-${privateKey}`}
         scrollEnabled={false}
       />
     ),
@@ -178,12 +158,49 @@ const ProfileTabs = memo(({
     post,
     userData,
     isOwnProfile,
+    onPostPinChanged,
+  ]);
+
+  const renderTabScreen = useCallback((tabKey, isTabActive) => {
+    if (tabKey === 'privateCircle') {
+      return (
+        <PrivateCircle
+          isOwnProfile={isOwnProfile}
+          userData={userData}
+          onStartPress={handlePrivateCircleStartPress}
+          loggedInUserId={loggedInUserId}
+          isTabActive={isTabActive}
+        />
+      );
+    }
+
+    if (tabKey === 'privateContent') {
+      return (
+        <PrivateContentScreen
+          postCheck={post}
+          userData={userData}
+          isSubscribed={isSubscribed}
+          loggedInUserId={loggedInUserId}
+          onSubscribePress={() => userData?.profile !== 'company' && setShowSubscribeModal(true)}
+          isCompany={userData?.profile === 'company'}
+          refreshKey={`${refreshKey ?? 0}-${privateKey}`}
+          scrollEnabled={false}
+          isTabActive={isTabActive}
+        />
+      );
+    }
+
+    return tabScreens[tabKey] ?? null;
+  }, [
+    handlePrivateCircleStartPress,
+    isOwnProfile,
     isSubscribed,
     loggedInUserId,
-    refreshKey,
+    post,
     privateKey,
-    handlePrivateCircleStartPress,
-    onPostPinChanged,
+    refreshKey,
+    tabScreens,
+    userData,
   ]);
 
   // ── Tab metadata — icons/labels/onPress only, NO screen elements ─────────────
@@ -304,15 +321,18 @@ const ProfileTabs = memo(({
 
       {/* Tab content — all tabs stay mounted, inactive ones are hidden */}
       <View style={styles.contentWrapper}>
-        {tabs.map((tab, index) => (
-          <View
-            key={tab.key}
-            style={index === activeTab ? styles.tabVisible : styles.tabHidden}
-            pointerEvents={index === activeTab ? 'auto' : 'none'}
-          >
-            {tabScreens[tab.key]}
-          </View>
-        ))}
+        {tabs.map((tab, index) => {
+          const isTabActive = activeTab === index;
+          return (
+            <View
+              key={tab.key}
+              style={isTabActive ? styles.tabVisible : styles.tabHidden}
+              pointerEvents={isTabActive ? 'auto' : 'none'}
+            >
+              {renderTabScreen(tab.key, isTabActive)}
+            </View>
+          );
+        })}
       </View>
 
       {!isSubscribed && (
