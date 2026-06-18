@@ -1331,9 +1331,28 @@ export const WalletDashboardScreen = ({ navigation }) => {
             <View style={styles.kpiIconWrap}>
               <Ionicons name={item.icon} size={18} color={text} />
             </View>
-            <Text style={[styles.kpiTitle, { color: text }]} numberOfLines={2}>
-              {item.title}
-            </Text>
+            {isSupportCard ? (
+              <View style={styles.kpiSubscriptionTitleWrap}>
+                {(() => {
+                  const [firstLine = '', ...rest] = t('walletDashboard.kpi.subscriptionEarning').trim().split(/\s+/);
+                  const secondLine = rest.join(' ');
+                  return (
+                    <>
+                      <Text style={[styles.kpiSubscriptionTitleLine, { color: text }]} numberOfLines={1}>
+                        {firstLine}
+                      </Text>
+                      <Text style={[styles.kpiSubscriptionTitleLine, { color: text }]} numberOfLines={1}>
+                        {secondLine}
+                      </Text>
+                    </>
+                  );
+                })()}
+              </View>
+            ) : (
+              <Text style={[styles.kpiTitle, { color: text }]} numberOfLines={2}>
+                {item.title}
+              </Text>
+            )}
           </View>
           {item.id === 'followers' && (
             <TouchableOpacity
@@ -2654,6 +2673,19 @@ const styles = StyleSheet.create({
     textTransform: 'capitalize',
     lineHeight: 16,
     height: 32,
+  },
+  kpiSubscriptionTitleWrap: {
+    flex: 1,
+    marginLeft: 8,
+    height: 32,
+    justifyContent: 'center',
+  },
+  kpiSubscriptionTitleLine: {
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'capitalize',
+    lineHeight: 16,
+    includeFontPadding: false,
   },
   kpiValue: {
     fontSize: 20,

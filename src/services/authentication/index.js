@@ -6,6 +6,12 @@ import { PermissionsAndroid, Platform } from 'react-native';
 import { saveOrUpdateAccount } from '../../utils/accountSession';
 import { setUserProfile } from '../../redux/actions/UserProfileAction';
 
+let appPermissionsReady = false;
+
+export const markAppPermissionsReady = () => {
+    appPermissionsReady = true;
+};
+
 export const handleLoginSuccess = async (token, dispatch, navigation, getProfileData, toast, accessToken, refreshToken, t) => {
     if (token) {
         await AsyncStorage.setItem('token', token);
@@ -44,6 +50,9 @@ export const signup = async (data) => {
 }
 
 const requestLocationPermission = async () => {
+    if (!appPermissionsReady) {
+        return false;
+    }
     if (Platform.OS === 'ios') {
         try {
             const status = await Geolocation.requestAuthorization('whenInUse');
