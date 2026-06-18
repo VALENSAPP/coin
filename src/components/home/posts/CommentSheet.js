@@ -43,6 +43,7 @@ const mapCommentItem = comment => ({
   likeCount: comment.likeCount || 0,
   dislikeCount: comment.dislikeCount || 0,
   userReaction: comment.userReaction || null,
+  commentType: comment.commentType || null,
 });
 
 const flattenCommentEntries = entries =>
@@ -132,6 +133,34 @@ const CommentItem = memo(
       [navigation, onCloseSheet],
     );
 
+    const TRUST_BADGE_CONFIG = {
+      AGREE: { label: 'Agree Vote', color: '#059669', bg: '#ECFDF5', icon: '👍' },
+      NOT_SURE: { label: 'Not Sure', color: '#D97706', bg: '#FFFBEB', icon: '🤔' },
+      DISAGREE: { label: 'Disagree Vote', color: '#DC2626', bg: '#FEF2F2', icon: '👎' },
+    };
+
+    const TrustVoteBadge = ({ commentType }) => {
+      const config = TRUST_BADGE_CONFIG[String(commentType || '').toUpperCase()];
+      if (!config) return null;
+      return (
+        <View style={{
+          flexDirection: 'row', alignItems: 'center', gap: 4,
+          alignSelf: 'flex-start',
+          backgroundColor: config.bg,
+          borderRadius: 20,
+          paddingHorizontal: 8, paddingVertical: 3,
+          marginBottom: 4,
+          borderWidth: 0.5,
+          borderColor: config.color + '44',
+        }}>
+          <Text style={{ fontSize: 11 }}>{config.icon}</Text>
+          <Text style={{ fontSize: 11, fontWeight: '600', color: config.color }}>
+            {config.label}
+          </Text>
+        </View>
+      );
+    };
+
     return (
       <View
         style={[
@@ -152,6 +181,7 @@ const CommentItem = memo(
               <Text style={styles.username}>{item.username}</Text>
               <Text style={styles.time}>{item.time}</Text>
             </View>
+            <TrustVoteBadge commentType={item.commentType} />
             <Text style={styles.commentText}>{item.text}</Text>
             <View style={styles.commentActionsRow}>
               <TouchableOpacity onPress={() => onReplyPress?.(item)}>
@@ -398,8 +428,8 @@ export default function CommentSheet({
         c.userReaction === 'LIKE'
           ? 'up'
           : c.userReaction === 'DISLIKE'
-          ? 'down'
-          : null;
+            ? 'down'
+            : null;
       map[String(c.id)] = {
         thumbsUp: c.likeCount || 0,
         thumbsDown: c.dislikeCount || 0,
@@ -854,8 +884,8 @@ export default function CommentSheet({
             editingComment
               ? t('commentSheet.editPlaceholder')
               : replyingToComment
-              ? t('commentSheet.replyPlaceholder', { username: replyingToComment.username })
-              : t('commentSheet.addCommentPlaceholder')
+                ? t('commentSheet.replyPlaceholder', { username: replyingToComment.username })
+                : t('commentSheet.addCommentPlaceholder')
           }
           placeholderTextColor="#999"
           style={styles.input}
@@ -882,8 +912,8 @@ export default function CommentSheet({
               {editingComment
                 ? t('commentSheet.update')
                 : replyingToComment
-                ? t('commentSheet.reply')
-                : t('commentSheet.send')}
+                  ? t('commentSheet.reply')
+                  : t('commentSheet.send')}
             </Text>
           )}
         </TouchableOpacity>

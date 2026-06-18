@@ -104,7 +104,6 @@ if let b = data["expandedBody"] as? String, !b.isEmpty {
             if !followers.isEmpty { lines.append("Their followers: \(followers)") }
             let accuracy = str("followerAccuracyRate")
             if !accuracy.isEmpty { lines.append("Credibility rate: \(accuracy)%") }
-            lines.append("[ View Profile ]")
             return lines
 
         // ── BATTLE INVITE ─────────────────────────────────────────────────
@@ -140,7 +139,6 @@ if let b = data["expandedBody"] as? String, !b.isEmpty {
                 "🟢 \(strOr("sideALabel","Side A"))  👥 \(strOr("sideACount","0"))",
                 "🔴 \(strOr("sideBLabel","Side B"))  👥 \(strOr("sideBCount","0"))",
                 "⏱ Ends in: \(timeLeft)",
-                "[ View Discussion ]",
             ]
 
         // ── BATTLE VICTORY ────────────────────────────────────────────────
@@ -158,7 +156,6 @@ if let b = data["expandedBody"] as? String, !b.isEmpty {
             if let badge = data["badgeText"] as? String, !badge.isEmpty {
                 lines.append("🏅 \(badge)")
             }
-            lines.append("[ View Achievements ]")
             return lines
 
         // ── BATTLE COMPLETED ──────────────────────────────────────────────
@@ -176,7 +173,6 @@ if let b = data["expandedBody"] as? String, !b.isEmpty {
             if let acc = data["accuracyText"] as? String, !acc.isEmpty {
                 lines.append("🎯 \(acc)")
             }
-            lines.append("[ View Results ]")
             return lines
 
         // ── BATTLE CLOSING SOON ───────────────────────────────────────────
@@ -191,7 +187,6 @@ if let b = data["expandedBody"] as? String, !b.isEmpty {
             } else {
                 lines.append("Accuracy impact pending.")
             }
-            lines.append("[ View Battle ]")
             return lines
 
         // ── BATTLE FORECAST MISSED ────────────────────────────────────────
@@ -210,7 +205,6 @@ if let b = data["expandedBody"] as? String, !b.isEmpty {
             } else {
                 lines.append("Keep forecasting to improve your rank.")
             }
-            lines.append("[ Start a New Battle ]")
             return lines
 
         // ── BATTLE CLOSED / RESULT (generic) ─────────────────────────────
@@ -225,7 +219,6 @@ if let b = data["expandedBody"] as? String, !b.isEmpty {
                 "👍 Reactions:  \(strOr("reactionCount","0"))",
                 "💬 Comments:  \(strOr("commentCount","0"))",
                 "👁 Views:  \(strOr("views","0"))",
-                "[ View Drop ]",
             ]
 
         // ── POST COMMENT ──────────────────────────────────────────────────
@@ -237,7 +230,6 @@ if let b = data["expandedBody"] as? String, !b.isEmpty {
             if let title = data["postTitle"] as? String, !title.isEmpty {
                 lines.append("Post: \"\(title)\"")
             }
-            lines.append("[ Reply ]     [ View Post ]")
             return lines
 
         // ── MENTION ───────────────────────────────────────────────────────
@@ -248,7 +240,6 @@ if let b = data["expandedBody"] as? String, !b.isEmpty {
             if let title = data["postTitle"] as? String, !title.isEmpty {
                 lines.append("Post: \"\(title)\"")
             }
-            lines.append("[ View Context ]")
             return lines
 
         // ── STORY VIEW INSIGHTS ───────────────────────────────────────────
@@ -257,7 +248,6 @@ if let b = data["expandedBody"] as? String, !b.isEmpty {
                 "Views (last 24h):  \(strOr("viewsLast24h","0"))",
                 "Reactions:  \(strOr("reactions","0"))",
                 "Profile Visits:  \(strOr("profileVisits","0"))",
-                "[ View Story Analytics ]",
             ]
 
         // ── LOW POST CREDITS ──────────────────────────────────────────────
@@ -266,7 +256,6 @@ if let b = data["expandedBody"] as? String, !b.isEmpty {
                 "Credits Remaining:  \(strOr("creditsRemaining","1")) / \(strOr("totalCredits","5"))",
                 "Upgrade to Valens Pro for $\(strOr("upgradePriceUsd","1.99"))/month",
                 "Unlimited posts + premium analytics",
-                "[ Upgrade Now ]",
             ]
 
         // ── BADGE / ACHIEVEMENT UNLOCKED ──────────────────────────────────
@@ -277,7 +266,6 @@ if let b = data["expandedBody"] as? String, !b.isEmpty {
             if let m = data["milestone"]    as? String, !m.isEmpty { lines.append("Milestone:  \(m)") }
             if let r = data["accuracyRate"] as? String, !r.isEmpty { lines.append("Accuracy Rate: \(r)%") }
             if let b = data["battlesWon"]   as? String, !b.isEmpty { lines.append("Battles Won:  \(b)") }
-            lines.append("[ View Profile ]")
             return lines
 
         // ── MISSION POST LAUNCHED ─────────────────────────────────────────
@@ -286,7 +274,6 @@ if let b = data["expandedBody"] as? String, !b.isEmpty {
             if let t = data["missionTitle"] as? String, !t.isEmpty { lines.append("\"\(t)\"") }
             if let g = data["goal"]         as? String, !g.isEmpty { lines.append("Goal:  $\(g)") }
             lines.append("Backers so far:  \(strOr("backersCount","0"))  —  Be the first!")
-            lines.append("[ Back This Mission ]     [ View Full Post ]")
             return lines
 
         // ── MISSION GOAL MILESTONE ────────────────────────────────────────
@@ -298,7 +285,6 @@ if let b = data["expandedBody"] as? String, !b.isEmpty {
             if !raised.isEmpty && !goal.isEmpty { lines.append("Raised:  $\(raised) of $\(goal)") }
             lines.append("Backers:  \(strOr("backersCount","0"))")
             if let tl = data["timeLeft"] as? String, !tl.isEmpty { lines.append("Time Left: \(tl)") }
-            lines.append("[ Back This Mission ]     [ Share ]")
             return lines
 
         // ── MISSION NEW BACKER ────────────────────────────────────────────
@@ -310,7 +296,6 @@ if let b = data["expandedBody"] as? String, !b.isEmpty {
             if !raised.isEmpty && !goal.isEmpty { lines.append("Total Raised:  $\(raised) of $\(goal)") }
             lines.append("Total Backers:  \(strOr("backersCount","0"))")
             if let tl = data["timeLeft"] as? String, !tl.isEmpty { lines.append("Time Left:  \(tl)") }
-            lines.append("[ View Your Mission ]")
             return lines
 
         // ── MISSION ENDING SOON ───────────────────────────────────────────
@@ -320,7 +305,6 @@ if let b = data["expandedBody"] as? String, !b.isEmpty {
             let raised = data["raised"] as? String ?? ""
             let goal   = data["goal"]   as? String ?? ""
             if !raised.isEmpty && !goal.isEmpty { lines.append("Raised:  $\(raised) of $\(goal)") }
-            lines.append("[ Back This Mission Now ]     [ Share ]")
             return lines
 
         // ── MISSION CONTRIBUTION CONFIRMED ────────────────────────────────
@@ -330,7 +314,6 @@ if let b = data["expandedBody"] as? String, !b.isEmpty {
             lines.append("Creator:  \(strOr("creatorUserName","Someone"))")
             if let a = data["amountPaid"] as? String, !a.isEmpty { lines.append("Amount Paid:  $\(a)") }
             lines.append("Payment via:  \(strOr("paymentVia","Stripe"))")
-            lines.append("[ View Mission Progress ]")
             return lines
 
         // ── PRIVATE CIRCLE EXCLUSIVE POST ─────────────────────────────────
@@ -339,7 +322,6 @@ if let b = data["expandedBody"] as? String, !b.isEmpty {
             lines.append("\(strOr("creatorUserName","Someone")) posted:")
             if let t = data["exclusivePostTitle"] as? String, !t.isEmpty { lines.append("\"\(t)\"") }
             if let c = data["circleName"] as? String, !c.isEmpty { lines.append("Posted to:  \(c)") }
-            lines.append("[ View Exclusive Post ]")
             return lines
 
         // ── PRIVATE CIRCLE GROWING ────────────────────────────────────────
@@ -348,7 +330,6 @@ if let b = data["expandedBody"] as? String, !b.isEmpty {
             if let c = data["circleName"] as? String, !c.isEmpty { lines.append("Circle: \"\(c)\"") }
             lines.append("Total Members:  \(strOr("totalMembers","0"))")
             lines.append("Active Posts:  \(strOr("activePosts","0"))")
-            lines.append("[ Manage Circle Members ]")
             return lines
 
         // ── PRIVATE CIRCLE ACCESS REMOVED ─────────────────────────────────
@@ -357,7 +338,6 @@ if let b = data["expandedBody"] as? String, !b.isEmpty {
                 "You have been removed from:",
                 "\(strOr("ownerUserName","Someone"))'s Private Circle",
                 "Exclusive posts from this Circle are no longer visible.",
-                "[ View Profile ]",
             ]
 
         // ── WELCOME / ONBOARDING ──────────────────────────────────────────
@@ -367,7 +347,6 @@ if let b = data["expandedBody"] as? String, !b.isEmpty {
                 "Free Post Credits:  5",
                 "Dralens Tier:  White",
                 "Battles Available:  Unlimited",
-                "[ Set Up Your Profile ]",
             ]
 
         // ── FALLBACK ──────────────────────────────────────────────────────

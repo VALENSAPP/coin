@@ -66,6 +66,7 @@ import {
 } from '../../../utils/feedMediaDimensions';
 import { useLanguage } from '../../../i18n';
 import { navigateToUserProfile } from '../../../utils/navigateToUserProfile';
+import TrustCommentModal from '../../modals/TrustCommentModal';
 
 const { width } = Dimensions.get('window');
 const AnimatedFastImage = Animated.createAnimatedComponent(FastImage);
@@ -518,6 +519,7 @@ function PostItem({
   const { width: windowWidth } = useWindowDimensions();
   const heartScale = useRef(new Animated.Value(1)).current;
   const doubleTapHeartScale = useRef(new Animated.Value(0)).current;
+  const [localCommentsCount, setLocalCommentsCount] = useState(commentsCount || 0);
   const [showDoubleTapHeart, setShowDoubleTapHeart] = useState(false);
   const listRef = useRef(null);
   const videoRefsMap = useRef({});
@@ -554,6 +556,8 @@ function PostItem({
   const [trustScoreLoading, setTrustScoreLoading] = useState(false);
   const [trustVote, setTrustVote] = useState(null);
   const [trustScore, setTrustScore] = useState(null);
+  const [trustCommentModalVisible, setTrustCommentModalVisible] = useState(false);
+  const [trustCommentModalType, setTrustCommentModalType] = useState(null);
 
   const { t } = useLanguage();
   const showTrustControls = isTruthyTrustPost(isTrustPost) || isTruthyTrustPost(item?.isTrustPost);
@@ -758,6 +762,10 @@ function PostItem({
     }, 60 * 1000);
     return () => clearInterval(timer);
   }, [calculateDaysLeft]);
+
+  useEffect(() => {
+    setLocalCommentsCount(commentsCount || 0);
+  }, [commentsCount]);
 
   const fetchTotalDonation = useCallback(async () => {
     if (!item.id) return;
@@ -1172,7 +1180,7 @@ function PostItem({
     setTrustScoreLoading(true);
     try {
       const response = await getTrustScrore({ postId: item.id });
-      console.log(response,'getTrustScroregetTrustScroregetTrustScroregetTrustScroregetTrustScrore')
+      console.log(response, 'getTrustScroregetTrustScroregetTrustScroregetTrustScroregetTrustScrore')
       setTrustScore(unwrapTrustPayload(response));
     } catch (error) {
       console.log('Failed to fetch trust score:', error);
@@ -1196,25 +1204,43 @@ function PostItem({
     }
   }, [refreshTrustScore, trustScoreVisible]);
 
-  const handleTrustVote = useCallback(async type => {
-    if (!item?.id || trustLoading) return;
+  const handleTrustVote = useCallback(async (type) => {
+    if (trustVote) return;  // ← already voted, do nothing
+    setTrustPanelVisible(false);
+    setTrustCommentModalType(type);
+    setTrustCommentModalVisible(true);
+  }, [trustVote]);
+
+  const handleTrustVoteWithComment = useCallback(async (comment) => {
+    if (!item?.id || trustLoading || trustVote) return;
+    setTrustCommentModalVisible(false);
     setTrustLoading(true);
     try {
-      const response = await voteTrust({ postId: item.id, voteType: type });
-      console.log(response,'votes trustsssss')
-      const payload = unwrapTrustPayload(response);
-      console.log(payload,'dtatataatatain [ay;oaddd')
-      setTrustVote({ ...(payload || {}), type });
-      setTrustPanelVisible(false);
+      const response = await voteTrust({
+        postId: item.id,
+        voteType: trustCommentModalType,  // 'agree' | 'not_sure' | 'disagree'
+        comment: comment || '',
+      });
+
+      console.log('voteTrust response:', response);  // check this
+
+      // ✅ Only unwrap after confirming response shape
+      const payload = response?.data?.data ?? response?.data ?? response;
+      setTrustVote({ ...(payload || {}), type: trustCommentModalType });
       setTrustScoreVisible(true);
       await refreshTrustScore();
+      if (comment?.trim()) {
+        setLocalCommentsCount(prev => prev + 1);
+      }
     } catch (error) {
-      console.log('Failed to vote trust:', error);
+      console.log('voteTrust error:', error?.response?.data);  // add this
       showToastMessage(toast, 'danger', t('postItem.trustSubmitError'));
     } finally {
       setTrustLoading(false);
+      setTrustCommentModalType(null);
     }
-  }, [item?.id, refreshTrustScore, toast, trustLoading, unwrapTrustPayload]);
+  }, [item?.id, trustCommentModalType, trustLoading, refreshTrustScore, toast, t]);
+
 
   const handleTrustUndo = useCallback(async () => {
     const voteId = getTrustVoteId(trustVote);
@@ -1780,19 +1806,30 @@ function PostItem({
               onPress={() => onComment?.(item.id, item.UserId)}
               style={styles.actionButton}>
               <Comments width={22} height={22} style={styles.actionSvgIcon} />
-              <Text style={styles.actionCount}>{commentsCount || 0}</Text>
+              <Text style={styles.actionCount}>{localCommentsCount || 0}</Text>
             </TouchableOpacity>
 
             {showTrustControls && (
               <TouchableOpacity
-                onPress={handleTrustIconPress}
-                style={styles.actionButton}
-                activeOpacity={0.85}
+                onPress={trustVote ? undefined : handleTrustIconPress}  // ← disabled after vote
+                style={[styles.actionButton, trustVote && { opacity: 0.6 }]}
+                activeOpacity={trustVote ? 1 : 0.85}
                 accessibilityLabel="Open trust vote">
-                <View style={styles.trustActionIcon}>
+                <View style={[
+                  styles.trustActionIcon,
+                  trustVote?.type === 'agree' && { backgroundColor: '#059669' },
+                  trustVote?.type === 'not_sure' && { backgroundColor: '#F59E0B' },
+                  trustVote?.type === 'disagree' && { backgroundColor: '#DC2626' },
+                ]}>
                   <Icon name="shield-checkmark" size={18} color="#FFFFFF" />
                 </View>
-                <Text style={styles.actionCount}>{t('postItem.trust')}</Text>
+                <Text style={styles.actionCount}>
+                  {trustVote
+                    ? trustVote.type === 'agree' ? t('postItem.trustAgree')
+                      : trustVote.type === 'not_sure' ? t('postItem.trustNotSure')
+                        : t('postItem.trustDisagree')
+                    : t('postItem.trust')}
+                </Text>
               </TouchableOpacity>
             )}
 
@@ -1894,8 +1931,8 @@ function PostItem({
                       styles.trustProgressFill,
                       {
                         width: `${normalizedTrustScore.overall > 0
-                            ? Math.max(2, normalizedTrustScore.overall)
-                            : 0
+                          ? Math.max(2, normalizedTrustScore.overall)
+                          : 0
                           }%`,
                       },
                     ]}
@@ -2182,6 +2219,12 @@ function PostItem({
         onClose={() => setSupportDisclaimerVisible(false)}
         onSupport={handleSupportNow}
         canSupport={canSupport}
+      />
+      <TrustCommentModal
+        visible={trustCommentModalVisible}
+        voteType={trustCommentModalType}
+        onClose={() => setTrustCommentModalVisible(false)}
+        onSubmit={handleTrustVoteWithComment}
       />
     </View>
   );
@@ -2563,7 +2606,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '900',
     color: '#10B981',
-    marginLeft:5
+    marginLeft: 5
   },
   trustMetricRow: {
     flexDirection: 'row',

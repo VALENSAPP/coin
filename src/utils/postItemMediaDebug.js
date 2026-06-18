@@ -34,7 +34,6 @@ const summarizeApiMediaField = value => {
 export const logApiPostsMedia = (stage, posts) => {
   if (!__DEV__) return;
   if (!Array.isArray(posts)) {
-    console.log(TAG, stage, 'expected array, got', typeof posts, posts);
     return;
   }
   const sample = posts.slice(0, 5).map(p => ({
@@ -42,7 +41,6 @@ export const logApiPostsMedia = (stage, posts) => {
     rawImages: Array.isArray(p?.images) ? p.images.map(summarizeUri) : p?.images,
     rawMedia: Array.isArray(p?.media) ? p.media.map(summarizeApiMediaField) : p?.media,
   }));
-  console.log(TAG, stage, `postCount=${posts.length}`, JSON.stringify(sample, null, 2));
 };
 
 export const logMappedPostMedia = (stage, posts) => {
@@ -57,7 +55,6 @@ export const logMappedPostMedia = (stage, posts) => {
       thumbnail: summarizeUri(m?.thumbnail),
     })),
   }));
-  console.log(TAG, stage, `postCount=${posts.length}`, JSON.stringify(sample, null, 2));
 };
 
 export const logPostItemMedia = (stage, postId, media) => {
@@ -68,5 +65,4 @@ export const logPostItemMedia = (stage, postId, media) => {
     url: summarizeUri(m?.url),
     thumbnail: summarizeUri(m?.thumbnail),
   }));
-  console.log(TAG, stage, 'postId=', postId, JSON.stringify(entries, null, 2));
 };

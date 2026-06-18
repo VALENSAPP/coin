@@ -354,11 +354,12 @@ export async function voteTrust(data) {
   };
   const rawVoteType = data?.voteType ?? data?.type;
   const voteType = voteTypeMap[rawVoteType] ?? rawVoteType;
-
-  return axiosInstance.post('post/postTrustVote', {
+  const dataToSend = {
     postId: data?.postId,
     voteType,
-  });
+    comment: data?.comment || '',
+  };
+  return axiosInstance.post('post/postTrustVote', dataToSend);
 }
 export async function getTrustScrore(data) {
   return axiosInstance.post('post/getPostTrustScore', data);
