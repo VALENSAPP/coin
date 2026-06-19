@@ -466,11 +466,15 @@ export default function MainStack({ isFirstLaunch }) {
   if (!isLogin || isAddAccount) {
     return (
       <Stack.Navigator key={isAddAccount ? 'authStack' : 'unauthStack'}
-        initialRouteName={isFirstLaunch
+        initialRouteName={
+        isAddAccount
+          ? 'Login'
+          : isFirstLaunch
           ? 'SelectAccountType'
           : isLogin
-            ? 'WhiteScreen'
-            : 'Login'}
+          ? 'WhiteScreen'
+          : 'Login'
+      }
         screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
         <Stack.Screen name="WhiteScreen" component={WhiteScreen} />
         <Stack.Screen name="SelectAccountType" component={SelectAccountType} />

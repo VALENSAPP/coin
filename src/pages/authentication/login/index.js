@@ -285,11 +285,9 @@ export default function LoginScreen() {
             const userId = response.data.user.id;
 
             const keys = await AsyncStorage.getAllKeys();
-
             const keysToRemove = keys.filter(
               key => key !== 'hasLaunchedBefore' && key !== 'darkMode',
             );
-
             await AsyncStorage.multiRemove(keysToRemove);
 
             if (userId) {
