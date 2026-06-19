@@ -304,7 +304,7 @@ export default function Notifications() {
   const scrollViewRef = useRef(null);
   const tabScrollRef = useRef(null);
   const currentIndexRef = useRef(0);
-  const { bgStyle, textStyle, text } = useAppTheme();
+  const { bgStyle, textStyle, text, icon } = useAppTheme();
 
   const [notifications, setNotifications] = useState([]);
   const [battleNotifications, setBattleNotifications] = useState([]);
@@ -1418,7 +1418,7 @@ export default function Notifications() {
             onPress={() => navigation.goBack()}
             style={styles.backButton}
           >
-            <Icon name="arrow-back" size={24} color="#000" />
+            <Icon name="arrow-back" size={24} color={icon} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, textStyle]}>
             {t('notifications.headerTitle')}

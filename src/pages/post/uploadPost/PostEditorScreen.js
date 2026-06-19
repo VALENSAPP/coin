@@ -148,7 +148,7 @@ const PostEditorScreen = () => {
   const captionInputRef = useRef(null);
   const linkInputRef = useRef(null);
   const iosFocusedFieldRef = useRef(null);
-  const { bgStyle, textStyle, text, card } = useAppTheme();
+  const { bgStyle, textStyle, cardStyle, text, border, mutedText, icon, accent } = useAppTheme();
   const { t } = useLanguage();
 
   const toast = useToast();
@@ -632,7 +632,7 @@ const PostEditorScreen = () => {
       {Array.isArray(taggedPeople) && taggedPeople.length > 0 && (
         <View style={styles.captionSection}>
           <Text style={styles.captionLabel}>{t('postEditor.taggedPeople')}</Text>
-          <Text style={styles.taggedPeopleText}>
+          <Text style={[styles.taggedPeopleText, textStyle]}>
             {taggedPeople.map((user, idx) => {
               const clean = String(user).replace(/^@+/, '');
               const label = `@${clean}${idx < taggedPeople.length - 1 ? ', ' : ''}`;
@@ -654,16 +654,16 @@ const PostEditorScreen = () => {
         </View>
       )}
       <View style={styles.captionSection}>
-        <Text style={styles.captionLabel}>{t('postEditor.captionLabel')}</Text>
+        <Text style={[styles.captionLabel, textStyle]}>{t('postEditor.captionLabel')}</Text>
         <TextInput
           ref={captionInputRef}
-          style={[styles.captionInput, bgStyle]}
+          style={[styles.captionInput, bgStyle, { borderColor: border, color: text }]}
           placeholder={t('postEditor.captionPlaceholder')}
           value={caption}
           onChangeText={setCaption}
           multiline
           textAlignVertical="top"
-          placeholderTextColor={'#e0e0e0'}
+          placeholderTextColor={mutedText}
           onFocus={() => {
             if (Platform.OS === 'ios') {
               iosFocusedFieldRef.current = captionInputRef;
@@ -675,17 +675,17 @@ const PostEditorScreen = () => {
 
       {postType == 'crowdfunding' && (
         <View style={[styles.captionSection, { marginTop: -5 }]}>
-          <Text style={styles.captionLabel}>{t('postEditor.linkLabel')}</Text>
+          <Text style={[styles.captionLabel, textStyle]}>{t('postEditor.linkLabel')}</Text>
           <TextInput
             ref={linkInputRef}
-            style={[styles.linkInput, bgStyle]}
+            style={[styles.linkInput, bgStyle, { borderColor: border, color: text }]}
             placeholder={t('postEditor.linkPlaceholder')}
             value={link}
             onChangeText={setLink}
             keyboardType="url"
             autoCapitalize="none"
             autoCorrect={false}
-            placeholderTextColor={'#e0e0e0'}
+            placeholderTextColor={mutedText}
             onFocus={() => {
               if (Platform.OS === 'ios') {
                 iosFocusedFieldRef.current = linkInputRef;
@@ -698,18 +698,18 @@ const PostEditorScreen = () => {
       {fromIcon !== 'Flips' && (
 
         <View style={styles.communityTrustSection}>
-          <View style={[styles.communityTrustCard, { backgroundColor: card }]}>
-            <View style={[styles.communityTrustIconWrap, { backgroundColor: `${text}18` }]}>
-              <Icon name="shield-checkmark" size={22} color={text} />
+          <View style={[styles.communityTrustCard, cardStyle, { borderColor: border }]}>
+            <View style={[styles.communityTrustIconWrap, { backgroundColor: `${accent}18` }]}>
+              <Icon name="shield-checkmark" size={22} color={accent} />
             </View>
             <View style={styles.communityTrustCopy}>
               <View style={styles.communityTrustTitleRow}>
-                <Text style={styles.communityTrustTitle}>
+                <Text style={[styles.communityTrustTitle, textStyle]}>
                   {t('postEditor.communityTrustTitle')}
                 </Text>
                 {/* <Icon name="information-circle-outline" size={14} color="#6b7280" /> */}
               </View>
-              <Text style={styles.communityTrustSubtitle}>
+              <Text style={[styles.communityTrustSubtitle, { color: mutedText }]}>
                 {t('postEditor.communityTrustSubtitle')}
               </Text>
               {/* <TouchableOpacity activeOpacity={0.75} style={styles.communityTrustLink}>
@@ -722,8 +722,8 @@ const PostEditorScreen = () => {
             <Switch
               value={isCommunityTrustPost}
               onValueChange={setIsCommunityTrustPost}
-              trackColor={{ false: '#d1d5db', true: `${text}66` }}
-              thumbColor={isCommunityTrustPost ? text : '#f8fafc'}
+              trackColor={{ false: '#d1d5db', true: `${accent}66` }}
+              thumbColor={isCommunityTrustPost ? accent : '#f8fafc'}
               ios_backgroundColor="#d1d5db"
             />
           </View>
@@ -740,7 +740,7 @@ const PostEditorScreen = () => {
           style={[
             styles.socialBtn,
             styles.instagramBtn,
-            { backgroundColor: text, bordercolor: text },
+            { backgroundColor: accent, bordercolor: accent },
           ]}
           textStyle={styles.socialBtnText}
         />
@@ -750,11 +750,11 @@ const PostEditorScreen = () => {
 
   return (
     <SafeAreaView style={[styles.container, bgStyle]} edges={['top', 'left', 'right']}>
-      <View style={styles.header}>
+      <View style={[styles.header, bgStyle]}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name="arrow-back" size={24} color="#000" />
+          <Icon name="arrow-back" size={24} color={icon} />
         </TouchableOpacity>
-        <Text style={styles.title}>
+        <Text style={[styles.title, textStyle]}>
           {isEditingPost
             ? t('postEditor.editPost')
             : fromIcon == 'Flips'

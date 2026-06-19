@@ -287,7 +287,7 @@ export default function LoginScreen() {
             const keys = await AsyncStorage.getAllKeys();
 
             const keysToRemove = keys.filter(
-              key => key !== 'hasLaunchedBefore'
+              key => key !== 'hasLaunchedBefore' && key !== 'darkMode',
             );
 
             await AsyncStorage.multiRemove(keysToRemove);

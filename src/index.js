@@ -10,7 +10,6 @@ import { hideLoader } from './redux/actions/LoaderAction';
 import { showToastMessage } from './components/displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
 import { refreshToken } from './services/authentication';
-import { ThemeProvider } from './theme/ThemeContext';
 import { setUserProfile } from './redux/actions/UserProfileAction';
 import { setStripeCustomerId } from './redux/actions/UserAction';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
@@ -260,7 +259,7 @@ export default function Main() {
       dispatch(setUserProfile('normal'));
       const keys = await AsyncStorage.getAllKeys();
       const keysToRemove = keys.filter(
-        key => key !== 'hasLaunchedBefore'
+        key => key !== 'hasLaunchedBefore' && key !== 'darkMode',
       );
       await AsyncStorage.multiRemove(keysToRemove);
       dispatch(loggedOut());
@@ -364,7 +363,7 @@ export default function Main() {
           const keys = await AsyncStorage.getAllKeys();
 
           const keysToRemove = keys.filter(
-            key => key !== 'hasLaunchedBefore'
+            key => key !== 'hasLaunchedBefore' && key !== 'darkMode',
           );
 
           await AsyncStorage.multiRemove(keysToRemove);
@@ -632,14 +631,12 @@ export default function Main() {
 
   if (isLoading) {
     return (
-      <ThemeProvider activeProfile={userProfile}>
-        <Splash onFinish={() => setIsLoading(false)} />
-      </ThemeProvider>
+      <Splash onFinish={() => setIsLoading(false)} />
     );
   }
 
   return (
-    <ThemeProvider activeProfile={userProfile}>
+    <>
       <NavigationContainer
         ref={navigationRef}
         linking={linking}
@@ -661,6 +658,6 @@ export default function Main() {
         onDoNow={handleVerificationDoNow}
         onLater={() => setlockModal(false)}
       />
-    </ThemeProvider>
+    </>
   );
 }

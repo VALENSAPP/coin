@@ -28,7 +28,7 @@ const GlobalLeftDrawer = () => {
 
     const drawerAnim = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
     const overlayAnim = useRef(new Animated.Value(0)).current;
-    const { bgStyle, textStyle, bg, text } = useAppTheme();
+    const { bgStyle, textStyle, bg, text, border, mutedTextStyle } = useAppTheme();
 
     useEffect(() => {
         if (isDrawerOpen) {
@@ -140,7 +140,7 @@ const GlobalLeftDrawer = () => {
 
             {/* Drawer */}
             <Animated.View
-                style={[styles.drawer, { transform: [{ translateX: drawerAnim }] }]}
+                style={[styles.drawer, bgStyle, { transform: [{ translateX: drawerAnim }] }]}
             >
                 {/* Header */}
                 <View style={[styles.header, { backgroundColor: text }]}>
@@ -162,18 +162,18 @@ const GlobalLeftDrawer = () => {
                         return (
                             <TouchableOpacity
                                 key={index}
-                                style={styles.menuItem}
+                                style={[styles.menuItem, { borderBottomColor: border }]}
                                 onPress={() => navigateTo(item.screen, item.params)}
                             >
-                                <Text style={styles.menuLabel}>{item.label}</Text>
+                                <Text style={[styles.menuLabel, textStyle]}>{item.label}</Text>
                             </TouchableOpacity>
                         );
                     })}
                 </ScrollView>
 
                 {/* Footer */}
-                <View style={styles.footer}>
-                    <Text style={styles.footerText}>{t('drawer.footer')}</Text>
+                <View style={[styles.footer, { borderTopColor: border }]}>
+                    <Text style={[styles.footerText, mutedTextStyle]}>{t('drawer.footer')}</Text>
                 </View>
             </Animated.View>
         </>
@@ -197,7 +197,6 @@ const styles = StyleSheet.create({
         top: 0,
         bottom: 0,
         width: DRAWER_WIDTH,
-        backgroundColor: '#fff',
         zIndex: 1000,
         shadowColor: '#000',
         shadowOffset: { width: 2, height: 0 },
@@ -230,7 +229,6 @@ const styles = StyleSheet.create({
         paddingVertical: 15,
         paddingHorizontal: 20,
         borderBottomWidth: 0.5,
-        borderBottomColor: '#f0f0f0',
     },
     iconContainer: {
         width: 40,
@@ -244,7 +242,6 @@ const styles = StyleSheet.create({
         flex: 1,
         fontSize: 16,
         fontWeight: '600',
-        color: '#333',
     },
     divider: {
         height: 8,
@@ -254,12 +251,10 @@ const styles = StyleSheet.create({
     footer: {
         padding: 20,
         borderTopWidth: 1,
-        borderTopColor: '#f0f0f0',
         alignItems: 'center',
     },
     footerText: {
         fontSize: 12,
-        color: '#999',
         fontWeight: '600',
     },
 });

@@ -148,7 +148,7 @@ export default function HomeScreen({ route }) {
   const toast = useToast();
   const dispatch = useDispatch();
   const isFocused = useIsFocused();
-  const { bgStyle, text } = useAppTheme();
+  const { bgStyle, text, icon } = useAppTheme();
   const [notificationUnreadCount, setNotificationUnreadCount] = useState(null);
 
   const appState = useRef(AppState.currentState);
@@ -793,7 +793,7 @@ const openLinkedStory = useCallback(async (sharedStoryId) => {
               navigation.navigate('HeartNotification');
             }}
           >
-            <Icon name="notifications-outline" size={25} color="#111100" />
+            <Icon name="notifications-outline" size={25} color={icon} />
             {notificationUnreadCount > 0 && (
               <View style={headerBadgeStyles.badgeContainer}>
                 <Text style={headerBadgeStyles.badgeText}>
@@ -808,7 +808,7 @@ const openLinkedStory = useCallback(async (sharedStoryId) => {
             accessibilityLabel={t('home.chatLabel')}
             style={headerBadgeStyles.iconButton}
           >
-            <Chat width={24} height={24} />
+            <Chat width={24} height={24} fill={icon} />
             {unreadCount > 0 && (
               <View style={headerBadgeStyles.badgeContainer}>
                 <Text style={headerBadgeStyles.badgeText}>
@@ -826,7 +826,7 @@ const openLinkedStory = useCallback(async (sharedStoryId) => {
             <Icon
               name={sidebarVisible ? "chevron-forward" : "chevron-back"}
               size={24}
-              color={text}
+              color={icon}
             />
           </TouchableOpacity>
         </View>

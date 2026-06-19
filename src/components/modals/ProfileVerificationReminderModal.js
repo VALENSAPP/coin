@@ -20,7 +20,7 @@ export default function ProfileVerificationReminderModal({
     normalizedProfileType === 'company' || normalizedProfileType === 'business'
       ? 'company'
       : 'user';
-  const { bg, text, card } = useAppTheme(themeProfileType);
+  const { bg, text, card, mutedText, accent } = useAppTheme(themeProfileType);
   const verificationType = themeProfileType === 'company' ? 'KYB' : 'KYC';
 
   return (
@@ -35,7 +35,7 @@ export default function ProfileVerificationReminderModal({
     >
       <View style={styles.overlay}>
         <View style={[styles.modal, { backgroundColor: card }]}>
-          <View style={[styles.iconWrap, { backgroundColor: text }]}>
+          <View style={[styles.iconWrap, { backgroundColor: accent }]}>
             <Text style={styles.icon}>!</Text>
           </View>
 
@@ -43,13 +43,13 @@ export default function ProfileVerificationReminderModal({
             {locked ? 'Your account is blocked' : 'Verify your profile'}
           </Text>
 
-          <Text style={styles.message}>
+          <Text style={[styles.message, { color: mutedText }]}>
             {locked
               ? `Complete your ${verificationType} to unlock your account.`
               : `Finish your ${verificationType}, to be able to be a verified profile. All Valens profiles are verified.`}
           </Text>
 
-          <Text style={styles.subMessage}>
+          <Text style={[styles.subMessage, { color: mutedText }]}>
             {locked
               ? 'Your account is blocked because profile verification was not completed within 3 days.'
               : 'If you do not complete it within 3 days, your profile will be locked until verification is finished.'}
@@ -72,7 +72,7 @@ export default function ProfileVerificationReminderModal({
               style={[
                 styles.button,
                 styles.primaryButton,
-                { backgroundColor: text },
+                { backgroundColor: accent },
                 locked && styles.primaryButtonFull,
               ]}
             >

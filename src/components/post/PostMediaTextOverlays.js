@@ -154,6 +154,7 @@ export function buildPostTextOverlayTextStyle(
   const fontSize = getPostTextOverlayEffectiveFontSize(overlay, fontSizeMultiplier * livePinchScale);
   return {
     ...getTextStyleWithFont(overlay?.text, overlay?.fontFamily),
+    ...(overlay?.fontWeight ? { fontWeight: overlay.fontWeight } : {}),
     fontSize,
     color: overlay?.color || '#fff',
     textAlign: overlay?.textAlign || 'center',

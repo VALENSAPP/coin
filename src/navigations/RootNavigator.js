@@ -1,6 +1,6 @@
 // src/navigations/MainStack.js
 import React, { useEffect, useLayoutEffect, useRef } from 'react';
-import { View, ActivityIndicator, Alert, StyleSheet, Animated, Dimensions, TouchableWithoutFeedback, TouchableOpacity } from 'react-native';
+import { View, ActivityIndicator, Alert, StyleSheet, Animated, Dimensions, TouchableWithoutFeedback, TouchableOpacity, Switch } from 'react-native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createDrawerNavigator, DrawerContentScrollView, DrawerItemList } from '@react-navigation/drawer';
 import { useDispatch, useSelector } from 'react-redux';
@@ -49,6 +49,7 @@ import PrivateCircle from '../components/profile/PrivateCircle';
 import { useLanguage } from '../i18n';
 import { lockProfile } from '../services/kycverification';
 import WhiteScreen from '../pages/authentication/WhiteScreen';
+import { useThemeContext } from '../theme/ThemeContext';
 
 const Stack = createStackNavigator();
 const Drawer = createDrawerNavigator();
@@ -56,8 +57,13 @@ const Drawer = createDrawerNavigator();
 // Custom Drawer Content Component
 const CustomDrawerContent = (props) => {
   const navigation = useNavigation();
-  const { bgStyle, textStyle, text } = useAppTheme();
+  const { bgStyle, textStyle, text, bg, border } = useAppTheme();
   const { t } = useLanguage();
+
+  const {
+    isDarkMode,
+    toggleDarkMode,
+  } = useThemeContext();
 
 
   const blockProfile = React.useCallback(async () => {
@@ -75,12 +81,19 @@ const CustomDrawerContent = (props) => {
     blockProfile();
   }, [])
   return (
-    <DrawerContentScrollView {...props} contentContainerStyle={{ flex: 1 }}>
+    <DrawerContentScrollView
+      {...props}
+      style={bgStyle}
+      contentContainerStyle={{
+        flexGrow: 1,
+        justifyContent: 'space-between',
+      }}
+    >
       {/* Drawer Header */}
       <View style={[{
         padding: 15,
         borderBottomWidth: 1,
-        borderBottomColor: '#ddd'
+        borderBottomColor: border,
       }, bgStyle]}>
         <TouchableOpacity onPress={() => {
           props.navigation.closeDrawer();
@@ -128,6 +141,40 @@ const CustomDrawerContent = (props) => {
           }
         }}
       />
+
+      {/* Dark Mode Toggle */}
+      <View
+        style={[
+          {
+            paddingHorizontal: 20,
+            paddingVertical: 15,
+            borderTopWidth: 1,
+            borderTopColor: border,
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          },
+          bgStyle,
+        ]}
+      >
+        <Text
+          style={[
+            {
+              fontSize: 16,
+              fontWeight: '500',
+            },
+            textStyle,
+          ]}
+        >
+          Dark Mode
+        </Text>
+
+        <Switch
+          value={isDarkMode}
+          onValueChange={toggleDarkMode}
+        />
+      </View>
+
     </DrawerContentScrollView>
   );
 };
@@ -183,7 +230,8 @@ const MainAppWithDrawerSwipeSync = (props) => {
 
 // Global Drawer Navigator (wraps everything)
 const GlobalDrawerNavigator = () => {
-  const { bgStyle, textStyle, text } = useAppTheme();
+  const { bgStyle, textStyle, text, bg, border } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
   const { t } = useLanguage();
   const reduxProfile = useSelector(state => state.userProfile.userProfile);
   const [storedProfile, setStoredProfile] = React.useState('');
@@ -204,7 +252,7 @@ const GlobalDrawerNavigator = () => {
       screenOptions={{
         headerShown: true,
         headerStyle: bgStyle,
-        headerTintColor: '#000',
+        headerTintColor: text,
         drawerStyle: [{
           width: 280,
         }, bgStyle],
@@ -213,8 +261,8 @@ const GlobalDrawerNavigator = () => {
           fontWeight: '600',
         },
         drawerActiveBackgroundColor: text,
-        drawerActiveTintColor: '#fff',
-        drawerInactiveTintColor: '#000',
+        drawerActiveTintColor: isDarkMode ? bg : '#fff',
+        drawerInactiveTintColor: text,
         drawerPosition: 'left',
         swipeEnabled: true,
         swipeEdgeWidth: 50,

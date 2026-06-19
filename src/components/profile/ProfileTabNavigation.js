@@ -47,7 +47,7 @@ const ProfileTabs = memo(({
   const [privateKey, setPrivatKey] = useState(0);
 
   const effectiveProfileType = profileType || userData?.profile;
-  const { text } = useAppTheme(effectiveProfileType);
+  const { text, bg, card, border, mutedText, icon, cardStyle } = useAppTheme(effectiveProfileType);
   const { t } = useLanguage();
 
   const isOwnProfile = String(loggedInUserId || '') === String(userData?.id || '');
@@ -210,7 +210,7 @@ const ProfileTabs = memo(({
         key: 'posts',
         label: t('profileTabs.postsTab'),
         icon: (focused) => (
-          <Ionicons name={focused ? 'grid' : 'grid-outline'} size={24} color={focused ? text : '#6b7280'} />
+          <Ionicons name={focused ? 'grid' : 'grid-outline'} size={24} color={focused ? text : mutedText} />
         ),
       },
       {
@@ -219,7 +219,7 @@ const ProfileTabs = memo(({
         icon: (focused) => (
           <Image
             source={require('../../assets/icons/pngicons/private.png')}
-            style={{ width: 35, height: 35, tintColor: focused ? text : '#6b7280' }}
+            style={{ width: 35, height: 35, tintColor: focused ? text : mutedText }}
           />
         ),
       },
@@ -227,7 +227,7 @@ const ProfileTabs = memo(({
         key: 'reels',
         label: t('profileTabs.reelsTab'),
         icon: (focused) => (
-          <ProfileReelIcon fill={focused ? text : '#6b7280'} height={24} width={24} />
+          <ProfileReelIcon fill={focused ? text : mutedText} height={24} width={24} />
         ),
       },
       {
@@ -235,9 +235,9 @@ const ProfileTabs = memo(({
         label: userData?.profile === 'company' ? t('profileTabs.shopTab') : t('profileTabs.privateContentTab'),
         icon: (focused) =>
           userData?.profile === 'company' ? (
-            <MaterialIcons name="shopping-bag" size={24} color={focused ? text : '#6b7280'} />
+            <MaterialIcons name="shopping-bag" size={24} color={focused ? text : mutedText} />
           ) : (
-            <LockKey fill={focused ? text : '#6b7280'} height={24} width={24} />
+            <LockKey fill={focused ? text : mutedText} height={24} width={24} />
           ),
         onPress: async () => {
           if (!loggedInUserId || isOwnProfile || isSubscribed) return;
@@ -257,7 +257,7 @@ const ProfileTabs = memo(({
         icon: (focused) => (
           <Image
             source={require('../../assets/icons/pngicons/shop.png')}
-            style={{ width: 35, height: 35, tintColor: focused ? text : '#6b7280' }}
+            style={{ width: 35, height: 35, tintColor: focused ? text : mutedText }}
           />
         ),
       });
@@ -266,6 +266,9 @@ const ProfileTabs = memo(({
     return list;
   }, [
     text,
+    mutedText,
+    card,
+    border,
     t,
     userData,
     isOwnProfile,
@@ -297,7 +300,7 @@ const ProfileTabs = memo(({
   return (
     <View style={styles.tabsRoot}>
       {/* Tab Bar */}
-      <View style={[styles.tabBar, { borderBottomColor: '#e5e7eb' }]}>
+      <View style={[styles.tabBar, { backgroundColor: card, borderBottomColor: border }]}>
         {tabs.map((tab, index) => {
           const focused = activeTab === index;
           return (
@@ -365,7 +368,6 @@ const styles = StyleSheet.create({
   tabBar: {
     flexDirection: 'row',
     height: 52,
-    backgroundColor: '#fff',
     borderBottomWidth: 1,
     elevation: 2,
     shadowOpacity: 0.08,

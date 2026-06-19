@@ -17,6 +17,8 @@ import {
   ActivityIndicator,
   Platform,
   Switch,
+  Keyboard,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -41,6 +43,7 @@ import {
   Brightness,
 } from 'react-native-color-matrix-image-filters';
 import { useAppTheme } from '../../../theme/useApptheme';
+import { useThemeContext } from '../../../theme/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSelector } from 'react-redux';
 import { downloadMedia, getMediaFilename, isVideoMedia } from '../../../utils/mediaDownload';
@@ -63,6 +66,8 @@ import {
   estimatePostTextOverlayFootprint,
   normalizePostTextOverlayForDisplay,
   postTextOverlayBubbleStyle,
+  getTextStyleWithFont,
+  resolveOverlayFontFamily,
 } from '../../../components/post/PostMediaTextOverlays';
 import { searchYoutubeMusicTracks, getYoutubeSearchApiKey } from '../../../services/youtubeMusic';
 import { useLanguage } from '../../../i18n';
@@ -77,18 +82,32 @@ import {
 import { fetchLyricsLRCLIB, parseLrcToSyncedLines } from '../../../utils/lyricsLrclib';
 
 const fonts = [
-  { name: 'saffasbom', style: { fontFamily: 'SAlfaSlabOne-Regularystem' } },
-  { name: 'bitcount', style: { fontFamily: 'BitcountPropSingle_Cursive-Regular' } },
-  { name: 'fontfree', style: { fontFamily: 'FontsFree-Net-Billabong' } },
-  { name: 'liber', style: { fontFamily: 'LibertinusMono-Regular' } },
-  { name: 'opensans', style: { fontFamily: 'OpenSans-Regular' } },
-  { name: 'pacifico', style: { fontFamily: 'Pacifico-Regular' } },
-  { name: 'play1', style: { fontFamily: 'PlaywriteAUQLD-Regular' } },
-  { name: 'play2', style: { fontFamily: 'PlaywriteHU-Regular' } },
-  { name: 'play3', style: { fontFamily: 'PlaywritePL-Regular' } },
-  { name: 'roboto', style: { fontFamily: 'Roboto-Regular' } },
-  { name: 'tridon', style: { fontFamily: 'Triodion-Regular' } },
+  { name: 'System', style: {} },
+  { name: 'Billabong', style: { fontFamily: 'FontsFree-Net-Billabong' } },
+  {
+    name: 'Serif',
+    style: { fontFamily: Platform.select({ ios: 'Georgia', android: 'serif' }) },
+  },
+  {
+    name: 'Mono',
+    style: { fontFamily: Platform.select({ ios: 'Courier New', android: 'monospace' }) },
+  },
+  {
+    name: 'Script',
+    style: { fontFamily: Platform.select({ ios: 'Snell Roundhand', android: 'cursive' }) },
+  },
+  {
+    name: 'Bold',
+    style: {
+      fontFamily: Platform.select({ ios: 'Helvetica-Bold', android: 'sans-serif-medium' }),
+      fontWeight: Platform.OS === 'ios' ? '700' : 'bold',
+    },
+  },
 ];
+
+const isSameFontStyle = (left, right) =>
+  (left?.fontFamily || '') === (right?.fontFamily || '') &&
+  (left?.fontWeight || '') === (right?.fontWeight || '');
 
 const colors = [
   '#fff', '#ff0000', '#00ff00', '#0000ff', '#ffff00',
@@ -98,7 +117,14 @@ const colors = [
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const IMAGE_SIZE = SCREEN_WIDTH;
 const MAX_EDITOR_HEIGHT = SCREEN_HEIGHT * 0.65;
-const EMOJI_REGEX = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u;
+const TEXT_EDITOR_DOCK_HEIGHT = 168;
+const DRAFT_TEXT_BUBBLE_WIDTH = 200;
+
+const getDraftTextBubbleBackground = highlightColor => {
+  if (highlightColor === 'black') return 'rgba(0, 0, 0, 0.75)';
+  if (highlightColor === 'white') return 'rgba(255, 255, 255, 0.82)';
+  return 'rgba(0, 0, 0, 0.42)';
+};
 
 const getImageContentLayout = (media, canvasWidth, canvasHeight, isVideo = false) => {
   if (isVideo) {
@@ -289,7 +315,7 @@ const InstagramPostCreator = () => {
   const [modalVisible2, setModalVisible2] = useState(false);
   const [text, setText] = useState('');
   const [selectedFont, setSelectedFont] = useState(fonts[0].style);
-  const [showFonts, setShowFonts] = useState(false);
+  const [showFonts, setShowFonts] = useState(true);
   const [showColors, setShowColors] = useState(false);
   const [textColor, setTextColor] = useState('#fff');
   const [textAlign, setTextAlign] = useState('center');
@@ -351,9 +377,18 @@ const InstagramPostCreator = () => {
   const [flipVolumeModal, setFlipVolumeModal] = useState(false);
   const [trimStartInput, setTrimStartInput] = useState('0');
   const [trimEndInput, setTrimEndInput] = useState('');
-  const { bgStyle, textStyle, cardStyle, text: themeText } = useAppTheme();
+  const { bgStyle, textStyle, cardStyle, text: themeText, icon, accent, mutedText, border } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
   const toast = useToast();
   const insets = useSafeAreaInsets();
+  const [keyboardOffset, setKeyboardOffset] = useState(0);
+  const selectedFontKey = selectedFont?.fontFamily || 'system';
+  const textEditorPreviewMaxHeight = useMemo(() => {
+    if (!modalVisible2) return undefined;
+    const headerSpace = insets.top + 52;
+    const dockSpace = keyboardOffset + TEXT_EDITOR_DOCK_HEIGHT;
+    return Math.max(120, SCREEN_HEIGHT - headerSpace - dockSpace);
+  }, [modalVisible2, keyboardOffset, insets.top]);
 
   const [postStorySoundTrimVisible, setPostStorySoundTrimVisible] = useState(false);
   const postBgYoutubeRef = useRef(null);
@@ -574,13 +609,24 @@ const InstagramPostCreator = () => {
     openPostMusicPicker();
   };
 
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSub = Keyboard.addListener(showEvent, event => {
+      setKeyboardOffset(event?.endCoordinates?.height || 0);
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setKeyboardOffset(0);
+    });
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
   const openTextModal = () => {
-    const cw = currentContentLayout.width || IMAGE_SIZE;
-    const ch = currentContentLayout.height || editorCanvasHeight || IMAGE_SIZE;
-    const centerY = ch / 2 - 20;
-    const centerX = cw / 2 - 80;
-    pan.setValue({ x: centerX, y: centerY });
-    pan.setOffset({ x: 0, y: 0 });
+    setShowFonts(true);
+    setShowColors(false);
     setIsScrollEnabled(false);
     setModalVisible2(true);
   };
@@ -695,6 +741,20 @@ const InstagramPostCreator = () => {
     [currentImageIndex, getContentLayoutForMedia, selectedImages],
   );
 
+  const centerDraftTextOnImage = useCallback(() => {
+    const cw = currentContentLayout.width || IMAGE_SIZE;
+    const ch = currentContentLayout.height || editorCanvasHeight || IMAGE_SIZE;
+    const centerX = Math.max(8, (cw - DRAFT_TEXT_BUBBLE_WIDTH) / 2);
+    const centerY = Math.max(8, ch * 0.28);
+    pan.setValue({ x: centerX, y: centerY });
+    pan.setOffset({ x: 0, y: 0 });
+  }, [currentContentLayout.width, currentContentLayout.height, editorCanvasHeight, pan]);
+
+  useEffect(() => {
+    if (!modalVisible2 || editingOverlayId) return;
+    centerDraftTextOnImage();
+  }, [modalVisible2, currentImageIndex, editingOverlayId, centerDraftTextOnImage]);
+
   const getOverlayBounds = (imageIndex, size = 100) => {
     const layout = getContentLayoutForMedia(selectedImages[imageIndex] || {});
     return {
@@ -705,13 +765,6 @@ const InstagramPostCreator = () => {
     };
   };
   const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
-  const containsEmoji = value => EMOJI_REGEX.test(String(value || ''));
-  const resolveOverlayFontFamily = (value, requestedFontFamily) => containsEmoji(value) ? undefined : (requestedFontFamily || undefined);
-  const getTextStyleWithFont = (value, requestedFontFamily) => {
-    const resolvedFontFamily = resolveOverlayFontFamily(value, requestedFontFamily);
-    return resolvedFontFamily ? { fontFamily: resolvedFontFamily } : {};
-  };
-
   const getTextOverlayLayoutKey = (imageIndex, overlayId) => `${imageIndex}:${overlayId}`;
 
   const estimateTextOverlaySize = overlay =>
@@ -1144,7 +1197,7 @@ const InstagramPostCreator = () => {
               )}
               <View style={[StyleSheet.absoluteFillObject, { backgroundColor: filter.value === 'grayscale' ? 'rgba(0,0,0,0.4)' : filter.value === 'sepia' ? 'rgba(148, 175, 227, 0.3)' : filter.value === 'saturate' ? 'rgba(255,0,255,0.1)' : filter.value === 'contrast' ? 'rgba(0,0,0,0.3)' : filter.value === 'brightness' ? 'rgba(255,255,255,0.3)' : 'transparent' }]} />
             </View>
-            <Text style={[styles.filterName, { color: '#000000' }]}>{filter.name}</Text>
+            <Text style={[styles.filterName, { color: mutedText }]}>{filter.name}</Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
@@ -1395,7 +1448,9 @@ const InstagramPostCreator = () => {
             setTextColor(o.color);
             setHighlightColor(o.highlightColor);
             setTextAlign(o.textAlign);
-            setSelectedFont({ fontFamily: o.fontFamily });
+            setSelectedFont(o.fontFamily ? { fontFamily: o.fontFamily } : fonts[0].style);
+            setShowFonts(true);
+            setShowColors(false);
             pan.setValue({ x: o.position?.x ?? 0, y: o.position?.y ?? 0 });
             pan.setOffset({ x: 0, y: 0 });
             setIsScrollEnabled(false);
@@ -1466,6 +1521,7 @@ const InstagramPostCreator = () => {
   };
 
   const addTextOverlay = () => {
+    Keyboard.dismiss();
     if (!text || text.trim() === '') {
       if (editingOverlayId) { const currentEdits = getCurrentImageEdits(); updateCurrentImageEdits({ textOverlays: currentEdits.textOverlays.filter(o => o.id !== editingOverlayId) }); setEditingOverlayId(null); }
       setText(''); setModalVisible2(false); setIsScrollEnabled(true); return;
@@ -1479,7 +1535,8 @@ const InstagramPostCreator = () => {
             ...o,
             text,
             color: textColor,
-            fontFamily: resolveOverlayFontFamily(text, selectedFont.fontFamily || selectedFont),
+            fontFamily: resolveOverlayFontFamily(text, selectedFont?.fontFamily),
+            ...(selectedFont?.fontWeight ? { fontWeight: selectedFont.fontWeight } : { fontWeight: undefined }),
             textAlign,
             highlightColor,
           };
@@ -1500,7 +1557,8 @@ const InstagramPostCreator = () => {
         scale: 1,
         rotation: 0,
         color: textColor,
-        fontFamily: resolveOverlayFontFamily(text, selectedFont.fontFamily || selectedFont),
+        fontFamily: resolveOverlayFontFamily(text, selectedFont?.fontFamily),
+        ...(selectedFont?.fontWeight ? { fontWeight: selectedFont.fontWeight } : {}),
         textAlign,
         highlightColor,
         position: { x: panX, y: panY },
@@ -2040,26 +2098,38 @@ const InstagramPostCreator = () => {
                                   { maxWidth: getPostTextOverlayCanvasMaxWidth(contentLayout.width) },
                                 ]}
                               >
-                                <TextInput
-                                  ref={textInputRef}
-                                  value={text}
-                                  onChangeText={setText}
-                                  placeholder={t('selectedPost.typeText')}
-                                  placeholderTextColor="rgba(255,255,255,0.5)"
-                                  multiline
-                                  autoFocus
-                                  scrollEnabled={false}
-                                  textAlign={textAlign}
+                                <View
                                   style={[
-                                    styles.draftTextInput,
-                                    getTextStyleWithFont(text, selectedFont.fontFamily || selectedFont),
+                                    postTextOverlayBubbleStyle,
+                                    styles.draftTextEditBubble,
                                     {
-                                      color: textColor,
-                                      textAlign,
-                                      backgroundColor: highlightColor,
+                                      backgroundColor: getDraftTextBubbleBackground(highlightColor),
                                     },
                                   ]}
-                                />
+                                >
+                                  <TextInput
+                                    ref={textInputRef}
+                                    key={`draft-text-${selectedFontKey}-${currentImageIndex}`}
+                                    value={text}
+                                    onChangeText={setText}
+                                    placeholder={t('selectedPost.typeText')}
+                                    placeholderTextColor="rgba(255,255,255,0.65)"
+                                    multiline
+                                    autoFocus
+                                    scrollEnabled={false}
+                                    textAlign={textAlign}
+                                    style={[
+                                      styles.draftTextInput,
+                                      selectedFont,
+                                      getTextStyleWithFont(text, selectedFont?.fontFamily),
+                                      {
+                                        color: highlightColor === 'white' && textColor === '#fff' ? '#111' : textColor,
+                                        textAlign,
+                                        backgroundColor: 'transparent',
+                                      },
+                                    ]}
+                                  />
+                                </View>
                               </Animated.View>
                             )}
                             {shouldShowPostMusicCard(currentEdits) && !postStorySoundTrimVisible ? (() => {
@@ -2274,19 +2344,23 @@ const InstagramPostCreator = () => {
 
   const renderTextEditorToolbar = () => (
     <View style={[styles.textEditorToolbar, bgStyle]}>
-      <View style={styles.textEditorToolbarHeader}>
-        <Text style={[styles.textEditorToolbarTitle, textStyle]}>{t('selectedPost.toolText')}</Text>
-        <TouchableOpacity style={styles.doneBtn} onPress={addTextOverlay}>
-          <Text style={styles.doneText}>{t('selectedPost.done')}</Text>
-        </TouchableOpacity>
-      </View>
       {showFonts && (
         <FlatList
           data={fonts}
           horizontal
           keyExtractor={item => item.name}
           renderItem={({ item }) => (
-            <TouchableOpacity onPress={() => setSelectedFont(item.style)} style={[styles.fontBtn, { backgroundColor: `${themeText}14` }]}>
+            <TouchableOpacity
+              onPress={() => setSelectedFont(item.style)}
+              style={[
+                styles.fontBtn,
+                { backgroundColor: `${accent}14` },
+                isSameFontStyle(selectedFont, item.style) && {
+                  borderWidth: 1,
+                  borderColor: accent,
+                },
+              ]}
+            >
               <Text style={[{ fontSize: 18, color: themeText }, item.style]}>{item.name}</Text>
             </TouchableOpacity>
           )}
@@ -2329,10 +2403,14 @@ const InstagramPostCreator = () => {
   );
 
   const renderEditingTabs = () => (
-    <View style={[styles.editingSection, bgStyle, isFlipPost && styles.editingSectionFlip]}>
-      {modalVisible2 ? (
-        renderTextEditorToolbar()
-      ) : isFlipPost ? (
+    <View
+      style={[
+        styles.editingSection,
+        bgStyle,
+        isFlipPost && styles.editingSectionFlip,
+      ]}
+    >
+      {!modalVisible2 && (isFlipPost ? (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.flipTabScroll} contentContainerStyle={styles.flipTabScrollContent}>
           {flipToolbarItems.map(t_item => (
             <TouchableOpacity key={t_item.key} style={styles.flipTabButton} onPress={() => handleFlipToolPress(t_item.key)} activeOpacity={0.75}>
@@ -2357,12 +2435,12 @@ const InstagramPostCreator = () => {
               else if (tab.title === t('selectedPost.toolDownload')) { if (isDrawing) { setIsDrawing(false); setIsScrollEnabled(true); setCanvasKey(prev => prev + 1); } handleDownload(); }
               setActiveTab(tab.title);
             }}>
-              <Icon name={tab.icon} size={15} color="#aaa" style={{ marginBottom: 2 }} />
-              <Text style={styles.tabButtonText}>{tab.title}</Text>
+              <Icon name={tab.icon} size={15} color={icon} style={{ marginBottom: 2 }} />
+              <Text style={[styles.tabButtonText, { color: mutedText }]}>{tab.title}</Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
-      )}
+      ))}
 
       <RBSheet ref={bottomSheetRef} closeOnDragDown={true} closeOnPressMask={true} height={480} customStyles={{ container: { borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingHorizontal: 16, paddingTop: 10, backgroundColor: bgStyle?.backgroundColor || '#fff' } }}>
         <View key={activeTab} style={styles.tabContent}>
@@ -2404,7 +2482,7 @@ const InstagramPostCreator = () => {
               {selectedTaggedPeople.length > 0 && (
                 <View style={styles.tagChipsWrap}>
                   {selectedTaggedPeople.map(username => (
-                    <View key={username} style={[styles.tagChip, { backgroundColor: themeText }]}>
+                    <View key={username} style={[styles.tagChip, { backgroundColor: accent }]}>
                       <Text style={styles.tagChipText}>@{username}</Text>
                       <TouchableOpacity onPress={() => handleRemoveTaggedPerson(username)}><Icon name="close" size={14} color="#fff" /></TouchableOpacity>
                     </View>
@@ -2431,7 +2509,7 @@ const InstagramPostCreator = () => {
                         <Text style={[styles.tagSuggestionUsername, textStyle]}>@{username}</Text>
                         {!!displayName && <Text style={[styles.tagSuggestionName, textStyle, { opacity: 0.7 }]} numberOfLines={1}>{displayName}</Text>}
                       </View>
-                      <View style={[styles.tagAddPill, { backgroundColor: themeText }]}><Icon name="add" size={16} color="#fff" /></View>
+                      <View style={[styles.tagAddPill, { backgroundColor: accent }]}><Icon name="add" size={16} color="#fff" /></View>
                     </TouchableOpacity>
                   );
                 }}
@@ -2588,7 +2666,7 @@ const InstagramPostCreator = () => {
               <Text style={textStyle}>{t('selectedPost.trimEnd')}</Text>
               <TextInput style={styles.flipTrimInput} value={trimEndInput} onChangeText={setTrimEndInput} keyboardType="decimal-pad" placeholder={t('selectedPost.trimEndPlaceholder')} />
             </View>
-            <TouchableOpacity style={[styles.flipPrimaryBtn, { backgroundColor: themeText }]} onPress={() => { const start = parseFloat(trimStartInput) || 0; const endRaw = trimEndInput.trim(); const end = endRaw === '' ? null : parseFloat(endRaw); updateCurrentImageEdits({ trimStart: start, trimEnd: end }); setFlipTrimModal(false); showToastMessage(toast, 'success', t('selectedPost.trimSaved'), 1500); }}>
+            <TouchableOpacity style={[styles.flipPrimaryBtn, { backgroundColor: accent }]} onPress={() => { const start = parseFloat(trimStartInput) || 0; const endRaw = trimEndInput.trim(); const end = endRaw === '' ? null : parseFloat(endRaw); updateCurrentImageEdits({ trimStart: start, trimEnd: end }); setFlipTrimModal(false); showToastMessage(toast, 'success', t('selectedPost.trimSaved'), 1500); }}>
               <Text style={styles.flipPrimaryBtnText}>{t('selectedPost.save')}</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setFlipTrimModal(false)} style={styles.flipModalClose}>
@@ -2617,6 +2695,7 @@ const InstagramPostCreator = () => {
         </View>
       </Modal>
 
+      {!modalVisible2 && (
       <View style={[styles.NextButtonView, isFlipPost && styles.NextButtonViewFlip]}>
         {slideHasLibraryMusic(getCurrentImageEdits()) ? (
           <View style={[styles.postMusicCardToggleBar, isFlipPost && styles.postMusicCardToggleBarFlip]}>
@@ -2628,8 +2707,8 @@ const InstagramPostCreator = () => {
             <Switch
               value={getCurrentImageEdits().showMusicCard !== false}
               onValueChange={value => updateCurrentImageEdits({ showMusicCard: value })}
-              trackColor={{ false: '#4b5563', true: isFlipPost ? '#2d7ff988' : `${themeText}88` }}
-              thumbColor={getCurrentImageEdits().showMusicCard !== false ? (isFlipPost ? '#2d7ff9' : themeText) : '#9ca3af'}
+              trackColor={{ false: '#4b5563', true: isFlipPost ? '#2d7ff988' : `${accent}88` }}
+              thumbColor={getCurrentImageEdits().showMusicCard !== false ? (isFlipPost ? '#2d7ff9' : accent) : '#9ca3af'}
             />
           </View>
         ) : null}
@@ -2638,28 +2717,80 @@ const InstagramPostCreator = () => {
             <Text style={styles.flipEditVideoPillText}>{t('selectedPost.editVideoTitle')}</Text>
           </TouchableOpacity>
         )}
-        <TouchableOpacity style={[styles.nextButton, isFlipPost && styles.nextButtonFlip, { backgroundColor: isFlipPost ? '#2d7ff9' : themeText }]} onPress={handleNext}>
+        <TouchableOpacity style={[styles.nextButton, isFlipPost && styles.nextButtonFlip, { backgroundColor: isFlipPost ? '#2d7ff9' : accent }]} onPress={handleNext}>
           <Text style={styles.nextButtonText}>{t('selectedPost.next')}</Text>
           <Text style={styles.nextArrow}>→</Text>
         </TouchableOpacity>
       </View>
+      )}
     </View>
   );
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaView style={[styles.container, bgStyle]}>
-        <StatusBar barStyle="light-content" backgroundColor="#000" />
+      <SafeAreaView style={[styles.container, bgStyle]} edges={['top', 'left', 'right']}>
+        <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={bgStyle?.backgroundColor || '#000'} />
         <View style={styles.header}>
           <TouchableOpacity style={styles.headerButton} onPress={handleBack}>
-            <Text style={styles.headerButtonText}>×</Text>
+            <Text style={[styles.headerButtonText, { color: icon }]}>×</Text>
           </TouchableOpacity>
+          {modalVisible2 ? (
+            <>
+              <Text style={[styles.textEditorHeaderTitle, { color: accent }]}>
+                {t('selectedPost.toolText')}
+              </Text>
+              <TouchableOpacity style={[styles.doneBtn, { backgroundColor: accent }]} onPress={addTextOverlay}>
+                <Text style={styles.doneText}>{t('selectedPost.done')}</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <View style={styles.headerSideSpacer} />
+          )}
         </View>
-        <View style={styles.editorWorkspace}>
-          {renderFilters()}
-          {renderImageCarousel()}
+        <View style={styles.textEditorScreenBody}>
+          <View
+            style={[
+              styles.editorWorkspace,
+              modalVisible2 && textEditorPreviewMaxHeight != null && {
+                flex: 0,
+                maxHeight: textEditorPreviewMaxHeight,
+              },
+            ]}
+          >
+            {renderFilters()}
+            {renderImageCarousel()}
+          </View>
+
+          {modalVisible2 && (
+            <View
+              style={[
+                styles.textEditorDock,
+                bgStyle,
+                {
+                  bottom: keyboardOffset,
+                  borderTopColor: border,
+                },
+              ]}
+            >
+              {renderTextEditorToolbar()}
+            </View>
+          )}
+
+          {!modalVisible2 && (
+            <KeyboardAvoidingView
+              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+              keyboardVerticalOffset={insets.top + 48}
+            >
+              {renderEditingTabs()}
+            </KeyboardAvoidingView>
+          )}
+
+          {modalVisible2 && (
+            <View pointerEvents="box-none" style={styles.overlaySheetsHost}>
+              {renderEditingTabs()}
+            </View>
+          )}
         </View>
-        {renderEditingTabs()}
       </SafeAreaView>
     </GestureHandlerRootView>
   );
@@ -2669,6 +2800,34 @@ const InstagramPostCreator = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  textEditorScreenBody: {
+    flex: 1,
+    position: 'relative',
+  },
+  textEditorDock: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingBottom: Platform.OS === 'ios' ? 6 : 10,
+    elevation: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    zIndex: 30,
+  },
+  overlaySheetsHost: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 40,
+  },
+  textEditorHeaderTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+  },
+  headerSideSpacer: {
+    width: 40,
   },
   editorWorkspace: {
     flex: 1,
@@ -3493,7 +3652,6 @@ const styles = StyleSheet.create({
     zIndex: 1000,
   },
   doneBtn: {
-    backgroundColor: '#007AFF',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 6,
@@ -3523,19 +3681,25 @@ const styles = StyleSheet.create({
   draftTextOverlay: {
     position: 'absolute',
     zIndex: 1001,
-    minWidth: 200,
+    minWidth: DRAFT_TEXT_BUBBLE_WIDTH,
     alignSelf: 'flex-start',
+  },
+  draftTextEditBubble: {
+    minWidth: DRAFT_TEXT_BUBBLE_WIDTH,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
   },
   draftTextInput: {
     fontSize: 28,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    minHeight: 48,
-    minWidth: 200,
+    paddingVertical: 4,
+    paddingHorizontal: 4,
+    minHeight: 40,
+    minWidth: DRAFT_TEXT_BUBBLE_WIDTH - 28,
     width: '100%',
-    textShadowColor: 'rgba(0,0,0,0.8)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 3,
+    textShadowColor: 'rgba(0,0,0,0.55)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
   textEditorToolbar: {
     paddingHorizontal: 16,

@@ -17,7 +17,7 @@ const CustomButton = React.forwardRef(
     ref
   ) => {
     const isDisabled = disabled || loading;
-    const { bgStyle, bg, text } = useAppTheme();
+    const { bgStyle, bg, text, accent } = useAppTheme();
 
     return (
       <TouchableOpacity
@@ -29,7 +29,7 @@ const CustomButton = React.forwardRef(
           styles.button,
           isDisabled && styles.buttonDisabled,
           style,
-          {backgroundColor: text}
+          { backgroundColor: accent },
         ]}
         {...props}
       >

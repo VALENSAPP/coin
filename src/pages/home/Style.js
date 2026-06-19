@@ -2,7 +2,7 @@ import { Platform, StyleSheet } from 'react-native';
 import { useAppTheme } from '../../theme/useApptheme';
 
 const createStyles = () => {
-  const { bg, text } = useAppTheme();
+  const { bg, text, border } = useAppTheme();
   const styles = StyleSheet.create({
     container: {
       flex: 1,
@@ -21,7 +21,7 @@ const createStyles = () => {
       justifyContent: 'space-between',
       paddingHorizontal: 15,
       paddingVertical: 4,
-      borderBottomColor: '#dbdbdb',
+      borderBottomColor: border,
     },
     appLogo: {
       resizeMode: 'contain',
@@ -56,7 +56,7 @@ const createStyles = () => {
       paddingHorizontal: 10,
       backgroundColor: bg,
       borderBottomWidth: 0.5,
-      borderBottomColor: '#dbdbdb',
+      borderBottomColor: border,
     },
     storyItem: {
       alignItems: 'center',

@@ -46,7 +46,7 @@ export default function PostScreen({ navigation }) {
   console.log("isFlipEntryisFlipEntry",isFlipEntry)
   const insets = useSafeAreaInsets();
 
-  const { bgStyle, textStyle, text } = useAppTheme();
+  const { bgStyle, textStyle, text, card, cardStyle, border, mutedText, icon, accent } = useAppTheme();
   const dispatch = useDispatch();
   const { t } = useLanguage();
 
@@ -543,7 +543,7 @@ const cropImage = (imageUri, index) => {
         )}
         {isSelected && (
           <View style={styles.selectedIndicator}>
-            <View style={[styles.selectionNumber, { backgroundColor: text }]}>
+            <View style={[styles.selectionNumber, { backgroundColor: accent }]}>
               <Text style={styles.selectionNumberText}>{selectionOrder}</Text>
             </View>
           </View>
@@ -561,7 +561,7 @@ const cropImage = (imageUri, index) => {
 
     return (
       <View style={[styles.selectedMediaSection, bgStyle]}>
-        <Text style={styles.selectedMediaTitle}>{t('post.selectedMedia')}</Text>
+        <Text style={[styles.selectedMediaTitle, textStyle]}>{t('post.selectedMedia')}</Text>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -630,7 +630,7 @@ const cropImage = (imageUri, index) => {
               >
                 <Icon name="close-circle" size={20} color="#ff3040" />
               </TouchableOpacity>
-              <View style={[styles.selectedOrderIndicator, { backgroundColor: text }]}>
+              <View style={[styles.selectedOrderIndicator, { backgroundColor: accent }]}>
                 <Text style={styles.selectedOrderText}>{index + 1}</Text>
               </View>
             </View>
@@ -643,17 +643,23 @@ const cropImage = (imageUri, index) => {
 
   const renderInitialGalleryPrompt = () => (
     <View style={styles.galleryPrompt}>
-      <TouchableOpacity style={styles.galleryButton} onPress={openGallery}>
-        <Icon name="images" size={60} color={text} />
+      <TouchableOpacity
+        style={[styles.galleryButton, cardStyle, { borderColor: border }]}
+        onPress={openGallery}
+      >
+        <Icon name="images" size={60} color={accent} />
         <Text style={[styles.galleryButtonText, textStyle]}>{t('post.selectFromGallery')}</Text>
-        <Text style={styles.galleryButtonSubtext}>
+        <Text style={[styles.galleryButtonSubtext, { color: mutedText }]}>
           {postType === 'flip' ? t('post.flipGallerySubtext') : t('post.gallerySubtext')}
         </Text>
       </TouchableOpacity>
-      <TouchableOpacity style={styles.galleryButton} onPress={openCamera}>
-        <Icon name="camera" size={60} color={text} />
+      <TouchableOpacity
+        style={[styles.galleryButton, cardStyle, { borderColor: border }]}
+        onPress={openCamera}
+      >
+        <Icon name="camera" size={60} color={accent} />
         <Text style={[styles.galleryButtonText, textStyle]}>{t('post.captureWithCamera')}</Text>
-        <Text style={styles.galleryButtonSubtext}>
+        <Text style={[styles.galleryButtonSubtext, { color: mutedText }]}>
           {postType === 'flip' ? t('post.flipCameraSubtext') : t('post.cameraSubtext')}
         </Text>
       </TouchableOpacity>
@@ -663,7 +669,7 @@ const cropImage = (imageUri, index) => {
   const renderMainContent = () => (
     <>
       {selectedMedia && selectedMedia.length > 0 && postType !== 'flip' && (
-        <View style={[styles.selectionCounter, { shadowColor: text }]}>
+        <View style={[styles.selectionCounter, cardStyle, { shadowColor: text }]}>
           <Text style={[styles.selectionCounterText, textStyle]}>
             {t('post.itemsSelected', { count: selectedMedia.length })}
             {selectedMedia.length < 10 && ` (${10 - selectedMedia.length} ${t('post.moreAvailable')})`}
@@ -675,14 +681,20 @@ const cropImage = (imageUri, index) => {
 
       {selectedMedia && selectedMedia.length < 10 && (
         <View style={[styles.addMoreSection, { marginTop: postType === 'flip' ? '10%' : 0 }]}>
-          <TouchableOpacity style={[styles.addMoreButton, { shadowColor: text, marginTop: 10 }]} onPress={openGallery}>
-            <Icon name="images" size={24} color={text} />
+          <TouchableOpacity
+            style={[styles.addMoreButton, cardStyle, { borderColor: border, shadowColor: text, marginTop: 10 }]}
+            onPress={openGallery}
+          >
+            <Icon name="images" size={24} color={accent} />
             <Text style={[styles.addMoreText, textStyle]}>
               {t('post.addFromGallery')}
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[[styles.addMoreButton, { shadowColor: text }], { marginBottom: '20%', marginTop: 10 }]} onPress={openCamera}>
-            <Icon name="camera" size={24} color={text} />
+          <TouchableOpacity
+            style={[styles.addMoreButton, cardStyle, { borderColor: border, shadowColor: text, marginBottom: '20%', marginTop: 10 }]}
+            onPress={openCamera}
+          >
+            <Icon name="camera" size={24} color={accent} />
             <Text style={[styles.addMoreText, textStyle]}>
               {t('post.captureWithCamera')}
             </Text>
@@ -699,7 +711,7 @@ const cropImage = (imageUri, index) => {
 
   return (
     <SafeAreaView style={[styles.container, bgStyle]}>
-      <View style={[styles.headerRow, bgStyle, { shadowColor: text }]}>
+      <View style={[styles.headerRow, bgStyle, { shadowColor: text, borderBottomColor: border }]}>
         <TouchableOpacity
           onPress={() => {
             setShowTypeModal(false);
@@ -722,14 +734,14 @@ const cropImage = (imageUri, index) => {
           }}
           style={styles.headerIconBtn}
         >
-          <Icon name="close" size={26} color="#222" />
+          <Icon name="close" size={26} color={icon} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, textStyle]}>
           {mediaType === 'Flips' ? t('post.newFlip') : postType === 'crowdfunding' ? t('post.missionMint') : t('post.newMint')}
         </Text>
         <TouchableOpacity
           onPress={handleShare}
-          style={[styles.headerShareBtn, { backgroundColor: text, shadowColor: text, opacity: (selectedMedia && selectedMedia.length > 0) && !shared ? 1 : 0.5 }]}
+          style={[styles.headerShareBtn, { backgroundColor: accent, shadowColor: accent, opacity: (selectedMedia && selectedMedia.length > 0) && !shared ? 1 : 0.5 }]}
           disabled={!selectedMedia || selectedMedia.length === 0 || shared}
         >
           <Text style={styles.headerShareText}>{t('post.next')}</Text>

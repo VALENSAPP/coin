@@ -207,7 +207,7 @@ const ProfilePersonData = ({
   const profileActionGradient = isCompanyProfile
     ? ['#D3B683', '#D3B683']
     : ['#513189bd', '#e54ba0'];
-  const { bgStyle, textStyle, text, card, bg } = useAppTheme(effectiveProfileType);
+  const { bgStyle, textStyle, text, card, bg, icon, mutedText, accent, border, cardStyle } = useAppTheme(effectiveProfileType);
   const route = useRoute();
   const showIdentityVerified = isProfileFullyIdentityVerified(userData);
   const isSubscriptionActive = userData?.subscriptionStatus == 'ACTIVE';
@@ -965,7 +965,7 @@ const ProfilePersonData = ({
     if (platform === 'linkedin') return <Linkedin width={25} height={25} />;
     if (platform === 'twitter') return <Twitter width={25} height={25} />;
     if (platform === 'instagram') return <FontAwesome name="instagram" size={23} color="#E1306C" />;
-    return <Feather name="link-2" size={22} color="#374151" />;
+    return <Feather name="link-2" size={22} color={mutedText} />;
   }, []);
 
   const websiteLink = useMemo(() => String(
@@ -1081,7 +1081,7 @@ const ProfilePersonData = ({
             >
               {fromUsersProfile && (
                 <TouchableOpacity onPress={handleBackPress}>
-                  <Ionicons name="arrow-back-outline" size={22} color="#111100" style={{ marginRight: 4 }} />
+                  <Ionicons name="arrow-back-outline" size={22} color={icon} style={{ marginRight: 4 }} />
                 </TouchableOpacity>
               )}
               <View style={styles.userRow}>
@@ -1095,7 +1095,7 @@ const ProfilePersonData = ({
                   <DragonflyIcon width={30} height={30} style={styles.icon} />
                 )}
                 {!fromUsersProfile && (
-                  <Ionicons name="chevron-down" size={18} color="#111100" style={styles.headerChevron} />
+                  <Ionicons name="chevron-down" size={18} color={icon} style={styles.headerChevron} />
                 )}
               </View>
             </TouchableOpacity>
@@ -1104,27 +1104,27 @@ const ProfilePersonData = ({
           <View style={styles.iconContainer}>
             {fromUsersProfile && (
               <TouchableOpacity style={styles.iconButton} onPress={openUserHighlights}>
-                <Feather name="circle" size={25} color="#111100" />
+                <Feather name="circle" size={25} color={icon} />
               </TouchableOpacity>
             )}
             <TouchableOpacity style={styles.iconButton} onPress={() => redirect()}>
-              <Ionicons name="share-outline" size={25} color="#111100" />
+              <Ionicons name="share-outline" size={25} color={icon} />
             </TouchableOpacity>
             {!fromUsersProfile && (
               <TouchableOpacity style={styles.iconButton} onPress={() => setModalVisible(true)}>
-                <FontAwesome name="plus-square-o" size={25} color="#111100" />
+                <FontAwesome name="plus-square-o" size={25} color={icon} />
               </TouchableOpacity>
             )}
             {fromUsersProfile ? (
               <TouchableOpacity style={styles.iconButton} onPress={() => setUsernameModalVisible(true)}>
-                <Ionicons name="ellipsis-horizontal-outline" size={25} color="#111100" />
+                <Ionicons name="ellipsis-horizontal-outline" size={25} color={icon} />
               </TouchableOpacity>
             ) : (
               <TouchableOpacity
                 style={styles.iconButton}
                 onPress={() => { AsyncStorage.setItem('profile', userData?.profile); navigation.navigate('Settings'); }}
               >
-                <Feather name="menu" size={25} color="#111100" />
+                <Feather name="menu" size={25} color={icon} />
               </TouchableOpacity>
             )}
           </View>
@@ -1313,6 +1313,8 @@ const ProfilePersonData = ({
               pointerEvents={totalSupportOpen ? 'auto' : 'none'}
               style={[
                 styles.totalSupportPopover,
+                cardStyle,
+                { borderColor: border },
                 {
                   height: totalSupportCardHeight,
                   opacity: totalSupportCardOpacity,
@@ -1327,17 +1329,17 @@ const ProfilePersonData = ({
                 <ActivityIndicator size="small" color="#513189" />
               ) : (
                 <>
-                  <Text style={styles.totalSupportPopoverLabel}>
+                  <Text style={[styles.totalSupportPopoverLabel, { color: mutedText }]}>
                     {t('profilePersonData.totalSupportReceived')}
                   </Text>
-                  <Text style={styles.totalSupportPopoverAmount}>
+                  <Text style={[styles.totalSupportPopoverAmount, { color: accent }]}>
                     $ {totalSupportAmount.toFixed(2)}
                   </Text>
                 </>
               )}
             </Animated.View>
 
-            <Text style={styles.displaynamee} numberOfLines={2}>
+            <Text style={[styles.displaynamee, textStyle]} numberOfLines={2}>
               {Userdata.Displayname}
             </Text>
           </View>
@@ -1347,7 +1349,7 @@ const ProfilePersonData = ({
             style={[styles.collapsibleProfileMiddle, { maxHeight: animatedMaxHeight, opacity: animatedOpacity }]}
           >
             <View style={styles.biobox}>
-              <Text style={styles.biotext}>{Userdata.Bio}</Text>
+              <Text style={[styles.biotext, { color: mutedText }]}>{Userdata.Bio}</Text>
               <View style={styles.socialRow}>
                 {socialMediaLinks.map(item => (
                   <TouchableOpacity
@@ -1380,7 +1382,7 @@ const ProfilePersonData = ({
           {/* Battle LIVE — shown above Open Battle when a battle is active */}
           <View style={[styles.tabContainer, { marginBottom: -8, height: 50 }]}>
             <TouchableOpacity
-              style={[styles.tab, { backgroundColor: text, borderColor: text }]}
+              style={[styles.tab, { backgroundColor: accent, borderColor: accent }]}
               onPress={handleBattleTabPress}
             >
               <View style={styles.tabContentRow}>
@@ -1403,7 +1405,7 @@ const ProfilePersonData = ({
           <View style={[styles.tabContainer, { height: 50 }]}>
             {fromUsersProfile ? (
               <TouchableOpacity
-                style={[styles.battleBtnWrapper, { backgroundColor: text, borderColor: text }]}
+                style={[styles.battleBtnWrapper, { backgroundColor: accent, borderColor: accent }]}
                 onPress={handleInviteBattlePress}
               >
                 <LinearGradient
@@ -1417,7 +1419,7 @@ const ProfilePersonData = ({
               </TouchableOpacity>
             ) : (
               <TouchableOpacity
-                style={[styles.battleBtnWrapper, { backgroundColor: text, borderColor: text }]}
+                style={[styles.battleBtnWrapper, { backgroundColor: accent, borderColor: accent }]}
                 onPress={handleOpenBattlePress}
               >
                 <LinearGradient
@@ -1435,7 +1437,7 @@ const ProfilePersonData = ({
           {/* Stats */}
           <View style={styles.statsRow}>
             <TouchableOpacity style={styles.statItem}>
-              <Ionicons name="add-circle-outline" size={16} color="#444" />
+              <Ionicons name="add-circle-outline" size={16} color={icon} />
               <Text style={[styles.statText, { color: text }]}>
                 {' '}{t('profilePersonData.mint')}: {Userdata.totalPost}
               </Text>
@@ -1464,7 +1466,7 @@ const ProfilePersonData = ({
                 }
               }}
             >
-              <FontAwesome name="user" size={16} color="#444" />
+              <FontAwesome name="user" size={16} color={icon} />
               <Text style={[styles.statText, { color: text }]}>
                 {' '}{t('profilePersonData.followers')}: {Userdata.Followers}
               </Text>
@@ -1492,7 +1494,7 @@ const ProfilePersonData = ({
                 }
               }}
             >
-              <Ionicons name="swap-horizontal-outline" size={16} color="#444" />
+              <Ionicons name="swap-horizontal-outline" size={16} color={icon} />
               <Text style={[styles.statText, { color: text }]}>
                 {' '}{t('profilePersonData.following')}: {Userdata.Followings}
               </Text>

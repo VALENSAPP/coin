@@ -79,6 +79,7 @@ import KYCVerification from '../pages/authentication/kycVerification';
 import FlipsScreen from '../pages/reels';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppTheme } from '../theme/useApptheme';
+import { useThemeContext } from '../theme/ThemeContext';
 import TermConditionScreen from '../pages/profile/Term&ConditionScreen';
 import { DeviceEventEmitter } from 'react-native';
 import PaymentScreen from '../pages/Stripe/PaymentScreen';
@@ -128,7 +129,8 @@ export default function MainTabNavigator() {
   const profileImage = useSelector(state => state.profileImage?.profileImg);
   const userProfile = useSelector(state => state.userProfile.userProfile);
   const navigation = useNavigation();
-  const { bgStyle, textStyle, bg, text } = useAppTheme();
+  const { bgStyle, textStyle, bg, text, border, mutedText } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
   // ── TRANSLATION CHANGE: initialise t() ──────────────────────────────────────
   const { t } = useLanguage();
 
@@ -362,14 +364,14 @@ export default function MainTabNavigator() {
               {
                 elevation: 0,
                 shadowOpacity: 0,
-                backgroundColor: userProfile !== 'user' ? '#fcfbfaff' : '#f8f2fd',
+                backgroundColor: bg,
               },
             ],
             headerTitleStyle: {
               fontWeight: 'bold',
-              color: '#111',
+              color: text,
             },
-            headerTintColor: '#111',
+            headerTintColor: text,
             headerLeft: () => (
               <TouchableOpacity
                 onPress={() => navigation.openDrawer()}
@@ -471,7 +473,7 @@ export default function MainTabNavigator() {
               headerRight: () => (
                 <TouchableOpacity onPress={() => navigation.goBack()}>
                   <View style={{marginRight:10}}>
-                 <Ionicons name="close" size={20} color='#000' />
+                 <Ionicons name="close" size={20} color={text} />
                   </View>
                 </TouchableOpacity>
               ),
@@ -578,7 +580,7 @@ export default function MainTabNavigator() {
       );
     };
   // ── TRANSLATION CHANGE: t added to dependency array so stack rebuilds on lang change ──
-  }, [t, text, userProfile]);
+  }, [t, text, bg, userProfile]);
 
   const PostStack = useMemo(() => {
     return () => (
@@ -642,10 +644,9 @@ export default function MainTabNavigator() {
   const defaultTabBarStyle = useMemo(
     () => ({
       display: 'flex',
-      // backgroundColor: bg,
+      ...bgStyle,
       borderTopWidth: 1.5,
-      bgStyle,
-      borderTopColor: '#dbdbdb',
+      borderTopColor: border,
       height: 50,
       position: 'absolute',
       bottom: Platform.OS == 'android' ? 0 : 25,
@@ -653,7 +654,7 @@ export default function MainTabNavigator() {
       right: 0,
       paddingTop: 5,
     }),
-    [],
+    [bgStyle, border],
   );
 
   const reelsTabBarStyle = useMemo(
@@ -687,9 +688,9 @@ export default function MainTabNavigator() {
         headerShown: false,
         tabBarShowLabel: false,
         tabBarActiveTintColor:
-          route.name === 'Reels' && isFocused ? '#fff' : '#000',
+          route.name === 'Reels' && isFocused ? '#fff' : text,
         tabBarInactiveTintColor:
-          route.name === 'Reels' && isFocused ? '#fff' : '#666',
+          route.name === 'Reels' && isFocused ? '#fff' : mutedText,
         tabBarHideOnKeyboard: true,
         tabBarIcon: ({ focused, color, size }) => {
           const isReelsFocused = route.name === 'Reels' && isFocused;
@@ -773,7 +774,7 @@ export default function MainTabNavigator() {
 
       return baseOptions;
     },
-    [profileImage, defaultTabBarStyle, reelsTabBarStyle],
+    [profileImage, defaultTabBarStyle, reelsTabBarStyle, text, mutedText],
   );
 
   // Memoize HomeMain options function
