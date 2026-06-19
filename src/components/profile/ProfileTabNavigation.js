@@ -131,6 +131,9 @@ const ProfileTabs = memo(({
     }
   }, [navigation, t, toast]);
 
+  const PRIVATE_CIRCLE_TAB_INDEX = 1; 
+  const PRIVATE_CONTENT_TAB_INDEX = 3;
+
   // ── Tab screens — stable identity, only remount when data deps change ────────
   const tabScreens = useMemo(() => ({
     posts: (
@@ -148,6 +151,7 @@ const ProfileTabs = memo(({
         userData={userData}
         onStartPress={handlePrivateCircleStartPress}
         loggedInUserId={loggedInUserId}
+         isActiveTab={activeTab === PRIVATE_CIRCLE_TAB_INDEX}
       />
     ),
     reels: (
@@ -169,6 +173,7 @@ const ProfileTabs = memo(({
         isCompany={userData?.profile === 'company'}
         refreshKey={`${refreshKey ?? 0}-${privateKey}`}
         scrollEnabled={false}
+        isActiveTab={activeTab === PRIVATE_CONTENT_TAB_INDEX}  
       />
     ),
     closet: (
@@ -184,6 +189,7 @@ const ProfileTabs = memo(({
     privateKey,
     handlePrivateCircleStartPress,
     onPostPinChanged,
+    activeTab
   ]);
 
   // ── Tab metadata — icons/labels/onPress only, NO screen elements ─────────────

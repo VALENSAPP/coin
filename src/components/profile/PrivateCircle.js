@@ -212,7 +212,7 @@ const PostImage = memo(({ item, themeTextStyle }) => {
 const ItemSeparator = memo(() => <View style={gridStyles.itemSeparator} />);
 
 // ─── Main Component ───────────────────────────────────────────────────────────
-const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userData, loggedInUserId }) => {
+const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userData, loggedInUserId, isActiveTab = false, }) => {
   const { bgStyle, textStyle, text, cardStyle } = useAppTheme(userData?.profile);
   const { t } = useLanguage();
   const navigation = useNavigation();
@@ -223,7 +223,7 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
   const isOwnContent = isOwnProfile || isWalletPrivateCircle;
 
   useScreenshotProtection({
-    enabled: isFocused && !isOwnContent,
+    enabled: isFocused && isActiveTab && !isOwnContent,
     title: t('postView.screenshotWarningTitle'),
     message: t('postView.screenshotWarningMessage'),
   });

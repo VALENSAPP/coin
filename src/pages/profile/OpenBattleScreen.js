@@ -965,7 +965,29 @@ export default function OpenBattleScreen() {
                 navigation.navigate('ProfileMain', {
                   screen: 'Profile',
                 });
-              } else {
+              } 
+              // console.log()
+              else if (route?.params?.returnByTo == "Search") {
+                navigation.navigate('HomeMain', {
+                screen: 'UsersProfile',
+                params: {
+                  userId: route?.params?.invitedUserId,
+                  // username: user?.userName || user?.username || '',
+                  returnTo: 'Search',
+                },
+              });
+              } 
+              else if (route?.params?.returnByTo == "Home") {
+                navigation.navigate('HomeMain', {
+                screen: 'UsersProfile',
+                params: {
+                  userId: route?.params?.invitedUserId,
+                  // username: user?.userName || user?.username || '',
+                  returnTo: 'Home',
+                },
+              });
+              } 
+              else {
                 navigation.goBack();
               }
             }}
