@@ -36,7 +36,7 @@ export const SettingsScreen = ({ navigation }) => {
   const profileImage = useSelector(state => state.profileImage?.profileImg);
   const dispatch = useDispatch();
   const toast = useToast();
-  const { bgStyle, textStyle, text } = useAppTheme();
+  const { bgStyle, textStyle, text, card, cardStyle, mutedText, accent, icon, border } = useAppTheme();
   const { t } = useLanguage();
 
   const profilePhotoUri =
@@ -234,26 +234,26 @@ export const SettingsScreen = ({ navigation }) => {
 
   const renderSettingItem = ({ item }) => (
     <TouchableOpacity
-      style={styles.settingItem}
+      style={[styles.settingItem, { borderBottomColor: border }]}
       onPress={item.action}
       disabled={item.toggle}
     >
       <View style={styles.settingLeft}>
-        <Ionicons name={item.icon} size={20} color={text} />
-        <Text style={styles.settingLabel}>{item.label}</Text>
+        <Ionicons name={item.icon} size={20} color={icon} />
+        <Text style={[styles.settingLabel, textStyle]}>{item.label}</Text>
       </View>
       <View style={styles.settingRight}>
         {item.toggle ? (
           <TouchableOpacity
-            style={[styles.toggleButton, item.value && { backgroundColor: text }]}
+            style={[styles.toggleButton, item.value && { backgroundColor: accent }]}
             onPress={() => item.onToggle(!item.value)}
           >
             <View style={[styles.toggleSwitch, item.value && styles.toggleSwitchActive]} />
           </TouchableOpacity>
         ) : (
           <View style={styles.settingValue}>
-            {item.value && <Text style={styles.settingText}>{item.value}</Text>}
-            <Ionicons name="chevron-forward" size={16} color="#666" />
+            {item.value && <Text style={[styles.settingText, { color: mutedText }]}>{item.value}</Text>}
+            <Ionicons name="chevron-forward" size={16} color={mutedText} />
           </View>
         )}
       </View>
@@ -263,7 +263,7 @@ export const SettingsScreen = ({ navigation }) => {
   const renderSection = (section) => (
     <View key={section.title} style={styles.settingsSection}>
       <Text style={[styles.sectionTitle, textStyle]}>{section.title}</Text>
-      <View style={[styles.settingsContainer, { shadowColor: text }]}>
+      <View style={[styles.settingsContainer, cardStyle, { shadowColor: text, borderColor: border, borderWidth: StyleSheet.hairlineWidth }]}>
         <FlatList
           data={section.items}
           renderItem={renderSettingItem}
@@ -278,18 +278,18 @@ export const SettingsScreen = ({ navigation }) => {
     <SafeAreaView style={[styles.container, bgStyle]}>
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* User Info Card */}
-        <View style={[styles.userInfoCard, { shadowColor: text }]}>
+        <View style={[styles.userInfoCard, cardStyle, { shadowColor: text }]}>
           <View style={styles.profileAvatarWrap}>
             <HexAvatar
               uri={profilePhotoUri}
               size={72}
               borderWidth={2.5}
-              borderColor={text}
+              borderColor={accent}
             />
           </View>
           <View style={styles.userInfo}>
-            <Text style={styles.userName}>{userData?.displayName}</Text>
-            <Text style={styles.userUsername}>@{userData?.userName}</Text>
+            <Text style={[styles.userName, textStyle]}>{userData?.displayName}</Text>
+            <Text style={[styles.userUsername, { color: mutedText }]}>@{userData?.userName}</Text>
           </View>
         </View>
 
@@ -329,7 +329,6 @@ const styles = StyleSheet.create({
 
   // User Info Card
   userInfoCard: {
-    backgroundColor: '#fff',
     borderRadius: 16,
     padding: 20,
     marginHorizontal: 20,
@@ -360,12 +359,10 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#111',
     marginBottom: 4,
   },
   userUsername: {
     fontSize: 14,
-    color: '#666',
     marginBottom: 8,
   },
   verificationBadge: {
@@ -384,7 +381,6 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   settingsContainer: {
-    backgroundColor: '#fff',
     borderRadius: 16,
     shadowOpacity: 0.06,
     shadowRadius: 6,
@@ -396,7 +392,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
   },
   settingLeft: {
     flexDirection: 'row',
@@ -405,7 +400,6 @@ const styles = StyleSheet.create({
   },
   settingLabel: {
     fontSize: 16,
-    color: '#111',
     marginLeft: 12,
   },
   profileAvatarWrap: {
@@ -429,7 +423,6 @@ const styles = StyleSheet.create({
   },
   settingText: {
     fontSize: 14,
-    color: '#666',
     marginRight: 8,
   },
 

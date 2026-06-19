@@ -28,7 +28,7 @@ export default function OptionsModal({
   canHide = true,
 }) {
   const sheetRef = useRef();
-  const { bgStyle, textStyle } = useAppTheme();
+  const { bgStyle, textStyle, icon, mutedText } = useAppTheme();
   const reportRef = useRef(null);
   const toast = useToast();
   const { t } = useLanguage();
@@ -154,8 +154,8 @@ export default function OptionsModal({
               <TouchableOpacity
                 style={styles.innerRow}
                 onPress={() => tap('copyAddress')}>
-                <FontAwesomeIcon name="copy" size={20} color="#262626" />
-                <Text style={styles.innerText}>
+                <FontAwesomeIcon name="copy" size={20} color={icon} />
+                <Text style={[styles.innerText, textStyle]}>
                   {t('optionsModal.copyAddress')}
                 </Text>
               </TouchableOpacity>
@@ -167,9 +167,9 @@ export default function OptionsModal({
                 <Ionicons
                   name={isSaved ? 'bookmark' : 'bookmark-outline'}
                   size={20}
-                  color="#262626"
+                  color={icon}
                 />
-                <Text style={styles.innerText}>
+                <Text style={[styles.innerText, textStyle]}>
                   {isSaved
                     ? t('optionsModal.unsavePost')
                     : t('optionsModal.savePost')}
@@ -182,8 +182,8 @@ export default function OptionsModal({
                   <TouchableOpacity
                     style={styles.innerRow}
                     onPress={() => tap('editPost')}>
-                    <MaterialIcons name="edit" size={20} color="#262626" />
-                    <Text style={styles.innerText}>
+                    <MaterialIcons name="edit" size={20} color={icon} />
+                    <Text style={[styles.innerText, textStyle]}>
                       {t('optionsModal.editPost')}
                     </Text>
                   </TouchableOpacity>
@@ -194,9 +194,9 @@ export default function OptionsModal({
                     <Ionicons
                       name={isPinned ? 'pin' : 'pin-outline'}
                       size={20}
-                      color="#262626"
+                      color={icon}
                     />
-                    <Text style={styles.innerText}>
+                    <Text style={[styles.innerText, textStyle]}>
                       {isPinned
                         ? t('postScreen.unpinPost')
                         : t('postScreen.pinPost')}
@@ -218,9 +218,9 @@ export default function OptionsModal({
                       effectiveHidden ? 'visibility' : 'visibility-off'
                     }
                     size={20}
-                    color="#262626"
+                    color={icon}
                   />
-                  <Text style={styles.innerText}>
+                  <Text style={[styles.innerText, textStyle]}>
                     {effectiveHideBusy
                       ? t('optionsModal.pleaseWait')
                       : effectiveHidden
@@ -247,9 +247,9 @@ export default function OptionsModal({
                     <MaterialIcons
                       name="report-gmailerrorred"
                       size={20}
-                      color="red"
+                      color="#ff453a"
                     />
-                    <Text style={[styles.innerText, { color: 'red' }]}>
+                    <Text style={[styles.innerText, { color: '#ff453a' }]}>
                       {t('optionsModal.report')}
                     </Text>
                   </TouchableOpacity>
@@ -259,8 +259,8 @@ export default function OptionsModal({
                 <TouchableOpacity
                   style={styles.innerRow}
                   onPress={() => tap('deletePost')}>
-                  <MaterialIcons name="delete" size={20} color="red" />
-                  <Text style={[styles.innerText, { color: 'red' }]}>
+                  <MaterialIcons name="delete" size={20} color="#ff453a" />
+                  <Text style={[styles.innerText, { color: '#ff453a' }]}>
                     {t('optionsModal.deletePost')}
                   </Text>
                 </TouchableOpacity>

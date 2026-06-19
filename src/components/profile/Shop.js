@@ -26,7 +26,7 @@ const withAlpha = (hex, alpha = 0.12) => {
 };
 
 const Shop = memo(({ isOwnProfile = false, onStartPress, userData }) => {
-  const { bgStyle, textStyle, text, cardStyle } = useAppTheme(userData?.profile);
+  const { bgStyle, textStyle, text, cardStyle, accent, icon, border } = useAppTheme(userData?.profile);
   const { t } = useLanguage();
 
   useEffect(() => {}, [userData]);
@@ -59,8 +59,8 @@ const Shop = memo(({ isOwnProfile = false, onStartPress, userData }) => {
             end={{ x: 0, y: 1 }}
             style={styles.leftRail}
           >
-            <View style={[styles.railIconBubble, { backgroundColor: mixWithWhite(text, 0.9), marginTop: '200%' }]}>
-              <Ionicons name="bag-handle" size={34} color={text} />
+            <View style={[styles.railIconBubble, { backgroundColor: withAlpha(accent, 0.18), marginTop: '200%' }]}>
+              <Ionicons name="bag-handle" size={34} color={accent} />
             </View>
           </LinearGradient>
 
@@ -87,7 +87,7 @@ const Shop = memo(({ isOwnProfile = false, onStartPress, userData }) => {
             <TouchableOpacity
               activeOpacity={0.9}
               onPress={handleStartPress}
-              style={[styles.ctaButton, { backgroundColor: text }]}
+              style={[styles.ctaButton, { backgroundColor: accent }]}
             >
               <Text style={styles.ctaText}>{t('shopComponent.startNowButton')}</Text>
             </TouchableOpacity>
@@ -101,8 +101,8 @@ const Shop = memo(({ isOwnProfile = false, onStartPress, userData }) => {
             end={{ x: 0, y: 1 }}
             style={styles.leftRail}
           >
-            <View style={[styles.railIconBubble, { backgroundColor: mixWithWhite(text, 0.9), marginTop: '35%' }]}>
-              <Ionicons name="bag-handle" size={34} color={text} />
+            <View style={[styles.railIconBubble, { backgroundColor: withAlpha(accent, 0.18), marginTop: '35%' }]}>
+              <Ionicons name="bag-handle" size={34} color={accent} />
             </View>
           </LinearGradient>
 

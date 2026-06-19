@@ -19,7 +19,7 @@ import { useLanguage } from '../../i18n';
 
 const UsernameModal = ({ visible, onClose, data }) => {
   const sheetRef = useRef();
-  const { bgStyle } = useAppTheme();
+  const { bgStyle, text, icon, mutedText, border } = useAppTheme();
   const toast = useToast();
   const { t } = useLanguage();
 
@@ -112,7 +112,7 @@ console.log('qrShareUrl:', qrShareUrl);
       customModalProps={{ statusBarTranslucent: true }}
       customStyles={{
         container: [{ borderTopLeftRadius: 10, borderTopRightRadius: 10 }, bgStyle],
-        draggableIcon: { width: 80 },
+        draggableIcon: { width: 80, backgroundColor: mutedText },
       }}
     >
       <TouchableOpacity
@@ -121,16 +121,21 @@ console.log('qrShareUrl:', qrShareUrl);
         onPress={onClose}
       >
         <View style={[styles.modalContainer, bgStyle]}>
-          {/* Top buttons */}
           <View style={styles.topButtonsRow}>
-            <TouchableOpacity style={[styles.topButton, bgStyle]} onPress={copyProfileUrl}>
-              <Ionicons name="copy-outline" size={20} color="#111100" />
-              <Text style={styles.topButtonText}>{t('usernameModal.copyLinkButton')}</Text>
+            <TouchableOpacity
+              style={[styles.topButton, { borderColor: border, borderWidth: StyleSheet.hairlineWidth }]}
+              onPress={copyProfileUrl}
+            >
+              <Ionicons name="copy-outline" size={20} color={icon} />
+              <Text style={[styles.topButtonText, { color: text }]}>{t('usernameModal.copyLinkButton')}</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.topButton, bgStyle]} onPress={onShare}>
-              <Feather name="send" size={20} color="#111100" />
-              <Text style={styles.topButtonText}>{t('usernameModal.sendButton')}</Text>
+            <TouchableOpacity
+              style={[styles.topButton, { borderColor: border, borderWidth: StyleSheet.hairlineWidth }]}
+              onPress={onShare}
+            >
+              <Feather name="send" size={20} color={icon} />
+              <Text style={[styles.topButtonText, { color: text }]}>{t('usernameModal.sendButton')}</Text>
             </TouchableOpacity>
           </View>
 
@@ -184,7 +189,6 @@ const styles = StyleSheet.create({
   },
   topButtonText: {
     fontSize: 14,
-    color: '#111100',
     fontWeight: '500',
   },
   optionRow: {
@@ -202,7 +206,6 @@ const styles = StyleSheet.create({
   optionText: {
     flex: 1,
     fontSize: 15,
-    color: '#111100',
     fontWeight: '500',
   },
   optionRightIcon: {

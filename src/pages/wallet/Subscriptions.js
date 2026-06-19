@@ -29,6 +29,7 @@ import { getSubscriptionByUserID, setPrivateSubscription, setUserSubscription } 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { useAppTheme } from '../../theme/useApptheme';
+import { useThemeContext } from '../../theme/ThemeContext';
 import TermCondition from '../../components/modals/Term&Condition';
 import SubscriptionActivationPopup from '../../components/modals/SubscriptionActivationPopUp';
 import ConnectStripeModal from '../../components/modals/ConnectStripeModal';
@@ -67,7 +68,8 @@ const SubventionSetupScreen = () => {
     const navigation = useNavigation();
     const toast = useToast();
     const dispatch = useDispatch();
-    const { bgStyle, textStyle, text } = useAppTheme();
+    const { bgStyle, textStyle, text, cardStyle, accent, mutedText, border, card, icon } = useAppTheme();
+    const { isDarkMode } = useThemeContext();
     const [credential, setCredential] = useState(null);
     const { t } = useLanguage();
     const stripeErrorMessages = getStripeErrorMessages(t);
@@ -658,14 +660,14 @@ const SubventionSetupScreen = () => {
             <View style={{ flex: 1, paddingBottom: 20 }}>
                 <ScrollView style={[styles.container, bgStyle]}>
                     {/* Price Setup Section */}
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>{t('subventionSetup.priceSectionTitle')}</Text>
-                        <Text style={styles.sectionSubtitle}>{t('subventionSetup.priceSectionSubtitle')}</Text>
+                    <View style={[styles.section, cardStyle, { shadowColor: text, borderColor: border, borderWidth: StyleSheet.hairlineWidth }]}>
+                        <Text style={[styles.sectionTitle, textStyle]}>{t('subventionSetup.priceSectionTitle')}</Text>
+                        <Text style={[styles.sectionSubtitle, { color: mutedText }]}>{t('subventionSetup.priceSectionSubtitle')}</Text>
 
                         <View style={styles.priceInputContainer}>
-                            <Text style={[styles.currencySymbol, { color: text }]}>$</Text>
+                            <Text style={[styles.currencySymbol, { color: accent }]}>$</Text>
                             <TextInput
-                                style={[styles.priceInput, { borderBottomColor: text }]}
+                                style={[styles.priceInput, textStyle, { borderBottomColor: accent }]}
                                 value={price}
                                 onChangeText={handlePriceChange}
                                 onBlur={handlePriceBlur}
@@ -673,18 +675,18 @@ const SubventionSetupScreen = () => {
                                 numberOfLines={4}
                                 multiline
                             />
-                            <Text style={styles.perMonth}>{t('subventionSetup.perMonth')}</Text>
+                            <Text style={[styles.perMonth, { color: mutedText }]}>{t('subventionSetup.perMonth')}</Text>
                         </View>
 
                         <View style={styles.priceRange}>
-                            <Text style={styles.rangeText}>{t('subventionSetup.minPrice')}: $9</Text>
-                            <Text style={styles.rangeText}>{t('subventionSetup.maxPrice')}: $100</Text>
+                            <Text style={[styles.rangeText, { color: mutedText }]}>{t('subventionSetup.minPrice')}: $9</Text>
+                            <Text style={[styles.rangeText, { color: mutedText }]}>{t('subventionSetup.maxPrice')}: $100</Text>
                         </View>
 
                         <TextInput
-                            style={styles.commentBox}
+                            style={[styles.commentBox, cardStyle, { color: text, borderColor: border }]}
                             placeholder={t('subventionSetup.commentPlaceholder')}
-                            placeholderTextColor="#9ca3af"
+                            placeholderTextColor={mutedText}
                             multiline
                             value={comment}
                             onChangeText={setComment}
@@ -692,10 +694,10 @@ const SubventionSetupScreen = () => {
                             textAlignVertical="top"
                         />
 
-                        <View style={styles.subscriptionInfoCard}>
+                        <View style={[styles.subscriptionInfoCard, { backgroundColor: isDarkMode ? `${accent}22` : '#f9fafb' }]}>
                             <View>
-                                <Text style={styles.subscriptionInfoLabel}>{t('subventionSetup.subscriptionEnds')}</Text>
-                                <Text style={styles.subscriptionInfoValue}>{subscriptionEndDate}</Text>
+                                <Text style={[styles.subscriptionInfoLabel, { color: mutedText }]}>{t('subventionSetup.subscriptionEnds')}</Text>
+                                <Text style={[styles.subscriptionInfoValue, textStyle]}>{subscriptionEndDate}</Text>
                             </View>
                             <View style={[styles.subscriptionStatusBadge, isSubscriptionActive ? styles.subscriptionStatusBadgeActive : styles.subscriptionStatusBadgeInactive]}>
                                 <Text style={styles.subscriptionStatusText}>{subscriptionStatus}</Text>
@@ -704,31 +706,35 @@ const SubventionSetupScreen = () => {
                     </View>
 
                     {/* Content Creation Section */}
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>{t('subventionSetup.contentSectionTitle')}</Text>
-                        <Text style={styles.sectionSubtitle}>{t('subventionSetup.contentSectionSubtitle')}</Text>
+                    <View style={[styles.section, cardStyle, { shadowColor: text, borderColor: border, borderWidth: StyleSheet.hairlineWidth }]}>
+                        <Text style={[styles.sectionTitle, textStyle]}>{t('subventionSetup.contentSectionTitle')}</Text>
+                        <Text style={[styles.sectionSubtitle, { color: mutedText }]}>{t('subventionSetup.contentSectionSubtitle')}</Text>
 
                         <View style={styles.tabContainer}>
                             {contentTabs.map(tab => (
                                 <TouchableOpacity
                                     key={tab.id}
-                                    style={[styles.tab, selectedTab === tab.id && [bgStyle, { borderColor: text }]]}
+                                    style={[
+                                        styles.tab,
+                                        { backgroundColor: isDarkMode ? card : '#f3f4f6' },
+                                        selectedTab === tab.id && { backgroundColor: isDarkMode ? `${accent}33` : '#ede9fe', borderColor: accent },
+                                    ]}
                                     onPress={() => setSelectedTab(tab.id)}
                                 >
                                     <Text style={styles.tabIcon}>{tab.icon}</Text>
-                                    <Text style={[styles.tabLabel, selectedTab === tab.id && [{ color: text }]]}>
+                                    <Text style={[styles.tabLabel, { color: mutedText }, selectedTab === tab.id && { color: accent }]}>
                                         {tab.label}
                                     </Text>
                                 </TouchableOpacity>
                             ))}
                         </View>
 
-                        <View style={styles.contentArea}>
-                            <Text style={styles.contentTitle}>
+                        <View style={[styles.contentArea, { backgroundColor: isDarkMode ? `${accent}15` : '#f9fafb' }]}>
+                            <Text style={[styles.contentTitle, textStyle]}>
                                 {t('subventionSetup.createLabel')} {contentTabs.find(t => t.id === selectedTab)?.label}
                             </Text>
                             <TouchableOpacity
-                                style={[styles.createButton, { backgroundColor: text }]}
+                                style={[styles.createButton, { backgroundColor: accent }]}
                                 onPress={() => handleCreateContent(selectedTab)}
                             >
                                 <Text style={styles.createButtonText}>
@@ -739,19 +745,19 @@ const SubventionSetupScreen = () => {
                     </View>
 
                     {/* Content Protection Section */}
-                    <View style={styles.section}>
-                        <Text style={[styles.sectionTitle, { marginBottom: 12 }]}>{t('subventionSetup.protectionTitle')}</Text>
+                    <View style={[styles.section, cardStyle, { shadowColor: text, borderColor: border, borderWidth: StyleSheet.hairlineWidth }]}>
+                        <Text style={[styles.sectionTitle, textStyle, { marginBottom: 12 }]}>{t('subventionSetup.protectionTitle')}</Text>
                         <View style={styles.protectionItem}>
                             <Text style={styles.protectionIcon}>🚫</Text>
-                            <Text style={styles.protectionText}>{t('subventionSetup.noPrints')}</Text>
+                            <Text style={[styles.protectionText, textStyle]}>{t('subventionSetup.noPrints')}</Text>
                         </View>
                         <View style={styles.protectionItem}>
                             <Text style={styles.protectionIcon}>🚫</Text>
-                            <Text style={styles.protectionText}>{t('subventionSetup.noDownloads')}</Text>
+                            <Text style={[styles.protectionText, textStyle]}>{t('subventionSetup.noDownloads')}</Text>
                         </View>
                         <View style={styles.protectionItem}>
                             <Text style={styles.protectionIcon}>🚫</Text>
-                            <Text style={styles.protectionText}>{t('subventionSetup.noScreenshots')}</Text>
+                            <Text style={[styles.protectionText, textStyle]}>{t('subventionSetup.noScreenshots')}</Text>
                         </View>
                         {/* <View style={styles.protectionItem}>
                             <Text style={styles.protectionIcon}>⚠️</Text>
@@ -760,8 +766,8 @@ const SubventionSetupScreen = () => {
                     </View>
 
                     {/* Demo Button */}
-                    <TouchableOpacity style={styles.demoButton} onPress={handlePrintAttempt}>
-                        <Text style={styles.demoButtonText}>{t('subventionSetup.demoPrintWarning')}</Text>
+                    <TouchableOpacity style={[styles.demoButton, cardStyle, { borderColor: border, borderWidth: StyleSheet.hairlineWidth }]} onPress={handlePrintAttempt}>
+                        <Text style={[styles.demoButtonText, textStyle]}>{t('subventionSetup.demoPrintWarning')}</Text>
                     </TouchableOpacity>
 
                     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -770,25 +776,25 @@ const SubventionSetupScreen = () => {
                         <View style={{ marginTop: 15 }} />
 
                         {shouldShowAgreedButton ? (
-                            <TouchableOpacity style={[styles.agreedBtn, styles.agreedButton, {backgroundColor: text}]} activeOpacity={1} disabled>
+                            <TouchableOpacity style={[styles.agreedBtn, styles.agreedButton, { backgroundColor: card, borderColor: border, borderWidth: StyleSheet.hairlineWidth }]} activeOpacity={1} disabled>
                                 <Ionicons name="checkmark-circle" size={20} color="#16A34A" style={{ marginRight: 8 }} />
-                                <Text style={styles.saveButtonText}>{t('subventionSetup.agreedButton')}</Text>
+                                <Text style={[styles.saveButtonText, textStyle]}>{t('subventionSetup.agreedButton')}</Text>
                             </TouchableOpacity>
                         ) : (
                             <TouchableOpacity
-                                style={styles.checkboxRow}
+                                style={[styles.checkboxRow, cardStyle, { borderColor: border, borderWidth: StyleSheet.hairlineWidth }]}
                                 activeOpacity={0.8}
                                 onPress={() => setIsChecked(!isChecked)}
                             >
                                 <Ionicons
                                     name={isChecked ? 'checkbox-outline' : 'square-outline'}
                                     size={24}
-                                    color="#000"
+                                    color={icon}
                                     style={styles.checkboxIcon}
                                 />
-                                <Text style={styles.checkboxText}>
+                                <Text style={[styles.checkboxText, textStyle]}>
                                     {t('subventionSetup.agreePrefix')}{' '}
-                                    <Text style={styles.linkText} onPress={openTerms}>
+                                    <Text style={[styles.linkText, { color: accent }]} onPress={openTerms}>
                                         {t('subventionSetup.creatorTermsLink')}
                                     </Text>
                                     {t('subventionSetup.agreeSuffix')}
@@ -798,7 +804,7 @@ const SubventionSetupScreen = () => {
                     </ScrollView>
 
                     <TouchableOpacity
-                        style={[styles.saveButton, { opacity: !canSaveSubscription && 0.5, backgroundColor: text }]}
+                        style={[styles.saveButton, { opacity: !canSaveSubscription && 0.5, backgroundColor: accent }]}
                         onPress={handleSaveSubscription}
                         disabled={!canSaveSubscription}
                     >
@@ -865,11 +871,9 @@ const styles = StyleSheet.create({
         marginBottom: 20,
     },
     section: {
-        backgroundColor: '#fff',
         margin: 16,
         padding: 20,
         borderRadius: 12,
-        shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
         shadowRadius: 4,
@@ -878,12 +882,10 @@ const styles = StyleSheet.create({
     sectionTitle: {
         fontSize: 20,
         fontWeight: 'bold',
-        color: '#1f2937',
         marginBottom: 4,
     },
     sectionSubtitle: {
         fontSize: 14,
-        color: '#6b7280',
         marginBottom: 16,
     },
     priceInputContainer: {
@@ -896,15 +898,12 @@ const styles = StyleSheet.create({
     currencySymbol: {
         fontSize: 32,
         fontWeight: 'bold',
-        color: '#7c3aed',
         marginRight: 8,
     },
     priceInput: {
         fontSize: 48,
         fontWeight: 'bold',
-        color: '#1f2937',
         borderBottomWidth: 3,
-        borderBottomColor: '#7c3aed',
         minWidth: 100,
         textAlign: 'center',
         padding: 8,
@@ -912,7 +911,6 @@ const styles = StyleSheet.create({
     },
     perMonth: {
         fontSize: 18,
-        color: '#6b7280',
         marginLeft: 8,
     },
     priceRange: {
@@ -922,7 +920,6 @@ const styles = StyleSheet.create({
     },
     rangeText: {
         fontSize: 14,
-        color: '#6b7280',
     },
     tabContainer: {
         flexDirection: 'row',
@@ -933,7 +930,6 @@ const styles = StyleSheet.create({
     tab: {
         flex: 1,
         minWidth: '45%',
-        backgroundColor: '#f3f4f6',
         padding: 16,
         borderRadius: 12,
         alignItems: 'center',
@@ -957,7 +953,6 @@ const styles = StyleSheet.create({
         color: '#7c3aed',
     },
     contentArea: {
-        backgroundColor: '#f9fafb',
         padding: 20,
         borderRadius: 8,
         alignItems: 'center',
@@ -965,11 +960,9 @@ const styles = StyleSheet.create({
     contentTitle: {
         fontSize: 16,
         fontWeight: '600',
-        color: '#1f2937',
         marginBottom: 12,
     },
     createButton: {
-        backgroundColor: '#7c3aed',
         paddingVertical: 12,
         paddingHorizontal: 24,
         borderRadius: 8,
@@ -990,21 +983,17 @@ const styles = StyleSheet.create({
     },
     protectionText: {
         fontSize: 16,
-        color: '#374151',
     },
     demoButton: {
-        backgroundColor: '#f3f4f6',
         margin: 16,
         padding: 16,
         borderRadius: 8,
         borderWidth: 2,
-        borderColor: '#d1d5db',
         borderStyle: 'dashed',
     },
     demoButtonText: {
         textAlign: 'center',
         fontSize: 14,
-        color: '#6b7280',
         fontWeight: '600',
     },
     agreedBtn: {

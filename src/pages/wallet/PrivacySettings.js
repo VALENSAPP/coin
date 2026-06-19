@@ -8,6 +8,7 @@ import {
     TouchableOpacity,
     Alert,
     Linking,
+    StyleSheet,
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import styles from './Style';
@@ -19,6 +20,7 @@ import { showToastMessage } from '../../components/displaytoastmessage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { loggedOut } from '../../redux/actions/LoginAction';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useThemeContext } from '../../theme/ThemeContext';
 import { useLanguage } from '../../i18n';
 import { useNavigation } from '@react-navigation/native';
 import { getUserCredentials } from '../../services/post';
@@ -36,7 +38,8 @@ const PrivacySettingsScreen = () => {
     const dispatch = useDispatch();
     const navigation = useNavigation();
     const toast = useToast();
-    const { bgStyle, textStyle, cardStyle, text } = useAppTheme();
+    const { bgStyle, textStyle, cardStyle, text, mutedText, border, accent, card } = useAppTheme();
+    const { isDarkMode } = useThemeContext();
     const { t } = useLanguage();
 
     const [privacySettings, setPrivacySettings] = useState({
@@ -158,7 +161,7 @@ const PrivacySettingsScreen = () => {
 
     return (
         <SafeAreaView style={[styles.container, bgStyle]}>
-            <StatusBar barStyle="dark-content" />
+            <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
             <ScrollView
                 style={styles.content}
                 contentContainerStyle={styles.deleteScrollContent}
@@ -174,7 +177,7 @@ const PrivacySettingsScreen = () => {
                     <Text style={[styles.deleteHeroTitle, textStyle]}>
                         {t('privacySettings.beforeYouGo')}
                     </Text>
-                    <Text style={styles.deleteHeroSubtitle}>
+                    <Text style={[styles.deleteHeroSubtitle, { color: mutedText }]}>
                         {t('privacySettings.deletePermanentWarning')}
                     </Text>
                 </View>
@@ -183,27 +186,27 @@ const PrivacySettingsScreen = () => {
                     {t('privacySettings.youWillLose')}
                 </Text>
 
-                <View style={[styles.deleteLossCard, cardStyle]}>
+                <View style={[styles.deleteLossCard, cardStyle, { borderColor: border, borderWidth: StyleSheet.hairlineWidth }]}>
                     {LOSS_ITEMS.map((item, index) => (
                         <View
                             key={item.titleKey}
                             style={[
                                 styles.deleteLossItem,
-                                index < LOSS_ITEMS.length - 1 && styles.deleteLossItemBorder,
+                                index < LOSS_ITEMS.length - 1 && [styles.deleteLossItemBorder, { borderBottomColor: border }],
                             ]}
                         >
                             <View style={styles.deleteLossIconWrap}>
                                 <MaterialCommunityIcons
                                     name={item.icon}
                                     size={22}
-                                    color={text}
+                                    color={accent}
                                 />
                             </View>
                             <View style={styles.deleteLossItemContent}>
                                 <Text style={[styles.deleteLossItemTitle, textStyle]}>
                                     {t(`privacySettings.${item.titleKey}`)}
                                 </Text>
-                                <Text style={styles.deleteLossItemDesc}>
+                                <Text style={[styles.deleteLossItemDesc, { color: mutedText }]}>
                                     {t(`privacySettings.${item.descKey}`)}
                                 </Text>
                             </View>
@@ -211,38 +214,50 @@ const PrivacySettingsScreen = () => {
                     ))}
                 </View>
 
-                <View style={[styles.deleteSupportCard, cardStyle]}>
+                <View style={[styles.deleteSupportCard, cardStyle, { borderColor: border, borderWidth: StyleSheet.hairlineWidth }]}>
                     <View style={styles.deleteSupportRow}>
                         <MaterialCommunityIcons
                             name="headset"
                             size={28}
-                            color={text}
+                            color={accent}
                             style={styles.deleteSupportIcon}
                         />
                         <View style={styles.deleteSupportTextWrap}>
                             <Text style={[styles.deleteSupportTitle, textStyle]}>
                                 {t('privacySettings.supportTitle')}
                             </Text>
-                            <Text style={styles.deleteSupportDesc}>
+                            <Text style={[styles.deleteSupportDesc, { color: mutedText }]}>
                                 {t('privacySettings.supportDesc')}
                             </Text>
                         </View>
                     </View>
                     <TouchableOpacity
-                        style={[styles.deleteSupportButton, { borderColor: text }]}
+                        style={[
+                            styles.deleteSupportButton,
+                            {
+                                borderColor: accent,
+                                backgroundColor: isDarkMode ? 'transparent' : card,
+                            },
+                        ]}
                         onPress={handleContactSupport}
                     >
-                        <Text style={[styles.deleteSupportButtonText, { color: text }]}>
+                        <Text style={[styles.deleteSupportButtonText, { color: accent }]}>
                             {t('privacySettings.contactSupport')}
                         </Text>
                     </TouchableOpacity>
                 </View>
 
                 <TouchableOpacity
-                    style={[styles.keepAccountButton, { borderColor: text }]}
+                    style={[
+                        styles.keepAccountButton,
+                        {
+                            backgroundColor: card,
+                            borderColor: accent,
+                        },
+                    ]}
                     onPress={() => navigation.goBack()}
                 >
-                    <Text style={[styles.keepAccountButtonText, { color: text }]}>
+                    <Text style={[styles.keepAccountButtonText, { color: accent }]}>
                         {t('privacySettings.keepMyAccount')}
                     </Text>
                 </TouchableOpacity>

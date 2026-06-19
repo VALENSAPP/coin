@@ -1,8 +1,10 @@
 import { StyleSheet, Dimensions } from 'react-native';
 import { useAppTheme } from '../../../theme/useApptheme';
+
 const { height } = Dimensions.get('window');
+
 const useSignupStyles = () => {
-  const { bg, text } = useAppTheme();
+  const { bg, text, card, border, mutedText, accent } = useAppTheme();
 
   const styles = StyleSheet.create({
     container: {
@@ -12,14 +14,13 @@ const useSignupStyles = () => {
       flexGrow: 1,
     },
 
-    // Form wrapper styles
     formWrapper: {
       flex: 1,
       marginTop: -30,
       paddingHorizontal: 7,
     },
     card: {
-      backgroundColor: '#FFFFFF',
+      backgroundColor: card,
       borderTopLeftRadius: 32,
       borderTopRightRadius: 32,
       padding: 24,
@@ -32,7 +33,6 @@ const useSignupStyles = () => {
       elevation: 8,
     },
 
-    // Welcome Section
     welcomeSection: {
       alignItems: 'center',
       marginBottom: 32,
@@ -40,20 +40,19 @@ const useSignupStyles = () => {
     welcomeTitle: {
       fontSize: 26,
       fontWeight: '700',
-      color: '#1F2937',
+      color: text,
       marginBottom: 12,
       textAlign: 'center',
     },
     welcomeSubtitle: {
       fontSize: 16,
-      color: '#6B7280',
+      color: mutedText,
       fontWeight: '400',
       textAlign: 'center',
       lineHeight: 24,
       paddingHorizontal: 10,
     },
 
-    // Enhanced Input Styles
     inputContainer: {
       width: '100%',
     },
@@ -63,7 +62,7 @@ const useSignupStyles = () => {
     inputLabel: {
       fontSize: 14,
       fontWeight: '600',
-      color: '#374151',
+      color: text,
       marginBottom: 8,
     },
     inputLabelRow: {
@@ -76,17 +75,17 @@ const useSignupStyles = () => {
       flexDirection: 'row',
       alignItems: 'center',
       height: 52,
-      backgroundColor: '#F9FAFB',
+      backgroundColor: bg,
       borderRadius: 16,
       borderWidth: 1.5,
-      borderColor: '#E5E7EB',
+      borderColor: border,
       paddingHorizontal: 12,
     },
     inputIconContainer: {
       width: 40,
       height: 40,
       borderRadius: 12,
-      backgroundColor: '#EDE9FE',
+      backgroundColor: `${accent}22`,
       alignItems: 'center',
       justifyContent: 'center',
       marginRight: 12,
@@ -94,7 +93,7 @@ const useSignupStyles = () => {
     textInput: {
       flex: 1,
       fontSize: 16,
-      color: '#1F2937',
+      color: text,
       fontWeight: '400',
     },
     eyeIcon: {
@@ -115,34 +114,29 @@ const useSignupStyles = () => {
       paddingHorizontal: 10,
       paddingVertical: 4,
       borderRadius: 999,
-      backgroundColor: '#F3F4F6',
+      backgroundColor: bg,
       marginBottom: 8,
     },
     optionalBadgeText: {
       fontSize: 11,
       fontWeight: '700',
-      color: '#6B7280',
+      color: mutedText,
       textTransform: 'uppercase',
       letterSpacing: 0.5,
     },
     helperText: {
-      color: '#6B7280',
+      color: mutedText,
       fontSize: 12,
       lineHeight: 18,
       marginTop: 8,
       marginLeft: 4,
     },
 
-    // Sign Up Button
     signupButton: {
       height: 52,
       borderRadius: 16,
       alignItems: 'center',
       justifyContent: 'center',
-      // shadowOffset: { width: 0, height: 4 },
-      // shadowOpacity: 0.3,
-      // shadowRadius: 8,
-      // elevation: 6,
       marginBottom: 24,
     },
     signupButtonText: {
@@ -150,7 +144,7 @@ const useSignupStyles = () => {
       fontWeight: '700',
       color: '#FFFFFF',
     },
-    // Divider
+
     dividerContainer: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -159,25 +153,24 @@ const useSignupStyles = () => {
     divider: {
       flex: 1,
       height: 1,
-      backgroundColor: '#E5E7EB',
+      backgroundColor: border,
     },
     orText: {
       marginHorizontal: 16,
       fontSize: 14,
-      color: '#6B7280',
+      color: mutedText,
       fontWeight: '500',
     },
 
-    // Social Buttons
     googleButton: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
       height: 52,
-      backgroundColor: '#FFFFFF',
+      backgroundColor: card,
       borderRadius: 16,
       borderWidth: 2,
-      borderColor: '#E5E7EB',
+      borderColor: border,
       marginBottom: 12,
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 2 },
@@ -188,7 +181,7 @@ const useSignupStyles = () => {
     googleButtonText: {
       fontSize: 16,
       fontWeight: '600',
-      color: '#374151',
+      color: text,
       marginLeft: 12,
     },
     twitterButton: {
@@ -212,27 +205,25 @@ const useSignupStyles = () => {
       marginLeft: 12,
     },
 
-    // Terms Text
     termsText: {
       fontSize: 12,
-      color: '#6B7280',
+      color: mutedText,
       textAlign: 'center',
       lineHeight: 18,
       paddingHorizontal: 20,
       marginBottom: 24,
     },
 
-    // Login Section
     loginSection: {
       alignItems: 'center',
       marginTop: 16,
       paddingTop: 16,
       borderTopWidth: 1,
-      borderTopColor: '#E5E7EB',
+      borderTopColor: border,
     },
     loginText: {
       fontSize: 16,
-      color: '#6B7280',
+      color: mutedText,
       fontWeight: '400',
     },
     loginLink: {
@@ -250,10 +241,10 @@ const useSignupStyles = () => {
       alignItems: 'center',
       justifyContent: 'center',
       height: 52,
-      backgroundColor: '#FFFFFF',
+      backgroundColor: card,
       borderRadius: 16,
       borderWidth: 1.5,
-      borderColor: '#E5E7EB',
+      borderColor: border,
       paddingHorizontal: 16,
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 2 },
@@ -264,7 +255,7 @@ const useSignupStyles = () => {
     socialButtonText: {
       fontSize: 16,
       fontWeight: '600',
-      color: '#374151',
+      color: text,
       marginLeft: 8,
     },
     appleSocialButton: {
@@ -273,10 +264,10 @@ const useSignupStyles = () => {
       alignItems: 'center',
       justifyContent: 'center',
       height: 52,
-      backgroundColor: '#FFFFFF',
+      backgroundColor: card,
       borderRadius: 16,
       borderWidth: 1.5,
-      borderColor: '#E5E7EB',
+      borderColor: border,
       paddingHorizontal: 16,
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 2 },
@@ -287,7 +278,6 @@ const useSignupStyles = () => {
       marginBottom: 11
     },
 
-    // Social Section Header
     socialSectionHeader: {
       alignItems: 'center',
       marginBottom: 16,
@@ -307,10 +297,11 @@ const useSignupStyles = () => {
       marginLeft: 10,
       fontSize: 16,
       fontWeight: '400',
-      color: '#374151',
+      color: text,
     },
 
   });
   return styles;
 };
+
 export default useSignupStyles;

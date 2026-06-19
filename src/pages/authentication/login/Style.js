@@ -1,10 +1,10 @@
 import { StyleSheet, Dimensions } from "react-native";
 import { useAppTheme } from "../../../theme/useApptheme";
 
-const { width, height } = Dimensions.get('window');
+const { height } = Dimensions.get('window');
 
 const createStyles = () => {
-  const { bg, text } = useAppTheme();
+  const { bg, text, card, border, mutedText, accent, icon } = useAppTheme();
 
   const styles = StyleSheet.create({
     container: {
@@ -27,9 +27,9 @@ const createStyles = () => {
       paddingVertical: 8,
       paddingHorizontal: 8,
       borderRadius: 14,
-      backgroundColor: '#F3F4F6',
+      backgroundColor: card,
       borderWidth: 1,
-      borderColor: '#E5E7EB',
+      borderColor: border,
       top: 50,
       position: 'absolute',
       zIndex: 10,
@@ -38,17 +38,16 @@ const createStyles = () => {
     backToAppLabel: {
       fontSize: 15,
       fontWeight: '600',
-      color: '#374151',
+      color: text,
     },
 
-    // Form wrapper styles
     formWrapper: {
       flex: 1,
       marginTop: -20,
       paddingHorizontal: 7,
     },
     card: {
-      backgroundColor: '#FFFFFF',
+      backgroundColor: card,
       borderTopLeftRadius: 32,
       borderTopRightRadius: 32,
       padding: 24,
@@ -60,8 +59,7 @@ const createStyles = () => {
       shadowOffset: { width: 0, height: -4 },
       elevation: 8,
     },
-    
-    // Welcome Section
+
     welcomeSection: {
       alignItems: 'center',
       marginBottom: 32,
@@ -69,16 +67,15 @@ const createStyles = () => {
     welcomeTitle: {
       fontSize: 28,
       fontWeight: '700',
-      color: '#1F2937',
+      color: text,
       marginBottom: 8,
     },
     welcomeSubtitle: {
       fontSize: 16,
-      color: '#6B7280',
+      color: mutedText,
       fontWeight: '400',
     },
 
-    // Enhanced Input Styles
     inputContainer: {
       width: '100%',
     },
@@ -88,24 +85,24 @@ const createStyles = () => {
     inputLabel: {
       fontSize: 14,
       fontWeight: '600',
-      color: '#374151',
+      color: text,
       marginBottom: 8,
     },
     inputGroup: {
       flexDirection: 'row',
       alignItems: 'center',
       height: 52,
-      backgroundColor: '#F9FAFB',
+      backgroundColor: bg,
       borderRadius: 16,
       borderWidth: 1.5,
-      borderColor: '#E5E7EB',
+      borderColor: border,
       paddingHorizontal: 12,
     },
     inputIconContainer: {
       width: 40,
       height: 40,
       borderRadius: 12,
-      backgroundColor: '#EDE9FE',
+      backgroundColor: `${accent}22`,
       alignItems: 'center',
       justifyContent: 'center',
       marginRight: 12,
@@ -113,7 +110,7 @@ const createStyles = () => {
     textInput: {
       flex: 1,
       fontSize: 16,
-      color: '#1F2937',
+      color: text,
       fontWeight: '400',
     },
     inputError: {
@@ -131,20 +128,19 @@ const createStyles = () => {
       fontWeight: '500',
     },
 
-    // Language Selector Styles
     langDropdown: {
       justifyContent: 'space-between',
     },
     langText: {
       flex: 1,
       fontSize: 16,
-      color: '#1F2937',
+      color: text,
       marginLeft: 12,
       fontWeight: '400',
     },
     langDropdownList: {
       marginTop: -1,
-      backgroundColor: '#FFFFFF',
+      backgroundColor: card,
       borderRadius: 12,
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 2 },
@@ -154,7 +150,7 @@ const createStyles = () => {
       zIndex: 10,
       padding: 4,
       borderWidth: 1,
-      borderColor: '#E5E7EB',
+      borderColor: border,
     },
     langOption: {
       paddingVertical: 12,
@@ -163,11 +159,10 @@ const createStyles = () => {
     },
     langOptionText: {
       fontSize: 16,
-      color: '#374151',
+      color: text,
       fontWeight: '500',
     },
 
-    // Enhanced Button Styles
     forgotPasswordBtn: {
       alignSelf: 'flex-end',
       marginBottom: 24,
@@ -175,17 +170,17 @@ const createStyles = () => {
     },
     forgotPasswordText: {
       fontSize: 14,
-      color: text,
+      color: accent,
       fontWeight: '600',
     },
     loginButtonGradient: {
       height: 52,
-      backgroundColor: text,
+      backgroundColor: accent,
       borderRadius: 16,
       marginBottom: 24,
       alignItems: 'center',
       justifyContent: 'center',
-      shadowColor: text,
+      shadowColor: accent,
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.3,
       shadowRadius: 8,
@@ -203,7 +198,6 @@ const createStyles = () => {
       color: '#FFFFFF',
     },
 
-    // Enhanced Divider
     dividerSection: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -212,16 +206,15 @@ const createStyles = () => {
     dividerLine: {
       flex: 1,
       height: 1,
-      backgroundColor: '#E5E7EB',
+      backgroundColor: border,
     },
     dividerText: {
       marginHorizontal: 16,
       fontSize: 14,
-      color: '#6B7280',
+      color: mutedText,
       fontWeight: '500',
     },
 
-    // Enhanced Social Buttons
     socialButtonsContainer: {
       flexDirection: 'row',
       justifyContent: 'space-between',
@@ -234,10 +227,10 @@ const createStyles = () => {
       alignItems: 'center',
       justifyContent: 'center',
       height: 52,
-      backgroundColor: '#FFFFFF',
+      backgroundColor: card,
       borderRadius: 16,
       borderWidth: 1.5,
-      borderColor: '#E5E7EB',
+      borderColor: border,
       paddingHorizontal: 16,
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 2 },
@@ -248,7 +241,7 @@ const createStyles = () => {
     socialButtonText: {
       fontSize: 16,
       fontWeight: '600',
-      color: '#374151',
+      color: text,
       marginLeft: 8,
     },
     appleSocialButton: {
@@ -257,10 +250,10 @@ const createStyles = () => {
       alignItems: 'center',
       justifyContent: 'center',
       height: 52,
-      backgroundColor: '#FFFFFF',
+      backgroundColor: card,
       borderRadius: 16,
       borderWidth: 1.5,
-      borderColor: '#E5E7EB',
+      borderColor: border,
       paddingHorizontal: 16,
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 2 },
@@ -271,7 +264,6 @@ const createStyles = () => {
       marginBottom: 11
     },
 
-    // Social Section Header
     socialSectionHeader: {
       alignItems: 'center',
       marginBottom: 16,
@@ -283,36 +275,34 @@ const createStyles = () => {
       textAlign: 'center',
     },
 
-    // Sign Up Section
     signupSection: {
       alignItems: 'center',
     },
     signupText: {
       fontSize: 16,
-      color: '#6B7280',
+      color: mutedText,
       fontWeight: '400',
     },
     signupLink: {
-      color: text,
+      color: accent,
       fontWeight: '700',
     },
 
-    // Legacy styles (keeping for compatibility)
     headings: {
       fontSize: 14,
       fontWeight: '600',
-      color: '#000',
+      color: text,
       marginBottom: 7
     },
     input: {
       height: 45,
-      borderColor: '#dbdbdb',
+      borderColor: border,
       borderWidth: 1,
       borderRadius: 9,
       marginBottom: 12,
       paddingHorizontal: 10,
-      backgroundColor: '#fff',
-      color: '#000',
+      backgroundColor: card,
+      color: text,
     },
     icon: {
       position: 'absolute',
@@ -320,7 +310,7 @@ const createStyles = () => {
       top: 32,
     },
     forgotText: {
-      color: '#000',
+      color: text,
       marginTop: 10,
       fontSize: 14,
       marginBottom: 10,
@@ -335,11 +325,11 @@ const createStyles = () => {
     divider: {
       flex: 1,
       height: 1,
-      backgroundColor: '#dbdbdb',
+      backgroundColor: border,
     },
     orText: {
       marginHorizontal: 10,
-      color: '#8e8e8e',
+      color: mutedText,
       fontWeight: '600',
     },
     fbContainer: {
@@ -376,12 +366,12 @@ const createStyles = () => {
       fontWeight: '600',
     },
     socialBtnText2: {
-      color: bg,
+      color: '#FFFFFF',
       fontSize: 16,
       fontWeight: '600',
     },
     socialBtnText3: {
-      color: 'black',
+      color: text,
       fontSize: 16,
       fontWeight: '600',
     },
@@ -392,17 +382,17 @@ const createStyles = () => {
       borderColor: '#3897f0',
     },
     twitterBtn: {
-      backgroundColor: 'black',
+      backgroundColor: '#111111',
     },
     metamaskBtn: {
       backgroundColor: bg,
       marginTop: 10,
       width: '100%',
       borderWidth: 1,
-      borderColor: 'black',
+      borderColor: border,
     },
   });
-  
+
   return styles;
 };
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
     View,
     Text,
@@ -14,6 +14,8 @@ import LinearGradient from 'react-native-linear-gradient';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { subscriptionEarningGraph, totalSupport } from '../../services/wallet';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useThemeContext } from '../../theme/ThemeContext';
+import { getWalletScreenGradient, getWalletIllustrationGradient } from '../../utils/walletDarkTheme';
 import { getUserCredentials } from '../../services/post';
 import { useLanguage } from '../../i18n';
 import SubscriptionTrendChart, {
@@ -89,8 +91,10 @@ const TxAvatar = ({ imageUrl, text, size = 44 }) => {
 // ── Main Screen ───────────────────────────────────────────────────────────────
 export default function RevenueFromSubscriptions({ navigation, route }) {
     const { isBusinessProfile } = route?.params || {};
-    const { bgStyle, text } = useAppTheme();
+    const { isDarkMode } = useThemeContext();
+    const { bgStyle, textStyle, text, cardStyle, accent, mutedText, border, card } = useAppTheme();
     const { t } = useLanguage();
+    const gradientText = '#ffffff';
 
     const [chartPeriod, setChartPeriod] = useState('Daily');
     const [graphData, setGraphData] = useState([]);
@@ -102,13 +106,15 @@ export default function RevenueFromSubscriptions({ navigation, route }) {
     const [transactions, setTransactions] = useState([]);
     const [revenueLoading, setRevenueLoading] = useState(false);
 
-    const walletScreenGradient = isBusinessProfile
-        ? ['#D3B683', '#f8f2fd']
-        : ['#513189', '#f8f2fd'];
+    const walletScreenGradient = useMemo(
+        () => getWalletScreenGradient(isBusinessProfile, isDarkMode, accent, card),
+        [isBusinessProfile, isDarkMode, accent, card],
+    );
 
-    const walletIllustrationGradient = isBusinessProfile
-        ? ['#8A6B2C', '#E0C06E']
-        : ['#5F348D', '#9A68D2'];
+    const walletIllustrationGradient = useMemo(
+        () => getWalletIllustrationGradient(isDarkMode, accent),
+        [isDarkMode, accent],
+    );
 
     // ── Fetch graph ────────────────────────────────────────────────────────────
     const fetchGraph = useCallback(async () => {
@@ -200,13 +206,13 @@ export default function RevenueFromSubscriptions({ navigation, route }) {
                         style={styles.revenueCard}
                     >
                         <View style={styles.revenueContent}>
-                            <Text style={[styles.revenueLabel, { color: text }]}>{t('revenue.totalRevenue')}</Text>
-                            <Text style={[styles.revenueAmount, { color: text }]}>
+                            <Text style={[styles.revenueLabel, { color: gradientText }]}>{t('revenue.totalRevenue')}</Text>
+                            <Text style={[styles.revenueAmount, { color: gradientText }]}>
                                 {revenueLoading ? '…' : `$${Number(totalRevenue).toFixed(2)}`}
                             </Text>
                             <View style={styles.stripeRow}>
-                                <Text style={[styles.poweredBy, { color: text }]}>{t('revenue.poweredBy')} </Text>
-                                <Text style={[styles.stripeBrand, { color: text }]}>stripe</Text>
+                                <Text style={[styles.poweredBy, { color: gradientText }]}>{t('revenue.poweredBy')} </Text>
+                                <Text style={[styles.stripeBrand, { color: gradientText }]}>stripe</Text>
                             </View>
                         </View>
                         <View style={styles.walletIllustration}>
@@ -234,15 +240,15 @@ export default function RevenueFromSubscriptions({ navigation, route }) {
                 <View style={[styles.section, bgStyle]}>
                     <View style={styles.sectionHeader}>
                         <Text style={[styles.sectionTitle, { color: text }]}>{t('revenue.howItWorks')}</Text>
-                        <View style={styles.instantSplitBox}>
-                            <Text style={[styles.instantSplitLabel, { color: text }]}>{t('revenue.instantSplit')}</Text>
+                        <View style={[styles.instantSplitBox, { backgroundColor: isDarkMode ? `${accent}33` : '#f5f3ff' }]}>
+                            <Text style={[styles.instantSplitLabel, textStyle]}>{t('revenue.instantSplit')}</Text>
                             <View style={styles.splitPercentRow}>
-                                <Text style={[styles.splitPct, { color: text }]}>80%</Text>
-                                <Text style={[styles.splitPctLabel, { color: text }]}> {t('revenue.toYou')}</Text>
+                                <Text style={[styles.splitPct, textStyle]}>80%</Text>
+                                <Text style={[styles.splitPctLabel, { color: mutedText }]}> {t('revenue.toYou')}</Text>
                             </View>
                             <View style={styles.splitPercentRow}>
-                                <Text style={[styles.splitPct, { color: text, fontSize: 14 }]}>20%</Text>
-                                <Text style={[styles.splitPctLabel, { color: text }]}> {t('revenue.valensFee')}</Text>
+                                <Text style={[styles.splitPct, textStyle, { fontSize: 14 }]}>20%</Text>
+                                <Text style={[styles.splitPctLabel, { color: mutedText }]}> {t('revenue.valensFee')}</Text>
                             </View>
                         </View>
                     </View>
@@ -262,7 +268,7 @@ export default function RevenueFromSubscriptions({ navigation, route }) {
                                     />
                                 )}
                                 <View style={styles.flowStep}>
-                                    <View style={styles.flowIcon}>
+                                    <View style={[styles.flowIcon, { backgroundColor: isDarkMode ? `${accent}33` : '#f5f3ff' }]}>
                                         <Ionicons name={step.icon} size={20} color={text} />
                                     </View>
                                     <Text style={[styles.flowLabel, { color: text }]}>{step.label}</Text>
@@ -284,13 +290,14 @@ export default function RevenueFromSubscriptions({ navigation, route }) {
                                 key={p}
                                 style={[
                                     styles.periodButton,
-                                    chartPeriod === p && { backgroundColor: text },
+                                    chartPeriod === p && { backgroundColor: accent },
                                 ]}
                                 onPress={() => setChartPeriod(p)}
                             >
                                 <Text
                                     style={[
                                         styles.periodButtonText,
+                                        { color: mutedText },
                                         chartPeriod === p && styles.periodButtonTextActive,
                                     ]}
                                 >
@@ -299,7 +306,7 @@ export default function RevenueFromSubscriptions({ navigation, route }) {
                             </TouchableOpacity>
                         ))}
                     </View>
-                    <View style={[styles.chartContainer, { shadowColor: text }]}>
+                    <View style={[styles.chartContainer, cardStyle, { shadowColor: text, borderColor: border, borderWidth: StyleSheet.hairlineWidth }]}>
                         <Text style={[styles.chartLabel, { color: text, marginBottom: 12 }]}>
                             {t('revenue.subscriptionEarnings')}
                         </Text>
@@ -500,7 +507,6 @@ const styles = StyleSheet.create({
 
     // How it works
     instantSplitBox: {
-        backgroundColor: '#f5f3ff',
         borderRadius: 10,
         padding: 10,
         alignItems: 'flex-start',
@@ -515,7 +521,6 @@ const styles = StyleSheet.create({
         width: 44,
         height: 44,
         borderRadius: 22,
-        backgroundColor: '#f5f3ff',
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 6,
@@ -538,13 +543,12 @@ const styles = StyleSheet.create({
         paddingVertical: 6,
         borderRadius: 6,
     },
-    periodButtonText: { fontSize: 12, color: '#64748b', textAlign: 'center' },
+    periodButtonText: { fontSize: 12, textAlign: 'center' },
     // active bg = `text` → white text ensures contrast on both light and dark
     periodButtonTextActive: { color: '#fff', fontWeight: '600' },
 
     // Chart
     chartContainer: {
-        backgroundColor: '#fff',
         borderRadius: 16,
         padding: 12,
         shadowOffset: { width: 0, height: 4 },

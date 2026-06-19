@@ -65,7 +65,7 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [showLangDropdown, setShowLangDropdown] = useState(false);
   const isAddAccount = useSelector(state => state.addAccount.isAddAccount);
-  const { bgStyle, textStyle, bg, text } = useAppTheme();
+  const { bgStyle, textStyle, bg, text, accent, icon, mutedText } = useAppTheme();
   const { t, currentLanguage, languageNames, languages, changeLanguage, isLoading: langLoading } = useLanguage();
 
   const safeTop =
@@ -378,7 +378,7 @@ export default function LoginScreen() {
               accessibilityRole="button"
               accessibilityLabel="Back to the app"
             >
-              <Icon name="arrow-back" size={22} color="#374151" />
+              <Icon name="arrow-back" size={22} color={icon} />
               <Text style={styles.backToAppLabel}>{t('login.backToApp')}</Text>
             </TouchableOpacity>
           </View>
@@ -419,7 +419,7 @@ export default function LoginScreen() {
                   <TextInput
                     style={styles.textInput}
                     placeholder={t('login.emailPlaceholder')}
-                    placeholderTextColor="#9CA3AF"
+                    placeholderTextColor={mutedText}
                     onChangeText={t => {
                       setEmail(t);
                       if (errors.email) validate();
@@ -451,7 +451,7 @@ export default function LoginScreen() {
                   <TextInput
                     style={styles.textInput}
                     placeholder={t('login.passwordPlaceholder')}
-                    placeholderTextColor="#9CA3AF"
+                    placeholderTextColor={mutedText}
                     onChangeText={t => {
                       setPassword(t);
                       if (errors.password) validate();
@@ -485,7 +485,7 @@ export default function LoginScreen() {
                     <Ionicons name="language" size={22} color={text} />
                   </View>
                   <Text style={styles.langText}>{languageNames[currentLanguage] || 'English'}</Text>
-                  <Ionicons name={showLangDropdown ? "chevron-up" : "chevron-down"} size={22} color="#6B7280" />
+                  <Ionicons name={showLangDropdown ? "chevron-up" : "chevron-down"} size={22} color={mutedText} />
                 </TouchableOpacity>
                 {showLangDropdown && (
                   <View style={styles.langDropdownList}>

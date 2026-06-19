@@ -27,6 +27,7 @@ import {
 } from '../../../services/privatecircle';
 import { hideLoader, showLoader } from '../../../redux/actions/LoaderAction';
 import { useAppTheme } from '../../../theme/useApptheme';
+import { useThemeContext } from '../../../theme/ThemeContext';
 import { useLanguage } from '../../../i18n';
 import { showToastMessage } from '../../../components/displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
@@ -80,14 +81,15 @@ export default function PrivateCircleSelectMembers() {
   const [removingIds, setRemovingIds] = useState([]);
   const [addingIds, setAddingIds] = useState([]);
 
-  const { text } = useAppTheme(profileType);
+  const { bgStyle, textStyle, cardStyle, accent, mutedText, border, icon } = useAppTheme(profileType);
+  const { isDarkMode } = useThemeContext();
   const { t } = useLanguage();
 
   const isCompanyProfile = profileType === 'company';
   const profileActionGradient = isCompanyProfile
     ? ['#D3B683', '#D3B683']
     : ['#513189bd', '#e54ba0'];
-  const headingColor = isCompanyProfile ? '#B8954F' : '#513189';
+  const headingColor = isDarkMode ? accent : (isCompanyProfile ? '#B8954F' : '#513189');
 
   useEffect(() => {
     AsyncStorage.getItem('profile').then((type) => setProfileType(type || ''));
@@ -361,13 +363,13 @@ export default function PrivateCircleSelectMembers() {
         onPress={() => toggleMember(normalizedId)}
         disabled={isBusy}
       >
-        <HexAvatar uri={item.avatar} size={52} borderWidth={2} borderColor="#E5E7EB" />
-        <Text style={[styles.rowName, { color: headingColor }]} numberOfLines={1}>
+        <HexAvatar uri={item.avatar} size={52} borderWidth={2} borderColor={border} />
+        <Text style={[styles.rowName, textStyle]} numberOfLines={1}>
           {item.username}
         </Text>
-        <View style={[styles.rowCheck, isSelected && { backgroundColor: text || headingColor }]}>
+        <View style={[styles.rowCheck, { borderColor: border }, isSelected && { backgroundColor: accent, borderColor: accent }]}>
           {isBusy ? (
-            <ActivityIndicator size="small" color={headingColor} />
+            <ActivityIndicator size="small" color={accent} />
           ) : (
             isSelected && <Ionicons name="checkmark" size={16} color="#fff" />
           )}
@@ -377,7 +379,7 @@ export default function PrivateCircleSelectMembers() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+    <SafeAreaView style={[styles.container, bgStyle]} edges={['top', 'bottom']}>
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => {
@@ -389,27 +391,27 @@ export default function PrivateCircleSelectMembers() {
           }}
           style={styles.backBtn}
         >
-          <Ionicons name="chevron-back" size={26} color={headingColor} />
+          <Ionicons name="chevron-back" size={26} color={icon} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: headingColor }]}>
+        <Text style={[styles.headerTitle, textStyle]}>
           {t('privateCircleMint.pickerTitle')}
         </Text>
         <View style={styles.backBtn} />
       </View>
 
-      <View style={[styles.searchWrap, { borderColor: '#E5E7EB' }]}>
-        <Ionicons name="search" size={18} color="#888" />
+      <View style={[styles.searchWrap, cardStyle, { borderColor: border }]}>
+        <Ionicons name="search" size={18} color={mutedText} />
         <TextInput
           value={search}
           onChangeText={setSearch}
           placeholder={t('privateCircleMint.searchPlaceholder')}
-          placeholderTextColor="#999"
-          style={[styles.searchInput, { color: headingColor }]}
+          placeholderTextColor={mutedText}
+          style={[styles.searchInput, textStyle]}
         />
       </View>
 
       {loadingPool ? (
-        <ActivityIndicator style={styles.loader} size="large" color={text} />
+        <ActivityIndicator style={styles.loader} size="large" color={accent} />
       ) : (
         <FlatList
           data={filtered}
@@ -417,7 +419,7 @@ export default function PrivateCircleSelectMembers() {
           renderItem={renderRow}
           contentContainerStyle={styles.list}
           ListEmptyComponent={
-            <Text style={[styles.emptyText, { color: headingColor }]}>
+            <Text style={[styles.emptyText, { color: mutedText }]}>
               {t('privateCircleMint.noMembersFound')}
             </Text>
           }
@@ -431,7 +433,7 @@ export default function PrivateCircleSelectMembers() {
           onPress={handleContinue}
           style={[
             styles.primaryBtnWrap,
-            { backgroundColor: text || headingColor, opacity: selectedIds.length === 0 ? 0.5 : 1 },
+            { opacity: selectedIds.length === 0 ? 0.5 : 1 },
           ]}
         >
           <LinearGradient
@@ -453,7 +455,6 @@ export default function PrivateCircleSelectMembers() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
   },
   header: {
     flexDirection: 'row',
@@ -508,7 +509,6 @@ const styles = StyleSheet.create({
     height: 26,
     borderRadius: 13,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
     alignItems: 'center',
     justifyContent: 'center',
   },

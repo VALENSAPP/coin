@@ -5,12 +5,16 @@ import { getAllMissionPost } from '../../services/wallet';
 import LinearGradient from 'react-native-linear-gradient';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useThemeContext } from '../../theme/ThemeContext';
+import { getWalletScreenGradient } from '../../utils/walletDarkTheme';
 import { useFocusEffect } from '@react-navigation/native';
 import { useLanguage } from '../../i18n';
 
 export default function ViewMissioPost({ navigation, route }) {
     const { isBusinessProfile } = route.params || {};
-    const { bgStyle, text } = useAppTheme();
+    const { isDarkMode } = useThemeContext();
+    const { bgStyle, textStyle, text, cardStyle, accent, mutedText, border, card } = useAppTheme();
+    const gradientText = '#ffffff';
     const { t } = useLanguage();
 
     const [missions, setMissions] = useState([]);
@@ -132,8 +136,8 @@ export default function ViewMissioPost({ navigation, route }) {
     };
 
     const walletScreenGradient = useMemo(
-        () => isBusinessProfile ? ['#D3B683', '#f8f2fd'] : ['#513189', '#f8f2fd'],
-        [isBusinessProfile]
+        () => getWalletScreenGradient(isBusinessProfile, isDarkMode, accent, card),
+        [isBusinessProfile, isDarkMode, accent, card],
     );
 
     const filterTabs = [
@@ -183,33 +187,40 @@ export default function ViewMissioPost({ navigation, route }) {
                     >
                         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                             <View>
-                                <Text style={[styles.headerTitle, { color: text }]}>
+                                <Text style={[styles.headerTitle, { color: gradientText }]}>
                                     {t('viewMissionPost.totalEarned')}
                                 </Text>
-                                <Text style={[styles.headerAmount, { color: text }]}>${totalEarned}</Text>
-                                <Text style={[styles.headerActive, { color: text }]}>
+                                <Text style={[styles.headerAmount, { color: gradientText }]}>${totalEarned}</Text>
+                                <Text style={[styles.headerActive, { color: gradientText }]}>
                                     {t('viewMissionPost.active')}: {activeCount}
                                 </Text>
                             </View>
-                            <Ionicons name="ribbon" size={48} color={text} style={{ marginRight: 10 }} />
+                            <Ionicons name="ribbon" size={48} color={gradientText} style={{ marginRight: 10 }} />
                         </View>
                     </LinearGradient>
                 </View>
 
                 {/* Section Title */}
-                <Text style={[styles.sectionTitle, { color: text }]}>
+                <Text style={[styles.sectionTitle, textStyle]}>
                     {t('viewMissionPost.campaigns')}
                 </Text>
 
                 {/* Status Filter Tabs */}
-                <View style={styles.filterTabs}>
+                <View style={[styles.filterTabs, { backgroundColor: isDarkMode ? card : '#f8fafc' }]}>
                     {filterTabs.map(({ key, label }) => (
                         <TouchableOpacity
                             key={key}
-                            style={[styles.filterTab, statusFilter === key && styles.filterTabActive]}
+                            style={[
+                                styles.filterTab,
+                                statusFilter === key && { backgroundColor: accent, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
+                            ]}
                             onPress={() => handleFilterChange(key)}
                         >
-                            <Text style={[styles.filterTabText, statusFilter === key && { color: text }]}>
+                            <Text style={[
+                                styles.filterTabText,
+                                { color: mutedText },
+                                statusFilter === key && { color: '#fff' },
+                            ]}>
                                 {label}
                             </Text>
                         </TouchableOpacity>
@@ -250,7 +261,7 @@ export default function ViewMissioPost({ navigation, route }) {
                             const timeLabel = getTimeLabel(c);
                             return (
                                 <TouchableOpacity
-                                    style={styles.campaignCard}
+                                    style={[styles.campaignCard, cardStyle, { shadowColor: text, borderColor: border, borderWidth: StyleSheet.hairlineWidth }]}
                                     activeOpacity={0.85}
                                    /* onPress={() => navigation?.navigate('MissionPostDetail', { mission: c })}*/
                                 >
@@ -270,7 +281,7 @@ export default function ViewMissioPost({ navigation, route }) {
 
                                         <View style={{ flex: 1 }}>
                                             <View style={styles.titleRow}>
-                                                <Text style={styles.campaignTitle} numberOfLines={1}>
+                                                <Text style={[styles.campaignTitle, textStyle]} numberOfLines={1}>
                                                     {c.title?.charAt(0).toUpperCase() + c.title?.slice(1)}
                                                 </Text>
                                                 <View style={[styles.statusBadge, { backgroundColor: statusStyle.bg }]}>
@@ -280,8 +291,8 @@ export default function ViewMissioPost({ navigation, route }) {
                                                 </View>
                                             </View>
                                             <View style={styles.periodRow}>
-                                                <Ionicons name="calendar-outline" size={13} color="#888" />
-                                                <Text style={styles.campaignPeriod}> {c.period}</Text>
+                                                <Ionicons name="calendar-outline" size={13} color={mutedText} />
+                                                <Text style={[styles.campaignPeriod, { color: mutedText }]}> {c.period}</Text>
                                             </View>
                                             {timeLabel && (
                                                 <View style={[styles.timeLabelRow, { backgroundColor: timeLabel.bg }]}>
@@ -295,16 +306,16 @@ export default function ViewMissioPost({ navigation, route }) {
                                     </View>
 
                                     {/* Stats Row */}
-                                    <View style={styles.statsRow}>
+                                    <View style={[styles.statsRow, { borderTopColor: border }]}>
                                         <View style={styles.statItem}>
-                                            <Text style={styles.statLabel}>
+                                            <Text style={[styles.statLabel, { color: mutedText }]}>
                                                 {t('viewMissionPost.totalRequests')}
                                             </Text>
                                             <Text style={[styles.statValue, { color: text }]}>{c.requests}</Text>
                                         </View>
-                                        <View style={styles.statDivider} />
+                                        <View style={[styles.statDivider, { backgroundColor: border }]} />
                                         <View style={styles.statItem}>
-                                            <Text style={styles.statLabel}>
+                                            <Text style={[styles.statLabel, { color: mutedText }]}>
                                                 {t('viewMissionPost.totalEarnedLabel')}
                                             </Text>
                                             <Text style={[styles.statValueAccent, { color: text }]}>${c.earned}.00</Text>
@@ -312,22 +323,22 @@ export default function ViewMissioPost({ navigation, route }) {
                                     </View>
 
                                     {/* Earnings Split */}
-                                    <View style={styles.splitContainer}>
-                                        <Text style={styles.splitLabel}>
+                                    <View style={[styles.splitContainer, { backgroundColor: isDarkMode ? `${accent}22` : '#f8fafc' }]}>
+                                        <Text style={[styles.splitLabel, { color: mutedText }]}>
                                             {t('viewMissionPost.earningsSplitLabel')}
                                         </Text>
                                         <View style={styles.splitRow}>
                                             <View style={styles.splitItem}>
-                                                <Text style={styles.splitItemLabel}>
+                                                <Text style={[styles.splitItemLabel, { color: mutedText }]}>
                                                     {t('viewMissionPost.youPercent')}
                                                 </Text>
                                                 <Text style={[styles.splitItemValue, { color: '#16a34a' }]}>${c.split}</Text>
                                             </View>
                                             <View style={styles.splitItem}>
-                                                <Text style={styles.splitItemLabel}>
+                                                <Text style={[styles.splitItemLabel, { color: mutedText }]}>
                                                     {t('viewMissionPost.platformFee')}
                                                 </Text>
-                                                <Text style={[styles.splitItemValue, { color: text }]}>${c.valensFee}</Text>
+                                                <Text style={[styles.splitItemValue, textStyle]}>${c.valensFee}</Text>
                                             </View>
                                             {/* <View style={styles.splitItem}>
                                                 <Text style={styles.splitItemLabel}>
@@ -357,14 +368,12 @@ const styles = StyleSheet.create({
     sectionTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 10 ,paddingLeft:15},
     filterTabs: {
         flexDirection: 'row',
-        backgroundColor: '#f8fafc',
         borderRadius: 12,
         paddingHorizontal: 4,
         marginBottom: 16,
     },
     filterTab: { flex: 1, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 8, alignItems: 'center' },
-    filterTabActive: { backgroundColor: '#fff', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
-    filterTabText: { fontSize: 14, fontWeight: '600', color: '#64748b' },
+    filterTabText: { fontSize: 14, fontWeight: '600' },
     filterLoaderContainer: {
         alignItems: 'center',
         paddingVertical: 20,
@@ -375,10 +384,8 @@ const styles = StyleSheet.create({
         opacity: 0.6,
     },
     campaignCard: {
-        backgroundColor: '#fff',
         borderRadius: 16,
         padding: 14,
-        shadowColor: '#000',
         shadowOpacity: 0.05,
         shadowRadius: 8,
         shadowOffset: { width: 0, height: 2 },
@@ -388,9 +395,9 @@ const styles = StyleSheet.create({
     thumbnail: { width: 72, height: 72, borderRadius: 12, marginRight: 12 },
     thumbnailPlaceholder: { backgroundColor: '#ede9fe', justifyContent: 'center', alignItems: 'center' },
     titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4, gap: 8 },
-    campaignTitle: { fontSize: 15, fontWeight: 'bold', color: '#1e1b4b', flex: 1 },
+    campaignTitle: { fontSize: 15, fontWeight: 'bold', flex: 1 },
     periodRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
-    campaignPeriod: { fontSize: 12, color: '#64748b' },
+    campaignPeriod: { fontSize: 12 },
     timeLabelRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20, alignSelf: 'flex-start' },
     timeLabelText: { fontSize: 12, fontWeight: '600' },
     statusBadge: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 20 },
@@ -399,20 +406,19 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         borderTopWidth: 1,
-        borderTopColor: '#f1f5f9',
         paddingTop: 10,
         marginBottom: 10,
     },
     statItem: { flex: 1, alignItems: 'center' },
-    statDivider: { width: 1, height: 32, backgroundColor: '#e2e8f0' },
-    statLabel: { fontSize: 11, color: '#64748b', marginBottom: 2 },
+    statDivider: { width: 1, height: 32 },
+    statLabel: { fontSize: 11, marginBottom: 2 },
     statValue: { fontSize: 15, fontWeight: 'bold' },
     statValueAccent: { fontSize: 15, fontWeight: 'bold' },
-    splitContainer: { backgroundColor: '#f8fafc', borderRadius: 10, padding: 10 },
-    splitLabel: { fontSize: 11, color: '#94a3b8', marginBottom: 8 },
+    splitContainer: { borderRadius: 10, padding: 10 },
+    splitLabel: { fontSize: 11, marginBottom: 8 },
     splitRow: { flexDirection: 'row', justifyContent: 'space-between' },
     splitItem: { alignItems: 'center' },
-    splitItemLabel: { fontSize: 10, color: '#64748b', marginBottom: 2, textAlign: 'center' },
+    splitItemLabel: { fontSize: 10, marginBottom: 2, textAlign: 'center' },
     splitItemValue: { fontSize: 13, fontWeight: '700' },
     loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 40 },
     loadingText: { marginTop: 12, fontSize: 16 },

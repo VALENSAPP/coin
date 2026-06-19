@@ -60,7 +60,7 @@ export default function WalletComponent() {
     const purchaseSheetRef = useRef(null);
     const sellSheetRef = useRef(null);
     const profileImage = useSelector(state => state.profileImage?.profileImg);
-    const { bgStyle, textStyle, bg, text } = useAppTheme();
+    const { bgStyle, textStyle, bg, text, cardStyle, accent, mutedText, border, card } = useAppTheme();
     const { t } = useLanguage();
 
     const MAX_CREDITS = 5;
@@ -253,7 +253,7 @@ export default function WalletComponent() {
         <View style={[styles.creatorDashboard, { shadowColor: text }]}>
             <View style={styles.creatorHeader}>
                 <View style={styles.creatorInfo}>
-                    <View style={[styles.creatorAvatar, { backgroundColor: text }]}>
+                    <View style={[styles.creatorAvatar, { backgroundColor: accent }]}>
                         <Text style={styles.avatarText}>
                             {creator.vendorName ? creator.vendorName.charAt(0) : 'U'}
                         </Text>
@@ -294,13 +294,13 @@ export default function WalletComponent() {
 
             <View style={styles.tradeButtons}>
                 <TouchableOpacity
-                    style={[styles.tradeBtn, { backgroundColor: text }]}
+                    style={[styles.tradeBtn, { backgroundColor: accent }]}
                     onPress={() => handleFollowUnfollow(creator, false)}
                 >
                     <Text style={styles.tradeBtnText}>{t('walletScreen.buyFollow')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                    style={[styles.tradeBtn, styles.sellBtn, { backgroundColor: text }]}
+                    style={[styles.tradeBtn, styles.sellBtn, { backgroundColor: accent }]}
                     onPress={() => handleFollowUnfollow(creator, true)}
                 >
                     <Text style={[styles.tradeBtnText, styles.sellBtnText]}>
@@ -331,7 +331,7 @@ export default function WalletComponent() {
                             style={[styles.coinItem, { shadowColor: text }]}
                             onPress={() => setSelectedCreator(item)}
                         >
-                            <View style={[styles.coinAvatar, { backgroundColor: text }]}>
+                            <View style={[styles.coinAvatar, { backgroundColor: accent }]}>
                                 <Text style={styles.avatarText}>
                                     {item.username ? item.username.charAt(0) : 'U'}
                                 </Text>
@@ -407,10 +407,10 @@ export default function WalletComponent() {
             >
                 <View style={{ paddingHorizontal: 15 }}>
                     {/* Profile Section */}
-                    <View style={styles.profileSection}>
+                    <View style={[styles.profileSection, { borderBottomWidth: 1, borderBottomColor: border }]}>
                         <View>
                             <View style={styles.nameRow}>
-                                <Text style={styles.username}>{userData?.displayName}</Text>
+                                <Text style={[styles.username, textStyle]}>{userData?.displayName}</Text>
                                 {userVerificationStatus.verified && (
                                  <DragonflyIcon width={22} height={22} style={styles.icon} />
                                  )}
@@ -425,11 +425,11 @@ export default function WalletComponent() {
                     </View>
 
                     {/* Credits Section */}
-                    <View style={[styles.creditsBox, { shadowColor: text }]}>
+                    <View style={[styles.creditsBox, cardStyle, { shadowColor: text, borderColor: border, borderWidth: StyleSheet.hairlineWidth }]}>
                         <View style={styles.creditsInfo}>
                             <MaterialCommunityIcons name="credit-card-outline" size={24} color={text} />
                             <View style={{ flex: 1, marginLeft: 10 }}>
-                                <Text style={styles.creditsTitle}>
+                                <Text style={[styles.creditsTitle, textStyle]}>
                                     {t('walletScreen.postCredits')}
                                 </Text>
                                 <Text style={[styles.creditsCount, textStyle]}>
@@ -438,7 +438,7 @@ export default function WalletComponent() {
                             </View>
                         </View>
                         <TouchableOpacity
-                            style={[styles.buyCreditsBtn, { backgroundColor: text }]}
+                            style={[styles.buyCreditsBtn, { backgroundColor: accent }]}
                             onPress={handleBuyCredits}
                             disabled={creditsLeft >= 5}
                         >
@@ -454,13 +454,13 @@ export default function WalletComponent() {
                                     marginTop: 10,
                                     paddingTop: 10,
                                     borderTopWidth: 1,
-                                    borderTopColor: '#eee',
+                                    borderTopColor: border,
                                 },
                             ]}
                         >
                             <MaterialCommunityIcons name="gift-outline" size={24} color={text} />
                             <View style={{ flex: 1, marginLeft: 10 }}>
-                                <Text style={styles.creditsTitle}>
+                                <Text style={[styles.creditsTitle, textStyle]}>
                                     {t('walletScreen.referralPoints')}
                                 </Text>
                                 <Text style={[styles.creditsCount, textStyle]}>
@@ -471,25 +471,25 @@ export default function WalletComponent() {
                     </View>
 
                     <View style={styles.infoBoxesRow}>
-                        <View style={[styles.infoCard, { borderColor: text }]}> 
+                        <View style={[styles.infoCard, cardStyle, { borderColor: border, borderWidth: StyleSheet.hairlineWidth }]}> 
                             <View style={styles.infoCardHeader}>
-                                <Text style={styles.infoCardTitle}>
+                                <Text style={[styles.infoCardTitle, textStyle]}>
                                     {t('walletScreen.missionPostTitle')}
                                 </Text>
                                 {/* <MaterialCommunityIcons name="dots-horizontal" size={16} color={text} /> */}
                             </View>
-                            <Text style={[styles.infoCardText,{color:text}]}>
+                            <Text style={[styles.infoCardText, { color: mutedText }]}>
                                 {t('walletScreen.missionPostDescription')}
                             </Text>
                         </View>
-                        <View style={[styles.infoCard, styles.infoCardSpacing, { borderColor: text }]}> 
+                        <View style={[styles.infoCard, styles.infoCardSpacing, cardStyle, { borderColor: border, borderWidth: StyleSheet.hairlineWidth }]}> 
                             <View style={styles.infoCardHeader}>
-                                <Text style={styles.infoCardTitle}>
+                                <Text style={[styles.infoCardTitle, textStyle]}>
                                     {t('walletScreen.missionPriceTitle')}
                                 </Text>
                                 {/* <MaterialCommunityIcons name="dots-horizontal" size={16} color={text} /> */}
                             </View>
-                            <Text style={[styles.infoCardText,{color:text}]}>
+                            <Text style={[styles.infoCardText, { color: mutedText }]}>
                                 {t('walletScreen.missionPriceDescription')}
                             </Text>
                         </View>
@@ -576,7 +576,6 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "space-between",
         paddingVertical: 12,
-        borderBottomColor: "#eee",
         marginTop: 0,
     },
     nameRow: {
@@ -587,7 +586,6 @@ const styles = StyleSheet.create({
     username: {
         fontSize: 20,
         fontWeight: "600",
-        color: '#111'
     },
     verificationBadge: {
         fontSize: 12,
@@ -634,10 +632,8 @@ const styles = StyleSheet.create({
         textAlign: 'center'
     },
     creditsBox: {
-        backgroundColor: '#ffffff',
         padding: 10,
         borderRadius: 16,
-        // marginVertical: 10,
         marginHorizontal: 8,
         shadowOpacity: 0.06,
         shadowRadius: 6,
@@ -651,7 +647,6 @@ const styles = StyleSheet.create({
     creditsTitle: {
         fontSize: 16,
         fontWeight: '600',
-        color: '#111',
     },
     creditsCount: {
         fontSize: 20,
@@ -677,13 +672,10 @@ const styles = StyleSheet.create({
     },
     infoCard: {
         width: '100%',
-        backgroundColor:'#ffffff',
-        // borderWidth: 1,
         borderRadius: 14,
         padding: 14,
         minHeight: 90,
-        elevation:10
-
+        elevation: 10,
     },
     infoCardSpacing: {
         marginTop: 12,
@@ -706,13 +698,11 @@ const styles = StyleSheet.create({
     infoCardTitle: {
         fontSize: 14,
         fontWeight: '700',
-        color: '#111',
     },
     infoCardText: {
         fontSize: 13,
-        color: '#555',
         lineHeight: 18,
-        fontWeight:'500'
+        fontWeight: '500',
     },
     referralUsageText: {
         fontSize: 12,

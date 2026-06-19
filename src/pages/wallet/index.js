@@ -32,6 +32,8 @@ import RBSheet from 'react-native-raw-bottom-sheet';
 import TokenPurchaseModal from '../../components/modals/TokenPurchaseModal';
 import TokenSellModal from '../../components/modals/TokenSellModal';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useThemeContext } from '../../theme/ThemeContext';
+import { getWalletScreenGradient } from '../../utils/walletDarkTheme';
 import HexAvatar from '../../components/home/story.js/HexAvatar';
 import { useWalletConnectSupport } from '../../context/WalletConnectSupportContext';
 import { appKit } from '../../config/AppKitConfig';
@@ -600,7 +602,8 @@ export const WalletDashboardScreen = ({ navigation }) => {
   const purchaseSheetRef = useRef(null);
   const sellSheetRef = useRef(null);
   const activityChartScrollRef = useRef(null);
-  const { bgStyle, textStyle, text } = useAppTheme();
+  const { bgStyle, textStyle, text, card, cardStyle, bg, mutedText, accent, icon, border } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
   const [userWalletData, setUserWalletData] = useState({
     stripeCustomerId: '',
     walletAddress: '',
@@ -815,12 +818,16 @@ export const WalletDashboardScreen = ({ navigation }) => {
 
   /** Profile header, KPI grid, Battle Points — same gradient */
   const walletScreenGradient = useMemo(
-    () =>
-      isBusinessProfile
-        ? ['#D3B683', '#fdfcfa']
-        : ['#513189', '#f8f2fd'],
-    [isBusinessProfile],
+    () => getWalletScreenGradient(isBusinessProfile, isDarkMode, accent, card),
+    [isBusinessProfile, isDarkMode, accent, card],
   );
+  /** Light mode: purple on lavender gradient cards; dark mode: white on deep purple */
+  const gradientText = isDarkMode ? '#ffffff' : text;
+  const platformPointsHexBg = isDarkMode ? accent : text;
+  const activityMetricCardBg = isDarkMode ? '#2A2A2A' : '#fafafa';
+  const activityFollowersIconColor = isDarkMode ? accent : text;
+  const activityFollowersIconBg = isDarkMode ? `${accent}28` : `${text}18`;
+  const activityFollowersBorder = isDarkMode ? `${accent}33` : `${text}22`;
 
   const connectedWallet = useMemo(
     () =>
@@ -1298,10 +1305,10 @@ export const WalletDashboardScreen = ({ navigation }) => {
                     <Image source={walletIconSource} style={styles.kpiWalletIcon} resizeMode="contain" />
                   </View>
                   <View style={styles.kpiMetaMaskText}>
-                    <Text style={[styles.kpiTitle, { color: text }]} numberOfLines={1}>
+                    <Text style={[styles.kpiTitle, { color: gradientText }]} numberOfLines={1}>
                       {isMetaMaskConnected ? item.title : t('walletDashboard.Wallet')}
                     </Text>
-                    <Text style={[styles.kpiValue, styles.kpiValueMetaMask, { color: text }]} numberOfLines={1}>
+                    <Text style={[styles.kpiValue, styles.kpiValueMetaMask, { color: gradientText }]} numberOfLines={1}>
                       {item.value}
                     </Text>
                     <View style={styles.kpiMetaMaskStatusRow}>
@@ -1320,13 +1327,13 @@ export const WalletDashboardScreen = ({ navigation }) => {
                       >
                         {metaStatusText}
                       </Text>
-                      <Text style={[styles.kpiMetaMaskHint, { color: text }]} numberOfLines={1}>
+                      <Text style={[styles.kpiMetaMaskHint, { color: gradientText }]} numberOfLines={1}>
                         {metaActionText}
                       </Text>
                     </View>
                   </View>
                 </View>
-                <Ionicons name="chevron-forward" size={18} color={text} style={styles.kpiChevron} />
+                <Ionicons name="chevron-forward" size={18} color={gradientText} style={styles.kpiChevron} />
               </View>
             </LinearGradient>
           </TouchableOpacity>
@@ -1347,7 +1354,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
         <View style={[styles.kpiHeader, styles.kpiHeaderWithAction]}>
           <View style={styles.kpiHeaderLeft}>
             <View style={styles.kpiIconWrap}>
-              <Ionicons name={item.icon} size={18} color={text} />
+              <Ionicons name={item.icon} size={18} color={gradientText} />
             </View>
             {isSupportCard ? (
               <View style={styles.kpiSubscriptionTitleWrap}>
@@ -1356,10 +1363,10 @@ export const WalletDashboardScreen = ({ navigation }) => {
                   const secondLine = rest.join(' ');
                   return (
                     <>
-                      <Text style={[styles.kpiSubscriptionTitleLine, { color: text }]} numberOfLines={1}>
+                      <Text style={[styles.kpiSubscriptionTitleLine, { color: gradientText }]} numberOfLines={1}>
                         {firstLine}
                       </Text>
-                      <Text style={[styles.kpiSubscriptionTitleLine, { color: text }]} numberOfLines={1}>
+                      <Text style={[styles.kpiSubscriptionTitleLine, { color: gradientText }]} numberOfLines={1}>
                         {secondLine}
                       </Text>
                     </>
@@ -1367,7 +1374,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
                 })()}
               </View>
             ) : (
-              <Text style={[styles.kpiTitle, { color: text }]} numberOfLines={2}>
+              <Text style={[styles.kpiTitle, { color: gradientText }]} numberOfLines={2}>
                 {item.title}
               </Text>
             )}
@@ -1393,7 +1400,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
               <Ionicons name="information-circle-outline" size={18} color={text} />            </TouchableOpacity>
           )}
         </View>
-        <Text style={[styles.kpiValue, isMissionPostCard && styles.kpiValueMultiline, { color: text }]} numberOfLines={3}>
+        <Text style={[styles.kpiValue, isMissionPostCard && styles.kpiValueMultiline, { color: gradientText }]} numberOfLines={3}>
           {item.value}
         </Text>
         {isMetaMaskCard ? (
@@ -1411,7 +1418,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
           <Text
             style={[
               styles.kpiMetaSingleLine,
-              styles.kpiMetaBuyCredits, { color: text }
+              styles.kpiMetaBuyCredits, { color: gradientText }
             ]}
             numberOfLines={2}
           >
@@ -1514,7 +1521,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
                   {headerNameLines.slice(0, -1).map((line, index) => (
                     <Text
                       key={`${line}-${index}`}
-                      style={[styles.headerName, { color: text }]}
+                      style={[styles.headerName, { color: gradientText }]}
                       numberOfLines={1}
                     >
                       {line}
@@ -1522,7 +1529,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
                   ))}
                   <View style={styles.headerNameLastRow}>
                     <Text
-                      style={[styles.headerName, styles.headerNameLastLine, { color: text }]}
+                      style={[styles.headerName, styles.headerNameLastLine, { color: gradientText }]}
                       numberOfLines={1}
                       ellipsizeMode="tail"
                     >
@@ -1534,7 +1541,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
                   </View>
                 </View>
                 {kyc === true && (
-                  <Text style={[styles.headerStatusText, { color: text }]}>
+                  <Text style={[styles.headerStatusText, { color: gradientText }]}>
                     {t('walletDashboard.headerVerified')}
                   </Text>
                 )}
@@ -1565,13 +1572,13 @@ export const WalletDashboardScreen = ({ navigation }) => {
             <View style={styles.pointsFourColRow}>
               <View style={styles.pointsMainCol}>
                 <View style={styles.pointsMainIconWrap}>
-                  <HexStarIcon size={34} starSize={14} starColor="#ffffff" bgColor={text} />
+                  <HexStarIcon size={34} starSize={14} starColor="#ffffff" bgColor={platformPointsHexBg} />
                 </View>
                 <View style={styles.pointsMainText}>
-                  <Text style={[styles.pointsMainLabel, { color: text }]} numberOfLines={2}>
+                  <Text style={[styles.pointsMainLabel, { color: gradientText }]} numberOfLines={2}>
                     {t('walletDashboard.battlePoints.totalPlatformPoints')}
                   </Text>
-                  <Text style={[styles.pointsMainValue, { color: text }]} numberOfLines={1}>
+                  <Text style={[styles.pointsMainValue, { color: gradientText }]} numberOfLines={1}>
                     {formatPointValue(rewardSummary.totalPlatformPoints)}
                   </Text>
                 </View>
@@ -1581,13 +1588,13 @@ export const WalletDashboardScreen = ({ navigation }) => {
                 <React.Fragment key={item.id}>
                   <View style={styles.pointsCol}>
                     <Ionicons name={item.icon} size={18} color={item.iconColor} />
-                    <Text style={[styles.pointsColValue, { color: text }]} numberOfLines={1}>
+                    <Text style={[styles.pointsColValue, { color: gradientText }]} numberOfLines={1}>
                       {formatPointValue(item.value)}
                     </Text>
                     {item.id === 'referPoints' ? (
                       <View style={styles.pointsColLabelRow}>
                         <Text
-                          style={[styles.pointsColLabel, { color: text, marginTop: 0 }]}
+                          style={[styles.pointsColLabel, { color: gradientText, marginTop: 0 }]}
                           numberOfLines={2}
                         >
                           {item.title}
@@ -1603,7 +1610,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
                         </TouchableOpacity>
                       </View>
                     ) : (
-                      <Text style={[styles.pointsColLabel, { color: text }]} numberOfLines={2}>
+                      <Text style={[styles.pointsColLabel, { color: gradientText }]} numberOfLines={2}>
                         {item.title}
                       </Text>
                     )}
@@ -1625,7 +1632,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
             </Text>
           </View>
 
-          <View style={styles.periodSelector}>
+          <View style={[styles.periodSelector, cardStyle, { borderColor: border, backgroundColor: card }]}>
             {[
               t('walletDashboard.activityOverview.periodDaily'),
               t('walletDashboard.activityOverview.periodWeekly'),
@@ -1633,19 +1640,21 @@ export const WalletDashboardScreen = ({ navigation }) => {
               // Map translated label back to internal key
               const periodKey =
                 period === t('walletDashboard.activityOverview.periodDaily') ? 'Daily' : 'Weekly';
+              const isActive = activityPeriod === periodKey;
               return (
                 <TouchableOpacity
                   key={period}
                   style={[
                     styles.periodButton,
-                    activityPeriod === periodKey && { backgroundColor: text },
+                    isActive && { backgroundColor: accent },
                   ]}
                   onPress={() => setActivityPeriod(periodKey)}
                 >
                   <Text
                     style={[
                       styles.periodText,
-                      activityPeriod === periodKey && styles.periodTextActive,
+                      { color: mutedText },
+                      isActive && styles.periodTextActive,
                     ]}
                   >
                     {period}
@@ -1656,17 +1665,17 @@ export const WalletDashboardScreen = ({ navigation }) => {
           </View>
 
           {/* Chart — followers vs unfollowers vs subscription support */}
-          <View style={[styles.chartContainer, { shadowColor: text }]}>
+          <View style={[styles.chartContainer, cardStyle, { shadowColor: text, backgroundColor: card, borderColor: border }]}>
             <View style={styles.activityMetricsRow}>
-              <View style={[styles.activityMetricCard, styles.activityMetricCardCompact, { borderColor: `${text}22` }]}>
-                <View style={[styles.activityMetricIconWrap, styles.activityMetricIconWrapCompact, { backgroundColor: `${text}18` }]}>
-                  <Ionicons name="people" size={14} color={text} />
+              <View style={[styles.activityMetricCard, styles.activityMetricCardCompact, { backgroundColor: activityMetricCardBg, borderColor: activityFollowersBorder }]}>
+                <View style={[styles.activityMetricIconWrap, styles.activityMetricIconWrapCompact, { backgroundColor: activityFollowersIconBg }]}>
+                  <Ionicons name="people" size={14} color={activityFollowersIconColor} />
                 </View>
-                <Text style={[styles.activityMetricValue, styles.activityMetricValueCompact, { color: text }]}>
+                <Text style={[styles.activityMetricValue, styles.activityMetricValueCompact, textStyle]}>
                   {Math.round(followersCount).toLocaleString()}
                 </Text>
-                <Text style={[styles.activityMetricLabel, styles.activityMetricLabelCompact]}>Followers</Text>
-                <Text style={[styles.activityFollowingHint, styles.activityMetricSubCompact, { color: text }]} numberOfLines={1}>
+                <Text style={[styles.activityMetricLabel, styles.activityMetricLabelCompact, { color: mutedText }]}>Followers</Text>
+                <Text style={[styles.activityFollowingHint, styles.activityMetricSubCompact, textStyle]} numberOfLines={1}>
                   Following {Math.round(followingCount).toLocaleString()}
                 </Text>
                 <View
@@ -1697,17 +1706,17 @@ export const WalletDashboardScreen = ({ navigation }) => {
                 </View>
               </View>
 
-              <View style={[styles.activityMetricCard, styles.activityMetricCardCompact, { borderColor: `${ACTIVITY_SUPPORT_LINE}33` }]}>
+              <View style={[styles.activityMetricCard, styles.activityMetricCardCompact, { backgroundColor: activityMetricCardBg, borderColor: `${ACTIVITY_SUPPORT_LINE}33` }]}>
                 <View style={[styles.activityMetricIconWrap, styles.activityMetricIconWrapCompact, { backgroundColor: `${ACTIVITY_SUPPORT_LINE}22` }]}>
                   <Ionicons name="wallet" size={14} color={ACTIVITY_SUPPORT_LINE} />
                 </View>
                 <Text style={[styles.activityMetricValue, styles.activityMetricValueCompact, { color: ACTIVITY_SUPPORT_LINE }]}>
                   {formatSupportUsd(supportReceivedUsd)}
                 </Text>
-                <Text style={[styles.activityMetricLabel, styles.activityMetricLabelCompact]} numberOfLines={1}>
+                <Text style={[styles.activityMetricLabel, styles.activityMetricLabelCompact, { color: mutedText }]} numberOfLines={1}>
                   Total support
                 </Text>
-                <Text style={[styles.activityMetricSub, styles.activityMetricSubCompact]} numberOfLines={1}>
+                <Text style={[styles.activityMetricSub, styles.activityMetricSubCompact, { color: mutedText }]} numberOfLines={1}>
                   Subscriptions & tips
                 </Text>
                 <View
@@ -1738,15 +1747,15 @@ export const WalletDashboardScreen = ({ navigation }) => {
                 </View>
               </View>
 
-              <View style={[styles.activityMetricCard, styles.activityMetricCardCompact, { borderColor: `${ACTIVITY_UNFOLLOW_PINK}33` }]}>
+              <View style={[styles.activityMetricCard, styles.activityMetricCardCompact, { backgroundColor: activityMetricCardBg, borderColor: `${ACTIVITY_UNFOLLOW_PINK}33` }]}>
                 <View style={[styles.activityMetricIconWrap, styles.activityMetricIconWrapCompact, { backgroundColor: `${ACTIVITY_UNFOLLOW_PINK}18` }]}>
                   <Ionicons name="person-remove-outline" size={14} color={ACTIVITY_UNFOLLOW_PINK} />
                 </View>
                 <Text style={[styles.activityMetricValue, styles.activityMetricValueCompact, { color: ACTIVITY_UNFOLLOW_PINK }]}>
                   {unfollowersDisplay.toLocaleString()}
                 </Text>
-                <Text style={[styles.activityMetricLabel, styles.activityMetricLabelCompact]}>Unfollowers</Text>
-                <Text style={[styles.activityMetricSub, styles.activityMetricSubCompact]} numberOfLines={1}>
+                <Text style={[styles.activityMetricLabel, styles.activityMetricLabelCompact, { color: mutedText }]}>Unfollowers</Text>
+                <Text style={[styles.activityMetricSub, styles.activityMetricSubCompact, { color: mutedText }]} numberOfLines={1}>
                   Lost over this range
                 </Text>
                 <View
@@ -3101,7 +3110,6 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     paddingVertical: 8,
     paddingHorizontal: 6,
-    backgroundColor: '#fafafa',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
@@ -3220,7 +3228,6 @@ const styles = StyleSheet.create({
   },
   // Chart Container
   chartContainer: {
-    backgroundColor: '#fff',
     borderRadius: 16,
     padding: 12,
     shadowColor: '#000',
@@ -3228,6 +3235,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 6,
     elevation: 3,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   chartPrice: {
     fontSize: 32,
@@ -3289,11 +3297,11 @@ const styles = StyleSheet.create({
 
   periodSelector: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
     borderRadius: 8,
     padding: 2,
     width: '100%',
     marginBottom: 10,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   periodButton: {
     flex: 1,

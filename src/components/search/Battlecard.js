@@ -17,6 +17,8 @@ import {
 import Icon from 'react-native-vector-icons/Ionicons';
 import HexAvatar from '../../components/home/story.js/HexAvatar';
 import { useLanguage } from '../../i18n';
+import { useAppTheme } from '../../theme/useApptheme';
+import { useThemeContext } from '../../theme/ThemeContext';
 
 const DEFAULT_AVATAR = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -202,6 +204,8 @@ const StakePill = ({ amount, t }) => (
 );
 
 const OptionChip = ({ option, isSelected, onPress, disabled, avatarUrl, percent }) => {
+    const { card, text: themeText, border } = useAppTheme();
+    const { isDarkMode } = useThemeContext();
     const safePercent = Number.isFinite(percent)
         ? Math.max(0, Math.min(100, Math.round(percent)))
         : 0;
@@ -212,12 +216,21 @@ const OptionChip = ({ option, isSelected, onPress, disabled, avatarUrl, percent 
             activeOpacity={0.85}
             disabled={disabled}
             onPress={onPress}
-            style={[styles.optionChip, isSelected && styles.optionChipSelected, disabled && styles.optionDisabled]}
+            style={[
+                styles.optionChip,
+                { backgroundColor: isDarkMode ? '#2A2A2A' : card, borderColor: border },
+                isSelected && styles.optionChipSelected,
+                disabled && styles.optionDisabled,
+            ]}
         >
             <View style={styles.optionChipTopRow}>
                 <HexAvatar uri={normalizeImageUrl(avatarUrl) || DEFAULT_AVATAR} size={22} fadeDuration={0} />
                 <Text
-                    style={[styles.optionChipLabel, isSelected && styles.optionChipLabelSelected]}
+                    style={[
+                        styles.optionChipLabel,
+                        { color: themeText },
+                        isSelected && styles.optionChipLabelSelected,
+                    ]}
                     numberOfLines={1}
                 >
                     {label}
@@ -255,6 +268,10 @@ const StatRow = ({ totalParticipants, totalLikes, totalComments }) => (
 
 const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, onUserPress, fullWidth }) => {
     const { t } = useLanguage();
+    const { card, text: themeText, border, mutedText } = useAppTheme();
+    const cardThemeStyle = { backgroundColor: card, borderColor: border };
+    const primaryTextStyle = { color: themeText };
+    const mutedTextStyle = { color: mutedText };
     const ended = formatBattleCountdown(item.endTime, t) === t('battleCard.ended');
     const isPoll = item.format === 'POLL';
     const soloOpponent = !isPoll && !item.opponent && isEmptyOpponent(item.user2);
@@ -316,7 +333,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
         return (
             <TouchableOpacity
                 activeOpacity={0.88}
-                style={[styles.card, ended && styles.cardEnded, fullWidth && styles.cardFullWidth]}
+                style={[styles.card, cardThemeStyle, ended && styles.cardEnded, fullWidth && styles.cardFullWidth]}
                 onPress={handleCardPress}
                 renderToHardwareTextureAndroid
             >
@@ -332,16 +349,16 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
                             >
                                 <HexAvatar uri={normalizeImageUrl(item.creator.avatar) || DEFAULT_AVATAR} size={20} borderWidth={2} borderColor="#7F77DD" fadeDuration={0} />
                                 <View style={styles.pollCreatorTextWrap}>
-                                    <Text style={styles.pollCreatorName} numberOfLines={1}>{item.creator.name}</Text>
-                                    <Text style={styles.pollCreatorHandle} numberOfLines={1}>@{item.creator.userName}</Text>
+                                    <Text style={[styles.pollCreatorName, primaryTextStyle]} numberOfLines={1}>{item.creator.name}</Text>
+                                    <Text style={[styles.pollCreatorHandle, mutedTextStyle]} numberOfLines={1}>@{item.creator.userName}</Text>
                                 </View>
                             </TouchableOpacity>
                         ) : (
                             <View style={styles.pollCreatorPressable}>
                                 <HexAvatar uri={normalizeImageUrl(item.creator.avatar) || DEFAULT_AVATAR} size={20} borderWidth={2} borderColor="#7F77DD" fadeDuration={0} />
                                 <View style={styles.pollCreatorTextWrap}>
-                                    <Text style={styles.pollCreatorName} numberOfLines={1}>{item.creator.name}</Text>
-                                    <Text style={styles.pollCreatorHandle} numberOfLines={1}>@{item.creator.userName}</Text>
+                                    <Text style={[styles.pollCreatorName, primaryTextStyle]} numberOfLines={1}>{item.creator.name}</Text>
+                                    <Text style={[styles.pollCreatorHandle, mutedTextStyle]} numberOfLines={1}>@{item.creator.userName}</Text>
                                 </View>
                             </View>
                         )}
@@ -350,7 +367,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
                 </View>
 
                 <TimerBadge endTime={item.endTime} ended={ended} t={t} />
-                <Text style={[styles.question, { marginTop: 4 }]} numberOfLines={3}>{item.title}</Text>
+                <Text style={[styles.question, primaryTextStyle, { marginTop: 4 }]} numberOfLines={3}>{item.title}</Text>
 
                 {item.options?.length > 0 && (
                     <View style={styles.pollOptions}>
@@ -392,7 +409,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
     return (
         <TouchableOpacity
             activeOpacity={0.88}
-            style={[styles.card, ended && styles.cardEnded, fullWidth && styles.cardFullWidth]}
+            style={[styles.card, cardThemeStyle, ended && styles.cardEnded, fullWidth && styles.cardFullWidth]}
             onPress={handleCardPress}
             hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
             renderToHardwareTextureAndroid
@@ -418,7 +435,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
                                 fadeDuration={0}
                             />
                             <View style={styles.pollCreatorTextWrap}>
-                                <Text style={styles.pollCreatorName} numberOfLines={1}>
+                                <Text style={[styles.pollCreatorName, primaryTextStyle]} numberOfLines={1}>
                                     {item.creator?.name}
                                 </Text>
                             </View>
@@ -433,7 +450,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
                                 fadeDuration={0}
                             />
                             <View style={styles.pollCreatorTextWrap}>
-                                <Text style={styles.pollCreatorName} numberOfLines={1}>
+                                <Text style={[styles.pollCreatorName, primaryTextStyle]} numberOfLines={1}>
                                     {item.creator?.name}
                                 </Text>
                             </View>
@@ -478,7 +495,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
                 )}
             </View>
 
-            <Text style={styles.question} numberOfLines={2}>{item.title}</Text>
+            <Text style={[styles.question, primaryTextStyle]} numberOfLines={2}>{item.title}</Text>
             <StakePill amount={item.stakeAmount || 0} t={t} />
 
             {!soloOpponent && item.options?.length > 0 && (

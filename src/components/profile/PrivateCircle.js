@@ -213,7 +213,7 @@ const ItemSeparator = memo(() => <View style={gridStyles.itemSeparator} />);
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userData, loggedInUserId, isTabActive = false }) => {
-  const { bgStyle, textStyle, text, cardStyle } = useAppTheme(userData?.profile);
+  const { bgStyle, textStyle, text, cardStyle, accent, mutedText, border, card, icon } = useAppTheme();
   const { t } = useLanguage();
   const navigation = useNavigation();
   const isFocused = useIsFocused();
@@ -578,10 +578,10 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
             <View
               style={[
                 styles.railIconBubble,
-                { backgroundColor: mixWithWhite(text, 0.9), marginTop: '200%' },
+                { backgroundColor: withAlpha(accent, 0.18), marginTop: '200%' },
               ]}
             >
-              <Ionicons name="lock-closed" size={34} color={text} />
+              <Ionicons name="lock-closed" size={34} color={accent} />
             </View>
           </LinearGradient>
 
@@ -604,7 +604,7 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
             <TouchableOpacity
               activeOpacity={0.9}
               onPress={() => typeof onStartPress === 'function' && onStartPress()}
-              style={[styles.ctaButton, { backgroundColor: text }]}
+              style={[styles.ctaButton, { backgroundColor: accent }]}
             >
               <Text style={styles.ctaText}>{t('privateCircle.startNowButton')}</Text>
             </TouchableOpacity>
@@ -622,10 +622,10 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
               <View
                 style={[
                   styles.railIconBubble,
-                  { backgroundColor: mixWithWhite(text, 0.9), marginTop: '100%' },
+                  { backgroundColor: withAlpha(accent, 0.18), marginTop: '100%' },
                 ]}
               >
-                <Ionicons name="lock-closed" size={34} color={text} />
+                <Ionicons name="lock-closed" size={34} color={accent} />
               </View>
             </LinearGradient>
 
@@ -676,15 +676,15 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
             <View style={[styles.dashboardPanel, cardStyle, { borderColor: withAlpha(text, 0.1) }]}>
               <Text style={[styles.miniSectionTitle, textStyle]}>{t('privateCircle.overview')}</Text>
               <View style={styles.overviewGrid}>
-                <View style={[styles.overviewTile, { borderColor: withAlpha(text, 0.12) }]}>
+                <View style={[styles.overviewTile, cardStyle, { borderColor: withAlpha(text, 0.12) }]}>
                   <Ionicons name="people-outline" size={18} color={text} />
                   <Text style={[styles.overviewNumber, textStyle]}>{dashboardMemberCount}</Text>
-                  <Text style={styles.overviewLabel}>{t('privateCircle.members')}</Text>
+                  <Text style={[styles.overviewLabel, { color: mutedText }]}>{t('privateCircle.members')}</Text>
                 </View>
-                <View style={[styles.overviewTile, { borderColor: withAlpha(text, 0.12) }]}>
+                <View style={[styles.overviewTile, cardStyle, { borderColor: withAlpha(text, 0.12) }]}>
                   <Ionicons name="document-text-outline" size={18} color={text} />
                   <Text style={[styles.overviewNumber, textStyle]}>{dashboardPostCount}</Text>
-                  <Text style={styles.overviewLabel}>{t('privateCircle.posts')}</Text>
+                  <Text style={[styles.overviewLabel, { color: mutedText }]}>{t('privateCircle.posts')}</Text>
                 </View>
               </View>
             </View>
@@ -700,9 +700,9 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
                     <View style={[styles.activityDot, { backgroundColor: text }]} />
                     <View style={styles.activityTextWrap}>
                       <Text style={[styles.activityName, textStyle]}>{activity.name}</Text>
-                      <Text style={styles.activityMeta}>{activity.body || activity.action}</Text>
+                      <Text style={[styles.activityMeta, { color: mutedText }]}>{activity.body || activity.action}</Text>
                     </View>
-                    <Text style={styles.activityTime}>{activity.time}</Text>
+                    <Text style={[styles.activityTime, { color: mutedText }]}>{activity.time}</Text>
                   </View>
                 ))}
               </View>
@@ -933,10 +933,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.55)',
   },
   overviewNumber: { fontSize: 24, fontWeight: '900', marginTop: 5 },
-  overviewLabel: { fontSize: 12, fontWeight: '700', color: '#6B7280', marginTop: 2 },
+  overviewLabel: { fontSize: 12, fontWeight: '700', marginTop: 2 },
   previewSectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',

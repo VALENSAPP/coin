@@ -49,7 +49,7 @@ export default function SignupScreen() {
   const profileFromRoute = route?.params?.profile || 'user';
   const styles = useSignupStyles();
   const profile = profileFromRoute;
-  const { bgStyle, text } = useAppTheme(profile);
+  const { bgStyle, text, accent, mutedText, icon } = useAppTheme(profile);
 
   useFocusEffect(
     useCallback(() => {
@@ -224,7 +224,7 @@ export default function SignupScreen() {
                   <TextInput
                     style={styles.textInput}
                     placeholder={t('signup.emailPlaceholder')}
-                    placeholderTextColor="#9CA3AF"
+                    placeholderTextColor={mutedText}
                     keyboardType="email-address"
                     autoCapitalize="none"
                     value={email}
@@ -251,7 +251,7 @@ export default function SignupScreen() {
                   <TextInput
                     style={styles.textInput}
                     placeholder={t('signup.usernamePlaceholder')}
-                    placeholderTextColor="#9CA3AF"
+                    placeholderTextColor={mutedText}
                     autoCapitalize="none"
                     value={userName}
                     onChangeText={value => {
@@ -278,7 +278,7 @@ export default function SignupScreen() {
                   <TextInput
                     style={styles.textInput}
                     placeholder={t('signup.passwordPlaceholder')}
-                    placeholderTextColor="#9CA3AF"
+                    placeholderTextColor={mutedText}
                     secureTextEntry={!showPassword}
                     autoCapitalize="none"
                     value={password}
@@ -298,7 +298,7 @@ export default function SignupScreen() {
                     <Icon
                       name={showPassword ? 'eye' : 'eye-off'}
                       size={20}
-                      color="#9CA3AF"
+                      color={mutedText}
                     />
                   </TouchableOpacity>
                 </View>
@@ -317,7 +317,7 @@ export default function SignupScreen() {
                   <TextInput
                     style={styles.textInput}
                     placeholder={t('signup.referralPlaceholder')}
-                    placeholderTextColor="#9CA3AF"
+                    placeholderTextColor={mutedText}
                     autoCapitalize="none"
                     autoCorrect={false}
                     value={referralCode}
@@ -329,7 +329,7 @@ export default function SignupScreen() {
 
               {/* Sign Up Button */}
               <TouchableOpacity
-                style={[styles.signupButton, { backgroundColor: text }]}
+                style={[styles.signupButton, { backgroundColor: accent }]}
                 onPress={handleSignUp}
               >
                 <Text style={styles.signupButtonText}>{t('signup.createAccountButton')}</Text>

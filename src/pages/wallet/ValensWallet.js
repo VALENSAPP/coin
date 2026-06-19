@@ -22,6 +22,8 @@ import TradeModal from '../../components/modals/TradeModal';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useThemeContext } from '../../theme/ThemeContext';
+import { getWalletScreenGradient } from '../../utils/walletDarkTheme';
 import { getUserCredentials } from '../../services/post';
 import { useWalletConnectSupport } from '../../context/WalletConnectSupportContext';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -57,7 +59,8 @@ const ValensWallet = ({ navigation }) => {
     const [recentActivity, setRecentActivity] = useState([]);
     const dispatch = useDispatch();
     const toast = useToast();
-    const { bgStyle, text, cardStyle } = useAppTheme();
+    const { bgStyle, text, cardStyle, accent, card } = useAppTheme();
+    const { isDarkMode } = useThemeContext();
     const { width: screenWidth } = useWindowDimensions();
     const { t } = useLanguage();
     const { openWalletConnect, isConnected: isWalletConnected, address: sessionAddress } =
@@ -297,9 +300,11 @@ const ValensWallet = ({ navigation }) => {
         ? (portfolioValue ?? '$0.00')
         : maskMoney(portfolioValue);
 
-    const walletScreenGradient = isBusinessProfile
-        ? ['#D3B683', '#fdfcfa']
-        : ['#513189', '#f8f2fd'];
+    const walletScreenGradient = useMemo(
+        () => getWalletScreenGradient(isBusinessProfile, isDarkMode, accent, card),
+        [isBusinessProfile, isDarkMode, accent, card],
+    );
+    const gradientText = '#ffffff';
 
     const walletOverviewCards = [
         {
@@ -404,18 +409,18 @@ const ValensWallet = ({ navigation }) => {
                     >
                         <View style={[styles.topCardLeft, { paddingRight: walletImageSize + 24 }]}>
                             <View style={styles.balanceLabelRow}>
-                                <Text style={[styles.balanceLabel, { color: `${text}cc` }]}>
+                                <Text style={[styles.balanceLabel, { color: `${gradientText}cc` }]}>
                                     {t('valensWallet.totalBalance')}
                                 </Text>
                                 <TouchableOpacity onPress={() => setShowTotalBalance((prev) => !prev)}>
                                     <Ionicons
                                         name={showTotalBalance ? 'eye-outline' : 'eye-off-outline'}
                                         size={16}
-                                        color={`${text}cc`}
+                                        color={`${gradientText}cc`}
                                     />
                                 </TouchableOpacity>
                             </View>
-                            <Text style={[styles.balanceValue, { color: text, fontSize: balanceFontSize }]}>
+                            <Text style={[styles.balanceValue, { color: gradientText, fontSize: balanceFontSize }]}>
                                 {displayPortfolioValue}
                             </Text>
                             <View style={styles.balanceSubRow} />
@@ -441,18 +446,18 @@ const ValensWallet = ({ navigation }) => {
                                 colors={walletScreenGradient}
                                 start={{ x: -8, y: -8 }}
                                 end={{ x: 1, y: 1 }}
-                                style={[styles.statCard, { borderColor: `${text}1a` }]}
+                                style={[styles.statCard, { borderColor: `${gradientText}1a` }]}
                             >
                                 {card.key === 'subs' ? (
-                                    <MaterialCommunityIcons name="crown" size={22} color={text} style={styles.statIcon} />
+                                    <MaterialCommunityIcons name="crown" size={22} color={gradientText} style={styles.statIcon} />
                                 ) : card.key === 'withdrawn' ? (
-                                    <MaterialCommunityIcons name="bank-outline" size={22} color={text} style={styles.statIcon} />
+                                    <MaterialCommunityIcons name="bank-outline" size={22} color={gradientText} style={styles.statIcon} />
                                 ) : (
-                                    <Ionicons name={card.icon} size={22} color={text} style={styles.statIcon} />
+                                    <Ionicons name={card.icon} size={22} color={gradientText} style={styles.statIcon} />
                                 )}
-                                <Text style={[styles.statTitle, { color: `${text}cc` }]}>{card.title}</Text>
-                                <Text style={[styles.statValue, { color: text }]}>{card.value}</Text>
-                                <Text style={[styles.statSubtitle, { color: `${text}99` }]}>{card.subtitle}</Text>
+                                <Text style={[styles.statTitle, { color: `${gradientText}cc` }]}>{card.title}</Text>
+                                <Text style={[styles.statValue, { color: gradientText }]}>{card.value}</Text>
+                                <Text style={[styles.statSubtitle, { color: `${gradientText}99` }]}>{card.subtitle}</Text>
                             </LinearGradient>
                         ))}
                     </View>
@@ -469,28 +474,28 @@ const ValensWallet = ({ navigation }) => {
                             colors={walletScreenGradient}
                             start={{ x: -8, y: -8 }}
                             end={{ x: 1, y: 1 }}
-                            style={[styles.connectionCard, { borderColor: `${text}1a` }]}
+                            style={[styles.connectionCard, { borderColor: `${gradientText}1a` }]}
                         >
                             <View style={styles.connectionTopRow}>
                                      <View style={styles.connectionLeft}>
-                                     <View style={[styles.connectionIconWrap, { backgroundColor: `${text}0d`, borderColor: `${text}1a` }]}>
+                                     <View style={[styles.connectionIconWrap, { backgroundColor: `${gradientText}0d`, borderColor: `${gradientText}1a` }]}>
                                         {connection.leftIcon.type === 'image' ? (
                                             <Image source={connection.leftIcon.source} style={styles.connectionIconImage} />
                                         ) : (
-                                            <Ionicons name={connection.leftIcon.name} size={22} color={text} />
+                                            <Ionicons name={connection.leftIcon.name} size={22} color={gradientText} />
                                         )}
                                     </View>
                                     <View style={styles.connectionTextWrap}>
-                                        <Text style={[styles.connectionLabel, { color: `${text}99` }]}>{connection.label}</Text>
+                                        <Text style={[styles.connectionLabel, { color: `${gradientText}99` }]}>{connection.label}</Text>
                                         <View style={styles.connectionTitleRow}>
-                                            <Text style={[styles.connectionTitle, { color: text }]}>{connection.title}</Text>
-                                            <View style={[styles.badge, { backgroundColor: connection.badge.tone === 'success' ? '#E8F7EE' : `${text}1a` }]}>
-                                                <Text style={[styles.badgeText, { color: connection.badge.tone === 'success' ? '#1B7F3C' : text }]}>
+                                            <Text style={[styles.connectionTitle, { color: gradientText }]}>{connection.title}</Text>
+                                            <View style={[styles.badge, { backgroundColor: connection.badge.tone === 'success' ? '#E8F7EE' : `${gradientText}1a` }]}>
+                                                <Text style={[styles.badgeText, { color: connection.badge.tone === 'success' ? '#1B7F3C' : gradientText }]}>
                                                     {connection.badge.text}
                                                 </Text>
                                             </View>
                                         </View>
-                                        <Text style={[styles.connectionMeta, { color: `${text}80` }]} numberOfLines={1}>
+                                        <Text style={[styles.connectionMeta, { color: `${gradientText}80` }]} numberOfLines={1}>
                                             {connection.meta}
                                         </Text>
                                     </View>
@@ -498,30 +503,30 @@ const ValensWallet = ({ navigation }) => {
 
                                 <View style={styles.connectionRight}>
                                     {connection.key === 'metamask' && (
-                                        <Text style={[styles.connectionReceivedLabel, { color: `${text}99` }]}>
+                                        <Text style={[styles.connectionReceivedLabel, { color: `${gradientText}99` }]}>
                                             {t('valensWallet.amountReceived')}
                                         </Text>
                                     )}
                                     {!!connection.amount && (
-                                        <Text style={[styles.connectionAmount, { color: text }]}>{connection.amount}</Text>
+                                        <Text style={[styles.connectionAmount, { color: gradientText }]}>{connection.amount}</Text>
                                     )}
                                     {!!connection.approx && (
-                                        <Text style={[styles.connectionApprox, { color: `${text}99` }]}>{connection.approx}</Text>
+                                        <Text style={[styles.connectionApprox, { color: `${gradientText}99` }]}>{connection.approx}</Text>
                                     )}
-                                    <Ionicons name="chevron-forward" size={18} color={`${text}80`} style={styles.connectionChevron} />
+                                    <Ionicons name="chevron-forward" size={18} color={`${gradientText}80`} style={styles.connectionChevron} />
                                 </View>
                             </View>
 
                             <TouchableOpacity
-                                style={[styles.connectionCtaRow, { borderColor: `${text}1a` }]}
+                                style={[styles.connectionCtaRow, { borderColor: `${gradientText}1a` }]}
                                 onPress={connection.onPress}
                                 accessibilityRole="button"
                                 accessibilityLabel={connection.cta}
                             >
-                                <View style={[styles.plusCircle, { borderColor: `${text}66` }]}>
-                                    <Ionicons name="add" size={16} color={text} />
+                                <View style={[styles.plusCircle, { borderColor: `${gradientText}66` }]}>
+                                    <Ionicons name="add" size={16} color={gradientText} />
                                 </View>
-                                <Text style={[styles.connectionCtaText, { color: text }]}>{connection.cta}</Text>
+                                <Text style={[styles.connectionCtaText, { color: gradientText }]}>{connection.cta}</Text>
                             </TouchableOpacity>
                         </LinearGradient>
                     ))}
@@ -660,7 +665,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'stretch',
         justifyContent: 'space-between',
-        backgroundColor: '#ffffffc7',
+        backgroundColor: 'transparent',
     },
     breakdownCol: {
         flex: 1,
@@ -688,7 +693,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         borderTopWidth: 1,
-        backgroundColor: '#ffffffd6',
+        backgroundColor: 'transparent',
     },
     topAction: {
         flex: 1,

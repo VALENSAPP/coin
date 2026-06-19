@@ -2,7 +2,7 @@ import { StyleSheet } from 'react-native';
 import { useAppTheme } from '../../theme/useApptheme';
 
 const createStyles = () => {
-    const { bg } = useAppTheme();
+    const { bg, text, border, mutedText, accent } = useAppTheme();
 
     const styles = StyleSheet.create({
         container: {
@@ -16,7 +16,7 @@ const createStyles = () => {
             paddingVertical: 12,
             backgroundColor: bg,
             borderBottomWidth: 1,
-            borderBottomColor: '#e1e1e1',
+            borderBottomColor: border,
         },
         backButton: {
             padding: 8,
@@ -25,7 +25,7 @@ const createStyles = () => {
             flex: 1,
             fontSize: 18,
             fontWeight: '600',
-            color: '#262626',
+            color: text,
             textAlign: 'center',
             marginRight: 40,
         },
@@ -49,29 +49,29 @@ const createStyles = () => {
         sectionTitle: {
             fontSize: 16,
             fontWeight: '600',
-            color: '#262626',
+            color: text,
         },
         metaText: {
             fontSize: 16,
             fontWeight: '600',
-            color: '#262626',
+            color: text,
         },
         sectionHeader: {
             fontSize: 16,
             fontWeight: '600',
-            color: '#262626',
+            color: text,
             paddingHorizontal: 16,
             marginBottom: 16,
         },
         sectionDescription: {
             fontSize: 14,
-            color: '#8e8e93',
+            color: mutedText,
             paddingHorizontal: 16,
             marginTop: 12,
             lineHeight: 18,
         },
         learnMore: {
-            color: '#1877f2',
+            color: accent,
             fontWeight: '500',
         },
         settingsItem: {
@@ -82,7 +82,7 @@ const createStyles = () => {
             paddingVertical: 12,
             backgroundColor: bg,
             borderBottomWidth: 0.5,
-            borderBottomColor: '#f2f2f2',
+            borderBottomColor: border,
         },
         itemLeft: {
             flexDirection: 'row',
@@ -95,12 +95,12 @@ const createStyles = () => {
         },
         itemText: {
             fontSize: 16,
-            color: '#262626',
+            color: text,
             fontWeight: '400',
         },
         itemSubtext: {
             fontSize: 14,
-            color: '#8e8e93',
+            color: mutedText,
             marginTop: 2,
         },
         itemRight: {
@@ -109,14 +109,14 @@ const createStyles = () => {
         },
         rightText: {
             fontSize: 16,
-            color: '#8e8e93',
+            color: mutedText,
             marginRight: 8,
         },
         blueIndicator: {
             width: 8,
             height: 8,
             borderRadius: 4,
-            backgroundColor: '#1877f2',
+            backgroundColor: accent,
             marginRight: 8,
         },
         actionItem: {
@@ -124,18 +124,18 @@ const createStyles = () => {
             paddingVertical: 16,
             backgroundColor: bg,
             borderBottomWidth: 0.5,
-            borderBottomColor: '#f2f2f2',
+            borderBottomColor: border,
         },
         actionText: {
             fontSize: 16,
-            color: '#262626',
+            color: text,
             fontWeight: '400',
         },
         destructiveText: {
-            color: '#ff3b30',
+            color: '#ff453a',
         },
         blueText: {
-            color: '#1877f2',
+            color: accent,
         },
         gridContainer: {
             flex: 1,
@@ -159,12 +159,12 @@ const createStyles = () => {
         },
         gridIcon: {
             fontSize: 30,
-            color: 'white',
+            color: '#FFFFFF',
         },
         gridLabel: {
             fontSize: 14,
             paddingTop: 10,
-            color: '#333',
+            color: text,
         },
     });
     return styles;

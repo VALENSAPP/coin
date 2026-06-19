@@ -466,7 +466,7 @@ const SearchScreen = () => {
   const toastRef = useRef(toast);
   const activeSearchRequestIdRef = useRef(0);
 
-  const { bgStyle, text } = useAppTheme();
+  const { bgStyle, text, card, border, mutedText, icon, accent } = useAppTheme();
   const isScreenFocused = useIsFocused();
   const isSearchActive = searchText.trim().length > 0;
   const tabBarHeight = useBottomTabBarHeight();
@@ -1029,12 +1029,12 @@ const SearchScreen = () => {
             />
             <View style={{ flex: 1 }}>
               {/* Search bar */}
-              <View style={styles.searchContainer}>
-                <Icon name="search" size={20} color="#999" style={{ marginRight: 8 }} />
+              <View style={[styles.searchContainer, { backgroundColor: card, borderColor: border }]}>
+                <Icon name="search" size={20} color={mutedText} style={{ marginRight: 8 }} />
                 <TextInput
-                  style={styles.searchInput}
+                  style={[styles.searchInput, { color: text }]}
                   placeholder={t('search.searchPlaceholder')}
-                  placeholderTextColor="#999"
+                  placeholderTextColor={mutedText}
                   value={searchText}
                   onChangeText={handleSearch}
                   returnKeyType="search"
@@ -1042,7 +1042,7 @@ const SearchScreen = () => {
                 />
                 {searchText.length > 0 && (
                   <TouchableOpacity onPress={() => handleSearch('')}>
-                    <Icon name="close-circle" size={20} color="#999" style={{ marginLeft: 8 }} />
+                    <Icon name="close-circle" size={20} color={mutedText} style={{ marginLeft: 8 }} />
                   </TouchableOpacity>
                 )}
               </View>
@@ -1058,7 +1058,7 @@ const SearchScreen = () => {
                       justifyContent: 'center',
                       paddingVertical: 8,
                       marginTop: 2,
-                      backgroundColor: text,
+                      backgroundColor: accent,
                       borderRadius: 10,
                     }}
                     activeOpacity={0.85}

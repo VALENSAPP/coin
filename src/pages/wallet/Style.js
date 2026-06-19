@@ -369,7 +369,6 @@ export default StyleSheet.create({
     },
     deleteHeroSubtitle: {
         fontSize: 15,
-        color: '#6B7280',
         textAlign: 'center',
         lineHeight: 22,
     },
@@ -390,7 +389,6 @@ export default StyleSheet.create({
     },
     deleteLossItemBorder: {
         borderBottomWidth: 1,
-        borderBottomColor: '#F3F4F6',
     },
     deleteLossIconWrap: {
         width: 36,
@@ -408,7 +406,6 @@ export default StyleSheet.create({
     },
     deleteLossItemDesc: {
         fontSize: 13,
-        color: '#6B7280',
         lineHeight: 18,
     },
     deleteSupportCard: {
@@ -435,7 +432,6 @@ export default StyleSheet.create({
     },
     deleteSupportDesc: {
         fontSize: 13,
-        color: '#6B7280',
         lineHeight: 18,
     },
     deleteSupportButton: {
@@ -450,11 +446,10 @@ export default StyleSheet.create({
         fontWeight: '600',
     },
     keepAccountButton: {
-        backgroundColor: '#FFFFFF',
         borderRadius: 12,
         padding: 16,
         alignItems: 'center',
-        borderWidth: 2,
+        borderWidth: 1.5,
         marginBottom: 12,
     },
     keepAccountButtonText: {

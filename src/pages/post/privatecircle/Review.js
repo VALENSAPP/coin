@@ -15,6 +15,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useLanguage } from '../../../i18n';
 import { useAppTheme } from '../../../theme/useApptheme';
+import { useThemeContext } from '../../../theme/ThemeContext';
 import { showToastMessage } from '../../../components/displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
 // import PrivateCircleStepper from './PrivateCircleStepper';
@@ -50,11 +51,12 @@ export default function PrivateCircleReview() {
   }, []);
 
   const isCompanyProfile = profileType === 'company';
+  const { bgStyle, textStyle, cardStyle, accent, mutedText, border, icon } = useAppTheme(profileType);
+  const { isDarkMode } = useThemeContext();
   const profileActionGradient = isCompanyProfile
     ? ['#D3B683', '#D3B683']
     : ['#513189bd', '#e54ba0'];
-  const headingColor = isCompanyProfile ? '#B8954F' : '#513189';
-  const { text } = useAppTheme(profileType);
+  const headingColor = isDarkMode ? accent : (isCompanyProfile ? '#B8954F' : '#513189');
 
   const memberCount = selectedIds.length;
   const previewMembers = useMemo(
@@ -141,12 +143,12 @@ export default function PrivateCircleReview() {
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+    <SafeAreaView style={[styles.container, bgStyle]} edges={['top', 'bottom']}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Ionicons name="chevron-back" size={26} color={headingColor} />
+          <Ionicons name="chevron-back" size={26} color={icon} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: headingColor }]}>
+        <Text style={[styles.headerTitle, textStyle]}>
           {t('privateCircleMint.welcomeTitle')}
         </Text>
         <View style={styles.backBtn} />
@@ -163,7 +165,7 @@ export default function PrivateCircleReview() {
           {t('privateCircleMint.reviewSummaryTitle')}
         </Text>
 
-        <View style={styles.summaryCard}>
+        <View style={[styles.summaryCard, cardStyle, { borderColor: border }]}>
           <TouchableOpacity
             style={styles.summaryRow}
             activeOpacity={0.85}
@@ -176,12 +178,12 @@ export default function PrivateCircleReview() {
               <Text style={[styles.rowTitle, { color: headingColor }]}>
                 {t('privateCircleMint.reviewMembersTitle')}
               </Text>
-              <Text style={styles.rowSubtitle}>
+              <Text style={[styles.rowSubtitle, { color: mutedText }]}>
                 {t('privateCircleMint.reviewMembersCount', { count: memberCount })}
               </Text>
             </View>
             {memberCount > 0 ? memberHexPreview : null}
-            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+            <Ionicons name="chevron-forward" size={20} color={mutedText} />
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -193,7 +195,7 @@ export default function PrivateCircleReview() {
           onPress={handleLooksGood}
           style={[
             styles.primaryBtnWrap,
-            { backgroundColor: text || headingColor, opacity: saving ? 0.75 : 1 },
+            { opacity: saving ? 0.75 : 1 },
           ]}
         >
           <LinearGradient
@@ -221,7 +223,6 @@ export default function PrivateCircleReview() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
   },
   header: {
     flexDirection: 'row',
@@ -256,10 +257,8 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   summaryCard: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
     paddingVertical: 4,
     shadowColor: '#000',
     shadowOpacity: 0.04,
@@ -293,7 +292,6 @@ const styles = StyleSheet.create({
   },
   rowSubtitle: {
     fontSize: 13,
-    color: '#6B7280',
     lineHeight: 18,
   },
   divider: {

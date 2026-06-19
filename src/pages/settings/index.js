@@ -22,6 +22,7 @@ import createStyles from './Style';
 import data from '../../list.json';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useThemeContext } from '../../theme/ThemeContext';
 import { useToast } from 'react-native-toast-notifications';
 import { setUserProfile } from '../../redux/actions/UserProfileAction';
 import {
@@ -69,7 +70,8 @@ const Settings = () => {
   const [switchInFlight, setSwitchInFlight] = useState(false);
   const [removeAccountConfirm, setRemoveAccountConfirm] = useState(null);
   const [profileStatus, setProfileStatus] = useState(null);
-  const { bgStyle, textStyle, bg, text, card } = useAppTheme();
+  const { bgStyle, textStyle, bg, text, card, accent, icon: iconColor, mutedText, border } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
   const { t } = useLanguage();
 
   const fetchProfileStatus = useCallback(async () => {
@@ -663,7 +665,7 @@ const Settings = () => {
     const content = (
       <>
         <View style={styles.itemLeft}>
-          <Icon name={icon} size={24} color="#262626" />
+          <Icon name={icon} size={24} color={iconColor} />
           <View style={styles.itemTextContainer}>
             <Text style={styles.itemText}>{title}</Text>
             {subtitle && <Text style={styles.itemSubtext}>{subtitle}</Text>}
@@ -672,7 +674,7 @@ const Settings = () => {
         <View style={styles.itemRight}>
           {rightText && <Text style={styles.rightText}>{rightText}</Text>}
           {hasBlueIcon && <View style={styles.blueIndicator} />}
-          {showChevron && <Icon name="chevron-right" size={24} color="#8e8e93" />}
+          {showChevron && <Icon name="chevron-right" size={24} color={mutedText} />}
         </View>
       </>
     );
@@ -713,7 +715,7 @@ const Settings = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={bg} />
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={bg} />
 
       {/* Header */}
       <View style={styles.header}>
@@ -721,7 +723,7 @@ const Settings = () => {
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Icon name="arrow-back" size={24} color="#262626" />
+          <Icon name="arrow-back" size={24} color={iconColor} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{t('settings.headerTitle')}</Text>
         <View style={styles.placeholder} />
@@ -933,7 +935,7 @@ const Settings = () => {
             </ScrollView>
 
             <TouchableOpacity
-              style={[switcherStyles.addBtn, { backgroundColor: text }]}
+              style={[switcherStyles.addBtn, { backgroundColor: accent }]}
               disabled={switchInFlight}
               onPress={async () => {
                 setAccountSwitcherVisible(false);
@@ -944,7 +946,7 @@ const Settings = () => {
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[switcherStyles.cancelBtn, { borderColor: text }]}
+              style={[switcherStyles.cancelBtn, { borderColor: border }]}
               onPress={() => setAccountSwitcherVisible(false)}
             >
               <Text style={[switcherStyles.cancelBtnText, { color: text }]}>{t('settings.cancel')}</Text>
@@ -967,14 +969,14 @@ const Settings = () => {
               {t('settings.logoutFromDeviceConfirm')}
             </Text>
             <TouchableOpacity
-              style={[switcherStyles.addBtn, { backgroundColor: text }]}
+              style={[switcherStyles.addBtn, { backgroundColor: accent }]}
               onPress={confirmRemoveAccountFromDevice}
               disabled={switchInFlight}
             >
               <Text style={switcherStyles.addBtnText}>{t('settings.logout')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[switcherStyles.cancelBtn, { borderColor: text }]}
+              style={[switcherStyles.cancelBtn, { borderColor: border }]}
               onPress={closeRemoveAccountConfirm}
               disabled={switchInFlight}
             >

@@ -7,6 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useLanguage } from '../../../i18n';
 import { useAppTheme } from '../../../theme/useApptheme';
+import { useThemeContext } from '../../../theme/ThemeContext';
 import { showToastMessage } from '../../../components/displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
 import PrivateCircleHexMember from './PrivateCircleHexMember';
@@ -40,12 +41,13 @@ export default function PrivateCircleSelectAccess() {
   }, []);
 
   const isCompanyProfile = profileType === 'company';
+  const { bgStyle, textStyle, accent, mutedText, icon } = useAppTheme(profileType);
+  const { isDarkMode } = useThemeContext();
   const profileActionGradient = isCompanyProfile
     ? ['#D3B683', '#D3B683']
     : ['#513189bd', '#e54ba0'];
-  const headingColor = isCompanyProfile ? '#B8954F' : '#513189';
-  const bodyTextColor = isCompanyProfile ? '#6B5E45' : '#4B5563';
-  const { text } = useAppTheme(profileType);
+  const headingColor = isDarkMode ? accent : (isCompanyProfile ? '#B8954F' : '#513189');
+  const bodyTextColor = mutedText;
 
   const goToReview = () => {
     goToPrivateCircleReview(navigation, {
@@ -57,12 +59,12 @@ export default function PrivateCircleSelectAccess() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+    <SafeAreaView style={[styles.container, bgStyle]} edges={['top', 'bottom']}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Ionicons name="chevron-back" size={26} color={headingColor} />
+          <Ionicons name="chevron-back" size={26} color={icon} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: headingColor }]}>
+        <Text style={[styles.headerTitle, textStyle]}>
           {t('privateCircleMint.welcomeTitle')}
         </Text>
         <View style={styles.backBtn} />
@@ -99,7 +101,7 @@ export default function PrivateCircleSelectAccess() {
 
           <Text style={[styles.accessHeading, { color: headingColor }]}>
             {t('privateCircleMint.selectAccessPrefix')}
-            <Text style={styles.accessHeadingEmphasis}>{t('privateCircleMint.selectAccessWho')}</Text>
+            <Text style={[styles.accessHeadingEmphasis, { color: headingColor }]}>{t('privateCircleMint.selectAccessWho')}</Text>
             {t('privateCircleMint.selectAccessSuffix')}
           </Text>
 
@@ -117,7 +119,7 @@ export default function PrivateCircleSelectAccess() {
         <TouchableOpacity
           activeOpacity={0.9}
           onPress={goToReview}
-          style={[styles.primaryBtnWrap, { backgroundColor: text || headingColor }]}
+          style={styles.primaryBtnWrap}
         >
           <LinearGradient
             colors={profileActionGradient}
@@ -148,7 +150,6 @@ export default function PrivateCircleSelectAccess() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
   },
   header: {
     flexDirection: 'row',

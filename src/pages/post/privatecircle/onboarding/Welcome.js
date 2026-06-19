@@ -7,6 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { useLanguage } from '../../../../i18n';
 import { useAppTheme } from '../../../../theme/useApptheme';
+import { useThemeContext } from '../../../../theme/ThemeContext';
 
 export default function PrivateCircleWelcome() {
   const navigation = useNavigation();
@@ -18,25 +19,25 @@ export default function PrivateCircleWelcome() {
   }, []);
 
   const isCompanyProfile = profileType === 'company';
+  const { bgStyle, textStyle, accent, mutedText, icon } = useAppTheme(profileType);
+  const { isDarkMode } = useThemeContext();
   const profileActionGradient = isCompanyProfile
     ? ['#D3B683', '#D3B683']
     : ['#513189bd', '#e54ba0'];
-  const headingColor = isCompanyProfile ? '#B8954F' : '#513189';
-  const bodyTextColor = isCompanyProfile ? '#6B5E45' : '#4B5563';
-  const lockCircleBg = isCompanyProfile ? '#F7F3EA' : '#F3EDFF';
-  const { text } = useAppTheme(profileType);
+  const headingColor = isDarkMode ? accent : (isCompanyProfile ? '#B8954F' : '#513189');
+  const lockCircleBg = isDarkMode ? `${accent}22` : (isCompanyProfile ? '#F7F3EA' : '#F3EDFF');
 
   const handleNext = () => {
     navigation.navigate('PrivateCircleSelectAccess', { mode: 'setup' });
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+    <SafeAreaView style={[styles.container, bgStyle]} edges={['top', 'bottom']}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Ionicons name="chevron-back" size={26} color={text || headingColor} />
+          <Ionicons name="chevron-back" size={26} color={icon} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: text || headingColor }]}>
+        <Text style={[styles.headerTitle, textStyle]}>
           {t('privateCircleMint.welcomeTitle')}
         </Text>
         <View style={styles.backBtn} />
@@ -51,10 +52,10 @@ export default function PrivateCircleWelcome() {
           {t('privateCircleMint.welcomeHeading')}
         </Text>
 
-        <Text style={[styles.description, { color: bodyTextColor }]}>
+        <Text style={[styles.description, { color: mutedText }]}>
           {t('privateCircleMint.welcomeDesc1')}
         </Text>
-        <Text style={[styles.description, { color: bodyTextColor }]}>
+        <Text style={[styles.description, { color: mutedText }]}>
           {t('privateCircleMint.welcomeDesc2')}
         </Text>
       </View>
@@ -63,7 +64,7 @@ export default function PrivateCircleWelcome() {
         <TouchableOpacity
           activeOpacity={0.9}
           onPress={handleNext}
-          style={[styles.nextBtnWrapper, { backgroundColor: text || headingColor }]}
+          style={styles.nextBtnWrapper}
         >
           <LinearGradient
             colors={profileActionGradient}
@@ -82,7 +83,6 @@ export default function PrivateCircleWelcome() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
   },
   header: {
     flexDirection: 'row',

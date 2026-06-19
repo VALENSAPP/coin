@@ -22,7 +22,7 @@ export const ActivityScreen = ({ navigation }) => {
   const route = useRoute();
   const [activeFilter, setActiveFilter] = useState('all');
   const [activities, setActivities] = useState([]);
-  const { bgStyle, textStyle, text } = useAppTheme();
+  const { bgStyle, textStyle, text, cardStyle, mutedText, accent, border } = useAppTheme();
   const { t } = useLanguage();
 
   // Filters use translation keys; filter values are stable internal keys
@@ -158,7 +158,7 @@ export const ActivityScreen = ({ navigation }) => {
   };
 
   const renderActivity = ({ item }) => (
-    <View style={[styles.activityDetailItem, { shadowColor: text }]}>
+    <View style={[styles.activityDetailItem, cardStyle, { shadowColor: text, borderColor: border, borderWidth: StyleSheet.hairlineWidth }]}>
       <TouchableOpacity
         activeOpacity={0.8}
         onPress={() => navigateToActivityUser(item)}
@@ -192,9 +192,9 @@ export const ActivityScreen = ({ navigation }) => {
       </TouchableOpacity>
       <View style={styles.activityDetailContent}>
         <TouchableOpacity activeOpacity={0.8} onPress={() => navigateToActivityUser(item)}>
-          <Text style={styles.activityDetailAction}>{item.action}</Text>
+          <Text style={[styles.activityDetailAction, textStyle]}>{item.action}</Text>
         </TouchableOpacity>
-        <Text style={styles.activityDetailTime}>{item.time}</Text>
+        <Text style={[styles.activityDetailTime, { color: mutedText }]}>{item.time}</Text>
       </View>
     </View>
   );
@@ -208,13 +208,15 @@ export const ActivityScreen = ({ navigation }) => {
               key={filter.key}
               style={[
                 styles.filterButton,
-                activeFilter === filter.key && { backgroundColor: text, borderColor: text },
+                { borderColor: border, backgroundColor: cardStyle?.backgroundColor },
+                activeFilter === filter.key && { backgroundColor: accent, borderColor: accent },
               ]}
               onPress={() => setActiveFilter(filter.key)}
             >
               <Text
                 style={[
                   styles.filterText,
+                  { color: mutedText },
                   activeFilter === filter.key && styles.filterTextActive,
                 ]}
               >
@@ -273,7 +275,6 @@ const styles = StyleSheet.create({
   activityDetailItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
     padding: 16,
     marginBottom: 8,
     borderRadius: 12,
@@ -295,12 +296,10 @@ const styles = StyleSheet.create({
   activityDetailAction: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#111',
     marginBottom: 4,
   },
   activityDetailTime: {
     fontSize: 14,
-    color: '#666',
   },
   activityAmount: {
     fontSize: 16,
@@ -315,17 +314,14 @@ const styles = StyleSheet.create({
     marginTop: Platform.OS == "ios" ? 20 : 0
   },
   filterButton: {
-    backgroundColor: '#fff',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
     marginRight: 8,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
   },
   filterText: {
     fontSize: 14,
-    color: '#666',
   },
   filterTextActive: {
     color: '#fff',

@@ -1,8 +1,8 @@
-import { StyleSheet } from "react-native";
+import { StyleSheet, Platform } from "react-native";
 import { useAppTheme } from "../../../theme/useApptheme";
 
 const createStyles = () => {
-    const { bg } = useAppTheme();
+    const { bg, text, card, border, mutedText, accent } = useAppTheme();
 
     const styles = StyleSheet.create({
         container: {
@@ -48,19 +48,19 @@ const createStyles = () => {
             position: "absolute",
             left: 16,
             top: 10,
-            backgroundColor: "#E0E0E0",
+            backgroundColor: card,
             padding: 8,
             borderRadius: 10,
         },
         title: {
             fontSize: 26,
             fontWeight: "700",
-            color: "#5a2d82",
+            color: accent,
             marginTop: 10,
         },
         subtitle: {
             fontSize: 14,
-            color: "#7E7E7E",
+            color: mutedText,
             marginTop: 5,
         },
         cardsContainer: {
@@ -72,7 +72,7 @@ const createStyles = () => {
         },
         card: {
             flex: 1,
-            backgroundColor: "#fff",
+            backgroundColor: card,
             marginHorizontal: 6,
             borderRadius: 20,
             padding: 18,
@@ -83,9 +83,11 @@ const createStyles = () => {
             shadowRadius: 12,
             flexDirection: "column",
             justifyContent: "space-between",
+            borderWidth: 1,
+            borderColor: border,
         },
         cardAnimated: {
-            backgroundColor: "#fff",
+            backgroundColor: card,
             borderRadius: 20,
             overflow: "hidden",
         },
@@ -94,7 +96,7 @@ const createStyles = () => {
             borderRadius: 20,
         },
         iconCirclePurple: {
-            backgroundColor: "#EFEAFE",
+            backgroundColor: `${accent}22`,
             padding: 10,
             borderRadius: 20,
             alignSelf: "center",
@@ -109,7 +111,7 @@ const createStyles = () => {
             textAlign: "center",
             marginTop: 10,
             fontWeight: "700",
-            color: "#5a2d82",
+            color: accent,
             fontSize: 16,
         },
         cardTitleGold: {
@@ -122,7 +124,7 @@ const createStyles = () => {
         cardDesc: {
             textAlign: "center",
             fontSize: 12,
-            color: "#000",
+            color: mutedText,
             marginVertical: 12,
         },
         listItem: {
@@ -134,7 +136,7 @@ const createStyles = () => {
         listText: {
             marginLeft: 10,
             fontSize: 13,
-            color: "#000",
+            color: text,
             fontWeight: "500",
         },
         purpleBtn: {
@@ -142,14 +144,14 @@ const createStyles = () => {
             paddingVertical: 12,
             borderRadius: 12,
             alignItems: "center",
-            backgroundColor: "rgba(90, 45, 130, 0.12)",
+            backgroundColor: `${accent}22`,
             borderWidth: 2,
-            borderColor: "#5a2d82",
+            borderColor: accent,
             overflow: "hidden",
         },
 
         purpleBtnText: {
-            color: "#5a2d82",
+            color: accent,
             fontWeight: "700",
             textAlign: "center",
             fontSize: 14,

@@ -27,7 +27,7 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
   const dispatch = useDispatch();
   const toast = useToast();
   const route = useRoute();
-  const { bgStyle, textStyle, text } = useAppTheme();
+  const { bgStyle, textStyle, text, cardStyle, accent, mutedText } = useAppTheme();
   const { t } = useLanguage();
   const stripeErrorMessages = getStripeErrorMessages(t);
 
@@ -243,8 +243,8 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
           {t('creditPurchaseModal.title')}
         </Text>
 
-        <View style={[styles.currentCreditsContainer, { shadowColor: text }]}>
-          <Text style={styles.currentCreditsLabel}>
+        <View style={[styles.currentCreditsContainer, cardStyle, { shadowColor: text }]}>
+          <Text style={[styles.currentCreditsLabel, { color: mutedText }]}>
             {t('creditPurchaseModal.currentCreditsLabel')}
           </Text>
           <Text style={[styles.currentCreditsValue, textStyle]}>
@@ -252,7 +252,7 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
           </Text>
         </View>
 
-        <Text style={styles.subtitle}>
+        <Text style={[styles.subtitle, { color: mutedText }]}>
           {t('creditPurchaseModal.selectAmountLabel')}
         </Text>
 
@@ -260,7 +260,7 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
           <TouchableOpacity
             style={[
               styles.adjustBtn,
-              { backgroundColor: text, shadowColor: text },
+              { backgroundColor: accent, shadowColor: accent },
               (creditsToBuy <= 1 || maxPurchasable <= 0) && styles.adjustBtnDisabled,
             ]}
             onPress={decreaseCredits}
@@ -271,7 +271,7 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
 
           <View style={styles.amountContainer}>
             <Text style={[styles.amountText, textStyle]}>{creditsToBuy}</Text>
-            <Text style={styles.creditsLabel}>
+            <Text style={[styles.creditsLabel, { color: mutedText }]}>
               {creditsToBuy > 1
                 ? t('creditPurchaseModal.creditPlural')
                 : t('creditPurchaseModal.creditSingular')}
@@ -281,7 +281,7 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
           <TouchableOpacity
             style={[
               styles.adjustBtn,
-              { backgroundColor: text, shadowColor: text },
+              { backgroundColor: accent, shadowColor: accent },
               (maxPurchasable <= 0 || creditsToBuy >= maxPurchasable) && styles.adjustBtnDisabled,
             ]}
             onPress={increaseCredits}
@@ -294,7 +294,7 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
         <TouchableOpacity
           style={[
             styles.buyBtn,
-            { backgroundColor: text, shadowColor: text },
+            { backgroundColor: accent, shadowColor: accent },
             (maxPurchasable <= 0 || creditsToBuy < 1) && { opacity: 0.6 },
           ]}
           onPress={handleConfirmPurchase}
@@ -306,7 +306,7 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => sheetRef.current?.close()}>
-          <Text style={styles.cancelText}>
+          <Text style={[styles.cancelText, { color: mutedText }]}>
             {t('creditPurchaseModal.cancelButton')}
           </Text>
         </TouchableOpacity>
@@ -330,7 +330,6 @@ const styles = StyleSheet.create({
   currentCreditsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 12,

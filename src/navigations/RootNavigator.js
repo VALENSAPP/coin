@@ -86,7 +86,7 @@ const CustomDrawerContent = (props) => {
       style={bgStyle}
       contentContainerStyle={{
         flexGrow: 1,
-        justifyContent: 'space-between',
+        // justifyContent: 'space-between',
       }}
     >
       {/* Drawer Header */}
@@ -143,7 +143,7 @@ const CustomDrawerContent = (props) => {
       />
 
       {/* Dark Mode Toggle */}
-      <View
+      {/* <View
         style={[
           {
             paddingHorizontal: 20,
@@ -173,7 +173,7 @@ const CustomDrawerContent = (props) => {
           value={isDarkMode}
           onValueChange={toggleDarkMode}
         />
-      </View>
+      </View> */}
 
     </DrawerContentScrollView>
   );

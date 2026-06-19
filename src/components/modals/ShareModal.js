@@ -39,7 +39,7 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
   const [sending, setSending] = useState(false);
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [search, setSearch] = useState('');
-  const { text } = useAppTheme();
+  const { bg, text, card, border, mutedText, accent, icon, bgStyle } = useAppTheme();
   const { t } = useLanguage();
 
   useEffect(() => {
@@ -309,7 +309,7 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
           )}
         </View>
         <View style={styles.nameRow}>
-          <Text numberOfLines={1} style={styles.usernameText}>
+          <Text numberOfLines={1} style={[styles.usernameText, { color: text }]}>
             {item.username}
           </Text>
         </View>
@@ -330,11 +330,11 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
       customStyles={{
         wrapper: { backgroundColor: 'rgba(0,0,0,0.35)' },
         draggableIcon: {
-          backgroundColor: '#cfcfcf',
+          backgroundColor: mutedText,
           width: 50, height: 5, borderRadius: 3, marginTop: 6,
         },
         container: {
-          backgroundColor: '#fff',
+          backgroundColor: bg,
           borderTopLeftRadius: 16,
           borderTopRightRadius: 16,
           paddingTop: 6,
@@ -344,18 +344,18 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
     >
       {/* Search */}
       <View style={{ flexDirection: 'row', alignItems: 'center', marginHorizontal: 10 }}>
-        <View style={styles.searchBar}>
-          <Ionicons name="search" size={18} color="#9a9a9a" />
+        <View style={[styles.searchBar, { backgroundColor: card, borderWidth: 1, borderColor: border }]}>
+          <Ionicons name="search" size={18} color={mutedText} />
           <TextInput
             placeholder={t('shareModal.searchPlaceholder')}
-            placeholderTextColor="#9a9a9a"
-            style={styles.searchInput}
+            placeholderTextColor={mutedText}
+            style={[styles.searchInput, { color: text }]}
             value={search}
             onChangeText={setSearch}
           />
         </View>
-        <TouchableOpacity style={styles.smallIconBtn} activeOpacity={0.7}>
-          <Ionicons name="people-outline" size={18} color="#444" />
+        <TouchableOpacity style={[styles.smallIconBtn, { backgroundColor: card, borderColor: border, borderWidth: 1 }]} activeOpacity={0.7}>
+          <Ionicons name="people-outline" size={18} color={icon} />
         </TouchableOpacity>
       </View>
 
@@ -375,7 +375,7 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
             contentContainerStyle={{ paddingBottom: 12, flexGrow: 1 }}
             ListEmptyComponent={() => (
               <View style={{ alignItems: 'center', paddingTop: 24 }}>
-                <Text style={{ color: '#777' }}>
+                <Text style={{ color: mutedText }}>
                   {t('shareModal.noFollowingFound')}
                 </Text>
               </View>
@@ -386,9 +386,9 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
 
       {/* Bottom actions */}
       {sendCount > 0 ? (
-        <View style={styles.sendBar}>
+        <View style={[styles.sendBar, bgStyle, { borderTopColor: border }]}>
           <TouchableOpacity
-            style={[styles.sendButton, { backgroundColor: text }, sending && { opacity: 0.7 }]}
+            style={[styles.sendButton, { backgroundColor: accent }, sending && { opacity: 0.7 }]}
             activeOpacity={0.85}
             onPress={handleSend}
             disabled={sending || sendCount === 0}
@@ -405,20 +405,20 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
           </TouchableOpacity>
         </View>
       ) : (
-        <View style={styles.bottomBar}>
-          <Action icon="share-social-outline" label={t('shareModal.shareToLabel')} onPress={shareToSystem} />
-          <Action icon="copy-outline" label={t('shareModal.copyLinkLabel')} onPress={copyToClipboard} />
-          {/* <Action icon="logo-whatsapp" label={t('shareModal.whatsappLabel')} onPress={shareToWhatsApp} /> */}
+        <View style={[styles.bottomBar, bgStyle, { borderTopColor: border }]}>
+          <Action icon="share-social-outline" label={t('shareModal.shareToLabel')} onPress={shareToSystem} iconColor={icon} labelColor={text} />
+          <Action icon="copy-outline" label={t('shareModal.copyLinkLabel')} onPress={copyToClipboard} iconColor={icon} labelColor={text} />
+          {/* <Action icon="logo-whatsapp" label={t('shareModal.whatsappLabel')} onPress={shareToWhatsApp} iconColor={icon} labelColor={text} /> */}
         </View>
       )}
     </RBSheet>
   );
 });
 
-const Action = ({ icon, onPress, label }) => (
+const Action = ({ icon, onPress, label, iconColor = '#222', labelColor = '#222' }) => (
   <TouchableOpacity style={styles.actionItem} activeOpacity={0.85} onPress={onPress}>
-    <Ionicons name={icon} size={22} color="#222" />
-    <Text numberOfLines={1} style={styles.actionLabel}>{label}</Text>
+    <Ionicons name={icon} size={22} color={iconColor} />
+    <Text numberOfLines={1} style={[styles.actionLabel, { color: labelColor }]}>{label}</Text>
   </TouchableOpacity>
 );
 
@@ -429,7 +429,6 @@ const styles = StyleSheet.create({
     height: 40,
     width: '90%',
     borderRadius: 10,
-    backgroundColor: '#f3f3f4',
     paddingHorizontal: 12,
     marginTop: 8,
     marginBottom: 10,
@@ -438,12 +437,11 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 8,
     fontSize: 14,
-    color: '#111',
     paddingVertical: Platform.OS === 'ios' ? 8 : 6,
   },
   smallIconBtn: {
     width: 30, height: 40, borderRadius: 10,
-    backgroundColor: '#ededed', alignItems: 'center', justifyContent: 'center', marginLeft: 4,
+    alignItems: 'center', justifyContent: 'center', marginLeft: 4,
   },
 
   gridArea: { flex: 1 },
@@ -463,20 +461,19 @@ const styles = StyleSheet.create({
     height: AVATAR_SIZE,
     borderRadius: AVATAR_SIZE / 2,
     borderWidth: 2,
-    borderColor: '#f0f0f0',
   },
   nameRow: {
     marginTop: 8, flexDirection: 'row', alignItems: 'center', maxWidth: CELL_W - 18,
   },
-  usernameText: { color: '#111', fontSize: 13 },
+  usernameText: { fontSize: 13 },
 
   bottomBar: {
-    borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#e9e9e9',
-    backgroundColor: '#fff', paddingVertical: 10, paddingHorizontal: 6,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 10, paddingHorizontal: 6,
     flexDirection: 'row', justifyContent: 'space-around',
   },
   actionItem: { alignItems: 'center', width: 70 },
-  actionLabel: { marginTop: 6, fontSize: 11, color: '#222' },
+  actionLabel: { marginTop: 6, fontSize: 11 },
 
   tickOverlay: {
     position: 'absolute',
@@ -494,8 +491,8 @@ const styles = StyleSheet.create({
   },
 
   sendBar: {
-    borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#e9e9e9',
-    backgroundColor: '#fff', padding: 12, alignItems: 'center',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    padding: 12, alignItems: 'center',
   },
   sendButton: {
     borderRadius: 10, paddingHorizontal: 22, paddingVertical: 10, width: '90%',

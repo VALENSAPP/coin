@@ -36,7 +36,7 @@ const ProfileModal = ({ modalVisible, setModalVisible, onStoryUploaded }) => {
   const navigation = useNavigation();
   const toast = useToast();
   const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
-  const { bgStyle, textStyle } = useAppTheme();
+  const { bgStyle, textStyle, icon, border, mutedText } = useAppTheme();
   const { t } = useLanguage();
 
   const [composerVisible, setComposerVisible] = useState(false);
@@ -311,45 +311,45 @@ const ProfileModal = ({ modalVisible, setModalVisible, onStoryUploaded }) => {
             style={[styles.modalContainer, { transform: [{ translateY }] }, bgStyle]}
             {...panResponder.panHandlers}
           >
-            <View style={styles.dragHandle} />
+            <View style={[styles.dragHandle, { backgroundColor: mutedText }]} />
 
-            <Text style={styles.title}>{t('profileModal.createTitle')}</Text>
+            <Text style={[styles.title, textStyle]}>{t('profileModal.createTitle')}</Text>
 
             <View style={styles.list}>
               <TouchableOpacity
-                style={styles.button}
+                style={[styles.button, { borderColor: border }]}
                 onPress={() => handleNavigation('Flips')}
               >
-                <Reels width={20} height={20} />
-                <Text style={styles.lText}>{t('profileModal.flipsLabel')}</Text>
+                <Reels width={20} height={20} fill={icon} color={icon} />
+                <Text style={[styles.lText, textStyle]}>{t('profileModal.flipsLabel')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.button}
+                style={[styles.button, { borderColor: border }]}
                 onPress={() => handleNavigation('mint')}
               >
-                <Feather name="grid" size={20} color="#111100" />
-                <Text style={styles.lText}>{t('profileModal.newMintLabel')}</Text>
+                <Feather name="grid" size={20} color={icon} />
+                <Text style={[styles.lText, textStyle]}>{t('profileModal.newMintLabel')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.button}
+                style={[styles.button, { borderColor: border }]}
                 onPress={() => handleNavigation('drops')}
               >
                 <Image
                   source={require('../../assets/icons/pngicons/user-interface_14983775.png')}
-                  style={{ width: 20, height: 20 }}
+                  style={{ width: 20, height: 20, tintColor: icon }}
                   resizeMode="contain"
                 />
-                <Text style={styles.lText}>{t('profileModal.dropsLabel')}</Text>
+                <Text style={[styles.lText, textStyle]}>{t('profileModal.dropsLabel')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.button}
+                style={[styles.button, { borderColor: border }]}
                 onPress={() => handleNavigation('drops highlights')}
               >
-                <Feather name="circle" size={20} color="#111100" />
-                <Text style={styles.lText}>{t('profileModal.dropsHighlightsLabel')}</Text>
+                <Feather name="circle" size={20} color={icon} />
+                <Text style={[styles.lText, textStyle]}>{t('profileModal.dropsHighlightsLabel')}</Text>
               </TouchableOpacity>
             </View>
           </Animated.View>
@@ -384,7 +384,6 @@ const styles = StyleSheet.create({
   dragHandle: {
     width: 40,
     height: 5,
-    backgroundColor: '#ccc',
     borderRadius: 3,
     alignSelf: 'center',
     marginBottom: 10,
@@ -404,7 +403,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     height: 50,
     borderBottomWidth: 0.3,
-    borderColor: '#ccc',
     paddingHorizontal: 5,
   },
   lText: {
