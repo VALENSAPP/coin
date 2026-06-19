@@ -9,7 +9,7 @@ import Splash from './pages/splashSceen/Splash';
 import { hideLoader } from './redux/actions/LoaderAction';
 import { showToastMessage } from './components/displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
-import { refreshToken, markAppPermissionsReady } from './services/authentication';
+import { refreshToken, markAppPermissionsReady, requestAppLocationPermission } from './services/authentication';
 import { ThemeProvider } from './theme/ThemeContext';
 import { setUserProfile } from './redux/actions/UserProfileAction';
 import { setStripeCustomerId } from './redux/actions/UserAction';
@@ -106,8 +106,16 @@ export default function Main() {
   const requestPostSplashPermissions = React.useCallback(() => {
     if (postSplashPermissionsRequestedRef.current) return;
     postSplashPermissionsRequestedRef.current = true;
-    markAppPermissionsReady();
-    requestUserPermission();
+
+    setTimeout(async () => {
+      try {
+        markAppPermissionsReady();
+        await requestUserPermission();
+        await requestAppLocationPermission();
+      } catch (error) {
+        console.log('Post splash permission request failed:', error);
+      }
+    }, 500);
   }, []);
 
   const handleSplashFinish = React.useCallback(() => {
@@ -182,7 +190,6 @@ export default function Main() {
       ]);
 
       const response = await getUserCredentials(id);
-      console.log(response, 'fdATAresponseresponseresponseresponseresponseresponse');
       if (response?.statusCode !== 200) return;
 
       const userData = response?.data?.user || response?.data || response;
@@ -250,7 +257,6 @@ export default function Main() {
       if (lockLogoutInFlight.current) return;
 
       const response = await lockProfile();
-      console.log(response, 'llick profilee e reposneenenene')
       const isLock = String(response?.data?.isLock ?? '').toLowerCase() === 'true';
       if (!isLock) return;
 

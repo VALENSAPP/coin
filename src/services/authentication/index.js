@@ -36,15 +36,12 @@ export const signup = async (data) => {
             ...(deviceName ? { deviceName } : {}),
             ...(deviceType ? { deviceType } : {}),
             ...(location ? { location } : {}),
-            // Backward compatible snake_case keys (in case backend expects these)
             ...(deviceId ? { device_id: deviceId } : {}),
             ...(deviceName ? { device_name: deviceName } : {}),
             ...(deviceType ? { device_type: deviceType } : {}),
         };
-        console.log(devicePayload, 'data in devieve info')
         return axiosinstance.post('/user/register', { ...(data || {}), ...devicePayload });
     } catch (error) {
-        // Fallback to normal login if device info fails for any reason
         return axiosinstance.post('/user/register', data);
     }
 }
@@ -79,6 +76,8 @@ const requestLocationPermission = async () => {
 
     return granted === PermissionsAndroid.RESULTS.GRANTED;
 };
+
+export const requestAppLocationPermission = requestLocationPermission;
 
 const getCurrentLocationString = async () => {
     try {
@@ -136,7 +135,6 @@ export const login = async (data) => {
             ...(deviceName ? { device_name: deviceName } : {}),
             ...(deviceType ? { device_type: deviceType } : {}),
         };
-        console.log(devicePayload, 'data in devieve info')
         return axiosinstance.post('/auth/login', { ...(data || {}), ...devicePayload });
     } catch (error) {
         // Fallback to normal login if device info fails for any reason

@@ -51,7 +51,7 @@ export default function PrivateCircleReview() {
 
   const isCompanyProfile = profileType === 'company';
   const profileActionGradient = isCompanyProfile
-    ? ['#D3B683', '#D3B683']
+    ? ['#C9A15a', '#C9A15a']
     : ['#513189bd', '#e54ba0'];
   const headingColor = isCompanyProfile ? '#B8954F' : '#513189';
   const { text } = useAppTheme(profileType);

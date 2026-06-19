@@ -32,7 +32,7 @@ import { showToastMessage } from '../../components/displaytoastmessage';
 import { useAppTheme } from '../../theme/useApptheme';
 
 const PRIMARY_GRADIENT = ['#513189bd', '#e54ba0']; // user
-const COMPANY_GRADIENT = ['#D3B683', '#D3B683'];   // company
+const COMPANY_GRADIENT = ['#C9A15a', '#C9A15a'];   // company
 const BORDER = '#D1D5DB';
 const SOFT = '#EEF2FF';
 const MUTED = '#6B7280';

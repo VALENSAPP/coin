@@ -154,7 +154,6 @@ const PrivateContentScreen = ({
   refreshKey,
 }) => {
   const [posts, setPosts] = useState([]);
-  console.log([posts,'data in pvt content'])
   const [loading, setLoading] = useState(false);
   const [statusLoading, setStatusLoading] = useState(false);
   const [resolvedIsSubscribed, setResolvedIsSubscribed] = useState(false);

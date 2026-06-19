@@ -165,7 +165,7 @@ export default function ProfileBattleHub({
   const [activeTab, setActiveTab] = useState('myBattle');
 
   const PRIMARY_GRADIENT =
-    profile === 'user' ? ['#513189bd', '#e54ba0'] : ['#D3B683', '#D3B683'];
+    profile === 'user' ? ['#513189bd', '#e54ba0'] : ['#C9A15a', '#C9A15a'];
 
   const loadBattles = useCallback(async () => {
     if (!isOwner && !viewedUserId) {
@@ -294,7 +294,7 @@ export default function ProfileBattleHub({
         <Text style={[styles.heroEyebrow, { color: `${text}AA` }]}>
           {t('battleHub.heroEyebrow')}
         </Text>
-        <Text style={[styles.heroTitle, { color: profile === 'user' ? '#5a2d82' : '#D3B683' }]}>
+        <Text style={[styles.heroTitle, { color: profile === 'user' ? '#5a2d82' : '#C9A15a' }]}>
           {t('battleHub.heroTitle')}
         </Text>
         <Text style={styles.heroSubtitle}>{t('battleHub.heroSubtitle')}</Text>
@@ -357,7 +357,7 @@ export default function ProfileBattleHub({
 
       {/* Section header */}
       <View style={styles.sectionHeader}>
-        <Text style={[styles.sectionTitle, { color: profile === 'user' ? '#5a2d82' : '#D3B683' }]}>
+        <Text style={[styles.sectionTitle, { color: profile === 'user' ? '#5a2d82' : '#C9A15a' }]}>
           {t('battleHub.recentBattles')}
         </Text>
         <Text style={styles.sectionSubtitle}>{t('battleHub.recentBattlesSubtitle')}</Text>

@@ -2,7 +2,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import messaging from '@react-native-firebase/messaging';
 import notifee, { AndroidStyle, AndroidImportance, EventType } from '@notifee/react-native';
-import { Platform } from 'react-native';
+import { PermissionsAndroid, Platform } from 'react-native';
 
 export const PENDING_NOTIFICATION_MODAL_KEY = 'pendingNotificationModal';
 
@@ -18,6 +18,16 @@ const buildModalNotificationPayload = (notification = {}) => ({
 // PERMISSION
 // ─────────────────────────────────────────────
 export async function requestUserPermission() {
+    if (Platform.OS === 'android' && Platform.Version >= 33) {
+        const result = await PermissionsAndroid.request(
+            PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
+        );
+        if (result !== PermissionsAndroid.RESULTS.GRANTED) {
+            console.log('Android notification permission not granted:', result);
+            return;
+        }
+    }
+
     const authStatus = await messaging().requestPermission();
     const enabled =
         authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
