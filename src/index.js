@@ -258,7 +258,11 @@ export default function Main() {
           : 'user',
       );
       dispatch(setUserProfile('normal'));
-      await AsyncStorage.clear();
+      const keys = await AsyncStorage.getAllKeys();
+      const keysToRemove = keys.filter(
+        key => key !== 'hasLaunchedBefore'
+      );
+      await AsyncStorage.multiRemove(keysToRemove);
       dispatch(loggedOut());
     } catch (err) {
       lockLogoutInFlight.current = false;
@@ -348,7 +352,7 @@ export default function Main() {
         const response = await authSesionHistory();
         const sessions = response?.data?.sessions || [];
         const currentSession = sessions.find(s => s.deviceId === deviceId);
-
+        console.log('Session check result:', { response, sessions, currentSession, deviceId });
         if (currentSession) {
           dispatch(loggedIn());
           await ensureCurrentAccountSaved();
@@ -357,7 +361,13 @@ export default function Main() {
           if (storedStripeId) dispatch(setStripeCustomerId(storedStripeId));
         } else {
           console.log('Session not found, logging out');
-          await AsyncStorage.clear();
+          const keys = await AsyncStorage.getAllKeys();
+
+          const keysToRemove = keys.filter(
+            key => key !== 'hasLaunchedBefore'
+          );
+
+          await AsyncStorage.multiRemove(keysToRemove);
           dispatch(loggedOut());
         }
       } catch (error) {

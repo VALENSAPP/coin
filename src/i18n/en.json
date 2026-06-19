@@ -3306,5 +3306,23 @@
     "blockedMessage": "Your account is blocked because profile verification was not completed within 3 days.",
     "completeVerification": "Complete your {{verificationType}} to unlock your account and continue using Valens.",
     "completeButton": "Complete {{verificationType}}"
+  },
+  "trustCommentModal": {
+    "headerTitle": "Would you like to explain your vote?",
+    "headerSubtitle": "Your perspective helps the community",
+    "voteSuffix": "vote",
+    "agreeLabel": "Agree",
+    "notSureLabel": "Not Sure",
+    "disagreeLabel": "Disagree",
+    "agreeDetail": "Verify this content",
+    "notSureDetail": "Need more info",
+    "disagreeDetail": "Not credible",
+    "sectionLabel": "Leave a comment",
+    "optional": "(optional)",
+    "inputPlaceholder": "Why do you {{label}} with this post?",
+    "charCount": "{{count}}/280",
+    "infoNote": "Your comment may appear alongside your vote in the trust score panel.",
+    "skipButton": "Skip",
+    "submitButton": "Submit vote"
   }
 }

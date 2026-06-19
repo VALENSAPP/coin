@@ -2533,7 +2533,7 @@
     "termsLink": "Conditions des Abonnés Valens",
     "termsSuffix": "et je comprends que les abonnements donnent uniquement accès à du contenu numérique et ne constituent ni des investissements ni des produits financiers.",
     "completePaymentButton": "✅ Terminé — Finaliser le paiement",
-  "subscriptionAmountNotSet": "Ce créateur n'a pas encore défini de montant d'abonnement.",
+    "subscriptionAmountNotSet": "Ce créateur n'a pas encore défini de montant d'abonnement.",
     "amountUnavailable": "Le montant de l'abonnement n'est pas disponible. Veuillez réessayer.",
     "onboardingIncomplete": "La configuration Stripe n'est pas encore terminée."
   },
@@ -2926,7 +2926,7 @@
     "lockedSubtitle": "Les publications exclusives sont disponibles uniquement pour les abonnés actifs.",
     "notCircleMemberTitle": "Post du cercle privé",
     "notCircleMemberMessage": "Vous ne pouvez pas voir ce post car vous n'êtes pas membre du cercle privé de cet utilisateur."
-      },
+  },
   "battleHub": {
     "heroEyebrow": "Performance des Batailles",
     "heroTitle": "Affrontez, prédisez et construisez votre réputation Valens.",
@@ -3305,5 +3305,23 @@
     "blockedMessage": "Votre compte est bloqué car la vérification du profil n’a pas été effectuée dans les 3 jours.",
     "completeVerification": "Complétez votre {{verificationType}} pour débloquer votre compte et continuer à utiliser Valens.",
     "completeButton": "Compléter {{verificationType}}"
+  },
+  "trustCommentModal": {
+    "headerTitle": "Souhaitez-vous expliquer votre vote ?",
+    "headerSubtitle": "Votre point de vue aide la communauté",
+    "voteSuffix": "vote",
+    "agreeLabel": "D'accord",
+    "notSureLabel": "Pas sûr",
+    "disagreeLabel": "Pas d'accord",
+    "agreeDetail": "Vérifier ce contenu",
+    "notSureDetail": "Besoin de plus d'informations",
+    "disagreeDetail": "Pas crédible",
+    "sectionLabel": "Laisser un commentaire",
+    "optional": "(facultatif)",
+    "inputPlaceholder": "Pourquoi êtes-vous {{label}} avec cette publication ?",
+    "charCount": "{{count}}/280",
+    "infoNote": "Votre commentaire peut apparaître à côté de votre vote dans le panneau de score de confiance.",
+    "skipButton": "Passer",
+    "submitButton": "Soumettre le vote"
   }
 }

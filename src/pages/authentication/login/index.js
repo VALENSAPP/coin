@@ -284,7 +284,13 @@ export default function LoginScreen() {
           if (isLock) {
             const userId = response.data.user.id;
 
-            await AsyncStorage.clear();
+            const keys = await AsyncStorage.getAllKeys();
+
+            const keysToRemove = keys.filter(
+              key => key !== 'hasLaunchedBefore'
+            );
+
+            await AsyncStorage.multiRemove(keysToRemove);
 
             if (userId) {
               await AsyncStorage.setItem('userId', userId);
