@@ -110,6 +110,12 @@ export const pinComment = async (data ) => {
 export const unpinComment = async (data ) => {
     return axiosInstance.post('battle/comment/unpin',data);
 };
+export const commentHighlight = async (data) => {
+    return axiosInstance.post('battle/comment/highlight', data);
+};
+export const removeCommentHighlight = async (data) => {
+    return axiosInstance.post('battle/comment/highlight/remove', data);
+};
 export const filtterBattle = async (params) => {
     return axiosInstance.get('battle/myBattleTracking', { params });
 };

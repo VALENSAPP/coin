@@ -689,8 +689,7 @@ export default function BattleVoteDetails() {
                     battle?.title ||
                     t('battleVoteDetails.untitledBattle', 'Untitled battle')}
                 </Text>
-              </View>
-
+                <View style={{marginTop: 10}}/>
               {options.length > 0 && (
                 <View style={styles.optionCardsRow}>
                   {options.slice(0, 2).map((option, index) => {
@@ -724,6 +723,8 @@ export default function BattleVoteDetails() {
                   })}
                 </View>
               )}
+              </View>
+
 
               {!!selectedUserHighlight && (
                 <View style={styles.featuredCommentWrap}>
@@ -804,24 +805,26 @@ const styles = StyleSheet.create({
 
   optionCardsRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 5,
     marginBottom: 12,
+    justifyContent: 'space-evenly',
   },
 
   optionCard: {
-    flex: 1,
+    // flex: 1,
+    width: '40%',
     borderWidth: 1,
     borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 14,
-    minHeight: 56,
-    justifyContent: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 8,
+    // minHeight: 40,
+    justifyContent: 'space-between',
     alignItems: 'center',
   },
 
   optionCardText: {
     fontSize: 14,
-    fontWeight: '800',
+    fontWeight: '600',
     textAlign: 'center',
     lineHeight: 20,
   },
@@ -831,8 +834,8 @@ const styles = StyleSheet.create({
   },
 
   headerTitle: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 18,
+    fontWeight: '800',
   },
 
   headerSub: {

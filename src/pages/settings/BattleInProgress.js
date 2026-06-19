@@ -31,9 +31,12 @@ import LinearGradient from 'react-native-linear-gradient';
 import ImageZoom from 'react-native-image-pan-zoom';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import HighlightText from '@sanar/react-native-highlight-text';
 import {
   commentLike,
   commentUpload,
+  commentHighlight,
+  removeCommentHighlight,
   getbattle,
   predictBattle,
   replyCommentBattle,
@@ -221,6 +224,26 @@ const normalizeCommentPinnedState = comment => {
   ].some(parsePinnedValue);
 };
 
+const normalizeCommentHighlights = comment => {
+  const raw = comment?.highlights ?? comment?.highlightRanges ?? comment?.highlight ?? [];
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map(entry => ({
+      startIndex: Number(entry?.startIndex ?? entry?.start ?? 0),
+      endIndex: Number(entry?.endIndex ?? entry?.end ?? 0),
+    }))
+    .filter(entry => Number.isFinite(entry.startIndex) && Number.isFinite(entry.endIndex) && entry.endIndex > entry.startIndex);
+};
+
+const getHighlightSearchWords = (message, highlights = []) => {
+  const textValue = String(message || '');
+  return [...new Set(
+    highlights
+      .map(({ startIndex, endIndex }) => textValue.slice(startIndex, endIndex).trim())
+      .filter(Boolean),
+  )];
+};
+
 const getCommentReplyEntries = comment => {
   if (Array.isArray(comment?.replies)) return comment.replies;
   if (Array.isArray(comment?.children)) return comment.children;
@@ -270,6 +293,7 @@ const normalizeComment = (comment, index = 0, currentUserId = '') => ({
   ),
   createdAt: pickFirst(comment?.createdAt, comment?.updatedAt, ''),
   replies: flattenReplies(getCommentReplyEntries(comment), currentUserId),
+  highlights: normalizeCommentHighlights(comment),
   side: '',
 });
 
@@ -619,6 +643,8 @@ export default function BattleInProgress() {
   const [submittingComment, setSubmittingComment] = useState(false);
   const [likingCommentId, setLikingCommentId] = useState('');
   const [pinningCommentId, setPinningCommentId] = useState('');
+  const [commentTextSelections, setCommentTextSelections] = useState({});
+  const [submittingHighlight, setSubmittingHighlight] = useState(false);
   const [keepActiveSelectedStyle, setKeepActiveSelectedStyle] = useState(false);
   const [participantUserData, setParticipantUserData] = useState({});
   const [participantBattleStats, setParticipantBattleStats] = useState({});
@@ -796,6 +822,14 @@ export default function BattleInProgress() {
     if (!currentUserId) return false;
     return String(currentUserId) === String(battle.creatorId || battle.creator?.id || battle.creator?._id || '');
   }, [battle.creatorId, battle.creator, currentUserId]);
+
+  const canManageCommentHighlights = useMemo(() => {
+    if (!currentUserId) return false;
+    if (isHeadToHead) return isHeadToHeadCreator || isHeadToHeadOpponent;
+    if (isPrediction) return isBattleCreator;
+    return false;
+  }, [currentUserId, isBattleCreator, isHeadToHead, isHeadToHeadCreator, isHeadToHeadOpponent, isPrediction]);
+
   const [editWindowNow, setEditWindowNow] = useState(() => Date.now());
  useEffect(() => {
     if (!battle.createdAt || !isBattleCreator) return undefined;
@@ -1621,6 +1655,226 @@ export default function BattleInProgress() {
     ]);
   }, [handlePinComment, handleUnpinComment]);
 
+  const applyCommentHighlightForComment = useCallback(async (comment, selection) => {
+    const finalBattleId = resolvedBattleId || battleId;
+    if (!finalBattleId || !comment?.id || submittingHighlight) return;
+
+    const startIndex = Math.min(selection?.start ?? 0, selection?.end ?? 0);
+    const endIndex = Math.max(selection?.start ?? 0, selection?.end ?? 0);
+    if (endIndex <= startIndex) {
+      Alert.alert('Highlight comment', 'Select the text you want to highlight.');
+      return;
+    }
+
+    const existingHighlights = normalizeCommentHighlights(comment);
+    const nextHighlights = [...existingHighlights, { startIndex, endIndex }];
+
+    setSubmittingHighlight(true);
+    setBattle(prev => ({
+      ...prev,
+      comments: updateCommentTree(prev.comments, comment.id, item => ({
+        ...item,
+        highlights: nextHighlights,
+      })),
+    }));
+
+    try {
+      const response = await commentHighlight({
+        battleId: finalBattleId,
+        commentId: comment.id,
+        highlights: nextHighlights,
+      });
+      if (!isSuccessfulResponse(response)) {
+        throw new Error(response?.message || response?.data?.message || 'Unable to highlight comment.');
+      }
+      setCommentTextSelections(prev => {
+        const next = { ...prev };
+        delete next[comment.id];
+        return next;
+      });
+      await fetchBattle(true);
+    } catch (error) {
+      setBattle(prev => ({
+        ...prev,
+        comments: updateCommentTree(prev.comments, comment.id, item => ({
+          ...item,
+          highlights: existingHighlights,
+        })),
+      }));
+      Alert.alert(
+        'Highlight failed',
+        error?.response?.data?.message || error?.message || 'Unable to highlight comment.',
+      );
+    } finally {
+      setSubmittingHighlight(false);
+    }
+  }, [battleId, fetchBattle, resolvedBattleId, submittingHighlight]);
+
+  const handleRemoveCommentHighlight = useCallback(async commentId => {
+    const finalBattleId = resolvedBattleId || battleId;
+    if (!finalBattleId || !commentId || submittingHighlight) return;
+
+    const previousComment = findCommentInTree(battle.comments, commentId);
+    const previousHighlights = normalizeCommentHighlights(previousComment);
+
+    setSubmittingHighlight(true);
+    setBattle(prev => ({
+      ...prev,
+      comments: updateCommentTree(prev.comments, commentId, item => ({
+        ...item,
+        highlights: [],
+      })),
+    }));
+
+    try {
+      const response = await removeCommentHighlight({
+        battleId: finalBattleId,
+        commentId,
+      });
+      if (!isSuccessfulResponse(response)) {
+        throw new Error(response?.message || response?.data?.message || 'Unable to remove highlight.');
+      }
+      setCommentTextSelections(prev => {
+        const next = { ...prev };
+        delete next[commentId];
+        return next;
+      });
+      await fetchBattle(true);
+    } catch (error) {
+      setBattle(prev => ({
+        ...prev,
+        comments: updateCommentTree(prev.comments, commentId, item => ({
+          ...item,
+          highlights: previousHighlights,
+        })),
+      }));
+      Alert.alert(
+        'Remove highlight failed',
+        error?.response?.data?.message || error?.message || 'Unable to remove highlight.',
+      );
+    } finally {
+      setSubmittingHighlight(false);
+    }
+  }, [battle.comments, battleId, fetchBattle, resolvedBattleId, submittingHighlight]);
+
+  const renderCommentMessage = useCallback((comment, paletteColors) => {
+    const message = String(comment?.message || '');
+    if (!message) return null;
+
+    const highlights = normalizeCommentHighlights(comment);
+    const searchWords = getHighlightSearchWords(message, highlights);
+    const hasHighlights = searchWords.length > 0;
+    const selection = commentTextSelections[comment.id] || { start: 0, end: 0 };
+    const hasSelection = selection.end > selection.start;
+    const selectedSnippet = hasSelection
+      ? message.slice(Math.min(selection.start, selection.end), Math.max(selection.start, selection.end)).trim()
+      : '';
+
+    if (canManageCommentHighlights) {
+      return (
+        <View style={styles.commentMessageWrap} collapsable={false}>
+          <View style={styles.commentMessageStack}>
+            {hasHighlights ? (
+              <HighlightText
+                pointerEvents="none"
+                style={[styles.commentMessage, textStyle, styles.commentMessageUnderlay]}
+                textToHighlight={message}
+                searchWords={searchWords}
+                highlightStyle={styles.commentHighlightMark}
+              />
+            ) : null}
+            <TextInput
+              key={`comment-select-${comment.id}`}
+              value={message}
+              editable
+              multiline
+              scrollEnabled={false}
+              showSoftInputOnFocus={false}
+              caretHidden={!hasSelection}
+              selectTextOnFocus={false}
+              contextMenuHidden={false}
+              importantForAutofill="no"
+              underlineColorAndroid="transparent"
+              onChangeText={() => {}}
+              style={[
+                styles.commentMessage,
+                styles.commentMessageSelectable,
+                textStyle,
+                hasHighlights && styles.commentMessageSelectableOverlay,
+              ]}
+              onSelectionChange={({ nativeEvent: { selection: nextSelection } }) => {
+                setCommentTextSelections(prev => ({
+                  ...prev,
+                  [comment.id]: nextSelection,
+                }));
+              }}
+            />
+          </View>
+          {hasSelection ? (
+            <View style={styles.commentHighlightActions}>
+              {!!selectedSnippet && (
+                <Text style={[styles.commentHighlightPreview, { color: paletteColors.textMuted }]} numberOfLines={2}>
+                  "{selectedSnippet}"
+                </Text>
+              )}
+              <View style={styles.commentHighlightActionRow}>
+                <TouchableOpacity
+                  style={[styles.commentHighlightActionButton, { borderColor: paletteColors.border }]}
+                  onPress={() => {
+                    setCommentTextSelections(prev => {
+                      const next = { ...prev };
+                      delete next[comment.id];
+                      return next;
+                    });
+                  }}
+                  disabled={submittingHighlight}
+                >
+                  <Text style={[styles.commentHighlightActionText, { color: paletteColors.textMuted }]}>Clear</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.commentHighlightActionButton, styles.commentHighlightActionPrimary, { backgroundColor: paletteColors.primary }]}
+                  onPress={() => applyCommentHighlightForComment(comment, selection)}
+                  disabled={submittingHighlight}
+                >
+                  {submittingHighlight ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.commentHighlightActionPrimaryText}>Highlight</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <Text style={[styles.commentHighlightHint, { color: paletteColors.textMuted }]}>
+              {/* {hasHighlights
+                ? 'Select more text below to add another highlight.'
+                : 'Press and hold the comment text, then drag the handles to select.'} */}
+            </Text>
+          )}
+        </View>
+      );
+    }
+
+    if (hasHighlights) {
+      return (
+        <HighlightText
+          style={[styles.commentMessage, textStyle]}
+          textToHighlight={message}
+          searchWords={searchWords}
+          highlightStyle={styles.commentHighlightMark}
+        />
+      );
+    }
+
+    return <Text style={[styles.commentMessage, textStyle]} selectable>{message}</Text>;
+  }, [
+    applyCommentHighlightForComment,
+    canManageCommentHighlights,
+    commentTextSelections,
+    submittingHighlight,
+    textStyle,
+  ]);
+
   const sideCommentActions = useMemo(() => {
     const options = Array.isArray(battle?.options) ? battle.options : [];
     const participants = Array.isArray(battle?.participants) ? battle.participants : [];
@@ -1812,7 +2066,7 @@ export default function BattleInProgress() {
           </View>
         </View>
       </View>
-      <Text style={[styles.commentMessage, textStyle]}>{reply.message}</Text>
+      {renderCommentMessage(reply, palette)}
       {replyingToComment?.id === reply.id && (
         <View style={styles.replyComposer}>
           <Text style={[styles.replyComposerLabel, { color: palette.textMuted }]}>
@@ -1859,12 +2113,11 @@ export default function BattleInProgress() {
     const repliesCount = hasReplies ? comment.replies.length : 0;
     const isPinned = normalizeCommentPinnedState(comment);
 
+    const commentHighlights = normalizeCommentHighlights(comment);
+
     return (
-      <TouchableOpacity
+      <View
         key={comment.id}
-        activeOpacity={0.9}
-        onLongPress={isBattleCreator ? () => confirmTogglePin(comment) : undefined}
-        delayLongPress={isBattleCreator ? 500 : undefined}
         style={[styles.commentCard, { backgroundColor: palette.soft, borderColor: palette.border }]}
       >
         <View style={styles.commentHeader}>
@@ -1918,6 +2171,15 @@ export default function BattleInProgress() {
                       )}
                     </TouchableOpacity>
                   )}
+                  {canManageCommentHighlights && commentHighlights.length > 0 && (
+                    <TouchableOpacity
+                      style={styles.commentRemoveHighlightButton}
+                      onPress={() => handleRemoveCommentHighlight(comment.id)}
+                      disabled={submittingHighlight}
+                    >
+                      <Ionicons name="close-circle" size={18} color="#DC2626" />
+                    </TouchableOpacity>
+                  )}
                   {isBattleCreator && (
                     <TouchableOpacity
                       style={styles.commentMenuButton}
@@ -1941,7 +2203,7 @@ export default function BattleInProgress() {
             </View>
           </View>
         </View>
-        <Text style={[styles.commentMessage, textStyle]}>{comment.message}</Text>
+        {renderCommentMessage(comment, palette)}
         {hasReplies && !isExpanded && (
           <TouchableOpacity style={styles.viewRepliesButton} onPress={() => toggleReplies(comment.id)}>
             <Text style={[styles.viewRepliesText, { color: palette.primary }]}>
@@ -1995,7 +2257,7 @@ export default function BattleInProgress() {
         {Array.isArray(visibleReplies) && visibleReplies.length > 0 && (
           <View style={styles.repliesSection}>{visibleReplies.map(renderReplyItem)}</View>
         )}
-      </TouchableOpacity>
+      </View>
     );
   };
 
@@ -2421,7 +2683,8 @@ export default function BattleInProgress() {
           showsVerticalScrollIndicator={false}
           refreshControl={null}
           ref={scrollRef}
-          keyboardShouldPersistTaps="handled"
+          keyboardShouldPersistTaps="always"
+          nestedScrollEnabled={Platform.OS === 'android'}
           keyboardDismissMode="interactive"
           enableOnAndroid
           enableAutomaticScroll
@@ -3020,6 +3283,37 @@ const styles = StyleSheet.create({
   commentLikeButton: { flexDirection: 'row', alignItems: 'center', minWidth: 36, justifyContent: 'flex-end', paddingVertical: 0, marginLeft: 4 },
   commentLikeText: { fontSize: 12, fontWeight: '700', color: '#6B7280', marginLeft: 4, lineHeight: 16 },
   commentMessage: { fontSize: 14, lineHeight: 20, color: '#374151' },
+  commentMessageWrap: { marginTop: 2 },
+  commentMessageStack: { position: 'relative' },
+  commentMessageUnderlay: { position: 'absolute', top: 0, left: 0, right: 0 },
+  commentMessageSelectable: {
+    padding: 0,
+    margin: 0,
+    borderWidth: 0,
+    backgroundColor: 'transparent',
+    textAlignVertical: 'top',
+  },
+  commentMessageSelectableOverlay: {
+    color: Platform.OS === 'ios' ? 'transparent' : 'rgba(0,0,0,0.01)',
+  },
+  commentHighlightMark: { backgroundColor: '#FDE68A' },
+  commentHighlightHint: { fontSize: 11, lineHeight: 15, marginTop: 6, fontStyle: 'italic' },
+  commentHighlightActions: { marginTop: 8 },
+  commentHighlightPreview: { fontSize: 12, lineHeight: 16, marginBottom: 6 },
+  commentHighlightActionRow: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },
+  commentHighlightActionButton: {
+    minWidth: 72,
+    height: 34,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
+  commentHighlightActionText: { fontSize: 12, fontWeight: '700' },
+  commentHighlightActionPrimary: { borderWidth: 0 },
+  commentHighlightActionPrimaryText: { color: '#FFFFFF', fontSize: 12, fontWeight: '800' },
+  commentRemoveHighlightButton: { marginLeft: 6, padding: 2 },
   viewRepliesButton: { alignSelf: 'flex-start', marginTop: 10 },
   viewRepliesText: { fontSize: 12, fontWeight: '800' },
   commentInlineActions: { marginLeft: 'auto', flexDirection: 'row', alignItems: 'center', gap: 10 },
