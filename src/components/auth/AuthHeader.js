@@ -4,6 +4,7 @@ import { useNavigation } from "@react-navigation/native";
 import Icon from 'react-native-vector-icons/Ionicons';
 import { LogoIcon } from '../../assets/icons';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useThemeContext } from '../../theme/ThemeContext';
 import { useLanguage } from '../../i18n';
 
 const { height } = Dimensions.get('window');
@@ -21,7 +22,8 @@ const AuthHeader = ({
   profileType,
   isFirstLaunch
 }) => {
-  const { bgStyle, textStyle, bg, text } = useAppTheme(profileType);
+  const { bgStyle, textStyle, bg, text, accent, mutedText, icon, card } = useAppTheme(profileType);
+  const { isDarkMode } = useThemeContext();
   const { t } = useLanguage();
   const navigation = useNavigation();
 
@@ -34,10 +36,10 @@ const AuthHeader = ({
       <View style={styles.headerContent}>
         {isFirstLaunch && (
           <TouchableOpacity
-            style={[styles.backButton, { shadowColor: text }]}
+            style={[styles.backButton, { shadowColor: text, backgroundColor: isDarkMode ? card : 'rgba(255, 255, 255, 0.9)' }]}
             onPress={onBackPress}
           >
-            <Icon name="arrow-back" size={24} color={text} />
+            <Icon name="arrow-back" size={24} color={icon} />
           </TouchableOpacity>
         )}
 
@@ -61,7 +63,7 @@ const AuthHeader = ({
                         styles.tagline,
                         {
                           fontSize: subtitleSize,
-                          color: '#000',
+                          color: mutedText,
                           marginBottom: 0,
                         },
                       ]}>
@@ -70,8 +72,8 @@ const AuthHeader = ({
 
                     <TouchableOpacity
                       onPress={onPress}
-                      style={styles.loginBtn}>
-                      <Text style={styles.loginBtnText}>
+                      style={[styles.loginBtn, { borderColor: accent, backgroundColor: `${accent}22` }]}>
+                      <Text style={[styles.loginBtnText, { color: accent }]}>
                         {t('selectAccountType.login')}
                       </Text>
                     </TouchableOpacity>
