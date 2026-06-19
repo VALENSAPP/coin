@@ -799,7 +799,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
   const walletScreenGradient = useMemo(
     () =>
       isBusinessProfile
-        ? ['#D3B683', '#fdfcfa']
+        ? ['#C9A15a', '#fdfcfa']
         : ['#513189', '#f8f2fd'],
     [isBusinessProfile],
   );

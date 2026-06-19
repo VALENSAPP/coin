@@ -205,7 +205,7 @@ const ProfilePersonData = ({
     typeof effectiveProfileType === 'string' ? effectiveProfileType.toLowerCase() : '';
   const isCompanyProfile = normalizedProfileThemeType === 'company';
   const profileActionGradient = isCompanyProfile
-    ? ['#D3B683', '#D3B683']
+    ? ['#C9A15a', '#C9A15a']
     : ['#513189bd', '#e54ba0'];
   const { bgStyle, textStyle, text, card, bg } = useAppTheme(effectiveProfileType);
   const route = useRoute();
@@ -240,7 +240,6 @@ const ProfilePersonData = ({
   };
 
 
-  console.log(Userdata.Bio, 'BIOOOO');
 
   const requestCameraPermission = async () => {
     if (Platform.OS !== 'android') return true;

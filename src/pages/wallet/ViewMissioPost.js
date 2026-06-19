@@ -132,7 +132,7 @@ export default function ViewMissioPost({ navigation, route }) {
     };
 
     const walletScreenGradient = useMemo(
-        () => isBusinessProfile ? ['#D3B683', '#f8f2fd'] : ['#513189', '#f8f2fd'],
+        () => isBusinessProfile ? ['#C9A15a', '#f8f2fd'] : ['#513189', '#f8f2fd'],
         [isBusinessProfile]
     );
 

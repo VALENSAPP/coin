@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useState, useCallback } from 'react';
+import React, { memo, useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   AppState,
+  Animated
 } from 'react-native';
 import Video from 'react-native-video';
 import { useFocusEffect, useIsFocused, useNavigation } from '@react-navigation/native';
@@ -145,7 +146,6 @@ const PostImage = memo(({ item, themeTextStyle }) => {
 const ItemSeparator = memo(() => <View style={styles.itemSeparator} />);
 
 const PrivateContentScreen = ({
-  postCheck,
   userData,
   isSubscribed,
   loggedInUserId,
@@ -155,14 +155,20 @@ const PrivateContentScreen = ({
   isActiveTab = false,
 }) => {
   const [posts, setPosts] = useState([]);
-  console.log([posts,'data in pvt content'])
   const [loading, setLoading] = useState(false);
   const [statusLoading, setStatusLoading] = useState(false);
   const [resolvedIsSubscribed, setResolvedIsSubscribed] = useState(false);
   const navigation = useNavigation();
   const isFocused = useIsFocused();
+  const scrollY = useRef(new Animated.Value(0)).current;
   const { bgStyle, textStyle, text, cardStyle } = useAppTheme(userData?.profile);
   const { t } = useLanguage();
+
+  const shopCardMarginTop = scrollY.interpolate({
+    inputRange: [0, 300],       // scroll 0 → 300px
+    outputRange: [0, 60],       // marginTop 0 → 60
+    extrapolate: 'clamp',
+  });
 
   const normalizedIsSubscribed =
     isSubscribed === true ||
@@ -390,7 +396,11 @@ const PrivateContentScreen = ({
   // ── Shop card (empty state / no-access) ──────────────────────────────────
   const ShopCard = useCallback(
     ({ marginTopOverride } = {}) => (
-      <View style={[styles.marketingContainer, bgStyle, marginTopOverride && { marginTop: marginTopOverride }]}>
+      <View style={[styles.marketingContainer, bgStyle, marginTopOverride && {
+        marginTop: marginTopOverride !== undefined
+          ? marginTopOverride
+          : shopCardMarginTop,
+      }]}>
         <View style={[styles.marketingCard, cardStyle, { borderColor: withAlpha(text, 0.12) }]}>
           <LinearGradient
             colors={[withAlpha(text, 0.16), withAlpha(text, 0.06)]}
@@ -480,9 +490,16 @@ const PrivateContentScreen = ({
 
   if (isCompany) {
     return (
-      <View style={[styles.screen, bgStyle]}>
-        <ShopCard marginTopOverride={0} />
-      </View>
+      <Animated.ScrollView
+        style={[styles.screen, bgStyle]}
+        scrollEventThrottle={16}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: false }   // false because marginTop is a layout prop
+        )}
+      >
+        <ShopCard marginTopOverride={undefined} />
+      </Animated.ScrollView>
     );
   }
 

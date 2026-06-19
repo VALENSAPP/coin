@@ -1597,7 +1597,7 @@ function PostItem({
               uri={item.avatar}
               size={42}
               borderWidth={2}
-              borderColor={item?.profile === 'company' ? '#D3B683' : '#5a2d82'}
+              borderColor={item?.profile === 'company' ? '#C9A15a' : '#5a2d82'}
             />
           </TouchableOpacity>
 
@@ -1608,7 +1608,7 @@ function PostItem({
               <Text
                 style={[
                   styles.username,
-                  { color: item?.profile === 'user' ? '#5a2d82' : '#D3B683' },
+                  { color: item?.profile === 'user' ? '#5a2d82' : '#C9A15a' },
                 ]}>
                 {item.username}
               </Text>
@@ -1873,7 +1873,7 @@ function PostItem({
               style={[
                 styles.followButton,
                 item.follow && styles.followingButton,
-                { backgroundColor: item?.profile === 'user' ? '#5a2d82' : '#D3B683' },
+                { backgroundColor: item?.profile === 'user' ? '#5a2d82' : '#C9A15a' },
               ]}>
               {followingBusy ? (
                 <ActivityIndicator size="small" color={item.follow ? text : '#FFFFFF'} />
@@ -2011,7 +2011,7 @@ function PostItem({
                           uri={buyer.avatar}
                           size={28}
                           borderWidth={1.5}
-                          borderColor={item?.profile === 'company' ? '#D3B683' : '#5a2d82'}
+                          borderColor={item?.profile === 'company' ? '#C9A15a' : '#5a2d82'}
                         />
                       </View>
                     ))}
@@ -2021,12 +2021,12 @@ function PostItem({
                     <Text
                       style={[
                         styles.buyerName,
-                        { color: item?.profile === 'user' ? '#5a2d82' : '#D3B683' },
+                        { color: item?.profile === 'user' ? '#5a2d82' : '#C9A15a' },
                       ]}>
                       {displayBuyerList[0]?.username || '—'}
                     </Text>
                     {displayBuyerList.length > 1 && (
-                      <Text style={{ color: item?.profile === 'user' ? '#5a2d82' : '#D3B683' }}>
+                      <Text style={{ color: item?.profile === 'user' ? '#5a2d82' : '#C9A15a' }}>
                         {' '}{t('postItem.andOthers', { count: formatNumber(displayBuyerList.length - 1) })}
                       </Text>
                     )}
@@ -2046,7 +2046,7 @@ function PostItem({
                     onPress={() => handleUserProfile(item.UserId)}
                     style={[
                       styles.captionUsername,
-                      { color: item?.profile === 'user' ? '#5a2d82' : '#D3B683' },
+                      { color: item?.profile === 'user' ? '#5a2d82' : '#C9A15a' },
                     ]}>
                     {usernameText}{' '}
                   </Text>
@@ -2066,7 +2066,7 @@ function PostItem({
                       onPress={() => handleUserProfile(item.UserId)}
                       style={[
                         styles.captionUsername,
-                        { color: item?.profile === 'user' ? '#5a2d82' : '#D3B683' },
+                        { color: item?.profile === 'user' ? '#5a2d82' : '#C9A15a' },
                       ]}>
                       {usernameText}{' '}
                     </Text>
@@ -2154,7 +2154,7 @@ function PostItem({
                   <TouchableOpacity
                     onPress={() => setDonation(true)}
                     style={[{
-                      backgroundColor: item?.profile === 'user' ? '#5a2d82' : '#D3B683',
+                      backgroundColor: item?.profile === 'user' ? '#5a2d82' : '#C9A15a',
                       width: '25%',
                       left: '74%',
                       marginBottom: 5,

@@ -183,7 +183,7 @@ export default function FollowCard({
             uri={avatar || 'https://cdn-icons-png.flaticon.com/512/149/149071.png'}
             size={90}
             borderWidth={2}
-            borderColor={type === 'company' ? '#D3B683' : '#5a2d82'}
+            borderColor={type === 'company' ? '#C9A15a' : '#5a2d82'}
           />
         </TouchableOpacity>
 
@@ -198,7 +198,7 @@ export default function FollowCard({
             styles.followButton,
             isFollowing && styles.unfollowButton,
             {
-              backgroundColor: type === 'company' ? '#D3B683' : '#5a2d82',
+              backgroundColor: type === 'company' ? '#C9A15a' : '#5a2d82',
               shadowColor: text,
             },
           ]}

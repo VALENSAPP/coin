@@ -360,7 +360,7 @@ export default function FollowersFollowingScreen({ navigation, route }) {
   }, [search, followingList]);
 
   const getUserAccentColor = useCallback((profileType) => {
-    return String(profileType || '').toLowerCase() === 'company' ? '#D3B683' : '#5a2d82';
+    return String(profileType || '').toLowerCase() === 'company' ? '#C9A15a' : '#5a2d82';
   }, []);
 
   const goToUserProfile = useCallback(

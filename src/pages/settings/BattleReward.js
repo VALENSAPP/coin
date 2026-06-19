@@ -80,7 +80,7 @@ export default function BattleReward({ navigation }) {
   const palette = useMemo(() => {
     const primary = text || '#5a2d82';
     const secondary =
-      primary.toLowerCase() === '#d3b683' ? '#b8924f' : '#8f54f7';
+      primary.toLowerCase() === '#C9A15a' ? '#b8924f' : '#8f54f7';
 
     return {
       primary,

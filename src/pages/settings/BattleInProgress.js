@@ -657,7 +657,7 @@ export default function BattleInProgress() {
 
   const palette = useMemo(() => {
     const primary = text || '#bb7ef1';
-    const secondary = primary.toLowerCase() === '#d3b683' ? '#b8924f' : '#cdb4f8';
+    const secondary = primary.toLowerCase() === '#C9A15a' ? '#b8924f' : '#cdb4f8';
     return {
       primary,
       secondary,
@@ -665,8 +665,8 @@ export default function BattleInProgress() {
       textMuted: withAlpha(primary, '99'),
       border: withAlpha(primary, '22'),
       soft: withAlpha(primary, '10'),
-      buttonGradient: primary.toLowerCase() === '#d3b683'
-        ? ['#b8924f', '#D3B683']
+      buttonGradient: primary.toLowerCase() === '#C9A15a'
+        ? ['#b8924f', '#C9A15a']
         : ['#513189', '#8f54f7'],
     };
   }, [card, text]);

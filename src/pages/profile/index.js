@@ -204,7 +204,7 @@ const profileTabsProps = useMemo(() => ({
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={userData?.profile == 'company' ? ['#D3B683'] : ['#7c3aed']}
+            colors={userData?.profile == 'company' ? ['#C9A15a'] : ['#7c3aed']}
           />
         }
       >

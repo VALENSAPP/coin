@@ -103,7 +103,7 @@ export default function RevenueFromSubscriptions({ navigation, route }) {
     const [revenueLoading, setRevenueLoading] = useState(false);
 
     const walletScreenGradient = isBusinessProfile
-        ? ['#D3B683', '#f8f2fd']
+        ? ['#C9A15a', '#f8f2fd']
         : ['#513189', '#f8f2fd'];
 
     const walletIllustrationGradient = isBusinessProfile
