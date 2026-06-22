@@ -60,7 +60,7 @@ const ShareProfile = ({ navigation }) => {
   const { text } = useAppTheme(resolvedProfileType);
   const profileActionGradient =
     resolvedProfileType === 'company'
-      ? ['#D3B683', '#e0e0c7']
+      ? ['#C9A15a', '#e0e0c7']
       : ['#513189bd', '#e54ba0'];
 
   const requestPermission = async () => {

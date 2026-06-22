@@ -9,7 +9,8 @@ import Splash from './pages/splashSceen/Splash';
 import { hideLoader } from './redux/actions/LoaderAction';
 import { showToastMessage } from './components/displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
-import { refreshToken } from './services/authentication';
+import { refreshToken, markAppPermissionsReady, requestAppLocationPermission } from './services/authentication';
+import { ThemeProvider } from './theme/ThemeContext';
 import { setUserProfile } from './redux/actions/UserProfileAction';
 import { setStripeCustomerId } from './redux/actions/UserAction';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
@@ -101,12 +102,33 @@ export default function Main() {
   const welcomeModalCloseInFlight = useRef(false);
   const lockLogoutInFlight = useRef(false);
 
+   const postSplashPermissionsRequestedRef = useRef(false);
+
+  const requestPostSplashPermissions = React.useCallback(() => {
+    if (postSplashPermissionsRequestedRef.current) return;
+    postSplashPermissionsRequestedRef.current = true;
+
+    setTimeout(async () => {
+      try {
+        markAppPermissionsReady();
+        await requestUserPermission();
+        await requestAppLocationPermission();
+      } catch (error) {
+        console.log('Post splash permission request failed:', error);
+      }
+    }, 500);
+  }, []);
+
+  const handleSplashFinish = React.useCallback(() => {
+    setIsLoading(false);
+    requestPostSplashPermissions();
+  }, [requestPostSplashPermissions]);
+
   const { activeNotification, showNotificationToast, dismissNotificationToast } =
     useNotificationToast();
 
   // ── Keep refs in sync with state ──────────────────────────────────────────
   useEffect(() => {
-    requestUserPermission();
     isNavigationReadyRef.current = isNavigationReady;
     isLoggedInRef.current = isLoggedIn;
     isLoadingRef.current = isLoading;
@@ -355,7 +377,6 @@ export default function Main() {
         if (currentSession) {
           dispatch(loggedIn());
           await ensureCurrentAccountSaved();
-          requestUserPermission();
           const storedStripeId = await AsyncStorage.getItem('stripeCustomerId');
           if (storedStripeId) dispatch(setStripeCustomerId(storedStripeId));
         } else {
@@ -629,14 +650,16 @@ export default function Main() {
   // Render
   // ─────────────────────────────────────────────────────────────────────────
 
-  if (isLoading) {
+   if (isLoading) {
     return (
-      <Splash onFinish={() => setIsLoading(false)} />
+      <ThemeProvider activeProfile={userProfile}>
+        <Splash onFinish={handleSplashFinish} />
+      </ThemeProvider>
     );
   }
 
   return (
-    <>
+    <ThemeProvider activeProfile={userProfile}>
       <NavigationContainer
         ref={navigationRef}
         linking={linking}
@@ -658,6 +681,6 @@ export default function Main() {
         onDoNow={handleVerificationDoNow}
         onLater={() => setlockModal(false)}
       />
-    </>
+    </ThemeProvider>
   );
 }

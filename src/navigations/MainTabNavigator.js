@@ -136,25 +136,15 @@ export default function MainTabNavigator() {
 
   const getUserDetail = async () => {
     try {
-      // dispatch(showLoader());
-      // const id = await AsyncStorage.getItem('userId');
       const profile = await AsyncStorage.getItem('profile');
-
-      // if (!id) {
-      //   console.log('User ID not found');
-      //   return;
-      // }
-
-      // const response = await getUserCredentials(id);
-
-      // console.log('API Response: data in thi apiaiaaiaiaai', response);
       setProfile(profile);
     } catch (error) {
       console.log('Error fetching user details:', error);
     } finally {
-      dispatch(hideLoader()); // Add this
+      // dispatch(hideLoader()); // Add this
     }
   };
+
   useEffect(() => {
     getUserDetail();
   }, []);
@@ -179,9 +169,11 @@ export default function MainTabNavigator() {
           component={ProfileBattleScreen}
           options={{ headerShown: false }}
         />
-        <Stack.Screen name="EditPost" component={EditPostScreen} options={{
-          gestureEnabled: false,
-        }} />
+        <Stack.Screen
+          name="EditPost"
+          component={EditPostScreen}
+          options={{ gestureEnabled: false }}
+        />
         <Stack.Screen
           name="SelectedPost"
           component={InstagramPostCreator}
@@ -214,7 +206,7 @@ export default function MainTabNavigator() {
           name="EditProfile"
           component={ProfileEditScreen}
           // ── TRANSLATION CHANGE: headerTitle translated ───────────────────
-          options={{ headerShown: true, headerStyle: ['#fff'], headerTitle: t('tabNav.editProfile'), }}
+          options={{ headerShown: true, headerStyle: ['#fff'], headerTitle: t('tabNav.editProfile') }}
         />
         <Stack.Screen
           name="PostUpload"
@@ -331,11 +323,6 @@ export default function MainTabNavigator() {
           options={{ headerShown: false }}
         />
         <Stack.Screen
-          name="ProfileBattleScreen"
-          component={ProfileBattleScreen}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
           name="ArchiveScreen"
           component={ArchiveScreen}
           options={{ headerShown: false }}
@@ -347,8 +334,8 @@ export default function MainTabNavigator() {
         />
       </Stack.Navigator>
     );
-  // ── TRANSLATION CHANGE: t added to dependency array so stack rebuilds on lang change ──
-  }, [t]);
+    // ── TRANSLATION CHANGE: t added to dependency array so stack rebuilds on lang change ──
+  }, [t, text, bg, userProfile]);
 
   // Enhanced Wallet Stack Navigator with ALL drawer screens
   const WalletStack = useMemo(() => {
@@ -364,14 +351,14 @@ export default function MainTabNavigator() {
               {
                 elevation: 0,
                 shadowOpacity: 0,
-                backgroundColor: bg,
+                backgroundColor: userProfile !== 'user' ? '#fcfbfaff' : '#f8f2fd',
               },
             ],
             headerTitleStyle: {
               fontWeight: 'bold',
-              color: text,
+              color: '#111',
             },
-            headerTintColor: text,
+            headerTintColor: '#111',
             headerLeft: () => (
               <TouchableOpacity
                 onPress={() => navigation.openDrawer()}
@@ -458,7 +445,7 @@ export default function MainTabNavigator() {
             // ── TRANSLATION CHANGE ───────────────────────────────────────────
             options={{ headerTitle: t('walletStack.shop') }}
           />
-           <Stack.Screen
+          <Stack.Screen
             name="Privatecircle"
             component={PrivateCircle}
             // ── TRANSLATION CHANGE ───────────────────────────────────────────
@@ -472,8 +459,8 @@ export default function MainTabNavigator() {
               headerTitle: t('walletStack.recentActivities'),
               headerRight: () => (
                 <TouchableOpacity onPress={() => navigation.goBack()}>
-                  <View style={{marginRight:10}}>
-                 <Ionicons name="close" size={20} color={text} />
+                  <View style={{ marginRight: 10 }}>
+                    <Ionicons name="close" size={20} color="#000" />
                   </View>
                 </TouchableOpacity>
               ),
@@ -570,7 +557,7 @@ export default function MainTabNavigator() {
             // ── TRANSLATION CHANGE ───────────────────────────────────────────
             options={{ headerTitle: t('walletStack.revenueFromSubscriptions') }}
           />
-           <Stack.Screen
+          <Stack.Screen
             name="LanguageSelectionScreen"
             component={LanguageSelectionScreen}
             // ── TRANSLATION CHANGE ───────────────────────────────────────────
@@ -579,8 +566,8 @@ export default function MainTabNavigator() {
         </Stack.Navigator>
       );
     };
-  // ── TRANSLATION CHANGE: t added to dependency array so stack rebuilds on lang change ──
-  }, [t, text, bg, userProfile]);
+    // ── TRANSLATION CHANGE: t added to dependency array so stack rebuilds on lang change ──
+  }, [t, text, userProfile]);
 
   const PostStack = useMemo(() => {
     return () => (
@@ -657,21 +644,6 @@ export default function MainTabNavigator() {
     [bgStyle, border],
   );
 
-  const reelsTabBarStyle = useMemo(
-    () => ({
-      backgroundColor: '#000',
-      borderTopWidth: 1.5,
-      borderTopColor: '#fff',
-      height: 50,
-      position: 'absolute',
-      bottom: Platform.OS == 'android' ? 0 : 25,
-      left: 0,
-      right: 0,
-      paddingTop: 5,
-    }),
-    [],
-  );
-
   const hiddenTabBarStyle = useMemo(
     () => ({
       display: 'none',
@@ -730,35 +702,14 @@ export default function MainTabNavigator() {
                 />
               );
             case 'ProfileMain':
-              if (profileImage) {
-                return (
-                  // <Image
-                  //   source={{ uri: profileImage }}
-                  //   style={{
-                  //     width: 26,
-                  //     height: 26,
-                  //     borderRadius: 13,
-                  //     borderWidth: focused ? 2 : 0,
-                  //     borderColor: focused ? iconColor : 'transparent',
-                  //   }}
-                  // />
-                  <HexAvatar
-                    uri={profileImage}
-                    size={30}
-                    borderWidth={1.5}
-                    borderColor={userProfile !== 'user' ? '#D3B683' : '#5a2d82'}
-                  />
-                );
-              } else {
-                return (
-                  <HexAvatar
-                    uri={require('../assets/icons/pngicons/user.png')}
-                    size={30}
-                    borderWidth={1.5}
-                    borderColor={userProfile !== 'user' ? '#D3B683' : '#5a2d82'}
-                  />
-                );
-              }
+              return (
+                <HexAvatar
+                  uri={require('../assets/icons/pngicons/user.png')}
+                  size={30}
+                  borderWidth={1.5}
+                  borderColor={userProfile !== 'user' ? '#C9A15a' : '#5a2d82'}
+                />
+              );
             default:
               return null;
           }
@@ -774,7 +725,7 @@ export default function MainTabNavigator() {
 
       return baseOptions;
     },
-    [profileImage, defaultTabBarStyle, reelsTabBarStyle, text, mutedText],
+    [profileImage, defaultTabBarStyle, text, mutedText, userProfile],
   );
 
   // Memoize HomeMain options function

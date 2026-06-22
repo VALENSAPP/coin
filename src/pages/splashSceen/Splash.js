@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
 import Video from 'react-native-video';
 
@@ -10,6 +10,11 @@ const Splash = ({ onFinish }) => {
     finishedRef.current = true;
     onFinish?.();
   };
+
+  useEffect(() => {
+    const fallbackTimer = setTimeout(handleFinish, 8000);
+    return () => clearTimeout(fallbackTimer);
+  }, []);
 
   return (
     <View style={styles.container}>
@@ -23,6 +28,7 @@ const Splash = ({ onFinish }) => {
         repeat={false}
         // onLoad={() => setTimeout(handleFinish, 1500)}
         onEnd={handleFinish}
+        onError={handleFinish}
       />
     </View>
   );

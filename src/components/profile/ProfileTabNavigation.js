@@ -131,6 +131,9 @@ const ProfileTabs = memo(({
     }
   }, [navigation, t, toast]);
 
+  const PRIVATE_CIRCLE_TAB_INDEX = 1; 
+  const PRIVATE_CONTENT_TAB_INDEX = 3;
+
   // ── Tab screens — stable identity, only remount when data deps change ────────
   const tabScreens = useMemo(() => ({
     posts: (
@@ -142,6 +145,17 @@ const ProfileTabs = memo(({
         scrollEnabled={false}
       />
     ),
+
+    privateCircle: (
+      <PrivateCircle
+        isOwnProfile={isOwnProfile}
+        userData={userData}
+        onStartPress={handlePrivateCircleStartPress}
+        loggedInUserId={loggedInUserId}
+         isActiveTab={activeTab === PRIVATE_CIRCLE_TAB_INDEX}
+      />
+    ),
+
     reels: (
       <ReelsScreen
         postCheck={post}
@@ -151,6 +165,21 @@ const ProfileTabs = memo(({
         scrollEnabled={false}
       />
     ),
+
+    privateContent: (
+      <PrivateContentScreen
+        postCheck={post}
+        userData={userData}
+        isSubscribed={isSubscribed}
+        loggedInUserId={loggedInUserId}
+        onSubscribePress={() => userData?.profile !== 'company' && setShowSubscribeModal(true)}
+        isCompany={userData?.profile === 'company'}
+        refreshKey={`${refreshKey ?? 0}-${privateKey}`}
+        scrollEnabled={false}
+        isActiveTab={activeTab === PRIVATE_CONTENT_TAB_INDEX}  
+      />
+    ),
+
     closet: (
       <Shop isOwnProfile={isOwnProfile} userData={userData} />
     ),
@@ -201,6 +230,9 @@ const ProfileTabs = memo(({
     refreshKey,
     tabScreens,
     userData,
+    handlePrivateCircleStartPress,
+    onPostPinChanged,
+    activeTab
   ]);
 
   // ── Tab metadata — icons/labels/onPress only, NO screen elements ─────────────

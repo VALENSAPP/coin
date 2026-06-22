@@ -658,7 +658,7 @@ const BusinessProfileForm = () => {
 
               {/* Verify (Sumsub) Button */}
               <TouchableOpacity
-                style={[styles.submitButton, { backgroundColor: '#D3B683', shadowColor: '#D3B683' }]}
+                style={[styles.submitButton, { backgroundColor: '#C9A15a', shadowColor: '#C9A15a' }]}
                 onPress={launchSumsub}
                 disabled={isLaunchingSumsub}
               >
@@ -673,7 +673,7 @@ const BusinessProfileForm = () => {
 
               {/* Continue (Save) Button */}
               <TouchableOpacity
-                style={[styles.submitButton, { backgroundColor: '#D3B683', shadowColor: '#D3B683' }]}
+                style={[styles.submitButton, { backgroundColor: '#C9A15a', shadowColor: '#C9A15a' }]}
                 onPress={handleSubmit}
                 disabled={isSubmitting || isUploadingDocument}
               >

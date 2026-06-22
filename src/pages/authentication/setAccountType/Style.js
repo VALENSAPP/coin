@@ -118,7 +118,7 @@ const createStyles = () => {
             textAlign: "center",
             marginTop: 10,
             fontWeight: "700",
-            color: "#D3B683",
+            color: "#C9A15a",
             fontSize: 16,
         },
         cardDesc: {
@@ -164,12 +164,12 @@ const createStyles = () => {
             alignItems: "center",
             backgroundColor: "rgba(211, 182, 131, 0.18)",
             borderWidth: 2,
-            borderColor: "#D3B683",
+            borderColor: "#C9A15a",
             overflow: "hidden",
         },
 
         goldBtnText: {
-            color: "#D3B683",
+            color: "#C9A15a",
             fontWeight: "700",
             textAlign: "center",
             fontSize: 14,

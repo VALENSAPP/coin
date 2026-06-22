@@ -202,7 +202,6 @@ const PostScreen = memo(({ scrollEnabled = true, postCheck, userData: propUserDa
   const navigation = useNavigation();
   const route = useRoute();
   const { t } = useLanguage();
-console.log(posts ,'dta in postststststsstst')
   const userData = route?.params?.userData || propUserData;
   const { bgStyle, textStyle, text } = useAppTheme(userData?.profile);
 

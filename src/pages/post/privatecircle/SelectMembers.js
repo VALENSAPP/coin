@@ -87,7 +87,7 @@ export default function PrivateCircleSelectMembers() {
 
   const isCompanyProfile = profileType === 'company';
   const profileActionGradient = isCompanyProfile
-    ? ['#D3B683', '#D3B683']
+    ? ['#C9A15a', '#C9A15a']
     : ['#513189bd', '#e54ba0'];
   const headingColor = isDarkMode ? accent : (isCompanyProfile ? '#B8954F' : '#513189');
 

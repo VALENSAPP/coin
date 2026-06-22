@@ -436,7 +436,6 @@ export default function Notifications() {
     try {
       if (showLoader) setIsLoading(true);
       const response = await getAllNotifactions();
-      console.log(response, 'notification is working');
       const rawPayload =
         response?.notifications ??
         response?.data?.notifications ??

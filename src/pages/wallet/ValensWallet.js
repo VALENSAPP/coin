@@ -19,6 +19,7 @@ import { useToast } from 'react-native-toast-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import TradeModal from '../../components/modals/TradeModal';
+import HexAvatar from '../../components/home/story.js/HexAvatar';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { useAppTheme } from '../../theme/useApptheme';
@@ -43,6 +44,20 @@ const WALLET_ICON_BY_TYPE = {
     walletconnect: require('../../assets/icons/pngicons/EWallet.png'),
     wallet: require('../../assets/icons/pngicons/EWallet.png'),
 };
+
+const getProfilePayload = (response) =>
+    response?.data?.user ||
+    response?.data?.data?.user ||
+    response?.data?.data ||
+    response?.data ||
+    response;
+
+const getProfileImage = (profile) =>
+    profile?.image ||
+    profile?.avatar ||
+    profile?.profilePicture ||
+    profile?.profilePic ||
+    '';
 
 const ValensWallet = ({ navigation }) => {
     const [tradeModalVisible, setTradeModalVisible] = useState(false);
@@ -180,6 +195,40 @@ const ValensWallet = ({ navigation }) => {
                 const pickFirst = (...values) =>
                     values.find(value => value !== undefined && value !== null && value !== '');
 
+                const resolveTransactionUserId = (tx) => pickFirst(
+                    tx?.userId,
+                    tx?.senderId,
+                    tx?.payerId,
+                    tx?.buyerId,
+                    tx?.fromUserId,
+                    tx?.user?.id,
+                    tx?.user?._id,
+                    tx?.user?.userId,
+                    '',
+                );
+
+                const transactionUserIds = [
+                    ...new Set(items.map(resolveTransactionUserId).filter(Boolean).map(String)),
+                ];
+
+                const profileResults = await Promise.allSettled(
+                    transactionUserIds.map((id) => getUserCredentials(id)),
+                );
+
+                const profileMap = {};
+                transactionUserIds.forEach((id, index) => {
+                    const result = profileResults[index];
+                    if (result?.status !== 'fulfilled') return;
+
+                    const profile = getProfilePayload(result.value);
+                    profileMap[id] = {
+                        id: pickFirst(profile?.id, profile?._id, profile?.userId, id),
+                        displayName: pickFirst(profile?.displayName, profile?.name, profile?.fullName, ''),
+                        userName: pickFirst(profile?.userName, profile?.username, ''),
+                        image: getProfileImage(profile),
+                    };
+                });
+
                 const toNumber = (value) => {
                     const num = Number(value);
                     return Number.isFinite(num) ? num : 0;
@@ -231,6 +280,8 @@ const ValensWallet = ({ navigation }) => {
 
                 const mapped = items.map((tx, index) => {
                     const id = pickFirst(tx?.id, tx?._id, tx?.transactionId, tx?.txId, tx?.hash, `tx_${index}`);
+                    const transactionUserId = resolveTransactionUserId(tx);
+                    const userProfile = transactionUserId ? profileMap[String(transactionUserId)] : null;
                     const typeLabel = resolveTypeLabel(tx);
                     const status = pickFirst(tx?.status, tx?.paymentStatus, tx?.state, '');
 
@@ -240,10 +291,18 @@ const ValensWallet = ({ navigation }) => {
                     const amountNumber = toNumber(rawAmount);
                     const amountTone = amountNumber < 0 ? 'negative' : 'positive';
 
-                    const title = pickFirst(tx?.title, tx?.label, typeLabel) || 'Transaction';
+                    const profileName = pickFirst(
+                        userProfile?.displayName,
+                        userProfile?.userName ? `@${userProfile.userName}` : '',
+                        tx?.senderName,
+                        tx?.receiverName,
+                        '',
+                    );
+                    const profileHandle = userProfile?.userName ? `@${userProfile.userName}` : '';
+                    const title = pickFirst(profileName, tx?.title, tx?.label, typeLabel) || 'Transaction';
 
                     const subtitle = pickFirst(
-                        tx?.subtitle, tx?.description, tx?.note, tx?.missionQuestion,
+                        profileHandle, tx?.subtitle, tx?.description, tx?.note, tx?.missionQuestion,
                         tx?.mission?.question, tx?.mission?.title, tx?.receiverName, tx?.senderName, '',
                     );
 
@@ -259,6 +318,12 @@ const ValensWallet = ({ navigation }) => {
                         amount: formatSignedMoney(amountNumber),
                         amountTone,
                         date: formatActivityDate(createdAt),
+                        typeLabel,
+                        status,
+                        profileUserId: transactionUserId ? String(transactionUserId) : '',
+                        profileImage: userProfile?.image || '',
+                        profileUserName: userProfile?.userName || '',
+                        profileDisplayName: userProfile?.displayName || '',
                     };
                 });
 
@@ -394,6 +459,19 @@ const ValensWallet = ({ navigation }) => {
         ? require('../../assets/icons/pngicons/goldenWallet-removebg.png')
         : require('../../assets/icons/pngicons/newWallet.png');
 
+    const handleActivityProfilePress = (activity) => {
+        if (!activity?.profileUserId) return;
+
+        navigation.navigate('HomeMain', {
+            screen: 'UsersProfile',
+            params: {
+                userId: activity.profileUserId,
+                returnTo: { tab: 'wallet', screen: 'ValensWallet' },
+                userName: activity.profileUserName,
+            },
+        });
+    };
+
     return (
         <SafeAreaView style={[styles.container, bgStyle]}>
             <ScrollView
@@ -478,7 +556,7 @@ const ValensWallet = ({ navigation }) => {
                         >
                             <View style={styles.connectionTopRow}>
                                      <View style={styles.connectionLeft}>
-                                     <View style={[styles.connectionIconWrap, { backgroundColor: `${gradientText}0d`, borderColor: `${gradientText}1a` }]}>
+                                     <View style={[styles.connectionIconWrap, { backgroundColor: `${text}0d`, borderColor: `${text}1a` }]}>
                                         {connection.leftIcon.type === 'image' ? (
                                             <Image source={connection.leftIcon.source} style={styles.connectionIconImage} />
                                         ) : (
@@ -545,7 +623,7 @@ const ValensWallet = ({ navigation }) => {
                         </TouchableOpacity>
                     </View>
 
-                    <View style={{ marginBottom: '50%' }}>
+                    <View style={{ marginBottom: '15%' }}>
                         {resolvedRecentActivity.length === 0 ? (
                             <View style={[styles.activityRow, cardStyle, { borderColor: `${text}1a` }]}>
                                 <View style={[styles.activityIconWrap, { backgroundColor: `${text}0d`, borderColor: `${text}1a` }]}>
@@ -569,20 +647,39 @@ const ValensWallet = ({ navigation }) => {
                                         : text;
                             return (
                                 <View key={activity.key} style={[styles.activityRow, cardStyle, { borderColor: `${text}1a` }]}>
-                                    <View style={[styles.activityIconWrap, { backgroundColor: `${text}0d`, borderColor: `${text}1a` }]}>
-                                        <Ionicons name={activity.icon} size={18} color={text} />
-                                    </View>
-                                    <View style={styles.activityTextWrap}>
-                                        <Text style={[styles.activityTitle, { color: text }]}>{activity.title}</Text>
-                                        <Text style={[styles.activitySubtitle, { color: `${text}99` }]} numberOfLines={1}>
-                                            {activity.subtitle}
-                                        </Text>
-                                    </View>
+                                    <TouchableOpacity
+                                        style={styles.activityProfilePressable}
+                                        activeOpacity={activity.profileUserId ? 0.75 : 1}
+                                        onPress={() => handleActivityProfilePress(activity)}
+                                        disabled={!activity.profileUserId}
+                                        accessibilityRole={activity.profileUserId ? 'button' : undefined}
+                                    >
+                                        <View style={styles.activityAvatarWrap}>
+                                            <HexAvatar
+                                                uri={activity.profileImage}
+                                                size={38}
+                                                borderWidth={1.5}
+                                                borderColor={text}
+                                            />
+                                        </View>
+                                        <View style={styles.activityTextWrap}>
+                                            <Text style={[styles.activityTitle, { color: text }]} numberOfLines={1}>
+                                                {activity.title}
+                                            </Text>
+                                            <Text style={[styles.activitySubtitle, { color: `${text}99` }]} numberOfLines={1}>
+                                                {activity.subtitle}
+                                            </Text>
+                                            <Text style={[styles.activityMetaText, { color: `${text}80` }]} numberOfLines={1}>
+                                                {[activity.typeLabel, activity.status].filter(Boolean).join(' • ')}
+                                            </Text>
+                                        </View>
+                                    </TouchableOpacity>
                                     <View style={styles.activityRight}>
                                         <Text style={[styles.activityAmount, { color: amountColor }]}>{activity.amount}</Text>
                                         <Text style={[styles.activityDate, { color: `${text}80` }]}>{activity.date}</Text>
                                     </View>
                                     <Ionicons name="chevron-forward" size={18} color={`${text}66`} style={styles.activityChevron} />
+
                                 </View>
                             );
                         })}
@@ -615,7 +712,7 @@ const styles = StyleSheet.create({
         borderRadius: 18,
         borderWidth: 1,
         overflow: 'hidden',
-        minHeight: '22%',
+        minHeight: '16%',
     },
     topCardLeft: {
         padding: 16,
@@ -817,7 +914,7 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.06,
         shadowRadius: 8,
         elevation: 2,
-        minHeight: '28%'
+        minHeight: '18%'
     },
     connectionTopRow: {
         flexDirection: 'row',
@@ -941,8 +1038,23 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         marginRight: 10,
     },
+    activityProfilePressable: {
+        flex: 1,
+        minWidth: 0,
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    activityAvatarWrap: {
+        width: 42,
+        height: 42,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 8,
+        flexShrink: 0,
+    },
     activityTextWrap: {
         flex: 1,
+        minWidth: 0,
         paddingRight: 10,
     },
     activityTitle: {
@@ -952,6 +1064,11 @@ const styles = StyleSheet.create({
     },
     activitySubtitle: {
         fontSize: 12,
+        fontWeight: '700',
+    },
+    activityMetaText: {
+        marginTop: 2,
+        fontSize: 11,
         fontWeight: '700',
     },
     activityRight: {

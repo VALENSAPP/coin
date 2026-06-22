@@ -70,7 +70,6 @@ const CustomDrawerContent = (props) => {
     try {
 
       const response = await lockProfile();
-      console.log(response, 'lock profile response navigationnnnanananaan');
 
       // Handle success here
     } catch (err) {

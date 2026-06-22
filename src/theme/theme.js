@@ -10,7 +10,7 @@ export const normalTheme = {
 
 export const businessTheme = {
   bg: '#fcfbfaff',
-  text: '#D3B683',
+  text: '#C9A15A',
   card: '#fff',
   border: '#ddd',
   mutedText: '#666',

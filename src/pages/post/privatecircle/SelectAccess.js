@@ -44,7 +44,7 @@ export default function PrivateCircleSelectAccess() {
   const { bgStyle, textStyle, accent, mutedText, icon } = useAppTheme(profileType);
   const { isDarkMode } = useThemeContext();
   const profileActionGradient = isCompanyProfile
-    ? ['#D3B683', '#D3B683']
+    ? ['#C9A15a', '#C9A15a']
     : ['#513189bd', '#e54ba0'];
   const headingColor = isDarkMode ? accent : (isCompanyProfile ? '#B8954F' : '#513189');
   const bodyTextColor = mutedText;

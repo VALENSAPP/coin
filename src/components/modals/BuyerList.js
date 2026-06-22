@@ -33,7 +33,7 @@ const looksLikeUuid = (value = '') =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(value).trim());
 
 const getAccentColorForProfileType = (value) =>
-  normalizeProfileType(value) === 'user' ? '#5a2d82' : '#D3B683';
+  normalizeProfileType(value) === 'user' ? '#5a2d82' : '#C9A15a';
 
 export default function BuyersListModal({
   visible,
@@ -258,7 +258,7 @@ export default function BuyersListModal({
     [profileType],
   );
 
-  const accentColor = normalizedProfileType === 'user' ? '#5a2d82' : '#D3B683';
+  const accentColor = normalizedProfileType === 'user' ? '#5a2d82' : '#C9A15a';
 
   const resolvedTitle =
     title ||
