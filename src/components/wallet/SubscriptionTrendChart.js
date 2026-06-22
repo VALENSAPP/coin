@@ -7,7 +7,7 @@ import Svg, {
   LinearGradient as SvgLinearGradient,
   Stop,
 } from 'react-native-svg';
-import { format, startOfMonth, startOfWeek } from 'date-fns';
+import { format, startOfDay, startOfMonth, startOfWeek, subDays, subMonths, subWeeks } from 'date-fns';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 
 export const SUBSCRIPTION_CHART_LINE = '#8b5cf6';
@@ -26,7 +26,7 @@ const buildLabelIndexes = (count, interval) => {
   if (interval === 'monthly' || interval === 'weekly') {
     return Array.from({ length: count }, (_, i) => i);
   }
-  const maxLabels = Math.min(7, count);
+  const maxLabels = Math.min(6, count);
   const set = new Set([0, count - 1]);
   for (let k = 1; k < maxLabels - 1; k++) {
     set.add(Math.round((k / (maxLabels - 1)) * (count - 1)));
@@ -109,12 +109,23 @@ const resolveGraphTimestamp = (item, index, raw, interval) => {
 
   if (interval === 'daily' && item?.label && /^\d{1,2}:\d{2}$/.test(String(item.label))) {
     const [hour, minute] = String(item.label).split(':').map(Number);
-    const fallback = new Date();
+    const fallback = startOfDay(new Date());
     fallback.setHours(Number(hour) || 0, Number(minute) || 0, 0, 0);
     return fallback.getTime();
   }
 
-  return Date.now() - (raw.length - 1 - index) * 86400000;
+  const now = new Date();
+  const offset = raw.length - 1 - index;
+
+  if (interval === 'monthly') {
+    return subMonths(startOfMonth(now), offset).getTime();
+  }
+
+  if (interval === 'weekly') {
+    return subWeeks(startOfWeek(now, { weekStartsOn: 1 }), offset).getTime();
+  }
+
+  return subDays(startOfDay(now), offset).getTime();
 };
 
 const formatMonthlyChartLabel = (timestamp) => format(timestamp, 'MMM yy');
@@ -125,10 +136,18 @@ const resolveGraphLabel = (item, timestamp, interval) => {
   if (bucket != null && String(bucket).trim()) {
     const bucketTs = parseBucketDate(bucket);
     if (bucketTs != null) {
+      if (interval === 'daily') {
+        const dayName = String(item?.dayname || item?.dayName || '').trim();
+        return dayName ? `${dayName.slice(0, 3)} ${format(bucketTs, 'MMM d')}` : format(bucketTs, 'MMM d');
+      }
       if (interval === 'monthly') return formatMonthlyChartLabel(bucketTs);
       if (interval === 'weekly') return format(bucketTs, 'MMM d');
       return format(bucketTs, 'MMM d');
     }
+  }
+
+  if (interval === 'daily' && item?.dayname) {
+    return `${String(item.dayname).trim()} ${format(timestamp, 'MMM d')}`;
   }
 
   if (interval === 'monthly') return formatMonthlyChartLabel(timestamp);
@@ -344,10 +363,7 @@ export default function SubscriptionTrendChart({
   useEffect(() => {
     if (!hasData || chartScrollWidth <= chartViewportWidth) return;
     const timer = setTimeout(() => {
-      const scrollX =
-        interval === 'monthly' || interval === 'weekly'
-          ? 0
-          : Math.max(chartScrollWidth - chartViewportWidth, 0);
+      const scrollX = Math.max(chartScrollWidth - chartViewportWidth, 0);
       scrollRef.current?.scrollTo({ x: scrollX, animated: false });
     }, 0);
     return () => clearTimeout(timer);

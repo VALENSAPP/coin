@@ -1,5 +1,5 @@
 import { useNavigation, useRoute } from '@react-navigation/native';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   SafeAreaView,
@@ -81,11 +81,15 @@ export default function BattleVoteDetails() {
 
   const { profile } = route.params || {};
   const { battle } = route.params || {};
-  const { comments: passedComments, selectedUserComment, selectedUserId, selectedSpeakerLabel } = route.params || {};
-  const selectedSide = String(route?.params?.selectedSide || '').trim();
-  const selectedSideLabel = String(
-    route?.params?.selectedSideLabel || selectedSide || '',
+  const { comments: passedComments, selectedUserId, selectedSpeakerLabel } = route.params || {};
+  const initialSelectedSide = String(route?.params?.selectedSide || '').trim();
+  const initialSelectedSideLabel = String(
+    route?.params?.selectedSideLabel || initialSelectedSide || '',
   ).trim();
+  const [selectedSide, setSelectedSide] = useState(initialSelectedSide);
+  const [selectedSideLabel, setSelectedSideLabel] = useState(
+    initialSelectedSideLabel,
+  );
   const resolvedProfileType = normalizeProfileType(profile);
   const { bgStyle, cardStyle, text } = useAppTheme(resolvedProfileType);
 
@@ -106,6 +110,16 @@ export default function BattleVoteDetails() {
   const [activeTab] = useState(
     route?.params?.mode === 'comments' ? 'comments' : 'votes',
   );
+
+  useEffect(() => {
+    const nextSelectedSide = String(route?.params?.selectedSide || '').trim();
+    const nextSelectedSideLabel = String(
+      route?.params?.selectedSideLabel || nextSelectedSide || '',
+    ).trim();
+
+    setSelectedSide(nextSelectedSide);
+    setSelectedSideLabel(nextSelectedSideLabel);
+  }, [route?.params?.selectedSide, route?.params?.selectedSideLabel]);
 
   const options = useMemo(() => {
     const rawOptions = Array.isArray(battle?.options) ? battle.options : [];
@@ -344,30 +358,91 @@ export default function BattleVoteDetails() {
 
   const selectedUserHighlight = useMemo(() => {
     if (activeTab !== 'comments') return null;
-    if (!selectedUserId && !selectedUserComment) return null;
 
-    const meta = selectedUserId ? resolveUserMeta(selectedUserId) : null;
+    const allComments = Array.isArray(passedComments)
+      ? passedComments
+      : Array.isArray(battle?.comments)
+        ? battle.comments
+        : [];
+    const normalizedSelectedSide = normalizeSideKey(selectedSide);
+    const sideComments = normalizedSelectedSide
+      ? allComments.filter(
+        comment => normalizeSideKey(comment?.side) === normalizedSelectedSide,
+      )
+      : allComments;
+
+    const creatorId = String(
+      pickFirst(battle?.creatorId, battle?.creator?.id, battle?.creator?._id, ''),
+    ).trim();
+    const invitedUserId = String(
+      pickFirst(
+        battle?.invitedUserId,
+        battle?.invitedUser?.id,
+        battle?.invitedUser?._id,
+        '',
+      ),
+    ).trim();
+    const participantIds = new Set(
+      [creatorId, invitedUserId].filter(id => !!String(id || '').trim()),
+    );
+    const participantComments = sideComments.filter(comment => {
+      const commentUserId = String(comment?.userId || comment?.user?.id || '').trim();
+      return participantIds.has(commentUserId);
+    });
+
+    if (participantComments.length === 0) return null;
+
+    const preferredComment =
+      (selectedUserId
+        ? participantComments.find(
+          comment => String(comment?.userId || '') === String(selectedUserId),
+        )
+        : null) || participantComments[0];
+
+    const preferredUserId = String(preferredComment?.userId || '');
+    const meta = preferredUserId ? resolveUserMeta(preferredUserId) : null;
     const authorName = String(
-      pickFirst(selectedSpeakerLabel, meta?.displayName, 'User'),
+      pickFirst(
+        preferredComment?.authorName,
+        preferredComment?.authorHandle,
+        selectedSpeakerLabel,
+        meta?.displayName,
+        'User',
+      ),
+    );
+    const message = String(
+      pickFirst(preferredComment?.message, preferredComment?.comment, preferredComment?.text, ''),
     );
     const sideLabel = String(
-      pickFirst(resolveOptionForSide(selectedSide)?.label, selectedSide, ''),
+      pickFirst(
+        resolveOptionForSide(preferredComment?.side)?.label,
+        preferredComment?.side,
+        selectedSide,
+        '',
+      ),
     );
 
     return {
-      userId: selectedUserId,
+      userId: preferredUserId,
       authorName,
-      avatar: getAvatarUri(meta?.displayAvatar),
-      message: String(selectedUserComment || ''),
+      avatar: getAvatarUri(
+        preferredComment?.avatar,
+        preferredComment?.image,
+        preferredComment?.profileImage,
+        preferredComment?.profilePicture,
+        meta?.displayAvatar,
+      ),
+      message,
       side: sideLabel,
     };
   }, [
     activeTab,
+    battle?.comments,
+    passedComments,
     resolveOptionForSide,
     resolveUserMeta,
     selectedSide,
     selectedSpeakerLabel,
-    selectedUserComment,
     selectedUserId,
   ]);
 
@@ -420,6 +495,23 @@ export default function BattleVoteDetails() {
       });
     },
     [navigation, route?.name, route?.params],
+  );
+
+  const handleSelectOption = useCallback(
+    option => {
+      const nextSide = String(option?.sideKey || option?.label || '').trim();
+      const nextLabel = String(option?.label || option?.sideKey || '').trim();
+      if (!nextSide) return;
+
+      setSelectedSide(nextSide);
+      setSelectedSideLabel(nextLabel);
+
+      navigation.setParams?.({
+        selectedSide: nextSide,
+        selectedSideLabel: nextLabel,
+      });
+    },
+    [navigation],
   );
 
   const renderCommentCard = (item, { onPress = true } = {}) => {
@@ -700,7 +792,9 @@ export default function BattleVoteDetails() {
                         normalizeSideKey(option.label) === normalizedSelectedSide);
 
                     return (
-                      <View
+                      <TouchableOpacity
+                        activeOpacity={0.85}
+                        onPress={() => handleSelectOption(option)}
                         key={option.id || `option-${index}`}
                         style={[
                           styles.optionCard,
@@ -711,14 +805,14 @@ export default function BattleVoteDetails() {
                             backgroundColor: palette.soft,
                           },
                         ]}
-                      >
-                        <Text
-                          numberOfLines={3}
-                          style={[styles.optionCardText, { color: text }]}
                         >
-                          {option.label}
-                        </Text>
-                      </View>
+                          <Text
+                            numberOfLines={3}
+                            style={[styles.optionCardText, { color: text }]}
+                          >
+                            {option.label}
+                          </Text>
+                      </TouchableOpacity>
                     );
                   })}
                 </View>
