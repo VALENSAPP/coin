@@ -16,6 +16,7 @@ import { subscriptionEarningGraph, totalSupport } from '../../services/wallet';
 import { useAppTheme } from '../../theme/useApptheme';
 import { getUserCredentials } from '../../services/post';
 import { useLanguage } from '../../i18n';
+import HexAvatar from '../../components/home/story.js/HexAvatar';
 import SubscriptionTrendChart, {
     parseSubscriptionGraphResponse,
     SUBSCRIPTION_CHART_LINE,
@@ -116,7 +117,7 @@ export default function RevenueFromSubscriptions({ navigation, route }) {
         try {
             const interval = PERIOD_MAP[chartPeriod] ?? 'daily';
             const response = await subscriptionEarningGraph({ interval });
-            console.log('Subscription graph response:', response);
+            console.log('Subscription graph response chcek this as oii chcek date s:', response);
             const { points, totalAmount } = parseSubscriptionGraphResponse(response, interval);
             setGraphData(points);
             setGraphTotalAmount(totalAmount);
@@ -134,7 +135,6 @@ export default function RevenueFromSubscriptions({ navigation, route }) {
         setRevenueLoading(true);
         try {
             const response = await totalSupport({ params: { page: 1 } });
-            console.log('Total support response:', response);
             const data = response?.data ?? response;
 
             setTotalRevenue(Number(data?.totalAmount) || 0);
@@ -176,6 +176,20 @@ export default function RevenueFromSubscriptions({ navigation, route }) {
         if (tx.userId) return `@${tx.userId.slice(0, 8)}…`;
         return t('revenue.unknownUser');
     };
+
+    const handleTransactionProfilePress = useCallback((tx) => {
+        const userId = String(tx?.userId || '').trim();
+        if (!userId) return;
+
+        navigation.navigate('HomeMain', {
+            screen: 'UsersProfile',
+            params: {
+                userId,
+                userName: tx?._profile?.userName,
+                returnTo: { tab: 'wallet', screen: 'RevenueFromSubscriptions' }
+            },
+        });
+    }, [navigation]);
 
     return (
         <SafeAreaView style={[styles.safe, bgStyle]}>
@@ -338,13 +352,14 @@ export default function RevenueFromSubscriptions({ navigation, route }) {
                         </Text>
                     ) : (
                         transactions.map((tx) => (
-                            <View key={tx.id ?? tx._id} style={styles.txRow}>
+                            <TouchableOpacity key={tx.id ?? tx._id} style={styles.txRow} activeOpacity={tx.userId ? 0.75 : 1} onPress={() => handleTransactionProfilePress(tx)} disabled={!tx.userId}>
                                 {/* ── Avatar: real image or fallback icon ── */}
                                 <View style={styles.txAvatar}>
-                                    <TxAvatar
-                                        imageUrl={tx._profile?.image ?? null}
-                                        text={text}
+                                    <HexAvatar
+                                        uri={tx._profile?.image ?? ''}
                                         size={44}
+                                        borderWidth={1.5}
+                                        borderColor={text}
                                     />
                                 </View>
 
@@ -377,7 +392,7 @@ export default function RevenueFromSubscriptions({ navigation, route }) {
                                             : ''}
                                     </Text>
                                 </View>
-                            </View>
+                            </TouchableOpacity>
                         ))
                     )}
                 </View>
