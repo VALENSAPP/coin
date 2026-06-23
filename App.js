@@ -15,8 +15,25 @@ import { appKit, wagmiAdapter } from './src/config/AppKitConfig';
 import { WalletConnectSupportProvider } from './src/context/WalletConnectSupportContext';
 import { ThemeProvider } from './src/theme/ThemeContext';
 import { LanguageProvider } from './src/i18n';
+import appsFlyer from 'react-native-appsflyer';
 
 const queryClient = new QueryClient();
+
+const options = {
+  devKey: 'mFQ3phNqHzSU2JJxv7vA73',
+  isDebug: true,
+  appId: 'id6752780902', // iOS only
+};
+
+appsFlyer.initSdk(
+  options,
+  (result) => {
+    console.log('AppFlyerrr',result);
+  },
+  (error) => {
+    console.log(error);
+  }
+);
 
 const App = () => {
   return (
