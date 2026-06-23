@@ -28,7 +28,7 @@ import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { getSubscriptionByUserID, setPrivateSubscription, setUserSubscription } from '../../services/wallet';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Ionicons from "react-native-vector-icons/Ionicons";
-import { useAppTheme } from '../../theme/useApptheme';
+import { useBusinessProfileTheme } from '../../theme/useBusinessProfileTheme';
 import { useThemeContext } from '../../theme/ThemeContext';
 import TermCondition from '../../components/modals/Term&Condition';
 import SubscriptionActivationPopup from '../../components/modals/SubscriptionActivationPopUp';
@@ -68,13 +68,12 @@ const SubventionSetupScreen = () => {
     const navigation = useNavigation();
     const toast = useToast();
     const dispatch = useDispatch();
-    const { bgStyle, textStyle, text, cardStyle, accent, mutedText, border, card, icon } = useAppTheme();
+    const { isBusinessProfile, bgStyle, textStyle, text, cardStyle, accent, mutedText, border, card, icon } = useBusinessProfileTheme();
     const { isDarkMode } = useThemeContext();
     const [credential, setCredential] = useState(null);
     const { t } = useLanguage();
     const stripeErrorMessages = getStripeErrorMessages(t);
 
-    // Story composer state
     const [composerVisible, setComposerVisible] = useState(false);
     const [composerList, setComposerList] = useState([]);
     const [subscriptionAmount, setSubscriptionAmount] = useState(9);
@@ -82,7 +81,6 @@ const SubventionSetupScreen = () => {
     const [showActivationPopup, setShowActivationPopup] = useState(false);
     const [showBusinessReminderPopup, setShowBusinessReminderPopup] = useState(false);
     const [showBusinessSuccessPopup, setShowBusinessSuccessPopup] = useState(false);
-    const [isBusinessProfile, setIsBusinessProfile] = useState(false);
     const [showStripeSetupModal, setShowStripeSetupModal] = useState(false);
     const [rawAmount, setRawAmount] = useState('9');
     const [comment, setComment] = useState('');
@@ -343,9 +341,6 @@ const SubventionSetupScreen = () => {
             const response = await getUserCredentials(id);
             const data = response?.data ?? response;
             setCredential(data);
-            const apiProfileType = data?.profile || data?.user?.profile || '';
-            const effectiveProfileType = String(apiProfileType).toLowerCase();
-            setIsBusinessProfile(effectiveProfileType === 'company' || effectiveProfileType === 'business');
             const hasActiveAccess = hasActiveSubscriptionAccess(data);
             if (hasActiveAccess) {
                 setShowActivationPopup(false);

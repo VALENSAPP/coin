@@ -29,7 +29,7 @@ import MaterialCommunityIcon from 'react-native-vector-icons/MaterialCommunityIc
 import { setProfileImg } from '../../../redux/actions/ProfileImgAction';
 import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../../redux/actions/LoaderAction';
-import { useAppTheme } from '../../../theme/useApptheme';
+import { useBusinessProfileTheme } from '../../../theme/useBusinessProfileTheme';
 import { useWalletConnectSupport } from '../../../context/WalletConnectSupportContext';
 import { useDebouncedCallback } from '../../../hooks/useDebouncedCallback';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
@@ -68,7 +68,7 @@ const ProfileEditScreen = () => {
   const refRBSheet1 = useRef();
   const toast = useToast();
   const dispatch = useDispatch();
-  const { bgStyle, textStyle, text } = useAppTheme();
+  const { bgStyle, textStyle, text, accent, border, card, mutedText } = useBusinessProfileTheme();
   const { openWalletConnect, isConnected, address } = useWalletConnectSupport();
 
   const genderOptions = [
@@ -567,7 +567,7 @@ const ProfileEditScreen = () => {
                 borderWidth={3}
                 borderColor={text}
               />
-              <View style={[styles.cameraIcon, { backgroundColor: text, shadowColor: text }]}>
+              <View style={[styles.cameraIcon, { backgroundColor: accent, shadowColor: accent, borderColor: card }]}>
                 <Text style={styles.cameraText}>📷</Text>
               </View>
             </View>

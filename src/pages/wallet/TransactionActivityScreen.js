@@ -12,7 +12,7 @@ import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/nativ
 import { useToast } from 'react-native-toast-notifications';
 import { useDispatch } from 'react-redux';
 
-import { useAppTheme } from '../../theme/useApptheme';
+import { useBusinessProfileTheme } from '../../theme/useBusinessProfileTheme';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { transationActivity } from '../../services/wallet';
 import { getUserCredentials } from '../../services/post';
@@ -183,7 +183,7 @@ export default function TransactionActivityScreen() {
   const route = useRoute();
   const toast = useToast();
   const dispatch = useDispatch();
-  const { bgStyle, text, cardStyle } = useAppTheme();
+  const { bgStyle, text, cardStyle, accent, mutedText, border } = useBusinessProfileTheme();
   const { t } = useLanguage();
 
   const initialActivity = route?.params?.activity;

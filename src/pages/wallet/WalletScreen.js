@@ -31,7 +31,7 @@ import TokenPurchaseModal from "../../components/modals/TokenPurchaseModal";
 import { getCreditsLeft } from "../../services/wallet";
 import TokenSellModal from "../../components/modals/TokenSellModal";
 import CreditPurchaseModal from "../../components/modals/PurchaseCreditsModal";
-import { useAppTheme } from "../../theme/useApptheme";
+import { useBusinessProfileTheme } from "../../theme/useBusinessProfileTheme";
 import HexAvatar from "../../components/home/story.js/HexAvatar";
 import { Dragonfly } from "../../assets/icons";
 import { useLanguage } from "../../i18n";
@@ -60,11 +60,7 @@ export default function WalletComponent() {
     const purchaseSheetRef = useRef(null);
     const sellSheetRef = useRef(null);
     const profileImage = useSelector(state => state.profileImage?.profileImg);
-    const reduxProfile = useSelector(state => state.userProfile.userProfile);
-    const [isBusinessProfile, setIsBusinessProfile] = useState(false);
-    const { bgStyle, textStyle, bg, text, cardStyle, accent, mutedText, border, card } = useAppTheme(
-        isBusinessProfile ? 'company' : undefined,
-    );
+    const { isBusinessProfile, bgStyle, textStyle, bg, text, cardStyle, accent, mutedText, border, card } = useBusinessProfileTheme();
     const { t } = useLanguage();
 
     const MAX_CREDITS = 5;
@@ -98,9 +94,6 @@ export default function WalletComponent() {
     const loadProfileType = useCallback(async () => {
         const type = await AsyncStorage.getItem('profile');
         setProfile(type);
-        if (type) {
-            setIsBusinessProfile(String(type).toLowerCase() !== 'user');
-        }
     }, []);
 
     const fetchUserCreds = useCallback(async () => {
@@ -127,9 +120,6 @@ export default function WalletComponent() {
                     userDataToSet.image = formattedImageUrl;
                 }
                 setUserData(userDataToSet);
-                if (userDataToSet?.profile) {
-                    setIsBusinessProfile(String(userDataToSet.profile).toLowerCase() !== 'user');
-                }
             } else {
                 showToastMessage(toast, 'danger', response.data.message);
             }
@@ -195,12 +185,6 @@ export default function WalletComponent() {
             dispatch(hideLoader());
         }
     }, [dispatch, toast]);
-
-    useEffect(() => {
-        if (reduxProfile && reduxProfile !== 'normal') {
-            setIsBusinessProfile(String(reduxProfile).toLowerCase() !== 'user');
-        }
-    }, [reduxProfile]);
 
     useFocusEffect(
         useCallback(() => {

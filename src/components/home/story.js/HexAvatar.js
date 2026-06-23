@@ -1,25 +1,57 @@
-import React, { useRef, useState, useEffect } from 'react';
-import { View } from 'react-native';
+import React, { useRef, useState, useEffect, useMemo } from 'react';
+import { View, Platform } from 'react-native';
 import Svg, {
   Defs,
   ClipPath,
   Polygon,
   Image as SvgImage,
-  Circle,
+  G,
 } from 'react-native-svg';
+
+const REMOTE_PLACEHOLDER = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
+const LOCAL_PLACEHOLDER = require('../../../assets/icons/pngicons/user.png');
+
+const normalizeRemoteUrl = (url) => {
+  if (!url || typeof url !== 'string') return null;
+  const trimmed = url.trim();
+  if (!trimmed) return null;
+  if (
+    trimmed.startsWith('http://') ||
+    trimmed.startsWith('https://') ||
+    trimmed.startsWith('data:') ||
+    trimmed.startsWith('file://')
+  ) {
+    return trimmed;
+  }
+  if (trimmed.startsWith('/')) return `https://api.valens.app${trimmed}`;
+  return `https://api.valens.app/${trimmed}`;
+};
+
+const resolveImageHref = (uri) => {
+  if (typeof uri === 'number') {
+    return uri;
+  }
+  if (uri && typeof uri === 'object' && uri.uri) {
+    const normalized = normalizeRemoteUrl(String(uri.uri));
+    return normalized ? { uri: normalized } : null;
+  }
+  if (typeof uri === 'string') {
+    const normalized = normalizeRemoteUrl(uri);
+    return normalized ? { uri: normalized } : null;
+  }
+  return null;
+};
 
 const HexAvatar = ({
   uri,
-  isUser = false,
   size = 75,
   borderWidth = 2,
   borderColor = '#000',
-  hasUnseenStory = false,
 }) => {
   const [imageError, setImageError] = useState(false);
-  const w = size, h = size;
+  const w = size;
+  const h = size;
 
-  // Hexagon points
   const hexRadius = w / 2;
   const centerX = w / 2;
   const centerY = h / 2;
@@ -36,13 +68,35 @@ const HexAvatar = ({
     clip: `hexClip-${size}-${Math.random().toString(36).slice(2)}`,
   }).current;
 
-  // Validate URI and provide fallback
-  const imageUri = uri && typeof uri === 'string' && uri.trim() !== '' ? uri.trim() : 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
-
-  // Reset image error state when URI changes
   useEffect(() => {
     setImageError(false);
   }, [uri]);
+
+  const href = useMemo(() => {
+    if (imageError) return LOCAL_PLACEHOLDER;
+    return resolveImageHref(uri) ?? { uri: REMOTE_PLACEHOLDER };
+  }, [uri, imageError]);
+
+  const imageKey =
+    typeof href === 'number' ? `asset-${href}` : href?.uri ?? 'placeholder';
+
+  const clippedImage = (
+    <SvgImage
+      key={imageKey}
+      href={href}
+      x={0}
+      y={0}
+      width={w}
+      height={h}
+      preserveAspectRatio="xMidYMid slice"
+      onError={() => {
+        if (!imageError) {
+          setImageError(true);
+        }
+      }}
+      {...(Platform.OS === 'android' ? { clipPath: `url(#${ids.clip})` } : {})}
+    />
+  );
 
   return (
     <View style={{ padding: 2 }}>
@@ -53,29 +107,10 @@ const HexAvatar = ({
           </ClipPath>
         </Defs>
 
-        {!imageError ? (
-          <SvgImage
-            key={imageUri}
-            href={{ uri: imageUri }}
-            x={0}
-            y={0}
-            width={w}
-            height={h}
-            preserveAspectRatio="xMidYMid slice"
-            clipPath={`url(#${ids.clip})`}
-            onError={() => {
-              try { console.warn('HexAvatar image load error for URI:', imageUri); } catch (_) {}
-              setImageError(true);
-            }}
-          />
+        {Platform.OS === 'ios' ? (
+          <G clipPath={`url(#${ids.clip})`}>{clippedImage}</G>
         ) : (
-          <Circle
-            cx={centerX}
-            cy={centerY}
-            r={hexRadius - borderWidth}
-            fill="#e0e0e0"
-            clipPath={`url(#${ids.clip})`}
-          />
+          clippedImage
         )}
 
         {borderWidth > 0 && (

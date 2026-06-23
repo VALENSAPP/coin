@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -34,6 +34,7 @@ import Video from 'react-native-video';
 import FileViewer from 'react-native-file-viewer';
 import { pick } from '@react-native-documents/picker';
 import { useAppTheme } from '../../../theme/useApptheme';
+import { useThemeContext } from '../../../theme/ThemeContext';
 import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../../redux/actions/LoaderAction';
 import {
@@ -200,13 +201,17 @@ const UserChat = ({ route, navigation }) => {
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const sheetRef = useRef(null);
-  const styles = createStyles();
   const flatListRef = useRef(null);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const inputAnim = useRef(new Animated.Value(0)).current;
   const typingAnim = useRef(new Animated.Value(0)).current;
   const typingTimeoutRef = useRef(null);
-  const { bgStyle, textStyle, bg, text } = useAppTheme();
+  const { bgStyle, textStyle, bg, text, card, border, mutedText, accent, icon } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const styles = useMemo(
+    () => createStyles({ card, border, mutedText, text, accent, bg, isDarkMode }),
+    [card, border, mutedText, text, accent, bg, isDarkMode],
+  );
   const dispatch = useDispatch();
   const [socketReady, setSocketReady] = useState(false);
   const [isUserScrolling, setIsUserScrolling] = useState(false);
@@ -1107,7 +1112,7 @@ const UserChat = ({ route, navigation }) => {
         <View style={[styles.messageRow, isUser ? styles.userMessageRow : styles.botMessageRow]}>
           {!isUser && (
             <TouchableOpacity style={styles.botAvatar} activeOpacity={0.7} onPress={handleNavigateToProfile} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <HexAvatar uri={item.senderInfo?.image || user?.image} size={32} borderWidth={2} borderColor={text} />
+              <HexAvatar uri={item.senderInfo?.image || user?.image} size={32} borderWidth={2} borderColor={icon} />
             </TouchableOpacity>
           )}
           <View style={styles.messageContent}>
@@ -1137,7 +1142,16 @@ const UserChat = ({ route, navigation }) => {
                   </View>
                 ) : (
                   // Normal message bubble
-                  <View style={[styles.messageBubble, isUser ? styles.userBubble : styles.botBubble, item.isTemp && styles.tempMessage, { backgroundColor: text }]}>
+                  <View
+                    style={[
+                      styles.messageBubble,
+                      isUser ? styles.userBubble : styles.botBubble,
+                      item.isTemp && styles.tempMessage,
+                      isUser
+                        ? { backgroundColor: accent }
+                        : { backgroundColor: isDarkMode ? border : '#F3F4F6', borderColor: border },
+                    ]}
+                  >
                     {renderMessageText(item.content, isUser)}
                   </View>
                 )}
@@ -1209,7 +1223,7 @@ const UserChat = ({ route, navigation }) => {
                   }
                 }}
               >
-                <LinearGradient colors={[text, text]} style={styles.fileIcon}>
+                <LinearGradient colors={[accent, accent]} style={styles.fileIcon}>
                   <Text style={styles.fileIconText}>📄</Text>
                 </LinearGradient>
                 <View style={styles.fileDetails}>
@@ -1599,7 +1613,7 @@ const UserChat = ({ route, navigation }) => {
 
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
-      <StatusBar backgroundColor={bg} barStyle="dark-content" />
+      <StatusBar backgroundColor={bg} barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
       <KeyboardAvoidingView style={styles.keyboardAvoidingView} behavior="padding" keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}>
         <View style={[styles.container, bgStyle]}>
           <Animated.View style={[styles.mainContainer, { opacity: fadeAnim }, bgStyle]}>
@@ -1607,7 +1621,7 @@ const UserChat = ({ route, navigation }) => {
             <View style={[styles.headerGradient, bgStyle]}>
               <View style={styles.headerContent}>
                 <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-                  <SafeIcon name="arrow-back" size={24} color={text} />
+                  <SafeIcon name="arrow-back" size={24} color={icon} />
                 </TouchableOpacity>
                 <View style={styles.logoContainer}>
                   <View style={styles.logoBackground}><LogoIcon height={80} width={80} /></View>
@@ -1620,10 +1634,10 @@ const UserChat = ({ route, navigation }) => {
                 {/* Chat header row */}
                 <View style={styles.chatHeaderRow}>
                   <TouchableOpacity onPress={handleNavigateToProfile} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={styles.profileImage}>
-                    <HexAvatar uri={user?.image} size={32} borderWidth={2} borderColor={text} />
+                    <HexAvatar uri={user?.image} size={32} borderWidth={2} borderColor={icon} />
                   </TouchableOpacity>
                   <TouchableOpacity style={{ flex: 1 }} onPress={handleNavigateToProfile}>
-                    <Text style={styles.chatName}>{user?.displayName || user?.username || 'User'}</Text>
+                    <Text style={[styles.chatName, textStyle]}>{user?.displayName || user?.username || 'User'}</Text>
                     <Text style={styles.chatStatus}>{isTyping ? t('userChat.typing') : t('userChat.activeNow')}</Text>
                   </TouchableOpacity>
                 </View>
@@ -1651,8 +1665,8 @@ const UserChat = ({ route, navigation }) => {
                       <RefreshControl
                         refreshing={refreshing}
                         onRefresh={onRefresh}
-                        tintColor={text}
-                        colors={[text]}
+                        tintColor={accent}
+                        colors={[accent]}
                       />
                     }
                   />
@@ -1687,7 +1701,7 @@ const UserChat = ({ route, navigation }) => {
                       value={inputText}
                       onChangeText={val => { setInputText(val); handleTyping(); }}
                       placeholder={inputPlaceholder}
-                      placeholderTextColor="#9ca3af"
+                      placeholderTextColor={mutedText}
                       multiline
                       textAlignVertical="top"
                       maxLength={2000}
@@ -1701,7 +1715,7 @@ const UserChat = ({ route, navigation }) => {
                     disabled={(!inputText.trim() && !sharedItem) || isSending}
                   >
                     <LinearGradient
-                      colors={(inputText.trim() || sharedItem) && !isSending ? [text, text] : ['#d1d5db', '#9ca3af']}
+                      colors={(inputText.trim() || sharedItem) && !isSending ? [accent, accent] : [border, border]}
                       style={styles.sendButtonGradient}
                     >
                       <Text style={styles.sendIcon}>{isSending ? '⏳' : '➤'}</Text>
@@ -1747,7 +1761,7 @@ const UserChat = ({ route, navigation }) => {
 export default UserChat;
 
 // Complete styles
-const createStyles = () => ({
+const createStyles = ({ card, border, mutedText, text: textColor, accent, bg, isDarkMode }) => ({
   safeArea: {
     flex: 1
   },
@@ -1793,9 +1807,11 @@ const createStyles = () => ({
     position: 'absolute',
     top: 60,
     left: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    backgroundColor: card,
     borderRadius: 12,
     padding: 10,
+    borderWidth: 1,
+    borderColor: border,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -1819,7 +1835,7 @@ const createStyles = () => ({
     paddingHorizontal: 7,
   },
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: card,
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
     padding: 10,
@@ -1838,7 +1854,7 @@ const createStyles = () => ({
     paddingHorizontal: 4,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#ebe7e5ff',
+    borderBottomColor: border,
   },
   profileImage: {
     marginRight: 12,
@@ -1865,17 +1881,17 @@ const createStyles = () => ({
   chatName: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#1F2937',
+    color: textColor,
   },
   chatStatus: {
     fontSize: 12,
-    color: '#6B7280',
+    color: mutedText,
   },
 
   /* Messages Container */
   messagesContainer: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: card,
     marginBottom: 8,
   },
   messagesList: {
@@ -1888,7 +1904,7 @@ const createStyles = () => ({
   },
   timeContainer: {
     alignSelf: 'center',
-    backgroundColor: '#E5E7EB',
+    backgroundColor: border,
     borderRadius: 10,
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -1896,7 +1912,7 @@ const createStyles = () => ({
   },
   messageTime: {
     fontSize: 11,
-    color: '#6B7280',
+    color: mutedText,
   },
   messageRow: {
     flexDirection: 'row',
@@ -1932,9 +1948,9 @@ const createStyles = () => ({
     borderBottomRightRadius: 6,
   },
   botBubble: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: isDarkMode ? border : '#F3F4F6',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: border,
     borderBottomLeftRadius: 6,
   },
   tempMessage: {
@@ -1953,7 +1969,7 @@ const createStyles = () => ({
     color: '#ffffff',
   },
   botMessageText: {
-    color: '#ffffff',
+    color: textColor,
   },
   messageStatus: {
     flexDirection: 'row',
@@ -1966,11 +1982,11 @@ const createStyles = () => ({
   },
   statusText: {
     fontSize: 12,
-    color: '#9CA3AF',
+    color: mutedText,
   },
   sendingText: {
     fontSize: 12,
-    color: '#9CA3AF',
+    color: mutedText,
     fontStyle: 'italic',
   },
   emptyContainer: {
@@ -1981,28 +1997,28 @@ const createStyles = () => ({
   },
   emptyText: {
     fontSize: 16,
-    color: '#9ca3af',
+    color: mutedText,
     textAlign: 'center',
   },
 
   /* Input Area */
   inputContainer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: card,
     paddingHorizontal: 4,
     paddingVertical: 8,
     flexDirection: 'row',
     alignItems: 'flex-end',
     borderTopWidth: 0.5,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: border,
     position: 'relative',
   },
   inputWrapper: {
     flex: 1,
     flexDirection: 'row',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: bg,
     borderRadius: 24,
     borderWidth: 1.5,
-    borderColor: '#E5E7EB',
+    borderColor: border,
     paddingHorizontal: 8,
     paddingVertical: 4,
     marginRight: 8,
@@ -2012,7 +2028,7 @@ const createStyles = () => ({
   textInput: {
     flex: 1,
     fontSize: 15,
-    color: '#1F2937',
+    color: textColor,
     paddingVertical: 10,
     paddingHorizontal: 8,
     textAlignVertical: 'top',
@@ -2133,8 +2149,8 @@ const createStyles = () => ({
     borderRadius: 12,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#1346acff',
-    backgroundColor: '#fff',
+    borderColor: border,
+    backgroundColor: card,
     paddingHorizontal: 40,
     paddingVertical: 20,
   },
@@ -2145,7 +2161,7 @@ const createStyles = () => ({
   messageSharedText: {
     padding: 8,
     fontSize: 13,
-    color: '#374151',
+    color: textColor,
   },
 
   // Image message styles
@@ -2238,9 +2254,9 @@ const createStyles = () => ({
 
   // File message styles
   fileMessage: {
-    backgroundColor: '#ffffff',
+    backgroundColor: card,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: border,
     borderRadius: 18,
     padding: 12,
     flexDirection: 'row',
@@ -2265,12 +2281,12 @@ const createStyles = () => ({
   fileName: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#1F2937',
+    color: textColor,
     marginBottom: 2,
   },
   fileSize: {
     fontSize: 12,
-    color: '#6B7280',
+    color: mutedText,
   },
 
   // Attachment modal styles
@@ -2396,9 +2412,9 @@ const createStyles = () => ({
 
   // Shared post/reel message styles
   sharedPostContainer: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: card,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: border,
     borderRadius: 16,
     marginVertical: 4,
     overflow: 'hidden',
@@ -2406,8 +2422,8 @@ const createStyles = () => ({
     paddingHorizontal: 10
   },
   userSharedPost: {
-    backgroundColor: '#E8F4F8',
-    borderColor: '#B3D9E8',
+    backgroundColor: isDarkMode ? border : '#E8F4F8',
+    borderColor: isDarkMode ? accent : '#B3D9E8',
   },
   deletedContent: {
     backgroundColor: '#FEE2E2',
@@ -2443,26 +2459,26 @@ const createStyles = () => ({
   sharedPostUserName: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#1F2937',
+    color: textColor,
   },
   sharedPostTime: {
     fontSize: 11,
-    color: '#9CA3AF',
+    color: mutedText,
     marginTop: 2,
   },
   sharedPostText: {
     fontSize: 14,
-    color: '#374151',
+    color: textColor,
     paddingHorizontal: 12,
     paddingVertical: 8,
     lineHeight: 20,
   },
   userSharedPostText: {
-    color: '#1F2937',
+    color: textColor,
   },
   sharedPostCaption: {
     fontSize: 12,
-    color: '#6B7280',
+    color: mutedText,
     paddingHorizontal: 12,
     paddingBottom: 8,
     fontStyle: 'italic',
@@ -2518,15 +2534,15 @@ const createStyles = () => ({
   },
   sharedPostStatText: {
     fontSize: 12,
-    color: '#6B7280',
+    color: mutedText,
     fontWeight: '500',
   },
 
   // Instagram-style Reel Card
   instagramReelCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: card,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: border,
     borderRadius: 12,
     marginVertical: 4,
     overflow: 'hidden',
@@ -2541,7 +2557,7 @@ const createStyles = () => ({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 10,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: isDarkMode ? border : '#FAFAFA',
   },
   reelCardAvatar: {
     width: 32,

@@ -95,7 +95,7 @@ export default function ChatMessages() {
   const [error, setError] = useState(null);
   const [socketReady, setSocketReady] = useState(false);
   const inputRef = useRef(null);
-  const { bgStyle, textStyle, text } = useAppTheme();
+  const { bgStyle, textStyle, text, card, cardStyle, border, mutedText, icon, accent } = useAppTheme();
   const toast = useToast();
   const { t } = useLanguage();
   const [isScreenFocused, setIsScreenFocused] = useState(true);
@@ -926,7 +926,7 @@ export default function ChatMessages() {
 
   const renderChatItem = ({ item }) => (
     <TouchableOpacity
-      style={[styles.chatItem, bgStyle, { shadowColor: text }]}
+      style={[styles.chatItem, cardStyle, { shadowColor: text, borderColor: border, borderWidth: StyleSheet.hairlineWidth }]}
       onPress={() => handleUserChat(item)}
       onLongPress={() => handleLongPress(item)}
       delayLongPress={500}
@@ -937,26 +937,33 @@ export default function ChatMessages() {
             uri={item.avatar || ONLINE_PLACEHOLDER}
             size={48}
             borderWidth={2}
-            borderColor={text}
+            borderColor={icon}
           />
-          {item.isOnline && <View style={styles.onlineDot} />}
+          {item.isOnline && <View style={[styles.onlineDot, { borderColor: card }]} />}
         </View>
       </View>
       <View style={styles.chatContent}>
         <View style={styles.chatHeader}>
           <Text style={[styles.username, item.unreadCount > 0 && styles.unreadMessage, textStyle]}>{item.username}</Text>
-          <Text style={styles.timestamp}>{item.timestamp}</Text>
+          <Text style={[styles.timestamp, { color: mutedText }]}>{item.timestamp}</Text>
         </View>
       <View style={styles.messageRow}>
         {item.lastMessage ? (
           <Text
-            style={[styles.lastMessage, item.unreadCount > 0 && styles.unreadLastMessage]}
+            style={[
+              styles.lastMessage,
+              { color: item.unreadCount > 0 ? text : mutedText },
+              item.unreadCount > 0 && styles.unreadLastMessage,
+            ]}
             numberOfLines={1}
           >
             {item.lastMessage}
           </Text>
         ) : (
-          <Text style={[styles.lastMessage, item.unreadCount > 0 && styles.unreadLastMessage]} numberOfLines={1}>
+          <Text
+            style={[styles.lastMessage, { color: mutedText }, item.unreadCount > 0 && styles.unreadLastMessage]}
+            numberOfLines={1}
+          >
             {t('chatMessages.startConversation')}
           </Text>
         )}
@@ -965,13 +972,13 @@ export default function ChatMessages() {
           <SafeIcon
             name="checkmark-done"
             size={16}
-            color={item.lastMessageIsSeen ? '#3b82f6' : '#9ca3af'}
+            color={item.lastMessageIsSeen ? accent : mutedText}
             style={styles.readReceiptIcon}
           />
         )}
 
         {item.unreadCount > 0 && (
-          <View style={styles.unreadBadge}>
+          <View style={[styles.unreadBadge, { backgroundColor: accent }]}>
             <Text style={styles.unreadBadgeText}>{item.unreadCount}</Text>
           </View>
         )}
@@ -987,9 +994,9 @@ export default function ChatMessages() {
   return (
     <SafeAreaView style={[styles.container, bgStyle]}>
       {/* Header */}
-      <View style={[styles.header, bgStyle, { shadowColor: text }]}>
+      <View style={[styles.header, bgStyle, { shadowColor: text, borderBottomColor: border }]}>
         <TouchableOpacity onPress={handleBackPress}>
-          <SafeIcon name="arrow-back" size={24} color="#000" />
+          <SafeIcon name="arrow-back" size={24} color={icon} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, textStyle]}>{t('chatMessages.title')}</Text>
         <View style={{ flex: 1 }} />
@@ -999,17 +1006,17 @@ export default function ChatMessages() {
       <TouchableOpacity
         activeOpacity={1}
         onPress={() => inputRef.current?.focus()}
-        style={[styles.searchContainer, { shadowColor: text }]}
+        style={[styles.searchContainer, cardStyle, { shadowColor: text, borderColor: border, borderWidth: StyleSheet.hairlineWidth }]}
       >
         <View style={styles.searchWrapper}>
-          <SafeIcon name="search" size={20} color={text} style={[styles.searchIcon, textStyle]} />
+          <SafeIcon name="search" size={20} color={mutedText} style={styles.searchIcon} />
           <TextInput
             ref={inputRef}
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: text }]}
             placeholder={t('chatMessages.searchPlaceholder')}
             value={search}
             onChangeText={setSearch}
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={mutedText}
           />
         </View>
       </TouchableOpacity>
@@ -1031,8 +1038,8 @@ export default function ChatMessages() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={[text]}
-            tintColor={text}
+            colors={[accent]}
+            tintColor={accent}
             title={t('chatMessages.pullToRefresh')}
             titleColor={text}
           />
@@ -1046,7 +1053,7 @@ export default function ChatMessages() {
           <View style={styles.errorContainer}>
             <Text style={styles.errorText}>{error}</Text>
             <TouchableOpacity 
-              style={[styles.retryButton, { backgroundColor: text }]} 
+              style={[styles.retryButton, { backgroundColor: accent }]} 
               onPress={() => {
                 const socket = getSocket();
                 if (socket?.connected) {
@@ -1061,11 +1068,11 @@ export default function ChatMessages() {
           </View>
         ) : filteredConversations.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>
+            <Text style={[styles.emptyText, { color: mutedText }]}>
               {search ? t('chatMessages.noConversationsFound') : t('chatMessages.noConversationsYet')}
             </Text>
             {!search && (
-              <Text style={styles.emptySubtext}>{t('chatMessages.startConversationHint')}</Text>
+              <Text style={[styles.emptySubtext, { color: mutedText }]}>{t('chatMessages.startConversationHint')}</Text>
             )}
           </View>
         ) : (
@@ -1086,7 +1093,7 @@ export default function ChatMessages() {
         onRequestClose={handleCancelDelete}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, bgStyle]}>
+          <View style={[styles.modalContent, cardStyle, { borderColor: border, borderWidth: StyleSheet.hairlineWidth }]}>
             <View style={styles.modalHeader}>
               <SafeIcon name="trash-outline" size={32} color="#ff6b6b" />
               <Text style={[styles.modalTitle, textStyle]}>{t('chatMessages.deleteTitle')}</Text>
@@ -1094,20 +1101,20 @@ export default function ChatMessages() {
 
             <Text style={[styles.modalMessage, textStyle]}>
               {t('chatMessages.deleteConfirm')}{' '}
-              <Text style={styles.modalUsername}>{selectedConversation?.username}</Text>?
+              <Text style={[styles.modalUsername, textStyle]}>{selectedConversation?.username}</Text>?
             </Text>
 
-            <Text style={styles.modalWarning}>
+            <Text style={[styles.modalWarning, { color: mutedText }]}>
               {t('chatMessages.deleteWarning')}
             </Text>
 
             <View style={styles.modalButtons}>
               <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
+                style={[styles.modalButton, styles.cancelButton, { backgroundColor: border }]}
                 onPress={handleCancelDelete}
                 disabled={isDeleting}
               >
-                <Text style={styles.cancelButtonText}>{t('chatMessages.cancel')}</Text>
+                <Text style={[styles.cancelButtonText, textStyle]}>{t('chatMessages.cancel')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity

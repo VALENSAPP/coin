@@ -2,11 +2,11 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform, ScrollView } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useLanguage } from '../../i18n';
-import { useAppTheme } from '../../theme/useApptheme';
+import { useBusinessProfileTheme } from '../../theme/useBusinessProfileTheme';
 
 const LanguageSelectionScreen = ({ navigation }) => {
   const { t, currentLanguage, languageNames, languages, changeLanguage } = useLanguage();
-  const { bgStyle, textStyle, text } = useAppTheme();
+  const { bgStyle, textStyle, text, cardStyle, border, mutedText } = useBusinessProfileTheme();
   const [showDropdown, setShowDropdown] = useState(false);
 
   const handleLangSelect = (lang) => {
@@ -19,24 +19,24 @@ const LanguageSelectionScreen = ({ navigation }) => {
     <View style={[styles.container, bgStyle]}>
       <Text style={[styles.title, textStyle]}>{t('login.selectLanguage')}</Text>
       <TouchableOpacity
-        style={styles.dropdown}
+        style={[styles.dropdown, cardStyle, { borderWidth: StyleSheet.hairlineWidth, borderColor: border }]}
         onPress={() => setShowDropdown(!showDropdown)}
         activeOpacity={0.7}
       >
         <Ionicons name="language" size={22} color={text} style={{ marginRight: 8 }} />
-        <Text style={styles.selectedText}>{languageNames[currentLanguage] || 'English'}</Text>
-        <Ionicons name={showDropdown ? 'chevron-up' : 'chevron-down'} size={22} color="#6B7280" style={{ marginLeft: 8 }} />
+        <Text style={[styles.selectedText, textStyle]}>{languageNames[currentLanguage] || 'English'}</Text>
+        <Ionicons name={showDropdown ? 'chevron-up' : 'chevron-down'} size={22} color={mutedText} style={{ marginLeft: 8 }} />
       </TouchableOpacity>
       {showDropdown && (
-        <ScrollView style={styles.dropdownList}>
+        <ScrollView style={[styles.dropdownList, cardStyle, { borderWidth: StyleSheet.hairlineWidth, borderColor: border }]}>
           {languages.map(lang => (
             <TouchableOpacity
               key={lang}
-              style={styles.dropdownItem}
+              style={[styles.dropdownItem, { borderBottomColor: border }]}
               onPress={() => handleLangSelect(lang)}
               activeOpacity={0.7}
             >
-              <Text style={styles.dropdownItemText}>{languageNames[lang]}</Text>
+              <Text style={[styles.dropdownItemText, textStyle]}>{languageNames[lang]}</Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
@@ -60,7 +60,6 @@ const styles = StyleSheet.create({
   dropdown: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
     borderRadius: 12,
     padding: 16,
     elevation: 2,
@@ -71,11 +70,9 @@ const styles = StyleSheet.create({
   selectedText: {
     fontSize: 16,
     flex: 1,
-    color: '#111',
   },
   dropdownList: {
     marginTop: -6,
-    backgroundColor: '#fff',
     borderRadius: 12,
     elevation: 2,
     maxHeight: 200,
@@ -83,11 +80,9 @@ const styles = StyleSheet.create({
   dropdownItem: {
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
   },
   dropdownItemText: {
     fontSize: 16,
-    color: '#111',
   },
 });
 

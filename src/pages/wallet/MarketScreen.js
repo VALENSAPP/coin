@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import TradeModal from '../../components/modals/TradeModal';
-import { useAppTheme } from '../../theme/useApptheme';
+import { useBusinessProfileTheme } from '../../theme/useBusinessProfileTheme';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { getTopCreators } from '../../services/tokens';
 import { showToastMessage } from '../../components/displaytoastmessage';
@@ -24,7 +24,7 @@ export const MarketScreen = ({ navigation }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [tradeModalVisible, setTradeModalVisible] = useState(false);
     const [marketCreators, setMarketCreators] = useState('');
-    const { bgStyle, textStyle, text } = useAppTheme();
+    const { bgStyle, textStyle, text, accent, cardStyle, mutedText, border } = useBusinessProfileTheme();
     const dispatch = useDispatch();
     const toast = useToast();
     const { t } = useLanguage();

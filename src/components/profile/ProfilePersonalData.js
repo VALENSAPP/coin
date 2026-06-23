@@ -121,6 +121,7 @@ const ProfilePersonData = ({
 }) => {
   const navigation = useNavigation();
   const { t } = useLanguage();
+  const reduxProfileImg = useSelector(state => state.profileImage?.profileImg);
   const [profileImage, setProfileImage] = useState(null);
 
   const collapseAnim = useRef(new Animated.Value(1)).current;
@@ -172,8 +173,25 @@ const ProfilePersonData = ({
   }, [profilepic, fetchAllData]);
 
   const PLACEHOLDER_AVATAR = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
+
+  const normalizeProfileImageUrl = useCallback((url) => {
+    if (!url || typeof url !== 'string') return null;
+    const trimmed = url.trim();
+    if (!trimmed) return null;
+    if (
+      trimmed.startsWith('http://') ||
+      trimmed.startsWith('https://') ||
+      trimmed.startsWith('data:') ||
+      trimmed.startsWith('file://')
+    ) {
+      return trimmed;
+    }
+    if (trimmed.startsWith('/')) return `https://api.valens.app${trimmed}`;
+    return `https://api.valens.app/${trimmed}`;
+  }, []);
+
   const avatarUri =
-    typeof profileImage === 'string' && profileImage.length ? profileImage : PLACEHOLDER_AVATAR;
+    normalizeProfileImageUrl(profileImage || reduxProfileImg) || PLACEHOLDER_AVATAR;
 
   const [modalVisible, setModalVisible] = useState(false);
   const [usernameModalVisible, setUsernameModalVisible] = useState(false);
@@ -1163,7 +1181,7 @@ const ProfilePersonData = ({
                   style={{ marginBottom: 5 }}
                 >
                   <View style={styles.avatarWithBadge}>
-                    <HexAvatar uri={avatarUri} size={110} borderWidth={2} borderColor={text} />
+                    <HexAvatar uri={avatarUri} size={110} borderWidth={2} borderColor={icon} />
                     {showIdentityVerified && (
                       <View
                         style={styles.verifiedAvatarBadge}
@@ -1176,10 +1194,13 @@ const ProfilePersonData = ({
                   </View>
                   {!fromUsersProfile && (
                     <TouchableOpacity
-                      style={[styles.addbutton, { backgroundColor: text, shadowColor: text }]}
+                      style={[
+                        styles.addbutton,
+                        { backgroundColor: accent, shadowColor: accent, borderColor: card },
+                      ]}
                       onPress={handleProfileImagePress}
                     >
-                      <Ionicons name="add" size={15} color="white" />
+                      <Ionicons name="add" size={15} color="#FFFFFF" />
                     </TouchableOpacity>
                   )}
                 </TouchableOpacity>
@@ -1593,7 +1614,7 @@ const ProfilePersonData = ({
                     uri={avatarUri}
                     size={PROFILE_IMAGE_PREVIEW_SIZE}
                     borderWidth={2}
-                    borderColor={text}
+                    borderColor={icon}
                   />
                 </View>
               </View>

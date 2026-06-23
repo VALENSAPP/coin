@@ -1,6 +1,6 @@
 import React from 'react';
 import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, View } from 'react-native';
-import { useAppTheme } from '../../theme/useApptheme';
+import { useBusinessProfileTheme } from '../../theme/useBusinessProfileTheme';
 
 const CustomButton = React.forwardRef(
   (
@@ -17,7 +17,7 @@ const CustomButton = React.forwardRef(
     ref
   ) => {
     const isDisabled = disabled || loading;
-    const { bgStyle, bg, text, accent } = useAppTheme();
+    const { accent } = useBusinessProfileTheme();
 
     return (
       <TouchableOpacity

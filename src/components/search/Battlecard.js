@@ -17,7 +17,7 @@ import {
 import Icon from 'react-native-vector-icons/Ionicons';
 import HexAvatar from '../../components/home/story.js/HexAvatar';
 import { useLanguage } from '../../i18n';
-import { useAppTheme } from '../../theme/useApptheme';
+import { useBusinessProfileTheme } from '../../theme/useBusinessProfileTheme';
 import { useThemeContext } from '../../theme/ThemeContext';
 
 const DEFAULT_AVATAR = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
@@ -114,6 +114,15 @@ const isEmptyOpponent = user2 => {
     return isPlaceholder && !handle && !avatar;
 };
 
+const useBattleAccent = () => {
+    const { accent, isBusinessProfile, card, border, text, mutedText } = useBusinessProfileTheme();
+    const { isDarkMode } = useThemeContext();
+    const accentLight = isBusinessProfile
+        ? (isDarkMode ? 'rgba(201,161,90,0.22)' : 'rgba(201,161,90,0.14)')
+        : (isDarkMode ? 'rgba(90,45,130,0.25)' : '#EEEDFE');
+    return { accent, accentLight, accentDark: accent, isDarkMode, card, border, text, mutedText, isBusinessProfile };
+};
+
 // ─── LiveDot ──────────────────────────────────────────────────────────────────
 
 const LiveDot = () => {
@@ -149,24 +158,28 @@ const TimerBadge = ({ endTime, ended, t }) => (
     </View>
 );
 
-const ModeBadge = ({ format, ended, isLive, t }) => (
-    <View style={[styles.modeBadge, ended && styles.modeBadgeEnded]}>
-        {!ended && (isLive ? <LiveDot /> : <View style={styles.modeBadgeDotOrange} />)}
-        <Text style={[styles.modeBadgeText, ended && styles.modeBadgeTextEnded]} numberOfLines={2}>
-            {format === 'POLL' ? t('battleCard.poll') : t('battleCard.battleMode')}
-        </Text>
-    </View>
-);
+const ModeBadge = ({ format, ended, isLive, t }) => {
+    const { accentLight, accentDark } = useBattleAccent();
+    return (
+        <View style={[styles.modeBadge, !ended && { backgroundColor: accentLight }, ended && styles.modeBadgeEnded]}>
+            {!ended && (isLive ? <LiveDot /> : <View style={styles.modeBadgeDotOrange} />)}
+            <Text style={[styles.modeBadgeText, !ended && { color: accentDark }, ended && styles.modeBadgeTextEnded]} numberOfLines={2}>
+                {format === 'POLL' ? t('battleCard.poll') : t('battleCard.battleMode')}
+            </Text>
+        </View>
+    );
+};
 
 const ParticipantAvatar = ({ avatarUrl, name, handle, isEmpty, onPress, onPressIn, t }) => {
+    const { accent, accentLight, text, mutedText } = useBattleAccent();
     if (isEmpty) {
         return (
             <View style={styles.participantSlot}>
                 <View style={styles.participantContent}>
-                    <View style={styles.emptySlot}>
-                        <Icon name="person-add-outline" size={15} color="#A78BFA" />
+                    <View style={[styles.emptySlot, { borderColor: accent, backgroundColor: accentLight }]}>
+                        <Icon name="person-add-outline" size={15} color={accent} />
                     </View>
-                    <Text style={styles.waitingLabel}>{t('battleCard.waiting')}</Text>
+                    <Text style={[styles.waitingLabel, { color: accent }]}>{t('battleCard.waiting')}</Text>
                     <Text style={styles.waitingSub}>{t('battleCard.openSlot')}</Text>
                 </View>
             </View>
@@ -185,27 +198,29 @@ const ParticipantAvatar = ({ avatarUrl, name, handle, isEmpty, onPress, onPressI
                     uri={normalizeImageUrl(avatarUrl) || DEFAULT_AVATAR}
                     size={28}
                     borderWidth={2}
-                    borderColor="#7F77DD"
+                    borderColor={accent}
                 />
-                <Text style={styles.participantName} numberOfLines={1}>{name}</Text>
-                {!!handle && <Text style={styles.participantHandle} numberOfLines={1}>@{handle}</Text>}
+                <Text style={[styles.participantName, { color: text }]} numberOfLines={1}>{name}</Text>
+                {!!handle && <Text style={[styles.participantHandle, { color: mutedText }]} numberOfLines={1}>@{handle}</Text>}
             </TouchableOpacity>
         </View>
     );
 };
 
-const StakePill = ({ amount, t }) => (
-    <View style={styles.stakePill}>
-        <Icon name="flash" size={11} color="#7F77DD" />
-        <Text style={styles.stakeText}>
-            {t('battleCard.stakes')} <Text style={styles.stakeAmount}>{formatAmount(amount)}</Text>
-        </Text>
-    </View>
-);
+const StakePill = ({ amount, t }) => {
+    const { accent, accentLight, accentDark } = useBattleAccent();
+    return (
+        <View style={[styles.stakePill, { backgroundColor: accentLight }]}>
+            <Icon name="flash" size={11} color={accent} />
+            <Text style={[styles.stakeText, { color: accentDark }]}>
+                {t('battleCard.stakes')} <Text style={[styles.stakeAmount, { color: accentDark }]}>{formatAmount(amount)}</Text>
+            </Text>
+        </View>
+    );
+};
 
 const OptionChip = ({ option, isSelected, onPress, disabled, avatarUrl, percent }) => {
-    const { card, text: themeText, border } = useAppTheme();
-    const { isDarkMode } = useThemeContext();
+    const { accent, accentLight, accentDark, card, text: themeText, border, isDarkMode } = useBattleAccent();
     const safePercent = Number.isFinite(percent)
         ? Math.max(0, Math.min(100, Math.round(percent)))
         : 0;
@@ -219,30 +234,30 @@ const OptionChip = ({ option, isSelected, onPress, disabled, avatarUrl, percent 
             style={[
                 styles.optionChip,
                 { backgroundColor: isDarkMode ? '#2A2A2A' : card, borderColor: border },
-                isSelected && styles.optionChipSelected,
+                isSelected && { borderColor: accent, backgroundColor: accentLight },
                 disabled && styles.optionDisabled,
             ]}
         >
             <View style={styles.optionChipTopRow}>
-                <HexAvatar uri={normalizeImageUrl(avatarUrl) || DEFAULT_AVATAR} size={22} fadeDuration={0} />
+                <HexAvatar uri={normalizeImageUrl(avatarUrl) || DEFAULT_AVATAR} size={22} borderWidth={1.5} borderColor={accent} fadeDuration={0} />
                 <Text
                     style={[
                         styles.optionChipLabel,
                         { color: themeText },
-                        isSelected && styles.optionChipLabelSelected,
+                        isSelected && { color: accentDark },
                     ]}
                     numberOfLines={1}
                 >
                     {label}
                     {' '}
-                    <Text style={styles.optionChipPercentInline}>{safePercent}%</Text>
+                    <Text style={[styles.optionChipPercentInline, isSelected && { color: accentDark }]}>{safePercent}%</Text>
                 </Text>
-                <View style={[styles.radioCircle, isSelected && styles.radioCircleSelected]}>
-                    {isSelected && <View style={styles.radioInner} />}
+                <View style={[styles.radioCircle, isSelected && { borderColor: accent }]}>
+                    {isSelected && <View style={[styles.radioInner, { backgroundColor: accent }]} />}
                 </View>
             </View>
-            <View style={styles.optionProgressTrack}>
-                <View style={[styles.optionProgressFill, { width: `${safePercent}%` }]} />
+            <View style={[styles.optionProgressTrack, { backgroundColor: isDarkMode ? border : '#ECEAF8' }]}>
+                <View style={[styles.optionProgressFill, { width: `${safePercent}%`, backgroundColor: accent }]} />
             </View>
         </TouchableOpacity>
     );
@@ -268,7 +283,7 @@ const StatRow = ({ totalParticipants, totalLikes, totalComments }) => (
 
 const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, onUserPress, fullWidth }) => {
     const { t } = useLanguage();
-    const { card, text: themeText, border, mutedText } = useAppTheme();
+    const { accent, card, text: themeText, border, mutedText } = useBattleAccent();
     const cardThemeStyle = { backgroundColor: card, borderColor: border };
     const primaryTextStyle = { color: themeText };
     const mutedTextStyle = { color: mutedText };
@@ -347,7 +362,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
                                 onPress={event => handleUserPress(item.creator, event)}
                                 hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                             >
-                                <HexAvatar uri={normalizeImageUrl(item.creator.avatar) || DEFAULT_AVATAR} size={20} borderWidth={2} borderColor="#7F77DD" fadeDuration={0} />
+                                <HexAvatar uri={normalizeImageUrl(item.creator.avatar) || DEFAULT_AVATAR} size={20} borderWidth={2} borderColor={accent} fadeDuration={0} />
                                 <View style={styles.pollCreatorTextWrap}>
                                     <Text style={[styles.pollCreatorName, primaryTextStyle]} numberOfLines={1}>{item.creator.name}</Text>
                                     <Text style={[styles.pollCreatorHandle, mutedTextStyle]} numberOfLines={1}>@{item.creator.userName}</Text>
@@ -355,7 +370,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
                             </TouchableOpacity>
                         ) : (
                             <View style={styles.pollCreatorPressable}>
-                                <HexAvatar uri={normalizeImageUrl(item.creator.avatar) || DEFAULT_AVATAR} size={20} borderWidth={2} borderColor="#7F77DD" fadeDuration={0} />
+                                <HexAvatar uri={normalizeImageUrl(item.creator.avatar) || DEFAULT_AVATAR} size={20} borderWidth={2} borderColor={accent} fadeDuration={0} />
                                 <View style={styles.pollCreatorTextWrap}>
                                     <Text style={[styles.pollCreatorName, primaryTextStyle]} numberOfLines={1}>{item.creator.name}</Text>
                                     <Text style={[styles.pollCreatorHandle, mutedTextStyle]} numberOfLines={1}>@{item.creator.userName}</Text>
@@ -431,7 +446,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
                                 uri={normalizeImageUrl(item.creator?.avatar) || DEFAULT_AVATAR}
                                 size={20}
                                 borderWidth={2}
-                                borderColor="#7F77DD"
+                                borderColor={accent}
                                 fadeDuration={0}
                             />
                             <View style={styles.pollCreatorTextWrap}>
@@ -446,7 +461,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
                                 uri={normalizeImageUrl(item.creator?.avatar) || DEFAULT_AVATAR}
                                 size={20}
                                 borderWidth={2}
-                                borderColor="#7F77DD"
+                                borderColor={accent}
                                 fadeDuration={0}
                             />
                             <View style={styles.pollCreatorTextWrap}>
@@ -519,7 +534,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
                 </View>
             )}
             {soloOpponent && (
-                <TouchableOpacity style={styles.acceptBtn} onPress={() => onCardPress(item)} activeOpacity={0.85}>
+                <TouchableOpacity style={[styles.acceptBtn, { backgroundColor: accent }]} onPress={() => onCardPress(item)} activeOpacity={0.85}>
                     <Icon name="add-circle-outline" size={13} color="#fff" style={{ marginRight: 4 }} />
                     <Text style={styles.acceptBtnText}>{t('battleCard.acceptChallenge')}</Text>
                 </TouchableOpacity>

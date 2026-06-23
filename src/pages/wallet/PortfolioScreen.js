@@ -17,7 +17,7 @@ import { getTotalTokenPurchase } from '../../services/tokens';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { useDispatch } from 'react-redux';
 import { useToast } from 'react-native-toast-notifications';
-import { useAppTheme } from '../../theme/useApptheme';
+import { useBusinessProfileTheme } from '../../theme/useBusinessProfileTheme';
 import { useLanguage } from '../../i18n';
 
 export const PortfolioScreen = ({ navigation }) => {
@@ -27,7 +27,7 @@ export const PortfolioScreen = ({ navigation }) => {
     const [holdingsData, setHoldingsdata] = useState([]);
     const dispatch = useDispatch();
     const toast = useToast();
-    const { bgStyle, textStyle, text } = useAppTheme();
+    const { bgStyle, textStyle, text, accent, cardStyle, mutedText, border } = useBusinessProfileTheme();
     const { t } = useLanguage();
 
     useFocusEffect(

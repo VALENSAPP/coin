@@ -14,7 +14,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getUserCredentials } from '../../services/post';
 import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../../components/displaytoastmessage';
-import { useAppTheme } from '../../theme/useApptheme';
+import { useBusinessProfileTheme } from '../../theme/useBusinessProfileTheme';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { startVerification } from '../../services/companyProfile';
 import SNSMobileSDK from '@sumsub/react-native-mobilesdk-module';
@@ -32,7 +32,7 @@ const VerificationStatusScreen = () => {
     const dispatch = useDispatch();
     const toast = useToast();
     const allVerified = Object.values(verificationData).every(v => v === true);
-    const { bgStyle, textStyle } = useAppTheme();
+    const { bgStyle, textStyle, text, accent, mutedText, border, cardStyle } = useBusinessProfileTheme();
     const { t } = useLanguage();
 
     const launchSumsub = async () => {

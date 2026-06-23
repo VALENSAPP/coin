@@ -10,7 +10,7 @@ import {
 import { useNavigation } from "@react-navigation/native";
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useAppTheme } from "../../theme/useApptheme";
+import { useBusinessProfileTheme } from "../../theme/useBusinessProfileTheme";
 import { useLanguage } from "../../i18n";
 
 const SendCoins = () => {
@@ -18,7 +18,7 @@ const SendCoins = () => {
     const [search, setSearch] = useState("");
     const [amount, setAmount] = useState("");
     const [selectedRatio, setSelectedRatio] = useState(null);
-    const { bgStyle, textStyle, text } = useAppTheme();
+    const { bgStyle, textStyle, text, accent } = useBusinessProfileTheme();
     const { t } = useLanguage();
 
     const handleContinue = () => {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,7 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useDispatch } from 'react-redux';
 import { getRecentActivities } from '../../services/tokens';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
-import { useAppTheme } from '../../theme/useApptheme';
+import { useBusinessProfileTheme } from '../../theme/useBusinessProfileTheme';
 import { useRoute } from '@react-navigation/native';
 import { useLanguage } from '../../i18n';
 
@@ -22,7 +22,7 @@ export const ActivityScreen = ({ navigation }) => {
   const route = useRoute();
   const [activeFilter, setActiveFilter] = useState('all');
   const [activities, setActivities] = useState([]);
-  const { bgStyle, textStyle, text, cardStyle, mutedText, accent, border } = useAppTheme();
+  const { bgStyle, textStyle, text, cardStyle, mutedText, accent, border } = useBusinessProfileTheme();
   const { t } = useLanguage();
 
   // Filters use translation keys; filter values are stable internal keys

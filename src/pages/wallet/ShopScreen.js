@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { useAppTheme } from '../../theme/useApptheme';
+import { useBusinessProfileTheme } from '../../theme/useBusinessProfileTheme';
 import { useLanguage } from '../../i18n';
 
 const mixWithWhite = (hex, amount = 0.85) => {
@@ -33,18 +33,13 @@ const withAlpha = (hex, alpha = 0.12) => {
 };
 
 const ShopScreen = ({ navigation }) => {
-  const [profileType, setProfileType] = useState('company');
   const [displayName, setDisplayName] = useState('');
-  const { bgStyle, textStyle, text, cardStyle } = useAppTheme(profileType);
+  const { bgStyle, textStyle, text, cardStyle, accent } = useBusinessProfileTheme();
   const { t } = useLanguage();
 
   useEffect(() => {
     const loadProfileData = async () => {
-      const [storedProfile, storedName] = await Promise.all([
-        AsyncStorage.getItem('profile'),
-        AsyncStorage.getItem('currentUsername'),
-      ]);
-      if (storedProfile) setProfileType(storedProfile);
+      const storedName = await AsyncStorage.getItem('currentUsername');
       if (storedName) setDisplayName(storedName);
     };
 

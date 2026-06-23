@@ -31,7 +31,8 @@ import { useLanguage } from '../../i18n';
 export default function BattleExplore({ onClose, profile }) {
   const navigation = useNavigation();
   const toast = useToast();
-  const { bgStyle, text } = useAppTheme(profile);
+  const themeProfile = String(profile || '').toLowerCase() === 'company' ? 'company' : undefined;
+  const { bgStyle, text, card, border, mutedText, icon, accent } = useAppTheme(themeProfile);
   const { t } = useLanguage();
 
   const [battles, setBattles] = useState([]);
@@ -192,7 +193,7 @@ export default function BattleExplore({ onClose, profile }) {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => onClose?.()} style={styles.backBtn}>
-          <Icon name="arrow-back" size={24} color={text} />
+          <Icon name="arrow-back" size={24} color={icon} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: text }]}>
           {t('battleExplore.headerTitle')}
@@ -201,12 +202,12 @@ export default function BattleExplore({ onClose, profile }) {
       </View>
 
       {/* Search */}
-      <View style={styles.searchContainer}>
-        <Icon name="search" size={20} color="#999" style={styles.searchIcon} />
+      <View style={[styles.searchContainer, { backgroundColor: card, borderColor: border }]}>
+        <Icon name="search" size={20} color={mutedText} style={styles.searchIcon} />
         <TextInput
-          style={styles.searchInput}
+          style={[styles.searchInput, { color: text }]}
           placeholder={t('battleExplore.searchPlaceholder')}
-          placeholderTextColor="#999"
+          placeholderTextColor={mutedText}
           value={searchText}
           onChangeText={handleSearch}
           returnKeyType="search"
@@ -216,7 +217,7 @@ export default function BattleExplore({ onClose, profile }) {
           <TouchableOpacity
             onPress={() => handleSearch('')}
             style={styles.clearSearchBtn}>
-            <Icon name="close-circle" size={20} color="#999" />
+            <Icon name="close-circle" size={20} color={mutedText} />
           </TouchableOpacity>
         )}
       </View>
@@ -224,8 +225,8 @@ export default function BattleExplore({ onClose, profile }) {
       {/* List */}
       {loading && !refreshing ? (
         <View style={styles.emptyContainer}>
-          <ActivityIndicator size="large" color="#999" />
-          <Text style={styles.emptySubtitle}>{t('battleExplore.loading')}</Text>
+          <ActivityIndicator size="large" color={accent} />
+          <Text style={[styles.emptySubtitle, { color: mutedText }]}>{t('battleExplore.loading')}</Text>
         </View>
       ) : (
         <FlatList
@@ -234,7 +235,7 @@ export default function BattleExplore({ onClose, profile }) {
           keyExtractor={keyExtractor}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={accent} colors={[accent]} />
           }
           contentContainerStyle={styles.listContent}
           initialNumToRender={8}
@@ -243,9 +244,9 @@ export default function BattleExplore({ onClose, profile }) {
           removeClippedSubviews={Platform.OS === 'android'}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Icon name="shield-outline" size={60} color="#ddd" />
-              <Text style={styles.emptyTitle}>{t('battleExplore.emptyTitle')}</Text>
-              <Text style={styles.emptySubtitle}>{t('battleExplore.emptySubtitle')}</Text>
+              <Icon name="shield-outline" size={60} color={mutedText} />
+              <Text style={[styles.emptyTitle, { color: text }]}>{t('battleExplore.emptyTitle')}</Text>
+              <Text style={[styles.emptySubtitle, { color: mutedText }]}>{t('battleExplore.emptySubtitle')}</Text>
             </View>
           }
         />

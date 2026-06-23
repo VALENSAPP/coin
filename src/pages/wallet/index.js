@@ -529,9 +529,9 @@ function ActivityTrendSvg({
 
       {n > 0 ? (
         <>
-          <Path d={areaPath(yS)} fill="#f1eaea" stroke="none" />
-          <Path d={areaPath(yU)} fill="#f1eaea" stroke="none" />
-          <Path d={areaPath(yF)} fill="#f1eaea" stroke="none" />
+          <Path d={areaPath(yS)} fill="url(#gradS)" stroke="none" />
+          <Path d={areaPath(yU)} fill="url(#gradU)" stroke="none" />
+          <Path d={areaPath(yF)} fill="url(#gradF)" stroke="none" />
 
           <Path d={linePath(yS)} stroke={colorSupport} strokeWidth={2} fill="none" />
           <Path d={linePath(yU)} stroke={colorUnfollowers} strokeWidth={2} fill="none" />

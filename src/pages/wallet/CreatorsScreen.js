@@ -16,13 +16,13 @@ import { getTopCreators } from '../../services/tokens';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
-import { useAppTheme } from '../../theme/useApptheme';
+import { useBusinessProfileTheme } from '../../theme/useBusinessProfileTheme';
 import { useLanguage } from '../../i18n';
 
 export const CreatorsScreen = ({ navigation }) => {
   const [creators, setCreators] = useState([]);
   const [loading, setLoading] = useState(false);
-  const { bgStyle, textStyle, text } = useAppTheme();
+  const { bgStyle, textStyle, text, accent, cardStyle, mutedText, border } = useBusinessProfileTheme();
   const dispatch = useDispatch();
   const toast = useToast();
   const { t } = useLanguage();
