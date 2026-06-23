@@ -1171,12 +1171,6 @@ export default function FlipsScreen() {
   }, [reels]);
 
   const handleBackPress = useCallback(() => {
-    // Prefer normal back behavior first (covers modal/stack presentation).
-    if (navigation.canGoBack()) {
-      navigation.goBack();
-      return;
-    }
-
     const returnTo = route.params?.returnTo;
     const returnParams = route.params?.returnParams;
     const returnToTab = route.params?.returnToTab;
@@ -1187,9 +1181,26 @@ export default function FlipsScreen() {
       return;
     }
 
+    if (returnTo == "Search") {
+      // Search is a tab route, so go through the parent tab navigator.
+      const parentNav = navigation.getParent?.();
+      if (parentNav?.navigate) {
+        parentNav.navigate('Search', returnParams);
+      } else {
+        navigation.navigate('Search', returnParams);
+      }
+      return;
+    }
+
     if (returnTo) {
       // Back-compat for older callers that only send a leaf route name.
       navigation.navigate('HomeMain', { screen: returnTo, params: returnParams });
+      return;
+    }
+
+    // Prefer normal back behavior only when no explicit return target was provided.
+    if (navigation.canGoBack()) {
+      navigation.goBack();
       return;
     }
 
@@ -1599,6 +1610,23 @@ export default function FlipsScreen() {
   const handleCommentCountUpdate = useCallback((postId, newCount) => {
     setCommentsCount(prev => ({ ...prev, [postId]: Math.max(0, newCount) }));
   }, []);
+
+  const loopingReels = useMemo(
+    () =>
+      reels.length > 1
+        ? [
+            ...reels.map((item, index) => ({
+              ...item,
+              __loopKey: `reel-${String(item?.id ?? index)}`,
+            })),
+            {
+              ...reels[0],
+              __loopKey: 'reel-loop-sentinel',
+            },
+          ]
+        : reels,
+    [reels],
+  );
 
   useEffect(() => {
     if (!flatListRef.current || !selectedReelId || reels.length === 0) return;
@@ -2040,8 +2068,10 @@ export default function FlipsScreen() {
                 : 'flips-default'
           }
           ref={flatListRef}
-          data={reels}
-          keyExtractor={(item, index) => String(item?.id ?? index)}
+          data={loopingReels}
+          keyExtractor={(item, index) =>
+            String(item?.__loopKey ?? item?.id ?? index)
+          }
           renderItem={renderItem}
           pagingEnabled
           showsVerticalScrollIndicator={false}
@@ -2058,10 +2088,20 @@ export default function FlipsScreen() {
             const h = viewportHeight || 1;
             const idx = Math.round(offsetY / h);
             const maxIndex = reels.length - 1;
+            const loopSentinelIndex = reels.length;
             const validIdx = Math.min(Math.max(0, idx), maxIndex);
             setCurrentIndex(validIdx);
-            if (idx > maxIndex && maxIndex >= 0) {
-              flatListRef.current?.scrollToIndex({ index: maxIndex, animated: true });
+
+            // If the user lands on the duplicated first reel, snap back to the real first item.
+            if (idx === loopSentinelIndex && reels.length > 1) {
+              requestAnimationFrame(() => {
+                flatListRef.current?.scrollToIndex({
+                  index: 0,
+                  animated: false,
+                });
+                setCurrentIndex(0);
+              });
+              return;
             }
           }}
           snapToAlignment="start"
