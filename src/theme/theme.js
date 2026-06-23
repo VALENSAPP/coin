@@ -14,7 +14,7 @@ export const businessTheme = {
   card: '#fff',
   border: '#ddd',
   mutedText: '#666',
-  accent: '#D3B683',
+  accent: '#C9A15A',
   icon: '#111111',
 };
 
@@ -24,16 +24,17 @@ export const normalDarkTheme = {
   card: '#1E1E1E',
   border: '#333333',
   mutedText: '#aaaaaa',
-  accent: '#9d6fd4',
+  accent: '#5a2d82',
   icon: '#ffffff',
 };
 
 export const businessDarkTheme = {
   bg: '#121212',
-  text: '#D3B683',
+  // text: '#D3B683',
+  text: '#C9A15A',
   card: '#1E1E1E',
   border: '#333333',
   mutedText: '#aaaaaa',
-  accent: '#D3B683',
+  accent: '#C9A15A',
   icon: '#ffffff',
 };

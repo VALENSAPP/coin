@@ -113,7 +113,7 @@ const Posts = forwardRef(function Posts(
   const sellSheetRef = useRef(null);
   const toast = useToast();
   const dispatch = useDispatch();
-  const { bgStyle, textStyle } = useAppTheme();
+  const { bgStyle, textStyle } = useAppTheme(isBusinessProfile ? 'company' : undefined);
 
   useEffect(() => {
     let timeout;

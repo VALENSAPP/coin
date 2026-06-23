@@ -1,8 +1,8 @@
 import { StyleSheet } from 'react-native';
 import { useAppTheme } from '../../theme/useApptheme';
 
-const createStyles = () => {
-    const { bg, text, border, mutedText, accent } = useAppTheme();
+const createStyles = (profileType) => {
+    const { bg, text, border, mutedText, accent } = useAppTheme(profileType);
 
     const styles = StyleSheet.create({
         container: {

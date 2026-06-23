@@ -304,7 +304,7 @@ export default function Notifications() {
   const scrollViewRef = useRef(null);
   const tabScrollRef = useRef(null);
   const currentIndexRef = useRef(0);
-  const { bgStyle, textStyle, text, icon } = useAppTheme();
+  const { bgStyle, textStyle, text, icon, card, cardStyle, border, mutedText, accent } = useAppTheme();
 
   const [notifications, setNotifications] = useState([]);
   const [battleNotifications, setBattleNotifications] = useState([]);
@@ -889,13 +889,13 @@ export default function Notifications() {
       <View style={styles.emptyState}>
         <Text style={styles.emptyIcon}>{content.icon}</Text>
         <Text style={[styles.emptyTitle, textStyle]}>{content.title}</Text>
-        <Text style={styles.emptyMessage}>{content.subtitle}</Text>
+        <Text style={[styles.emptyMessage, { color: mutedText }]}>{content.subtitle}</Text>
 
         {content.showCreatePost && (
           <TouchableOpacity
             style={[
               styles.createPostButton,
-              { backgroundColor: text, shadowColor: text },
+              { backgroundColor: accent, shadowColor: accent },
             ]}
             activeOpacity={0.8}
             onPress={() => navigation.navigate('Add')}
@@ -925,15 +925,15 @@ export default function Notifications() {
         onRequestClose={() => setPopupVisible(false)}
       >
         <View style={styles.popupOverlay}>
-          <View style={styles.popupContainer}>
-            <View style={styles.popupBell}>
+          <View style={[styles.popupContainer, cardStyle]}>
+            <View style={[styles.popupBell, cardStyle]}>
               <Text style={styles.popupBellIcon}>🔔</Text>
             </View>
             <View style={styles.popupTextContainer}>
-              <Text style={styles.popupTitle}>
+              <Text style={[styles.popupTitle, textStyle]}>
                 {SelectedNotification?.title}
               </Text>
-              <Text style={[styles.popupMessage, { color: text }]}>
+              <Text style={[styles.popupMessage, { color: mutedText }]}>
                 {parts.map((part, index) => {
                   if (mentionRegex.test(part)) {
                     mentionRegex.lastIndex = 0; // reset after .test()
@@ -942,7 +942,7 @@ export default function Notifications() {
                       <Text
                         key={index}
                         suppressHighlighting
-                        style={{ color: '#3c0fdd', fontWeight: '700' }}
+                        style={{ color: accent, fontWeight: '700' }}
                         onPress={() => {
                           if (!userId) return;
                           setPopupVisible(false);
@@ -959,7 +959,7 @@ export default function Notifications() {
             </View>
 
             <TouchableOpacity
-              style={styles.popupCloseButton}
+              style={[styles.popupCloseButton, { backgroundColor: accent }]}
               onPress={() => setPopupVisible(false)}
             >
               <Text style={styles.popupCloseText}>
@@ -1004,14 +1004,14 @@ export default function Notifications() {
           activeOpacity={0.9}
           onPress={() => openBattleFlow(item)}
         >
-          <View style={[styles.battleCard, { shadowColor: text }]}>
+          <View style={[styles.battleCard, cardStyle, { shadowColor: text, borderColor: border, borderWidth: StyleSheet.hairlineWidth }]}>
             <View style={styles.battleTopRow}>
               <View style={styles.battleAvatarWrap}>
                 {item.avatar ? (
-                  <Image source={{ uri: item.avatar }} style={styles.avatar} />
+                  <Image source={{ uri: item.avatar }} style={[styles.avatar, { borderColor: border }]} />
                 ) : (
                   <View
-                    style={[styles.avatar, styles.avatarPlaceholder, bgStyle]}
+                    style={[styles.avatar, styles.avatarPlaceholder, cardStyle, { borderColor: border }]}
                   >
                     <Text style={styles.avatarPlaceholderText}>⚔️</Text>
                   </View>
@@ -1019,21 +1019,21 @@ export default function Notifications() {
               </View>
 
               <View style={styles.battleTextWrap}>
-                <Text style={styles.notificationTitle}>{item.title}</Text>
+                <Text style={[styles.notificationTitle, textStyle]}>{item.title}</Text>
                 {!!item.question && (
-                  <Text style={styles.battleQuestion}>{item.question}</Text>
+                  <Text style={[styles.battleQuestion, textStyle]}>{item.question}</Text>
                 )}
-                <Text style={styles.notificationMessage}>{item.message}</Text>
+                <Text style={[styles.notificationMessage, { color: mutedText }]}>{item.message}</Text>
 
                 <View style={styles.battleMetaRow}>
                   {!!item.format && (
-                    <Text style={styles.battleMetaChip}>{formatDisplayString(item.format)}</Text>
+                    <Text style={[styles.battleMetaChip, { color: mutedText, backgroundColor: `${accent}20` }]}>{formatDisplayString(item.format)}</Text>
                   )}
                   {!!stakeText && (
-                    <Text style={styles.battleMetaChip}>{stakeText}</Text>
+                    <Text style={[styles.battleMetaChip, { color: mutedText, backgroundColor: `${accent}20` }]}>{stakeText}</Text>
                   )}
                   {!!item.time && (
-                    <Text style={styles.timeText}>{item.time}</Text>
+                    <Text style={[styles.timeText, { color: mutedText }]}>{item.time}</Text>
                   )}
                 </View>
               </View>
@@ -1052,9 +1052,9 @@ export default function Notifications() {
                   return (
                     <View
                       key={`${item.id}-option-${optionIndex}`}
-                      style={styles.battleOptionChip}
+                      style={[styles.battleOptionChip, { backgroundColor: `${accent}15`, borderColor: border }]}
                     >
-                      <Text style={styles.battleOptionText}>{optionLabel}</Text>
+                      <Text style={[styles.battleOptionText, textStyle]}>{optionLabel}</Text>
                     </View>
                   );
                 })}
@@ -1314,23 +1314,31 @@ export default function Notifications() {
 
       return (
         <TouchableOpacity
-          style={[styles.notificationItem, !item.isRead && bgStyle]}
+          style={styles.notificationItem}
           onPress={handlePress}
           activeOpacity={0.7}
         >
-          <View style={[styles.notificationContent, { shadowColor: text }]}>
+          <View style={[
+            styles.notificationContent,
+            cardStyle,
+            {
+              shadowColor: text,
+              borderColor: !item.isRead ? accent : border,
+              borderWidth: StyleSheet.hairlineWidth,
+            },
+          ]}>
             <View style={styles.leftSection}>
               <View style={styles.avatarContainer}>
                 {item.avatar ? (
-                  <Image source={{ uri: item.avatar }} style={styles.avatar} />
+                  <Image source={{ uri: item.avatar }} style={[styles.avatar, { borderColor: border }]} />
                 ) : (
                   <View
-                    style={[styles.avatar, styles.avatarPlaceholder, bgStyle]}
+                    style={[styles.avatar, styles.avatarPlaceholder, cardStyle, { borderColor: border }]}
                   >
                     <Text style={styles.avatarPlaceholderText}>🔔</Text>
                   </View>
                 )}
-                <View style={[styles.iconBadge, bgStyle]}>
+                <View style={[styles.iconBadge, cardStyle, { borderColor: border }]}>
                   <Text style={styles.iconEmoji}>
                     {getNotificationIcon(item.type)}
                   </Text>
@@ -1338,16 +1346,16 @@ export default function Notifications() {
               </View>
 
               <View style={styles.textContent}>
-                <Text style={styles.notificationTitle}>{item.title}</Text>
-                <Text style={styles.notificationMessage}>
+                <Text style={[styles.notificationTitle, textStyle]}>{item.title}</Text>
+                <Text style={[styles.notificationMessage, { color: mutedText }]}>
                   {!!usernameText && (
-                    <Text style={styles.notificationMessageHighlight}>
+                    <Text style={[styles.notificationMessageHighlight, { color: accent }]}>
                       {`${usernameText} `}
                     </Text>
                   )}
-                  <Text>{restText}</Text>
+                  <Text style={{ color: mutedText }}>{restText}</Text>
                 </Text>
-                <Text style={styles.timeText}>{item.time}</Text>
+                <Text style={[styles.timeText, { color: mutedText }]}>{item.time}</Text>
               </View>
             </View>
 
@@ -1411,7 +1419,7 @@ export default function Notifications() {
   return (
     <SafeAreaView style={[styles.container, bgStyle]} collapsable={false} >
       {/* Header */}
-      <View style={[styles.header, bgStyle, { shadowColor: text }]}>
+      <View style={[styles.header, bgStyle, { shadowColor: text, borderBottomColor: border }]}>
         <View style={styles.headerLeft}>
           <TouchableOpacity
             onPress={() => navigation.goBack()}
@@ -1426,7 +1434,7 @@ export default function Notifications() {
         {unreadCount > 0 && (
           <TouchableOpacity
             onPress={markAllAsRead}
-            style={[styles.markAllButton, { shadowColor: text }]}
+            style={[styles.markAllButton, cardStyle, { shadowColor: text, borderColor: border, borderWidth: StyleSheet.hairlineWidth }]}
           >
             <Text style={[styles.markAllText, textStyle]}>
               {t('notifications.markAllRead')}
@@ -1436,7 +1444,7 @@ export default function Notifications() {
       </View>
 
       {/* Tab Navigation */}
-      <View style={styles.tabContainer}>
+      <View style={[styles.tabContainer, { borderBottomColor: border }]}>
         <ScrollView
           ref={tabScrollRef}
           horizontal
@@ -1448,8 +1456,9 @@ export default function Notifications() {
               key={tab.key}
               style={[
                 styles.tab,
-                activeTab === tab.key && { backgroundColor: text },
-                { shadowColor: text },
+                cardStyle,
+                { shadowColor: text, borderColor: border, borderWidth: StyleSheet.hairlineWidth },
+                activeTab === tab.key && { backgroundColor: accent, borderColor: accent },
               ]}
               onPress={() => switchToTab(tab.key)}
               activeOpacity={0.7}
@@ -1457,6 +1466,7 @@ export default function Notifications() {
               <Text
                 style={[
                   styles.tabText,
+                  { color: mutedText },
                   activeTab === tab.key && styles.activeTabText,
                 ]}
               >
@@ -1500,12 +1510,12 @@ export default function Notifications() {
         onRequestClose={() => setSubscribeModalVisible(false)}
       >
         <View style={styles.popupOverlay}>
-          <View style={styles.popupContainer}>
+          <View style={[styles.popupContainer, cardStyle]}>
             <Text style={styles.popupBellIcon}>🔒</Text>
             <Text style={[styles.popupTitle, textStyle]}>
               {t('privateContent.lockedTitle')}
             </Text>
-            <Text style={[styles.popupMessage, { color: text }]}>
+            <Text style={[styles.popupMessage, { color: mutedText }]}>
               {t('privateContent.lockedSubtitle')}
             </Text>
 
@@ -1517,7 +1527,7 @@ export default function Notifications() {
                   borderRadius: 10,
                   alignItems: 'center',
                   justifyContent: 'center',
-                  backgroundColor: text,
+                  backgroundColor: accent,
                 }}
                 onPress={() => setSubscribeModalVisible(false)}
               >
@@ -1533,7 +1543,7 @@ export default function Notifications() {
                   borderRadius: 10,
                   alignItems: 'center',
                   justifyContent: 'center',
-                  backgroundColor: text,
+                  backgroundColor: accent,
                 }}
                 onPress={() => {
                   setSubscribeModalVisible(false);
@@ -1560,12 +1570,12 @@ export default function Notifications() {
         onRequestClose={() => setCircleAccessModalVisible(false)}
       >
         <View style={styles.popupOverlay}>
-          <View style={styles.popupContainer}>
+          <View style={[styles.popupContainer, cardStyle]}>
             <Text style={styles.popupBellIcon}>🔒</Text>
             <Text style={[styles.popupTitle, textStyle]}>
               {t('privateContent.notCircleMemberTitle') || 'Access Restricted'}
             </Text>
-            <Text style={[styles.popupMessage, { color: text }]}>
+            <Text style={[styles.popupMessage, { color: mutedText }]}>
               {t('privateContent.notCircleMemberMessage') ||
                 "You can't access this post as you are not a member of this user's private circle."}
             </Text>
@@ -1577,7 +1587,7 @@ export default function Notifications() {
                 borderRadius: 10,
                 alignItems: 'center',
                 justifyContent: 'center',
-                backgroundColor: text,
+                backgroundColor: accent,
                 marginTop: 12,
               }}
               onPress={() => setCircleAccessModalVisible(false)}
@@ -1814,9 +1824,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#eee',
     borderWidth: 2,
-    borderColor: '#f3f0f7',
   },
   avatarPlaceholder: {
     justifyContent: 'center',
@@ -1835,7 +1843,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#1a1a1a',
   },
   iconEmoji: {
     fontSize: 10,
@@ -1847,18 +1854,18 @@ const styles = StyleSheet.create({
   notificationTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#000',
     marginBottom: 4,
   },
   notificationMessage: {
     fontSize: 13,
-    color: '#888888',
     lineHeight: 20,
     marginBottom: 6,
   },
+  notificationMessageHighlight: {
+    fontWeight: '700',
+  },
   timeText: {
     fontSize: 11,
-    color: '#555555',
   },
   rightSection: {
     alignItems: 'flex-end',

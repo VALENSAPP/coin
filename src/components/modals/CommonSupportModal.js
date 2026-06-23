@@ -1,6 +1,9 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Modal, View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSelector } from 'react-redux';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useThemeContext } from '../../theme/ThemeContext';
 import { useLanguage } from '../../i18n';
 
 const CommonSupportModal = ({
@@ -18,11 +21,32 @@ const CommonSupportModal = ({
   variant,
   creatorName,
 }) => {
-  const { text, card } = useAppTheme();
+  const [loggedInProfileType, setLoggedInProfileType] = useState(null);
+  const reduxProfile = useSelector(state => state.userProfile.userProfile);
+  const { isDarkMode } = useThemeContext();
+
+  const isBusinessProfile = useMemo(() => {
+    const resolved = reduxProfile && reduxProfile !== 'normal'
+      ? reduxProfile
+      : loggedInProfileType;
+    return String(resolved || 'user').toLowerCase() !== 'user';
+  }, [reduxProfile, loggedInProfileType]);
+
+  const profileThemeType = isBusinessProfile ? 'company' : undefined;
+  const { text, card, accent, mutedText, border } = useAppTheme(profileThemeType);
   const { t } = useLanguage();
+
+  useEffect(() => {
+    if (!visible) return;
+    AsyncStorage.getItem('profile').then((value) => {
+      if (value) setLoggedInProfileType(value);
+    });
+  }, [visible]);
 
   const resolvedPrimaryLabel = primaryLabel || t('commonSupportModal.defaultPrimaryLabel');
   const resolvedSecondaryLabel = secondaryLabel || t('commonSupportModal.defaultSecondaryLabel');
+  const primaryButtonBg = variant === 'disclaimer' && !canSupport ? '#9d9b9b' : accent;
+  const primaryButtonTextColor = '#ffffff';
 
   return (
     <Modal
@@ -45,14 +69,14 @@ const CommonSupportModal = ({
                     key={`desc-${idx}`}
                     style={[
                       styles.description,
-                      { textAlign: idx === 0 ? 'center' : 'left' },
+                      { color: mutedText, textAlign: idx === 0 ? 'center' : 'left' },
                     ]}
                   >
                     {line}
                   </Text>
                 ))
               ) : (
-                <Text style={styles.description}>{description}</Text>
+                <Text style={[styles.description, { color: mutedText }]}>{description}</Text>
               )}
             </View>
           )}
@@ -60,28 +84,27 @@ const CommonSupportModal = ({
           {bullets.length > 0 && (
             <View style={styles.bulletsContainer}>
               {bullets.map((line, idx) => (
-                <Text key={`${line}-${idx}`} style={styles.bulletText}>
+                <Text key={`${line}-${idx}`} style={[styles.bulletText, { color: mutedText }]}>
                   {'\u2022'} {line}
                 </Text>
               ))}
             </View>
           )}
 
-          {!!note && <Text style={styles.note}>{note}</Text>}
+          {!!note && <Text style={[styles.note, { color: text }]}>{note}</Text>}
 
           <View style={styles.buttonContainer}>
             <TouchableOpacity
               style={[
                 styles.primaryButton,
-                {
-                  backgroundColor:
-                    variant === 'disclaimer' && !canSupport ? '#9d9b9b' : text,
-                },
+                { backgroundColor: primaryButtonBg },
               ]}
               onPress={onPrimary}
               disabled={variant === 'disclaimer' && !canSupport}
             >
-              <Text style={styles.primaryButtonText}>{resolvedPrimaryLabel}</Text>
+              <Text style={[styles.primaryButtonText, { color: primaryButtonTextColor }]}>
+                {resolvedPrimaryLabel}
+              </Text>
             </TouchableOpacity>
 
             {variant === 'disclaimer' && !canSupport && (
@@ -93,10 +116,18 @@ const CommonSupportModal = ({
             )}
 
             <TouchableOpacity
-              style={styles.secondaryButton}
+              style={[
+                styles.secondaryButton,
+                {
+                  borderColor: border,
+                  backgroundColor: isDarkMode ? card : (isBusinessProfile ? `${accent}14` : '#FAF8FC'),
+                },
+              ]}
               onPress={onSecondary || onClose}
             >
-              <Text style={styles.secondaryButtonText}>{resolvedSecondaryLabel}</Text>
+              <Text style={[styles.secondaryButtonText, { color: mutedText }]}>
+                {resolvedSecondaryLabel}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -134,7 +165,6 @@ const styles = StyleSheet.create({
   },
   description: {
     fontSize: 15,
-    color: '#5E5E6A',
     textAlign: 'left',
     lineHeight: 21,
   },
@@ -145,13 +175,11 @@ const styles = StyleSheet.create({
   },
   bulletText: {
     fontSize: 14,
-    color: '#4E4E5C',
     lineHeight: 20,
   },
   note: {
     marginTop: 10,
     fontSize: 14,
-    color: '#3D3D48',
     lineHeight: 20,
     fontWeight: '600',
   },
@@ -165,7 +193,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   primaryButtonText: {
-    color: '#fff',
     fontSize: 16,
     fontWeight: '700',
   },
@@ -174,12 +201,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E5DEEF',
-    backgroundColor: '#FAF8FC',
   },
   secondaryButtonText: {
     fontSize: 16,
-    color: '#5A5A67',
     fontWeight: '600',
   },
   texterror: {

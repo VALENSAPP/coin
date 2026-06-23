@@ -13,7 +13,10 @@ import { cancelSubscription, checkSubscription, createCheckoutSession } from '..
 import { ScrollView } from 'react-native-gesture-handler';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSelector } from 'react-redux';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useThemeContext } from '../../theme/ThemeContext';
 import { useLanguage } from '../../i18n';
 import SubscriptionActivationPopup from '../../components/modals/SubscriptionActivationPopUp';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
@@ -40,17 +43,35 @@ const Subscription = () => {
   const [showActivationPopup, setShowActivationPopup] = useState(false);
   const paymentPollRef = useRef(null);
   const navigation = useNavigation();
-  const { bgStyle, textStyle, bg, text, card } = useAppTheme();
+  const [isBusinessProfile, setIsBusinessProfile] = useState(false);
+  const reduxProfile = useSelector(state => state.userProfile.userProfile);
+  const profileThemeType = isBusinessProfile ? 'company' : undefined;
+  const { bgStyle, textStyle, bg, text, card, accent, mutedText, border, icon } = useAppTheme(profileThemeType);
+  const { isDarkMode } = useThemeContext();
   const { t } = useLanguage();
+
+  const loadProfileType = useCallback(async () => {
+    const type = await AsyncStorage.getItem('profile');
+    if (type) {
+      setIsBusinessProfile(String(type).toLowerCase() !== 'user');
+    }
+  }, []);
+
+  const highlightColor = isBusinessProfile ? accent : '#FF6B35';
 
   const themeColors = {
     bg,
     text,
     card,
-    border: `${text}22`,
-    subText: `${text}B0`,
-    warning: '#FF6B35',
-    warningBg: '#FFF4EA',
+    border,
+    subText: mutedText,
+    accent,
+    icon,
+    warning: highlightColor,
+    warningBg: isDarkMode ? `${highlightColor}22` : (isBusinessProfile ? `${accent}18` : '#FFF4EA'),
+    warningText: isDarkMode ? highlightColor : (isBusinessProfile ? accent : '#8A4B16'),
+    buttonBg: accent,
+    buttonText: '#ffffff',
   };
 
   const loadSubscriptionData = useCallback(async ({ silent = false } = {}) => {
@@ -128,8 +149,15 @@ const Subscription = () => {
   }, []);
 
   useFocusEffect(useCallback(() => {
+    loadProfileType();
     loadSubscriptionData();
-  }, [loadSubscriptionData]));
+  }, [loadProfileType, loadSubscriptionData]));
+
+  useEffect(() => {
+    if (reduxProfile && reduxProfile !== 'normal') {
+      setIsBusinessProfile(String(reduxProfile).toLowerCase() !== 'user');
+    }
+  }, [reduxProfile]);
 
   useEffect(() => {
     const subscription = DeviceEventEmitter.addListener('PAYMENT_COMPLETED', (data) => {
@@ -310,7 +338,7 @@ const Subscription = () => {
   };
 
   const getStatusColor = (status, isCancelled) => {
-    if (isCancelled) return '#FF6B35';
+    if (isCancelled) return highlightColor;
     switch (status?.toLowerCase()) {
       case 'active':
         return '#4CAF50';
@@ -354,10 +382,10 @@ const Subscription = () => {
           <Icon name="alert-circle-outline" size={64} color={themeColors.text} />
           <Text style={[styles.errorText, textStyle]}>{t('subscription.noDataFound')}</Text>
           <TouchableOpacity
-            style={[styles.retryButton, { backgroundColor: themeColors.text }]}
+            style={[styles.retryButton, { backgroundColor: themeColors.buttonBg }]}
             onPress={loadSubscriptionData}
           >
-            <Text style={styles.retryButtonText}>{t('subscription.retry')}</Text>
+            <Text style={[styles.retryButtonText, { color: themeColors.buttonText }]}>{t('subscription.retry')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -381,7 +409,7 @@ const Subscription = () => {
             style={[styles.backButton, { backgroundColor: themeColors.bg, borderColor: themeColors.border }]}
             onPress={() => navigation?.goBack()}
           >
-            <Icon name="arrow-back" size={24} color={themeColors.text} />
+            <Icon name="arrow-back" size={24} color={icon} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, textStyle]}>{t('subscription.headerTitle')}</Text>
           <View style={styles.headerPlaceholder} />
@@ -416,7 +444,7 @@ const Subscription = () => {
           {isCancelledSubscription && isSubscriptionActive && (
             <View style={[styles.warningContainer, { backgroundColor: themeColors.warningBg, borderLeftColor: themeColors.warning }]}>
               <Icon name="warning" size={20} color={themeColors.warning} />
-              <Text style={styles.warningText}>
+              <Text style={[styles.warningText, { color: themeColors.warningText }]}>
                 {t('subscription.cancelledWarningText')}
               </Text>
             </View>
@@ -507,15 +535,21 @@ const Subscription = () => {
           )}
 
           {shouldShowActivationOption && (
-            <View style={styles.activationPrompt}>
-              <Text style={styles.activationPromptText}>
+            <View style={[
+              styles.activationPrompt,
+              {
+                borderColor: isDarkMode ? `${highlightColor}55` : (isBusinessProfile ? `${accent}44` : '#fecaca'),
+                backgroundColor: isDarkMode ? `${highlightColor}15` : (isBusinessProfile ? `${accent}12` : '#fff1f2'),
+              },
+            ]}>
+              <Text style={[styles.activationPromptText, { color: themeColors.warningText }]}>
                 {t('subventionSetup.inactiveSubscriptionMessage')}
               </Text>
               <TouchableOpacity
-                style={[styles.activateSubscriptionButton, { backgroundColor: themeColors.text }]}
+                style={[styles.activateSubscriptionButton, { backgroundColor: themeColors.buttonBg }]}
                 onPress={() => setShowActivationPopup(true)}
               >
-                <Text style={styles.activateSubscriptionButtonText}>
+                <Text style={[styles.activateSubscriptionButtonText, { color: themeColors.buttonText }]}>
                   {t('subventionSetup.activateSubscriptionButton')}
                 </Text>
               </TouchableOpacity>
@@ -586,16 +620,16 @@ const Subscription = () => {
           )}
 
           <TouchableOpacity
-            style={[styles.refreshButton, { backgroundColor: themeColors.text }]}
+            style={[styles.refreshButton, { backgroundColor: themeColors.buttonBg }]}
             onPress={() => loadSubscriptionData({ silent: true })}
             disabled={refreshing || activating}
           >
             {refreshing ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={themeColors.buttonText} />
             ) : (
               <>
-                <Icon name="refresh" size={20} color="#fff" />
-                <Text style={styles.refreshButtonText}>{t('subscription.refreshButton')}</Text>
+                <Icon name="refresh" size={20} color={themeColors.buttonText} />
+                <Text style={[styles.refreshButtonText, { color: themeColors.buttonText }]}>{t('subscription.refreshButton')}</Text>
               </>
             )}
           </TouchableOpacity>
@@ -606,6 +640,7 @@ const Subscription = () => {
         onClose={() => setShowActivationPopup(false)}
         onConfirm={handleActivationConfirm}
         returnToSettingsSub={true}
+        isBusinessProfile={isBusinessProfile}
       />
     </View>
   );
@@ -696,7 +731,6 @@ const styles = StyleSheet.create({
     borderRadius: 25,
   },
   retryButtonText: {
-    color: '#fff',
     fontSize: 16,
     fontWeight: '600',
   },
@@ -739,7 +773,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginLeft: 8,
     flex: 1,
-    color: '#8A4B16',
   },
   detailsCard: {
     borderRadius: 16,
@@ -801,13 +834,10 @@ const styles = StyleSheet.create({
     padding: 14,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#fecaca',
-    backgroundColor: '#fff1f2',
   },
   activationPromptText: {
     fontSize: 14,
     lineHeight: 20,
-    color: '#7f1d1d',
     marginBottom: 12,
   },
   activateSubscriptionButton: {
@@ -817,7 +847,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   activateSubscriptionButtonText: {
-    color: '#fff',
     fontSize: 14,
     fontWeight: '700',
   },
@@ -912,7 +941,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   refreshButtonText: {
-    color: '#fff',
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 8,

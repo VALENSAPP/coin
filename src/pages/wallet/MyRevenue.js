@@ -15,7 +15,7 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import { subscriptionEarningGraph, totalSupport } from '../../services/wallet';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useThemeContext } from '../../theme/ThemeContext';
-import { getWalletScreenGradient, getWalletIllustrationGradient } from '../../utils/walletDarkTheme';
+import { getWalletScreenGradient, getWalletIllustrationGradient, getWalletGradientText } from '../../utils/walletDarkTheme';
 import { getUserCredentials } from '../../services/post';
 import { useLanguage } from '../../i18n';
 import SubscriptionTrendChart, {
@@ -92,9 +92,11 @@ const TxAvatar = ({ imageUrl, text, size = 44 }) => {
 export default function RevenueFromSubscriptions({ navigation, route }) {
     const { isBusinessProfile } = route?.params || {};
     const { isDarkMode } = useThemeContext();
-    const { bgStyle, textStyle, text, cardStyle, accent, mutedText, border, card } = useAppTheme();
+    const { bgStyle, textStyle, text, cardStyle, accent, mutedText, border, card } = useAppTheme(
+        isBusinessProfile ? 'company' : undefined,
+    );
     const { t } = useLanguage();
-    const gradientText = '#ffffff';
+    const gradientText = getWalletGradientText(isBusinessProfile, isDarkMode, text);
 
     const [chartPeriod, setChartPeriod] = useState('Daily');
     const [graphData, setGraphData] = useState([]);

@@ -24,7 +24,7 @@ import { hideLoader, showLoader } from '../../../redux/actions/LoaderAction';
 import { showToastMessage } from '../../../components/displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
 import createStyles from './Style';
-import { Eyeopen, Eyeclosed, Metamask, LogoIcon } from '../../../assets/icons';
+import { Metamask, LogoIcon } from '../../../assets/icons';
 import {
   MetasmaskLogin,
   onAppleButtonPress,
@@ -465,7 +465,11 @@ export default function LoginScreen() {
                     onPress={() => setShowPassword(!showPassword)}
                     style={styles.passwordToggle}
                   >
-                    {showPassword ? <Eyeopen /> : <Eyeclosed />}
+                    <Ionicons
+                      name={showPassword ? 'eye-outline' : 'eye-off-outline'}
+                      size={22}
+                      color={icon}
+                    />
                   </TouchableOpacity>
                 </View>
                 {errors.password && (

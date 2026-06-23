@@ -11,10 +11,12 @@ import {
 import { useAppTheme } from "../../theme/useApptheme";
 import { useLanguage } from "../../i18n";
 
-const SubscriptionActivationPopup = ({ visible, onClose, onConfirm, returnToSettingsSub }) => {
+const SubscriptionActivationPopup = ({ visible, onClose, onConfirm, returnToSettingsSub, isBusinessProfile = false }) => {
   const [isLoading, setIsLoading] = useState(false);
   const navigation = useNavigation();
-  const { bgStyle, textStyle, card, text } = useAppTheme();
+  const { bgStyle, textStyle, card, text, accent, border } = useAppTheme(
+    isBusinessProfile ? 'company' : undefined,
+  );
   const { t } = useLanguage();
 
   const handleAccept = async () => {
@@ -94,7 +96,7 @@ const SubscriptionActivationPopup = ({ visible, onClose, onConfirm, returnToSett
 
           <View style={styles.row}>
             <TouchableOpacity
-              style={[styles.cancelBtn, { borderColor: text }, isLoading && styles.cancelBtnDisabled]}
+              style={[styles.cancelBtn, { borderColor: border }, isLoading && styles.cancelBtnDisabled]}
               onPress={() => {
                 onClose();
                 {!returnToSettingsSub &&
@@ -106,20 +108,20 @@ const SubscriptionActivationPopup = ({ visible, onClose, onConfirm, returnToSett
               }}
               disabled={isLoading}
             >
-              <Text style={[styles.cancelTxt, { color: text }]}>
+              <Text style={[styles.cancelTxt, textStyle]}>
                 {t('subscriptionActivation.cancelButton')}
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.acceptBtn, { backgroundColor: text }, isLoading && styles.acceptBtnDisabled]}
+              style={[styles.acceptBtn, { backgroundColor: accent }, isLoading && styles.acceptBtnDisabled]}
               onPress={handleAccept}
               disabled={isLoading}
             >
               {isLoading ? (
-                <ActivityIndicator color={card || '#fff'} size="small" />
+                <ActivityIndicator color="#ffffff" size="small" />
               ) : (
-                <Text style={[styles.acceptTxt, { color: card || '#fff' }]}>
+                <Text style={[styles.acceptTxt, { color: '#ffffff' }]}>
                   {t('subscriptionActivation.acceptButton')}
                 </Text>
               )}

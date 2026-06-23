@@ -148,7 +148,7 @@ export default function HomeScreen({ route }) {
   const toast = useToast();
   const dispatch = useDispatch();
   const isFocused = useIsFocused();
-  const { bgStyle, text, icon } = useAppTheme();
+  const { bgStyle, text, icon } = useAppTheme(isBusinessProfile ? 'company' : undefined);
   const [notificationUnreadCount, setNotificationUnreadCount] = useState(null);
 
   const appState = useRef(AppState.currentState);

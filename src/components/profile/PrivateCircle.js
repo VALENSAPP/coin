@@ -52,7 +52,7 @@ const mixWithWhite = (hex, amount = 0.85) => {
 
 const withAlpha = (hex, alpha = 0.12) => {
   const normalized = String(hex || '').replace('#', '');
-  if (normalized.length !== 6) return `rgba(124,58,237,${alpha})`;
+  if (normalized.length !== 6) return `rgba(201,161,90,${alpha})`;
   const r = parseInt(normalized.slice(0, 2), 16);
   const g = parseInt(normalized.slice(2, 4), 16);
   const b = parseInt(normalized.slice(4, 6), 16);
@@ -124,7 +124,7 @@ const parseRecentActivities = (response, t) => {
 };
 
 // ─── PostImage ────────────────────────────────────────────────────────────────
-const HexagonImage = ({ uri, size = 34, borderColor = 'rgba(124,58,237,0.28)' }) => {
+const HexagonImage = ({ uri, size = 34, borderColor = 'rgba(201,161,90,0.28)' }) => {
   const points = `${size / 2},0 ${size},${size / 4} ${size},${(size * 3) / 4} ${size / 2},${size} 0,${(size * 3) / 4} 0,${size / 4}`;
   const clipId = `private-circle-hex-${size}`;
 
@@ -149,11 +149,10 @@ const HexagonImage = ({ uri, size = 34, borderColor = 'rgba(124,58,237,0.28)' })
   );
 };
 
-const PostImage = memo(({ item, themeTextStyle }) => {
+const PostImage = memo(({ item, themeTextStyle, loaderColor = '#5a2d82' }) => {
   const { mediaUrl, thumbnailUrl, isVideo } = getPreviewMedia(item);
   const [imageError, setImageError] = useState(false);
   const [isImageLoading, setIsImageLoading] = useState(true);
-  const { text } = useAppTheme();
 
   // ── Video: show thumbnail + play badge (same as PostScreen) ──────────────
   if (isVideo) {
@@ -195,7 +194,7 @@ const PostImage = memo(({ item, themeTextStyle }) => {
     <View style={gridStyles.image}>
       {isImageLoading && (
         <View style={[StyleSheet.absoluteFill, gridStyles.imageLoadingOverlay]}>
-          <ActivityIndicator size="large" color={text} />
+          <ActivityIndicator size="large" color={loaderColor} />
         </View>
       )}
       <FastImage
@@ -213,7 +212,7 @@ const ItemSeparator = memo(() => <View style={gridStyles.itemSeparator} />);
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userData, loggedInUserId, isTabActive = false }) => {
-  const { bgStyle, textStyle, text, cardStyle, accent, mutedText, border, card, icon } = useAppTheme();
+  const { bgStyle, textStyle, text, cardStyle, accent, mutedText, border, card, icon } = useAppTheme(userData?.profile);
   const { t } = useLanguage();
   const navigation = useNavigation();
   const isFocused = useIsFocused();
@@ -507,11 +506,11 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
         activeOpacity={0.95}
         onPress={() => openContent(index)}
       >
-        <PostImage item={item} themeTextStyle={textStyle} />
+        <PostImage item={item} themeTextStyle={textStyle} loaderColor={accent} />
         <View style={gridStyles.overlay} />
       </TouchableOpacity>
     ),
-    [openContent, text, textStyle],
+    [openContent, text, textStyle, accent],
   );
 
   const keyExtractor = useCallback(
@@ -548,6 +547,11 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
     cardStyle,
     text,
     textStyle,
+    accent,
+    mutedText,
+    border,
+    card,
+    icon,
     isOwnProfile,
     isWalletPrivateCircle,
     onStartPress,
@@ -760,6 +764,11 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
     cardStyle,
     text,
     textStyle,
+    accent,
+    mutedText,
+    border,
+    card,
+    icon,
     isOwnProfile,
     isWalletPrivateCircle,
     onStartPress,

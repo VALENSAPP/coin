@@ -18,3 +18,29 @@ export function getWalletIllustrationGradient(isDarkMode, accent) {
   }
   return ['#5F348D', '#9A68D2'];
 }
+
+/** Text/icons on gradient cards — brand color always for business; white only for personal dark mode. */
+export function getWalletGradientText(isBusinessProfile, isDarkMode, text) {
+  if (isDarkMode && !isBusinessProfile) return '#ffffff';
+  return text;
+}
+
+/** Icon bubble on gradient KPI / header cards */
+export function getWalletGradientIconWrapStyle(isBusinessProfile, isDarkMode, accent) {
+  if (isDarkMode) {
+    if (isBusinessProfile) {
+      return {
+        backgroundColor: `${accent}55`,
+        borderColor: accent,
+      };
+    }
+    return {
+      backgroundColor: `${accent}33`,
+      borderColor: `${accent}55`,
+    };
+  }
+  return {
+    backgroundColor: '#D3D3D3',
+    borderColor: '#D3D3D3',
+  };
+}

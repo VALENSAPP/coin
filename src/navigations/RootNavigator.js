@@ -54,16 +54,40 @@ import { useThemeContext } from '../theme/ThemeContext';
 const Stack = createStackNavigator();
 const Drawer = createDrawerNavigator();
 
+function useResolvedCompanyProfile() {
+  const reduxProfile = useSelector(state => state.userProfile.userProfile);
+  const [storedProfile, setStoredProfile] = React.useState('');
+
+  React.useEffect(() => {
+    AsyncStorage.getItem('profile').then(value => {
+      if (value) setStoredProfile(value);
+    });
+  }, []);
+
+  const resolvedProfile = String(
+    reduxProfile && reduxProfile !== 'normal' ? reduxProfile : storedProfile || 'user',
+  ).toLowerCase();
+
+  return resolvedProfile === 'company';
+}
+
+/** Drawer labels: black on light backgrounds, white on dark — both profile types. */
+function getDrawerItemColors(isDarkMode, accent) {
+  return {
+    inactive: isDarkMode ? '#ffffff' : '#111827',
+    activeBackground: accent,
+    activeLabel: '#ffffff',
+  };
+}
+
 // Custom Drawer Content Component
 const CustomDrawerContent = (props) => {
   const navigation = useNavigation();
-  const { bgStyle, textStyle, text, bg, border } = useAppTheme();
+  const isCompanyProfile = useResolvedCompanyProfile();
+  const { isDarkMode, toggleDarkMode } = useThemeContext();
+  const { bgStyle, border, accent } = useAppTheme(isCompanyProfile ? 'company' : undefined);
+  const drawerColors = getDrawerItemColors(isDarkMode, accent);
   const { t } = useLanguage();
-
-  const {
-    isDarkMode,
-    toggleDarkMode,
-  } = useThemeContext();
 
 
   const blockProfile = React.useCallback(async () => {
@@ -85,7 +109,7 @@ const CustomDrawerContent = (props) => {
       style={bgStyle}
       contentContainerStyle={{
         flexGrow: 1,
-        // justifyContent: 'space-between',
+        justifyContent: 'space-between',
       }}
     >
       {/* Drawer Header */}
@@ -112,7 +136,7 @@ const CustomDrawerContent = (props) => {
         <Text style={{
           fontSize: 15,
           fontWeight: 'bold',
-          color: text,
+          color: drawerColors.inactive,
           marginVertical: 5,
           marginTop: 8
         }}>
@@ -142,7 +166,7 @@ const CustomDrawerContent = (props) => {
       />
 
       {/* Dark Mode Toggle */}
-      {/* <View
+      <View
         style={[
           {
             paddingHorizontal: 20,
@@ -157,13 +181,11 @@ const CustomDrawerContent = (props) => {
         ]}
       >
         <Text
-          style={[
-            {
-              fontSize: 16,
-              fontWeight: '500',
-            },
-            textStyle,
-          ]}
+          style={{
+            fontSize: 16,
+            fontWeight: '500',
+            color: drawerColors.inactive,
+          }}
         >
           Dark Mode
         </Text>
@@ -171,8 +193,10 @@ const CustomDrawerContent = (props) => {
         <Switch
           value={isDarkMode}
           onValueChange={toggleDarkMode}
+          trackColor={{ false: '#cbd5e1', true: accent }}
+          thumbColor="#ffffff"
         />
-      </View> */}
+      </View>
 
     </DrawerContentScrollView>
   );
@@ -229,21 +253,11 @@ const MainAppWithDrawerSwipeSync = (props) => {
 
 // Global Drawer Navigator (wraps everything)
 const GlobalDrawerNavigator = () => {
-  const { bgStyle, textStyle, text, bg, border } = useAppTheme();
+  const isCompanyProfile = useResolvedCompanyProfile();
   const { isDarkMode } = useThemeContext();
+  const { bgStyle, accent } = useAppTheme(isCompanyProfile ? 'company' : undefined);
+  const drawerColors = getDrawerItemColors(isDarkMode, accent);
   const { t } = useLanguage();
-  const reduxProfile = useSelector(state => state.userProfile.userProfile);
-  const [storedProfile, setStoredProfile] = React.useState('');
-  const resolvedProfile = String(
-    reduxProfile && reduxProfile !== 'normal' ? reduxProfile : storedProfile || 'user',
-  ).toLowerCase();
-  const isCompanyProfile = resolvedProfile === 'company';
-
-  useEffect(() => {
-    AsyncStorage.getItem('profile').then(value => {
-      if (value) setStoredProfile(value);
-    });
-  }, []);
 
   return (
     <Drawer.Navigator
@@ -251,7 +265,7 @@ const GlobalDrawerNavigator = () => {
       screenOptions={{
         headerShown: true,
         headerStyle: bgStyle,
-        headerTintColor: text,
+        headerTintColor: drawerColors.inactive,
         drawerStyle: [{
           width: 280,
         }, bgStyle],
@@ -259,9 +273,9 @@ const GlobalDrawerNavigator = () => {
           fontSize: 15,
           fontWeight: '600',
         },
-        drawerActiveBackgroundColor: text,
-        drawerActiveTintColor: isDarkMode ? bg : '#fff',
-        drawerInactiveTintColor: text,
+        drawerActiveBackgroundColor: drawerColors.activeBackground,
+        drawerActiveTintColor: drawerColors.activeLabel,
+        drawerInactiveTintColor: drawerColors.inactive,
         drawerPosition: 'left',
         swipeEnabled: true,
         swipeEdgeWidth: 50,

@@ -39,7 +39,7 @@ import TradeModal from '../modals/TradeModal';
 import SupportCreatorModal from '../modals/SupportCreatorModal';
 import WelcomeValensModal from '../modals/WelcomeValensModal';
 import { showLoader, hideLoader } from '../../redux/actions/LoaderAction';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { EditProfile, getProfile } from '../../services/createProfile';
 import { PostStory } from '../../services/stories';
 import { buildStoryMetaPayload } from '../../utils/buildStoryMeta';
@@ -204,10 +204,32 @@ const ProfilePersonData = ({
   const normalizedProfileThemeType =
     typeof effectiveProfileType === 'string' ? effectiveProfileType.toLowerCase() : '';
   const isCompanyProfile = normalizedProfileThemeType === 'company';
-  const profileActionGradient = isCompanyProfile
-    ? ['#C9A15a', '#C9A15a']
+  const reduxProfile = useSelector(state => state.userProfile.userProfile);
+  const [loggedInProfileType, setLoggedInProfileType] = useState(null);
+
+  const loadLoggedInProfileType = useCallback(async () => {
+    const type = await AsyncStorage.getItem('profile');
+    if (type) setLoggedInProfileType(type);
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadLoggedInProfileType();
+    }, [loadLoggedInProfileType]),
+  );
+
+  const isViewerCompanyProfile = useMemo(() => {
+    const resolved = reduxProfile && reduxProfile !== 'normal'
+      ? reduxProfile
+      : loggedInProfileType || (fromUsersProfile ? 'user' : effectiveProfileType);
+    return String(resolved || 'user').toLowerCase() !== 'user';
+  }, [reduxProfile, loggedInProfileType, fromUsersProfile, effectiveProfileType]);
+
+  const profileActionGradient = isViewerCompanyProfile
+    ? ['#C9A15A', '#C9A15A']
     : ['#513189bd', '#e54ba0'];
-  const { bgStyle, textStyle, text, card, bg, icon, mutedText, accent, border, cardStyle } = useAppTheme(effectiveProfileType);
+  const uiThemeType = isViewerCompanyProfile ? 'company' : undefined;
+  const { bgStyle, textStyle, text, card, bg, icon, mutedText, accent, border, cardStyle } = useAppTheme(uiThemeType);
   const route = useRoute();
   const showIdentityVerified = isProfileFullyIdentityVerified(userData);
   const isSubscriptionActive = userData?.subscriptionStatus == 'ACTIVE';
@@ -1192,6 +1214,11 @@ const ProfilePersonData = ({
                         pointerEvents={followActionsOpen ? 'auto' : 'none'}
                         style={[
                           styles.followActionsPopover,
+                          cardStyle,
+                          {
+                            borderColor: border,
+                            shadowColor: accent,
+                          },
                           {
                             height: followActionsCardHeight,
                             opacity: followActionsCardOpacity,
@@ -1214,7 +1241,7 @@ const ProfilePersonData = ({
                           </Text>
                         </TouchableOpacity>
 
-                        <View style={styles.followActionsDivider} />
+                        <View style={[styles.followActionsDivider, { backgroundColor: border }]} />
 
                         <TouchableOpacity
                           style={styles.followActionsItem}
@@ -1750,10 +1777,7 @@ const styles = StyleSheet.create({
     zIndex: 999,
     overflow: 'hidden',
     borderRadius: 12,
-    backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    shadowColor: '#513189',
     shadowOpacity: 0.15,
     shadowOffset: { width: 0, height: 8 },
     shadowRadius: 10,
@@ -1771,7 +1795,6 @@ const styles = StyleSheet.create({
   },
   followActionsDivider: {
     height: 1,
-    backgroundColor: '#e5e7eb',
     width: '100%',
   },
   buttonText: {

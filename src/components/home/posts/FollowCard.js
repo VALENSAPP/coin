@@ -12,6 +12,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Defs, ClipPath, Polygon } from 'react-native-svg';
 import HexAvatar from '../story.js/HexAvatar';
 import { useAppTheme } from '../../../theme/useApptheme';
+import { useThemeContext } from '../../../theme/ThemeContext';
 import SupportCreatorModal from '../../modals/SupportCreatorModal';
 import { getSupportRecipientWalletAddress } from '../../../utils/walletPaymentSupport';
 import { useWalletConnectSupport } from '../../../context/WalletConnectSupportContext';
@@ -40,8 +41,13 @@ export default function FollowCard({
   const [supportDisclaimerVisible, setSupportDisclaimerVisible] = useState(false);
   const navigation = useNavigation();
   const { startSupportPayment } = useWalletConnectSupport();
-  const { textStyle, text } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const { textStyle, text, card } = useAppTheme(isBusinessProfile ? 'company' : undefined);
   const { t } = useLanguage();
+  const profileAccent = type === 'company'
+    ? (isDarkMode ? '#C9A15A' : '#C9A15a')
+    : (isDarkMode ? '#5a2d82' : '#5a2d82');
+  const profileButtonColor = profileAccent;
 
   const handleUserProfile = userId => {
     navigation.navigate('UsersProfile', { userId });
@@ -156,13 +162,13 @@ export default function FollowCard({
         <Polygon
           points={points}
           fill={text}
-          opacity={0.2}
+          opacity={0.12}
           transform={`translate(2,4)`}
         />
         <Polygon
           points={points}
-          fill="#fff"
-          stroke={text}
+          fill={card}
+          stroke={profileAccent}
           strokeWidth={1}
           strokeLinejoin="round"
         />
@@ -170,7 +176,13 @@ export default function FollowCard({
 
       <View style={styles.card} pointerEvents="box-none">
         {/* Close Button */}
-        <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+        <TouchableOpacity
+          style={[
+            styles.closeButton,
+            { backgroundColor: isDarkMode ? 'rgba(30,30,30,0.9)' : 'rgba(255, 255, 255, 0.8)' },
+          ]}
+          onPress={onClose}
+        >
           <Text style={[styles.closeText, textStyle]}>✕</Text>
         </TouchableOpacity>
 
@@ -183,12 +195,12 @@ export default function FollowCard({
             uri={avatar || 'https://cdn-icons-png.flaticon.com/512/149/149071.png'}
             size={90}
             borderWidth={2}
-            borderColor={type === 'company' ? '#C9A15a' : '#5a2d82'}
+            borderColor={profileAccent}
           />
         </TouchableOpacity>
 
         {/* Username */}
-        <Text style={styles.username} numberOfLines={1}>
+        <Text style={[styles.username, textStyle]} numberOfLines={1}>
           {username}
         </Text>
 
@@ -198,7 +210,7 @@ export default function FollowCard({
             styles.followButton,
             isFollowing && styles.unfollowButton,
             {
-              backgroundColor: type === 'company' ? '#C9A15a' : '#5a2d82',
+              backgroundColor: profileButtonColor,
               shadowColor: text,
             },
           ]}
@@ -286,7 +298,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
     zIndex: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
   },
   closeText: {
     fontSize: 14,
@@ -300,7 +311,6 @@ const styles = StyleSheet.create({
   },
   username: {
     fontWeight: '800',
-    color: '#1F2937',
     fontSize: 15,
     marginBottom: 8,
     textAlign: 'center',

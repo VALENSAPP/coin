@@ -33,7 +33,7 @@ import TokenPurchaseModal from '../../components/modals/TokenPurchaseModal';
 import TokenSellModal from '../../components/modals/TokenSellModal';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useThemeContext } from '../../theme/ThemeContext';
-import { getWalletScreenGradient } from '../../utils/walletDarkTheme';
+import { getWalletScreenGradient, getWalletGradientText, getWalletGradientIconWrapStyle } from '../../utils/walletDarkTheme';
 import HexAvatar from '../../components/home/story.js/HexAvatar';
 import { useWalletConnectSupport } from '../../context/WalletConnectSupportContext';
 import { appKit } from '../../config/AppKitConfig';
@@ -602,7 +602,9 @@ export const WalletDashboardScreen = ({ navigation }) => {
   const purchaseSheetRef = useRef(null);
   const sellSheetRef = useRef(null);
   const activityChartScrollRef = useRef(null);
-  const { bgStyle, textStyle, text, card, cardStyle, bg, mutedText, accent, icon, border } = useAppTheme();
+  const { bgStyle, textStyle, text, card, cardStyle, bg, mutedText, accent, icon, border } = useAppTheme(
+    isBusinessProfile ? 'company' : undefined,
+  );
   const { isDarkMode } = useThemeContext();
   const [userWalletData, setUserWalletData] = useState({
     stripeCustomerId: '',
@@ -821,9 +823,9 @@ export const WalletDashboardScreen = ({ navigation }) => {
     () => getWalletScreenGradient(isBusinessProfile, isDarkMode, accent, card),
     [isBusinessProfile, isDarkMode, accent, card],
   );
-  /** Light mode: purple on lavender gradient cards; dark mode: white on deep purple */
-  const gradientText = isDarkMode ? '#ffffff' : text;
-  const platformPointsHexBg = isDarkMode ? accent : text;
+  const gradientText = getWalletGradientText(isBusinessProfile, isDarkMode, text);
+  const kpiIconWrapStyle = getWalletGradientIconWrapStyle(isBusinessProfile, isDarkMode, accent);
+  const platformPointsHexBg = text;
   const activityMetricCardBg = isDarkMode ? '#2A2A2A' : '#fafafa';
   const activityFollowersIconColor = isDarkMode ? accent : text;
   const activityFollowersIconBg = isDarkMode ? `${accent}28` : `${text}18`;
@@ -1353,7 +1355,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
       >
         <View style={[styles.kpiHeader, styles.kpiHeaderWithAction]}>
           <View style={styles.kpiHeaderLeft}>
-            <View style={styles.kpiIconWrap}>
+            <View style={[styles.kpiIconWrap, kpiIconWrapStyle]}>
               <Ionicons name={item.icon} size={18} color={gradientText} />
             </View>
             {isSupportCard ? (
@@ -1397,7 +1399,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
               accessibilityRole="button"
               accessibilityLabel={t('walletDashboard.battlePoints.referPointsInfoTitle')}
             >
-              <Ionicons name="information-circle-outline" size={18} color={text} />            </TouchableOpacity>
+              <Ionicons name="information-circle-outline" size={18} color={gradientText} />            </TouchableOpacity>
           )}
         </View>
         <Text style={[styles.kpiValue, isMissionPostCard && styles.kpiValueMultiline, { color: gradientText }]} numberOfLines={3}>
@@ -1426,7 +1428,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
           </Text>
         ) : null}
         {(isCreditsCard || isMissionPostCard) ? (
-          <Ionicons name="chevron-forward" size={16} color={text} style={styles.kpiChevronInline} />
+          <Ionicons name="chevron-forward" size={16} color={gradientText} style={styles.kpiChevronInline} />
         ) : null}
       </LinearGradient>
     );
@@ -1512,7 +1514,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
                     uri={profileImage || userProfile.image || FALLBACK_AVATAR}
                     size={72}
                     borderWidth={3}
-                    borderColor={text}
+                    borderColor={accent}
                   />
                 </TouchableOpacity>
               </View>
@@ -1789,16 +1791,16 @@ export const WalletDashboardScreen = ({ navigation }) => {
 
             <View style={styles.activityLegend}>
               <View style={styles.activityLegendItem}>
-                <View style={[styles.activityLegendDot, { backgroundColor: text }]} />
-                <Text style={styles.activityLegendText}>Followers</Text>
+                <View style={[styles.activityLegendDot, { backgroundColor: accent }]} />
+                <Text style={[styles.activityLegendText, { color: mutedText }]}>Followers</Text>
               </View>
               <View style={styles.activityLegendItem}>
                 <View style={[styles.activityLegendDot, { backgroundColor: ACTIVITY_SUPPORT_LINE }]} />
-                <Text style={styles.activityLegendText}>Support trend</Text>
+                <Text style={[styles.activityLegendText, { color: mutedText }]}>Support trend</Text>
               </View>
               <View style={styles.activityLegendItem}>
                 <View style={[styles.activityLegendDot, { backgroundColor: ACTIVITY_UNFOLLOW_PINK }]} />
-                <Text style={styles.activityLegendText}>Unfollowers</Text>
+                <Text style={[styles.activityLegendText, { color: mutedText }]}>Unfollowers</Text>
               </View>
             </View>
 
@@ -1834,13 +1836,13 @@ export const WalletDashboardScreen = ({ navigation }) => {
                     colorSupport={ACTIVITY_SUPPORT_LINE}
                   />
                 </ScrollView>
-                <Text style={styles.activityChartFootnote}>
+                <Text style={[styles.activityChartFootnote, { color: mutedText }]}>
                   Lines use separate scales. Swipe the chart sideways when points are crowded.
                 </Text>
               </>
             ) : (
               <View style={styles.emptyChart}>
-                <Ionicons name="bar-chart-outline" size={48} color="#ccc" />
+                <Ionicons name="bar-chart-outline" size={48} color={mutedText} />
                 <Text style={styles.emptyChartText}>No chart data yet</Text>
                 <Text style={styles.emptyChartSubtext}>Pull to refresh after activity builds up</Text>
               </View>
@@ -1980,7 +1982,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
                   </View>
 
                   <TouchableOpacity
-                    style={[styles.modalCloseButton, { backgroundColor: text }]}
+                    style={[styles.modalCloseButton, { backgroundColor: accent }]}
                     onPress={closeDragonflyModal}
                     activeOpacity={0.8}
                   >
@@ -2019,7 +2021,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
                 </Text>
 
                 <TouchableOpacity
-                  style={[styles.referPointsInfoCta, { backgroundColor: text }]}
+                  style={[styles.referPointsInfoCta, { backgroundColor: accent }]}
                   onPress={closeReferPointsInfo}
                   activeOpacity={0.85}
                 >
@@ -2672,9 +2674,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#D3D3D3',
     borderWidth: 1,
-    borderColor: '#D3D3D3',
   },
   dragonflyInfoButton: {
     padding: 2,

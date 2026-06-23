@@ -6,15 +6,17 @@ import LinearGradient from 'react-native-linear-gradient';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useThemeContext } from '../../theme/ThemeContext';
-import { getWalletScreenGradient } from '../../utils/walletDarkTheme';
+import { getWalletScreenGradient, getWalletGradientText } from '../../utils/walletDarkTheme';
 import { useFocusEffect } from '@react-navigation/native';
 import { useLanguage } from '../../i18n';
 
 export default function ViewMissioPost({ navigation, route }) {
     const { isBusinessProfile } = route.params || {};
     const { isDarkMode } = useThemeContext();
-    const { bgStyle, textStyle, text, cardStyle, accent, mutedText, border, card } = useAppTheme();
-    const gradientText = '#ffffff';
+    const { bgStyle, textStyle, text, cardStyle, accent, mutedText, border, card } = useAppTheme(
+        isBusinessProfile ? 'company' : undefined,
+    );
+    const gradientText = getWalletGradientText(isBusinessProfile, isDarkMode, text);
     const { t } = useLanguage();
 
     const [missions, setMissions] = useState([]);

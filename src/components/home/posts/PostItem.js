@@ -46,6 +46,7 @@ import {
   voteTrust,
 } from '../../../services/post';
 import { useAppTheme } from '../../../theme/useApptheme';
+import { useThemeContext } from '../../../theme/ThemeContext';
 import { getTotalDonationAmount } from '../../../services/tokens';
 import BuyersListModal from '../../modals/BuyerList';
 import FastImage from 'react-native-fast-image';
@@ -615,7 +616,29 @@ function PostItem({
   const dispatch = useDispatch();
   const toast = useToast();
   const { startSupportPayment } = useWalletConnectSupport();
-  const { text } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const viewerThemeProfile = isBusinessProfile ? 'company' : undefined;
+  const { bgStyle, textStyle, cardStyle, border, mutedText, accent, icon, text, card } = useAppTheme(viewerThemeProfile);
+  const getPostProfileTextColor = useCallback(
+    profile => {
+      if (!isDarkMode) {
+        return profile === 'company' ? '#C9A15a' : '#5a2d82';
+      }
+      return profile === 'company' ? '#C9A15A' : '#ffffff';
+    },
+    [isDarkMode],
+  );
+  const getPostButtonColor = useCallback(
+    profile => {
+      if (!isDarkMode) {
+        return profile === 'company' ? '#C9A15a' : '#5a2d82';
+      }
+      return profile === 'company' ? '#C9A15A' : '#5a2d82';
+    },
+    [isDarkMode],
+  );
+  const postProfileTextColor = getPostProfileTextColor(item?.profile);
+  const postButtonColor = getPostButtonColor(item?.profile);
   const isMountedRef = useRef(true);
   const route = useRoute();
   const [selectedPostId, setSelectedPostId] = useState(null);
@@ -1587,7 +1610,15 @@ function PostItem({
 
   return (
     <View style={styles.wrapper}>
-      <View style={styles.postCard}>
+      <View style={[
+        styles.postCard,
+        cardStyle,
+        {
+          shadowColor: text,
+          borderColor: border,
+          borderWidth: isDarkMode ? StyleSheet.hairlineWidth : 0,
+        },
+      ]}>
         {/* Header */}
         <View style={styles.postHeader}>
           <TouchableOpacity
@@ -1597,7 +1628,7 @@ function PostItem({
               uri={item.avatar}
               size={42}
               borderWidth={2}
-              borderColor={item?.profile === 'company' ? '#C9A15a' : '#5a2d82'}
+              borderColor={postProfileTextColor}
             />
           </TouchableOpacity>
 
@@ -1608,7 +1639,7 @@ function PostItem({
               <Text
                 style={[
                   styles.username,
-                  { color: item?.profile === 'user' ? '#5a2d82' : '#C9A15a' },
+                  { color: postProfileTextColor },
                 ]}>
                 {item.username}
               </Text>
@@ -1624,8 +1655,8 @@ function PostItem({
 
           <TouchableOpacity
             onPress={() => onOptions?.(item.id)}
-            style={styles.moreButton}>
-            <Feather name="more-vertical" size={20} color="#374151" />
+            style={[styles.moreButton, { backgroundColor: isDarkMode ? `${accent}25` : '#F9FAFB' }]}>
+            <Feather name="more-vertical" size={20} color={icon} />
           </TouchableOpacity>
         </View>
 
@@ -1799,14 +1830,14 @@ function PostItem({
                   ]}
                 />
               </Animated.View>
-              <Text style={styles.actionCount}>{likesCount || 0}</Text>
+              <Text style={[styles.actionCount, { color: mutedText }]}>{likesCount || 0}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={() => onComment?.(item.id, item.UserId)}
               style={styles.actionButton}>
               <Comments width={22} height={22} style={styles.actionSvgIcon} />
-              <Text style={styles.actionCount}>{localCommentsCount || 0}</Text>
+              <Text style={[styles.actionCount, { color: mutedText }]}>{localCommentsCount || 0}</Text>
             </TouchableOpacity>
 
             {showTrustControls && (
@@ -1823,7 +1854,7 @@ function PostItem({
                 ]}>
                   <Icon name="shield-checkmark" size={18} color="#FFFFFF" />
                 </View>
-                <Text style={styles.actionCount}>
+                <Text style={[styles.actionCount, { color: mutedText }]}>
                   {trustVote
                     ? trustVote.type === 'agree' ? t('postItem.trustAgree')
                       : trustVote.type === 'not_sure' ? t('postItem.trustNotSure')
@@ -1841,7 +1872,7 @@ function PostItem({
                 }}
                 style={styles.actionButton}>
                 <ShareIcom width={22} height={22} style={styles.actionSvgIcon} />
-                <Text style={styles.actionCount}>{t('flips.shareLabel')}</Text>
+                <Text style={[styles.actionCount, { color: mutedText }]}>{t('flips.shareLabel')}</Text>
               </TouchableOpacity>
             }
 
@@ -1872,13 +1903,16 @@ function PostItem({
               disabled={followingBusy}
               style={[
                 styles.followButton,
-                item.follow && styles.followingButton,
-                { backgroundColor: item?.profile === 'user' ? '#5a2d82' : '#C9A15a' },
+                item.follow && [styles.followingButton, { backgroundColor: card, borderColor: border }],
+                !item.follow && { backgroundColor: postButtonColor },
               ]}>
               {followingBusy ? (
-                <ActivityIndicator size="small" color={item.follow ? text : '#FFFFFF'} />
+                <ActivityIndicator size="small" color={item.follow ? postProfileTextColor : '#FFFFFF'} />
               ) : (
-                <Text style={[styles.followButtonText, item.follow && styles.followingButtonText]}>
+                <Text style={[
+                  styles.followButtonText,
+                  item.follow && [styles.followingButtonText, { color: postProfileTextColor }],
+                ]}>
                   {item.follow ? t('postItem.followed') : t('postItem.follow')}
                 </Text>
               )}
@@ -1887,15 +1921,15 @@ function PostItem({
         </View>
 
         {showTrustControls && trustPanelVisible && (
-          <View style={styles.trustVotePanel}>
+          <View style={[styles.trustVotePanel, cardStyle, { borderColor: border }]}>
             <View style={styles.trustIntro}>
               <View style={styles.trustIntroIcon}>
                 <Icon name="shield-checkmark" size={20} color="#FFFFFF" />
               </View>
               <View style={styles.trustIntroTextWrap}>
-                <Text style={styles.trustTitle}>{t('postItem.communityTrustScore')}</Text>
-                <Text style={styles.trustBodyText}>{t('postItem.trustBodyText')}</Text>
-                <Text style={styles.trustMutedText}>{t('postItem.trustMutedText')}</Text>
+                <Text style={[styles.trustTitle, textStyle]}>{t('postItem.communityTrustScore')}</Text>
+                <Text style={[styles.trustBodyText, { color: mutedText }]}>{t('postItem.trustBodyText')}</Text>
+                <Text style={[styles.trustMutedText, { color: mutedText }]}>{t('postItem.trustMutedText')}</Text>
               </View>
             </View>
             <View style={styles.trustOptionsRow}>
@@ -1904,13 +1938,17 @@ function PostItem({
                 return (
                   <TouchableOpacity
                     key={option.type}
-                    style={[styles.trustOptionButton, selected && styles.trustOptionSelected]}
+                    style={[
+                      styles.trustOptionButton,
+                      { borderColor: border, backgroundColor: isDarkMode ? `${accent}15` : '#F9FAFB' },
+                      selected && styles.trustOptionSelected,
+                    ]}
                     onPress={() => handleTrustVote(option.type)}
                     disabled={trustLoading}
                     activeOpacity={0.85}>
                     <Feather name={option.icon} size={17} color={option.color} />
-                    <Text style={styles.trustOptionLabel}>{t(option.labelKey)}</Text>
-                    <Text style={styles.trustOptionDetail} numberOfLines={1}>{t(option.detailKey)}</Text>
+                    <Text style={[styles.trustOptionLabel, textStyle]}>{t(option.labelKey)}</Text>
+                    <Text style={[styles.trustOptionDetail, { color: mutedText }]} numberOfLines={1}>{t(option.detailKey)}</Text>
                   </TouchableOpacity>
                 );
               })}
@@ -1920,12 +1958,12 @@ function PostItem({
         )}
 
         {showTrustControls && trustScoreVisible && (
-          <View style={styles.trustScorePanel}>
+          <View style={[styles.trustScorePanel, cardStyle, { borderColor: border }]}>
             {trustScoreLoading ? (
               <ActivityIndicator size="small" color="#059669" />
             ) : (
               <>
-                <View style={styles.trustProgressTrack}>
+                <View style={[styles.trustProgressTrack, { backgroundColor: border }]}>
                   <View
                     style={[
                       styles.trustProgressFill,
@@ -1942,44 +1980,44 @@ function PostItem({
                 <View style={styles.trustMetricRow}>
                   <View style={styles.trustMetricItem}>
                     <Feather name="check-circle" size={15} color="#059669" />
-                    <Text style={styles.trustMetricLabel}>{t('postItem.trustApprove')}</Text>
+                    <Text style={[styles.trustMetricLabel, { color: mutedText }]}>{t('postItem.trustApprove')}</Text>
                     <Text style={[styles.trustMetricPercent, { color: '#059669' }]}>
                       {Math.round(normalizedTrustScore.agree)}%
                     </Text>
-                    <Text style={styles.trustMetricSub}>
+                    <Text style={[styles.trustMetricSub, { color: mutedText }]}>
                       {t('postItem.trustVotes', { count: normalizedTrustScore.agreeVotes })}
                     </Text>
                   </View>
-                  <View style={styles.trustMetricDivider} />
+                  <View style={[styles.trustMetricDivider, { backgroundColor: border }]} />
                   <View style={styles.trustMetricItem}>
                     <Feather name="help-circle" size={15} color="#F59E0B" />
-                    <Text style={styles.trustMetricLabel}>{t('postItem.trustUnsure')}</Text>
+                    <Text style={[styles.trustMetricLabel, { color: mutedText }]}>{t('postItem.trustUnsure')}</Text>
                     <Text style={[styles.trustMetricPercent, { color: '#F59E0B' }]}>
                       {Math.round(normalizedTrustScore.notSure)}%
                     </Text>
-                    <Text style={styles.trustMetricSub}>
+                    <Text style={[styles.trustMetricSub, { color: mutedText }]}>
                       {t('postItem.trustVotes', { count: normalizedTrustScore.notSureVotes })}
                     </Text>
                   </View>
-                  <View style={styles.trustMetricDivider} />
+                  <View style={[styles.trustMetricDivider, { backgroundColor: border }]} />
                   <View style={styles.trustMetricItem}>
                     <Feather name="x-circle" size={15} color="#DC2626" />
-                    <Text style={styles.trustMetricLabel}>{t('postItem.trustDisagree')}</Text>
+                    <Text style={[styles.trustMetricLabel, { color: mutedText }]}>{t('postItem.trustDisagree')}</Text>
                     <Text style={[styles.trustMetricPercent, { color: '#DC2626' }]}>
                       {Math.round(normalizedTrustScore.disagree)}%
                     </Text>
-                    <Text style={styles.trustMetricSub}>
+                    <Text style={[styles.trustMetricSub, { color: mutedText }]}>
                       {t('postItem.trustVotes', { count: normalizedTrustScore.disagreeVotes })}
                     </Text>
                   </View>
                 </View>
                 {getTrustVoteId(trustVote) ? (
                   <TouchableOpacity
-                    style={styles.trustUndoButton}
+                    style={[styles.trustUndoButton, { backgroundColor: isDarkMode ? `${accent}25` : '#F3F4F6' }]}
                     onPress={handleTrustUndo}
                     disabled={trustLoading}
                     activeOpacity={0.85}>
-                    <Text style={styles.trustUndoText}>{t('postItem.trustUndoVote')}</Text>
+                    <Text style={[styles.trustUndoText, textStyle]}>{t('postItem.trustUndoVote')}</Text>
                   </TouchableOpacity>
                 ) : null}
               </>
@@ -2011,22 +2049,22 @@ function PostItem({
                           uri={buyer.avatar}
                           size={28}
                           borderWidth={1.5}
-                          borderColor={item?.profile === 'company' ? '#C9A15a' : '#5a2d82'}
+                          borderColor={postProfileTextColor}
                         />
                       </View>
                     ))}
                   </View>
-                  <Text style={styles.buyersText} numberOfLines={1}>
+                  <Text style={[styles.buyersText, { color: mutedText }]} numberOfLines={1}>
                     {t('postItem.followedBy')}{' '}
                     <Text
                       style={[
                         styles.buyerName,
-                        { color: item?.profile === 'user' ? '#5a2d82' : '#C9A15a' },
+                        { color: postProfileTextColor },
                       ]}>
                       {displayBuyerList[0]?.username || '—'}
                     </Text>
                     {displayBuyerList.length > 1 && (
-                      <Text style={{ color: item?.profile === 'user' ? '#5a2d82' : '#C9A15a' }}>
+                      <Text style={{ color: postProfileTextColor }}>
                         {' '}{t('postItem.andOthers', { count: formatNumber(displayBuyerList.length - 1) })}
                       </Text>
                     )}
@@ -2046,11 +2084,11 @@ function PostItem({
                     onPress={() => handleUserProfile(item.UserId)}
                     style={[
                       styles.captionUsername,
-                      { color: item?.profile === 'user' ? '#5a2d82' : '#C9A15a' },
+                      { color: postProfileTextColor },
                     ]}>
                     {usernameText}{' '}
                   </Text>
-                  <Text style={styles.captionText}>{captionValue}</Text>
+                  <Text style={[styles.captionText, { color: mutedText }]}>{captionValue}</Text>
                 </Text>
               ) : (
                 <TouchableOpacity
@@ -2066,13 +2104,13 @@ function PostItem({
                       onPress={() => handleUserProfile(item.UserId)}
                       style={[
                         styles.captionUsername,
-                        { color: item?.profile === 'user' ? '#5a2d82' : '#C9A15a' },
+                        { color: postProfileTextColor },
                       ]}>
                       {usernameText}{' '}
                     </Text>
-                    <Text style={styles.captionText}>{collapsedCaption}</Text>
+                    <Text style={[styles.captionText, { color: mutedText }]}>{collapsedCaption}</Text>
                     {hasExpandableCaption ? (
-                      <Text style={styles.captionMoreText}>{t('postItem.seeMore')}</Text>
+                      <Text style={[styles.captionMoreText, { color: mutedText }]}>{t('postItem.seeMore')}</Text>
                     ) : null}
                   </Text>
                 </TouchableOpacity>
@@ -2081,14 +2119,14 @@ function PostItem({
           )}
 
           {hasExpandableCaption && expanded && (
-            <Text style={styles.captionToggleText} onPress={() => setExpanded(false)}>
+            <Text style={[styles.captionToggleText, { color: mutedText }]} onPress={() => setExpanded(false)}>
               {t('postItem.seeLess')}
             </Text>
           )}
 
           {item.link ? (
             <TouchableOpacity activeOpacity={0.8} onPress={() => handleOpenExternalLink(item.link)}>
-              <Text style={styles.linkText}>
+              <Text style={[styles.linkText, { color: accent }]}>
                 {t('postItem.linkPrefix')} - {item.link}
               </Text>
             </TouchableOpacity>
@@ -2105,7 +2143,7 @@ function PostItem({
             ) : null}
 
             <View style={styles.progressBarWrapper}>
-              <View style={styles.progressBarBackground}>
+              <View style={[styles.progressBarBackground, { backgroundColor: border }]}>
                 <View
                   style={[
                     styles.progressBarFill,
@@ -2119,7 +2157,7 @@ function PostItem({
 
               <View style={styles.progressStatsContainer}>
                 <View style={styles.statAtStart}>
-                  <Text style={styles.statValueSmall}>
+                  <Text style={[styles.statValueSmall, { color: mutedText }]}>
                     {isLoadingDonation
                       ? '...'
                       : t('postItem.funded', {
@@ -2128,7 +2166,7 @@ function PostItem({
                   </Text>
                 </View>
                 <View style={styles.statAtCenter}>
-                  <Text style={styles.statValueSmall}>
+                  <Text style={[styles.statValueSmall, { color: mutedText }]}>
                     {isLoadingDonation
                       ? t('postItem.loading')
                       : t('postItem.raised', {
@@ -2138,7 +2176,7 @@ function PostItem({
                   </Text>
                 </View>
                 <View style={styles.statAtEnd}>
-                  <Text style={styles.statValueSmall}>
+                  <Text style={[styles.statValueSmall, { color: mutedText }]}>
                     {t('postItem.daysLeft', { count: daysLeft || 0 })}
                   </Text>
                 </View>
@@ -2154,7 +2192,7 @@ function PostItem({
                   <TouchableOpacity
                     onPress={() => setDonation(true)}
                     style={[{
-                      backgroundColor: item?.profile === 'user' ? '#5a2d82' : '#C9A15a',
+                      backgroundColor: postButtonColor,
                       width: '25%',
                       left: '74%',
                       marginBottom: 5,
@@ -2253,10 +2291,8 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   postCard: {
-    backgroundColor: '#FFFFFF',
     marginVertical: 8,
     borderRadius: 16,
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
@@ -2267,7 +2303,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    backgroundColor: '#FFFFFF',
   },
   avatarContainer: {
     marginRight: 12,
@@ -2309,7 +2344,6 @@ const styles = StyleSheet.create({
   moreButton: {
     padding: 4,
     borderRadius: 8,
-    backgroundColor: '#F9FAFB',
   },
   mediaWrapper: {
     width: '100%',
@@ -2431,10 +2465,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
     padding: 12,
     borderRadius: 8,
-    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 6,
@@ -2460,19 +2491,16 @@ const styles = StyleSheet.create({
   trustTitle: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#111827',
   },
   trustBodyText: {
     marginTop: 3,
     fontSize: 11,
     lineHeight: 15,
-    color: '#374151',
   },
   trustMutedText: {
     marginTop: 2,
     fontSize: 10,
     lineHeight: 14,
-    color: '#6B7280',
   },
   trustOptionsRow: {
     flexDirection: 'row',
@@ -2487,8 +2515,6 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     borderRadius: 7,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#F9FAFB',
     marginHorizontal: 3,
   },
   trustOptionSelected: {
@@ -2499,12 +2525,10 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontSize: 11,
     fontWeight: '800',
-    color: '#111827',
   },
   trustOptionDetail: {
     marginTop: 2,
     fontSize: 9,
-    color: '#6B7280',
   },
   actionsSection: {
     flexDirection: 'row',
@@ -2512,7 +2536,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
   },
   leftActions: {
     flexDirection: 'row',
@@ -2530,7 +2553,6 @@ const styles = StyleSheet.create({
   actionSvgIconInactive: { opacity: 0.7 },
   actionCount: {
     fontSize: 12,
-    color: '#6B7280',
     fontWeight: '600',
     marginTop: 2,
   },
@@ -2583,14 +2605,11 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 10,
     borderRadius: 8,
-    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
   },
   trustProgressTrack: {
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#E5E7EB',
     overflow: 'hidden',
     marginRight: 42,
   },
@@ -2622,7 +2641,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontSize: 10,
     fontWeight: '800',
-    color: '#374151',
   },
   trustMetricPercent: {
     fontSize: 11,
@@ -2631,12 +2649,10 @@ const styles = StyleSheet.create({
   trustMetricSub: {
     marginTop: 2,
     fontSize: 8,
-    color: '#9CA3AF',
     textAlign: 'center',
   },
   trustMetricDivider: {
     width: 1,
-    backgroundColor: '#E5E7EB',
     marginHorizontal: 4,
   },
   trustUndoButton: {
@@ -2645,12 +2661,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 7,
-    backgroundColor: '#F3F4F6',
   },
   trustUndoText: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#374151',
   },
   followButton: {
     paddingHorizontal: 16,
@@ -2667,9 +2681,7 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   followingButton: {
-    backgroundColor: '#F3F4F6',
     borderWidth: 1,
-    borderColor: '#D1D5DB',
   },
   followButtonText: {
     color: '#FFFFFF',
@@ -2681,7 +2693,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 8,
-    backgroundColor: '#FFFFFF',
     marginTop: -10,
   },
   avatarsContainer: {
@@ -2702,7 +2713,6 @@ const styles = StyleSheet.create({
   },
   buyersText: {
     fontSize: 14,
-    color: '#6B7280',
     fontWeight: '400',
     flexShrink: 1,
   },
@@ -2712,7 +2722,6 @@ const styles = StyleSheet.create({
   captionSection: {
     paddingHorizontal: 16,
     paddingBottom: 16,
-    backgroundColor: '#FFFFFF',
   },
   captionRow: {
     lineHeight: 20,
@@ -2724,18 +2733,15 @@ const styles = StyleSheet.create({
   },
   captionText: {
     fontSize: 15,
-    color: '#1F2937',
     fontWeight: '400',
     lineHeight: 20,
   },
   captionMoreText: {
-    color: '#999',
     fontSize: 15,
     lineHeight: 20,
     fontWeight: '500',
   },
   captionToggleText: {
-    color: '#999',
     marginTop: 2,
     fontSize: 14,
     fontWeight: '500',
@@ -2773,7 +2779,6 @@ const styles = StyleSheet.create({
   },
   progressBarBackground: {
     height: 10,
-    backgroundColor: '#e0e0e0',
     overflow: 'hidden',
     marginBottom: 50,
     borderRadius: 5,
@@ -2803,7 +2808,6 @@ const styles = StyleSheet.create({
   statValueSmall: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#1a1a1a',
     marginBottom: 2,
   },
   statLabelSmall: {

@@ -27,7 +27,7 @@ export default function Suggestion({
   const data = hasMore
     ? [...users, { id: '__see_more__', username: 'See more' }]
     : users;
-  const { textStyle, text } = useAppTheme();
+  const { textStyle, card, accent } = useAppTheme(isBusinessProfile ? 'company' : undefined);
   const { t } = useLanguage();
 
   // Hexagon dimensions - MUST MATCH FollowCard exactly
@@ -50,7 +50,7 @@ export default function Suggestion({
   return (
     <View style={styles.wrap}>
       <View style={styles.headerRow}>
-        <Text style={[styles.title]}>{t('suggestion.suggestedForYou')}</Text>
+        <Text style={[styles.title, textStyle]}>{t('suggestion.suggestedForYou')}</Text>
       </View>
 
       <FlatList
@@ -77,8 +77,8 @@ export default function Suggestion({
 
                   <Polygon
                     points={points}
-                    fill="#ffffff"
-                    stroke={text}
+                    fill={card}
+                    stroke={accent}
                     strokeWidth={2}
                     strokeLinejoin="round"
                   />
@@ -92,7 +92,7 @@ export default function Suggestion({
                   activeOpacity={0.7}
                 >
                   {isLoading ? (
-                    <ActivityIndicator color={text} size="large" />
+                    <ActivityIndicator color={accent} size="large" />
                   ) : (
                     <Text style={[styles.seeMoreText, textStyle]}>{t('suggestion.seeMore')}</Text>
                   )}
@@ -134,7 +134,6 @@ const styles = StyleSheet.create({
   },
   title: {
     fontWeight: '700',
-    color: '#000',
     fontSize: 18,
   },
 

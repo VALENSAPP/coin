@@ -20,7 +20,7 @@ const BusinessSubscriptionPrompt = ({
   const [isActivating, setIsActivating] = useState(false);
   const [resolvedSubscriptionStatus, setResolvedSubscriptionStatus] = useState('');
   const toast = useToast();
-  const { text } = useAppTheme();
+  const { textStyle, cardStyle, border, mutedText, accent, icon } = useAppTheme('company');
   const { t } = useLanguage();
 
   // fall back to translation key if no prop title is provided
@@ -181,19 +181,19 @@ const BusinessSubscriptionPrompt = ({
       onRequestClose={handleClose}
     >
       <View style={styles.backdrop}>
-        <View style={styles.card}>
+        <View style={[styles.card, cardStyle, { borderColor: border, borderWidth: StyleSheet.hairlineWidth }]}>
 
           {step === 1 ? (
             <>
               <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
-                <Icon name="close" size={28} color={text} />
+                <Icon name="close" size={28} color={icon} />
               </TouchableOpacity>
 
-              <Text style={[styles.title, { color: text }]}>
+              <Text style={[styles.title, textStyle]}>
                 {t('businessSubscriptionPrompt.step1Title')}
               </Text>
 
-              <Text style={styles.bodyText}>
+              <Text style={[styles.bodyText, { color: mutedText }]}>
                 {t('businessSubscriptionPrompt.step1Body')}
               </Text>
 
@@ -202,7 +202,7 @@ const BusinessSubscriptionPrompt = ({
                   style={[
                     styles.primaryButton,
                     styles.primaryButtonSingle,
-                    { backgroundColor: text },
+                    { backgroundColor: accent },
                   ]}
                   onPress={() => setStep(2)}
                 >
@@ -216,39 +216,42 @@ const BusinessSubscriptionPrompt = ({
             <>
               <Text style={styles.icon}>🔓</Text>
 
-              <Text style={[styles.title, { color: text }]}>{resolvedTitle}</Text>
+              <Text style={[styles.title, textStyle]}>{resolvedTitle}</Text>
 
-              <Text style={styles.bodyText}>
+              <Text style={[styles.bodyText, { color: mutedText }]}>
                 {t('businessSubscriptionPrompt.step2Body')}
               </Text>
 
-              <Text style={styles.sectionTitle}>
+              <Text style={[styles.sectionTitle, textStyle]}>
                 {t('businessSubscriptionPrompt.featuresTitle')}
               </Text>
-              <Text style={styles.listItem}>{t('businessSubscriptionPrompt.feature1')}</Text>
-              <Text style={styles.listItem}>{t('businessSubscriptionPrompt.feature2')}</Text>
-              <Text style={styles.listItem}>{t('businessSubscriptionPrompt.feature3')}</Text>
-              <Text style={styles.listItem}>{t('businessSubscriptionPrompt.feature4')}</Text>
-              <Text style={styles.listItem}>{t('businessSubscriptionPrompt.feature5')}</Text>
-              <Text style={styles.listItem}>{t('businessSubscriptionPrompt.feature6')}</Text>
+              <Text style={[styles.listItem, { color: mutedText }]}>{t('businessSubscriptionPrompt.feature1')}</Text>
+              <Text style={[styles.listItem, { color: mutedText }]}>{t('businessSubscriptionPrompt.feature2')}</Text>
+              <Text style={[styles.listItem, { color: mutedText }]}>{t('businessSubscriptionPrompt.feature3')}</Text>
+              <Text style={[styles.listItem, { color: mutedText }]}>{t('businessSubscriptionPrompt.feature4')}</Text>
+              <Text style={[styles.listItem, { color: mutedText }]}>{t('businessSubscriptionPrompt.feature5')}</Text>
+              <Text style={[styles.listItem, { color: mutedText }]}>{t('businessSubscriptionPrompt.feature6')}</Text>
 
-              <Text style={styles.bodyText}>
+              <Text style={[styles.bodyText, { color: mutedText }]}>
                 {t('businessSubscriptionPrompt.step2BodyFooter')}
               </Text>
 
-              <Text style={styles.ctaText}>
+              <Text style={[styles.ctaText, textStyle]}>
                 {t('businessSubscriptionPrompt.ctaText')}
               </Text>
 
               <View style={styles.actions}>
-                <TouchableOpacity style={styles.secondaryButton} onPress={handleClose}>
-                  <Text style={styles.secondaryButtonText}>
+                <TouchableOpacity
+                  style={[styles.secondaryButton, cardStyle, { borderColor: border }]}
+                  onPress={handleClose}
+                >
+                  <Text style={[styles.secondaryButtonText, { color: mutedText }]}>
                     {t('businessSubscriptionPrompt.maybeLater')}
                   </Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[styles.primaryButton, { backgroundColor: text }]}
+                  style={[styles.primaryButton, { backgroundColor: accent }]}
                   onPress={handleActivateNow}
                   disabled={isActivating}
                 >
@@ -279,12 +282,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
   },
   card: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 20,
     paddingBottom: 22,
     paddingTop: 10,
     paddingHorizontal: 18,
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.2,
     shadowRadius: 20,
@@ -298,17 +299,15 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#111827',
     textAlign: 'center',
     marginBottom: 12,
   },
   bodyText: {
     fontSize: 14,
-    color: '#374151',
     lineHeight: 20,
     marginBottom: 10,
     paddingVertical: 10,
-    textAlign: 'center'
+    textAlign: 'center',
   },
   closeButton: {
     padding: 8,
@@ -318,18 +317,15 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#1F2937',
     marginBottom: 6,
   },
   listItem: {
     fontSize: 14,
-    color: '#1F2937',
     lineHeight: 20,
     marginBottom: 4,
   },
   ctaText: {
     fontSize: 14,
-    color: '#111827',
     fontWeight: '600',
     marginTop: 4,
     marginBottom: 14,
@@ -359,13 +355,10 @@ const styles = StyleSheet.create({
     minHeight: 46,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
-    backgroundColor: '#F9FAFB',
     alignItems: 'center',
     justifyContent: 'center',
   },
   secondaryButtonText: {
-    color: '#374151',
     fontSize: 15,
     fontWeight: '600',
   },

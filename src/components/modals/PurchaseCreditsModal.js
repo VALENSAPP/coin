@@ -21,13 +21,15 @@ import { useLanguage } from '../../i18n';
 
 const MAX_CREDITS = 5;
 
-const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCredits = 0 }) => {
+const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCredits = 0, isBusinessProfile = false }) => {
   const [creditsToBuy, setCreditsToBuy] = useState('');
   const sheetRef = useRef(null);
   const dispatch = useDispatch();
   const toast = useToast();
   const route = useRoute();
-  const { bgStyle, textStyle, text, cardStyle, accent, mutedText } = useAppTheme();
+  const { bgStyle, textStyle, text, cardStyle, accent, mutedText } = useAppTheme(
+    isBusinessProfile ? 'company' : undefined,
+  );
   const { t } = useLanguage();
   const stripeErrorMessages = getStripeErrorMessages(t);
 

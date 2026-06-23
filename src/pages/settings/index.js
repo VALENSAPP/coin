@@ -14,7 +14,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { loggedIn, loggedOut } from '../../redux/actions/LoginAction';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import RBSheet from 'react-native-raw-bottom-sheet';
@@ -62,7 +62,6 @@ const Settings = () => {
   const dispatch = useDispatch();
   const navigation = useNavigation();
   const toast = useToast();
-  const styles = createStyles();
   const refRBSheet = useRef();
   const [accountSwitcherVisible, setAccountSwitcherVisible] = useState(false);
   const [switchableAccounts, setSwitchableAccounts] = useState([]);
@@ -70,9 +69,20 @@ const Settings = () => {
   const [switchInFlight, setSwitchInFlight] = useState(false);
   const [removeAccountConfirm, setRemoveAccountConfirm] = useState(null);
   const [profileStatus, setProfileStatus] = useState(null);
-  const { bgStyle, textStyle, bg, text, card, accent, icon: iconColor, mutedText, border } = useAppTheme();
+  const [isBusinessProfile, setIsBusinessProfile] = useState(false);
+  const reduxProfile = useSelector(state => state.userProfile.userProfile);
+  const profileThemeType = isBusinessProfile ? 'company' : undefined;
+  const styles = createStyles(profileThemeType);
+  const { bgStyle, textStyle, bg, text, card, accent, icon: iconColor, mutedText, border } = useAppTheme(profileThemeType);
   const { isDarkMode } = useThemeContext();
   const { t } = useLanguage();
+
+  const loadProfileType = useCallback(async () => {
+    const type = await AsyncStorage.getItem('profile');
+    if (type) {
+      setIsBusinessProfile(String(type).toLowerCase() !== 'user');
+    }
+  }, []);
 
   const fetchProfileStatus = useCallback(async () => {
     try {
@@ -90,9 +100,16 @@ const Settings = () => {
 
   useFocusEffect(
     useCallback(() => {
+      loadProfileType();
       fetchProfileStatus();
-    }, [fetchProfileStatus]),
+    }, [fetchProfileStatus, loadProfileType]),
   );
+
+  React.useEffect(() => {
+    if (reduxProfile && reduxProfile !== 'normal') {
+      setIsBusinessProfile(String(reduxProfile).toLowerCase() !== 'user');
+    }
+  }, [reduxProfile]);
 
   const profileStatusLabel =
     profileStatus?.toLowerCase() === 'private'

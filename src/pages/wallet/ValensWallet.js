@@ -24,7 +24,7 @@ import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useThemeContext } from '../../theme/ThemeContext';
-import { getWalletScreenGradient } from '../../utils/walletDarkTheme';
+import { getWalletScreenGradient, getWalletGradientText } from '../../utils/walletDarkTheme';
 import { getUserCredentials } from '../../services/post';
 import { useWalletConnectSupport } from '../../context/WalletConnectSupportContext';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -74,7 +74,7 @@ const ValensWallet = ({ navigation }) => {
     const [recentActivity, setRecentActivity] = useState([]);
     const dispatch = useDispatch();
     const toast = useToast();
-    const { bgStyle, text, cardStyle, accent, card } = useAppTheme();
+    const { bgStyle, text, cardStyle, accent, card } = useAppTheme(isBusinessProfile ? 'company' : undefined);
     const { isDarkMode } = useThemeContext();
     const { width: screenWidth } = useWindowDimensions();
     const { t } = useLanguage();
@@ -369,7 +369,7 @@ const ValensWallet = ({ navigation }) => {
         () => getWalletScreenGradient(isBusinessProfile, isDarkMode, accent, card),
         [isBusinessProfile, isDarkMode, accent, card],
     );
-    const gradientText = '#ffffff';
+    const gradientText = getWalletGradientText(isBusinessProfile, isDarkMode, text);
 
     const walletOverviewCards = [
         {
