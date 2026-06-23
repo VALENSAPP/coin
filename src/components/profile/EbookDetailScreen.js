@@ -1,5 +1,5 @@
 import React, { memo, useMemo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAppTheme } from '../../theme/useApptheme';
@@ -50,9 +50,6 @@ const EbookDetailScreen = () => {
               <Text style={styles.subscriberPillText}>Subscribers</Text>
             </View>
           </View>
-          <TouchableOpacity style={styles.menuBtn}>
-            <Ionicons name="ellipsis-horizontal" size={20} color="#111827" />
-          </TouchableOpacity>
         </View>
 
         <Text style={styles.postText}>
@@ -95,39 +92,9 @@ const EbookDetailScreen = () => {
             <Ionicons name="chatbubble-outline" size={20} color="#6b7280" />
             <Text style={styles.actionCount}>12</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionBtn}>
-            <Ionicons name="arrow-redo-outline" size={20} color="#6b7280" />
-            <Text style={styles.actionCount}>4</Text>
-          </TouchableOpacity>
           <View style={styles.actionSpacer} />
           <TouchableOpacity style={styles.bookmarkBtn}>
             <Ionicons name="bookmark-outline" size={20} color="#6b7280" />
-          </TouchableOpacity>
-        </View>
-
-        <Text style={styles.sectionTitle}>What you’ll learn:</Text>
-        <View style={styles.learnList}>
-          {chapters.map((chapter) => (
-            <View key={chapter} style={styles.learnItem}>
-              <View style={styles.learnBullet}>
-                <Ionicons name="checkmark" size={12} color="#fff" />
-              </View>
-              <Text style={styles.chapterText}>{chapter}</Text>
-            </View>
-          ))}
-        </View>
-
-        <View style={styles.commentBox}>
-          <Image source={{ uri: 'https://i.pravatar.cc/80?img=12' }} style={styles.commentAvatar} />
-          {/* <Text style={styles.commentPlaceholder}>Add a comment...</Text> */}
-          <TextInput
-          style={styles.commentPlaceholder}
-          placeholder='Add a comment...'
-          placeholderTextColor={'#000'}
-          
-          />
-          <TouchableOpacity style={styles.sendBtn}>
-            <Ionicons name="send" size={18} color="#5A2D82" />
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -164,6 +131,8 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 15,
+    marginTop: 15
   },
   avatarStack: {
     marginRight: 10,

@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Alert, Image, Platform, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { pick } from '@react-native-documents/picker';
+import { pick, types as documentTypes } from '@react-native-documents/picker';
 import { launchImageLibrary } from 'react-native-image-picker';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
@@ -114,12 +114,19 @@ const EbookPublisher = ({ navigation }) => {
 
   const handlePickPdf = async () => {
     try {
-      const files = await pick({ type: ['application/pdf'] });
+      const files = await pick({
+        type: [documentTypes.pdf],
+        mode: 'import',
+        presentationStyle: Platform.OS === 'ios' ? 'fullScreen' : undefined,
+      });
       const file = Array.isArray(files) ? files[0] : files;
-      const uri = file?.uri || file?.fileCopyUri;
+      const uri = file?.fileCopyUri || file?.uri;
       const size = Number(file?.size || 0);
+      const normalizedUri = Platform.OS === 'ios' && uri && !String(uri).startsWith('file://')
+        ? `file://${uri}`
+        : uri;
 
-      if (!uri) {
+      if (!normalizedUri) {
         Alert.alert(t('ebookPublisher.uploadFailedTitle'), t('ebookPublisher.uploadFailedMessage'));
         return;
       }
@@ -131,7 +138,7 @@ const EbookPublisher = ({ navigation }) => {
 
       const nextFile = {
         name: file?.name || `ebook-${Date.now()}.pdf`,
-        uri,
+        uri: normalizedUri,
         type: file?.type || 'application/pdf',
         size,
       };
@@ -481,12 +488,12 @@ const EbookPublisher = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, },
+  screen: { flex: 1,marginBottom:'5%' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'ios' ? 60 : 18,
+    paddingTop: Platform.OS === 'ios' ? 18 : 18,
     paddingBottom: 16,
     borderRadius: 24,
     // borderBottomLeftRadius: 24,
