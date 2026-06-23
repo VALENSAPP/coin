@@ -195,7 +195,7 @@ const PostImage = memo(({ item, index, onPress, themeTextStyle }) => {
 
 PostImage.displayName = 'PostImage';
 
-const PostScreen = memo(({ scrollEnabled = true, postCheck, userData: propUserData, isOwnProfile = false, onPostPinChanged }) => {
+const PostScreen = memo(({ scrollEnabled = true, postCheck, userData: propUserData, isOwnProfile = false, onPostPinChanged, activeMediaFilter = 'photo' }) => {
   const [posts, setPosts] = useState([]);
   const [donationTotals, setDonationTotals] = useState({});
   const pinningPostIdRef = useRef('');
@@ -206,17 +206,25 @@ const PostScreen = memo(({ scrollEnabled = true, postCheck, userData: propUserDa
   const { bgStyle, textStyle, text } = useAppTheme(userData?.profile);
 
   // ✅ Move ALL hooks/useMemo/useCallback BEFORE any early returns
+  const filteredPosts = useMemo(() => {
+    if (activeMediaFilter === 'video') return posts.filter((post) => isVideoUrl(post?.images?.[0] || post?.image || post?.video));
+    if (activeMediaFilter === 'ebook') return posts.filter((post) => /\.pdf(\?|$)/i.test(String(post?.images?.[0] || post?.image || post?.video || '')) || ['ebook', 'book'].includes(String(post?.type || post?.format || '').toLowerCase()));
+    // if (activeMediaFilter === 'reel') return posts.filter((post) => String(post?.type || '').toLowerCase() === 'reel');
+    // if (activeMediaFilter === 'all') return posts;
+    return posts.filter((post) => !isVideoUrl(post?.images?.[0] || post?.image || post?.video) && !(/\.pdf(\?|$)/i.test(String(post?.images?.[0] || post?.image || post?.video || ''))));
+  }, [activeMediaFilter, posts]);
+
   const rows = useMemo(() => {
     const chunks = [];
-    for (let i = 0; i < posts.length; i += numColumns) {
-      chunks.push(posts.slice(i, i + numColumns));
+    for (let i = 0; i < filteredPosts.length; i += numColumns) {
+      chunks.push(filteredPosts.slice(i, i + numColumns));
     }
     return chunks;
-  }, [posts]);
+  }, [filteredPosts]);
 
   const calculatedHeight = useMemo(() => {
-    return Math.ceil(posts.length / numColumns) * (IMAGE_SIZE + SPACING) + 120;
-  }, [posts.length]);
+    return Math.ceil(filteredPosts.length / numColumns) * (IMAGE_SIZE + SPACING) + 120;
+  }, [filteredPosts.length]);
 
   useEffect(() => {
     setPosts(sortPostsByPinned(getImagePosts(postCheck)));
@@ -269,9 +277,9 @@ const PostScreen = memo(({ scrollEnabled = true, postCheck, userData: propUserDa
     // }
     navigation.getParent().navigate('ProfileMain', {
       screen: 'PostView',
-      params: { postData: posts, startIndex: index, hideTabBar: true, userData },
+      params: { postData: filteredPosts, startIndex: index, hideTabBar: true, userData },
     });
-  }, [navigation, posts, userData]);
+  }, [navigation, filteredPosts, userData]);
 
   const handleTogglePinPost = useCallback(async (post) => {
     const postId = String(post?.id || post?._id || '');

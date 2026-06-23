@@ -75,6 +75,7 @@
   import TwoFactorAuthScreen from '../pages/wallet/Two-FactorAuth';
   import LoginHistoryScreen from '../pages/wallet/LoginHistory';
   import SubventionSetupScreen from '../pages/wallet/Subscriptions';
+  import EbookPublisherScreen from '../pages/wallet/EbookPublisher';
   import KYCVerification from '../pages/authentication/kycVerification';
   import FlipsScreen from '../pages/reels';
   import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -84,6 +85,7 @@
   import PaymentScreen from '../pages/Stripe/PaymentScreen';
   import OpenBattleScreen from '../pages/profile/OpenBattleScreen';
   import ProfileBattleScreen from '../pages/profile/ProfileBattleScreen';
+  import EbookDetailScreen from '../components/profile/EbookDetailScreen';
   import ArchiveScreen from '../pages/settings/archeive';
   import HighlightsScreen from '../pages/settings/highlights';
   import BattleInProgress from '../pages/settings/BattleInProgress';
@@ -237,6 +239,11 @@
           <Stack.Screen
             name="PostView"
             component={PostView}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="EbookDetail"
+            component={EbookDetailScreen}
             options={{ headerShown: false }}
           />
           <Stack.Screen
@@ -555,6 +562,11 @@
               component={SubventionSetupScreen}
               // ── TRANSLATION CHANGE ───────────────────────────────────────────
               options={{ headerTitle: t('walletStack.subscriptionSetup') }}
+            />
+            <Stack.Screen
+              name="EbookPublisher"
+              component={EbookPublisherScreen}
+              options={{ headerShown: false }}
             />
             <Stack.Screen
               name="ViewMissionPost"

@@ -4,6 +4,7 @@ import {
 } from 'react-native';
 import PostsScreen from '../profile/PostScreen';
 import ReelsScreen from '../profile/ReelsScreen';
+import ProfileEbookScreen from './ProfileEbookScreen';
 import PrivateContentScreen from './PrivateContentScreen';
 import PrivateCircle from './PrivateCircle';
 import Shop from './Shop';
@@ -45,6 +46,7 @@ const ProfileTabs = memo(({
   const [showSubscribeModal, setShowSubscribeModal] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [privateKey, setPrivatKey] = useState(0);
+  const [mediaTab, setMediaTab] = useState('photo');
 
   const effectiveProfileType = profileType || userData?.profile;
   const { text } = useAppTheme(effectiveProfileType);
@@ -133,17 +135,57 @@ const ProfileTabs = memo(({
 
   const PRIVATE_CIRCLE_TAB_INDEX = 1; 
   const PRIVATE_CONTENT_TAB_INDEX = 3;
+  const MEDIA_TABS = useMemo(() => ([
+    { key: 'photo', label: 'Photos', icon: 'images-outline' },
+    { key: 'video', label: 'Videos', icon: 'videocam-outline' },
+    { key: 'ebook', label: 'E-books', icon: 'book-outline' },
+  ]), []);
 
   // ── Tab screens — stable identity, only remount when data deps change ────────
   const tabScreens = useMemo(() => ({
     posts: (
-      <PostsScreen
-        postCheck={post}
-        userData={userData}
-        isOwnProfile={isOwnProfile}
-        onPostPinChanged={onPostPinChanged}
-        scrollEnabled={false}
-      />
+      <View style={styles.postsWrap}>
+        <View style={styles.mediaTabsRow}>
+          {MEDIA_TABS.map((tab) => {
+            const focused = mediaTab === tab.key;
+            return (
+              <TouchableOpacity
+                key={tab.key}
+                style={styles.mediaTabItem}
+                onPress={() => setMediaTab(tab.key)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name={tab.icon} size={22} color={focused ? text : '#6b7280'} />
+                <Text style={[styles.mediaTabLabel, focused && { color: text }]}>
+                  {tab.label}
+                </Text>
+                {focused && <View style={[styles.mediaTabIndicator, { backgroundColor: text }]} />}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        {mediaTab === 'ebook' ? (
+          <ProfileEbookScreen
+            userData={userData}
+            onOpenEbook={(ebook) => {
+              const parentNavigation = navigation.getParent?.() || navigation;
+              parentNavigation.navigate('ProfileMain', {
+                screen: 'EbookDetail',
+                params: { ebook, userData },
+              });
+            }}
+          />
+        ) : (
+          <PostsScreen
+            postCheck={post}
+            userData={userData}
+            isOwnProfile={isOwnProfile}
+            onPostPinChanged={onPostPinChanged}
+            scrollEnabled={false}
+            activeMediaFilter={mediaTab}
+          />
+        )}
+      </View>
     ),
     privateCircle: (
       <PrivateCircle
@@ -189,7 +231,10 @@ const ProfileTabs = memo(({
     privateKey,
     handlePrivateCircleStartPress,
     onPostPinChanged,
-    activeTab
+    activeTab,
+    mediaTab,
+    MEDIA_TABS,
+    text,
   ]);
 
   // ── Tab metadata — icons/labels/onPress only, NO screen elements ─────────────
@@ -347,6 +392,39 @@ export default ProfileTabs;
 const styles = StyleSheet.create({
   tabsRoot: {
     flex: 1,
+  },
+  postsWrap: {
+    flex: 1,
+  },
+  mediaTabsRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    paddingHorizontal: 8,
+    paddingTop: 8,
+    paddingBottom: 6,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#ececec',
+  },
+  mediaTabItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    paddingVertical: 4,
+  },
+  mediaTabLabel: {
+    marginTop: 4,
+    fontSize: 11,
+    color: '#6b7280',
+  },
+  mediaTabIndicator: {
+    position: 'absolute',
+    bottom: -7,
+    width: '58%',
+    height: 3,
+    borderRadius: 999,
   },
   tabBar: {
     flexDirection: 'row',
