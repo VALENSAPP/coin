@@ -15,14 +15,16 @@ import { useDispatch } from 'react-redux';
 import { authSesionHistory, logoutDeviec, logoutDeviecAll } from '../../services/wallet';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useAppTheme } from '../../theme/useApptheme';
+import { useBusinessProfileTheme } from '../../theme/useBusinessProfileTheme';
+import { useThemeContext } from '../../theme/ThemeContext';
 import { useLanguage } from '../../i18n';
 
 const LoginHistoryScreen = () => {
     const [loginHistory, setLoginHistory] = useState([]);
     const dispatch = useDispatch();
     const toast = useToast();
-    const { bgStyle, textStyle } = useAppTheme();
+    const { bgStyle, textStyle, accent, mutedText, border, cardStyle } = useBusinessProfileTheme();
+    const { isDarkMode } = useThemeContext();
     const { t } = useLanguage();
 
     useEffect(() => {
@@ -276,13 +278,20 @@ const LoginHistoryScreen = () => {
 
     return (
         <SafeAreaView style={[styles.container, bgStyle]}>
-            <StatusBar barStyle="dark-content" />
+            <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
             <ScrollView style={styles.content}>
                 <View style={[styles.section, { marginTop: 20 }]}>
-                    <Text style={styles.sectionTitle}>{t('loginHistory.sectionTitle')}</Text>
+                    <Text style={[styles.sectionTitle, textStyle]}>{t('loginHistory.sectionTitle')}</Text>
                     {loginHistory.length > 0 ? (
                         loginHistory.map((login, index) => (
-                            <View key={login.id || index} style={styles.loginItem}>
+                            <View
+                                key={login.id || index}
+                                style={[
+                                    styles.loginItem,
+                                    cardStyle,
+                                    { borderColor: border, borderWidth: 1 },
+                                ]}
+                            >
                                 <View style={styles.loginLeft}>
                                     <View
                                         style={[
@@ -293,9 +302,9 @@ const LoginHistoryScreen = () => {
                                         ]}
                                     />
                                     <View style={styles.loginTextContent}>
-                                        <Text style={styles.loginDevice}>{login.device}</Text>
+                                        <Text style={[styles.loginDevice, textStyle]}>{login.device}</Text>
                                         {!!(login.locationName || login.location) && (
-                                            <Text style={styles.loginLocation}>
+                                            <Text style={[styles.loginLocation, { color: mutedText }]}>
                                                 {login.locationName || login.location}
                                             </Text>
                                         )}
@@ -322,17 +331,19 @@ const LoginHistoryScreen = () => {
                         ))
                     ) : (
                         <View style={styles.emptyState}>
-                            <Text style={styles.emptyText}>{t('loginHistory.emptyState')}</Text>
+                            <Text style={[styles.emptyText, { color: mutedText }]}>
+                                {t('loginHistory.emptyState')}
+                            </Text>
                         </View>
                     )}
                 </View>
 
                 <View style={styles.section}>
                     <TouchableOpacity
-                        style={styles.logoutButton}
+                        style={[styles.logoutButton, cardStyle, { borderColor: accent }]}
                         onPress={handleLogoutAllOtherDevices}
                     >
-                        <Text style={styles.logoutButtonText}>
+                        <Text style={[styles.logoutButtonText, { color: accent }]}>
                             {t('loginHistory.logoutAllButton')}
                         </Text>
                     </TouchableOpacity>

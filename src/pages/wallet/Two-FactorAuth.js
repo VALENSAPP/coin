@@ -22,7 +22,7 @@ import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view
 import OTPTextInput from 'react-native-otp-textinput';
 import Icon from 'react-native-vector-icons/Ionicons';
 import styles from './Style';
-import { useAppTheme } from '../../theme/useApptheme';
+import { useBusinessProfileTheme } from '../../theme/useBusinessProfileTheme';
 import { useToast } from 'react-native-toast-notifications';
 import { useDispatch } from 'react-redux';
 import { showLoader, hideLoader } from '../../redux/actions/LoaderAction';
@@ -48,7 +48,7 @@ const TwoFactorAuthScreen = () => {
   const [disableErrorMessage, setDisableErrorMessage] = React.useState('');
   const otpInput = React.useRef(null);
   const disableOtpInput = React.useRef(null);
-  const { bgStyle, textStyle, text } = useAppTheme();
+  const { bgStyle, textStyle, text, accent, mutedText, border, card } = useBusinessProfileTheme();
   const toast = useToast();
   const dispatch = useDispatch();
   const { t } = useLanguage();

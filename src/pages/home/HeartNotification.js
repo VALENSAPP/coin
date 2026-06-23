@@ -18,7 +18,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { useAppTheme } from '../../theme/useApptheme';
+import { useBusinessProfileTheme } from '../../theme/useBusinessProfileTheme';
 import {
   getAllNotifactions,
   readNotification,
@@ -304,7 +304,7 @@ export default function Notifications() {
   const scrollViewRef = useRef(null);
   const tabScrollRef = useRef(null);
   const currentIndexRef = useRef(0);
-  const { bgStyle, textStyle, text, icon, card, cardStyle, border, mutedText, accent } = useAppTheme();
+  const { bgStyle, textStyle, text, icon, card, cardStyle, border, mutedText, accent } = useBusinessProfileTheme();
 
   const [notifications, setNotifications] = useState([]);
   const [battleNotifications, setBattleNotifications] = useState([]);
@@ -1366,9 +1366,9 @@ export default function Notifications() {
                   style={[styles.nftImage, bgStyle]}
                 />
               )} */}
-              {item.price && (
+              {item.price != null && item.price !== '' ? (
                 <Text style={[styles.priceText, textStyle]}>{item.price}</Text>
-              )}
+              ) : null}
             </View>
           </View>
 
@@ -1406,8 +1406,8 @@ export default function Notifications() {
               <RefreshControl
                 refreshing={refreshing}
                 onRefresh={onRefresh}
-                tintColor={text}
-                colors={[text]}
+                tintColor={accent}
+                colors={[accent]}
               />
             }
           />

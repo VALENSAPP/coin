@@ -30,6 +30,7 @@ import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/nativ
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import createStyles from '../../../pages/home/Style';
+import { useAppTheme } from '../../../theme/useApptheme';
 import HexAvatar from './HexAvatar';
 import StoryComposer from './StoryComposer';
 import {
@@ -1811,6 +1812,7 @@ const formatTime = timestamp => {
 // ─────────────────────────────────────────────────────────────────────────────
 export default function Stories({ refreshTick, sidebarMode = false, onDrawerClose }) {
   const styles = createStyles();
+  const { textStyle, icon } = useAppTheme();
   const navigation = useNavigation();
   const { t } = useLanguage();
   const [stories, setStories] = useState([]);
@@ -2548,6 +2550,7 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
           <Icon
             name="add-circle"
             size={sidebarMode ? 20 : 28}
+            color={icon}
             style={sidebarMode ? sidebarStyles.verticalAddIcon : styles.addIcon}
           />
         )}
@@ -2558,7 +2561,7 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
               isUser={!!item.isUser}
               size={sidebarMode ? 80 : 79}
               borderWidth={item.isUser ? 3 : 2}
-              borderColor={item.isUser ? '#4da3ff' : '#000'}
+              borderColor={item.isUser ? '#4da3ff' : icon}
             />
             {item.isUser && item.stories.length > 0 && (
               <TouchableOpacity
@@ -2575,7 +2578,13 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
         </View>
       </View>
       <Text
-        style={item.isUser ? (sidebarMode ? sidebarStyles.verticalDropsText : styles.dropsText) : styles.storyUsername}
+        style={[
+          item.isUser
+            ? (sidebarMode ? sidebarStyles.verticalDropsText : styles.dropsText)
+            : styles.storyUsername,
+          textStyle,
+          sidebarMode && sidebarStyles.sidebarStoryLabel,
+        ]}
         numberOfLines={1}
       >
         {item.username || (item.isUser ? t('stories.drops') : '')}
@@ -2661,5 +2670,6 @@ const sidebarStyles = StyleSheet.create({
   verticalAddIcon: { position: 'absolute', bottom: 0, right: 0, zIndex: 10, backgroundColor: '#fff', borderRadius: 14 },
   verticalAddStoryOverlay: { position: 'absolute', bottom: -2, right: -2, zIndex: 10 },
   verticalAddStoryButton: { backgroundColor: '#4da3ff', borderRadius: 10, width: 20, height: 20, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#fff' },
-  verticalDropsText: { marginTop: 2, fontSize: 12, color: '#6b6b6b', fontWeight: '600', textAlign: 'center' },
+  verticalDropsText: { marginTop: 2, fontSize: 12, fontWeight: '600', textAlign: 'center' },
+  sidebarStoryLabel: { maxWidth: 72, fontSize: 12, textAlign: 'center' },
 });

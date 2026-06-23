@@ -4,12 +4,12 @@ import Clipboard from '@react-native-clipboard/clipboard';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { useAppTheme } from '../../theme/useApptheme';
+import { useBusinessProfileTheme } from '../../theme/useBusinessProfileTheme';
 import { useLanguage } from '../../i18n';
 
 const DepositeCash = () => {
   const userId = '0xf8652b01';
-  const { bgStyle, textStyle, text } = useAppTheme();
+  const { bgStyle, textStyle, text, accent } = useBusinessProfileTheme();
   const navigation = useNavigation();
   const { t } = useLanguage();
 

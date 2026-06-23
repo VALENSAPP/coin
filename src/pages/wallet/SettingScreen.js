@@ -19,7 +19,7 @@ import { useToast } from 'react-native-toast-notifications';
 import { useDispatch, useSelector } from 'react-redux';
 import { useFocusEffect } from '@react-navigation/native';
 import { getProfile } from '../../services/createProfile';
-import { useAppTheme } from '../../theme/useApptheme';
+import { useBusinessProfileTheme } from '../../theme/useBusinessProfileTheme';
 import HexAvatar from '../../components/home/story.js/HexAvatar';
 import { useLanguage } from '../../i18n';
 import {
@@ -34,21 +34,10 @@ export const SettingsScreen = ({ navigation }) => {
   const [userData, setUserData] = useState();
   const [profileData, setProfileData] = useState();
   const profileImage = useSelector(state => state.profileImage?.profileImg);
-  const reduxProfile = useSelector(state => state.userProfile.userProfile);
-  const [isBusinessProfile, setIsBusinessProfile] = useState(false);
+  const { bgStyle, textStyle, text, card, cardStyle, mutedText, accent, icon, border } = useBusinessProfileTheme();
   const dispatch = useDispatch();
   const toast = useToast();
-  const { bgStyle, textStyle, text, card, cardStyle, mutedText, accent, icon, border } = useAppTheme(
-    isBusinessProfile ? 'company' : undefined,
-  );
   const { t } = useLanguage();
-
-  const loadProfileType = React.useCallback(async () => {
-    const type = await AsyncStorage.getItem('profile');
-    if (type) {
-      setIsBusinessProfile(String(type).toLowerCase() !== 'user');
-    }
-  }, []);
 
   const profilePhotoUri =
     profileImage ||
@@ -67,7 +56,6 @@ export const SettingsScreen = ({ navigation }) => {
         if (!id) return;
 
         await Promise.all([
-          loadProfileType(),
           fetchUserCreds(id),
           fetchProfile(id),
           loadNotificationPreference(),
@@ -75,14 +63,8 @@ export const SettingsScreen = ({ navigation }) => {
       };
 
       fetchData();
-    }, [loadNotificationPreference, loadProfileType]),
+    }, [loadNotificationPreference]),
   );
-
-  React.useEffect(() => {
-    if (reduxProfile && reduxProfile !== 'normal') {
-      setIsBusinessProfile(String(reduxProfile).toLowerCase() !== 'user');
-    }
-  }, [reduxProfile]);
 
   const handleNotificationToggle = async (value) => {
     if (value) {
@@ -160,9 +142,6 @@ export const SettingsScreen = ({ navigation }) => {
 
         console.log(userDataToSet, 'this is response from getUserDashboard in wallet');
         setUserData(userDataToSet);
-        if (userDataToSet?.profile) {
-          setIsBusinessProfile(String(userDataToSet.profile).toLowerCase() !== 'user');
-        }
       } else {
         showToastMessage(toast, 'danger', response.data.message);
       }

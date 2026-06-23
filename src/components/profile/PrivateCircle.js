@@ -15,6 +15,8 @@ import LinearGradient from 'react-native-linear-gradient';
 import Video from 'react-native-video';
 import FastImage from 'react-native-fast-image';
 import Svg, { ClipPath, Polygon, Image as SvgImage, Defs } from 'react-native-svg';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSelector } from 'react-redux';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useLanguage } from '../../i18n';
 import useScreenshotProtection, {
@@ -149,7 +151,7 @@ const HexagonImage = ({ uri, size = 34, borderColor = 'rgba(201,161,90,0.28)' })
   );
 };
 
-const PostImage = memo(({ item, themeTextStyle, loaderColor = '#5a2d82' }) => {
+const PostImage = memo(({ item, themeTextStyle, loaderColor = '#C9A15A' }) => {
   const { mediaUrl, thumbnailUrl, isVideo } = getPreviewMedia(item);
   const [imageError, setImageError] = useState(false);
   const [isImageLoading, setIsImageLoading] = useState(true);
@@ -212,7 +214,19 @@ const ItemSeparator = memo(() => <View style={gridStyles.itemSeparator} />);
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userData, loggedInUserId, isTabActive = false }) => {
-  const { bgStyle, textStyle, text, cardStyle, accent, mutedText, border, card, icon } = useAppTheme(userData?.profile);
+  const reduxProfile = useSelector(state => state.userProfile.userProfile);
+  const [loggedInProfileType, setLoggedInProfileType] = useState(null);
+
+  const resolvedThemeProfile = useMemo(() => {
+    const fromUser = userData?.profile;
+    const fromViewer = reduxProfile && reduxProfile !== 'normal' ? reduxProfile : loggedInProfileType;
+    const resolved = fromUser || fromViewer || 'user';
+    return String(resolved).toLowerCase() !== 'user' ? 'company' : undefined;
+  }, [userData?.profile, reduxProfile, loggedInProfileType]);
+
+  const { bgStyle, textStyle, text, cardStyle, accent, mutedText, border, card, icon } = useAppTheme(
+    resolvedThemeProfile,
+  );
   const { t } = useLanguage();
   const navigation = useNavigation();
   const isFocused = useIsFocused();
@@ -220,6 +234,17 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
   const isWalletPrivateCircle = skipPrivateCircleApi && !userData?.id;
   const privateCircleRefreshAt = route?.params?.privateCircleRefreshAt;
   const isOwnContent = isOwnProfile || isWalletPrivateCircle;
+
+  const loadLoggedInProfileType = useCallback(async () => {
+    const type = await AsyncStorage.getItem('profile');
+    if (type) setLoggedInProfileType(type);
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadLoggedInProfileType();
+    }, [loadLoggedInProfileType]),
+  );
 
   useScreenshotProtection({
     enabled: isFocused && isTabActive && !isOwnContent,
@@ -574,7 +599,7 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
       {isOwnProfile ? (
         <View style={[styles.card, cardStyle, { borderColor: withAlpha(text, 0.12) }]}>
           <LinearGradient
-            colors={[withAlpha(text, 0.16), withAlpha(text, 0.06)]}
+            colors={[withAlpha(accent, 0.16), withAlpha(accent, 0.06)]}
             start={{ x: 0, y: 0 }}
             end={{ x: 0, y: 1 }}
             style={styles.leftRail}
@@ -582,7 +607,7 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
             <View
               style={[
                 styles.railIconBubble,
-                { backgroundColor: withAlpha(accent, 0.18), marginTop: '200%' },
+                { backgroundColor: withAlpha(accent, 0.18) },
               ]}
             >
               <Ionicons name="lock-closed" size={34} color={accent} />
@@ -618,7 +643,7 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
         <View>
           <View style={[styles.card, cardStyle, { borderColor: withAlpha(text, 0.12) }]}>
             <LinearGradient
-              colors={[withAlpha(text, 0.16), withAlpha(text, 0.06)]}
+              colors={[withAlpha(accent, 0.16), withAlpha(accent, 0.06)]}
               start={{ x: 0, y: 0 }}
               end={{ x: 0, y: 1 }}
               style={styles.leftRail}
@@ -626,7 +651,7 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
               <View
                 style={[
                   styles.railIconBubble,
-                  { backgroundColor: withAlpha(accent, 0.18), marginTop: '100%' },
+                  { backgroundColor: withAlpha(accent, 0.18) },
                 ]}
               >
                 <Ionicons name="lock-closed" size={34} color={accent} />
@@ -681,12 +706,12 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
               <Text style={[styles.miniSectionTitle, textStyle]}>{t('privateCircle.overview')}</Text>
               <View style={styles.overviewGrid}>
                 <View style={[styles.overviewTile, cardStyle, { borderColor: withAlpha(text, 0.12) }]}>
-                  <Ionicons name="people-outline" size={18} color={text} />
+                  <Ionicons name="people-outline" size={18} color={accent} />
                   <Text style={[styles.overviewNumber, textStyle]}>{dashboardMemberCount}</Text>
                   <Text style={[styles.overviewLabel, { color: mutedText }]}>{t('privateCircle.members')}</Text>
                 </View>
                 <View style={[styles.overviewTile, cardStyle, { borderColor: withAlpha(text, 0.12) }]}>
-                  <Ionicons name="document-text-outline" size={18} color={text} />
+                  <Ionicons name="document-text-outline" size={18} color={accent} />
                   <Text style={[styles.overviewNumber, textStyle]}>{dashboardPostCount}</Text>
                   <Text style={[styles.overviewLabel, { color: mutedText }]}>{t('privateCircle.posts')}</Text>
                 </View>
@@ -701,7 +726,7 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
                 </View>
                 {recentActivities.map((activity) => (
                   <View key={activity.id} style={styles.activityRow}>
-                    <View style={[styles.activityDot, { backgroundColor: text }]} />
+                    <View style={[styles.activityDot, { backgroundColor: accent }]} />
                     <View style={styles.activityTextWrap}>
                       <Text style={[styles.activityName, textStyle]}>{activity.name}</Text>
                       <Text style={[styles.activityMeta, { color: mutedText }]}>{activity.body || activity.action}</Text>
@@ -716,11 +741,11 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
                   <Text style={[styles.miniSectionTitle, textStyle]}>{t('privateCircle.members')}</Text>
                   <TouchableOpacity
                     activeOpacity={0.85}
-                    style={[styles.inviteButton, { backgroundColor: withAlpha(text, 0.1) }]}
+                    style={[styles.inviteButton, { backgroundColor: withAlpha(accent, 0.12) }]}
                     onPress={openAddMemberScreen}
                   >
-                    <Ionicons name="person-add-outline" size={13} color={text} />
-                    <Text style={[styles.inviteButtonText, { color: text }]}>Add member</Text>
+                    <Ionicons name="person-add-outline" size={13} color={accent} />
+                    <Text style={[styles.inviteButtonText, { color: accent }]}>Add member</Text>
                   </TouchableOpacity>
                 </View>
                 {previewMembers.map((member) => (
@@ -788,7 +813,7 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
   if (skipPrivateCircleApi) return <InfoCard {...infoCardProps} />;
   if (loading || isMember === null) return (
     <View style={[gridStyles.loaderContainer, bgStyle]}>
-      <ActivityIndicator size="large" color={text} />
+      <ActivityIndicator size="large" color={accent} />
     </View>
   );
   if (!isMember) return <InfoCard {...infoCardProps} />;
@@ -797,7 +822,7 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
   if (loading || isMember === null) {
     return (
       <View style={[gridStyles.loaderContainer, bgStyle]}>
-        <ActivityIndicator size="large" color={text} />
+        <ActivityIndicator size="large" color={accent} />
       </View>
     );
   }
@@ -862,7 +887,8 @@ const styles = StyleSheet.create({
   leftRail: {
     width: 92,
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
+    alignSelf: 'stretch',
   },
   railIconBubble: {
     height: 58,

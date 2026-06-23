@@ -57,6 +57,7 @@ import { showToastMessage } from '../../components/displaytoastmessage';
 import Video from 'react-native-video';
 import styles from './Style';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useBusinessProfileTheme } from '../../theme/useBusinessProfileTheme';
 import { getProgressBarColor } from '../../utils/progressBarUtils';
 import { getTotalDonationAmount } from '../../services/tokens';
 import { battleByUserId, exploretBattle } from '../../services/battle';
@@ -466,7 +467,8 @@ const SearchScreen = () => {
   const toastRef = useRef(toast);
   const activeSearchRequestIdRef = useRef(0);
 
-  const { bgStyle, text, card, border, mutedText, icon, accent } = useAppTheme();
+  const themeProfile = String(profile || '').toLowerCase() === 'company' ? 'company' : undefined;
+  const { bgStyle, text, card, border, mutedText, icon, accent } = useAppTheme(themeProfile);
   const isScreenFocused = useIsFocused();
   const isSearchActive = searchText.trim().length > 0;
   const tabBarHeight = useBottomTabBarHeight();
@@ -551,6 +553,12 @@ const SearchScreen = () => {
       dispatch(hideLoader());
     }
   }, [dispatch, toast]);
+
+  useEffect(() => {
+    AsyncStorage.getItem('profile').then(storedProfile => {
+      if (storedProfile) setProfile(storedProfile);
+    });
+  }, []);
 
   useEffect(() => {
     if (isScreenFocused) {
@@ -1075,7 +1083,7 @@ const SearchScreen = () => {
                   <AutoScrollBattleRow>
                     {loadingLiveBattles ? (
                       <View style={[styles.card, { alignItems: 'center', justifyContent: 'center' }]}>
-                        <ActivityIndicator size="small" color="#999" />
+                        <ActivityIndicator size="small" color={accent} />
                       </View>
                     ) : visibleBattleCards.length > 0 ? (
                       visibleBattleCards.map(item => (

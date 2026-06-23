@@ -19,7 +19,7 @@ import { userAccountDelete, userProfileStatusSet } from '../../services/wallet';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { loggedOut } from '../../redux/actions/LoginAction';
-import { useAppTheme } from '../../theme/useApptheme';
+import { useBusinessProfileTheme } from '../../theme/useBusinessProfileTheme';
 import { useThemeContext } from '../../theme/ThemeContext';
 import { useLanguage } from '../../i18n';
 import { useNavigation } from '@react-navigation/native';
@@ -38,7 +38,7 @@ const PrivacySettingsScreen = () => {
     const dispatch = useDispatch();
     const navigation = useNavigation();
     const toast = useToast();
-    const { bgStyle, textStyle, cardStyle, text, mutedText, border, accent, card } = useAppTheme();
+    const { bgStyle, textStyle, cardStyle, text, mutedText, border, accent, card } = useBusinessProfileTheme();
     const { isDarkMode } = useThemeContext();
     const { t } = useLanguage();
 

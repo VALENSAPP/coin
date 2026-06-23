@@ -2,7 +2,7 @@ import { Platform, StyleSheet } from 'react-native';
 import { useAppTheme } from '../../theme/useApptheme';
 
 const createStyles = () => {
-  const { bg, text, border } = useAppTheme();
+  const { bg, text, border, icon } = useAppTheme();
   const styles = StyleSheet.create({
     container: {
       flex: 1,
@@ -81,19 +81,18 @@ const createStyles = () => {
     },
     storyUsername: {
       fontSize: 10,
-      color: '#222',
+      color: text,
       maxWidth: 60,
       textAlign: 'center',
       marginTop: 4,
-      fontWeight:'500'
-
+      fontWeight: '500',
     },
     addIcon: {
       position: 'absolute',
       bottom: -8,
       right: -8,
       zIndex: 1000,
-      color: '#000',
+      color: icon,
       backgroundColor: '#fff',
       borderRadius: 100,
     },
@@ -131,10 +130,10 @@ const createStyles = () => {
     positiom: {
       marginTop: '25%'
     },
-    dropsText:{
-      fontWeight:'500',
-      fontSize:15,
-      color:'#000'
+    dropsText: {
+      fontWeight: '500',
+      fontSize: 15,
+      color: text,
     },
   });
   return styles;

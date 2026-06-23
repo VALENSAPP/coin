@@ -8,6 +8,7 @@ import {
     ScrollView,
     SafeAreaView,
     Platform,
+    StatusBar,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -20,14 +21,16 @@ import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { userChangePassword } from '../../services/wallet';
 import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../../components/displaytoastmessage';
-import { useAppTheme } from '../../theme/useApptheme';
+import { useBusinessProfileTheme } from '../../theme/useBusinessProfileTheme';
+import { useThemeContext } from '../../theme/ThemeContext';
 import { useLanguage } from '../../i18n';
 
 const ChangePassword = () => {
     const [showOldPassword, setShowOldPassword] = useState(false);
     const [showNewPassword, setShowNewPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-    const { bgStyle, textStyle, text } = useAppTheme();
+    const { bgStyle, textStyle, text, border, card, mutedText } = useBusinessProfileTheme();
+    const { isDarkMode } = useThemeContext();
     const navigation = useNavigation();
     const dispatch = useDispatch();
     const toast = useToast();
@@ -111,6 +114,7 @@ const ChangePassword = () => {
 
     return (
         <SafeAreaView style={[styles.container, bgStyle]}>
+            <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
             <Formik
                 initialValues={{
                     oldPassword: '',
@@ -130,11 +134,12 @@ const ChangePassword = () => {
                         >
                             {/* Old Password */}
                             <View style={styles.inputContainer}>
-                                <Text style={styles.label}>{t('changePassword.oldPasswordLabel')}</Text>
+                                <Text style={[styles.label, textStyle]}>{t('changePassword.oldPasswordLabel')}</Text>
                                 <View style={styles.passwordInputContainer}>
                                     <TextInput
                                         style={[
                                             styles.passwordInput,
+                                            { backgroundColor: card, borderColor: border, color: text },
                                             touched.oldPassword && errors.oldPassword && styles.inputError,
                                         ]}
                                         placeholder={t('changePassword.oldPasswordPlaceholder')}
@@ -142,7 +147,7 @@ const ChangePassword = () => {
                                         value={values.oldPassword}
                                         onChangeText={handleChange('oldPassword')}
                                         onBlur={handleBlur('oldPassword')}
-                                        placeholderTextColor="#4a4646ff"
+                                        placeholderTextColor={mutedText}
                                     />
                                     <TouchableOpacity
                                         style={styles.eyeIcon}
@@ -158,11 +163,12 @@ const ChangePassword = () => {
 
                             {/* New Password */}
                             <View style={styles.inputContainer}>
-                                <Text style={styles.label}>{t('changePassword.newPasswordLabel')}</Text>
+                                <Text style={[styles.label, textStyle]}>{t('changePassword.newPasswordLabel')}</Text>
                                 <View style={styles.passwordInputContainer}>
                                     <TextInput
                                         style={[
                                             styles.passwordInput,
+                                            { backgroundColor: card, borderColor: border, color: text },
                                             touched.newPassword && errors.newPassword && styles.inputError,
                                         ]}
                                         placeholder={t('changePassword.newPasswordPlaceholder')}
@@ -170,7 +176,7 @@ const ChangePassword = () => {
                                         value={values.newPassword}
                                         onChangeText={handleChange('newPassword')}
                                         onBlur={handleBlur('newPassword')}
-                                        placeholderTextColor="#4a4646ff"
+                                        placeholderTextColor={mutedText}
                                     />
                                     <TouchableOpacity
                                         style={styles.eyeIcon}
@@ -186,11 +192,12 @@ const ChangePassword = () => {
 
                             {/* Confirm Password */}
                             <View style={styles.inputContainer}>
-                                <Text style={styles.label}>{t('changePassword.confirmPasswordLabel')}</Text>
+                                <Text style={[styles.label, textStyle]}>{t('changePassword.confirmPasswordLabel')}</Text>
                                 <View style={styles.passwordInputContainer}>
                                     <TextInput
                                         style={[
                                             styles.passwordInput,
+                                            { backgroundColor: card, borderColor: border, color: text },
                                             touched.confirmPassword &&
                                                 errors.confirmPassword &&
                                                 styles.inputError,
@@ -200,7 +207,7 @@ const ChangePassword = () => {
                                         value={values.confirmPassword}
                                         onChangeText={handleChange('confirmPassword')}
                                         onBlur={handleBlur('confirmPassword')}
-                                        placeholderTextColor="#4a4646ff"
+                                        placeholderTextColor={mutedText}
                                     />
                                     <TouchableOpacity
                                         style={styles.eyeIcon}
@@ -218,11 +225,7 @@ const ChangePassword = () => {
                         <CustomButton
                             title={t('changePassword.submitButton')}
                             onPress={handleSubmit}
-                            style={[
-                                styles.socialBtn,
-                                styles.submitBtn,
-                                { backgroundColor: text, borderColor: text },
-                            ]}
+                            style={[styles.socialBtn, styles.submitBtn]}
                             textStyle={styles.socialBtnText}
                         />
                     </>

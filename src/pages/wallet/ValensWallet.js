@@ -22,7 +22,7 @@ import TradeModal from '../../components/modals/TradeModal';
 import HexAvatar from '../../components/home/story.js/HexAvatar';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { showToastMessage } from '../../components/displaytoastmessage';
-import { useAppTheme } from '../../theme/useApptheme';
+import { useBusinessProfileTheme } from '../../theme/useBusinessProfileTheme';
 import { useThemeContext } from '../../theme/ThemeContext';
 import { getWalletScreenGradient, getWalletGradientText } from '../../utils/walletDarkTheme';
 import { getUserCredentials } from '../../services/post';
@@ -63,7 +63,6 @@ const ValensWallet = ({ navigation }) => {
     const [tradeModalVisible, setTradeModalVisible] = useState(false);
     const [portfolioValue, setPortfolioValue] = useState();
     const [portfolioValueNumber, setPortfolioValueNumber] = useState(0);
-    const [isBusinessProfile, setIsBusinessProfile] = useState(false);
     const [metaMaskReceivedUsd, setMetaMaskReceivedUsd] = useState(0);
     const [missionEarningsUsd, setMissionEarningsUsd] = useState(0);
     const [subscriptionPaymentsUsd, setSubscriptionPaymentsUsd] = useState(0);
@@ -74,7 +73,7 @@ const ValensWallet = ({ navigation }) => {
     const [recentActivity, setRecentActivity] = useState([]);
     const dispatch = useDispatch();
     const toast = useToast();
-    const { bgStyle, text, cardStyle, accent, card } = useAppTheme(isBusinessProfile ? 'company' : undefined);
+    const { isBusinessProfile, bgStyle, text, cardStyle, accent, card } = useBusinessProfileTheme();
     const { isDarkMode } = useThemeContext();
     const { width: screenWidth } = useWindowDimensions();
     const { t } = useLanguage();
@@ -122,11 +121,6 @@ const ValensWallet = ({ navigation }) => {
                 } else if (response?.message) {
                     showToastMessage(toast, 'danger', response.message);
                 }
-            }
-
-            if (userRes.status === 'fulfilled') {
-                const response = userRes.value;
-                setIsBusinessProfile(response?.data?.profile !== 'user');
             }
 
             if (metaRes.status === 'fulfilled') {

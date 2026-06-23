@@ -3,12 +3,12 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import { useNavigation } from '@react-navigation/native';
 import React, { useLayoutEffect, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useAppTheme } from '../../theme/useApptheme';
+import { useBusinessProfileTheme } from '../../theme/useBusinessProfileTheme';
 import { useLanguage } from '../../i18n';
 
 const CashOut = () => {
     const [address, setAddress] = useState('');
-    const { bgStyle, textStyle, text } = useAppTheme();
+    const { bgStyle, textStyle, text, accent } = useBusinessProfileTheme();
     const navigation = useNavigation();
     const { t } = useLanguage();
 
