@@ -72,6 +72,9 @@
             <data android:scheme="com.valens" />
         </intent-filter>
       </activity>
+      <uses-feature
+    android:name="android.hardware.location.gps"
+    android:required="false" />
       
     </application>
 </manifest>
