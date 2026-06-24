@@ -124,6 +124,10 @@ if (data.tableContent) {
   appendMultipartFile(formData, 'ebookPdf', data.ebookPdf);
   appendMultipartFile(formData, 'ebookpdf', data.ebookpdf);
 
+  if (data.location != null && String(data.location).trim() !== '') {
+    formData.append('location', String(data.location).trim());
+  }
+
   if (Array.isArray(data.media)) {
     data.media.forEach(file => {
       if (!file.type || !file.uri) {

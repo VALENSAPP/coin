@@ -81,7 +81,7 @@
     "react-native-modal": "14.0.0-rc.1",
     "react-native-otp-textinput": "^1.1.7",
     "react-native-pager-view": "^6.8.1",
-    "react-native-permissions": "^5.4.2",
+    "react-native-permissions": "^5.6.0",
     "react-native-qrcode-svg": "^6.3.15",
     "react-native-raw-bottom-sheet": "^3.0.0",
     "react-native-reanimated": "4.2.3",
