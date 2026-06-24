@@ -710,6 +710,14 @@ export default function PostView({ postData = [], userData = {} }) {
     );
   }, []);
 
+  const handleLocationUpdate = useCallback((postId, location) => {
+    setList(prev =>
+      prev.map(post =>
+        String(post.id) === String(postId) ? { ...post, location } : post,
+      ),
+    );
+  }, []);
+
   const canDelete = useMemo(() => {
     if (!modalPostId || !currentUserId) return false;
     const post = list.find(x => String(x.id) === String(modalPostId));
@@ -987,6 +995,9 @@ export default function PostView({ postData = [], userData = {} }) {
             ? 'company'
             : 'user',
         createdAt: item.createdAt,
+        location: item.location || item.Location || '',
+        type: item.type || item.postType || 'normal',
+        postType: item.postType || item.type || 'normal',
         UserId: item.userId,
         userId: item.userId,
         boughtBy: item.boughtBy || [],
@@ -1027,6 +1038,7 @@ export default function PostView({ postData = [], userData = {} }) {
             isTrustPost={mapped.isTrustPost}
             isVisible={isPostVisible}
             screenFocused={screenFocused}
+            onLocationUpdate={handleLocationUpdate}
             playingPostId={playingPostId}
             currentlyVisiblePostId={currentlyVisiblePostId}
           />
@@ -1049,6 +1061,7 @@ export default function PostView({ postData = [], userData = {} }) {
       screenFocused,
       playingPostId,
       listViewportHeight,
+      handleLocationUpdate,
     ],
   );
 

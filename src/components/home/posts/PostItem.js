@@ -44,7 +44,13 @@ import {
   getTrustScrore,
   unVote,
   voteTrust,
+  editPost,
 } from '../../../services/post';
+import {
+  formatMintedDateTime,
+  getMintLabelKey,
+  resolveMintTimestamp,
+} from '../../../utils/postMintDisplay';
 import { useAppTheme } from '../../../theme/useApptheme';
 import { getTotalDonationAmount } from '../../../services/tokens';
 import BuyersListModal from '../../modals/BuyerList';
@@ -67,6 +73,7 @@ import {
 import { useLanguage } from '../../../i18n';
 import { navigateToUserProfile } from '../../../utils/navigateToUserProfile';
 import TrustCommentModal from '../../modals/TrustCommentModal';
+import PostLocationModal from '../../modals/PostLocationModal';
 
 const { width } = Dimensions.get('window');
 const AnimatedFastImage = Animated.createAnimatedComponent(FastImage);
@@ -515,6 +522,7 @@ function PostItem({
   taggedPeople,
   hideDonationButton = false,
   isTrustPost = false,
+  onLocationUpdate,
 }) {
   const { width: windowWidth } = useWindowDimensions();
   const heartScale = useRef(new Animated.Value(1)).current;
@@ -589,6 +597,11 @@ function PostItem({
   const [isKycVerified, setIsKycVerified] = useState(false);
   const [isSubscriptionActive, setIsSubscriptionActive] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [locationValue, setLocationValue] = useState(
+    typeof item?.location === 'string' ? item.location : '',
+  );
+  const [locationModalVisible, setLocationModalVisible] = useState(false);
+  const [locationSaving, setLocationSaving] = useState(false);
 
   const usernameText = item?.username || t('postItem.unknownUser');
   const captionValue = item?.caption?.trim() || '';
@@ -604,7 +617,22 @@ function PostItem({
     setTrustScoreVisible(false);
     setTrustVote(null);
     setTrustScore(null);
-  }, [item?.caption, item?.id, item?.UserId]);
+    setLocationValue(typeof item?.location === 'string' ? item.location : '');
+  }, [item?.caption, item?.id, item?.UserId, item?.location]);
+
+  const mintedDateTime = useMemo(
+    () => formatMintedDateTime(resolveMintTimestamp(item)),
+    [item?.createdAt, item?.created_at, item?.mintedAt, item?.minted_at, item?.updatedAt, item?.updated_at],
+  );
+  const mintLabelKey = useMemo(() => getMintLabelKey(item), [item]);
+  const isPostOwner = Boolean(
+    currentUserIdStr && itemUserIdStr && currentUserIdStr === itemUserIdStr,
+  );
+  const locationDisplayText = locationValue.trim()
+    ? locationValue.trim()
+    : isPostOwner
+      ? t('postItem.locationPlaceholder')
+      : '';
 
   const navigation = useNavigation();
   const shareRef = useRef(null);
@@ -618,6 +646,37 @@ function PostItem({
   const { text } = useAppTheme();
   const isMountedRef = useRef(true);
   const route = useRoute();
+
+  const handleOpenLocationEditor = useCallback(() => {
+    if (!isPostOwner || !item?.id) return;
+    setLocationModalVisible(true);
+  }, [isPostOwner, item?.id]);
+
+  const handleSaveLocation = useCallback(async (nextLocationValue) => {
+    if (!item?.id || locationSaving) return;
+
+    const nextLocation = String(nextLocationValue || '').trim();
+    setLocationSaving(true);
+    try {
+      const response = await editPost(item.id, { location: nextLocation });
+      if (response?.statusCode && response.statusCode >= 400) {
+        throw new Error(response?.message || t('postItem.locationSaveError'));
+      }
+
+      setLocationValue(nextLocation);
+      onLocationUpdate?.(item.id, nextLocation);
+      setLocationModalVisible(false);
+      showToastMessage(toast, 'success', t('postItem.locationSaved'));
+    } catch (error) {
+      showToastMessage(
+        toast,
+        'danger',
+        error?.response?.data?.message || error?.message || t('postItem.locationSaveError'),
+      );
+    } finally {
+      setLocationSaving(false);
+    }
+  }, [item?.id, locationSaving, onLocationUpdate, t, toast]);
   const [selectedPostId, setSelectedPostId] = useState(null);
   const [dataFetched, setDataFetched] = useState(false);
   const modalProfileType = normalizeProfileType(userProfile || item?.profile);
@@ -1604,10 +1663,10 @@ function PostItem({
             />
           </TouchableOpacity>
 
-          <TouchableOpacity
-            onPress={() => handleUserProfile(item.UserId)}
-            style={styles.userInfo}>
-            <View style={styles.userRow}>
+          <View style={styles.userInfo}>
+            <TouchableOpacity
+              onPress={() => handleUserProfile(item.UserId)}
+              style={styles.userRow}>
               <Text
                 style={[
                   styles.username,
@@ -1620,8 +1679,25 @@ function PostItem({
                   <DragonflyIcon width={18} height={18} />
                 </View>
               )}
-            </View>
-          </TouchableOpacity>
+            </TouchableOpacity>
+            {(isPostOwner || locationValue.trim()) ? (
+              <TouchableOpacity
+                onPress={handleOpenLocationEditor}
+                disabled={!isPostOwner}
+                activeOpacity={isPostOwner ? 0.7 : 1}
+                style={styles.locationRow}>
+                <Icon name="location-sharp" size={13} color="#E53935" style={styles.locationIcon} />
+                <Text
+                  style={[
+                    styles.locationText,
+                    !locationValue.trim() && styles.locationPlaceholderText,
+                  ]}
+                  numberOfLines={1}>
+                  {locationDisplayText}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
 
           <View style={styles.priceSection} />
 
@@ -1905,6 +1981,15 @@ function PostItem({
             </TouchableOpacity>
           )}
         </View>
+
+        {!!mintedDateTime && (
+          <View style={styles.mintedSection}>
+            <Icon name="calendar-outline" size={14} color="#6B7280" style={styles.mintedIcon} />
+            <Text style={styles.mintedText}>
+              {t(mintLabelKey, { dateTime: mintedDateTime })}
+            </Text>
+          </View>
+        )}
 
         {showTrustControls && trustPanelVisible && (
           <View style={styles.trustVotePanel}>
@@ -2255,6 +2340,14 @@ function PostItem({
         onClose={() => setTrustCommentModalVisible(false)}
         onSubmit={handleTrustVoteWithComment}
       />
+
+      <PostLocationModal
+        visible={locationModalVisible}
+        initialValue={locationValue}
+        saving={locationSaving}
+        onClose={() => setLocationModalVisible(false)}
+        onSave={handleSaveLocation}
+      />
     </View>
   );
 }
@@ -2273,6 +2366,8 @@ export default React.memo(PostItem, (prev, next) => {
   if (prev.isTrustPost !== next.isTrustPost) return false;
   if (prev.item?.isTrustPost !== next.item?.isTrustPost) return false;
   if (prev.shareCount !== next.shareCount) return false;
+  if (prev.item?.location !== next.item?.location) return false;
+  if (prev.item?.createdAt !== next.item?.createdAt) return false;
   return true;
 });
 
@@ -2319,6 +2414,24 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 16,
     marginRight: 6,
+  },
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+    maxWidth: '100%',
+  },
+  locationIcon: {
+    marginRight: 4,
+  },
+  locationText: {
+    fontSize: 13,
+    color: '#4B5563',
+    flexShrink: 1,
+  },
+  locationPlaceholderText: {
+    color: '#9CA3AF',
+    fontStyle: 'italic',
   },
   dragonflyIcon: {
     marginTop: 1,
@@ -2562,6 +2675,21 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     fontWeight: '600',
     marginTop: 2,
+  },
+  mintedSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+    backgroundColor: '#FFFFFF',
+  },
+  mintedIcon: {
+    marginRight: 6,
+  },
+  mintedText: {
+    fontSize: 13,
+    color: '#6B7280',
+    fontWeight: '500',
   },
   trustScoreActionButton: {
     flexDirection: 'row',

@@ -3,3 +3,4 @@
 export const BASE_URL = "";
 export const API_PARAM = "";
 export const YOUTUBE_DATA_API_KEY = "AIzaSyC5cTUZJzSyzfO6WHNZgNNKtws6Ey9tvik";
+export const GOOGLE_PLACES_API_KEY = "AIzaSyDsQWhv2zfIk7LFog21K5J44mz2lvNK57k";

@@ -330,6 +330,11 @@ const Posts = forwardRef(function Posts(
           shareCount: item.shareCount || 0,
           isTrustPost: isTruthyTrustPost(item.isTrustPost),
           taggedPeople: Array.isArray(item.taggedPeople) ? item.taggedPeople : [],
+          location: item.location || item.Location || '',
+          createdAt: item.createdAt || item.created_at || null,
+          type: item.type || item.postType || 'normal',
+          postType: item.postType || item.type || 'normal',
+          visibleTo: item.visibleTo || item.visible_to || '',
           ...extractPostMusicPayloadFromApi(item),
         };
       });
@@ -994,6 +999,14 @@ const Posts = forwardRef(function Posts(
     return cloned;
   }, [mappedPosts, visibleSuggestions]);
 
+  const handleLocationUpdate = useCallback((postId, location) => {
+    setList(prev =>
+      prev.map(post =>
+        String(post.id) === String(postId) ? { ...post, location } : post,
+      ),
+    );
+  }, []);
+
   const renderItem = useCallback(
     ({ item }) => {
       // Add safety check
@@ -1046,6 +1059,7 @@ const Posts = forwardRef(function Posts(
           shareCount={item.shareCount}
           isTrustPost={item.isTrustPost}
           taggedPeople={item.taggedPeople}
+          onLocationUpdate={handleLocationUpdate}
         />
       );
     },
@@ -1067,6 +1081,7 @@ const Posts = forwardRef(function Posts(
       suggestHasMore,
       currentlyVisiblePostId,
       playingPostId,
+      handleLocationUpdate,
     ],
   );
 

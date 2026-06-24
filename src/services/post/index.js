@@ -72,6 +72,10 @@ export const createPost = async data => {
     formData.append("link", data.link);
   }
 
+  if (data.location != null && String(data.location).trim() !== '') {
+    formData.append('location', String(data.location).trim());
+  }
+
   if (Array.isArray(data.media)) {
     data.media.forEach(file => {
       if (!file.type || !file.uri) {
