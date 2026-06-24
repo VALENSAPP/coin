@@ -347,10 +347,7 @@ const InstagramPostCreator = () => {
   const postMusicSearchTimer = useRef(null);
   const postMusicLyricsRequestRef = useRef(0);
   const postMusicLyricsAttemptedKeyRef = useRef(null);
-  const [flipTrimModal, setFlipTrimModal] = useState(false);
   const [flipVolumeModal, setFlipVolumeModal] = useState(false);
-  const [trimStartInput, setTrimStartInput] = useState('0');
-  const [trimEndInput, setTrimEndInput] = useState('');
   const { bgStyle, textStyle, cardStyle, text: themeText } = useAppTheme();
   const toast = useToast();
   const insets = useSafeAreaInsets();
@@ -2224,24 +2221,19 @@ const InstagramPostCreator = () => {
       case 'Audio': openPostMusicFlow(); break;
       case 'Overlay': setActiveTab('Overlay'); addOverlayImage(); break;
       case 'Effects': setShowFilters(prev => !prev); break;
-      case 'Edit':
-        if (isCurrentMediaVideo()) {
-          const ed = getCurrentImageEdits();
-          setTrimStartInput(ed.trimStart != null ? String(ed.trimStart) : '0');
-          setTrimEndInput(ed.trimEnd != null ? String(ed.trimEnd) : '');
-          setFlipTrimModal(true);
-        } else {
-          const img = selectedImages[currentImageIndex];
-          const pathForCrop = img?.path || img?.uri;
-          if (!pathForCrop) { showToastMessage(toast, 'default', t('selectedPost.cropUnavailable'), 2000); break; }
-          try {
-            const cropped = await ImagePicker.openCropper({ path: pathForCrop, mediaType: 'photo', cropping: true, freeStyleCropEnabled: true, compressImageQuality: 0.85, cropperActiveWidgetColor: '#4da3ff', cropperStatusBarColor: '#000000', cropperToolbarColor: '#000000', cropperToolbarWidgetColor: '#ffffff', enableRotationGesture: true });
-            const newUri = cropped.path?.startsWith('file') ? cropped.path : `file://${cropped.path}`;
-            setSelectedImages(prev => { const next = [...prev]; const idx = currentImageIndex; next[idx] = { ...next[idx], ...cropped, path: cropped.path, uri: newUri }; return next; });
-            setImageEdits(prev => { const ed = prev[currentImageIndex] || {}; return { ...prev, [currentImageIndex]: { ...ed, processedImageUri: null, uriBeforeAnyDrawing: null, drawings: null } }; });
-          } catch (e) { if (e?.code !== 'E_PICKER_CANCELLED') showToastMessage(toast, 'danger', e?.message || t('selectedPost.cropFailed'), 2000); }
-        }
+      case 'Edit': {
+        if (isCurrentMediaVideo()) break;
+        const img = selectedImages[currentImageIndex];
+        const pathForCrop = img?.path || img?.uri;
+        if (!pathForCrop) { showToastMessage(toast, 'default', t('selectedPost.cropUnavailable'), 2000); break; }
+        try {
+          const cropped = await ImagePicker.openCropper({ path: pathForCrop, mediaType: 'photo', cropping: true, freeStyleCropEnabled: true, compressImageQuality: 0.85, cropperActiveWidgetColor: '#4da3ff', cropperStatusBarColor: '#000000', cropperToolbarColor: '#000000', cropperToolbarWidgetColor: '#ffffff', enableRotationGesture: true });
+          const newUri = cropped.path?.startsWith('file') ? cropped.path : `file://${cropped.path}`;
+          setSelectedImages(prev => { const next = [...prev]; const idx = currentImageIndex; next[idx] = { ...next[idx], ...cropped, path: cropped.path, uri: newUri }; return next; });
+          setImageEdits(prev => { const ed = prev[currentImageIndex] || {}; return { ...prev, [currentImageIndex]: { ...ed, processedImageUri: null, uriBeforeAnyDrawing: null, drawings: null } }; });
+        } catch (e) { if (e?.code !== 'E_PICKER_CANCELLED') showToastMessage(toast, 'danger', e?.message || t('selectedPost.cropFailed'), 2000); }
         break;
+      }
       case 'Vol': setFlipVolumeModal(true); break;
       case 'Tag': setActiveTab('Tag'); bottomSheetRef.current?.open(); break;
       case 'Download': handleDownload(); break;
@@ -2329,15 +2321,15 @@ const InstagramPostCreator = () => {
   );
 
   const renderEditingTabs = () => (
-    <View style={[styles.editingSection, bgStyle, isFlipPost && styles.editingSectionFlip]}>
+    <View style={[styles.editingSection, bgStyle]}>
       {modalVisible2 ? (
         renderTextEditorToolbar()
       ) : isFlipPost ? (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.flipTabScroll} contentContainerStyle={styles.flipTabScrollContent}>
-          {flipToolbarItems.map(t_item => (
+          {flipToolbarItems.filter(t_item => !(t_item.key === 'Edit' && isCurrentMediaVideo())).map(t_item => (
             <TouchableOpacity key={t_item.key} style={styles.flipTabButton} onPress={() => handleFlipToolPress(t_item.key)} activeOpacity={0.75}>
-              <Icon name={t_item.icon} size={17} color="#e5e5e5" style={{ marginBottom: 3 }} />
-              <Text style={styles.flipTabLabel}>{t_item.label}</Text>
+              <Icon name={t_item.icon} size={17} color={themeText} style={{ marginBottom: 3 }} />
+              <Text style={[styles.flipTabLabel, { color: themeText }]}>{t_item.label}</Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
@@ -2575,29 +2567,6 @@ const InstagramPostCreator = () => {
         onDelete={() => { updateCurrentImageEdits({ musicSource: 'none', musicId: 'none', musicTitle: null, musicArtist: null, musicYoutubeVideoId: null, musicYoutubeThumbUrl: null, musicYoutubeDurationSec: null, musicTrimStart: 0, musicTrimEnd: null, musicLyrics: null, musicBadge: null, showMusicCard: true }); setPostStorySoundTrimVisible(false); showToastMessage(toast, 'success', t('selectedPost.musicRemoved'), 1500); }}
       />
 
-      <Modal visible={flipTrimModal} transparent animationType="fade" onRequestClose={() => setFlipTrimModal(false)}>
-        <View style={styles.flipModalBackdrop}>
-          <View style={[styles.flipModalCard, { backgroundColor: cardStyle?.backgroundColor || '#fff' }]}>
-            <Text style={[styles.flipModalTitle, textStyle]}>{t('selectedPost.editVideoTitle')}</Text>
-            <Text style={[styles.flipModalHint, textStyle]}>{t('selectedPost.editVideoHint')}</Text>
-            <View style={styles.flipTrimRow}>
-              <Text style={textStyle}>{t('selectedPost.trimStart')}</Text>
-              <TextInput style={styles.flipTrimInput} value={trimStartInput} onChangeText={setTrimStartInput} keyboardType="decimal-pad" placeholder="0" />
-            </View>
-            <View style={styles.flipTrimRow}>
-              <Text style={textStyle}>{t('selectedPost.trimEnd')}</Text>
-              <TextInput style={styles.flipTrimInput} value={trimEndInput} onChangeText={setTrimEndInput} keyboardType="decimal-pad" placeholder={t('selectedPost.trimEndPlaceholder')} />
-            </View>
-            <TouchableOpacity style={[styles.flipPrimaryBtn, { backgroundColor: themeText }]} onPress={() => { const start = parseFloat(trimStartInput) || 0; const endRaw = trimEndInput.trim(); const end = endRaw === '' ? null : parseFloat(endRaw); updateCurrentImageEdits({ trimStart: start, trimEnd: end }); setFlipTrimModal(false); showToastMessage(toast, 'success', t('selectedPost.trimSaved'), 1500); }}>
-              <Text style={styles.flipPrimaryBtnText}>{t('selectedPost.save')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setFlipTrimModal(false)} style={styles.flipModalClose}>
-              <Text style={{ color: themeText }}>{t('selectedPost.cancel')}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
       <Modal visible={flipVolumeModal} transparent animationType="fade" onRequestClose={() => setFlipVolumeModal(false)}>
         <View style={styles.flipModalBackdrop}>
           <View style={[styles.flipModalCard, { backgroundColor: cardStyle?.backgroundColor || '#fff' }]}>
@@ -2619,25 +2588,20 @@ const InstagramPostCreator = () => {
 
       <View style={[styles.NextButtonView, isFlipPost && styles.NextButtonViewFlip]}>
         {slideHasLibraryMusic(getCurrentImageEdits()) ? (
-          <View style={[styles.postMusicCardToggleBar, isFlipPost && styles.postMusicCardToggleBarFlip]}>
+          <View style={styles.postMusicCardToggleBar}>
             <View style={styles.postMusicCardToggleTextCol}>
-              <Text style={[styles.postMusicCardToggleLabel, { color: isFlipPost ? '#fff' : themeText }]}>
+              <Text style={[styles.postMusicCardToggleLabel, { color: themeText }]}>
                 {t('selectedPost.showMusicCard')}
               </Text>
             </View>
             <Switch
               value={getCurrentImageEdits().showMusicCard !== false}
               onValueChange={value => updateCurrentImageEdits({ showMusicCard: value })}
-              trackColor={{ false: '#4b5563', true: isFlipPost ? '#2d7ff988' : `${themeText}88` }}
-              thumbColor={getCurrentImageEdits().showMusicCard !== false ? (isFlipPost ? '#2d7ff9' : themeText) : '#9ca3af'}
+              trackColor={{ false: '#d1d5db', true: `${themeText}88` }}
+              thumbColor={getCurrentImageEdits().showMusicCard !== false ? themeText : '#9ca3af'}
             />
           </View>
         ) : null}
-        {isFlipPost && isCurrentMediaVideo() && (
-          <TouchableOpacity style={styles.flipEditVideoPill} onPress={() => handleFlipToolPress('Edit')} activeOpacity={0.85}>
-            <Text style={styles.flipEditVideoPillText}>{t('selectedPost.editVideoTitle')}</Text>
-          </TouchableOpacity>
-        )}
         <TouchableOpacity style={[styles.nextButton, isFlipPost && styles.nextButtonFlip, { backgroundColor: isFlipPost ? '#2d7ff9' : themeText }]} onPress={handleNext}>
           <Text style={styles.nextButtonText}>{t('selectedPost.next')}</Text>
           <Text style={styles.nextArrow}>→</Text>
@@ -2649,7 +2613,7 @@ const InstagramPostCreator = () => {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaView style={[styles.container, bgStyle]}>
-        <StatusBar barStyle="light-content" backgroundColor="#000" />
+        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
         <View style={styles.header}>
           <TouchableOpacity style={styles.headerButton} onPress={handleBack}>
             <Text style={styles.headerButtonText}>×</Text>
@@ -3011,10 +2975,9 @@ const styles = StyleSheet.create({
     marginTop: -2,
   },
   editingSectionFlip: {
-    backgroundColor: '#000',
     paddingBottom: 6,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#2a2a2a',
+    borderTopColor: '#e5e7eb',
   },
   flipTabScroll: {
     maxHeight: 76,
@@ -3030,7 +2993,6 @@ const styles = StyleSheet.create({
     minWidth: 41,
   },
   flipTabLabel: {
-    color: '#c4c4c4',
     fontSize: 8,
     textAlign: 'center',
     lineHeight: 10,
@@ -3281,22 +3243,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#e5e5e5',
   },
-  flipTrimRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  flipTrimInput: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    minWidth: 120,
-    fontSize: 16,
-    color: '#111',
-  },
   flipPrimaryBtn: {
     borderRadius: 10,
     paddingVertical: 12,
@@ -3314,21 +3260,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#eee',
-  },
-  flipEditVideoPill: {
-    flex: 1,
-    backgroundColor: '#2c2c2e',
-    justifyContent: 'center',
-    borderRadius: 24,
-    marginRight: 10,
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-  },
-  flipEditVideoPillText: {
-    color: '#fff',
-    textAlign: 'center',
-    fontWeight: '600',
-    fontSize: 15,
   },
   tabScroll: {
     marginBottom: 12,
