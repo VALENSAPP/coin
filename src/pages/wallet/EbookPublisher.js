@@ -6,23 +6,16 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useLanguage } from '../../i18n';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+import { createPost } from '../../services/post';
+import { useDispatch } from 'react-redux';
+import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 
 const MAX_PDF_SIZE_BYTES = 100 * 1024 * 1024;
 
-const COVER_IDS = ['minimal', 'editorial', 'classic'];
-
-const buildOutlineFromTitle = (title, t) => {
-  const seed = String(title || t('ebookPublisher.defaultTitle')).replace(/\.[^.]+$/, '').trim();
-  const words = seed.split(/\s+/).filter(Boolean);
-  const base = words.slice(0, 4).join(' ') || t('ebookPublisher.defaultTitle');
-  return [
-    t('ebookPublisher.outlineIntro', { title: base }),
-    t('ebookPublisher.outlineGettingStarted', { title: base }),
-    t('ebookPublisher.outlineCoreIdeas'),
-    t('ebookPublisher.outlinePractical'),
-    t('ebookPublisher.outlineNextSteps'),
-  ];
-};
+const createChapter = (title, index) => ({
+  id: `${Date.now()}-${index}`,
+  title,
+});
 
 const getFileSizeLabel = (size) => {
   if (!size && size !== 0) return 'Unknown size';
@@ -31,40 +24,26 @@ const getFileSizeLabel = (size) => {
   return `${(size / 1024).toFixed(0)} KB`;
 };
 
-const createChapter = (title, index) => ({
-  id: `${Date.now()}-${index}`,
-  title,
-});
-
 const EbookPublisher = ({ navigation }) => {
   const { bgStyle, cardStyle, textStyle, text } = useAppTheme();
   const { t } = useLanguage();
+  const dispatch = useDispatch();
   const tf = (key, fallback) => {
     const value = t(key);
     return value === key || value == null || value === '' ? fallback : value;
   };
   const [step, setStep] = useState(1);
   const [selectedPdf, setSelectedPdf] = useState(null);
-  const defaultTitle = tf('ebookPublisher.defaultTitle', 'E-book');
-  const defaultDescription = tf(
-    'ebookPublisher.defaultDescription',
-    'A polished publishing flow for your digital book.',
-  );
-  const [title, setTitle] = useState(defaultTitle);
-  const [subscriberOnly, setSubscriberOnly] = useState(true);
-  const [description, setDescription] = useState(defaultDescription);
-  const [chapters, setChapters] = useState([
-    createChapter('Introduction', 1),
-    createChapter('Mindset', 2),
-    createChapter('Create Your Content', 3),
-    createChapter('Grow Your Audience', 4),
-    createChapter('Monetize Your Impact', 5),
-  ]);
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [chapters, setChapters] = useState([]);
   const [chapterDraft, setChapterDraft] = useState('');
   const [editingChapterId, setEditingChapterId] = useState(null);
   const [selectedCover, setSelectedCover] = useState('minimal');
   const [customCoverImage, setCustomCoverImage] = useState(null);
+  const [allowDownload, setAllowDownload] = useState(false);
   const [isPublished, setIsPublished] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const progress = useMemo(() => Math.min(100, (step / 3) * 100), [step]);
   const coverOptions = useMemo(() => ([
@@ -75,42 +54,7 @@ const EbookPublisher = ({ navigation }) => {
   ]), [t]);
   const selectedCoverInfo = coverOptions.find(item => item.id === selectedCover) || coverOptions[0];
 
-  const handleTitleChange = (value) => {
-    setTitle(value);
-  };
-
-  const handleDescriptionChange = (value) => {
-    setDescription(value);
-  };
-
-  const handleAddOrUpdateChapter = () => {
-    const nextTitle = chapterDraft.trim();
-    if (!nextTitle) return;
-
-    setChapters(prev => {
-      if (editingChapterId) {
-        return prev.map(item => (item.id === editingChapterId ? { ...item, title: nextTitle } : item));
-      }
-
-      return [...prev, createChapter(nextTitle, prev.length + 1)];
-    });
-
-    setChapterDraft('');
-    setEditingChapterId(null);
-  };
-
-  const handleEditChapter = (chapter) => {
-    setEditingChapterId(chapter.id);
-    setChapterDraft(chapter.title);
-  };
-
-  const handleDeleteChapter = (chapterId) => {
-    setChapters(prev => prev.filter(item => item.id !== chapterId));
-    if (editingChapterId === chapterId) {
-      setEditingChapterId(null);
-      setChapterDraft('');
-    }
-  };
+  const chapterCount = chapters.length;
 
   const handlePickPdf = async () => {
     try {
@@ -144,7 +88,9 @@ const EbookPublisher = ({ navigation }) => {
       };
 
       setSelectedPdf(nextFile);
-      handleTitleChange(nextFile.name.replace(/\.pdf$/i, ''));
+      if (!title.trim()) {
+        setTitle(nextFile.name.replace(/\.pdf$/i, ''));
+      }
       setStep(2);
     } catch (error) {
       const code = String(error?.code || '').toUpperCase();
@@ -188,9 +134,106 @@ const EbookPublisher = ({ navigation }) => {
     }
   };
 
-  const handlePublish = () => {
-    setIsPublished(true);
-    Alert.alert(t('ebookPublisher.publishSuccessTitle'), t('ebookPublisher.publishSuccessMessage'));
+  const handleAddOrUpdateChapter = () => {
+    const nextTitle = chapterDraft.trim();
+    if (!nextTitle) return;
+
+    setChapters(prev => {
+      if (editingChapterId) {
+        return prev.map(item => (item.id === editingChapterId ? { ...item, title: nextTitle } : item));
+      }
+
+      return [...prev, createChapter(nextTitle, prev.length + 1)];
+    });
+
+    setChapterDraft('');
+    setEditingChapterId(null);
+  };
+
+  const handleEditChapter = (chapter) => {
+    setEditingChapterId(chapter.id);
+    setChapterDraft(chapter.title);
+  };
+
+  const handleDeleteChapter = (chapterId) => {
+    setChapters(prev => prev.filter(item => item.id !== chapterId));
+    if (editingChapterId === chapterId) {
+      setEditingChapterId(null);
+      setChapterDraft('');
+    }
+  };
+
+  const buildTextArray = (value) =>
+    String(value || '')
+      .split(/\r?\n+/)
+      .map(item => item.trim())
+      .filter(Boolean);
+
+  const handlePublish = async () => {
+    if (!selectedPdf?.uri) {
+      Alert.alert(tf('ebookPublisher.uploadFailedTitle', 'Upload failed'), tf('ebookPublisher.uploadFailedMessage', 'Please choose a PDF first.'));
+      return;
+    }
+
+    if (!title.trim()) {
+      Alert.alert(tf('ebookPublisher.uploadFailedTitle', 'Upload failed'), tf('ebookPublisher.uploadFailedMessage', 'Please add an ebook title.'));
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      dispatch(showLoader());
+
+      const coverSource =
+        selectedCover === 'custom' && customCoverImage ? customCoverImage : null;
+
+      const payload = {
+        type: 'private',
+        format: 'ebook',
+        caption: title.trim(),
+        text: buildTextArray(description),
+        allowDownload,
+        images: coverSource ? [coverSource] : [],
+        ebookpdf: selectedPdf,
+        // ✅ Must be array, NOT .join()
+        tableContent: chapters.map(item => item.title), // ["Chapter1", "Chapter2"]
+      };
+      console.log('📚 tableContent before API call:', JSON.stringify(payload.tableContent));
+
+      console.log('Payload:', payload);
+      console.log('Cover Image:', coverSource);
+      console.log('Chapters:', chapters);
+      console.log('Table of Contents (titles only):', payload.tableContent);
+
+      const response = await createPost(payload);
+
+      console.log('API Response:', response);
+      console.log('Status Code:', response?.status);
+      console.log('Response Data:', response?.data);
+
+      if (response?.status === 200) {
+        console.log('✅ Ebook published successfully');
+      }
+
+      setIsPublished(true);
+      navigation.goBack?.();
+
+    } catch (error) {
+      console.log('❌ API Error:', error);
+      console.log('❌ Error Response:', error?.response);
+      console.log('❌ Error Status:', error?.response?.status);
+      console.log('❌ Error Data:', error?.response?.data);
+
+      Alert.alert(
+        tf('ebookPublisher.uploadFailedTitle', 'Upload failed'),
+        error?.response?.data?.message ||
+        error?.message ||
+        tf('ebookPublisher.uploadFailedMessage', 'Please try again.'),
+      );
+    } finally {
+      dispatch(hideLoader());
+      setIsSubmitting(false);
+    }
   };
 
   const stepInfo = [
@@ -330,9 +373,9 @@ const EbookPublisher = ({ navigation }) => {
             <View style={styles.inputLike}>
               <TextInput
                 value={title}
-                onChangeText={handleTitleChange}
+                onChangeText={setTitle}
                 style={[styles.inputText, styles.inputField]}
-                placeholder="The Creator's Playbook"
+                placeholder="Enter ebook title"
                 placeholderTextColor="#9CA3AF"
               />
             </View>
@@ -341,9 +384,9 @@ const EbookPublisher = ({ navigation }) => {
             <View style={styles.textAreaLike}>
               <TextInput
                 value={description}
-                onChangeText={handleDescriptionChange}
+                onChangeText={setDescription}
                 style={[styles.inputText, styles.textAreaField]}
-                placeholder="Build your brand. Create impact."
+                placeholder="Add each description line on a new row"
                 placeholderTextColor="#9CA3AF"
                 multiline
                 textAlignVertical="top"
@@ -351,21 +394,26 @@ const EbookPublisher = ({ navigation }) => {
             </View>
 
             <Text style={styles.fieldLabel}>3. Table of Contents</Text>
-            <Text style={styles.helperText}>Add chapter titles to build your table of contents.</Text>
+            <Text style={styles.helperText}>Add chapter titles to send `tableContent`.</Text>
 
             <View style={styles.chapterList}>
-              {chapters.map((chapter, index) => (
-                <View key={chapter.id} style={styles.chapterRow}>
-                  <Ionicons name="reorder-three-outline" size={22} color="#9CA3AF" />
-                  <Text style={styles.chapterText}>{index + 1}. {chapter.title}</Text>
-                  <TouchableOpacity onPress={() => handleEditChapter(chapter)} style={styles.chapterAction}>
-                    <Ionicons name="pencil-outline" size={18} color="#6B7280" />
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => handleDeleteChapter(chapter.id)} style={styles.chapterAction}>
-                    <Ionicons name="trash-outline" size={18} color="#6B7280" />
-                  </TouchableOpacity>
-                </View>
-              ))}
+              {chapters.length === 0 ? (
+                <Text style={styles.emptyChaptersText}>No chapters added yet.</Text>
+              ) : (
+                chapters.map((chapter, index) => (
+                  <View key={chapter.id} style={styles.chapterRow}>
+                    <Ionicons name="reorder-three-outline" size={22} color="#9CA3AF" />
+                    <Text style={styles.chapterText}>{index + 1}. {chapter.title}</Text>
+                    <TouchableOpacity onPress={() => handleEditChapter(chapter)} style={styles.chapterAction}>
+                      <Ionicons name="pencil-outline" size={18} color="#6B7280" />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => handleDeleteChapter(chapter.id)} style={styles.chapterAction}>
+                      <Ionicons name="trash-outline" size={18} color="#6B7280" />
+                    </TouchableOpacity>
+                  </View>
+                ))
+              )}
+
               <View style={styles.chapterEditor}>
                 <TextInput
                   value={chapterDraft}
@@ -399,11 +447,21 @@ const EbookPublisher = ({ navigation }) => {
                 {selectedCover === 'custom' && customCoverImage ? (
                   <Image source={{ uri: customCoverImage.uri }} style={styles.previewCoverImage} resizeMode="cover" />
                 ) : null}
-                <View style={styles.previewCoverOverlay}>
-                  <Text style={styles.previewCoverSmall}>{t('ebookPublisher.previewTag')}</Text>
-                  <Text style={styles.previewCoverTitle}>{title}</Text>
-                  <Text style={styles.previewCoverFooter}>{chapters.length} CH</Text>
-                </View>
+                {!(selectedCover === 'custom' && customCoverImage) && (
+                  <View style={styles.previewCoverOverlay}>
+                    <Text style={styles.previewCoverSmall}>
+                      {t('ebookPublisher.previewTag')}
+                    </Text>
+
+                    <Text style={styles.previewCoverTitle}>
+                      {title}
+                    </Text>
+
+                    <Text style={styles.previewCoverFooter}>
+                      {allowDownload ? 'DOWNLOAD ON' : 'DOWNLOAD OFF'}
+                    </Text>
+                  </View>
+                )}
               </View>
               <View style={styles.previewMeta}>
                 <Text style={[styles.previewTitle, textStyle]} numberOfLines={2}>{title}</Text>
@@ -413,7 +471,7 @@ const EbookPublisher = ({ navigation }) => {
                   <View style={styles.previewStat}>
                     <Ionicons name="layers-outline" size={16} color={text} />
                     <Text style={styles.previewStatText}>
-                      {chapters.length} {t('ebookPublisher.chapters')}
+                      {chapterCount} chapters
                     </Text>
                   </View>
                   <View style={styles.previewStat}>
@@ -428,34 +486,20 @@ const EbookPublisher = ({ navigation }) => {
 
             <View style={styles.settingsCard}>
               <View style={styles.settingsRow}>
-                <Text style={styles.settingLabel}>{t('ebookPublisher.coverLabel')}</Text>
-                <Text style={[styles.settingValue, textStyle]}>{selectedCoverInfo.title}</Text>
-              </View>
-              <View style={styles.settingsRow}>
-                <Text style={styles.settingLabel}>{t('ebookPublisher.pdfLimit')}</Text>
-                <Text style={[styles.settingValue, textStyle]}>{t('ebookPublisher.maxLimitValue')}</Text>
-              </View>
-            </View>
-            <View style={styles.settingsCard}>
-              <View style={styles.settingsRow}>
-                <View>
-                  <Text style={styles.settingTitle}>
-                    {t('ebookPublisher.subscriberOnlyTitle')}
-                  </Text>
-                  <Text style={styles.settingSubtitle}>
-                    {t('ebookPublisher.subscriberOnlyDescription')}
-                  </Text>
-                </View>
-
+                <Text style={styles.settingLabel}>Allow download</Text>
                 <Switch
-                  value={subscriberOnly}
-                  onValueChange={setSubscriberOnly}
+                  value={allowDownload}
+                  onValueChange={setAllowDownload}
                   trackColor={{ false: '#D1D5DB', true: text }}
                   thumbColor="#FFFFFF"
                 />
               </View>
             </View>
-            <TouchableOpacity style={[styles.primaryButton, { backgroundColor: text }]} onPress={handlePublish}>
+            <TouchableOpacity
+              style={[styles.primaryButton, { backgroundColor: text, opacity: isSubmitting ? 0.75 : 1 }]}
+              onPress={handlePublish}
+              disabled={isSubmitting}
+            >
               <Text style={styles.primaryButtonText}>
                 {isPublished ? t('ebookPublisher.published') : t('ebookPublisher.publishButton')}
               </Text>
@@ -488,7 +532,7 @@ const EbookPublisher = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  screen: { flex: 1,marginBottom:'5%' },
+  screen: { flex: 1, marginBottom: '5%' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -687,7 +731,7 @@ const styles = StyleSheet.create({
   previewCoverImage: {
     ...StyleSheet.absoluteFillObject,
     width: '120%',
-    height: '113%',
+    height: '115%',
   },
   previewCoverSmall: { color: '#fff', fontSize: 11, fontWeight: '700', opacity: 0.9 },
   previewCoverTitle: { color: '#fff', fontSize: 18, fontWeight: '900', marginTop: 18, flex: 1 },

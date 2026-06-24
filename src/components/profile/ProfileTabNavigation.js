@@ -4,7 +4,6 @@ import {
 } from 'react-native';
 import PostsScreen from '../profile/PostScreen';
 import ReelsScreen from '../profile/ReelsScreen';
-import ProfileEbookScreen from './ProfileEbookScreen';
 import PrivateContentScreen from './PrivateContentScreen';
 import PrivateCircle from './PrivateCircle';
 import Shop from './Shop';
@@ -24,6 +23,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../displaytoastmessage';
+import ProfileEbookScreen from './ProfileEbookScreen';
 const { width: screenWidth } = Dimensions.get('window');
 
 const ProfileTabs = memo(({
@@ -133,7 +133,7 @@ const ProfileTabs = memo(({
     }
   }, [navigation, t, toast]);
 
-  const PRIVATE_CIRCLE_TAB_INDEX = 1; 
+  const PRIVATE_CIRCLE_TAB_INDEX = 1;
   const PRIVATE_CONTENT_TAB_INDEX = 3;
   const MEDIA_TABS = useMemo(() => ([
     { key: 'photo', label: 'Photos', icon: 'images-outline' },
@@ -144,6 +144,35 @@ const ProfileTabs = memo(({
   // ── Tab screens — stable identity, only remount when data deps change ────────
   const tabScreens = useMemo(() => ({
     posts: (
+
+      <PostsScreen
+        postCheck={post}
+        userData={userData}
+        isOwnProfile={isOwnProfile}
+        onPostPinChanged={onPostPinChanged}
+        scrollEnabled={false}
+      />
+
+    ),
+    privateCircle: (
+      <PrivateCircle
+        isOwnProfile={isOwnProfile}
+        userData={userData}
+        onStartPress={handlePrivateCircleStartPress}
+        loggedInUserId={loggedInUserId}
+        isActiveTab={activeTab === PRIVATE_CIRCLE_TAB_INDEX}
+      />
+    ),
+    reels: (
+      <ReelsScreen
+        postCheck={post}
+        userData={userData}
+        isOwnProfile={isOwnProfile}
+        onPostPinChanged={onPostPinChanged}
+        scrollEnabled={false}
+      />
+    ),
+    privateContent: (
       <View style={styles.postsWrap}>
         <View style={styles.mediaTabsRow}>
           {MEDIA_TABS.map((tab) => {
@@ -167,56 +196,32 @@ const ProfileTabs = memo(({
         {mediaTab === 'ebook' ? (
           <ProfileEbookScreen
             userData={userData}
+            isSubscribed={isSubscribed}
+            loggedInUserId={loggedInUserId}
+            onSubscribePress={() => userData?.profile !== 'company' && setShowSubscribeModal(true)}
+            isCompany={userData?.profile === 'company'}
+            refreshKey={`${refreshKey ?? 0}-${privateKey}`}
+            isActiveTab={activeTab === PRIVATE_CONTENT_TAB_INDEX}
             onOpenEbook={(ebook) => {
-              const parentNavigation = navigation.getParent?.() || navigation;
-              parentNavigation.navigate('ProfileMain', {
-                screen: 'EbookDetail',
-                params: { ebook, userData },
-              });
+              console.log('🔖 Opening ebook:', ebook);
+              navigation.navigate('EbookDetail', { ebook, userData });
             }}
           />
         ) : (
-          <PostsScreen
+          <PrivateContentScreen
             postCheck={post}
             userData={userData}
-            isOwnProfile={isOwnProfile}
-            onPostPinChanged={onPostPinChanged}
+            isSubscribed={isSubscribed}
+            loggedInUserId={loggedInUserId}
+            onSubscribePress={() => userData?.profile !== 'company' && setShowSubscribeModal(true)}
+            isCompany={userData?.profile === 'company'}
+            refreshKey={`${refreshKey ?? 0}-${privateKey}`}
             scrollEnabled={false}
+            isActiveTab={activeTab === PRIVATE_CONTENT_TAB_INDEX}
             activeMediaFilter={mediaTab}
           />
         )}
       </View>
-    ),
-    privateCircle: (
-      <PrivateCircle
-        isOwnProfile={isOwnProfile}
-        userData={userData}
-        onStartPress={handlePrivateCircleStartPress}
-        loggedInUserId={loggedInUserId}
-         isActiveTab={activeTab === PRIVATE_CIRCLE_TAB_INDEX}
-      />
-    ),
-    reels: (
-      <ReelsScreen
-        postCheck={post}
-        userData={userData}
-        isOwnProfile={isOwnProfile}
-        onPostPinChanged={onPostPinChanged}
-        scrollEnabled={false}
-      />
-    ),
-    privateContent: (
-      <PrivateContentScreen
-        postCheck={post}
-        userData={userData}
-        isSubscribed={isSubscribed}
-        loggedInUserId={loggedInUserId}
-        onSubscribePress={() => userData?.profile !== 'company' && setShowSubscribeModal(true)}
-        isCompany={userData?.profile === 'company'}
-        refreshKey={`${refreshKey ?? 0}-${privateKey}`}
-        scrollEnabled={false}
-        isActiveTab={activeTab === PRIVATE_CONTENT_TAB_INDEX}  
-      />
     ),
     closet: (
       <Shop isOwnProfile={isOwnProfile} userData={userData} />

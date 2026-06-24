@@ -204,7 +204,6 @@ const PostScreen = memo(({ scrollEnabled = true, postCheck, userData: propUserDa
   const { t } = useLanguage();
   const userData = route?.params?.userData || propUserData;
   const { bgStyle, textStyle, text } = useAppTheme(userData?.profile);
-
   // ✅ Move ALL hooks/useMemo/useCallback BEFORE any early returns
   const filteredPosts = useMemo(() => {
     if (activeMediaFilter === 'video') return posts.filter((post) => isVideoUrl(post?.images?.[0] || post?.image || post?.video));

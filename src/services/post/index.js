@@ -2,6 +2,15 @@ import { Platform } from 'react-native';
 import axiosInstance from '..';
 import { appendStoryAudioFiles } from '../../utils/storyAudioUpload';
 
+const appendMultipartFile = (formData, fieldName, file) => {
+  if (!file || !file.uri) return;
+  formData.append(fieldName, {
+    uri: Platform.OS === 'android' ? file.uri : file.uri.replace('file://', ''),
+    name: file.name || file.uri.split('/').pop(),
+    type: file.type || 'application/octet-stream',
+  });
+};
+
 export const createPost = async data => {
   console.log('Creating post with data:', data);
   const formData = new FormData();
@@ -20,6 +29,18 @@ export const createPost = async data => {
 
   if (data.caption) {
     formData.append("caption", data.caption);
+  }
+
+  if (data.text != null) {
+    const textValue =
+      Array.isArray(data.text) ? JSON.stringify(data.text) : String(data.text);
+    formData.append('text', textValue);
+  }
+
+  if (data.hashtag != null) {
+    const hashtagValue =
+      Array.isArray(data.hashtag) ? JSON.stringify(data.hashtag) : String(data.hashtag);
+    formData.append('hashtag', hashtagValue);
   }
 
   if (data.taggedPeople) {
@@ -72,6 +93,37 @@ export const createPost = async data => {
     formData.append("link", data.link);
   }
 
+  if (data.ebookTitle) {
+    formData.append('ebookTitle', String(data.ebookTitle));
+  }
+
+  if (data.description != null) {
+    formData.append('description', String(data.description));
+  }
+
+  if (data.textDescription != null) {
+    formData.append('textDescription', String(data.textDescription));
+  }
+
+  if (data.allowDownload != null) {
+    formData.append('allowDownload', data.allowDownload ? 'true' : 'false');
+  }
+
+if (data.tableContent) {
+  console.log('Appending table contents');
+
+  data.tableContent.forEach(item => {
+    console.log('Appending:', item);
+    formData.append('tableContents', item);
+  });
+}
+
+  appendMultipartFile(formData, 'coverImage', data.coverImage);
+  appendMultipartFile(formData, 'ebookCover', data.ebookCover);
+  appendMultipartFile(formData, 'pdfFile', data.pdfFile);
+  appendMultipartFile(formData, 'ebookPdf', data.ebookPdf);
+  appendMultipartFile(formData, 'ebookpdf', data.ebookpdf);
+
   if (Array.isArray(data.media)) {
     data.media.forEach(file => {
       if (!file.type || !file.uri) {
@@ -83,6 +135,21 @@ export const createPost = async data => {
         uri: Platform.OS === "android" ? file.uri : file.uri.replace("file://", ""),
         name: file.name || file.uri.split("/").pop(),
         type: file.type,
+      });
+    });
+  }
+
+  if (Array.isArray(data.images)) {
+    data.images.forEach(file => {
+      if (!file || !file.uri) {
+        console.warn("Skipping invalid image file:", file);
+        return;
+      }
+
+      formData.append("images", {
+        uri: Platform.OS === "android" ? file.uri : file.uri.replace("file://", ""),
+        name: file.name || file.uri.split("/").pop(),
+        type: file.type || "image/jpeg",
       });
     });
   }
@@ -115,7 +182,7 @@ export const createPost = async data => {
   if (Array.isArray(data.storyAudioClips) && data.storyAudioClips.length > 0) {
     await appendStoryAudioFiles(formData, data.storyAudioClips);
   }
-
+  console.log('formDataformDataformDataformDataformDataformData:', formData);
   return axiosInstance.post('post/create', formData);
 }
 

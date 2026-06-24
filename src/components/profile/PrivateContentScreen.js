@@ -153,7 +153,9 @@ const PrivateContentScreen = ({
   isCompany,
   refreshKey,
   isActiveTab = false,
+  activeMediaFilter = 'photo',
 }) => {
+  console.log(activeMediaFilter,'activeMediaFilteractiveMediaFilteractiveMediaFilter')
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [statusLoading, setStatusLoading] = useState(false);
@@ -243,19 +245,40 @@ const PrivateContentScreen = ({
       const filteredData = formattedData.filter(
         (post) => !post?.visibleTo || post.visibleTo === ''
       );
-      setPosts(filteredData);
+      const mediaFilteredData = filteredData.filter((item) => {
+        const formatValue = String(item?.format || item?.type || '').toLowerCase();
+
+        if (activeMediaFilter === 'ebook') {
+          return formatValue === 'ebook';
+        }
+
+        if (activeMediaFilter === 'video') {
+          return formatValue === 'reel' || formatValue === 'video' ||
+            item?.images?.some((url) => isVideoUrl(url));
+        }
+
+        if (activeMediaFilter === 'photo') {
+          return formatValue === 'image' ||
+            (!['ebook', 'reel', 'video'].includes(formatValue) &&
+              item?.images?.some((url) => !isVideoUrl(url)));
+        }
+
+        return true;
+      });
+
+      setPosts(mediaFilteredData);
     } catch (error) {
       console.log(error);
       setPosts([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [activeMediaFilter]);
 
   useEffect(() => {
     if (isCompany) return;
     if (userData?.id) fetchPosts(userData.id);
-  }, [userData?.id]);
+  }, [userData?.id, fetchPosts]);
 
   const refreshStatusAndPosts = useCallback(async () => {
     if (!userData?.id) {

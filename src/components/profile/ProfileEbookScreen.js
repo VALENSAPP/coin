@@ -1,8 +1,11 @@
-import React, { memo, useMemo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, FlatList } from 'react-native';
+import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator, Image } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
-
+import { useIsFocused, useNavigation } from '@react-navigation/native';
+import { useLanguage } from '../../i18n';
+import useScreenshotProtection from '../../hooks/useScreenshotProtection';
+import { getPostByUser } from '../../services/post';
 const DEFAULT_EBOOKS = [
   {
     id: 'ebook-1',
@@ -59,20 +62,64 @@ const themeStyles = {
   ink: { bg: '#1F2937', tint: '#E5E7EB' },
 };
 
+const getCoverImage = (item) => {
+  if (!item) return null;
+  const img = item.images?.[0] || item.image || item.thumbnail;
+  if (typeof img === 'string') return img;
+  if (img?.uri) return img.uri;
+  if (img?.url) return img.url;
+  return null;
+};
+
+const getDescription = (item) => {
+  if (!item) return 'No description available';
+  
+  // If text is a JSON string, parse it
+  if (typeof item.text === 'string') {
+    try {
+      const parsed = JSON.parse(item.text);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed[0];
+      }
+    } catch (e) {
+      // If parsing fails, return as is
+      return item.text || 'No description available';
+    }
+  }
+  
+  // If text is already an array
+  if (Array.isArray(item.text) && item.text.length > 0) {
+    return item.text[0];
+  }
+  
+  // Fallback to description field
+  return item.description || 'No description available';
+};
+
 const EbookCard = memo(({ item, onPress }) => {
+  const coverImage = getCoverImage(item);
+  const title = item.caption || item.title || 'E-book';
+  const description = getDescription(item);
   const palette = themeStyles[item.theme] || themeStyles.purple;
+  const chapterCount = item?.tableContent?.length || 0;
+
   return (
     <TouchableOpacity activeOpacity={0.88} onPress={onPress} style={styles.card}>
-      <View style={[styles.cover, { backgroundColor: palette.bg }]}>
-        <Text style={styles.coverTitle} numberOfLines={3}>{item.title}</Text>
-        <Text style={styles.coverAuthor}>{item.author}</Text>
+      <View style={styles.coverContainer}>
+        {coverImage ? (
+          <Image source={{ uri: coverImage }} style={styles.coverImage} resizeMode="cover" />
+        ) : (
+          <View style={[styles.cover, { backgroundColor: palette.bg }]}>
+            <Text style={styles.coverPlaceholderText}>{title.charAt(0).toUpperCase()}</Text>
+          </View>
+        )}
       </View>
       <View style={styles.cardBody}>
-        <Text style={styles.title} numberOfLines={1}>{item.title}</Text>
-        <Text style={styles.desc} numberOfLines={2}>{item.description}</Text>
+        <Text style={styles.title} numberOfLines={1}>{title}</Text>
+        <Text style={styles.desc} numberOfLines={2}>{description}</Text>
         <View style={styles.metaRow}>
-          <Text style={styles.meta}>📄 {item.pages} Pages</Text>
-          <Text style={styles.meta}>📚 {item.chapters} Chapters</Text>
+          {/* <Text style={styles.meta}>📄 {item.pages} Pages</Text> */}
+          <Text style={styles.meta}>📚  {item?.tableContent?.length || 0} Chapters</Text>
         </View>
       </View>
       <Ionicons name="chevron-forward" size={18} color="#6b7280" />
@@ -80,27 +127,152 @@ const EbookCard = memo(({ item, onPress }) => {
   );
 });
 
-const ProfileEbookScreen = ({ userData, ebooks, onOpenEbook }) => {
-  const { bgStyle } = useAppTheme(userData?.profile);
-  const data = useMemo(() => (Array.isArray(ebooks) && ebooks.length ? ebooks : DEFAULT_EBOOKS), [ebooks]);
+const ProfileEbookScreen = ({
+  userData,
+  isSubscribed,
+  loggedInUserId,
+  onSubscribePress,
+  isCompany,
+  refreshKey,
+  isActiveTab = false,
+  onOpenEbook,
+}) => {
+  const [ebooks, setEbooks] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [resolvedIsSubscribed, setResolvedIsSubscribed] = useState(false);
+  const navigation = useNavigation();
+  const isFocused = useIsFocused();
+  const { bgStyle, textStyle } = useAppTheme(userData?.profile);
+  const { t } = useLanguage();
+  const normalizedIsSubscribed =
+    isSubscribed === true ||
+    String(isSubscribed || '').toUpperCase() === 'ACTIVE' ||
+    String(isSubscribed || '').toLowerCase() === 'true';
+  const isOwnProfile = String(loggedInUserId || '') === String(userData?.id || '');
+  const canViewPrivateContent = isOwnProfile || resolvedIsSubscribed;
 
+  useScreenshotProtection({
+    enabled: isFocused && isActiveTab && !isCompany && canViewPrivateContent && !isOwnProfile,
+    title: t('postView.screenshotWarningTitle'),
+    message: t('postView.screenshotWarningMessage'),
+  });
+
+  useEffect(() => {
+    setResolvedIsSubscribed(normalizedIsSubscribed);
+  }, [normalizedIsSubscribed]);
+
+  const fetchEbooks = useCallback(async (id) => {
+    try {
+      setLoading(true);
+      const response = await getPostByUser(id, 'private');
+      console.log(resolvedIsSubscribed,'data in this apiaaaaaaaaaaaaiai')
+      const payload =
+        response?.data?.posts ??
+        response?.data?.data?.posts ??
+        response?.data?.data ??
+        response?.data ??
+        response;
+
+      const formattedData = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.posts)
+          ? payload.posts
+          : Array.isArray(payload?.data)
+            ? payload.data
+            : [];
+
+      const ebookData = formattedData.filter((post) => {
+        const formatValue = String(post?.format || post?.type || '').toLowerCase();
+        const imageUrl = String(post?.images?.[0] || post?.image || post?.video || '');
+        const isPdf = /\.pdf(\?|$)/i.test(imageUrl);
+
+        return (
+          !post?.visibleTo || post.visibleTo === ''
+        ) && (
+          formatValue === 'ebook' || formatValue === 'book' || isPdf
+        );
+      });
+
+      setEbooks(ebookData);
+    } catch (error) {
+      console.log('ProfileEbookScreen fetch error:', error);
+      setEbooks([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isCompany) return;
+    if (userData?.id) fetchEbooks(userData.id);
+  }, [userData?.id, refreshKey, fetchEbooks]);
+
+  const renderEmpty = () => {
+    if (!canViewPrivateContent) {
+      return (
+        <View style={[styles.emptyWrapper, bgStyle]}>
+          <View style={styles.lockedCard}>
+            <Text style={styles.lockedIcon}>🔒</Text>
+            <Text style={[styles.lockedTitle, textStyle]}>Premium E-books</Text>
+            <Text style={styles.lockedSubtitle}>
+              Subscribe to unlock exclusive e-books and premium content from this creator.
+            </Text>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={onSubscribePress}
+              style={[styles.ctaButton, { backgroundColor: '#5A2D82' }]}
+            >
+              <Text style={styles.ctaText}>Subscribe Now</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      );
+    }
+
+    return (
+      <View style={[styles.emptyWrapper, bgStyle]}>
+        <View style={styles.lockedCard}>
+          <Text style={{ fontSize: 48, marginBottom: 16 }}>📚</Text>
+          <Text style={[styles.lockedTitle, textStyle]}>No E-books Yet</Text>
+          <Text style={styles.lockedSubtitle}>
+            This creator hasn't published any e-books yet. Check back soon for exclusive content!
+          </Text>
+        </View>
+      </View>
+    );
+  };
+
+  const data = useMemo(() => (Array.isArray(ebooks) ? ebooks : []), [ebooks]);
   const openEbook = (item) => {
+    console.log('📖 EbookCard clicked:', item?.caption);
     onOpenEbook?.(item);
   };
+
+  if (loading) {
+    return (
+      <View style={[styles.screen, bgStyle, styles.loaderContainer]}>
+        <ActivityIndicator size="large" color="#5A2D82" />
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.screen, bgStyle]}>
       <View style={styles.headerRow}>
-        <Text style={styles.headerTitle}>E-books</Text>
-        <Text style={styles.headerCount}>{data.length} E-books</Text>
+        <Text style={[styles.headerTitle, textStyle]}>E-books</Text>
+        <Text style={[styles.headerCount, textStyle]}>{data.length} E-books</Text>
       </View>
-      <FlatList
-        data={data}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <EbookCard item={item} onPress={() => openEbook(item)} />}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-      />
+      {data.length === 0 ? (
+        renderEmpty()
+      ) : (
+        <FlatList
+          data={data}
+          keyExtractor={(item) => item.id?.toString() || item?.userId || Math.random().toString()}
+          renderItem={({ item }) => <EbookCard item={item} onPress={() => openEbook(item)} />}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
     </View>
   );
 };
@@ -138,6 +310,25 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginRight: 12,
   },
+  coverContainer: {
+    width: 68,
+    height: 92,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginRight: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f3f4f6',
+  },
+  coverImage: {
+    width: '100%',
+    height: '100%',
+  },
+  coverPlaceholderText: {
+    color: '#fff',
+    fontSize: 24,
+    fontWeight: '800',
+  },
   coverTitle: { color: '#fff', fontWeight: '800', fontSize: 12 },
   coverAuthor: { color: '#fff', fontSize: 10, opacity: 0.9 },
   cardBody: { flex: 1 },
@@ -145,4 +336,65 @@ const styles = StyleSheet.create({
   desc: { fontSize: 12, color: '#6b7280', lineHeight: 16, marginBottom: 8 },
   metaRow: { flexDirection: 'row', flexWrap: 'wrap' },
   meta: { fontSize: 11, color: '#5A2D82', fontWeight: '700', marginRight: 10, marginBottom: 2 },
+  emptyWrapper: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  lockedCard: {
+    width: '100%',
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E8E1F3',
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+  },
+  lockedIcon: {
+    fontSize: 56,
+    marginBottom: 16,
+  },
+  lockedTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  lockedSubtitle: {
+    fontSize: 14,
+    color: '#6b7280',
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 20,
+  },
+  ctaButton: {
+    width: '100%',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ctaText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: '#6b7280',
+    textAlign: 'center',
+  },
 });
