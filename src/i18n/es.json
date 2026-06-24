@@ -2150,6 +2150,7 @@
     "trustApprove": "Aprobar",
     "trustUnsure": "Inseguro",
     "trustVotes": "{{count}} votos",
+    "weightedByReputation": "Ponderado por reputación",
     "trustUndoVote": "Deshacer voto",
     "trustLoadError": "No se pudo cargar la puntuación de confianza",
     "trustSubmitError": "No se pudo enviar el voto",

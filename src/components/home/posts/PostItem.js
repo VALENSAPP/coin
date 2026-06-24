@@ -1190,6 +1190,11 @@ function PostItem({
     }
   }, [item?.id, toast, unwrapTrustPayload]);
 
+  useEffect(() => {
+    if (!showTrustControls || !item?.id || !isVisible) return;
+    refreshTrustScore();
+  }, [showTrustControls, item?.id, isVisible, refreshTrustScore]);
+
   const handleTrustIconPress = useCallback(() => {
     setTrustScoreVisible(false);
     setTrustPanelVisible(prev => !prev);
@@ -1205,7 +1210,7 @@ function PostItem({
   }, [refreshTrustScore, trustScoreVisible]);
 
   const handleTrustVote = useCallback(async (type) => {
-    if (trustVote) return;  // ← already voted, do nothing
+    if (trustVote) return;  // already voted, do nothing
     setTrustPanelVisible(false);
     setTrustCommentModalType(type);
     setTrustCommentModalVisible(true);
@@ -1222,9 +1227,7 @@ function PostItem({
         comment: comment || '',
       });
 
-      console.log('voteTrust response:', response);  // check this
-
-      // ✅ Only unwrap after confirming response shape
+      // Only unwrap after confirming response shape
       const payload = response?.data?.data ?? response?.data ?? response;
       setTrustVote({ ...(payload || {}), type: trustCommentModalType });
       setTrustScoreVisible(true);
@@ -1233,7 +1236,7 @@ function PostItem({
         setLocalCommentsCount(prev => prev + 1);
       }
     } catch (error) {
-      console.log('voteTrust error:', error?.response?.data);  // add this
+      console.log('voteTrust error:', error?.response?.data);
       showToastMessage(toast, 'danger', t('postItem.trustSubmitError'));
     } finally {
       setTrustLoading(false);
@@ -1809,30 +1812,6 @@ function PostItem({
               <Text style={styles.actionCount}>{localCommentsCount || 0}</Text>
             </TouchableOpacity>
 
-            {showTrustControls && (
-              <TouchableOpacity
-                onPress={trustVote ? undefined : handleTrustIconPress}  // ← disabled after vote
-                style={[styles.actionButton, trustVote && { opacity: 0.6 }]}
-                activeOpacity={trustVote ? 1 : 0.85}
-                accessibilityLabel="Open trust vote">
-                <View style={[
-                  styles.trustActionIcon,
-                  trustVote?.type === 'agree' && { backgroundColor: '#059669' },
-                  trustVote?.type === 'not_sure' && { backgroundColor: '#F59E0B' },
-                  trustVote?.type === 'disagree' && { backgroundColor: '#DC2626' },
-                ]}>
-                  <Icon name="shield-checkmark" size={18} color="#FFFFFF" />
-                </View>
-                <Text style={styles.actionCount}>
-                  {trustVote
-                    ? trustVote.type === 'agree' ? t('postItem.trustAgree')
-                      : trustVote.type === 'not_sure' ? t('postItem.trustNotSure')
-                        : t('postItem.trustDisagree')
-                    : t('postItem.trust')}
-                </Text>
-              </TouchableOpacity>
-            )}
-
             {item.visibleTo !== "PRIVATE_CIRCLE" &&
               <TouchableOpacity
                 onPress={() => {
@@ -1845,25 +1824,66 @@ function PostItem({
               </TouchableOpacity>
             }
 
+            {showTrustControls && (
+              <>
+                {!trustVote && (
+                  <TouchableOpacity
+                    onPress={handleTrustIconPress}
+                    style={styles.actionButton}
+                    activeOpacity={0.85}
+                    accessibilityLabel="Open trust vote">
+                    <View style={styles.trustActionIcon}>
+                      <Icon name="shield-checkmark" size={18} color="#FFFFFF" />
+                    </View>
+                    <Text style={styles.actionCount}>
+                      {t('postItem.trust')}
+                    </Text>
+                  </TouchableOpacity>
+                )}
 
-            {/* {showTrustControls && (
-              <TouchableOpacity
-                onPress={handleTrustScorePress}
-                style={styles.trustScoreActionButton}
-                activeOpacity={0.85}>
-                <View style={styles.trustScoreActionIcon}>
-                  <Icon name="shield-checkmark" size={14} color="#FFFFFF" />
-                </View>
-                <View style={styles.trustScoreActionTextWrap}>
-                  <View style={styles.trustScoreActionTitleRow}>
-                    <Text style={styles.trustScoreActionTitle} numberOfLines={1}>{t('postItem.trustScore')}</Text>
-                    <Icon name="information-circle-outline" size={10} color="#6B7280" />
-                    <Text style={styles.trustScoreValue}>{Math.round(normalizedTrustScore.overall)}%</Text>
-                  </View>
-                  <Text style={styles.trustScoreActionSub} numberOfLines={1}>{t('postItem.communityTrustScore')}</Text>
-                </View>
-              </TouchableOpacity>
-            )} */}
+                {/*
+                  Trust SCORE summary — an additional button, shown only once
+                  backend data is available. Does not replace the vote button above.
+                */}
+                {trustScore && (
+                  <>
+                    <View style={styles.trustHeaderDivider} />
+                    <TouchableOpacity
+                      onPress={handleTrustScorePress}
+                      style={styles.trustScoreActionButton}
+                      activeOpacity={0.85}>
+                      <View style={styles.trustScoreActionTextWrap}>
+                        <View style={styles.trustScoreActionTitleRow}>
+                          <Text
+                            style={[
+                              styles.trustScoreActionTitle,
+                              trustVote && styles.trustScoreActionTitleVoted,
+                            ]}>
+                            {t('postItem.trustScore')}
+                          </Text>
+                          <Icon name="information-circle-outline" size={10} color="#6B7280" />
+                          <Text
+                            style={[
+                              styles.trustScoreValue,
+                              trustVote && styles.trustScoreValueVoted,
+                            ]}>
+                            {Math.round(normalizedTrustScore.overall)}%
+                          </Text>
+                        </View>
+                        <Text
+                          style={[
+                            styles.trustScoreActionSub,
+                            trustVote && styles.trustScoreActionSubVoted,
+                          ]}
+                          numberOfLines={1}>
+                          {t('postItem.communityTrustScore')}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  </>
+                )}
+              </>
+            )}
           </View>
 
           {itemUserIdStr && currentUserIdStr && itemUserIdStr !== currentUserIdStr && (
@@ -1941,36 +1961,45 @@ function PostItem({
                 <Text style={styles.trustProgressValue}>{Math.round(normalizedTrustScore.overall)}%</Text>
                 <View style={styles.trustMetricRow}>
                   <View style={styles.trustMetricItem}>
-                    <Feather name="check-circle" size={15} color="#059669" />
+                    <View style={[styles.trustMetricIconBadge, { backgroundColor: '#059669' }]}>
+                      <Icon name="checkmark" size={12} color="#fff" />
+                    </View>
                     <Text style={styles.trustMetricLabel}>{t('postItem.trustApprove')}</Text>
                     <Text style={[styles.trustMetricPercent, { color: '#059669' }]}>
                       {Math.round(normalizedTrustScore.agree)}%
                     </Text>
-                    <Text style={styles.trustMetricSub}>
+                    <Text style={styles.trustMetricVotes}>
                       {t('postItem.trustVotes', { count: normalizedTrustScore.agreeVotes })}
                     </Text>
+                    <Text style={styles.trustMetricSub}>{t('postItem.weightedByReputation')}</Text>
                   </View>
                   <View style={styles.trustMetricDivider} />
                   <View style={styles.trustMetricItem}>
-                    <Feather name="help-circle" size={15} color="#F59E0B" />
+                    <View style={[styles.trustMetricIconBadge, { backgroundColor: '#F59E0B' }]}>
+                      <Icon name="help" size={12} color="#fff" />
+                    </View>
                     <Text style={styles.trustMetricLabel}>{t('postItem.trustUnsure')}</Text>
                     <Text style={[styles.trustMetricPercent, { color: '#F59E0B' }]}>
                       {Math.round(normalizedTrustScore.notSure)}%
                     </Text>
-                    <Text style={styles.trustMetricSub}>
+                    <Text style={styles.trustMetricVotes}>
                       {t('postItem.trustVotes', { count: normalizedTrustScore.notSureVotes })}
                     </Text>
+                    <Text style={styles.trustMetricSub}>{t('postItem.weightedByReputation')}</Text>
                   </View>
                   <View style={styles.trustMetricDivider} />
                   <View style={styles.trustMetricItem}>
-                    <Feather name="x-circle" size={15} color="#DC2626" />
+                    <View style={[styles.trustMetricIconBadge, { backgroundColor: '#DC2626' }]}>
+                      <Icon name="close" size={12} color="#fff" />
+                    </View>
                     <Text style={styles.trustMetricLabel}>{t('postItem.trustDisagree')}</Text>
                     <Text style={[styles.trustMetricPercent, { color: '#DC2626' }]}>
                       {Math.round(normalizedTrustScore.disagree)}%
                     </Text>
-                    <Text style={styles.trustMetricSub}>
+                    <Text style={styles.trustMetricVotes}>
                       {t('postItem.trustVotes', { count: normalizedTrustScore.disagreeVotes })}
                     </Text>
+                    <Text style={styles.trustMetricSub}>{t('postItem.weightedByReputation')}</Text>
                   </View>
                 </View>
                 {getTrustVoteId(trustVote) ? (
@@ -2538,7 +2567,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flexShrink: 1,
-    maxWidth: 104,
+    maxWidth: 170,
+  },
+  trustHeaderDivider: {
+    width: 1,
+    height: 28,
+    backgroundColor: '#E5E7EB',
+    marginRight: 14,
+  },
+  trustMetricIconBadge: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 4,
   },
   trustScoreActionIcon: {
     width: 22,
@@ -2561,20 +2604,35 @@ const styles = StyleSheet.create({
   trustScoreActionTitle: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#111827',
+    fontFamily: 'Nunito-SemiBold',
+    color: '#6B7280',
     marginRight: 2,
     flexShrink: 1,
+  },
+  trustScoreActionTitleVoted: {
+    fontSize: 13,
+    fontWeight: '700',
   },
   trustScoreValue: {
     marginLeft: 2,
     fontSize: 11,
     fontWeight: '900',
+    fontFamily: 'Nunito-SemiBold',
     color: '#10B981',
+  },
+  trustScoreValueVoted: {
+    fontSize: 12,
+    fontWeight: '800',
   },
   trustScoreActionSub: {
     marginTop: 1,
     fontSize: 8,
+    fontFamily: 'Nunito-Regular',
     color: '#6B7280',
+  },
+  trustScoreActionSubVoted: {
+    fontSize: 10,
+    fontWeight: '600',
   },
   trustScorePanel: {
     marginHorizontal: 14,
@@ -2627,6 +2685,12 @@ const styles = StyleSheet.create({
   trustMetricPercent: {
     fontSize: 11,
     fontWeight: '900',
+  },
+  trustMetricVotes: {
+    marginTop: 1,
+    fontSize: 8,
+    color: '#6B7280',
+    textAlign: 'center',
   },
   trustMetricSub: {
     marginTop: 2,

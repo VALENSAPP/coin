@@ -2151,6 +2151,7 @@
     "trustApprove": "Approve",
     "trustUnsure": "Unsure",
     "trustVotes": "{{count}} votes",
+    "weightedByReputation": "Weighted by reputation",
     "trustUndoVote": "Undo vote",
     "trustLoadError": "Unable to load trust score",
     "trustSubmitError": "Unable to submit vote",
