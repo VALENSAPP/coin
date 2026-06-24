@@ -200,12 +200,14 @@ const ProfileEbookScreen = ({
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [resolvedIsSubscribed]);
 
   useEffect(() => {
     if (isCompany) return;
-    if (userData?.id) fetchEbooks(userData.id);
-  }, [userData?.id, refreshKey, fetchEbooks]);
+    if (userData?.id && isFocused && isActiveTab) {
+      fetchEbooks(userData.id);
+    }
+  }, [userData?.id, refreshKey, fetchEbooks, isFocused, isActiveTab, isCompany]);
 
   const renderEmpty = () => {
     if (!canViewPrivateContent) {

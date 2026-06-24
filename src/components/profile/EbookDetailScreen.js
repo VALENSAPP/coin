@@ -1,13 +1,17 @@
-import React, { memo, useMemo, useState } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image, Alert, ActivityIndicator } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAppTheme } from '../../theme/useApptheme';
 import FileViewer from 'react-native-file-viewer';
 import RNFS from 'react-native-fs';
-import { Platform } from 'react-native';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
-import { deletePost, likePost, savePost, unSavePost } from '../../services/post';
+import RBSheet from 'react-native-raw-bottom-sheet';
+import CommentSheet from '../home/posts/CommentSheet';
+import { deletePost, getPostlikes, likePost, savePost, unSavePost } from '../../services/post';
+import { useToast } from 'react-native-toast-notifications';
+import { showToastMessage } from '../displaytoastmessage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const chaptersFallback = [
   'Build your personal brand',
@@ -58,7 +62,9 @@ const EbookDetailScreen = () => {
   const route = useRoute();
   const ebook = route?.params?.ebook || {};
   const { bgStyle } = useAppTheme(route?.params?.userData?.profile);
+  const toast = useToast();
   const [isDownloading, setIsDownloading] = useState(false);
+  const commentSheetRef = useRef(null);
 
   const title = ebook.caption || ebook.title || 'E-book';
   const userName = ebook.userName || 'Unknown Author';
@@ -67,25 +73,112 @@ const EbookDetailScreen = () => {
   const coverImage = ebook.images?.[0] || null;
   const pdfUrl = ebook.ebookpdf;
   const allowDownload = ebook.allowDownload === true;
-  const likeCount = ebook.likeCount || 0;
-  const commentCount = ebook.commentCount || 0;
-  const [isLiked, setIsLiked] = useState(ebook?.isLike || false);
+  const [isLiked, setIsLiked] = useState(!!ebook?.isLike);
   const [likes, setLikes] = useState(ebook?.likeCount || 0);
 
   const [isSaved, setIsSaved] = useState(ebook?.isSaved || false);
   const [comments, setComments] = useState(ebook?.commentCount || 0);
+  const [currentUserId, setCurrentUserId] = useState(null);
+  const [liking, setLiking] = useState(false);
+  const [commentPostId, setCommentPostId] = useState(null);
+  const [commentPostOwnerId, setCommentPostOwnerId] = useState(null);
   const createdAt = formatDate(ebook.createdAt);
 
-  const handleLike = async () => {
-    try {
-      await likePost(ebook.id);
+  useEffect(() => {
+    setIsLiked(!!ebook?.isLike);
+    setLikes(ebook?.likeCount || 0);
+    setIsSaved(!!ebook?.isSaved);
+    setComments(ebook?.commentCount || 0);
+  }, [ebook?.id, ebook?.isLike, ebook?.isLikeCount, ebook?.likeCount, ebook?.isSaved, ebook?.commentCount]);
 
-      setIsLiked(prev => !prev);
-      setLikes(prev => (isLiked ? prev - 1 : prev + 1));
+  useEffect(() => {
+    (async () => {
+      try {
+        const id = await AsyncStorage.getItem('userId');
+        setCurrentUserId(id ? String(id) : null);
+      } catch (e) {
+        console.log('Read userId failed', e);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    const loadLikeState = async () => {
+      if (!ebook?.id) return;
+      try {
+        const res = await getPostlikes(String(ebook.id));
+        const payload = res?.data ?? res;
+        const list = Array.isArray(payload?.data)
+          ? payload.data
+          : Array.isArray(payload)
+            ? payload
+            : Array.isArray(payload?.likes)
+              ? payload.likes
+              : [];
+        const serverCount =
+          payload?.likesCount ??
+          payload?.totalLikes ??
+          payload?.count ??
+          list.length;
+
+        const viewerId = currentUserId ? String(currentUserId) : '';
+        const serverLiked = list.some(item => {
+          const itemUserId = String(item?.userId ?? item?.user?.id ?? item?.likedBy ?? '');
+          if (!viewerId) return !!item?.liked || !!item?.isLike;
+          return itemUserId && itemUserId === viewerId;
+        }) || !!payload?.liked || !!payload?.isLike;
+
+        if (mounted) {
+          setLikes(Number(serverCount) || 0);
+          setIsLiked(serverLiked);
+        }
+      } catch (error) {
+        console.log('Load like state error', error);
+      }
+    };
+
+    loadLikeState();
+    return () => {
+      mounted = false;
+    };
+  }, [ebook?.id, currentUserId]);
+
+  const handleLike = useCallback(async () => {
+    if (!ebook?.id || liking) return;
+
+    const prevLiked = isLiked;
+    const prevLikes = likes;
+    const nextLiked = !prevLiked;
+
+    setIsLiked(nextLiked);
+    setLikes(Math.max(0, prevLikes + (nextLiked ? 1 : -1)));
+    setLiking(true);
+
+    try {
+      const res = await likePost(String(ebook.id));
+      const serverLiked = res?.data?.liked;
+      const serverCount = res?.data?.likesCount ?? res?.data?.totalLikes;
+
+      if (typeof serverLiked === 'boolean') {
+        setIsLiked(serverLiked);
+      }
+      if (serverCount !== undefined) {
+        setLikes(Math.max(0, Number(serverCount) || 0));
+      }
     } catch (error) {
+      setIsLiked(prevLiked);
+      setLikes(prevLikes);
       console.log('Like Error', error);
+      showToastMessage(
+        toast,
+        'danger',
+        error?.response?.data?.message || 'Unable to update like',
+      );
+    } finally {
+      setLiking(false);
     }
-  };
+  }, [ebook?.id, isLiked, likes, liking, toast]);
   const handleSave = async () => {
     try {
       if (isSaved) {
@@ -99,6 +192,25 @@ const EbookDetailScreen = () => {
       console.log('Save Error', error);
     }
   };
+  const handleOpenComments = useCallback(() => {
+    if (!ebook?.id) return;
+    setCommentPostId(String(ebook.id));
+    setCommentPostOwnerId(ebook?.userId ?? null);
+    requestAnimationFrame(() => {
+      commentSheetRef.current?.open();
+    });
+  }, [ebook?.id, ebook?.userId]);
+
+  const handleCloseComments = useCallback(() => {
+    commentSheetRef.current?.close();
+    setCommentPostId(null);
+    setCommentPostOwnerId(null);
+  }, []);
+
+  const handleCommentCountUpdate = useCallback((postId, newCount) => {
+    if (String(postId) !== String(ebook?.id)) return;
+    setComments(Math.max(0, Number(newCount) || 0));
+  }, [ebook?.id]);
   const handleDelete = () => {
     Alert.alert(
       'Delete E-book',
@@ -113,19 +225,44 @@ const EbookDetailScreen = () => {
           style: 'destructive',
           onPress: async () => {
             try {
-              await deletePost(
-                ebook.id,
-                ebook.userId,
-              );
+              const resolvedUserId = currentUserId || (await AsyncStorage.getItem('userId'));
+              const userId = resolvedUserId ? String(resolvedUserId) : '';
+              const postId = ebook?.id ? String(ebook.id) : '';
 
-              Alert.alert(
-                'Success',
-                'E-book deleted successfully',
-              );
+              if (!postId || !userId) {
+                showToastMessage(
+                  toast,
+                  'danger',
+                  'Unable to delete this e-book right now.',
+                );
+                return;
+              }
 
+              const res = await deletePost(postId, userId);
+              const ok = res?.statusCode === 200 && (res?.success ?? true);
+
+              if (!ok) {
+                showToastMessage(
+                  toast,
+                  'danger',
+                  res?.data?.message || res?.message || 'Failed to delete e-book',
+                );
+                return;
+              }
+
+              showToastMessage(
+                toast,
+                'success',
+                res?.data?.message || 'E-book deleted successfully',
+              );
               navigation.goBack();
             } catch (error) {
               console.log('Delete Error', error);
+              showToastMessage(
+                toast,
+                'danger',
+                error?.response?.data?.message || error?.message || 'Delete failed',
+              );
             }
           },
         },
@@ -203,12 +340,12 @@ const EbookDetailScreen = () => {
           <View style={styles.authorWrap}>
             <View style={styles.avatarStack}>
               <Image source={{ uri: userImage }} style={styles.avatar} />
-              <View style={styles.onlineDot} />
+              {/* <View style={styles.onlineDot} /> */}
             </View>
             <View style={styles.authorTextWrap}>
               <View style={styles.authorTopLine}>
                 <Text style={styles.authorName}>{userName}</Text>
-                <Ionicons name="checkmark-circle" size={16} color="#2F80ED" />
+                {/* <Ionicons name="checkmark-circle" size={16} color="#2F80ED" /> */}
               </View>
               <Text style={styles.metaText}>{createdAt}</Text>
             </View>
@@ -288,14 +425,14 @@ const EbookDetailScreen = () => {
           >
             <Ionicons
               name={isLiked ? 'heart' : 'heart-outline'}
-              size={20}
+              size={25}
               color={isLiked ? '#ef4444' : '#6b7280'}
             />
             <Text style={styles.actionCount}>{likes}</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionBtn}>
-            <Ionicons name="chatbubble-outline" size={20} color="#6b7280" />
-            <Text style={styles.actionCount}>{commentCount}</Text>
+          <TouchableOpacity style={styles.actionBtn} onPress={handleOpenComments}>
+            <Ionicons name="chatbubble-outline" size={25} color="#6b7280" />
+            <Text style={styles.actionCount}>{comments}</Text>
           </TouchableOpacity>
           <View style={styles.actionSpacer} />
           <TouchableOpacity
@@ -304,12 +441,35 @@ const EbookDetailScreen = () => {
           >
             <Ionicons
               name={isSaved ? 'bookmark' : 'bookmark-outline'}
-              size={20}
+              size={25}
               color={isSaved ? '#5A2D82' : '#6b7280'}
             />
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      <RBSheet
+        ref={commentSheetRef}
+        height={500}
+        openDuration={250}
+        draggable={true}
+        closeOnPressMask={true}
+        customModalProps={{ statusBarTranslucent: true }}
+        customStyles={{
+          container: [styles.commentSheetContainer, bgStyle],
+          draggableIcon: {
+            backgroundColor: '#ccc',
+            width: 60,
+          },
+        }}
+      >
+        <CommentSheet
+          postId={commentPostId}
+          postOwnerId={commentPostOwnerId}
+          onClose={handleCloseComments}
+          onCommentCountUpdate={handleCommentCountUpdate}
+        />
+      </RBSheet>
     </View>
   );
 };
@@ -414,8 +574,6 @@ const styles = StyleSheet.create({
     width: 112,
     height: 160,
     borderRadius: 10,
-    padding: 12,
-    backgroundColor: '#5A2D82',
     justifyContent: 'space-between',
   },
   coverText: { color: '#fff', fontSize: 15, fontWeight: '700', lineHeight: 20 },
@@ -461,6 +619,8 @@ const styles = StyleSheet.create({
     paddingTop: 14,
     paddingBottom: 10,
     gap: 12,
+    marginLeft:10,
+    marginTop:10,
   },
   actionBtn: {
     flexDirection: 'row',
@@ -476,6 +636,7 @@ const styles = StyleSheet.create({
   bookmarkBtn: {
     width: 34,
     alignItems: 'flex-end',
+    marginRight:10,
   },
   sectionTitle: { fontSize: 15, fontWeight: '800', color: '#111827', marginBottom: 10, marginTop: 6 },
   learnList: {
@@ -510,6 +671,10 @@ const styles = StyleSheet.create({
   commentAvatar: { width: 26, height: 26, borderRadius: 13, marginRight: 10 },
   commentPlaceholder: { flex: 1, color: '#9ca3af', fontSize: 13 },
   sendBtn: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
+  commentSheetContainer: {
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+  },
   deleteButton: {
     width: 36,
     height: 36,
