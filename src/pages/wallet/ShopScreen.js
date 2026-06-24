@@ -57,30 +57,49 @@ const ShopScreen = ({ navigation }) => {
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
-      <View style={[styles.marketingCard, cardStyle, { borderColor: withAlpha(text, 0.12) }]}>
+      <View
+        style={[
+          styles.marketingCard,
+          cardStyle,
+          { borderColor: withAlpha(text, 0.12) },
+        ]}
+      >
         <LinearGradient
           colors={[withAlpha(text, 0.16), withAlpha(text, 0.06)]}
           start={{ x: 0, y: 0 }}
           end={{ x: 0, y: 1 }}
           style={styles.leftRail}
         >
-          <View style={[styles.railIconBubble, { backgroundColor: mixWithWhite(text, 0.9) }]}>
+          <View
+            style={[
+              styles.railIconBubble,
+              { backgroundColor: mixWithWhite(text, 0.9) },
+            ]}
+          >
             <Ionicons name="bag-handle" size={34} color={text} />
           </View>
         </LinearGradient>
 
         <View style={styles.marketingBody}>
           <Text style={[styles.marketingTitle, textStyle]}>
-            {displayName ? `${displayName} ${t('shop.title')}` : t('shop.title')}
+            {displayName
+              ? `${displayName} ${t('shop.title')}`
+              : t('shop.title')}
           </Text>
-          <Text style={[styles.marketingText, textStyle]}>{t('shop.welcome')}</Text>
+          <Text style={[styles.marketingText, textStyle]}>
+            {t('shop.welcome')}
+          </Text>
           <Text style={[styles.marketingText, textStyle]}>
             {t('shop.description')}
           </Text>
 
           <TouchableOpacity
             activeOpacity={0.9}
-            onPress={() => navigation.navigate('ProfileMain', { screen: 'Profile' })}
+            onPress={() =>
+              navigation.navigate('ProfileMain', {
+                screen: 'MyClosetCreateShop',
+              })
+            }
             style={[styles.ctaButton, { backgroundColor: text }]}
           >
             <Text style={styles.ctaText}>{t('shop.ctaButton')}</Text>

@@ -2,6 +2,7 @@ import React, { memo, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
+import { useNavigation } from '@react-navigation/native';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useLanguage } from '../../i18n';
 
@@ -25,11 +26,12 @@ const withAlpha = (hex, alpha = 0.12) => {
   return `rgba(${r},${g},${b},${alpha})`;
 };
 
-const Shop = memo(({ isOwnProfile = false, onStartPress, userData }) => {
+const Shop = memo(({ isOwnProfile = false, userData }) => {
   const { bgStyle, textStyle, text, cardStyle } = useAppTheme(userData?.profile);
+  const navigation = useNavigation();
   const { t } = useLanguage();
 
-  useEffect(() => {}, [userData]);
+  useEffect(() => { }, [userData]);
 
   const bullets = useMemo(
     () => [
@@ -42,7 +44,9 @@ const Shop = memo(({ isOwnProfile = false, onStartPress, userData }) => {
   );
 
   const handleStartPress = () => {
-    if (typeof onStartPress === 'function') onStartPress();
+    navigation.navigate('ProfileMain', {
+      screen: 'MyClosetCreateShop',
+    })
   };
 
   return (
@@ -94,7 +98,7 @@ const Shop = memo(({ isOwnProfile = false, onStartPress, userData }) => {
           </View>
         </View>
       ) : (
-        <View style={[styles.card, cardStyle, { borderColor: withAlpha(text, 0.12)}]}>
+        <View style={[styles.card, cardStyle, { borderColor: withAlpha(text, 0.12) }]}>
           <LinearGradient
             colors={[withAlpha(text, 0.16), withAlpha(text, 0.06)]}
             start={{ x: 0, y: 0 }}
@@ -125,7 +129,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-   content: {
+  content: {
     paddingHorizontal: 10,
     paddingTop: 5,
     paddingBottom: 40,
@@ -175,7 +179,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: 10,
   },
-   paragraph: {
+  paragraph: {
     fontSize: 12,
     lineHeight: 14,
     marginBottom: 10,

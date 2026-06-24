@@ -25,7 +25,8 @@ export const authInterceptor = axiosInstance.interceptors.request.use(
             config.url == "post/create" ||
             config.url == "user/editProfile" ||
             config.url == "story/upload" ||
-            config.url == "company-profile/upload-documents"
+            config.url == "company-profile/upload-documents" ||
+            config.url == "mycloset"
         ) {
             config.headers['Content-Type'] = 'multipart/form-data';
         } else {
