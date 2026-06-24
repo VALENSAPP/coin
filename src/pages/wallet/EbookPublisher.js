@@ -9,6 +9,7 @@ import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view
 import { createPost } from '../../services/post';
 import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
+import RNFS from 'react-native-fs';
 
 const MAX_PDF_SIZE_BYTES = 100 * 1024 * 1024;
 
@@ -47,9 +48,27 @@ const EbookPublisher = ({ navigation }) => {
 
   const progress = useMemo(() => Math.min(100, (step / 3) * 100), [step]);
   const coverOptions = useMemo(() => ([
-    { id: 'minimal', title: tf('ebookPublisher.coverMinimal', 'Minimal'), subtitle: tf('ebookPublisher.coverMinimalSubtitle', 'Clean and modern'), accent: '#6D28D9' },
-    { id: 'editorial', title: tf('ebookPublisher.coverEditorial', 'Editorial'), subtitle: tf('ebookPublisher.coverEditorialSubtitle', 'Magazine-inspired layout'), accent: '#0F766E' },
-    { id: 'classic', title: tf('ebookPublisher.coverClassic', 'Classic'), subtitle: tf('ebookPublisher.coverClassicSubtitle', 'Timeless and elegant'), accent: '#92400E' },
+     {
+      id: 'sample1',
+      title: tf('ebookPublisher.coverSample1', 'Vibrant Gradient'),
+      subtitle: tf('ebookPublisher.coverSample1Subtitle', 'Modern mesh gradient'),
+      accent: '#6D28D9',
+      imageUri: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=600',
+    },
+    {
+      id: 'sample2',
+      title: tf('ebookPublisher.coverSample2', 'Serene Landscape'),
+      subtitle: tf('ebookPublisher.coverSample2Subtitle', 'Ocean sunset view'),
+      accent: '#0F766E',
+      imageUri: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=600',
+    },
+    {
+      id: 'sample3',
+      title: tf('ebookPublisher.coverSample3', 'Cosmic Night'),
+      subtitle: tf('ebookPublisher.coverSample3Subtitle', 'A starry sky'),
+      accent: '#92400E',
+      imageUri: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?q=80&w=600',
+    },
     { id: 'custom', title: tf('ebookPublisher.coverCustom', 'Custom'), subtitle: tf('ebookPublisher.coverCustomSubtitle', 'Your image from gallery'), accent: '#7C3AED' },
   ]), [t]);
   const selectedCoverInfo = coverOptions.find(item => item.id === selectedCover) || coverOptions[0];
@@ -184,8 +203,26 @@ const EbookPublisher = ({ navigation }) => {
       setIsSubmitting(true);
       dispatch(showLoader());
 
-      const coverSource =
-        selectedCover === 'custom' && customCoverImage ? customCoverImage : null;
+      let coverSource = null;
+      if (selectedCover === 'custom' && customCoverImage) {
+        coverSource = customCoverImage;
+      } else if (selectedCoverInfo && selectedCoverInfo.imageUri) {
+        const localFileName = `sample-cover-${selectedCoverInfo.id}.jpg`;
+        const localFilePath = `${RNFS.CachesDirectoryPath}/${localFileName}`;
+        
+        console.log('Downloading sample cover:', selectedCoverInfo.imageUri, 'to:', localFilePath);
+        
+        await RNFS.downloadFile({
+          fromUrl: selectedCoverInfo.imageUri,
+          toFile: localFilePath,
+        }).promise;
+        
+        coverSource = {
+          uri: `file://${localFilePath}`,
+          name: localFileName,
+          type: 'image/jpeg',
+        };
+      }
 
       const payload = {
         type: 'private',
@@ -347,10 +384,14 @@ const EbookPublisher = ({ navigation }) => {
                     <View
                       style={[
                         styles.coverPreview,
-                        option.id === 'custom' && customCoverImage ? styles.coverPreviewCustom : { backgroundColor: option.accent },
+                        option.imageUri || (option.id === 'custom' && customCoverImage)
+                          ? styles.coverPreviewCustom
+                          : { backgroundColor: option.accent },
                       ]}
                     >
-                      {option.id === 'custom' && customCoverImage ? (
+                      {option.imageUri ? (
+                        <Image source={{ uri: option.imageUri }} style={styles.customCoverImage} resizeMode="cover" />
+                      ) : option.id === 'custom' && customCoverImage ? (
                         <Image source={{ uri: customCoverImage.uri }} style={styles.customCoverImage} resizeMode="cover" />
                       ) : null}
                     </View>
@@ -441,31 +482,36 @@ const EbookPublisher = ({ navigation }) => {
               <View
                 style={[
                   styles.previewCover,
-                  selectedCover === 'custom' && customCoverImage ? styles.previewCoverCustom : { backgroundColor: selectedCoverInfo.accent },
+                  selectedCoverInfo.imageUri
+                    ? null
+                    : selectedCover === 'custom' && customCoverImage
+                    ? styles.previewCoverCustom
+                    : { backgroundColor: selectedCoverInfo.accent },
                 ]}
               >
-                {selectedCover === 'custom' && customCoverImage ? (
+                {selectedCoverInfo.imageUri ? (
+                  <Image source={{ uri: selectedCoverInfo.imageUri }} style={styles.previewCoverImage} resizeMode="cover" />
+                ) : selectedCover === 'custom' && customCoverImage ? (
                   <Image source={{ uri: customCoverImage.uri }} style={styles.previewCoverImage} resizeMode="cover" />
                 ) : null}
-                {!(selectedCover === 'custom' && customCoverImage) && (
-                  <View style={styles.previewCoverOverlay}>
+                {/* {!(selectedCover === 'custom' && customCoverImage) && (
+                  <View style={[styles.previewCoverOverlay, { flex: 1, justifyContent: 'space-between' }]}>
                     <Text style={styles.previewCoverSmall}>
                       {t('ebookPublisher.previewTag')}
                     </Text>
 
-                    <Text style={styles.previewCoverTitle}>
-                      {title}
+                    <Text style={styles.previewCoverTitle} numberOfLines={3}>
+                      {title || 'Untitled Book'}
                     </Text>
 
                     <Text style={styles.previewCoverFooter}>
                       {allowDownload ? 'DOWNLOAD ON' : 'DOWNLOAD OFF'}
                     </Text>
                   </View>
-                )}
+                )} */}
               </View>
               <View style={styles.previewMeta}>
                 <Text style={[styles.previewTitle, textStyle]} numberOfLines={2}>{title}</Text>
-                <Text style={styles.previewAuthor}>{t('ebookPublisher.previewByline')}</Text>
                 <Text style={styles.previewDescription}>{description}</Text>
                 <View style={styles.previewStats}>
                   <View style={styles.previewStat}>
