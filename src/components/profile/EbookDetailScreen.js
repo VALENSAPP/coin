@@ -1,8 +1,17 @@
-import React, { memo, useMemo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image } from 'react-native';
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image, Alert, ActivityIndicator } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAppTheme } from '../../theme/useApptheme';
+import FileViewer from 'react-native-file-viewer';
+import RNFS from 'react-native-fs';
+import InAppBrowser from 'react-native-inappbrowser-reborn';
+import RBSheet from 'react-native-raw-bottom-sheet';
+import CommentSheet from '../home/posts/CommentSheet';
+import { deletePost, getPostlikes, likePost, savePost, unSavePost } from '../../services/post';
+import { useToast } from 'react-native-toast-notifications';
+import { showToastMessage } from '../displaytoastmessage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const chaptersFallback = [
   'Build your personal brand',
@@ -11,21 +20,315 @@ const chaptersFallback = [
   'Grow your audience',
 ];
 
+
+const getDescription = (textField) => {
+  if (!textField) return 'No description available';
+
+  if (typeof textField === 'string') {
+    try {
+      const parsed = JSON.parse(textField);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed[0];
+      }
+    } catch (e) {
+      return textField || 'No description available';
+    }
+  }
+
+  if (Array.isArray(textField) && textField.length > 0) {
+    return textField[0];
+  }
+
+  return 'No description available';
+};
+
+const formatDate = (dateString) => {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  const now = new Date();
+  const diff = now - date;
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+
+  if (minutes < 60) return `${minutes}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  if (days < 7) return `${days}d ago`;
+  return date.toLocaleDateString();
+};
+
 const EbookDetailScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const ebook = route?.params?.ebook || {};
   const { bgStyle } = useAppTheme(route?.params?.userData?.profile);
-  const chapters = useMemo(() => route?.params?.chapters || chaptersFallback, [route?.params?.chapters]);
+  const toast = useToast();
+  const [isDownloading, setIsDownloading] = useState(false);
+  const commentSheetRef = useRef(null);
 
-  const title = ebook.title || "The Creator's Playbook";
-  const author = ebook.author || 'Steven Austin';
-  const descriptionLines = [
-    'Build your brand.',
-    'Create impact.',
-    'Share your knowledge.',
-    'Earn your freedom.',
-  ];
+  const title = ebook.caption || ebook.title || 'E-book';
+  const userName = ebook.userName || 'Unknown Author';
+  const userImage = ebook.userImage || 'https://i.pravatar.cc/80?img=32';
+  const description = getDescription(ebook.text);
+  const coverImage = ebook.images?.[0] || null;
+  const pdfUrl = ebook.ebookpdf;
+  const allowDownload = ebook.allowDownload === true;
+  const [isLiked, setIsLiked] = useState(!!ebook?.isLike);
+  const [likes, setLikes] = useState(ebook?.likeCount || 0);
+
+  const [isSaved, setIsSaved] = useState(ebook?.isSaved || false);
+  const [comments, setComments] = useState(ebook?.commentCount || 0);
+  const [currentUserId, setCurrentUserId] = useState(null);
+  const [liking, setLiking] = useState(false);
+  const [commentPostId, setCommentPostId] = useState(null);
+  const [commentPostOwnerId, setCommentPostOwnerId] = useState(null);
+  const createdAt = formatDate(ebook.createdAt);
+
+  useEffect(() => {
+    setIsLiked(!!ebook?.isLike);
+    setLikes(ebook?.likeCount || 0);
+    setIsSaved(!!ebook?.isSaved);
+    setComments(ebook?.commentCount || 0);
+  }, [ebook?.id, ebook?.isLike, ebook?.isLikeCount, ebook?.likeCount, ebook?.isSaved, ebook?.commentCount]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const id = await AsyncStorage.getItem('userId');
+        setCurrentUserId(id ? String(id) : null);
+      } catch (e) {
+        console.log('Read userId failed', e);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    const loadLikeState = async () => {
+      if (!ebook?.id) return;
+      try {
+        const res = await getPostlikes(String(ebook.id));
+        const payload = res?.data ?? res;
+        const list = Array.isArray(payload?.data)
+          ? payload.data
+          : Array.isArray(payload)
+            ? payload
+            : Array.isArray(payload?.likes)
+              ? payload.likes
+              : [];
+        const serverCount =
+          payload?.likesCount ??
+          payload?.totalLikes ??
+          payload?.count ??
+          list.length;
+
+        const viewerId = currentUserId ? String(currentUserId) : '';
+        const serverLiked = list.some(item => {
+          const itemUserId = String(item?.userId ?? item?.user?.id ?? item?.likedBy ?? '');
+          if (!viewerId) return !!item?.liked || !!item?.isLike;
+          return itemUserId && itemUserId === viewerId;
+        }) || !!payload?.liked || !!payload?.isLike;
+
+        if (mounted) {
+          setLikes(Number(serverCount) || 0);
+          setIsLiked(serverLiked);
+        }
+      } catch (error) {
+        console.log('Load like state error', error);
+      }
+    };
+
+    loadLikeState();
+    return () => {
+      mounted = false;
+    };
+  }, [ebook?.id, currentUserId]);
+
+  const handleLike = useCallback(async () => {
+    if (!ebook?.id || liking) return;
+
+    const prevLiked = isLiked;
+    const prevLikes = likes;
+    const nextLiked = !prevLiked;
+
+    setIsLiked(nextLiked);
+    setLikes(Math.max(0, prevLikes + (nextLiked ? 1 : -1)));
+    setLiking(true);
+
+    try {
+      const res = await likePost(String(ebook.id));
+      const serverLiked = res?.data?.liked;
+      const serverCount = res?.data?.likesCount ?? res?.data?.totalLikes;
+
+      if (typeof serverLiked === 'boolean') {
+        setIsLiked(serverLiked);
+      }
+      if (serverCount !== undefined) {
+        setLikes(Math.max(0, Number(serverCount) || 0));
+      }
+    } catch (error) {
+      setIsLiked(prevLiked);
+      setLikes(prevLikes);
+      console.log('Like Error', error);
+      showToastMessage(
+        toast,
+        'danger',
+        error?.response?.data?.message || 'Unable to update like',
+      );
+    } finally {
+      setLiking(false);
+    }
+  }, [ebook?.id, isLiked, likes, liking, toast]);
+  const handleSave = async () => {
+    try {
+      if (isSaved) {
+        await unSavePost(ebook.id);
+        setIsSaved(false);
+      } else {
+        await savePost(ebook.id);
+        setIsSaved(true);
+      }
+    } catch (error) {
+      console.log('Save Error', error);
+    }
+  };
+  const handleOpenComments = useCallback(() => {
+    if (!ebook?.id) return;
+    setCommentPostId(String(ebook.id));
+    setCommentPostOwnerId(ebook?.userId ?? null);
+    requestAnimationFrame(() => {
+      commentSheetRef.current?.open();
+    });
+  }, [ebook?.id, ebook?.userId]);
+
+  const handleCloseComments = useCallback(() => {
+    commentSheetRef.current?.close();
+    setCommentPostId(null);
+    setCommentPostOwnerId(null);
+  }, []);
+
+  const handleCommentCountUpdate = useCallback((postId, newCount) => {
+    if (String(postId) !== String(ebook?.id)) return;
+    setComments(Math.max(0, Number(newCount) || 0));
+  }, [ebook?.id]);
+  const handleDelete = () => {
+    Alert.alert(
+      'Delete E-book',
+      'Are you sure you want to delete this e-book?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const resolvedUserId = currentUserId || (await AsyncStorage.getItem('userId'));
+              const userId = resolvedUserId ? String(resolvedUserId) : '';
+              const postId = ebook?.id ? String(ebook.id) : '';
+
+              if (!postId || !userId) {
+                showToastMessage(
+                  toast,
+                  'danger',
+                  'Unable to delete this e-book right now.',
+                );
+                return;
+              }
+
+              const res = await deletePost(postId, userId);
+              const ok = res?.statusCode === 200 && (res?.success ?? true);
+
+              if (!ok) {
+                showToastMessage(
+                  toast,
+                  'danger',
+                  res?.data?.message || res?.message || 'Failed to delete e-book',
+                );
+                return;
+              }
+
+              showToastMessage(
+                toast,
+                'success',
+                res?.data?.message || 'E-book deleted successfully',
+              );
+              navigation.goBack();
+            } catch (error) {
+              console.log('Delete Error', error);
+              showToastMessage(
+                toast,
+                'danger',
+                error?.response?.data?.message || error?.message || 'Delete failed',
+              );
+            }
+          },
+        },
+      ],
+    );
+  };
+  const handleReadBook = async () => {
+    if (await InAppBrowser.isAvailable()) {
+      await InAppBrowser.open(pdfUrl, {
+        dismissButtonStyle: 'close',
+        readerMode: false,
+        animated: true,
+        modalEnabled: true,
+        enableBarCollapsing: true,
+      });
+    }
+  };
+  const chapters = useMemo(() => {
+    if (ebook.tableContent) {
+      if (typeof ebook.tableContent === 'string') {
+        return ebook.tableContent.split(',').map(ch => ch.trim()).filter(ch => ch !== '');
+      }
+      if (Array.isArray(ebook.tableContent)) {
+        return ebook.tableContent.filter(ch => ch !== '');
+      }
+    }
+    return chaptersFallback;
+  }, [ebook.tableContent]);
+
+  const handleDownloadPdf = async () => {
+    if (!pdfUrl) {
+      Alert.alert('Error', 'PDF URL not available');
+      return;
+    }
+
+    try {
+      setIsDownloading(true);
+      const fileName = `${title.replace(/\s+/g, '_')}.pdf`;
+      const filePath = `${RNFS.DocumentDirectoryPath}/${fileName}`;
+
+      const downloadResult = await RNFS.downloadFile({
+        fromUrl: pdfUrl,
+        toFile: filePath,
+        progress: (res) => {
+          const progress = Math.floor((res.bytesWritten / res.contentLength) * 100);
+          console.log(`PDF Download progress: ${progress}%`);
+        },
+      }).promise;
+
+      if (downloadResult.statusCode === 200) {
+        Alert.alert('Success', `PDF downloaded successfully`);
+        // Open the PDF file
+        await FileViewer.open(filePath, {
+          displayName: fileName,
+          showOpenWithDialog: true,
+        });
+      } else {
+        Alert.alert('Error', 'Failed to download PDF');
+      }
+    } catch (error) {
+      console.log('Download error:', error);
+      Alert.alert('Download Failed', error.message || 'Unable to download PDF');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   return (
     <View style={[styles.screen, bgStyle]}>
@@ -36,68 +339,137 @@ const EbookDetailScreen = () => {
           </TouchableOpacity>
           <View style={styles.authorWrap}>
             <View style={styles.avatarStack}>
-              <Image source={{ uri: 'https://i.pravatar.cc/80?img=32' }} style={styles.avatar} />
-              <View style={styles.onlineDot} />
+              <Image source={{ uri: userImage }} style={styles.avatar} />
+              {/* <View style={styles.onlineDot} /> */}
             </View>
             <View style={styles.authorTextWrap}>
               <View style={styles.authorTopLine}>
-                <Text style={styles.authorName}>{author}</Text>
-                <Ionicons name="checkmark-circle" size={16} color="#2F80ED" />
+                <Text style={styles.authorName}>{userName}</Text>
+                {/* <Ionicons name="checkmark-circle" size={16} color="#2F80ED" /> */}
               </View>
-              <Text style={styles.metaText}>2m ago</Text>
+              <Text style={styles.metaText}>{createdAt}</Text>
             </View>
             <View style={styles.subscriberPill}>
               <Text style={styles.subscriberPillText}>Subscribers</Text>
+            </View>
+            <View>
+              <TouchableOpacity
+                onPress={handleDelete}
+                style={styles.deleteButton}
+              >
+                <Ionicons
+                  name="trash-outline"
+                  size={18}
+                  color="#DC2626"
+                />
+              </TouchableOpacity>
             </View>
           </View>
         </View>
 
         <Text style={styles.postText}>
-          Excited to share my new e-book with you all!{'\n'}
-          Hope you find it helpful 💜
+          {description}
         </Text>
 
         <View style={styles.previewCard}>
           <View style={styles.cardLeft}>
-            <View style={styles.cover}>
-              <Text style={styles.coverText} numberOfLines={3}>{title}</Text>
-              <Text style={styles.coverSub}>Build. Share. Earn.</Text>
-              <Text style={styles.coverAuthor}>STEVEN AUSTIN</Text>
-            </View>
+            {coverImage ? (
+              <Image source={{ uri: coverImage }} style={styles.cover} resizeMode="cover" />
+            ) : (
+              <View style={styles.cover}>
+                <Text style={styles.coverText} numberOfLines={3}>{title}</Text>
+                <Text style={styles.coverSub}>E-book</Text>
+                <Text style={styles.coverAuthor}>{userName.toUpperCase()}</Text>
+              </View>
+            )}
           </View>
           <View style={styles.cardRight}>
             <Text style={styles.ebookTitle}>{title}</Text>
-            <Text style={styles.byline}>By {author}</Text>
+            <Text style={styles.byline}>By {userName}</Text>
             <Text style={styles.description}>
-              {descriptionLines.map((line) => `${line}\n`)}
+              {description}
             </Text>
             <View style={styles.metricsRow}>
-              <Text style={styles.metric}>📚 {ebook.chapters || 5} Chapters</Text>
-              <Text style={styles.metric}>📄 {ebook.pages || 24} Pages</Text>
+              <Text style={styles.metric}>📚 {chapters.length} Chapters</Text>
+              {/* <Text style={styles.metric}>📄 {ebook.pages || '?'} Pages</Text> */}
             </View>
           </View>
         </View>
 
-        <TouchableOpacity style={styles.readButton}>
+        {allowDownload && (
+          <TouchableOpacity
+            style={styles.downloadButton}
+            onPress={handleDownloadPdf}
+            disabled={isDownloading}
+          >
+            {isDownloading ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <>
+                <Ionicons name="download-outline" size={16} color="#fff" />
+                <Text style={styles.downloadButtonText}>Download PDF</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        )}
+
+        <TouchableOpacity style={styles.readButton} onPress={handleReadBook}>
           <Ionicons name="book-outline" size={16} color="#5A2D82" />
           <Text style={styles.readButtonText}>Read e-book</Text>
         </TouchableOpacity>
 
         <View style={styles.actionsRow}>
-          <TouchableOpacity style={styles.actionBtn}>
-            <Ionicons name="heart-outline" size={20} color="#ef4444" />
-            <Text style={styles.actionCount}>32</Text>
+          <TouchableOpacity
+            style={styles.actionBtn}
+            onPress={handleLike}
+          >
+            <Ionicons
+              name={isLiked ? 'heart' : 'heart-outline'}
+              size={25}
+              color={isLiked ? '#ef4444' : '#6b7280'}
+            />
+            <Text style={styles.actionCount}>{likes}</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionBtn}>
-            <Ionicons name="chatbubble-outline" size={20} color="#6b7280" />
-            <Text style={styles.actionCount}>12</Text>
+          <TouchableOpacity style={styles.actionBtn} onPress={handleOpenComments}>
+            <Ionicons name="chatbubble-outline" size={25} color="#6b7280" />
+            <Text style={styles.actionCount}>{comments}</Text>
           </TouchableOpacity>
           <View style={styles.actionSpacer} />
-          <TouchableOpacity style={styles.bookmarkBtn}>
-            <Ionicons name="bookmark-outline" size={20} color="#6b7280" />
+          <TouchableOpacity
+            style={styles.bookmarkBtn}
+            onPress={handleSave}
+          >
+            <Ionicons
+              name={isSaved ? 'bookmark' : 'bookmark-outline'}
+              size={25}
+              color={isSaved ? '#5A2D82' : '#6b7280'}
+            />
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      <RBSheet
+        ref={commentSheetRef}
+        height={500}
+        openDuration={250}
+        draggable={true}
+        closeOnPressMask={true}
+        customModalProps={{ statusBarTranslucent: true }}
+        customStyles={{
+          container: [styles.commentSheetContainer, bgStyle],
+          draggableIcon: {
+            backgroundColor: '#ccc',
+            width: 60,
+          },
+        }}
+      >
+        <CommentSheet
+          postId={commentPostId}
+          postOwnerId={commentPostOwnerId}
+          onClose={handleCloseComments}
+          onCommentCountUpdate={handleCommentCountUpdate}
+        />
+      </RBSheet>
     </View>
   );
 };
@@ -116,7 +488,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 8,
-    marginTop:'10%'
+    marginTop: '10%'
   },
   backBtn: {
     width: 36,
@@ -202,8 +574,6 @@ const styles = StyleSheet.create({
     width: 112,
     height: 160,
     borderRadius: 10,
-    padding: 12,
-    backgroundColor: '#5A2D82',
     justifyContent: 'space-between',
   },
   coverText: { color: '#fff', fontSize: 15, fontWeight: '700', lineHeight: 20 },
@@ -232,12 +602,25 @@ const styles = StyleSheet.create({
     marginTop: 14,
   },
   readButtonText: { color: '#5A2D82', fontWeight: '800' },
+  downloadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#5A2D82',
+    borderRadius: 14,
+    paddingVertical: 11,
+    gap: 6,
+    marginTop: 10,
+  },
+  downloadButtonText: { color: '#fff', fontWeight: '800', fontSize: 14 },
   actionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingTop: 14,
     paddingBottom: 10,
     gap: 12,
+    marginLeft:10,
+    marginTop:10,
   },
   actionBtn: {
     flexDirection: 'row',
@@ -253,6 +636,7 @@ const styles = StyleSheet.create({
   bookmarkBtn: {
     width: 34,
     alignItems: 'flex-end',
+    marginRight:10,
   },
   sectionTitle: { fontSize: 15, fontWeight: '800', color: '#111827', marginBottom: 10, marginTop: 6 },
   learnList: {
@@ -287,4 +671,27 @@ const styles = StyleSheet.create({
   commentAvatar: { width: 26, height: 26, borderRadius: 13, marginRight: 10 },
   commentPlaceholder: { flex: 1, color: '#9ca3af', fontSize: 13 },
   sendBtn: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
+  commentSheetContainer: {
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+  },
+  deleteButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FEE2E2',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 10,
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+    shadowColor: '#DC2626',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
 });

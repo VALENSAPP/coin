@@ -1056,15 +1056,15 @@ const MyClosetLiveScreen = ({ navigation, route }) => {
           <SecondaryButton
             label="Go to My Closet"
             text={text}
-            onPress={() =>
-              navigation.navigate('Profile', { initialTab: 'closet' })
-            }
+            onPress={() => {
+            //   navigation.navigate('Profile', { initialTab: 'closet' })
+            }}
           />
           <PrimaryButton
             label="Add My First Item"
             text={text}
             onPress={() => {
-              navigation.navigate('MyClosetAddItemPhotos', { draft: {} });
+              // navigation.navigate('MyClosetAddItemPhotos', { draft: {} });
             }}
           />
         </View>
