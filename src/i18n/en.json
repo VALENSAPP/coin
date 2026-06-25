@@ -2659,7 +2659,8 @@
     "timeMinutesAgo": "{{count}}m ago",
     "timeHoursAgo": "{{count}}h ago",
     "timeDaysAgo": "{{count}}d ago",
-    "timeRecently": "Recently"
+    "timeRecently": "Recently",
+    "mediaUnavailable": "This story could not be loaded."
   },
   "subscribeFlow": {
     "step1Subtitle": "You're about to Subscribe!",

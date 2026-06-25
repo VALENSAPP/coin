@@ -47,6 +47,7 @@ import { useLanguage } from '../../i18n';
 import { isPostPinned, setPostPinnedState } from '../../utils/postPinning';
 import useScreenshotProtection, {
   shouldProtectScreenshot,
+  SCREENSHOT_PROTECTED_SOURCES,
 } from '../../hooks/useScreenshotProtection';
 import { navigateToUserProfile } from '../../utils/navigateToUserProfile';
 
@@ -725,6 +726,42 @@ export default function PostView({ postData = [], userData = {} }) {
     return String(post.userId) === String(currentUserId);
   }, [list, modalPostId, currentUserId]);
 
+  const canHide = useMemo(() => {
+    if (!modalPostId || !currentUserId) return false;
+
+    const post = list.find(x => String(x.id) === String(modalPostId));
+    if (!post) return false;
+
+    const viewerId = String(currentUserId);
+    const postOwnerId = String(post.userId ?? post.UserId ?? '');
+    const profileOwnerId = String(
+      routeParams.userId ??
+        routeUserData?.id ??
+        routeUserData?.userId ??
+        userData?.id ??
+        userData?.userId ??
+        '',
+    );
+    const protectionSource = routeParams.screenshotProtectionSource;
+    const isPrivateProfileContext =
+      protectionSource === SCREENSHOT_PROTECTED_SOURCES.PRIVATE_CONTENT ||
+      protectionSource === SCREENSHOT_PROTECTED_SOURCES.PRIVATE_CIRCLE;
+
+    if (isPrivateProfileContext && profileOwnerId) {
+      return viewerId === profileOwnerId;
+    }
+
+    return postOwnerId !== viewerId;
+  }, [
+    list,
+    modalPostId,
+    currentUserId,
+    routeParams.screenshotProtectionSource,
+    routeParams.userId,
+    routeUserData,
+    userData,
+  ]);
+
   const modalPost = useMemo(() => {
     if (!modalPostId) return null;
     return list.find(post => String(post.id) === String(modalPostId)) || null;
@@ -1192,6 +1229,7 @@ export default function PostView({ postData = [], userData = {} }) {
         isPinned={!!(modalPost && isPostPinned(modalPost))}
         canDelete={!!canDelete}
         canEdit={!!canDelete}
+        canHide={canHide}
         isHidden={!!(modalPostId && hiddenById[modalPostId])}
         hideBusy={modalPostId ? hidingIds.has(modalPostId) : false}
         onHiddenChange={(id, nextHidden) => {

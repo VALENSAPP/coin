@@ -37,6 +37,7 @@ import {
 } from '../../utils/supportEligibility';
 import HexAvatar from '../../components/home/story.js/HexAvatar';
 import { useLanguage } from '../../i18n';
+import { navigateToUserProfile } from '../../utils/navigateToUserProfile';
 
 const DEFAULT_AVATAR = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 
@@ -366,15 +367,33 @@ export default function FollowersFollowingScreen({ navigation, route }) {
   const goToUserProfile = useCallback(
     (user) => {
       if (!user?.id) return;
-      navigation.navigate('HomeMain', {
-        screen: 'UsersProfile',
+
+      const returnToPayload = {
+        tab: 'ProfileMain',
+        screen: 'FollowersFollowingScreen',
         params: {
-          userId: user.id,
-          username: user.username,
+          tab: activeTab,
+          userName: headerUsername,
+          userId: profileUserIdFromRoute,
+          returnTo: route?.params?.returnTo,
+          screenParams: route?.params?.screenParams || route?.params?.params,
         },
+      };
+
+      void navigateToUserProfile(navigation, user.id, {
+        loggedInUserId: selfUserId,
+        username: user.username,
+        returnTo: returnToPayload,
       });
     },
-    [navigation],
+    [
+      activeTab,
+      headerUsername,
+      navigation,
+      profileUserIdFromRoute,
+      route?.params,
+      selfUserId,
+    ],
   );
 
   const handleBack = () => {

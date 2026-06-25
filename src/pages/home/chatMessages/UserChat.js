@@ -52,6 +52,10 @@ import StoryViewerModal from '../../../components/modals/StoryViewerModal';
 import HexAvatar from '../../../components/home/story.js/HexAvatar';
 import { useLanguage } from '../../../i18n';
 import { viewStory } from '../../../services/stories';
+import {
+  resolveStoryMediaUri,
+  resolveStoryMediaType,
+} from '../../../utils/storyAudioResolve';
 
 // const DEFAULT_AVATAR = require('../../../assets/icons/pngicons/user.png');
 const CHAT_LINK_REGEX =
@@ -1368,10 +1372,7 @@ const UserChat = ({ route, navigation }) => {
               const storyData = item.story || item.rawData?.story || item.rawData || {};
               const storyTimestamp = parseStoryTimestamp(storyData);
               const storyExpired = isStoryExpired(storyData);
-              const mediaUri =
-                storyData.uri || storyData.thumbnail || storyData.media?.[0] ||
-                storyData.media?.[0]?.url || storyData.images?.[0]?.url ||
-                storyData.images?.[0] || storyData.image || item.rawData?.uri;
+              const mediaUri = resolveStoryMediaUri(storyData) || item.rawData?.uri;
               const storyUserData = storyData.user || {};
               const storyUser = {
                 displayName:
@@ -1381,8 +1382,8 @@ const UserChat = ({ route, navigation }) => {
               };
               const caption = storyData.caption || storyData.text || item.content || '';
               const views = storyData.views?.length || storyData.viewCount || 0;
-              const mediaType = storyData.type || (isVideoUrl(mediaUri) ? 'video' : 'image');
-              const storyExists = storyData && (storyData.id || mediaUri) && !storyExpired;
+              const mediaType = resolveStoryMediaType(storyData, mediaUri);
+              const storyExists = storyData && (storyData.id || storyData.storyId || mediaUri) && !storyExpired;
               const storyTimeText = storyTimestamp ? formatStoryTimeAgo(storyTimestamp, t) : t('userChat.storyLabel');
 
               if (!storyExists) {
@@ -1397,15 +1398,19 @@ const UserChat = ({ route, navigation }) => {
                 <TouchableOpacity
                   style={[styles.sharedPostContainer, isUser && styles.userSharedPost]}
                   onPress={() => {
-                    if (storyExists && mediaUri) {
+                    if (storyExists) {
                       setSelectedStory({
                         ...storyData,
                         uri: mediaUri,
                         type: mediaType,
+                        storyId: storyData.storyId || storyData.id || cleanStoryId(storyData.id),
                         userId: storyData.userId || storyData.UserId || storyUserData?._id || storyUserData?.id || storyUserData?.userId || item.senderId || item.senderInfo?.id || item.senderInfo?._id || null,
+                        senderId: item.senderId || item.senderInfo?.id || item.senderInfo?._id || storyData.userId || null,
                         userName: storyUser.displayName,
                         userImage: storyUser.image,
                         caption,
+                        createdAt: storyData.createdAt || storyTimestamp || storyData.updatedAt,
+                        storyMeta: storyData.storyMeta,
                       });
                       setStoryViewerVisible(true);
                     } else {

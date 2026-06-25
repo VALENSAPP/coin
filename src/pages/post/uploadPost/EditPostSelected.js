@@ -1922,12 +1922,11 @@ const InstagramPostCreator = () => {
                             cropHeight={contentLayout.height}
                             imageWidth={contentLayout.width}
                             imageHeight={contentLayout.height}
-                            panToMove={!isDrawing && !isOverlayTransforming && !modalVisible2}
-                            minScale={0.5}
-                            maxScale={4}
-                            pinchToZoom={!isDrawing && !isOverlayTransforming && !modalVisible2}
-                            enableDoubleClickZoom={!isDrawing && !isOverlayTransforming && !modalVisible2}
-                            doubleClickInterval={175}
+                            panToMove={false}
+                            minScale={1}
+                            maxScale={1}
+                            pinchToZoom={false}
+                            enableDoubleClickZoom={false}
                             style={[
                               styles.imageZoomContainer,
                               { width: contentLayout.width, height: contentLayout.height },
@@ -1944,9 +1943,6 @@ const InstagramPostCreator = () => {
                                 evt.nativeEvent.target._owner?.memoizedProps?.testID !== 'overlay-element'
                               );
                             }}
-                            onPanResponderGrant={handleZoomStart}
-                            onPanResponderRelease={handleZoomEnd}
-                            onMove={({ scale }) => handleZoomChange(scale)}
                           >
                             <View
                               style={[
@@ -2321,7 +2317,7 @@ const InstagramPostCreator = () => {
   );
 
   const renderEditingTabs = () => (
-    <View style={[styles.editingSection, bgStyle]}>
+    <View style={[styles.editingSection, isFlipPost && styles.editingSectionFlip, bgStyle]}>
       {modalVisible2 ? (
         renderTextEditorToolbar()
       ) : isFlipPost ? (
@@ -2586,9 +2582,14 @@ const InstagramPostCreator = () => {
         </View>
       </Modal>
 
-      <View style={[styles.NextButtonView, isFlipPost && styles.NextButtonViewFlip]}>
+      <View
+        style={[
+          styles.NextButtonView,
+          isFlipPost && styles.NextButtonViewFlip,
+          isFlipPost && { paddingBottom: Math.max(12, insets.bottom) },
+        ]}>
         {slideHasLibraryMusic(getCurrentImageEdits()) ? (
-          <View style={styles.postMusicCardToggleBar}>
+          <View style={[styles.postMusicCardToggleBar, isFlipPost && styles.postMusicCardToggleBarFlip]}>
             <View style={styles.postMusicCardToggleTextCol}>
               <Text style={[styles.postMusicCardToggleLabel, { color: themeText }]}>
                 {t('selectedPost.showMusicCard')}
@@ -2975,7 +2976,8 @@ const styles = StyleSheet.create({
     marginTop: -2,
   },
   editingSectionFlip: {
-    paddingBottom: 6,
+    flexShrink: 0,
+    paddingBottom: 0,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: '#e5e7eb',
   },
@@ -3120,6 +3122,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   postMusicCardToggleBarFlip: {
+    marginBottom: 0,
     paddingHorizontal: 8,
   },
   postMusicCardToggleTextCol: {
@@ -3513,9 +3516,10 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   NextButtonViewFlip: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     alignItems: 'stretch',
-    justifyContent: 'space-between',
+    flexShrink: 0,
+    gap: 8,
   },
   nextButton: {
     // backgroundColor: '#5a2d82',
@@ -3526,7 +3530,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   nextButtonFlip: {
-    flex: 1,
+    alignSelf: 'stretch',
     borderRadius: 24,
   },
   nextButtonText: {
