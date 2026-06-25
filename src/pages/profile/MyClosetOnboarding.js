@@ -253,7 +253,7 @@ const FlowShell = ({
                   </Text>
                 </View>
                 {index < steps.length - 1 ? (
-                  <View style={styles.stepConnectorLine} />
+                  <View style={[styles.stepConnectorLine, {backgroundColor: text}]} />
                 ) : null}
               </React.Fragment>
             );
@@ -331,7 +331,7 @@ const Shell = ({ navigation, activeStep, children }) => {
                   </Text>
                 </View>
                 {index < STEPS.length - 1 ? (
-                  <View style={styles.stepConnectorLine} />
+                  <View style={[styles.stepConnectorLine, {backgroundColor: text}]} />
                 ) : null}
               </React.Fragment>
             );
@@ -2081,7 +2081,6 @@ const styles = StyleSheet.create({
   stepConnectorLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#ddd6fe',
     marginHorizontal: 6,
   },
   heroBlock: {
