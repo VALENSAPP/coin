@@ -1,5 +1,6 @@
 import { useFocusEffect, useRoute } from '@react-navigation/native';
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
+import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, TextInput, Alert, ScrollView, Dimensions, Linking, Platform, DeviceEventEmitter } from 'react-native';
 import ImagePicker from 'react-native-image-crop-picker';
 import Video from 'react-native-video';
@@ -12,6 +13,7 @@ import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { useLanguage } from '../../i18n';
 
 const { width, height: screenHeight } = Dimensions.get('window');
+const FLIP_HEADER_HEIGHT = 58;
 const gridItemSize = (width - 48) / 3;
 const selectedGridItemSize = (width - 64) / 2;
 const selectedPreviewWidth = width * 0.92;
@@ -45,6 +47,19 @@ export default function PostScreen({ navigation }) {
   console.log('mediaTypemediaType',mediaType)
   console.log("isFlipEntryisFlipEntry",isFlipEntry)
   const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
+
+  const isFlipWithVideo =
+    postType === 'flip' && (selectedMedia?.length || 0) > 0;
+
+  const flipPreviewHeight = useMemo(
+    () =>
+      Math.max(
+        width * 1.2,
+        screenHeight - insets.top - FLIP_HEADER_HEIGHT - tabBarHeight,
+      ),
+    [insets.top, tabBarHeight],
+  );
 
   const { bgStyle, textStyle, text } = useAppTheme();
   const dispatch = useDispatch();
@@ -555,6 +570,44 @@ const cropImage = (imageUri, index) => {
     );
   };
 
+  const renderFlipVideoPreview = () => {
+    const media = selectedMedia?.[0];
+    if (!media) return null;
+
+    return (
+      <View style={[styles.flipFullScreenContainer, { height: flipPreviewHeight }]}>
+        <Video
+          source={{ uri: media.uri }}
+          style={styles.flipFullScreenVideo}
+          paused
+          muted
+          repeat={false}
+          resizeMode="cover"
+          posterResizeMode="cover"
+        />
+        <View style={styles.flipPlayOverlay} pointerEvents="none">
+          <Icon name="play" size={28} color="#fff" />
+        </View>
+        <View style={styles.flipDurationBadge} pointerEvents="none">
+          <Icon name="videocam" size={12} color="#fff" />
+          <Text style={styles.selectedVideoDurationText}>
+            {media.duration ? `${Math.floor(media.duration / 1000)}s` : '0:00'}
+          </Text>
+        </View>
+        <TouchableOpacity
+          style={styles.flipRemoveButton}
+          onPress={() => {
+            setSelectedMedia([]);
+            setGalleryImages([]);
+          }}
+          hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+        >
+          <Icon name="close-circle" size={28} color="#ff3040" />
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
   const renderSelectedMediaGrid = () => {
     const currentSelection = selectedMedia || [];
     if (currentSelection.length === 0) return null;
@@ -660,7 +713,12 @@ const cropImage = (imageUri, index) => {
     </View>
   );
 
-  const renderMainContent = () => (
+  const renderMainContent = () => {
+    if (isFlipWithVideo) {
+      return renderFlipVideoPreview();
+    }
+
+    return (
     <>
       {selectedMedia && selectedMedia.length > 0 && postType !== 'flip' && (
         <View style={[styles.selectionCounter, { shadowColor: text }]}>
@@ -673,8 +731,8 @@ const cropImage = (imageUri, index) => {
 
       {renderSelectedMediaGrid()}
 
-      {selectedMedia && selectedMedia.length < 10 && (
-        <View style={[styles.addMoreSection, { marginTop: postType === 'flip' ? '10%' : 0 }]}>
+      {selectedMedia && selectedMedia.length < 10 && postType !== 'flip' && (
+        <View style={[styles.addMoreSection, { marginTop: 0 }]}>
           <TouchableOpacity style={[styles.addMoreButton, { shadowColor: text, marginTop: 10 }]} onPress={openGallery}>
             <Icon name="images" size={24} color={text} />
             <Text style={[styles.addMoreText, textStyle]}>
@@ -690,7 +748,8 @@ const cropImage = (imageUri, index) => {
         </View>
       )}
     </>
-  );
+    );
+  };
 
   const handleSelectType = (type) => {
     setPostType(type);
@@ -698,8 +757,11 @@ const cropImage = (imageUri, index) => {
   };
 
   return (
-    <SafeAreaView style={[styles.container, bgStyle]}>
-      <View style={[styles.headerRow, bgStyle, { shadowColor: text }]}>
+    <SafeAreaView
+      style={[styles.container, isFlipWithVideo ? styles.flipScreenBg : bgStyle]}
+      edges={isFlipWithVideo ? ['top'] : undefined}
+    >
+      <View style={[styles.headerRow, isFlipWithVideo ? styles.flipHeaderRow : bgStyle, { shadowColor: text }]}>
         <TouchableOpacity
           onPress={() => {
             setShowTypeModal(false);
@@ -722,9 +784,9 @@ const cropImage = (imageUri, index) => {
           }}
           style={styles.headerIconBtn}
         >
-          <Icon name="close" size={26} color="#222" />
+          <Icon name="close" size={26} color={isFlipWithVideo ? '#fff' : '#222'} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, textStyle]}>
+        <Text style={[styles.headerTitle, textStyle, isFlipWithVideo && styles.flipHeaderTitle]}>
           {mediaType === 'Flips' ? t('post.newFlip') : postType === 'crowdfunding' ? t('post.missionMint') : t('post.newMint')}
         </Text>
         <TouchableOpacity
@@ -736,9 +798,17 @@ const cropImage = (imageUri, index) => {
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {galleryImages.length === 0 ? renderInitialGalleryPrompt() : renderMainContent()}
-      </ScrollView>
+      <View style={styles.body}>
+        {galleryImages.length === 0 ? (
+          renderInitialGalleryPrompt()
+        ) : isFlipWithVideo ? (
+          renderFlipVideoPreview()
+        ) : (
+          <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+            {renderMainContent()}
+          </ScrollView>
+        )}
+      </View>
       {!isCropping && (
       <PostTypeModal
         visible={showTypeModal && !isPrivateEntry && !isFlipEntry}
@@ -773,8 +843,68 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  body: {
+    flex: 1,
+    minHeight: 0,
+  },
+  flipScreenBg: {
+    backgroundColor: '#000',
+  },
+  flipHeaderRow: {
+    backgroundColor: '#000',
+    borderBottomColor: 'rgba(255,255,255,0.12)',
+  },
+  flipHeaderTitle: {
+    color: '#fff',
+  },
   scrollView: {
     flex: 1,
+  },
+  flipFullScreenContainer: {
+    width: '100%',
+    backgroundColor: '#000',
+    overflow: 'hidden',
+    alignSelf: 'stretch',
+  },
+  flipFullScreenVideo: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  flipDurationBadge: {
+    position: 'absolute',
+    bottom: 16,
+    right: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  flipRemoveButton: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+  },
+  flipPlayOverlay: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    marginTop: -24,
+    marginLeft: -24,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    borderRadius: 28,
+    width: 56,
+    height: 56,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerRow: {
     flexDirection: 'row',
@@ -1044,10 +1174,11 @@ const styles = StyleSheet.create({
   },
   galleryPrompt: {
     flex: 1,
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 32,
-    paddingTop: '20%'
+    paddingVertical: 24,
+    gap: 24,
   },
   galleryButton: {
     alignItems: 'center',
