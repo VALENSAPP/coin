@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   useWindowDimensions,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import {
   StackActions,
@@ -47,6 +48,7 @@ import { useLanguage } from '../../i18n';
 import { isPostPinned, setPostPinnedState } from '../../utils/postPinning';
 import useScreenshotProtection, {
   shouldProtectScreenshot,
+  SCREENSHOT_PROTECTED_SOURCES,
 } from '../../hooks/useScreenshotProtection';
 import { navigateToUserProfile } from '../../utils/navigateToUserProfile';
 
@@ -107,8 +109,33 @@ export default function PostView({ postData = [], userData = {} }) {
   const pinningPostIdRef = useRef('');
   const pendingInitialScrollRef = useRef(false);
   const [listViewportHeight, setListViewportHeight] = useState(0);
-  const { bgStyle } = useAppTheme();
-
+  const { bgStyle, text } = useAppTheme();
+  const [isReady, setIsReady] = useState(false);
+  // Reset all state when navigating to a different post
+  const paramsKey = routeParams?.key;
+  useEffect(() => {
+    if (!paramsKey) {
+      setIsReady(true);
+      return;
+    }
+    setIsReady(false); // hide everything immediately
+    const nextPosts = normalizePosts(navPostData, postData);
+    setPosts(nextPosts);
+    setList(nextPosts);
+    setLiked({});
+    setSaved({});
+    setPostLikesCount({});
+    setPostCommentsCount({});
+    setHiddenById({});
+    setFollowingByUserId({});
+    setCurrentlyVisiblePostId(null);
+    setPlayingPostId(null);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setIsReady(true);
+      });
+    });
+  }, [paramsKey]);
   useEffect(() => {
     const nextPosts = normalizePosts(navPostData, postData);
     setPosts(prev => {
@@ -725,6 +752,42 @@ export default function PostView({ postData = [], userData = {} }) {
     return String(post.userId) === String(currentUserId);
   }, [list, modalPostId, currentUserId]);
 
+  const canHide = useMemo(() => {
+    if (!modalPostId || !currentUserId) return false;
+
+    const post = list.find(x => String(x.id) === String(modalPostId));
+    if (!post) return false;
+
+    const viewerId = String(currentUserId);
+    const postOwnerId = String(post.userId ?? post.UserId ?? '');
+    const profileOwnerId = String(
+      routeParams.userId ??
+        routeUserData?.id ??
+        routeUserData?.userId ??
+        userData?.id ??
+        userData?.userId ??
+        '',
+    );
+    const protectionSource = routeParams.screenshotProtectionSource;
+    const isPrivateProfileContext =
+      protectionSource === SCREENSHOT_PROTECTED_SOURCES.PRIVATE_CONTENT ||
+      protectionSource === SCREENSHOT_PROTECTED_SOURCES.PRIVATE_CIRCLE;
+
+    if (isPrivateProfileContext && profileOwnerId) {
+      return viewerId === profileOwnerId;
+    }
+
+    return postOwnerId !== viewerId;
+  }, [
+    list,
+    modalPostId,
+    currentUserId,
+    routeParams.screenshotProtectionSource,
+    routeParams.userId,
+    routeUserData,
+    userData,
+  ]);
+
   const modalPost = useMemo(() => {
     if (!modalPostId) return null;
     return list.find(post => String(post.id) === String(modalPostId)) || null;
@@ -1150,35 +1213,40 @@ export default function PostView({ postData = [], userData = {} }) {
           <Text style={styles.userText}>{posts[0]?.userName || t('postView.postsHeaderFallback')}</Text>
           <View style={styles.placeholder} />
         </View>
-
-        <FlatList
-          ref={flatListRef}
-          data={visiblePosts}
-          keyExtractor={(p, i) => p.id?.toString() ?? `post-${i}`}
-          renderItem={renderFeedItem}
-          contentContainerStyle={[styles.feedContainer, { paddingBottom: Math.max(50, insets.bottom + 34) }]}
-          onLayout={event => {
-            const nextHeight = Math.round(event?.nativeEvent?.layout?.height || 0);
-            // Ignore tiny height changes that destabilize snapping.
-            if (nextHeight > 0 && Math.abs(nextHeight - listViewportHeight) > 2) {
-              setListViewportHeight(nextHeight);
-            }
-          }}
-          showsVerticalScrollIndicator={false}
-          initialScrollIndex={visiblePosts.length > 0 ? getInitialScrollIndex() : undefined}
-          onContentSizeChange={handleContentSizeChange}
-          onScrollBeginDrag={handleScrollBeginDrag}
-          onScrollToIndexFailed={onScrollToIndexFailed}
-          viewabilityConfig={viewabilityConfig}
-          onViewableItemsChanged={handleViewableItemsChanged}
-          scrollEventThrottle={16}
-          // For smooth finger-follow scrolling, avoid snap/paging settings here.
-          removeClippedSubviews={false}
-          initialNumToRender={4}
-          maxToRenderPerBatch={6}
-          windowSize={9}
-          nestedScrollEnabled
-        />
+        {isReady ? (
+          <FlatList
+            ref={flatListRef}
+            data={visiblePosts}
+            keyExtractor={(p, i) => p.id?.toString() ?? `post-${i}`}
+            renderItem={renderFeedItem}
+            contentContainerStyle={[styles.feedContainer, { paddingBottom: Math.max(50, insets.bottom + 34) }]}
+            onLayout={event => {
+              const nextHeight = Math.round(event?.nativeEvent?.layout?.height || 0);
+              // Ignore tiny height changes that destabilize snapping.
+              if (nextHeight > 0 && Math.abs(nextHeight - listViewportHeight) > 2) {
+                setListViewportHeight(nextHeight);
+              }
+            }}
+            showsVerticalScrollIndicator={false}
+            initialScrollIndex={visiblePosts.length > 0 ? getInitialScrollIndex() : undefined}
+            onContentSizeChange={handleContentSizeChange}
+            onScrollBeginDrag={handleScrollBeginDrag}
+            onScrollToIndexFailed={onScrollToIndexFailed}
+            viewabilityConfig={viewabilityConfig}
+            onViewableItemsChanged={handleViewableItemsChanged}
+            scrollEventThrottle={16}
+            // For smooth finger-follow scrolling, avoid snap/paging settings here.
+            removeClippedSubviews={false}
+            initialNumToRender={4}
+            maxToRenderPerBatch={6}
+            windowSize={9}
+            nestedScrollEnabled
+          />
+        ) : (
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <ActivityIndicator size="large" color={text} />
+          </View>
+        )}
       </SafeAreaView>
 
       {/* Options Modal */}
@@ -1192,6 +1260,7 @@ export default function PostView({ postData = [], userData = {} }) {
         isPinned={!!(modalPost && isPostPinned(modalPost))}
         canDelete={!!canDelete}
         canEdit={!!canDelete}
+        canHide={canHide}
         isHidden={!!(modalPostId && hiddenById[modalPostId])}
         hideBusy={modalPostId ? hidingIds.has(modalPostId) : false}
         onHiddenChange={(id, nextHidden) => {

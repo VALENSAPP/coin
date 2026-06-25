@@ -16,6 +16,7 @@ import { useFocusEffect, useIsFocused, useNavigation } from '@react-navigation/n
 import { useAppTheme } from '../../theme/useApptheme';
 import { getPostByUser } from '../../services/post';
 import { getFansubscriptionStatus } from '../../services/stirpe';
+import { getMyClosetMe } from '../../services/myCloset';
 import LinearGradient from 'react-native-linear-gradient';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useLanguage } from '../../i18n';
@@ -23,6 +24,7 @@ import FastImage from 'react-native-fast-image';
 import useScreenshotProtection, {
   SCREENSHOT_PROTECTED_SOURCES,
 } from '../../hooks/useScreenshotProtection';
+import MyClosetDashboard from './MyClosetDashboard';
 
 const { width: screenWidth } = Dimensions.get('window');
 const numColumns = 3;
@@ -160,6 +162,8 @@ const PrivateContentScreen = ({
   const [loading, setLoading] = useState(false);
   const [statusLoading, setStatusLoading] = useState(false);
   const [resolvedIsSubscribed, setResolvedIsSubscribed] = useState(false);
+  const [shopCheckComplete, setShopCheckComplete] = useState(false);
+  const [shopExists, setShopExists] = useState(false);
   const navigation = useNavigation();
   const isFocused = useIsFocused();
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -178,6 +182,62 @@ const PrivateContentScreen = ({
     String(isSubscribed || '').toLowerCase() === 'true';
   const isOwnProfile = String(loggedInUserId || '') === String(userData?.id || '');
   const canViewPrivateContent = isOwnProfile || resolvedIsSubscribed;
+  const handleStartShopPress = useCallback(async () => {
+    try {
+      const response = await getMyClosetMe();
+      const data = response?.data || response;
+      const exists =
+        response?.statusCode === 200 &&
+        Boolean(data?.shopName || data?.id || data?.data);
+
+      if (exists) {
+        setShopExists(true);
+        setShopCheckComplete(true);
+        return;
+      }
+    } catch (error) {
+      // If the lookup fails, fall back to the create flow.
+    }
+
+    navigation.navigate('ProfileMain', { screen: 'MyClosetCreateShop' });
+  }, [navigation]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const checkShopState = async () => {
+      if (!isCompany || !isOwnProfile) {
+        if (isMounted) setShopCheckComplete(true);
+        return;
+      }
+
+      try {
+        const response = await getMyClosetMe();
+        const data = response?.data || response;
+        const exists =
+          response?.statusCode === 200 &&
+          Boolean(data?.shopName || data?.id || data?.data);
+
+        if (isMounted) {
+          setShopExists(exists);
+        }
+      } catch (error) {
+        if (isMounted) {
+          setShopExists(false);
+        }
+      } finally {
+        if (isMounted) {
+          setShopCheckComplete(true);
+        }
+      }
+    };
+
+    checkShopState();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isCompany, isOwnProfile]);
 
   useScreenshotProtection({
     enabled: isFocused && isActiveTab && !isCompany && canViewPrivateContent && !isOwnProfile,
@@ -447,13 +507,15 @@ const PrivateContentScreen = ({
                 <Text style={[styles.marketingTitle, textStyle]}>{t('privateContent.shopTitle')}</Text>
                 <Text style={[styles.marketingText, textStyle]}>{t('privateContent.shopWelcome')}</Text>
                 <Text style={[styles.marketingText, textStyle]}>{t('privateContent.shopOwnDescription')}</Text>
-                <TouchableOpacity
-                  activeOpacity={0.9}
-                  onPress={onSubscribePress}
-                  style={[styles.ctaButton, { backgroundColor: text }]}
-                >
-                  <Text style={styles.ctaText}>{t('privateContent.startNowButton')}</Text>
-                </TouchableOpacity>
+                {!shopCheckComplete || shopExists ? null : (
+                  <TouchableOpacity
+                    activeOpacity={0.9}
+                    onPress={handleStartShopPress}
+                    style={[styles.ctaButton, { backgroundColor: text }]}
+                  >
+                    <Text style={styles.ctaText}>{t('privateContent.startNowButton')}</Text>
+                  </TouchableOpacity>
+                )}
               </>
             ) : (
               <>
@@ -476,7 +538,7 @@ const PrivateContentScreen = ({
         </View>
       </View>
     ),
-    [bgStyle, cardStyle, text, textStyle, isOwnProfile, onSubscribePress, userData, t],
+    [bgStyle, cardStyle, handleStartShopPress, shopCheckComplete, shopExists, text, textStyle, isOwnProfile, onSubscribePress, userData, t],
   );
 
   // ── Locked card ───────────────────────────────────────────────────────────
@@ -512,6 +574,18 @@ const PrivateContentScreen = ({
   );
 
   if (isCompany) {
+    // If shop exists and user is owner, show MyClosetDashboard
+    if (shopCheckComplete && shopExists && isOwnProfile) {
+      return (
+        <MyClosetDashboard
+          navigation={navigation}
+          userData={userData}
+          shopDraft={null}
+        />
+      );
+    }
+
+    // Otherwise show ShopCard (setup or guest view)
     return (
       <Animated.ScrollView
         style={[styles.screen, bgStyle]}

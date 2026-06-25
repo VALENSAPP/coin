@@ -80,6 +80,7 @@ import WalletDashboardScreen from '../pages/wallet';
 import ActivityScreen from '../pages/wallet/ActivityScreen';
 import CreatorsScreen from '../pages/wallet/CreatorsScreen';
 import SettingsScreen from '../pages/wallet/SettingScreen';
+import ShopSettingsScreen from '../pages/wallet/ShopSettingsScreen';
 import ChangePassword from '../pages/wallet/ChangePassword';
 import WalletComponent from '../pages/wallet/WalletScreen';
 import ProfileSettingsScreen from '../pages/wallet/ProfileSettings';
@@ -107,11 +108,16 @@ import BattleReward from '../pages/settings/BattleReward';
 import BattleVoteDetails from '../pages/settings/BattleVoteDetails';
 import HexAvatar from '../components/home/story.js/HexAvatar';
 import { getUserCredentials } from '../services/post';
+import { getMyClosetMe } from '../services/myCloset';
 import RevenueFromSubscriptions from '../pages/wallet/MyRevenue';
 import ValensWallet from '../pages/wallet/ValensWallet';
 import TransactionActivityScreen from '../pages/wallet/TransactionActivityScreen';
 import ProfileShop from '../components/profile/Shop';
 import MyClosetDashboard from '../components/profile/MyClosetDashboard';
+import {
+  MyClosetItemEditorScreen,
+  MyClosetItemsManagementScreen,
+} from '../components/profile/MyClosetItemManagement';
 import ShopScreen from '../pages/wallet/ShopScreen';
 import PrivateCircle from '../components/profile/PrivateCircle';
 import LanguageSelectionScreen from '../pages/settings/LanguageSelectionScreen';
@@ -130,16 +136,32 @@ const MyClosetScreen = props => {
 
     const loadShopState = async () => {
       try {
-        const [profileValue, createdValue, draftValue] = await Promise.all([
+        const [profileValue, createdValue, draftValue, closetValue] = await Promise.all([
           AsyncStorage.getItem('profile'),
           AsyncStorage.getItem('myClosetCreated'),
           AsyncStorage.getItem('myClosetDraft'),
+          getMyClosetMe().catch(error => error?.response?.data || null),
         ]);
 
         if (!isMounted) return;
 
         if (profileValue) setStoredProfile(profileValue);
-        setHasCreatedShop(createdValue === 'true');
+
+        const closetData = closetValue?.data || closetValue;
+        const hasApiSignal =
+          typeof closetValue?.success === 'boolean' ||
+          typeof closetValue?.statusCode === 'number';
+        const apiReportedNetworkError =
+          closetValue?.statusCode === 0 && closetValue?.error === true;
+        const closetExists =
+          hasApiSignal && !apiReportedNetworkError
+            ? closetValue?.statusCode === 200 &&
+              Boolean(closetData?.shopName || closetData?.id || closetData?.data)
+            : null;
+
+        setHasCreatedShop(
+          closetExists === null ? createdValue === 'true' : closetExists,
+        );
 
         if (draftValue) {
           try {
@@ -174,6 +196,80 @@ const MyClosetScreen = props => {
     <ProfileShop
       {...props}
       isOwnProfile
+      userData={{ profile: storedProfile }}
+    />
+  );
+};
+
+const ShopScreenWrapper = props => {
+  const [storedProfile, setStoredProfile] = React.useState('user');
+  const [hasCreatedShop, setHasCreatedShop] = React.useState(false);
+  const [shopDraft, setShopDraft] = React.useState(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadShopState = async () => {
+      try {
+        const [profileValue, createdValue, draftValue, closetValue] = await Promise.all([
+          AsyncStorage.getItem('profile'),
+          AsyncStorage.getItem('myClosetCreated'),
+          AsyncStorage.getItem('myClosetDraft'),
+          getMyClosetMe().catch(error => error?.response?.data || null),
+        ]);
+
+        if (!isMounted) return;
+
+        if (profileValue) setStoredProfile(profileValue);
+
+        const closetData = closetValue?.data || closetValue;
+        const hasApiSignal =
+          typeof closetValue?.success === 'boolean' ||
+          typeof closetValue?.statusCode === 'number';
+        const apiReportedNetworkError =
+          closetValue?.statusCode === 0 && closetValue?.error === true;
+        const closetExists =
+          hasApiSignal && !apiReportedNetworkError
+            ? closetValue?.statusCode === 200 &&
+              Boolean(closetData?.shopName || closetData?.id || closetData?.data)
+            : null;
+
+        setHasCreatedShop(
+          closetExists === null ? createdValue === 'true' : closetExists,
+        );
+
+        if (draftValue) {
+          try {
+            setShopDraft(JSON.parse(draftValue));
+          } catch {
+            setShopDraft(null);
+          }
+        }
+      } catch (error) {
+        console.log('Error loading Shop state:', error);
+      }
+    };
+
+    loadShopState();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  if (hasCreatedShop) {
+    return (
+      <MyClosetDashboard
+        {...props}
+        userData={{ profile: storedProfile }}
+        shopDraft={shopDraft}
+      />
+    );
+  }
+
+  return (
+    <ShopScreen
+      {...props}
       userData={{ profile: storedProfile }}
     />
   );
@@ -302,6 +398,14 @@ export default function MainTabNavigator() {
         <Stack.Screen
           name="MyClosetAddItemPublished"
           component={MyClosetAddItemPublishedScreen}
+        />
+        <Stack.Screen
+          name="MyClosetItemsManagement"
+          component={MyClosetItemsManagementScreen}
+        />
+        <Stack.Screen
+          name="MyClosetItemEditor"
+          component={MyClosetItemEditorScreen}
         />
         <Stack.Screen name="Settings" component={Settings} />
         <Stack.Screen
@@ -563,7 +667,7 @@ export default function MainTabNavigator() {
           />
           <Stack.Screen
             name="Shop"
-            component={ShopScreen}
+            component={ShopScreenWrapper}
             // ── TRANSLATION CHANGE ───────────────────────────────────────────
             options={{ headerTitle: t('walletStack.shop') }}
           />
@@ -610,6 +714,11 @@ export default function MainTabNavigator() {
             component={SettingsScreen}
             // ── TRANSLATION CHANGE ───────────────────────────────────────────
             options={{ headerTitle: t('walletStack.settings') }}
+          />
+          <Stack.Screen
+            name="ShopSettings"
+            component={ShopSettingsScreen}
+            options={{ headerTitle: 'Shop Settings' }}
           />
           <Stack.Screen
             name="WalletEditProfile"
@@ -937,6 +1046,8 @@ export default function MainTabNavigator() {
         'PrivateCircleReview',
         'PrivateCircleCreating',
         'PrivateCircleSuccess',
+        'MyClosetItemsManagement',
+        'MyClosetItemEditor',
         'BattleVoteDetails',
       ];
 

@@ -52,6 +52,10 @@ import StoryViewerModal from '../../../components/modals/StoryViewerModal';
 import HexAvatar from '../../../components/home/story.js/HexAvatar';
 import { useLanguage } from '../../../i18n';
 import { viewStory } from '../../../services/stories';
+import {
+  resolveStoryMediaUri,
+  resolveStoryMediaType,
+} from '../../../utils/storyAudioResolve';
 
 // const DEFAULT_AVATAR = require('../../../assets/icons/pngicons/user.png');
 const CHAT_LINK_REGEX =
@@ -1264,7 +1268,7 @@ const UserChat = ({ route, navigation }) => {
                   style={[styles.sharedPostContainer, isUser && styles.userSharedPost]}
                   onPress={() => {
                     if (postData.id) {
-                      navigation.navigate('ProfileMain', { screen: 'PostView', params: { postData: [postData], startIndex: 0, userChat: true, fromScreen: 'UserChat', userId: targetUserId } });
+                      navigation.navigate('ProfileMain', { screen: 'PostView', params: { postData: [postData], startIndex: 0, userChat: true, fromScreen: 'UserChat', userId: targetUserId, key: `post_${postData.id}_${Date.now()}`, } });
                     } else {
                       Alert.alert(t('userChat.errorTitle'), t('userChat.postNotFound'));
                     }
@@ -1273,7 +1277,9 @@ const UserChat = ({ route, navigation }) => {
                 >
                   <View style={styles.sharedPostHeader}>
                     <View style={styles.sharedPostUserInfo}>
-                      <Image source={getAvatarSource(postUser.image)} style={styles.sharedPostAvatar} />
+                      <HexAvatar uri={getAvatarSource(postUser.image)} size={35} borderWidth={2} borderColor={text} />
+
+                      {/* <Image source={getAvatarSource(postUser.image)} style={styles.sharedPostAvatar} /> */}
                       <Text style={styles.sharedPostUserName}>{postUser.displayName}</Text>
                     </View>
                   </View>
@@ -1339,7 +1345,8 @@ const UserChat = ({ route, navigation }) => {
                   activeOpacity={0.7}
                 >
                   <View style={styles.reelCardHeader}>
-                    <Image source={getAvatarSource(reelAvatar)} style={styles.reelCardAvatar} />
+                    <HexAvatar uri={getAvatarSource(reelAvatar)} size={35} borderWidth={2} borderColor={text} />
+                    {/* <Image source={getAvatarSource(reelAvatar)} style={styles.reelCardAvatar} /> */}
                     <View style={styles.reelCardUserInfo}>
                       <Text style={styles.reelCardUsername} numberOfLines={1}>{reelUser || 'Unknown User'}</Text>
                       <Text style={styles.reelCardLabel}>{t('userChat.reelLabel')}</Text>
@@ -1368,10 +1375,7 @@ const UserChat = ({ route, navigation }) => {
               const storyData = item.story || item.rawData?.story || item.rawData || {};
               const storyTimestamp = parseStoryTimestamp(storyData);
               const storyExpired = isStoryExpired(storyData);
-              const mediaUri =
-                storyData.uri || storyData.thumbnail || storyData.media?.[0] ||
-                storyData.media?.[0]?.url || storyData.images?.[0]?.url ||
-                storyData.images?.[0] || storyData.image || item.rawData?.uri;
+              const mediaUri = resolveStoryMediaUri(storyData) || item.rawData?.uri;
               const storyUserData = storyData.user || {};
               const storyUser = {
                 displayName:
@@ -1381,8 +1385,8 @@ const UserChat = ({ route, navigation }) => {
               };
               const caption = storyData.caption || storyData.text || item.content || '';
               const views = storyData.views?.length || storyData.viewCount || 0;
-              const mediaType = storyData.type || (isVideoUrl(mediaUri) ? 'video' : 'image');
-              const storyExists = storyData && (storyData.id || mediaUri) && !storyExpired;
+              const mediaType = resolveStoryMediaType(storyData, mediaUri);
+              const storyExists = storyData && (storyData.id || storyData.storyId || mediaUri) && !storyExpired;
               const storyTimeText = storyTimestamp ? formatStoryTimeAgo(storyTimestamp, t) : t('userChat.storyLabel');
 
               if (!storyExists) {
@@ -1397,15 +1401,19 @@ const UserChat = ({ route, navigation }) => {
                 <TouchableOpacity
                   style={[styles.sharedPostContainer, isUser && styles.userSharedPost]}
                   onPress={() => {
-                    if (storyExists && mediaUri) {
+                    if (storyExists) {
                       setSelectedStory({
                         ...storyData,
                         uri: mediaUri,
                         type: mediaType,
+                        storyId: storyData.storyId || storyData.id || cleanStoryId(storyData.id),
                         userId: storyData.userId || storyData.UserId || storyUserData?._id || storyUserData?.id || storyUserData?.userId || item.senderId || item.senderInfo?.id || item.senderInfo?._id || null,
+                        senderId: item.senderId || item.senderInfo?.id || item.senderInfo?._id || storyData.userId || null,
                         userName: storyUser.displayName,
                         userImage: storyUser.image,
                         caption,
+                        createdAt: storyData.createdAt || storyTimestamp || storyData.updatedAt,
+                        storyMeta: storyData.storyMeta,
                       });
                       setStoryViewerVisible(true);
                     } else {
@@ -1416,7 +1424,8 @@ const UserChat = ({ route, navigation }) => {
                 >
                   <View style={styles.sharedPostHeader}>
                     <View style={styles.sharedPostUserInfo}>
-                      <Image source={getAvatarSource(storyUser.image)} style={styles.sharedPostAvatar} />
+                      <HexAvatar uri={getAvatarSource(storyUser.image)} size={35} borderWidth={2} borderColor={text} />
+                      {/* <Image source={getAvatarSource(storyUser.image)} style={styles.sharedPostAvatar} /> */}
                       <View>
                         <Text style={styles.sharedPostUserName}>{storyUser.displayName}</Text>
                         <Text style={styles.sharedPostTimeText}>{storyTimeText}</Text>
@@ -1647,7 +1656,7 @@ const UserChat = ({ route, navigation }) => {
                         <Text style={styles.emptyText}>{t('userChat.startConversation')}</Text>
                       </View>
                     )}
-                    refreshControl={  
+                    refreshControl={
                       <RefreshControl
                         refreshing={refreshing}
                         onRefresh={onRefresh}
