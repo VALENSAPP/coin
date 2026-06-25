@@ -1,5 +1,10 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { View, StyleSheet, RefreshControl, ScrollView } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  RefreshControl,
+  ScrollView,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
@@ -10,11 +15,7 @@ import ProfilePersonData from '../../components/profile/ProfilePersonalData';
 import HighlightStories from '../../components/profile/HighLightStories';
 import ProfileTabs from '../../components/profile/ProfileTabNavigation';
 import { showToastMessage } from '../../components/displaytoastmessage';
-import {
-  getPostByUser,
-  getUserCredentials,
-  getUserDashboard,
-} from '../../services/post';
+import { getPostByUser, getUserCredentials, getUserDashboard } from '../../services/post';
 import { showLoader, hideLoader } from '../../redux/actions/LoaderAction';
 import { useAppTheme } from '../../theme/useApptheme';
 import WelcomeValensModal from '../../components/modals/WelcomeValensModal';
@@ -25,7 +26,7 @@ import { useProfileHeaderCollapse } from '../../hooks/useProfileHeaderCollapse';
 const KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShownEver';
 const LEGACY_KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShown';
 
-const ProfileScreen = ({ route }) => {
+const ProfileScreen = () => {
   const [posts, setPosts] = useState([]);
   const [userId, setUserId] = useState();
   const [userDashboard, setUserDashboard] = useState();
@@ -33,30 +34,31 @@ const ProfileScreen = ({ route }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [welcomeModalVisible, setWelcomeModalVisible] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
-  const { compactLocked, resetProfileHeader, wrapOnRefresh, scrollViewProps } =
-    useProfileHeaderCollapse();
+  const {
+    compactLocked,
+    resetProfileHeader,
+    wrapOnRefresh,
+    scrollViewProps,
+  } = useProfileHeaderCollapse();
 
   const toast = useToast();
   const dispatch = useDispatch();
   const { bgStyle, textStyle } = useAppTheme();
   const { t } = useLanguage();
 
-  const fetchProfilePosts = useCallback(
-    async (idOverride = '') => {
-      const id = idOverride || userId || (await AsyncStorage.getItem('userId'));
-      if (!id) return null;
+  const fetchProfilePosts = useCallback(async (idOverride = '') => {
+    const id = idOverride || userId || await AsyncStorage.getItem('userId');
+    if (!id) return null;
 
-      const postsRes = await getPostByUser(id, 'normal');
-      if (postsRes?.statusCode === 200) {
-        const nextPosts = sortPostsByPinned(postsRes.data || []);
-        setPosts(nextPosts);
-        return nextPosts;
-      }
+    const postsRes = await getPostByUser(id, 'normal');
+    if (postsRes?.statusCode === 200) {
+      const nextPosts = sortPostsByPinned(postsRes.data || []);
+      setPosts(nextPosts);
+      return nextPosts;
+    }
 
-      return null;
-    },
-    [userId],
-  );
+    return null;
+  }, [userId]);
 
   // Single function to fetch posts, profile info, and dashboard in parallel
   const fetchAllData = useCallback(async () => {
@@ -99,10 +101,7 @@ const ProfileScreen = ({ route }) => {
 
           formattedImageUrl = formattedImageUrl.trim();
 
-          if (
-            formattedImageUrl.startsWith('http://') ||
-            formattedImageUrl.startsWith('https://')
-          ) {
+          if (formattedImageUrl.startsWith('http://') || formattedImageUrl.startsWith('https://')) {
             // already a full URL, use as-is
           } else if (formattedImageUrl.startsWith('/')) {
             formattedImageUrl = `https://api.valens.app${formattedImageUrl}`;
@@ -118,12 +117,8 @@ const ProfileScreen = ({ route }) => {
 
         // Check KYC approval status and show welcome modal
         if (userDataToSet.kyc === true) {
-          const hasShownWelcome = await AsyncStorage.getItem(
-            KYC_WELCOME_SHOWN_KEY,
-          );
-          const hasShownLegacy = await AsyncStorage.getItem(
-            LEGACY_KYC_WELCOME_SHOWN_KEY,
-          );
+          const hasShownWelcome = await AsyncStorage.getItem(KYC_WELCOME_SHOWN_KEY);
+          const hasShownLegacy = await AsyncStorage.getItem(LEGACY_KYC_WELCOME_SHOWN_KEY);
           if (!hasShownWelcome) {
             if (hasShownLegacy) {
               await AsyncStorage.setItem(KYC_WELCOME_SHOWN_KEY, 'true');
@@ -168,7 +163,7 @@ const ProfileScreen = ({ route }) => {
       return () => {
         isActive = false;
       };
-    }, [fetchAllData, resetProfileHeader]),
+    }, [fetchAllData, resetProfileHeader])
   );
 
   const onRefresh = wrapOnRefresh(async () => {
@@ -178,43 +173,27 @@ const ProfileScreen = ({ route }) => {
     setRefreshing(false);
   });
 
-  const handlePostPinChanged = useCallback(
-    async (postId, pinned) => {
-      try {
-        setPosts(prevPosts => setPostPinnedState(prevPosts, postId, pinned));
-        return await fetchProfilePosts();
-      } catch (error) {
-        console.error('Error refreshing posts after pin/unpin:', error);
-        setPosts(prevPosts => setPostPinnedState(prevPosts, postId, pinned));
-        return null;
-      }
-    },
-    [fetchProfilePosts],
-  );
+  const handlePostPinChanged = useCallback(async (postId, pinned) => {
+    try {
+      setPosts(prevPosts => setPostPinnedState(prevPosts, postId, pinned));
+      return await fetchProfilePosts();
+    } catch (error) {
+      console.error('Error refreshing posts after pin/unpin:', error);
+      setPosts(prevPosts => setPostPinnedState(prevPosts, postId, pinned));
+      return null;
+    }
+  }, [fetchProfilePosts]);
 
-  const profileTabsProps = useMemo(
-    () => ({
-      post: posts,
-      displayName: userData?.userName,
-      userData: userData,
-      dashboard: userDashboard,
-      loggedInUserId: userId,
-      refreshKey: refreshKey,
-      onPostPinChanged: handlePostPinChanged,
-      scrollEnabled: false,
-      initialTab:
-        route?.params?.initialTab || route?.params?.params?.initialTab,
-    }),
-    [
-      posts,
-      userData,
-      userDashboard,
-      userId,
-      refreshKey,
-      handlePostPinChanged,
-      route?.params,
-    ],
-  );
+const profileTabsProps = useMemo(() => ({
+  post: posts,
+  displayName: userData?.userName,
+  userData: userData,
+  dashboard: userDashboard,
+  loggedInUserId: userId,
+  refreshKey: refreshKey,
+  onPostPinChanged: handlePostPinChanged,
+  scrollEnabled: false,
+}), [posts, userData, userDashboard, userId, refreshKey, handlePostPinChanged]);
 
   return (
     <SafeAreaView style={[styles.container, bgStyle]}>
@@ -243,7 +222,7 @@ const ProfileScreen = ({ route }) => {
           userData={userData}
           compactLocked={compactLocked}
 
-          // executeFollowAction={executeFollowAction}
+        // executeFollowAction={executeFollowAction}
         />
         <View>
           <HighlightStories userData={userData} />
@@ -273,6 +252,6 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     flexGrow: 1,
-    paddingBottom: 120,
+    paddingBottom: 120
   },
 });

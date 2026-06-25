@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   useWindowDimensions,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import {
   StackActions,
@@ -108,8 +109,33 @@ export default function PostView({ postData = [], userData = {} }) {
   const pinningPostIdRef = useRef('');
   const pendingInitialScrollRef = useRef(false);
   const [listViewportHeight, setListViewportHeight] = useState(0);
-  const { bgStyle } = useAppTheme();
-
+  const { bgStyle, text } = useAppTheme();
+  const [isReady, setIsReady] = useState(false);
+  // Reset all state when navigating to a different post
+  const paramsKey = routeParams?.key;
+  useEffect(() => {
+    if (!paramsKey) {
+      setIsReady(true);
+      return;
+    }
+    setIsReady(false); // hide everything immediately
+    const nextPosts = normalizePosts(navPostData, postData);
+    setPosts(nextPosts);
+    setList(nextPosts);
+    setLiked({});
+    setSaved({});
+    setPostLikesCount({});
+    setPostCommentsCount({});
+    setHiddenById({});
+    setFollowingByUserId({});
+    setCurrentlyVisiblePostId(null);
+    setPlayingPostId(null);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setIsReady(true);
+      });
+    });
+  }, [paramsKey]);
   useEffect(() => {
     const nextPosts = normalizePosts(navPostData, postData);
     setPosts(prev => {
@@ -1187,35 +1213,40 @@ export default function PostView({ postData = [], userData = {} }) {
           <Text style={styles.userText}>{posts[0]?.userName || t('postView.postsHeaderFallback')}</Text>
           <View style={styles.placeholder} />
         </View>
-
-        <FlatList
-          ref={flatListRef}
-          data={visiblePosts}
-          keyExtractor={(p, i) => p.id?.toString() ?? `post-${i}`}
-          renderItem={renderFeedItem}
-          contentContainerStyle={[styles.feedContainer, { paddingBottom: Math.max(50, insets.bottom + 34) }]}
-          onLayout={event => {
-            const nextHeight = Math.round(event?.nativeEvent?.layout?.height || 0);
-            // Ignore tiny height changes that destabilize snapping.
-            if (nextHeight > 0 && Math.abs(nextHeight - listViewportHeight) > 2) {
-              setListViewportHeight(nextHeight);
-            }
-          }}
-          showsVerticalScrollIndicator={false}
-          initialScrollIndex={visiblePosts.length > 0 ? getInitialScrollIndex() : undefined}
-          onContentSizeChange={handleContentSizeChange}
-          onScrollBeginDrag={handleScrollBeginDrag}
-          onScrollToIndexFailed={onScrollToIndexFailed}
-          viewabilityConfig={viewabilityConfig}
-          onViewableItemsChanged={handleViewableItemsChanged}
-          scrollEventThrottle={16}
-          // For smooth finger-follow scrolling, avoid snap/paging settings here.
-          removeClippedSubviews={false}
-          initialNumToRender={4}
-          maxToRenderPerBatch={6}
-          windowSize={9}
-          nestedScrollEnabled
-        />
+        {isReady ? (
+          <FlatList
+            ref={flatListRef}
+            data={visiblePosts}
+            keyExtractor={(p, i) => p.id?.toString() ?? `post-${i}`}
+            renderItem={renderFeedItem}
+            contentContainerStyle={[styles.feedContainer, { paddingBottom: Math.max(50, insets.bottom + 34) }]}
+            onLayout={event => {
+              const nextHeight = Math.round(event?.nativeEvent?.layout?.height || 0);
+              // Ignore tiny height changes that destabilize snapping.
+              if (nextHeight > 0 && Math.abs(nextHeight - listViewportHeight) > 2) {
+                setListViewportHeight(nextHeight);
+              }
+            }}
+            showsVerticalScrollIndicator={false}
+            initialScrollIndex={visiblePosts.length > 0 ? getInitialScrollIndex() : undefined}
+            onContentSizeChange={handleContentSizeChange}
+            onScrollBeginDrag={handleScrollBeginDrag}
+            onScrollToIndexFailed={onScrollToIndexFailed}
+            viewabilityConfig={viewabilityConfig}
+            onViewableItemsChanged={handleViewableItemsChanged}
+            scrollEventThrottle={16}
+            // For smooth finger-follow scrolling, avoid snap/paging settings here.
+            removeClippedSubviews={false}
+            initialNumToRender={4}
+            maxToRenderPerBatch={6}
+            windowSize={9}
+            nestedScrollEnabled
+          />
+        ) : (
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <ActivityIndicator size="large" color={text} />
+          </View>
+        )}
       </SafeAreaView>
 
       {/* Options Modal */}

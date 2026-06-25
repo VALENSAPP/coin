@@ -256,8 +256,13 @@ const ProfileTabs = memo(({
             refreshKey={`${refreshKey ?? 0}-${privateKey}`}
             isActiveTab={activeTab === PRIVATE_CONTENT_TAB_INDEX}
             onOpenEbook={(ebook) => {
-              console.log('🔖 Opening ebook:', ebook);
-              navigation.navigate('EbookDetail', { ebook, userData });
+              navigation.navigate('ProfileMain', {
+                screen: 'EbookDetail',
+                params: {
+                  ebook,
+                  userData,
+                },
+              });
             }}
           />
         ) : (
