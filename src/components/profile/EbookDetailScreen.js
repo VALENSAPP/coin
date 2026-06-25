@@ -83,6 +83,10 @@ const EbookDetailScreen = () => {
   const [commentPostId, setCommentPostId] = useState(null);
   const [commentPostOwnerId, setCommentPostOwnerId] = useState(null);
   const createdAt = formatDate(ebook.createdAt);
+  const isOwner = useMemo(() => {
+    if (!currentUserId || !ebook?.userId) return false;
+    return String(currentUserId) === String(ebook.userId);
+  }, [currentUserId, ebook?.userId]);
 
   useEffect(() => {
     setIsLiked(!!ebook?.isLike);
@@ -352,18 +356,20 @@ const EbookDetailScreen = () => {
             <View style={styles.subscriberPill}>
               <Text style={styles.subscriberPillText}>Subscribers</Text>
             </View>
-            <View>
-              <TouchableOpacity
-                onPress={handleDelete}
-                style={styles.deleteButton}
-              >
-                <Ionicons
-                  name="trash-outline"
-                  size={18}
-                  color="#DC2626"
-                />
-              </TouchableOpacity>
-            </View>
+            {isOwner ? (
+              <View>
+                <TouchableOpacity
+                  onPress={handleDelete}
+                  style={styles.deleteButton}
+                >
+                  <Ionicons
+                    name="trash-outline"
+                    size={18}
+                    color="#DC2626"
+                  />
+                </TouchableOpacity>
+              </View>
+            ) : null}
           </View>
         </View>
 

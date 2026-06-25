@@ -310,7 +310,7 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
       <View style={[styles.sectionCard, cardStyle, { borderColor: withAlpha(text, 0.12) }]}>
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, textStyle]}>Recent Orders</Text>
-          <TouchableOpacity activeOpacity={0.8} onPress={handleViewAllOrders}>
+          <TouchableOpacity activeOpacity={0.8} /*onPress={handleViewAllOrders}*/>
             <Text style={styles.sectionMeta}>View all ›</Text>
           </TouchableOpacity>
         </View>
@@ -340,7 +340,7 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
       <View style={[styles.sectionCard, cardStyle, { borderColor: withAlpha(text, 0.12) }]}>
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, textStyle]}>Your Items</Text>
-          <TouchableOpacity activeOpacity={0.8} onPress={handleViewAllItems}>
+          <TouchableOpacity activeOpacity={0.8} /*onPress={handleViewAllItems}*/>
             <Text style={styles.sectionMeta}>View all ›</Text>
           </TouchableOpacity>
         </View>
