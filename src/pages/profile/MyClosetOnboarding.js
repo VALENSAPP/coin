@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Image,
@@ -10,6 +10,7 @@ import {
   TextInput,
   Platform,
   PermissionsAndroid,
+  Share,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -24,7 +25,8 @@ import { useLanguage } from '../../i18n';
 import { useAppTheme } from '../../theme/useApptheme';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
-import { createMyCloset } from '../../services/myCloset';
+import { createMyCloset, createMyClosetItem } from '../../services/myCloset';
+import ShareModal from '../../components/modals/ShareModal';
 
 const mixWithWhite = (hex, amount = 0.86) => {
   const normalized = String(hex || '').replace('#', '');
@@ -133,17 +135,66 @@ const ITEM_CATEGORY_OPTIONS = [
 ];
 
 const ITEM_CONDITION_OPTIONS = [
-  'New with tags',
-  'Like new',
-  'Good condition',
-  'Fair condition',
+  { label: 'New', value: 'New' },
+  { label: 'Used', value: 'Used' },
+  { label: 'Good condition', value: 'Good_condition' },
+  { label: 'Needs attention', value: 'Need_attention' },
 ];
-const ITEM_SHIPPING_METHOD_OPTIONS = ['Ship items', 'Local pickup'];
+const ITEM_SHIPPING_METHOD_OPTIONS = [
+  { label: 'Ship items', value: 'ship_items' },
+  { label: 'Local pickup', value: 'local_pick' },
+];
+const SHIPPING_CHOICES = [
+  {
+    label: 'Ship items',
+    description: 'I will ship to buyers',
+    value: 'ship_items',
+    icon: 'cube-outline',
+  },
+  {
+    label: 'Local pickup',
+    description: 'Buyers pick up locally',
+    value: 'local_pick',
+    icon: 'location-outline',
+  },
+];
 const ITEM_SHIPPING_TIME_OPTIONS = [
   '1 - 3 business days',
   '3 - 5 business days',
   '5 - 7 business days',
 ];
+
+const getOptionValue = option =>
+  typeof option === 'string' ? option : option?.value;
+
+const getOptionLabel = option =>
+  typeof option === 'string' ? option : option?.label || option?.value || '';
+
+const getConditionLabel = value => {
+  switch (String(value || '').trim()) {
+    case 'New':
+      return 'New';
+    case 'Used':
+      return 'Used';
+    case 'Good_condition':
+      return 'Good condition';
+    case 'Need_attention':
+      return 'Needs attention';
+    default:
+      return value || '';
+  }
+};
+
+const getShippingOptionLabel = value => {
+  switch (String(value || '').trim()) {
+    case 'ship_items':
+      return 'Ship items';
+    case 'local_pick':
+      return 'Local pickup';
+    default:
+      return value || '';
+  }
+};
 
 const FlowShell = ({
   navigation,
@@ -343,6 +394,7 @@ const Field = ({
   text,
   height,
   error,
+  keyboardType,
 }) => (
   <View style={styles.fieldBlock}>
     <Text style={styles.fieldLabel}>{label}</Text>
@@ -359,6 +411,7 @@ const Field = ({
         placeholder={placeholder}
         placeholderTextColor="#a1a1aa"
         multiline={multiline}
+        keyboardType={keyboardType}
         textAlignVertical={multiline ? 'top' : 'center'}
         style={[styles.fieldInput, multiline && { minHeight: height || 92 }]}
       />
@@ -377,61 +430,68 @@ const DropdownRow = ({
   options,
   text,
   error,
-}) => (
-  <View style={styles.fieldBlock}>
-    <Text style={styles.fieldLabel}>{label}</Text>
-    <TouchableOpacity
-      activeOpacity={0.85}
-      onPress={onToggle}
-      style={[
-        styles.dropdownRow,
-        expanded && styles.dropdownRowActive,
-        { borderColor: error ? '#dc2626' : withAlpha(text, 0.16) },
-      ]}
-    >
-      <Text style={[styles.dropdownText, !value && { color: '#a1a1aa' }]}>
-        {value || placeholder}
-      </Text>
-      <Ionicons
-        name={expanded ? 'chevron-up' : 'chevron-down'}
-        size={18}
-        color={text}
-      />
-    </TouchableOpacity>
-    {expanded ? (
-      <View style={styles.dropdownList}>
-        {options.map((item, index) => {
-          const selected = value === item;
-          return (
-            <TouchableOpacity
-              key={item}
-              activeOpacity={0.8}
-              onPress={() => onSelect(item)}
-              style={[
-                styles.dropdownItem,
-                index !== options.length - 1 && styles.dropdownItemBorder,
-                selected && styles.dropdownItemSelected,
-              ]}
-            >
-              <Text
+}) => {
+  const selectedOption = options.find(item => getOptionValue(item) === value);
+  const displayValue = selectedOption ? getOptionLabel(selectedOption) : value;
+
+  return (
+    <View style={styles.fieldBlock}>
+      <Text style={styles.fieldLabel}>{label}</Text>
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={onToggle}
+        style={[
+          styles.dropdownRow,
+          expanded && styles.dropdownRowActive,
+          { borderColor: error ? '#dc2626' : withAlpha(text, 0.16) },
+        ]}
+      >
+        <Text style={[styles.dropdownText, !value && { color: '#a1a1aa' }]}>
+          {displayValue || placeholder}
+        </Text>
+        <Ionicons
+          name={expanded ? 'chevron-up' : 'chevron-down'}
+          size={18}
+          color={text}
+        />
+      </TouchableOpacity>
+      {expanded ? (
+        <View style={styles.dropdownList}>
+          {options.map((item, index) => {
+            const itemValue = getOptionValue(item);
+            const itemLabel = getOptionLabel(item);
+            const selected = value === itemValue;
+            return (
+              <TouchableOpacity
+                key={itemValue || itemLabel || index}
+                activeOpacity={0.8}
+                onPress={() => onSelect(itemValue)}
                 style={[
-                  styles.dropdownItemText,
-                  selected && styles.dropdownItemTextSelected,
+                  styles.dropdownItem,
+                  index !== options.length - 1 && styles.dropdownItemBorder,
+                  selected && styles.dropdownItemSelected,
                 ]}
               >
-                {item}
-              </Text>
-              {selected ? (
-                <Ionicons name="checkmark" size={16} color="#4f46e5" />
-              ) : null}
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-    ) : null}
-    <InlineError message={error} />
-  </View>
-);
+                <Text
+                  style={[
+                    styles.dropdownItemText,
+                    selected && styles.dropdownItemTextSelected,
+                  ]}
+                >
+                  {itemLabel}
+                </Text>
+                {selected ? (
+                  <Ionicons name="checkmark" size={16} color="#4f46e5" />
+                ) : null}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      ) : null}
+      <InlineError message={error} />
+    </View>
+  );
+};
 
 const OptionCard = ({ label, description, selected, onPress, text, icon }) => (
   <TouchableOpacity
@@ -668,7 +728,7 @@ const MyClosetUploadLogoScreen = ({ navigation, route }) => {
               ) : (
                 <>
                   <Ionicons name="add" size={42} color={text} />
-                  <Text style={styles.logoHeroLabel}>Upload logo</Text>
+                  <Text style={[styles.logoHeroLabel, {color: text}]}>Upload logo</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -877,22 +937,17 @@ const MyClosetPreferencesScreen = ({ navigation, route }) => {
         <>
           <Text style={styles.sectionLabel}>Shipping options</Text>
           <View style={styles.shippingGrid}>
-            <OptionCard
-              label="ship_items"
-              description="I’ll ship to buyers"
-              selected={shipping === 'ship_items'}
-              onPress={() => setShipping('ship_items')}
-              text={text}
-              icon="cube-outline"
-            />
-            <OptionCard
-              label="local_pick"
-              description="Buyers pick up locally"
-              selected={shipping === 'local_pick'}
-              onPress={() => setShipping('local_pick')}
-              text={text}
-              icon="location-outline"
-            />
+            {SHIPPING_CHOICES.map(choice => (
+              <OptionCard
+                key={choice.value}
+                label={choice.label}
+                description={choice.description}
+                selected={shipping === choice.value}
+                onPress={() => setShipping(choice.value)}
+                text={text}
+                icon={choice.icon}
+              />
+            ))}
           </View>
 
           <DropdownRow
@@ -975,6 +1030,8 @@ const MyClosetPreferencesScreen = ({ navigation, route }) => {
 
 const MyClosetLiveScreen = ({ navigation, route }) => {
   const draft = route?.params?.draft || {};
+  const isFirstItem = route?.params?.isFirstItem ?? true;
+  const itemTitle = isFirstItem ? 'Add My First Item' : 'Add New Item';
   const { text } = useAppTheme();
   const toast = useToast();
   const shopLink = useMemo(
@@ -1033,7 +1090,7 @@ const MyClosetLiveScreen = ({ navigation, route }) => {
           </View>
         </View>
 
-        <Text style={styles.successTitle}>Your Closet is Live!</Text>
+        <Text style={[styles.successTitle, {color: text}]}>Your Closet is Live!</Text>
         <Text style={styles.successSubtitle}>
           Your personal shop is ready. Start adding items and share your style.
         </Text>
@@ -1057,14 +1114,14 @@ const MyClosetLiveScreen = ({ navigation, route }) => {
             label="Go to My Closet"
             text={text}
             onPress={() => {
-            //   navigation.navigate('Profile', { initialTab: 'closet' })
+              navigation.navigate('Profile', { initialTab: 'closet' })
             }}
           />
           <PrimaryButton
-            label="Add My First Item"
+            label={itemTitle}
             text={text}
             onPress={() => {
-              // navigation.navigate('MyClosetAddItemPhotos', { draft: {} });
+              navigation.navigate('MyClosetAddItemPhotos', { draft: {}, isFirstItem: isFirstItem });
             }}
           />
         </View>
@@ -1098,28 +1155,30 @@ const PhotoTile = ({ photo, onRemove }) => (
   </View>
 );
 
-const QuantityStepper = ({ value, onMinus, onPlus }) => (
+const QuantityStepper = ({ value, onMinus, onPlus, text, bgStyle }) => (
   <View style={styles.quantityStepper}>
     <TouchableOpacity
       activeOpacity={0.8}
       onPress={onMinus}
-      style={styles.quantityBtn}
+      style={[styles.quantityBtn, bgStyle]}
     >
-      <Text style={styles.quantityBtnText}>-</Text>
+      <Text style={[styles.quantityBtnText, {color: text}]}>-</Text>
     </TouchableOpacity>
     <Text style={styles.quantityValue}>{value}</Text>
     <TouchableOpacity
       activeOpacity={0.8}
       onPress={onPlus}
-      style={styles.quantityBtn}
+      style={[styles.quantityBtn, bgStyle]}
     >
-      <Text style={styles.quantityBtnText}>+</Text>
+      <Text style={[styles.quantityBtnText, {color: text}]}>+</Text>
     </TouchableOpacity>
   </View>
 );
 
 const MyClosetAddItemPhotosScreen = ({ navigation, route }) => {
   const draft = route?.params?.draft || {};
+  const isFirstItem = route?.params?.isFirstItem ?? true;  // add
+  const itemTitle = isFirstItem ? 'Add My First Item' : 'Add New Item';
   const [photos, setPhotos] = useState(draft.photos || []);
   const [error, setError] = useState('');
   const { text } = useAppTheme();
@@ -1201,6 +1260,7 @@ const MyClosetAddItemPhotosScreen = ({ navigation, route }) => {
 
     navigation.navigate('MyClosetAddItemDetails', {
       draft: { ...draft, photos },
+      isFirstItem,
     });
   };
 
@@ -1209,7 +1269,7 @@ const MyClosetAddItemPhotosScreen = ({ navigation, route }) => {
       navigation={navigation}
       activeStep={1}
       steps={ITEM_STEPS}
-      title={t('myClosetAddItem.title')}
+      title={itemTitle}
       subtitle={t('myClosetAddItem.subtitle')}
     >
       {() => (
@@ -1219,12 +1279,12 @@ const MyClosetAddItemPhotosScreen = ({ navigation, route }) => {
               <TouchableOpacity
                 activeOpacity={0.9}
                 onPress={addPhotos}
-                style={styles.photoUploadCard}
+                style={[styles.photoUploadCard, {borderColor: text}]}
               >
                 <View style={styles.photoHeroIconWrap}>
                   <Ionicons name="images-outline" size={40} color={text} />
                 </View>
-                <Text style={styles.photoHeroLabel}>
+                <Text style={[styles.photoHeroLabel, {color: text}]}>
                   {t('myClosetAddItem.addPhotos')}
                 </Text>
                 <Text style={styles.photoHeroSubLabel}>
@@ -1323,6 +1383,8 @@ const MyClosetAddItemPhotosScreen = ({ navigation, route }) => {
 
 const MyClosetAddItemDetailsScreen = ({ navigation, route }) => {
   const draft = route?.params?.draft || {};
+  const isFirstItem = route?.params?.isFirstItem ?? true;
+  const itemTitle = isFirstItem ? 'Add My First Item' : 'Add New Item';
   const [itemName, setItemName] = useState(draft.itemName || '');
   const [brand, setBrand] = useState(draft.brand || '');
   const [category, setCategory] = useState(draft.category || '');
@@ -1350,7 +1412,7 @@ const MyClosetAddItemDetailsScreen = ({ navigation, route }) => {
       return;
     }
 
-    navigation.navigate('MyClosetAddItemPrice', { draft: nextDraft });
+    navigation.navigate('MyClosetAddItemPrice', { draft: nextDraft, isFirstItem });
   };
 
   return (
@@ -1358,7 +1420,7 @@ const MyClosetAddItemDetailsScreen = ({ navigation, route }) => {
       navigation={navigation}
       activeStep={2}
       steps={ITEM_STEPS}
-      title="Add My First Item"
+      title={itemTitle}
       subtitle="Tell buyers what your item is all about."
     >
       {() => (
@@ -1450,10 +1512,12 @@ const MyClosetAddItemDetailsScreen = ({ navigation, route }) => {
 
 const MyClosetAddItemPriceScreen = ({ navigation, route }) => {
   const draft = route?.params?.draft || {};
+  const isFirstItem = route?.params?.isFirstItem ?? true;
+  const itemTitle = isFirstItem ? 'Add My First Item' : 'Add New Item';
   const [price, setPrice] = useState(draft.price || '');
   const [quantity, setQuantity] = useState(Number(draft.quantity || 1));
   const [errors, setErrors] = useState({});
-  const { text } = useAppTheme();
+  const { text, bgStyle } = useAppTheme();
 
   const nextDraft = useMemo(
     () => ({ ...draft, price, quantity }),
@@ -1478,7 +1542,7 @@ const MyClosetAddItemPriceScreen = ({ navigation, route }) => {
       navigation={navigation}
       activeStep={3}
       steps={ITEM_STEPS}
-      title="Add My First Item"
+      title={itemTitle}
       subtitle="Set a fair price and manage stock."
     >
       {() => (
@@ -1494,6 +1558,7 @@ const MyClosetAddItemPriceScreen = ({ navigation, route }) => {
             prefix="USD"
             text={text}
             error={errors.price}
+            keyboardType="numeric"
           />
           <View style={styles.quantityBlock}>
             <Text style={styles.fieldLabel}>Quantity</Text>
@@ -1501,15 +1566,17 @@ const MyClosetAddItemPriceScreen = ({ navigation, route }) => {
               value={quantity}
               onMinus={() => setQuantity(prev => Math.max(1, prev - 1))}
               onPlus={() => setQuantity(prev => prev + 1)}
+              text={text}
+              bgStyle={bgStyle}
             />
             <Text style={styles.helperLine}>
               How many of this item do you have?
             </Text>
           </View>
 
-          <View style={styles.feeCard}>
+          <View style={[styles.feeCard, bgStyle, {borderColor: text}]}>
             <View style={styles.feeHeader}>
-              <Text style={styles.feeTitle}>Fees & Payout</Text>
+              <Text style={[styles.feeTitle, {color: text}]}>Fees & Payout</Text>
               <Ionicons
                 name="information-circle-outline"
                 size={16}
@@ -1536,6 +1603,8 @@ const MyClosetAddItemPriceScreen = ({ navigation, route }) => {
 
 const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
   const draft = route?.params?.draft || {};
+  const isFirstItem = route?.params?.isFirstItem ?? true;
+  const itemTitle = isFirstItem ? 'Add My First Item' : 'Add New Item';
   const [shippingType, setShippingType] = useState(
     draft.shippingType || 'ship',
   );
@@ -1581,7 +1650,7 @@ const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
       navigation={navigation}
       activeStep={4}
       steps={ITEM_STEPS}
-      title="Add My First Item"
+      title={itemTitle}
       subtitle="Set your shipping and return policy."
     >
       {() => (
@@ -1680,11 +1749,67 @@ const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
 
 const MyClosetAddItemReviewScreen = ({ navigation, route }) => {
   const draft = route?.params?.draft || {};
+  const isFirstItem = route?.params?.isFirstItem ?? true;  // add
+  const itemTitle = isFirstItem ? 'Add My First Item' : 'Add New Item';
   const { text } = useAppTheme();
+  const dispatch = useDispatch();
+  const toast = useToast();
+  const [isPublishing, setIsPublishing] = useState(false);
   const heroPhoto = draft.photos?.[0];
 
-  const publish = () => {
-    navigation.navigate('MyClosetAddItemPublished', { draft });
+  const publish = async () => {
+    if (isPublishing) return;
+
+    const normalizeShippingOption = value => {
+      const normalized = String(value || '').trim().toLowerCase();
+      if (normalized === 'pickup' || normalized === 'local_pick') return 'local_pick';
+      return 'ship_items';
+    };
+
+    const payload = {
+      images: draft.photos || [],
+      name: draft.itemName,
+      category: draft.category,
+      brand: draft.brand,
+      condition: draft.condition,
+      description: draft.description,
+      price: draft.price,
+      quantity: draft.quantity,
+      shippingOption: normalizeShippingOption(draft.shippingMethod || draft.shippingType),
+      shippingOptions: normalizeShippingOption(draft.shippingMethod || draft.shippingType),
+      estimateShippingTime: draft.shippingTime,
+      returnPolicy: draft.returnPolicy,
+    };
+
+    setIsPublishing(true);
+    dispatch(showLoader());
+    try {
+      const response = await createMyClosetItem(payload);
+      const statusCode = response?.statusCode;
+
+      if (statusCode === 200 || statusCode === 201) {
+        navigation.navigate('MyClosetAddItemPublished', {
+          draft,
+          item: response?.data || response,
+        });
+        return;
+      }
+
+      showToastMessage(
+        toast,
+        'danger',
+        response?.message || 'Failed to publish your item.',
+      );
+    } catch (error) {
+      showToastMessage(
+        toast,
+        'danger',
+        error?.response?.data?.message || error?.message || 'Failed to publish your item.',
+      );
+    } finally {
+      setIsPublishing(false);
+      dispatch(hideLoader());
+    }
   };
 
   return (
@@ -1692,7 +1817,7 @@ const MyClosetAddItemReviewScreen = ({ navigation, route }) => {
       navigation={navigation}
       activeStep={5}
       steps={ITEM_STEPS}
-      title="Add My First Item"
+      title={itemTitle}
       subtitle="Make sure everything looks good."
     >
       {() => (
@@ -1708,11 +1833,13 @@ const MyClosetAddItemReviewScreen = ({ navigation, route }) => {
               <Text style={styles.reviewHeroTitle}>
                 {draft.itemName || 'Vintage Leather Jacket'}
               </Text>
+              {draft.brand &&
+                <Text style={styles.reviewHeroText}>
+                  {draft.brand}
+                </Text>
+              }
               <Text style={styles.reviewHeroText}>
-                {draft.brand || 'Brand'}
-              </Text>
-              <Text style={styles.reviewHeroText}>
-                {draft.condition || 'Good condition'}
+                {getConditionLabel(draft.condition) || 'Good condition'}
               </Text>
               <Text style={styles.reviewHeroText}>
                 ${draft.price || '120.00'}
@@ -1740,7 +1867,7 @@ const MyClosetAddItemReviewScreen = ({ navigation, route }) => {
             <View style={styles.reviewRow}>
               <Text style={styles.reviewLabel}>Shipping</Text>
               <Text style={styles.reviewValue}>
-                {draft.shippingType === 'pickup' ? 'Local pickup' : 'I’ll ship'}{' '}
+                {getShippingOptionLabel(draft.shippingMethod || draft.shippingType) || 'Ship items'}{' '}
                 - {draft.shippingTime || '3 - 5 business days'}
               </Text>
             </View>
@@ -1756,7 +1883,12 @@ const MyClosetAddItemReviewScreen = ({ navigation, route }) => {
             </View>
           </View>
 
-          <PrimaryButton label="Publish Item" text={text} onPress={publish} />
+          <PrimaryButton
+            label={isPublishing ? 'Publishing...' : 'Publish Item'}
+            text={text}
+            onPress={publish}
+            disabled={isPublishing}
+          />
         </>
       )}
     </FlowShell>
@@ -1765,11 +1897,22 @@ const MyClosetAddItemReviewScreen = ({ navigation, route }) => {
 
 const MyClosetAddItemPublishedScreen = ({ navigation, route }) => {
   const draft = route?.params?.draft || {};
-  const { text } = useAppTheme();
+  const item = route?.params?.item || {};
+  const { text, bgStyle } = useAppTheme();
   const heroPhoto = draft.photos?.[0];
+  const publishedName = item?.name || draft.itemName || 'Vintage Leather Jacket';
+  const publishedPrice =
+    item?.price ?? draft.price ?? '120.00';
+  const publishedQuantity =
+    item?.quantity ?? draft.quantity ?? 1;
+  const shareRef = useRef(null);
+
+  const handleShareItem = () => {
+    shareRef.current?.open?.();
+  };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: '#faf5ff' }]}>
+    <SafeAreaView style={[styles.safeArea, bgStyle]}>
       <ScrollView
         contentContainerStyle={styles.successContent}
         showsVerticalScrollIndicator={false}
@@ -1783,12 +1926,12 @@ const MyClosetAddItemPublishedScreen = ({ navigation, route }) => {
         </View>
 
         <View style={styles.itemLiveIconWrap}>
-          <View style={styles.itemLiveIcon}>
+          <View style={[styles.itemLiveIcon, {borderColor: text}]}>
             <Ionicons name="bag-handle-outline" size={36} color={text} />
           </View>
         </View>
 
-        <Text style={styles.successTitle}>Your item is live! 🎉</Text>
+        <Text style={[styles.successTitle, {color: text}]}>Your item is live! 🎉</Text>
         <Text style={styles.successSubtitle}>
           Nice work! Your item is now visible in your closet.
         </Text>
@@ -1802,26 +1945,34 @@ const MyClosetAddItemPublishedScreen = ({ navigation, route }) => {
           ) : null}
           <View style={styles.publishedCopy}>
             <Text style={styles.publishedTitle}>
-              {draft.itemName || 'Vintage Leather Jacket'}
+              {publishedName}
             </Text>
             <Text style={styles.publishedSubtitle}>
-              ${draft.price || '120.00'}
+              ${publishedPrice}
             </Text>
             <Text style={styles.publishedSubtitle}>
-              Quantity: {draft.quantity || 1}
+              Quantity: {publishedQuantity}
+            </Text>
+            <Text style={styles.publishedSubtitle}>
+              {getConditionLabel(draft.condition) || 'Good condition'}
             </Text>
           </View>
         </View>
 
         <View style={styles.nextActions}>
-          <View style={styles.nextActionCard}>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={handleShareItem}
+            style={styles.nextActionCard}
+          >
             <Ionicons name="share-social-outline" size={18} color={text} />
             <Text style={styles.nextActionText}>Share your item</Text>
-          </View>
-          <View style={styles.nextActionCard}>
+          </TouchableOpacity>
+
+          {/* <View style={styles.nextActionCard}>
             <Ionicons name="bag-outline" size={18} color={text} />
             <Text style={styles.nextActionText}>Manage my closet</Text>
-          </View>
+          </View> */}
         </View>
 
         <View style={styles.successActions}>
@@ -1840,6 +1991,18 @@ const MyClosetAddItemPublishedScreen = ({ navigation, route }) => {
             }
           />
         </View>
+        <ShareModal
+          ref={shareRef}
+          post={{
+            id: item?.id || item?._id || null,
+            post: {
+              id: item?.id || item?._id || null,
+              raiseAmount: null,
+              userName: null,
+            },
+          }}
+          postId={item?.id || item?._id || null}
+        />
       </ScrollView>
     </SafeAreaView>
   );
@@ -2096,7 +2259,6 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontSize: 15,
     fontWeight: '800',
-    color: '#6b21a8',
   },
   orText: {
     fontSize: 13,
@@ -2255,8 +2417,7 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '900',
     textAlign: 'center',
-    marginBottom: 8,
-    color: '#4c1d95',
+    marginBottom: 8
   },
   successSubtitle: {
     fontSize: 15,
@@ -2319,10 +2480,9 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     borderWidth: 1,
     borderStyle: 'dashed',
-    borderColor: '#c4b5fd',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#faf5ff',
+    backgroundColor: '#fff',
     overflow: 'hidden',
   },
   photoHeroImage: {
@@ -2342,7 +2502,6 @@ const styles = StyleSheet.create({
   photoHeroLabel: {
     fontSize: 18,
     fontWeight: '900',
-    color: '#4c1d95',
     marginBottom: 4,
   },
   photoHeroSubLabel: {
@@ -2460,12 +2619,10 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#f5f3ff',
   },
   quantityBtnText: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#4c1d95',
   },
   quantityValue: {
     fontSize: 16,
@@ -2480,8 +2637,6 @@ const styles = StyleSheet.create({
   feeCard: {
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#e9d5ff',
-    backgroundColor: '#faf5ff',
     padding: 14,
     marginBottom: 14,
   },
@@ -2494,7 +2649,6 @@ const styles = StyleSheet.create({
   feeTitle: {
     fontSize: 13,
     fontWeight: '900',
-    color: '#4c1d95',
   },
   feeMain: {
     fontSize: 16,
@@ -2517,13 +2671,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   reviewHeroImage: {
-    width: 92,
-    height: 92,
+    width: 100,
+    height: 120,
     backgroundColor: '#f3f4f6',
   },
   reviewHeroCopy: {
     flex: 1,
-    padding: 12,
+    padding: 8
   },
   reviewHeroTitle: {
     fontSize: 14,
@@ -2572,7 +2726,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#e9d5ff',
   },
   publishedCard: {
     width: '100%',
@@ -2586,13 +2739,13 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   publishedThumb: {
-    width: 78,
-    height: 78,
+    width: 85,
+    height: 89,
   },
   publishedCopy: {
     flex: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    padding: 4,
+    paddingLeft: 8
   },
   publishedTitle: {
     fontSize: 14,

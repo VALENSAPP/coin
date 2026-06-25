@@ -1,10 +1,11 @@
-import React, { memo, useEffect, useMemo } from 'react';
+import React, { memo, useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useLanguage } from '../../i18n';
+import { getMyClosetMe } from '../../services/myCloset';
 
 const mixWithWhite = (hex, amount = 0.85) => {
   const normalized = String(hex || '').replace('#', '');
@@ -26,12 +27,51 @@ const withAlpha = (hex, alpha = 0.12) => {
   return `rgba(${r},${g},${b},${alpha})`;
 };
 
-const Shop = memo(({ isOwnProfile = false, userData }) => {
+const Shop = memo(({ isOwnProfile = false, userData, onStartPress }) => {
   const { bgStyle, textStyle, text, cardStyle } = useAppTheme(userData?.profile);
   const navigation = useNavigation();
   const { t } = useLanguage();
+  const [hasCloset, setHasCloset] = useState(false);
+  const [checkedCloset, setCheckedCloset] = useState(!isOwnProfile);
 
   useEffect(() => { }, [userData]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const checkCloset = async () => {
+      if (!isOwnProfile) {
+        if (isMounted) setCheckedCloset(true);
+        return;
+      }
+
+      try {
+        const response = await getMyClosetMe();
+        const closetData = response?.data || response;
+        const exists =
+          response?.statusCode === 200 &&
+          Boolean(closetData?.data || closetData?.shopName || closetData?.id);
+
+        if (isMounted) {
+          setHasCloset(exists);
+        }
+      } catch (error) {
+        if (isMounted) {
+          setHasCloset(false);
+        }
+      } finally {
+        if (isMounted) {
+          setCheckedCloset(true);
+        }
+      }
+    };
+
+    checkCloset();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isOwnProfile]);
 
   const bullets = useMemo(
     () => [
@@ -43,10 +83,31 @@ const Shop = memo(({ isOwnProfile = false, userData }) => {
     [t],
   );
 
-  const handleStartPress = () => {
+  const handleStartPress = async () => {
+    if (typeof onStartPress === 'function') {
+      onStartPress();
+      return;
+    }
+
+    try {
+      const response = await getMyClosetMe();
+      const closetData = response?.data || response;
+      const exists =
+        response?.statusCode === 200 &&
+        Boolean(closetData?.data || closetData?.shopName || closetData?.id);
+
+      if (exists) {
+        setHasCloset(true);
+        setCheckedCloset(true);
+        return;
+      }
+    } catch (error) {
+      // Fall back to the create flow if the lookup fails.
+    }
+
     navigation.navigate('ProfileMain', {
       screen: 'MyClosetCreateShop',
-    })
+    });
   };
 
   return (
@@ -88,13 +149,15 @@ const Shop = memo(({ isOwnProfile = false, userData }) => {
             <Text style={[styles.paragraph, textStyle]}>{t('shopComponent.ownListIt')}</Text>
             <Text style={[styles.paragraph, textStyle]}>{t('shopComponent.ownYourStyle')}</Text>
 
-            <TouchableOpacity
-              activeOpacity={0.9}
-              onPress={handleStartPress}
-              style={[styles.ctaButton, { backgroundColor: text }]}
-            >
-              <Text style={styles.ctaText}>{t('shopComponent.startNowButton')}</Text>
-            </TouchableOpacity>
+            {!checkedCloset || hasCloset ? null : (
+              <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={handleStartPress}
+                style={[styles.ctaButton, { backgroundColor: text }]}
+              >
+                <Text style={styles.ctaText}>{t('shopComponent.startNowButton')}</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       ) : (
