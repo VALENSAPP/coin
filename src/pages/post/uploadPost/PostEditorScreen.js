@@ -40,7 +40,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppTheme } from '../../../theme/useApptheme';
 import { useLanguage } from '../../../i18n';
 import { navigateToUserProfile } from '../../../utils/navigateToUserProfile';
-import { isLocalMediaUri } from '../../../utils/hydratePostForEditor';
+import { isLocalMediaUri, postSupportsLocation } from '../../../utils/hydratePostForEditor';
 import PostLocationModal from '../../../components/modals/PostLocationModal';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -132,6 +132,10 @@ const PostEditorScreen = () => {
     onSave,
     initialPostMeta = null,
   } = route.params || {};
+  const supportsLocation = useMemo(
+    () => postSupportsLocation({ postType, fromIcon }),
+    [postType, fromIcon],
+  );
   const parsedInitialPostMeta = useMemo(
     () => (initialPostMeta ? parsePostMeta(initialPostMeta) : null),
     [initialPostMeta],
@@ -278,7 +282,7 @@ const PostEditorScreen = () => {
         images: editorImages,
         caption,
         link,
-        location: location.trim(),
+        ...(supportsLocation && location.trim() ? { location: location.trim() } : {}),
         taggedPeople,
         taggedPeopleIds,
         taggedPeopleMeta,
@@ -292,7 +296,7 @@ const PostEditorScreen = () => {
 
     const payload = {
       caption: caption.trim(),
-      ...(location.trim() ? { location: location.trim() } : {}),
+      ...(supportsLocation && location.trim() ? { location: location.trim() } : {}),
       taggedPeople: taggedPeopleIds,
       // Array.isArray(taggedPeople) ? taggedPeople.join(', ') : taggedPeople,
       // ...(Array.isArray(taggedPeopleIds) && taggedPeopleIds.length ? { taggedPeopleIds } : {}),
@@ -339,7 +343,9 @@ const PostEditorScreen = () => {
         const editPayload = editSkipMediaEditor
           ? {
               caption: caption.trim(),
-              ...(location.trim() ? { location: location.trim() } : { location: '' }),
+              ...(supportsLocation
+                ? (location.trim() ? { location: location.trim() } : { location: '' })
+                : {}),
               taggedPeople: taggedPeopleIds,
               isTrustPost: isCommunityTrustPost,
               ...(Array.isArray(taggedPeopleIds) && taggedPeopleIds.length
@@ -348,7 +354,9 @@ const PostEditorScreen = () => {
             }
           : {
               caption: caption.trim(),
-              ...(location.trim() ? { location: location.trim() } : { location: '' }),
+              ...(supportsLocation
+                ? (location.trim() ? { location: location.trim() } : { location: '' })
+                : {}),
               taggedPeople: taggedPeopleIds,
               ...(Array.isArray(taggedPeopleIds) && taggedPeopleIds.length
                 ? { taggedPeopleIds, taggedPeopleMeta }
@@ -375,7 +383,9 @@ const PostEditorScreen = () => {
           id: editPostId,
           ...updatedFromApi,
           caption: updatedFromApi?.caption ?? caption.trim(),
-          location: updatedFromApi?.location ?? location.trim(),
+          location: supportsLocation
+            ? (updatedFromApi?.location ?? location.trim())
+            : (updatedFromApi?.location ?? ''),
           postMeta: preservedPostMeta,
           music: editSkipMediaEditor ? updatedFromApi?.music : music || null,
           youtubeMusicMeta: editSkipMediaEditor
@@ -430,7 +440,7 @@ const PostEditorScreen = () => {
         const overlayFields = { postMeta, music, youtubeMusicMeta };
         const createdWithLocation = {
           ...created,
-          ...(location.trim() ? { location: location.trim() } : {}),
+          ...(supportsLocation && location.trim() ? { location: location.trim() } : {}),
         };
         if (createdPostId) {
           cacheClientPostOverlayFields(createdPostId, overlayFields);
@@ -666,6 +676,7 @@ const PostEditorScreen = () => {
           </Text>
         </View>
       )}
+      {supportsLocation ? (
       <View style={styles.captionSection}>
         <Text style={styles.captionLabel}>{t('postEditor.locationLabel')}</Text>
         <TouchableOpacity
@@ -684,6 +695,7 @@ const PostEditorScreen = () => {
           <Icon name="chevron-forward" size={18} color="#9CA3AF" />
         </TouchableOpacity>
       </View>
+      ) : null}
 
       <View style={styles.captionSection}>
         <Text style={styles.captionLabel}>{t('postEditor.captionLabel')}</Text>
@@ -829,6 +841,7 @@ const PostEditorScreen = () => {
         </KeyboardAwareScrollView>
       )}
 
+      {supportsLocation ? (
       <PostLocationModal
         visible={locationModalVisible}
         initialValue={location}
@@ -839,6 +852,7 @@ const PostEditorScreen = () => {
           setLocationModalVisible(false);
         }}
       />
+      ) : null}
     </SafeAreaView>
   );
 };

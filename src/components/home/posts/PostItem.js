@@ -64,6 +64,7 @@ import { isSupportAllowed, normalizeProfileType } from '../../../utils/supportEl
 import HexAvatar from '../story.js/HexAvatar';
 import YoutubePlayer from 'react-native-youtube-iframe';
 import { parsePostMeta, getPostMusicForSlide, getPostSlidePreviewState, getMusicTrimPlaybackWindowFromTrim } from '../../../utils/postSoundtracks';
+import { postSupportsLocation } from '../../../utils/hydratePostForEditor';
 import PostMediaTextOverlays from '../../post/PostMediaTextOverlays';
 import {
   DEFAULT_FEED_MEDIA_HEIGHT,
@@ -632,6 +633,14 @@ function PostItem({
   const isPostOwner = Boolean(
     currentUserIdStr && itemUserIdStr && currentUserIdStr === itemUserIdStr,
   );
+  const supportsLocation = useMemo(
+    () => postSupportsLocation({
+      type: item?.type,
+      postType: item?.postType,
+      raiseAmount: item?.raiseAmount,
+    }),
+    [item?.type, item?.postType, item?.raiseAmount],
+  );
   const locationDisplayText = locationValue.trim()
     ? locationValue.trim()
     : isPostOwner
@@ -652,9 +661,9 @@ function PostItem({
   const route = useRoute();
 
   const handleOpenLocationEditor = useCallback(() => {
-    if (!isPostOwner || !item?.id) return;
+    if (!supportsLocation || !isPostOwner || !item?.id) return;
     setLocationModalVisible(true);
-  }, [isPostOwner, item?.id]);
+  }, [supportsLocation, isPostOwner, item?.id]);
 
   const handleSaveLocation = useCallback(async (nextLocationValue) => {
     if (!item?.id || locationSaving) return;
@@ -1685,7 +1694,7 @@ function PostItem({
                 </View>
               )}
             </TouchableOpacity>
-            {(isPostOwner || locationValue.trim()) ? (
+            {supportsLocation && (isPostOwner || locationValue.trim()) ? (
               <TouchableOpacity
                 onPress={handleOpenLocationEditor}
                 disabled={!isPostOwner}
@@ -2346,6 +2355,7 @@ function PostItem({
         onSubmit={handleTrustVoteWithComment}
       />
 
+      {supportsLocation ? (
       <PostLocationModal
         visible={locationModalVisible}
         initialValue={locationValue}
@@ -2353,6 +2363,7 @@ function PostItem({
         onClose={() => setLocationModalVisible(false)}
         onSave={handleSaveLocation}
       />
+      ) : null}
     </View>
   );
 }
