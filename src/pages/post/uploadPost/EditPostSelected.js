@@ -363,10 +363,7 @@ const InstagramPostCreator = () => {
   const postMusicSearchTimer = useRef(null);
   const postMusicLyricsRequestRef = useRef(0);
   const postMusicLyricsAttemptedKeyRef = useRef(null);
-  const [flipTrimModal, setFlipTrimModal] = useState(false);
   const [flipVolumeModal, setFlipVolumeModal] = useState(false);
-  const [trimStartInput, setTrimStartInput] = useState('0');
-  const [trimEndInput, setTrimEndInput] = useState('');
   const appTheme = useAppTheme();
   const { bgStyle, textStyle, cardStyle, text: themeText } = appTheme;
   const accent = appTheme.accent || themeText;
@@ -2294,24 +2291,6 @@ const InstagramPostCreator = () => {
       case 'Audio': openPostMusicFlow(); break;
       case 'Overlay': setActiveTab('Overlay'); addOverlayImage(); break;
       case 'Effects': setShowFilters(prev => !prev); break;
-      case 'Edit':
-        if (isCurrentMediaVideo()) {
-          const ed = getCurrentImageEdits();
-          setTrimStartInput(ed.trimStart != null ? String(ed.trimStart) : '0');
-          setTrimEndInput(ed.trimEnd != null ? String(ed.trimEnd) : '');
-          setFlipTrimModal(true);
-        } else {
-          const img = selectedImages[currentImageIndex];
-          const pathForCrop = img?.path || img?.uri;
-          if (!pathForCrop) { showToastMessage(toast, 'default', t('selectedPost.cropUnavailable'), 2000); break; }
-          try {
-            const cropped = await ImagePicker.openCropper({ path: pathForCrop, mediaType: 'photo', cropping: true, freeStyleCropEnabled: true, compressImageQuality: 0.85, cropperActiveWidgetColor: '#4da3ff', cropperStatusBarColor: '#000000', cropperToolbarColor: '#000000', cropperToolbarWidgetColor: '#ffffff', enableRotationGesture: true });
-            const newUri = cropped.path?.startsWith('file') ? cropped.path : `file://${cropped.path}`;
-            setSelectedImages(prev => { const next = [...prev]; const idx = currentImageIndex; next[idx] = { ...next[idx], ...cropped, path: cropped.path, uri: newUri }; return next; });
-            setImageEdits(prev => { const ed = prev[currentImageIndex] || {}; return { ...prev, [currentImageIndex]: { ...ed, processedImageUri: null, uriBeforeAnyDrawing: null, drawings: null } }; });
-          } catch (e) { if (e?.code !== 'E_PICKER_CANCELLED') showToastMessage(toast, 'danger', e?.message || t('selectedPost.cropFailed'), 2000); }
-        }
-        break;
       case 'Vol': setFlipVolumeModal(true); break;
       case 'Tag': setActiveTab('Tag'); bottomSheetRef.current?.open(); break;
       case 'Download': handleDownload(); break;
@@ -2326,7 +2305,6 @@ const InstagramPostCreator = () => {
     { key: 'Audio', icon: 'musical-notes-outline', label: t('selectedPost.tabMusic') },
     { key: 'Overlay', icon: 'layers-outline', label: t('selectedPost.toolOverlay') },
     { key: 'Effects', icon: 'color-filter-outline', label: t('selectedPost.toolEffects') },
-    { key: 'Edit', icon: 'crop-outline', label: t('selectedPost.toolEdit') },
     { key: 'Vol', icon: 'volume-high-outline', label: t('selectedPost.toolVol') },
     { key: 'Tag', icon: 'pricetag-outline', label: t('selectedPost.toolTag') },
     { key: 'Download', icon: 'download-outline', label: t('selectedPost.toolDownload') },
@@ -2654,29 +2632,6 @@ const InstagramPostCreator = () => {
         onDelete={() => { updateCurrentImageEdits({ musicSource: 'none', musicId: 'none', musicTitle: null, musicArtist: null, musicYoutubeVideoId: null, musicYoutubeThumbUrl: null, musicYoutubeDurationSec: null, musicTrimStart: 0, musicTrimEnd: null, musicLyrics: null, musicBadge: null, showMusicCard: true }); setPostStorySoundTrimVisible(false); showToastMessage(toast, 'success', t('selectedPost.musicRemoved'), 1500); }}
       />
 
-      <Modal visible={flipTrimModal} transparent animationType="fade" onRequestClose={() => setFlipTrimModal(false)}>
-        <View style={styles.flipModalBackdrop}>
-          <View style={[styles.flipModalCard, { backgroundColor: cardStyle?.backgroundColor || '#fff' }]}>
-            <Text style={[styles.flipModalTitle, textStyle]}>{t('selectedPost.editVideoTitle')}</Text>
-            <Text style={[styles.flipModalHint, textStyle]}>{t('selectedPost.editVideoHint')}</Text>
-            <View style={styles.flipTrimRow}>
-              <Text style={textStyle}>{t('selectedPost.trimStart')}</Text>
-              <TextInput style={styles.flipTrimInput} value={trimStartInput} onChangeText={setTrimStartInput} keyboardType="decimal-pad" placeholder="0" />
-            </View>
-            <View style={styles.flipTrimRow}>
-              <Text style={textStyle}>{t('selectedPost.trimEnd')}</Text>
-              <TextInput style={styles.flipTrimInput} value={trimEndInput} onChangeText={setTrimEndInput} keyboardType="decimal-pad" placeholder={t('selectedPost.trimEndPlaceholder')} />
-            </View>
-            <TouchableOpacity style={[styles.flipPrimaryBtn, { backgroundColor: themeText }]} onPress={() => { const start = parseFloat(trimStartInput) || 0; const endRaw = trimEndInput.trim(); const end = endRaw === '' ? null : parseFloat(endRaw); updateCurrentImageEdits({ trimStart: start, trimEnd: end }); setFlipTrimModal(false); showToastMessage(toast, 'success', t('selectedPost.trimSaved'), 1500); }}>
-              <Text style={styles.flipPrimaryBtnText}>{t('selectedPost.save')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setFlipTrimModal(false)} style={styles.flipModalClose}>
-              <Text style={{ color: themeText }}>{t('selectedPost.cancel')}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
       <Modal visible={flipVolumeModal} transparent animationType="fade" onRequestClose={() => setFlipVolumeModal(false)}>
         <View style={styles.flipModalBackdrop}>
           <View style={[styles.flipModalCard, { backgroundColor: cardStyle?.backgroundColor || '#fff' }]}>
@@ -2713,23 +2668,6 @@ const InstagramPostCreator = () => {
             />
           </View>
         ) : null}
-        {isFlipPost && isCurrentMediaVideo() && (
-          <TouchableOpacity
-            style={[
-              styles.flipEditVideoPill,
-              {
-                backgroundColor: cardStyle?.backgroundColor || bgStyle?.backgroundColor,
-                borderColor: border,
-              },
-            ]}
-            onPress={() => handleFlipToolPress('Edit')}
-            activeOpacity={0.85}
-          >
-            <Text style={[styles.flipEditVideoPillText, { color: themeText }]}>
-              {t('selectedPost.editVideoTitle')}
-            </Text>
-          </TouchableOpacity>
-        )}
         <TouchableOpacity style={[styles.nextButton, isFlipPost && styles.nextButtonFlip, { backgroundColor: themeText }]} onPress={handleNext}>
           <Text style={styles.nextButtonText}>{t('selectedPost.next')}</Text>
           <Text style={styles.nextArrow}>→</Text>
@@ -3453,53 +3391,12 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#e5e5e5',
   },
-  flipTrimRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  flipTrimInput: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    minWidth: 120,
-    fontSize: 16,
-    color: '#111',
-  },
-  flipPrimaryBtn: {
-    borderRadius: 10,
-    paddingVertical: 12,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  flipPrimaryBtnText: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 16,
-  },
   flipVolRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#eee',
-  },
-  flipEditVideoPill: {
-    flex: 1,
-    justifyContent: 'center',
-    borderRadius: 24,
-    marginRight: 10,
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-  flipEditVideoPillText: {
-    textAlign: 'center',
-    fontWeight: '600',
-    fontSize: 15,
   },
   tabScroll: {
     marginBottom: 12,
