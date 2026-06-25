@@ -575,7 +575,7 @@ const cropImage = (imageUri, index) => {
     if (!media) return null;
 
     return (
-      <View style={[styles.flipFullScreenContainer, { height: flipPreviewHeight }]}>
+      <View style={[styles.flipFullScreenContainer, { height: flipPreviewHeight, backgroundColor: bgStyle?.backgroundColor || '#f8f2fd' }]}>
         <Video
           source={{ uri: media.uri }}
           style={styles.flipFullScreenVideo}
@@ -757,11 +757,8 @@ const cropImage = (imageUri, index) => {
   };
 
   return (
-    <SafeAreaView
-      style={[styles.container, isFlipWithVideo ? styles.flipScreenBg : bgStyle]}
-      edges={isFlipWithVideo ? ['top'] : undefined}
-    >
-      <View style={[styles.headerRow, isFlipWithVideo ? styles.flipHeaderRow : bgStyle, { shadowColor: text }]}>
+    <SafeAreaView style={[styles.container, bgStyle]}>
+      <View style={[styles.headerRow, bgStyle, { shadowColor: text }]}>
         <TouchableOpacity
           onPress={() => {
             setShowTypeModal(false);
@@ -784,9 +781,9 @@ const cropImage = (imageUri, index) => {
           }}
           style={styles.headerIconBtn}
         >
-          <Icon name="close" size={26} color={isFlipWithVideo ? '#fff' : '#222'} />
+          <Icon name="close" size={26} color="#222" />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, textStyle, isFlipWithVideo && styles.flipHeaderTitle]}>
+        <Text style={[styles.headerTitle, textStyle]}>
           {mediaType === 'Flips' ? t('post.newFlip') : postType === 'crowdfunding' ? t('post.missionMint') : t('post.newMint')}
         </Text>
         <TouchableOpacity
@@ -847,22 +844,11 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 0,
   },
-  flipScreenBg: {
-    backgroundColor: '#000',
-  },
-  flipHeaderRow: {
-    backgroundColor: '#000',
-    borderBottomColor: 'rgba(255,255,255,0.12)',
-  },
-  flipHeaderTitle: {
-    color: '#fff',
-  },
   scrollView: {
     flex: 1,
   },
   flipFullScreenContainer: {
     width: '100%',
-    backgroundColor: '#000',
     overflow: 'hidden',
     alignSelf: 'stretch',
   },
