@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   Image,
   ScrollView,
   StyleSheet,
@@ -8,9 +9,10 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import LinearGradient from 'react-native-linear-gradient';
 import { useAppTheme } from '../../theme/useApptheme';
+import { getMyClosetItems } from '../../services/myCloset';
 
 const mixWithWhite = (hex, amount = 0.88) => {
   const normalized = String(hex || '').replace('#', '');
@@ -60,14 +62,10 @@ const recentOrders = [
   { key: 'shoes', name: 'White Sneakers', order: 'Order #1021', price: '$65.00', status: 'Processing', statusColor: '#d97706' },
 ];
 
-const yourItems = [
-  { key: 'jacket', name: 'Vintage Leather Jacket', price: '$120.00' },
-  { key: 'bag', name: 'Mini Shoulder Bag', price: '$85.00' },
-  { key: 'shoes', name: 'White Sneakers', price: '$65.00' },
-];
-
-const MyClosetDashboard = ({ navigation, userData, shopDraft, onStartPress }) => {
+const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
   const [storedUsername, setStoredUsername] = useState('');
+  const [closetItems, setClosetItems] = useState([]);
+  const [itemsLoading, setItemsLoading] = useState(false);
   const { bgStyle, textStyle, text, cardStyle } = useAppTheme(userData?.profile);
 
   useEffect(() => {
@@ -83,6 +81,39 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft, onStartPress }) =>
     loadUsername();
     return () => { isMounted = false; };
   }, []);
+
+  const loadClosetItems = useCallback(async () => {
+    setItemsLoading(true);
+    try {
+      const response = await getMyClosetItems();
+      const payload =
+        response?.data?.data ??
+        response?.data?.items ??
+        response?.data ??
+        response;
+
+      const items = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.items)
+          ? payload.items
+          : Array.isArray(payload?.data)
+            ? payload.data
+            : [];
+
+      setClosetItems(items);
+    } catch (error) {
+      console.warn('Unable to load closet items:', error);
+      setClosetItems([]);
+    } finally {
+      setItemsLoading(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadClosetItems();
+    }, [loadClosetItems]),
+  );
 
   const shopName = useMemo(
     () =>
@@ -112,26 +143,66 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft, onStartPress }) =>
     userData?.profilePicture ||
     null;
 
-  const handleCreatePress = () => {
-    if (typeof onStartPress === 'function') { onStartPress(); return; }
-    navigation?.navigate?.('MyClosetCreateShop');
-  };
-
   const handleAddItemPress = () => {
-    navigation?.navigate?.('MyClosetAddItemPhotos', { draft: {} });
+    navigation?.navigate?.('ProfileMain', {
+      screen: 'MyClosetAddItemPhotos',
+      params: {
+        draft: {},
+        isFirstItem: closetItems.length === 0,
+      },
+    });
   };
 
   const handleSharePress = () => {
-    navigation?.navigate?.('ShareProfile', { userData, initialTab: 'closet', shopHandle });
+    navigation?.navigate?.('ProfileMain', {
+      screen: 'ShareProfile',
+      params: { userData, initialTab: 'closet', shopHandle },
+    });
   };
 
   const handleCreateBattlePress = () => {
-    navigation?.navigate?.('CreateBattle');
+    navigation?.navigate?.('ProfileMain', {
+      screen: 'CreateBattle', // same — must exist in ProfileStack
+    });
   };
 
   const handleViewAllBattles = () => {
-    navigation?.navigate?.('MyBattles');
+    navigation?.navigate?.('ProfileMain', {
+      screen: 'MyBattles', // make sure this is registered in ProfileStack
+    });
   };
+
+  const handleViewAllItems = () => {
+    navigation?.navigate?.('ProfileMain', {
+      screen: 'MyClosetItemsManagement',
+      params: { section: 'items' },
+    });
+  };
+
+  const handleViewAllOrders = () => {
+    navigation?.navigate?.('ProfileMain', {
+      screen: 'MyClosetItemsManagement',
+      params: { section: 'orders' },
+    });
+  };
+
+  const formatPrice = value => {
+    if (value == null || value === '') return '$0.00';
+    const textValue = String(value).trim();
+    if (textValue.startsWith('$')) return textValue;
+    const numericValue = Number(textValue);
+    if (Number.isNaN(numericValue)) return textValue;
+    return `$${numericValue.toFixed(2)}`;
+  };
+
+  const getItemImage = item => item?.images?.[0] || item?.image || item?.thumbnail || null;
+
+  const displayItems = closetItems.slice(0, 6).map((item, index) => ({
+    key: String(item?.id || item?._id || index),
+    name: item?.name || item?.title || item?.itemName || 'Untitled item',
+    price: formatPrice(item?.price ?? item?.amount ?? item?.salePrice),
+    image: getItemImage(item),
+  }));
 
   return (
     <ScrollView
@@ -239,7 +310,7 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft, onStartPress }) =>
       <View style={[styles.sectionCard, cardStyle, { borderColor: withAlpha(text, 0.12) }]}>
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, textStyle]}>Recent Orders</Text>
-          <TouchableOpacity activeOpacity={0.8}>
+          <TouchableOpacity activeOpacity={0.8} onPress={handleViewAllOrders}>
             <Text style={styles.sectionMeta}>View all ›</Text>
           </TouchableOpacity>
         </View>
@@ -269,24 +340,39 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft, onStartPress }) =>
       <View style={[styles.sectionCard, cardStyle, { borderColor: withAlpha(text, 0.12) }]}>
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, textStyle]}>Your Items</Text>
-          <TouchableOpacity activeOpacity={0.8}>
+          <TouchableOpacity activeOpacity={0.8} onPress={handleViewAllItems}>
             <Text style={styles.sectionMeta}>View all ›</Text>
           </TouchableOpacity>
         </View>
 
         <View style={styles.itemsGrid}>
-          {yourItems.map(item => (
-            <TouchableOpacity key={item.key} activeOpacity={0.85} style={styles.itemGridCard}>
-              <View style={[styles.itemGridThumb, { backgroundColor: withAlpha(text, 0.08) }]}>
-                <Ionicons name="shirt-outline" size={28} color={text} />
-                <TouchableOpacity style={[styles.itemMoreDot, { borderColor: withAlpha(text, 0.15) }]}>
-                  <Ionicons name="ellipsis-horizontal" size={12} color="#9ca3af" />
-                </TouchableOpacity>
-              </View>
-              <Text style={[styles.itemGridName, textStyle]} numberOfLines={1}>{item.name}</Text>
-              <Text style={styles.itemGridPrice}>{item.price}</Text>
-            </TouchableOpacity>
-          ))}
+          {itemsLoading ? (
+            <View style={styles.itemsLoadingWrap}>
+              <ActivityIndicator color={text} />
+            </View>
+          ) : displayItems.length ? (
+            displayItems.map(item => (
+              <TouchableOpacity key={item.key} activeOpacity={0.85} style={styles.itemGridCard}>
+                <View style={[styles.itemGridThumb, { backgroundColor: withAlpha(text, 0.08) }]}>
+                  {item.image ? (
+                    <Image source={{ uri: item.image }} style={styles.itemGridImage} />
+                  ) : (
+                    <Ionicons name="shirt-outline" size={28} color={text} />
+                  )}
+                  {/* <TouchableOpacity style={[styles.itemMoreDot, { borderColor: withAlpha(text, 0.15) }]}>
+                    <Ionicons name="ellipsis-horizontal" size={12} color="#9ca3af" />
+                  </TouchableOpacity> */}
+                </View>
+                <Text style={[styles.itemGridName, textStyle]} numberOfLines={1}>{item.name}</Text>
+                <Text style={styles.itemGridPrice}>{item.price}</Text>
+              </TouchableOpacity>
+            ))
+          ) : (
+            <View style={styles.emptyItemsCard}>
+              <Ionicons name="shirt-outline" size={24} color={text} />
+              <Text style={[styles.emptyItemsText, textStyle]}>No items yet</Text>
+            </View>
+          )}
 
           {/* Add New Item tile */}
           <TouchableOpacity activeOpacity={0.85} style={styles.itemGridCard} onPress={handleAddItemPress}>
@@ -487,6 +573,11 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     position: 'relative',
   },
+  itemGridImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 16,
+  },
   addItemThumb: {
     borderWidth: 1.5,
     borderStyle: 'dashed',
@@ -506,6 +597,28 @@ const styles = StyleSheet.create({
   },
   itemGridName: { fontSize: 12, fontWeight: '700', textAlign: 'left' },
   itemGridPrice: { marginTop: 1, color: '#6b7280', fontSize: 11, fontWeight: '600' },
+  itemsLoadingWrap: {
+    width: '100%',
+    minHeight: 110,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyItemsCard: {
+    width: '100%',
+    minHeight: 110,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: '#e5e7eb',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 2,
+  },
+  emptyItemsText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
 
   // Battle CTA
   battleCta: {
