@@ -1264,7 +1264,7 @@ const UserChat = ({ route, navigation }) => {
                   style={[styles.sharedPostContainer, isUser && styles.userSharedPost]}
                   onPress={() => {
                     if (postData.id) {
-                      navigation.navigate('ProfileMain', { screen: 'PostView', params: { postData: [postData], startIndex: 0, userChat: true, fromScreen: 'UserChat', userId: targetUserId } });
+                      navigation.navigate('ProfileMain', { screen: 'PostView', params: { postData: [postData], startIndex: 0, userChat: true, fromScreen: 'UserChat', userId: targetUserId, key: `post_${postData.id}_${Date.now()}`, } });
                     } else {
                       Alert.alert(t('userChat.errorTitle'), t('userChat.postNotFound'));
                     }
@@ -1273,7 +1273,9 @@ const UserChat = ({ route, navigation }) => {
                 >
                   <View style={styles.sharedPostHeader}>
                     <View style={styles.sharedPostUserInfo}>
-                      <Image source={getAvatarSource(postUser.image)} style={styles.sharedPostAvatar} />
+                      <HexAvatar uri={getAvatarSource(postUser.image)} size={35} borderWidth={2} borderColor={text} />
+
+                      {/* <Image source={getAvatarSource(postUser.image)} style={styles.sharedPostAvatar} /> */}
                       <Text style={styles.sharedPostUserName}>{postUser.displayName}</Text>
                     </View>
                   </View>
@@ -1339,7 +1341,8 @@ const UserChat = ({ route, navigation }) => {
                   activeOpacity={0.7}
                 >
                   <View style={styles.reelCardHeader}>
-                    <Image source={getAvatarSource(reelAvatar)} style={styles.reelCardAvatar} />
+                    <HexAvatar uri={getAvatarSource(reelAvatar)} size={35} borderWidth={2} borderColor={text} />
+                    {/* <Image source={getAvatarSource(reelAvatar)} style={styles.reelCardAvatar} /> */}
                     <View style={styles.reelCardUserInfo}>
                       <Text style={styles.reelCardUsername} numberOfLines={1}>{reelUser || 'Unknown User'}</Text>
                       <Text style={styles.reelCardLabel}>{t('userChat.reelLabel')}</Text>
@@ -1416,7 +1419,8 @@ const UserChat = ({ route, navigation }) => {
                 >
                   <View style={styles.sharedPostHeader}>
                     <View style={styles.sharedPostUserInfo}>
-                      <Image source={getAvatarSource(storyUser.image)} style={styles.sharedPostAvatar} />
+                      <HexAvatar uri={getAvatarSource(storyUser.image)} size={35} borderWidth={2} borderColor={text} />
+                      {/* <Image source={getAvatarSource(storyUser.image)} style={styles.sharedPostAvatar} /> */}
                       <View>
                         <Text style={styles.sharedPostUserName}>{storyUser.displayName}</Text>
                         <Text style={styles.sharedPostTimeText}>{storyTimeText}</Text>
@@ -1647,7 +1651,7 @@ const UserChat = ({ route, navigation }) => {
                         <Text style={styles.emptyText}>{t('userChat.startConversation')}</Text>
                       </View>
                     )}
-                    refreshControl={  
+                    refreshControl={
                       <RefreshControl
                         refreshing={refreshing}
                         onRefresh={onRefresh}

@@ -566,7 +566,11 @@ function PostItem({
   const [trustScore, setTrustScore] = useState(null);
   const [trustCommentModalVisible, setTrustCommentModalVisible] = useState(false);
   const [trustCommentModalType, setTrustCommentModalType] = useState(null);
+  const [localLiked, setLocalLiked] = useState(liked);
+  const [localLikesCount, setLocalLikesCount] = useState(likesCount || 0);
 
+  useEffect(() => { setLocalLiked(liked); }, [liked]);
+  useEffect(() => { setLocalLikesCount(likesCount || 0); }, [likesCount]);
   const { t } = useLanguage();
   const showTrustControls = isTruthyTrustPost(isTrustPost) || isTruthyTrustPost(item?.isTrustPost);
 
@@ -1155,9 +1159,12 @@ function PostItem({
   }, [heartScale]);
 
   const handleLike = useCallback(() => {
+    const newLiked = !localLiked;
+    setLocalLiked(newLiked);
+    setLocalLikesCount(prev => newLiked ? prev + 1 : Math.max(0, prev - 1));
     onToggleLike?.(item.id);
     animateHeart();
-  }, [onToggleLike, item.id, animateHeart]);
+  }, [localLiked, onToggleLike, item.id, animateHeart]);
 
   const unwrapTrustPayload = useCallback(response => {
     const payload = response?.data ?? response;
@@ -1337,12 +1344,10 @@ function PostItem({
 
   const handleMediaDoubleTapLike = useCallback(() => {
     if (isZooming) return;
-    if (!liked) {
-      onToggleLike?.(item.id);
-      animateHeart();
-    }
+    onToggleLike?.(item.id);
+    animateHeart();
     playDoubleTapHeartBurst();
-  }, [isZooming, liked, onToggleLike, item.id, animateHeart, playDoubleTapHeartBurst]);
+  }, [isZooming, onToggleLike, item.id, animateHeart, playDoubleTapHeartBurst]);
 
   const doubleTapLikeGesture = useMemo(
     () =>
@@ -1874,11 +1879,11 @@ function PostItem({
                   height={24}
                   style={[
                     styles.actionSvgIcon,
-                    !liked && styles.actionSvgIconInactive,
+                    !localLiked && styles.actionSvgIconInactive,  
                   ]}
                 />
               </Animated.View>
-              <Text style={styles.actionCount}>{likesCount || 0}</Text>
+              <Text style={styles.actionCount}>{localLikesCount}</Text>  
             </TouchableOpacity>
 
             <TouchableOpacity
