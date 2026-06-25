@@ -355,7 +355,7 @@ const ShopSettingsScreen = ({ navigation }) => {
   const activeModalConfig = {
     shopName: {
       title: 'Edit shop name',
-      placeholder: "e.g. Graziela's Closet",
+      placeholder: "e.g. John's Closet",
       multiline: false,
     },
     shopUsername: {

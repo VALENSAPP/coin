@@ -581,7 +581,7 @@ const MyClosetCreateShopScreen = ({ navigation, route }) => {
         <>
           <Field
             label="Your shop name"
-            placeholder="e.g. Graziela's Closet"
+            placeholder="e.g. John's Closet"
             value={shopName}
             onChangeText={value => {
               setShopName(value);
