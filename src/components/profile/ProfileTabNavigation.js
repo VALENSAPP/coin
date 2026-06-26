@@ -261,6 +261,7 @@ const ProfileTabs = memo(({
                 params: {
                   ebook,
                   userData,
+                  loggedInUserId,
                 },
               });
             }}

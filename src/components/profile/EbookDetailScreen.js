@@ -3,6 +3,8 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image, Alert, Act
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useLanguage } from '../../i18n';
+import useScreenshotProtection from '../../hooks/useScreenshotProtection';
 import FileViewer from 'react-native-file-viewer';
 import RNFS from 'react-native-fs';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
@@ -61,9 +63,12 @@ const EbookDetailScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const ebook = route?.params?.ebook || {};
+  const routeLoggedInUserId = route?.params?.loggedInUserId;
   const { bgStyle } = useAppTheme(route?.params?.userData?.profile);
+  const { t } = useLanguage();
   const toast = useToast();
   const [isDownloading, setIsDownloading] = useState(false);
+  const [holdScreenshotProtection, setHoldScreenshotProtection] = useState(false);
   const commentSheetRef = useRef(null);
 
   const title = ebook.caption || ebook.title || 'E-book';
@@ -83,10 +88,18 @@ const EbookDetailScreen = () => {
   const [commentPostId, setCommentPostId] = useState(null);
   const [commentPostOwnerId, setCommentPostOwnerId] = useState(null);
   const createdAt = formatDate(ebook.createdAt);
+  const viewerUserId = currentUserId ?? routeLoggedInUserId ?? null;
   const isOwner = useMemo(() => {
-    if (!currentUserId || !ebook?.userId) return false;
-    return String(currentUserId) === String(ebook.userId);
-  }, [currentUserId, ebook?.userId]);
+    if (!viewerUserId || !ebook?.userId) return false;
+    return String(viewerUserId) === String(ebook.userId);
+  }, [viewerUserId, ebook?.userId]);
+
+  useScreenshotProtection({
+    enabled: !isOwner,
+    holdProtection: holdScreenshotProtection,
+    title: t('postView.screenshotWarningTitle'),
+    message: t('postView.screenshotWarningMessage'),
+  });
 
   useEffect(() => {
     setIsLiked(!!ebook?.isLike);
@@ -318,11 +331,19 @@ const EbookDetailScreen = () => {
 
       if (downloadResult.statusCode === 200) {
         Alert.alert('Success', `PDF downloaded successfully`);
-        // Open the PDF file
-        await FileViewer.open(filePath, {
-          displayName: fileName,
-          showOpenWithDialog: true,
-        });
+        if (!isOwner) {
+          setHoldScreenshotProtection(true);
+        }
+        try {
+          await FileViewer.open(filePath, {
+            displayName: fileName,
+            showOpenWithDialog: true,
+          });
+        } finally {
+          if (!isOwner) {
+            setHoldScreenshotProtection(false);
+          }
+        }
       } else {
         Alert.alert('Error', 'Failed to download PDF');
       }

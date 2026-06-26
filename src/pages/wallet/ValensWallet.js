@@ -35,6 +35,7 @@ import {
 } from '../../services/wallet';
 import { appKit } from '../../config/AppKitConfig';
 import { useLanguage } from '../../i18n';
+import { resolveTransactionAmount } from '../../utils/transactionAmount';
 
 const WALLET_ICON_BY_TYPE = {
     metamask: require('../../assets/icons/pngicons/Emeta.png'),
@@ -226,17 +227,6 @@ const ValensWallet = ({ navigation }) => {
                     };
                 });
 
-                const toNumber = (value) => {
-                    const num = Number(value);
-                    return Number.isFinite(num) ? num : 0;
-                };
-
-                const formatSignedMoney = (value) => {
-                    const n = toNumber(value);
-                    const sign = n < 0 ? '-' : '+';
-                    return `${sign}${formatMoney(Math.abs(n))}`;
-                };
-
                 const formatActivityDate = (value) => {
                     const date = value ? new Date(value) : null;
                     if (!date || Number.isNaN(date.getTime())) return '';
@@ -262,7 +252,9 @@ const ValensWallet = ({ navigation }) => {
                 };
 
                 const resolveTypeLabel = (tx) => {
-                    const rawType = pickFirst(tx?.typeTransaction, tx?.action, tx?.forPayment, tx?.type, tx?.transactionType, tx?.category, tx?.source, '');
+                    const typeField = tx?.type;
+                    const typeIsDirection = ['credit', 'debit'].includes(String(typeField || '').toLowerCase());
+                    const rawType = pickFirst(tx?.typeTransaction, tx?.action, tx?.forPayment, typeIsDirection ? '' : typeField, tx?.transactionType, tx?.category, tx?.source, '');
                     const t = String(rawType || '').trim();
                     const lowered = t.toLowerCase();
                     if (lowered === 'payfollowing' || lowered === 'following' || lowered.includes('following')) return 'Following Payment';
@@ -281,12 +273,7 @@ const ValensWallet = ({ navigation }) => {
                     const userProfile = transactionUserId ? profileMap[String(transactionUserId)] : null;
                     const typeLabel = resolveTypeLabel(tx);
                     const status = pickFirst(tx?.status, tx?.paymentStatus, tx?.state, '');
-
-                    const rawAmount = pickFirst(
-                        tx?.amountUsd, tx?.amountUSD, tx?.amount_usd, tx?.amount, tx?.usdAmount, tx?.value, 0,
-                    );
-                    const amountNumber = toNumber(rawAmount);
-                    const amountTone = amountNumber < 0 ? 'negative' : 'positive';
+                    const { formatted: amount, amountTone } = resolveTransactionAmount(tx, { formatMoney });
 
                     const profileName = pickFirst(
                         userProfile?.displayName,
@@ -312,7 +299,7 @@ const ValensWallet = ({ navigation }) => {
                         icon: resolveIcon(typeLabel),
                         title: String(title),
                         subtitle: subtitle ? String(subtitle) : [typeLabel, status].filter(Boolean).join(' • ') || '—',
-                        amount: formatSignedMoney(amountNumber),
+                        amount,
                         amountTone,
                         date: formatActivityDate(createdAt),
                         typeLabel,

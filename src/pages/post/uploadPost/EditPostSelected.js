@@ -1975,16 +1975,15 @@ const InstagramPostCreator = () => {
                         ) : (
                           // Image with zoom functionality
                           <ImageZoom
-                            {...(!isDrawing && !isOverlayTransforming && !modalVisible2 ? panResponder.panHandlers : {})}
                             cropWidth={contentLayout.width}
                             cropHeight={contentLayout.height}
                             imageWidth={contentLayout.width}
                             imageHeight={contentLayout.height}
-                            panToMove={!isDrawing && !isOverlayTransforming && !modalVisible2}
-                            minScale={0.5}
-                            maxScale={4}
-                            pinchToZoom={!isDrawing && !isOverlayTransforming && !modalVisible2}
-                            enableDoubleClickZoom={!isDrawing && !isOverlayTransforming && !modalVisible2}
+                            panToMove={false}
+                            minScale={1}
+                            maxScale={1}
+                            pinchToZoom={false}
+                            enableDoubleClickZoom={false}
                             doubleClickInterval={175}
                             style={[
                               styles.imageZoomContainer,
