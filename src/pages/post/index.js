@@ -1,7 +1,7 @@
 import { useFocusEffect, useRoute } from '@react-navigation/native';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, TextInput, Alert, ScrollView, Dimensions, Linking, Platform, DeviceEventEmitter } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, Pressable, TextInput, Alert, ScrollView, Dimensions, Linking, Platform, DeviceEventEmitter } from 'react-native';
 import ImagePicker from 'react-native-image-crop-picker';
 import Video from 'react-native-video';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -29,6 +29,21 @@ const getPreviewHeightForMedia = (media) => {
   return Math.min(maxSelectedPreviewHeight, Math.max(selectedPreviewWidth * 0.35, aspectHeight));
 };
 
+const normalizePreviewVideoUri = (uri) => {
+  if (!uri || typeof uri !== 'string') return '';
+  const trimmed = uri.trim();
+  if (
+    trimmed.startsWith('file://') ||
+    trimmed.startsWith('content://') ||
+    trimmed.startsWith('http://') ||
+    trimmed.startsWith('https://')
+  ) {
+    return trimmed;
+  }
+  if (trimmed.startsWith('/')) return `file://${trimmed}`;
+  return trimmed;
+};
+
 export default function PostScreen({ navigation }) {
   const [selectedMedia, setSelectedMedia] = useState([]);
   const [galleryImages, setGalleryImages] = useState([]);
@@ -37,6 +52,7 @@ export default function PostScreen({ navigation }) {
   const [postType, setPostType] = useState('normal');
   const [visibleTo, setVisibleTo] = useState('');
   const [shared, setShared] = useState(false);
+  const [flipVideoPaused, setFlipVideoPaused] = useState(false);
   const route = useRoute();
   const returnTo = route?.params?.returnTo;
   const rawPostTypeParam = route?.params?.postType;
@@ -67,6 +83,7 @@ export default function PostScreen({ navigation }) {
 
   // Track if we're coming back from EditPostSelected
   const fromEditPostSelectedRef = useRef(false);
+  const flipVideoRef = useRef(null);
 
   const clearUploadState = useCallback(() => {
     fromEditPostSelectedRef.current = false;
@@ -440,6 +457,17 @@ const cropImage = (imageUri, index) => {
   );
 
   useEffect(() => {
+    if (!selectedMedia?.[0]?.uri) return;
+    setFlipVideoPaused(false);
+  }, [selectedMedia?.[0]?.uri]);
+
+  useFocusEffect(
+    useCallback(() => {
+      return () => setFlipVideoPaused(true);
+    }, []),
+  );
+
+  useEffect(() => {
     const subscription = DeviceEventEmitter.addListener('POST_UPLOAD_RESET', clearUploadState);
     return () => subscription.remove();
   }, [clearUploadState]);
@@ -570,24 +598,51 @@ const cropImage = (imageUri, index) => {
     );
   };
 
+  const toggleFlipVideoPlayback = useCallback(() => {
+    setFlipVideoPaused(prev => !prev);
+  }, []);
+
   const renderFlipVideoPreview = () => {
     const media = selectedMedia?.[0];
     if (!media) return null;
 
+    const videoUri = normalizePreviewVideoUri(media.uri);
+
     return (
-      <View style={[styles.flipFullScreenContainer, { height: flipPreviewHeight, backgroundColor: bgStyle?.backgroundColor || '#f8f2fd' }]}>
+      <View
+        style={[styles.flipFullScreenContainer, { height: flipPreviewHeight, backgroundColor: bgStyle?.backgroundColor || '#f8f2fd' }]}
+      >
         <Video
-          source={{ uri: media.uri }}
+          ref={flipVideoRef}
+          source={{ uri: videoUri }}
           style={styles.flipFullScreenVideo}
-          paused
+          paused={flipVideoPaused}
           muted
-          repeat={false}
+          repeat
           resizeMode="cover"
           posterResizeMode="cover"
+          ignoreSilentSwitch="ignore"
+          playWhenInactive={false}
+          playInBackground={false}
+          controls={false}
+          onLoad={() => setFlipVideoPaused(false)}
+          onError={(error) => {
+            console.log('Flip preview video error:', error);
+            setFlipVideoPaused(true);
+          }}
         />
-        <View style={styles.flipPlayOverlay} pointerEvents="none">
-          <Icon name="play" size={28} color="#fff" />
-        </View>
+        <Pressable
+          style={styles.flipTapLayer}
+          onPress={toggleFlipVideoPlayback}
+          accessibilityRole="button"
+          accessibilityLabel={flipVideoPaused ? 'Play video' : 'Pause video'}
+        >
+          {flipVideoPaused ? (
+            <View style={styles.flipPlayOverlay} pointerEvents="none">
+              <Icon name="play" size={28} color="#fff" />
+            </View>
+          ) : null}
+        </Pressable>
         <View style={styles.flipDurationBadge} pointerEvents="none">
           <Icon name="videocam" size={12} color="#fff" />
           <Text style={styles.selectedVideoDurationText}>
@@ -597,6 +652,7 @@ const cropImage = (imageUri, index) => {
         <TouchableOpacity
           style={styles.flipRemoveButton}
           onPress={() => {
+            setFlipVideoPaused(true);
             setSelectedMedia([]);
             setGalleryImages([]);
           }}
@@ -855,10 +911,17 @@ const styles = StyleSheet.create({
   flipFullScreenVideo: {
     ...StyleSheet.absoluteFillObject,
   },
+  flipTapLayer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   flipDurationBadge: {
     position: 'absolute',
     bottom: 16,
     right: 16,
+    zIndex: 3,
     backgroundColor: 'rgba(0, 0, 0, 0.8)',
     paddingHorizontal: 8,
     paddingVertical: 4,
@@ -871,6 +934,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 12,
     right: 12,
+    zIndex: 4,
     backgroundColor: '#fff',
     borderRadius: 14,
     elevation: 2,
@@ -880,11 +944,6 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
   },
   flipPlayOverlay: {
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-    marginTop: -24,
-    marginLeft: -24,
     backgroundColor: 'rgba(0, 0, 0, 0.55)',
     borderRadius: 28,
     width: 56,

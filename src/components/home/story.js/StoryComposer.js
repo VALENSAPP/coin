@@ -48,7 +48,8 @@ import {
   OVERLAY_MAX_SCALE,
 } from './storyOverlayConstants';
 import { useLanguage } from '../../../i18n';
-import { getMusicTrimPlaybackWindowFromTrim } from '../../../utils/postSoundtracks';
+import { getMusicTrimPlaybackWindowFromTrim, POST_SOUNDTRACKS } from '../../../utils/postSoundtracks';
+import { getStoryBuiltinLibraryUrl } from '../../../utils/storyAudioUpload';
 
 const WAVE_BAR_STEP = 4;
 const deviceWidth = Dimensions.get('window').width;
@@ -75,7 +76,6 @@ const TOOLBAR_ITEMS = [
   { key: 'stickers',  icon: 'happy-outline',          labelKey: 'toolSticker' },
   { key: 'audio',     icon: 'musical-notes-outline',  labelKey: 'toolAudio' },
   // { key: 'lyrics', icon: 'mic-outline',            labelKey: 'toolLyrics' },
-  { key: 'soundTrim', icon: 'timer-outline',          labelKey: 'toolSound' },
   // { key: 'addClip', icon: 'add-circle-outline',   labelKey: 'toolAddClip' },
   { key: 'overlay',   icon: 'layers-outline',         labelKey: 'toolOverlay' },
   { key: 'filters',   icon: 'color-filter-outline',   labelKey: 'toolEffects' },
@@ -84,11 +84,20 @@ const TOOLBAR_ITEMS = [
 ];
 
 /**
- * Built-in quick picks (offline-friendly).
+ * Built-in quick picks — original + same library as regular mint (`POST_SOUNDTRACKS`).
  */
 const AUDIO_LIBRARY = [
   { id: 'original', nameKey: 'musicOriginalSound', previewUri: null },
 ];
+
+const hasLibraryMusicSelection = audio => {
+  if (isOriginalAudio(audio)) return false;
+  if (typeof audio === 'object') return true;
+  if (typeof audio === 'string') {
+    return Boolean(getStoryBuiltinLibraryUrl(audio));
+  }
+  return false;
+};
 
 const STORY_OVERLAY_EDGE_BLEED = { left: 44, top: 32, right: 44, bottom: 32 };
 
@@ -101,7 +110,7 @@ const getAudioPreviewUri = a => {
   if (isOriginalAudio(a)) return null;
   if (typeof a === 'object' && a?.previewUrl) return a.previewUrl;
   if (typeof a === 'string') {
-    return AUDIO_LIBRARY.find(t => t.id === a)?.previewUri ?? null;
+    return getStoryBuiltinLibraryUrl(a) || AUDIO_LIBRARY.find(t => t.id === a)?.previewUri || null;
   }
   return null;
 };
@@ -111,6 +120,10 @@ const getAudioTitle = (a, t) => {
   if (typeof a === 'object' && a?.title) return a.title;
   if (typeof a === 'object' && a?.trackName) return a.trackName;
   if (typeof a === 'string') {
+    const fromMint = POST_SOUNDTRACKS.find(
+      track => track.storyLibraryId === a || track.id === a,
+    );
+    if (fromMint?.title) return fromMint.title;
     const lib = AUDIO_LIBRARY.find(track => track.id === a);
     return lib ? t(`storyComposer.${lib.nameKey}`) : t('storyComposer.musicOriginalSound');
   }
@@ -494,13 +507,49 @@ export default function StoryComposer({
     };
   }, [musicQuery, showAudioModal]);
 
+  const presentMusicTrimModal = useCallback((trimOverride) => {
+    closeSheets();
+    setActiveTab('none');
+    setShowAudioModal(false);
+
+    const at = trimOverride ?? (audioTrimPerIndex[index] || { start: 0, end: null });
+    const dur = getMusicTimelineDurationSec(audioPerIndex[index], musicPreviewDur);
+    setAudioTrimStartDraft(String(at.start ?? 0));
+    if (at.end != null && at.end !== '') {
+      setAudioTrimEndDraft(String(at.end));
+    } else if (dur > DEFAULT_STORY_CLIP_SEC) {
+      setAudioTrimEndDraft(String(DEFAULT_STORY_CLIP_SEC));
+    } else {
+      setAudioTrimEndDraft('');
+    }
+    setShowAudioTrimModal(true);
+  }, [index, audioPerIndex, audioTrimPerIndex, musicPreviewDur]);
+
+  const openMusicTrimEditor = useCallback(() => {
+    const audio = audioPerIndex[index] ?? 'original';
+    if (!hasLibraryMusicSelection(audio)) return;
+    presentMusicTrimModal();
+  }, [index, audioPerIndex, presentMusicTrimModal]);
+
+  const openMusicFlow = useCallback(() => {
+    const audio = audioPerIndex[index] ?? 'original';
+    if (hasLibraryMusicSelection(audio)) {
+      openMusicTrimEditor();
+      return;
+    }
+    closeSheets();
+    setActiveTab('none');
+    setShowAudioModal(true);
+  }, [index, audioPerIndex, openMusicTrimEditor]);
+
   const selectBuiltinTrack = track => {
-    if (track.id === 'original') {
+    if (track.id === 'none' || track.id === 'original') {
       setAudioPerIndex(prev => ({ ...prev, [index]: 'original' }));
       setAudioTrimPerIndex(prev => ({ ...prev, [index]: { start: 0, end: null } }));
       setAudioTrimConfirmedPerIndex(prev => ({ ...prev, [index]: true }));
     } else {
-      setAudioPerIndex(prev => ({ ...prev, [index]: track.id }));
+      const libraryId = track.storyLibraryId || track.id;
+      setAudioPerIndex(prev => ({ ...prev, [index]: libraryId }));
       setAudioTrimPerIndex(prev => ({
         ...prev,
         [index]: { start: 0, end: DEFAULT_STORY_CLIP_SEC },
@@ -509,6 +558,9 @@ export default function StoryComposer({
     }
     setLyricsPerIndex(prev => ({ ...prev, [index]: null }));
     setShowAudioModal(false);
+    if (track.id !== 'none' && track.id !== 'original') {
+      presentMusicTrimModal({ start: 0, end: DEFAULT_STORY_CLIP_SEC });
+    }
   };
 
   const selectYoutubeTrack = item => {
@@ -545,6 +597,11 @@ export default function StoryComposer({
     }));
     setLyricsPerIndex(prev => ({ ...prev, [index]: null }));
     setShowAudioModal(false);
+    const trimEnd =
+      d != null && Number.isFinite(d) && d > 0
+        ? Math.min(d, DEFAULT_STORY_CLIP_SEC)
+        : DEFAULT_STORY_CLIP_SEC;
+    presentMusicTrimModal({ start: 0, end: trimEnd });
   };
 
   const loadLyricsForClip = async () => {
@@ -984,9 +1041,7 @@ export default function StoryComposer({
 
   const handleToolPress = key => {
     if (key === 'audio') {
-      closeSheets();
-      setActiveTab('none');
-      setShowAudioModal(true);
+      openMusicFlow();
       return;
     }
     if (key === 'edit') {
@@ -1001,30 +1056,6 @@ export default function StoryComposer({
       closeSheets();
       setActiveTab('none');
       setShowVolumeModal(true);
-      return;
-    }
-    if (key === 'soundTrim') {
-      const audio = audioPerIndex[index] ?? 'original';
-      if (isOriginalAudio(audio) || typeof audio === 'string') {
-        Alert.alert(
-          t('storyComposer.soundTrimAlertTitle'),
-          t('storyComposer.soundTrimAlertMessage'),
-        );
-        return;
-      }
-      closeSheets();
-      setActiveTab('none');
-      const at  = audioTrimPerIndex[index] || { start: 0, end: null };
-      const dur = getMusicTimelineDurationSec(audio, musicPreviewDur);
-      setAudioTrimStartDraft(String(at.start ?? 0));
-      if (at.end != null && at.end !== '') {
-        setAudioTrimEndDraft(String(at.end));
-      } else if (dur > DEFAULT_STORY_CLIP_SEC) {
-        setAudioTrimEndDraft(String(DEFAULT_STORY_CLIP_SEC));
-      } else {
-        setAudioTrimEndDraft('');
-      }
-      setShowAudioTrimModal(true);
       return;
     }
     closeSheets();
@@ -1299,6 +1330,7 @@ export default function StoryComposer({
       }}
       onDelete={removeMusicOverlay}
       onTrashHoverChange={onTrashHoverChange}
+      onSingleTap={openMusicFlow}
       bounds={canvasLayout}
       boundsBleed={STORY_OVERLAY_EDGE_BLEED}
     >
@@ -1721,7 +1753,7 @@ export default function StoryComposer({
                   (showAudioModal     && item.key === 'audio')     ||
                   (showTrimModal      && item.key === 'edit')       ||
                   (showVolumeModal    && item.key === 'volume')     ||
-                  (showAudioTrimModal && item.key === 'soundTrim');
+                  (showAudioTrimModal && item.key === 'audio');
                 return (
                   <TouchableOpacity
                     key={item.key}
@@ -1756,6 +1788,21 @@ export default function StoryComposer({
                     <View style={styles.musicSheetInner}>
                       <Text style={styles.sheetTitle}>{t('storyComposer.musicSheetTitle')}</Text>
                       <Text style={styles.sheetSub}>{t('storyComposer.musicSheetSub')}</Text>
+                      {hasLibraryMusicSelection(audioPerIndex[index]) ? (
+                        <TouchableOpacity
+                          style={styles.postMusicEditClipBtn}
+                          onPress={() => {
+                            setShowAudioModal(false);
+                            openMusicTrimEditor();
+                          }}
+                          activeOpacity={0.8}
+                        >
+                          <Icon name="cut-outline" size={18} color="#4da3ff" />
+                          <Text style={styles.postMusicEditClipText}>
+                            {t('selectedPost.editMusicClip')}
+                          </Text>
+                        </TouchableOpacity>
+                      ) : null}
                       {!getYoutubeSearchApiKey() ? (
                         <Text style={styles.sheetApiKeyHint}>
                           {t('storyComposer.musicApiKeyHint')}
@@ -1781,12 +1828,13 @@ export default function StoryComposer({
                               <Text style={styles.quickPickTitle}>
                                 {t('storyComposer.musicQuickPicksTitle')}
                               </Text>
-                              {AUDIO_LIBRARY.map(track => {
-                                const sel      = audioPerIndex[index];
+                              {POST_SOUNDTRACKS.map(track => {
+                                const sel = audioPerIndex[index];
                                 const selected =
-                                  track.id === 'original'
+                                  track.id === 'none'
                                     ? isOriginalAudio(sel)
-                                    : sel === track.id;
+                                    : typeof sel === 'string' &&
+                                      (sel === track.storyLibraryId || sel === track.id);
                                 return (
                                   <TouchableOpacity
                                     key={track.id}
@@ -1795,9 +1843,10 @@ export default function StoryComposer({
                                     activeOpacity={0.7}
                                   >
                                     <Icon name="musical-note" size={18} color="#4da3ff" />
-                                    <Text style={styles.sheetRowText}>
-                                      {t(`storyComposer.${track.nameKey}`)}
-                                    </Text>
+                                    <View style={{ flex: 1, marginLeft: 8 }}>
+                                      <Text style={styles.sheetRowText}>{track.title}</Text>
+                                      <Text style={styles.itunesArtist}>{track.artist}</Text>
+                                    </View>
                                     {selected ? (
                                       <Icon name="checkmark-circle" size={18} color="#4da3ff" />
                                     ) : null}
@@ -3593,6 +3642,22 @@ const styles = StyleSheet.create({
   },
   musicSheetInner: {
     minHeight: 120,
+  },
+  postMusicEditClipBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 8,
+    marginBottom: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    backgroundColor: 'rgba(90,45,130,0.12)',
+  },
+  postMusicEditClipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#4da3ff',
   },
   textSheetInner: {
     width: '100%',
