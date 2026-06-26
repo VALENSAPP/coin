@@ -8,7 +8,6 @@ import ReelsScreen from '../profile/ReelsScreen';
 import PrivateContentScreen from './PrivateContentScreen';
 import PrivateCircle from './PrivateCircle';
 import Shop from './Shop';
-import MyClosetDashboard from './MyClosetDashboard';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { LockKey, ProfileReelIcon } from '../../assets/icons';
@@ -27,6 +26,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../displaytoastmessage';
 import ProfileEbookScreen from './ProfileEbookScreen';
+import MyClosetShopFront from './MyClosetShopFront';
 const { width: screenWidth } = Dimensions.get('window');
 
 const ProfileTabs = memo(({
@@ -283,11 +283,12 @@ const ProfileTabs = memo(({
       </View>
     ),
     closet: (
-      closetCheckComplete && hasCreatedShop ? (
-        <MyClosetDashboard
+      !isOwnProfile || (closetCheckComplete && hasCreatedShop) ? (
+        <MyClosetShopFront       
           navigation={navigation}
           userData={userData}
           shopDraft={shopDraft}
+          isOwnProfile={isOwnProfile}
         />
       ) : (
         <Shop
