@@ -1460,7 +1460,7 @@ const UserChat = ({ route, navigation }) => {
                     </View>
                   )}
                   <View style={styles.sharedPostStats}>
-                    <Text style={styles.sharedPostStatText}>👁️ {views} {t('userChat.views').replace('{{count}}', '')}</Text>
+                    {/* <Text style={styles.sharedPostStatText}>👁️ {views} {t('userChat.views').replace('{{count}}', '')}</Text> */}
                     {storyData.duration && (
                       <Text style={styles.sharedPostStatText}>⏱️ {Math.round(storyData.duration / 1000)}s</Text>
                     )}
@@ -2522,8 +2522,7 @@ const createStyles = () => ({
     justifyContent: 'space-around',
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderTopWidth: 0.5,
-    borderTopColor: '#E5E7EB',
+
   },
   sharedPostStatText: {
     fontSize: 12,
