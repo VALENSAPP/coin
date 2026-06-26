@@ -1610,8 +1610,8 @@
     "activityOverview": {
       "sectionTitle": "Activity Overview",
       "chartLabel": "Followers",
-      "periodDaily": "Daily",
-      "periodWeekly": "Weekly",
+      "periodDaily": "Last 24 hours",
+      "periodWeekly": "Last 7 days",
       "noDataTitle": "No data available",
       "noDataSubtitle": "Check back later for activity updates"
     },
