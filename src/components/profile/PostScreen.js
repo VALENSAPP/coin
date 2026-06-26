@@ -276,7 +276,7 @@ const PostScreen = memo(({ scrollEnabled = true, postCheck, userData: propUserDa
     // }
     navigation.getParent().navigate('ProfileMain', {
       screen: 'PostView',
-      params: { postData: filteredPosts, startIndex: index, hideTabBar: true, userData },
+      params: { postData: filteredPosts, startIndex: index, hideTabBar: true, userData, loggedInUserId: userData?.id, },
     });
   }, [navigation, filteredPosts, userData]);
 

@@ -372,7 +372,10 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
             renderItem={renderUserCell}
             numColumns={COLS}
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingBottom: 12, flexGrow: 1 }}
+            contentContainerStyle={{
+              paddingBottom: sendCount > 0 ? 80 : 12,  // ← extra space so last row isn't hidden behind button
+              flexGrow: 1
+            }}
             ListEmptyComponent={() => (
               <View style={{ alignItems: 'center', paddingTop: 24 }}>
                 <Text style={{ color: '#777' }}>
@@ -408,7 +411,6 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
         <View style={styles.bottomBar}>
           <Action icon="share-social-outline" label={t('shareModal.shareToLabel')} onPress={shareToSystem} />
           <Action icon="copy-outline" label={t('shareModal.copyLinkLabel')} onPress={copyToClipboard} />
-          {/* <Action icon="logo-whatsapp" label={t('shareModal.whatsappLabel')} onPress={shareToWhatsApp} /> */}
         </View>
       )}
     </RBSheet>
@@ -493,10 +495,18 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
 
-  sendBar: {
-    borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#e9e9e9',
-    backgroundColor: '#fff', padding: 12, alignItems: 'center',
-  },
+ sendBar: {
+  // borderTopWidth: StyleSheet.hairlineWidth, 
+  borderTopColor: '#e9e9e9',
+  backgroundColor: '#fff', 
+  padding: 12, 
+  alignItems: 'center',
+  position: 'absolute',  // ← fixed position
+  bottom: 0,             // ← always at bottom
+  left: 0,
+  right: 0,
+  zIndex: 10,            // ← stays on top of the list
+},
   sendButton: {
     borderRadius: 10, paddingHorizontal: 22, paddingVertical: 10, width: '90%',
     bottom: 5

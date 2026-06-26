@@ -64,6 +64,8 @@ export default function PostView({ postData = [], userData = {} }) {
   // Extract params including the source screen info
   const routeParams = route.params || {};
   const { startIndex, userChat, userData: routeUserData } = routeParams;
+  const routeLoggedInUserId = routeParams.loggedInUserId; // ← add this
+
   const navPostData = routeParams.postData;
   const returnTo = route?.params?.returnTo;
 
@@ -136,6 +138,14 @@ export default function PostView({ postData = [], userData = {} }) {
       });
     });
   }, [paramsKey]);
+
+  useEffect(() => {
+    (async () => {
+      const id = await AsyncStorage.getItem('userId');
+      const resolved = id ? String(id) : null;
+      setCurrentUserId(routeLoggedInUserId ? String(routeLoggedInUserId) : resolved);
+    })();
+  }, [routeLoggedInUserId]);
   useEffect(() => {
     const nextPosts = normalizePosts(navPostData, postData);
     setPosts(prev => {
@@ -754,39 +764,13 @@ export default function PostView({ postData = [], userData = {} }) {
 
   const canHide = useMemo(() => {
     if (!modalPostId || !currentUserId) return false;
-
     const post = list.find(x => String(x.id) === String(modalPostId));
     if (!post) return false;
-
     const viewerId = String(currentUserId);
     const postOwnerId = String(post.userId ?? post.UserId ?? '');
-    const profileOwnerId = String(
-      routeParams.userId ??
-        routeUserData?.id ??
-        routeUserData?.userId ??
-        userData?.id ??
-        userData?.userId ??
-        '',
-    );
-    const protectionSource = routeParams.screenshotProtectionSource;
-    const isPrivateProfileContext =
-      protectionSource === SCREENSHOT_PROTECTED_SOURCES.PRIVATE_CONTENT ||
-      protectionSource === SCREENSHOT_PROTECTED_SOURCES.PRIVATE_CIRCLE;
-
-    if (isPrivateProfileContext && profileOwnerId) {
-      return viewerId === profileOwnerId;
-    }
-
-    return postOwnerId !== viewerId;
-  }, [
-    list,
-    modalPostId,
-    currentUserId,
-    routeParams.screenshotProtectionSource,
-    routeParams.userId,
-    routeUserData,
-    userData,
-  ]);
+    // Show Hide only when YOU own the post
+    return postOwnerId === viewerId;
+  }, [list, modalPostId, currentUserId]);
 
   const modalPost = useMemo(() => {
     if (!modalPostId) return null;
