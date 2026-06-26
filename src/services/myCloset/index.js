@@ -39,8 +39,9 @@ export const getMyClosetMe = async () => {
   return axiosInstance.get('mycloset/me');
 };
 
-export const getMyClosetItems = async () => {
-  return axiosInstance.get('mycloset/items');
+export const getMyClosetItems = async userId => {
+  const suffix = userId ? `?userId=${encodeURIComponent(userId)}` : '';
+  return axiosInstance.get(`mycloset/items${suffix}`);
 };
 
 const appendItemField = (formData, key, value) => {
@@ -156,3 +157,44 @@ export const updateMyClosetMe = async data => updateMyCloset(data);
 export const deleteMyCloset = async () => {
   return axiosInstance.delete('mycloset');
 };
+
+export const postAddress = async (address) => {
+  return axiosInstance.post('address/addAddress', address);
+}
+
+export const getAddress = async () => {
+  return axiosInstance.get('/address/getAddress');
+}
+
+export const updateAddress = async (id, data) => {
+  return axiosInstance.patch(`/address/updateAddress/${id}`, data);
+}
+
+export const deleteAddress = async (id) => {
+  return axiosInstance.delete(`/address/deleteAddress/${id}`);
+}
+
+export const makeAddressDefault = async (id) => {
+  return axiosInstance.patch(`/address/makeAddressDefault/${id}`);
+}
+
+export const addCartItem = async (data) => {
+  console.log('addCartItem------------------', data)
+  return axiosInstance.post('cart/items', data);
+}
+
+export const getCart = async () => {
+  return axiosInstance.get('/cart');
+}
+
+export const updateCartItem = async (id, data) => {
+  return axiosInstance.patch(`/cart/items/${id}`, data);
+}
+
+export const deleteCartItem = async (id) => {
+  return axiosInstance.delete(`/cart/items/${id}`);
+}
+
+export const clearCart = async () => {
+  return axiosInstance.delete('/cart');
+}
