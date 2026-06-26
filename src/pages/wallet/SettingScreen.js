@@ -63,7 +63,7 @@ export const SettingsScreen = ({ navigation }) => {
       };
 
       fetchData();
-    }, [loadNotificationPreference]),
+    }, [fetchProfile, fetchUserCreds, loadNotificationPreference]),
   );
 
   const handleNotificationToggle = async (value) => {
@@ -111,67 +111,73 @@ export const SettingsScreen = ({ navigation }) => {
     showToastMessage(toast, 'success', t('walletSettings.notificationsDisabled'));
   };
 
-  const fetchUserCreds = async (id) => {
-    try {
-      dispatch(showLoader());
-      const response = await getUserCredentials(id);
+  const fetchUserCreds = React.useCallback(
+    async (id) => {
+      try {
+        dispatch(showLoader());
+        const response = await getUserCredentials(id);
 
-      if (response?.statusCode === 200) {
-        let userDataToSet;
-        if (response.data && response.data.user) {
-          userDataToSet = response.data.user;
-        } else if (response.data) {
-          userDataToSet = response.data;
-        } else {
-          userDataToSet = response;
-        }
-
-        if (userDataToSet?.image) {
-          let formattedImageUrl = userDataToSet.image.trim();
-
-          if (formattedImageUrl.startsWith('http://') || formattedImageUrl.startsWith('https://')) {
-            console.log('Image URL is already absolute:', formattedImageUrl);
-          } else if (formattedImageUrl.startsWith('/')) {
-            formattedImageUrl = `https://api.valens.app${formattedImageUrl}`;
+        if (response?.statusCode === 200) {
+          let userDataToSet;
+          if (response.data && response.data.user) {
+            userDataToSet = response.data.user;
+          } else if (response.data) {
+            userDataToSet = response.data;
           } else {
-            formattedImageUrl = `https://api.valens.app/${formattedImageUrl}`;
+            userDataToSet = response;
           }
 
-          userDataToSet.image = formattedImageUrl;
+          if (userDataToSet?.image) {
+            let formattedImageUrl = userDataToSet.image.trim();
+
+            if (formattedImageUrl.startsWith('http://') || formattedImageUrl.startsWith('https://')) {
+              console.log('Image URL is already absolute:', formattedImageUrl);
+            } else if (formattedImageUrl.startsWith('/')) {
+              formattedImageUrl = `https://api.valens.app${formattedImageUrl}`;
+            } else {
+              formattedImageUrl = `https://api.valens.app/${formattedImageUrl}`;
+            }
+
+            userDataToSet.image = formattedImageUrl;
+          }
+
+          console.log(userDataToSet, 'this is response from getUserDashboard in wallet');
+          setUserData(userDataToSet);
+        } else {
+          showToastMessage(toast, 'danger', response.data.message);
         }
-
-        console.log(userDataToSet, 'this is response from getUserDashboard in wallet');
-        setUserData(userDataToSet);
-      } else {
-        showToastMessage(toast, 'danger', response.data.message);
+      } catch (error) {
+        showToastMessage(
+          toast,
+          'danger',
+          error?.response?.message ?? t('walletSettings.fetchError'),
+        );
+      } finally {
+        dispatch(hideLoader());
       }
-    } catch (error) {
-      showToastMessage(
-        toast,
-        'danger',
-        error?.response?.message ?? t('walletSettings.fetchError'),
-      );
-    } finally {
-      dispatch(hideLoader());
-    }
-  };
+    },
+    [dispatch, t, toast],
+  );
 
-  const fetchProfile = async (id) => {
-    try {
-      dispatch(showLoader());
-      const response = await getProfile(id);
-      if (response.statusCode === 200 && response.data) {
-        console.log('response in fetchProfile useFocusEffect:', response);
-        setProfileData(response.data);
-      } else {
-        showToastMessage(toast, 'danger', response.data.message);
+  const fetchProfile = React.useCallback(
+    async (id) => {
+      try {
+        dispatch(showLoader());
+        const response = await getProfile(id);
+        if (response.statusCode === 200 && response.data) {
+          console.log('response in fetchProfile useFocusEffect:', response);
+          setProfileData(response.data);
+        } else {
+          showToastMessage(toast, 'danger', response.data.message);
+        }
+      } catch (err) {
+        console.log('Error in fetchProfile:', err);
+      } finally {
+        dispatch(hideLoader());
       }
-    } catch (err) {
-      console.log('Error in fetchProfile:', err);
-    } finally {
-      dispatch(hideLoader());
-    }
-  };
+    },
+    [dispatch, toast],
+  );
 
   const settingsSections = [
     {
@@ -184,6 +190,11 @@ export const SettingsScreen = ({ navigation }) => {
             navigation.navigate('WalletEditProfile', { userdata: profileData });
           },
         },
+        // {
+        //   label: 'Shop Settings',
+        //   icon: 'storefront-outline',
+        //   action: () => navigation.navigate('ShopSettings'),
+        // },
         {
           label: t('walletSettings.verificationStatus'),
           icon: 'shield-checkmark',

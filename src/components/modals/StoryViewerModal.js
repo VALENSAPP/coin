@@ -15,6 +15,7 @@ import {
   Image,
 } from 'react-native';
 import Video from 'react-native-video';
+import YoutubePlayer from 'react-native-youtube-iframe';
 import Icon from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -23,9 +24,28 @@ import { useNavigation } from '@react-navigation/native';
 import HexAvatar from '../home/story.js/HexAvatar';
 import { getUserCredentials } from '../../services/post';
 import { useLanguage } from '../../i18n';
+import {
+  normalizeStoryForViewer,
+  resolveStoryAudioPayload,
+  resolveStoryDurationMs,
+  isStoryVideoUrl,
+  splitStoryClipId,
+} from '../../utils/storyAudioResolve';
+import { hydrateStoryForViewer } from '../../utils/hydrateStoryForViewer';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const FALLBACK_AVATAR = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
+
+const storyYoutubeAudioStyle = {
+  position: 'absolute',
+  width: 200,
+  height: 200,
+  opacity: 0.02,
+  left: -220,
+  top: 0,
+  zIndex: 5,
+  overflow: 'hidden',
+};
 
 const pickNonEmpty = (...values) => {
   for (const value of values) {
@@ -51,10 +71,19 @@ const unwrapUserProfileResponse = (response) => {
 const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
   const [isPaused, setIsPaused] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [mediaError, setMediaError] = useState(false);
   const [duration, setDuration] = useState(5);
   const [, setCurrentTime] = useState(0);
   const progressAnim = useRef(new Animated.Value(0)).current;
   const timerRef = useRef(null);
+  const youtubeRef = useRef(null);
+  const directAudioRef = useRef(null);
+  const directAudioDurationRef = useRef(0);
+  const overlayAudioTimeRef = useRef(0);
+  const isPausedRef = useRef(false);
+  const visibleRef = useRef(false);
+  const progressStartedRef = useRef(false);
+  const mediaLoadedRef = useRef(false);
 
   // FIX: track how many seconds have elapsed so resume picks up from here
   const elapsedRef = useRef(0);
@@ -64,6 +93,8 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
   const navigation = useNavigation();
   const [selfUserId, setSelfUserId] = useState(null);
   const [storyOwnerProfile, setStoryOwnerProfile] = useState(null);
+  const [displayStory, setDisplayStory] = useState(null);
+  const [hydrationComplete, setHydrationComplete] = useState(false);
   const { t } = useLanguage();
 
   useEffect(() => {
@@ -135,6 +166,36 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
     };
   }, [storyUserId, visible]);
 
+  useEffect(() => {
+    if (!visible || !story) {
+      setDisplayStory(null);
+      setHydrationComplete(false);
+      return undefined;
+    }
+
+    let cancelled = false;
+    setHydrationComplete(false);
+
+    (async () => {
+      try {
+        const hydrated = await hydrateStoryForViewer(story, selfUserId);
+        if (!cancelled) setDisplayStory(hydrated);
+      } catch (_error) {
+        if (!cancelled) setDisplayStory(normalizeStoryForViewer(story));
+      } finally {
+        if (!cancelled) setHydrationComplete(true);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [visible, story, selfUserId]);
+
+  const normalizedStory = useMemo(
+    () => normalizeStoryForViewer(displayStory || story),
+    [displayStory, story],
+  );
   const storyUsername =
     pickNonEmpty(
       storyOwnerProfile?.name,
@@ -161,13 +222,67 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
     FALLBACK_AVATAR;
 
   const isVideo =
-    story?.type === 'video' ||
-    (story?.media?.[0] && isVideoUrl(story.media[0])) ||
-    (story?.uri && isVideoUrl(story.uri));
+    normalizedStory?.type === 'video' ||
+    (normalizedStory?.uri && isStoryVideoUrl(normalizedStory.uri));
 
-  const mediaUri = story?.uri || story?.media?.[0] || story?.thumbnail || story?.image;
+  const mediaUri = normalizedStory?.uri || null;
 
-  const storyCaption = story?.caption || story?.text || '';
+  const storyCaption = normalizedStory?.caption || normalizedStory?.text || '';
+
+  const resolvedAudio = useMemo(
+    () => resolveStoryAudioPayload(normalizedStory),
+    [normalizedStory],
+  );
+  const youtubeVideoId = resolvedAudio.youtubeVideoId;
+  const directAudioUrl = resolvedAudio.directUrl;
+  const hasDirectAudio = typeof directAudioUrl === 'string' && directAudioUrl.length > 0;
+  const hasOverlayAudio = hasDirectAudio || !!youtubeVideoId;
+  const isYoutubeAudio = !hasDirectAudio && !!youtubeVideoId;
+  const audioTrimStartSec = Math.max(0, Number(normalizedStory?.audioTrim?.start) || 0);
+  const audioTrimEndSecRaw = Number(normalizedStory?.audioTrim?.end);
+  const audioTrimEndSec =
+    Number.isFinite(audioTrimEndSecRaw) && audioTrimEndSecRaw > audioTrimStartSec
+      ? audioTrimEndSecRaw
+      : null;
+  const audioVolumePercent = Math.max(
+    0,
+    Math.min(100, Math.round((Number(normalizedStory?.volume) || 1) * 100)),
+  );
+  const shouldPlayStoryAudio = visible && !isPaused && hasOverlayAudio;
+  const storySessionKey = useMemo(() => {
+    const { baseId } = splitStoryClipId(story?.storyId || story?.id);
+    const uri = story?.uri || story?.media?.[0] || '';
+    return `${baseId || uri || 'story'}`;
+  }, [story?.storyId, story?.id, story?.uri, story?.media]);
+
+  const storyPlaybackKey = [
+    normalizedStory?.id || normalizedStory?.storyId || mediaUri || 'story',
+    youtubeVideoId || '',
+    directAudioUrl || '',
+  ].join(':');
+
+  useEffect(() => {
+    isPausedRef.current = isPaused;
+  }, [isPaused]);
+
+  useEffect(() => {
+    visibleRef.current = visible;
+  }, [visible]);
+
+  const pauseOverlayAudio = useCallback(() => {
+    try { youtubeRef.current?.pauseVideo?.(); } catch (_e) { }
+    try { youtubeRef.current?.mute?.(); } catch (_e) { }
+    try { directAudioRef.current?.pause?.(); } catch (_e) { }
+  }, []);
+
+  const resolveOverlayAudioResumeSec = useCallback(() => {
+    const saved = Number(overlayAudioTimeRef.current);
+    if (Number.isFinite(saved) && saved >= audioTrimStartSec) {
+      if (audioTrimEndSec != null && saved >= audioTrimEndSec) return audioTrimStartSec;
+      return saved;
+    }
+    return audioTrimStartSec;
+  }, [audioTrimEndSec, audioTrimStartSec]);
 
   const stopProgress = useCallback(() => {
     if (timerRef.current) {
@@ -179,8 +294,9 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
 
   const handleClose = useCallback(() => {
     stopProgress();
+    pauseOverlayAudio();
     onClose();
-  }, [onClose, stopProgress]);
+  }, [onClose, pauseOverlayAudio, stopProgress]);
 
   // FIX: startProgress now resumes from elapsedRef instead of always starting at 0
   const startProgress = useCallback(
@@ -211,23 +327,109 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
     [duration, handleClose, isVideo, progressAnim, stopProgress]
   );
 
+  const beginStoryPlayback = useCallback(() => {
+    if (progressStartedRef.current || !visibleRef.current || mediaError) return;
+    progressStartedRef.current = true;
+
+    const durationSec =
+      resolveStoryDurationMs({ ...normalizedStory, type: isVideo ? 'video' : 'image' }) / 1000;
+    setDuration(durationSec);
+
+    if (!isVideo) {
+      startProgress(durationSec);
+    }
+  }, [isVideo, mediaError, normalizedStory, startProgress]);
+
+  const tryStartPlayback = useCallback(() => {
+    if (
+      !mediaLoadedRef.current ||
+      !hydrationComplete ||
+      progressStartedRef.current ||
+      !visibleRef.current ||
+      mediaError
+    ) {
+      return;
+    }
+    beginStoryPlayback();
+  }, [beginStoryPlayback, hydrationComplete, mediaError]);
+
+  const markMediaReady = useCallback(() => {
+    mediaLoadedRef.current = true;
+    setIsLoading(false);
+    setMediaError(false);
+    tryStartPlayback();
+  }, [tryStartPlayback]);
+
+  // Reset only when opening a different story — not when hydration adds audio metadata.
   useEffect(() => {
-    if (visible) {
-      setIsLoading(true);
-      setIsPaused(false);
-      setCurrentTime(0);
-      // Reset elapsed when the story first opens
-      elapsedRef.current = 0;
-      progressAnim.setValue(0);
-      startProgress();
-    } else {
+    if (!visible || !story) {
+      mediaLoadedRef.current = false;
+      progressStartedRef.current = false;
+      return undefined;
+    }
+
+    mediaLoadedRef.current = false;
+    progressStartedRef.current = false;
+    setIsLoading(true);
+    setMediaError(false);
+    setIsPaused(false);
+    setCurrentTime(0);
+    elapsedRef.current = 0;
+    overlayAudioTimeRef.current = 0;
+    progressAnim.setValue(0);
+
+    return undefined;
+  }, [visible, storySessionKey, progressAnim]);
+
+  // Start (or restart) playback once both media and hydrated metadata are ready.
+  useEffect(() => {
+    if (!visible || !hydrationComplete || !displayStory) return;
+    overlayAudioTimeRef.current = Math.max(0, Number(normalizedStory?.audioTrim?.start) || 0);
+
+    if (mediaLoadedRef.current) {
+      setIsLoading(false);
+      if (progressStartedRef.current && !isVideo) {
+        elapsedRef.current = 0;
+        progressStartedRef.current = false;
+        progressAnim.setValue(0);
+      }
+      tryStartPlayback();
+    }
+  }, [
+    displayStory,
+    hydrationComplete,
+    isVideo,
+    normalizedStory?.audioTrim?.start,
+    progressAnim,
+    tryStartPlayback,
+    visible,
+  ]);
+
+  useEffect(() => {
+    if (visible && normalizedStory) {
+      if (!mediaUri) {
+        setMediaError(true);
+        setIsLoading(false);
+        stopProgress();
+      }
+    } else if (!visible) {
       stopProgress();
+      pauseOverlayAudio();
     }
 
     return () => {
-      stopProgress();
+      if (!visible) {
+        stopProgress();
+        pauseOverlayAudio();
+      }
     };
-  }, [progressAnim, startProgress, stopProgress, visible]);
+  }, [
+    mediaUri,
+    normalizedStory,
+    pauseOverlayAudio,
+    stopProgress,
+    visible,
+  ]);
 
   const handleVideoProgress = (data) => {
     if (data.currentTime && data.seekableDuration) {
@@ -242,10 +444,23 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
   };
 
   const handleVideoLoad = (data) => {
-    setIsLoading(false);
     if (data.duration) {
       setDuration(data.duration);
     }
+    markMediaReady();
+  };
+
+  const handleImageLoad = () => {
+    markMediaReady();
+  };
+
+  const handleMediaError = () => {
+    mediaLoadedRef.current = false;
+    setIsLoading(false);
+    setMediaError(true);
+    stopProgress();
+    progressStartedRef.current = false;
+    pauseOverlayAudio();
   };
 
   // FIX: use functional updater so we always read the real current value,
@@ -255,20 +470,19 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
       const nowPaused = !prev;
 
       if (nowPaused) {
-        // Snapshot how much time we've consumed before stopping the ticker
         if (resumeStartedAtRef.current) {
           elapsedRef.current += (Date.now() - resumeStartedAtRef.current) / 1000;
           resumeStartedAtRef.current = null;
         }
         stopProgress();
-      } else {
-        // Resume: startProgress will pick up from elapsedRef.current
+        pauseOverlayAudio();
+      } else if (progressStartedRef.current) {
         startProgress();
       }
 
       return nowPaused;
     });
-  }, [startProgress, stopProgress]);
+  }, [pauseOverlayAudio, startProgress, stopProgress]);
 
   const handleOpenStoryUserProfile = useCallback(() => {
     if (!storyUserId) return;
@@ -330,31 +544,121 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
               </View>
             )}
 
-            {isVideo ? (
+            {mediaError ? (
+              <View style={styles.mediaErrorContainer}>
+                <Icon name="image-outline" size={48} color="rgba(255,255,255,0.7)" />
+                <Text style={styles.mediaErrorText}>
+                  {t('storyViewer.mediaUnavailable')}
+                </Text>
+              </View>
+            ) : isVideo && mediaUri ? (
               <Video
                 source={{ uri: mediaUri }}
                 style={styles.media}
                 resizeMode="contain"
                 paused={isPaused || !visible}
                 repeat={false}
-                muted={false}
+                muted={hasOverlayAudio}
                 volume={1}
                 ignoreSilentSwitch="ignore"
                 playWhenInactive={false}
                 onLoad={handleVideoLoad}
                 onProgress={handleVideoProgress}
-                onError={() => setIsLoading(false)}
+                onError={handleMediaError}
                 controls={false}
               />
-            ) : (
+            ) : mediaUri ? (
               <Image
+                key={`story_image_${storySessionKey}_${mediaUri}`}
                 source={{ uri: mediaUri }}
                 style={styles.media}
                 resizeMode="contain"
-                onLoad={() => setIsLoading(false)}
-                onError={() => setIsLoading(false)}
+                onLoad={handleImageLoad}
+                onLoadEnd={handleImageLoad}
+                onError={handleMediaError}
               />
-            )}
+            ) : null}
+
+            {isYoutubeAudio && shouldPlayStoryAudio ? (
+              <View style={storyYoutubeAudioStyle} pointerEvents="none" collapsable={false}>
+                <YoutubePlayer
+                  ref={youtubeRef}
+                  key={`modal_story_yt_${storyPlaybackKey}_${youtubeVideoId}`}
+                  height={200}
+                  width={200}
+                  videoId={youtubeVideoId}
+                  play
+                  mute={false}
+                  volume={audioVolumePercent}
+                  initialPlayerParams={{ autoplay: true, controls: false, modestbranding: true, rel: false }}
+                  onReady={async () => {
+                    if (isPausedRef.current || !visibleRef.current) return;
+                    try {
+                      const resumeSec = resolveOverlayAudioResumeSec();
+                      await youtubeRef.current?.setVolume?.(audioVolumePercent);
+                      await youtubeRef.current?.unMuteVideo?.();
+                      if (resumeSec > 0) await youtubeRef.current?.seekTo?.(resumeSec, true);
+                      await youtubeRef.current?.playVideo?.();
+                    } catch (_e) { }
+                    if (mediaLoadedRef.current && hydrationComplete && !progressStartedRef.current && !isVideo) {
+                      tryStartPlayback();
+                    }
+                  }}
+                  onChangeState={state => {
+                    if (isPausedRef.current || !visibleRef.current) {
+                      if (state === 'playing') pauseOverlayAudio();
+                      return;
+                    }
+                    if (state === 'ended') {
+                      try {
+                        youtubeRef.current?.seekTo?.(audioTrimStartSec, true);
+                        if (!isPausedRef.current) youtubeRef.current?.playVideo?.();
+                      } catch (_e) { }
+                    }
+                  }}
+                  onError={e => console.warn('[StoryViewerModal] YouTube audio error', e)}
+                />
+              </View>
+            ) : null}
+
+            {hasDirectAudio && shouldPlayStoryAudio ? (
+              <Video
+                ref={directAudioRef}
+                key={`modal_story_audio_${storyPlaybackKey}`}
+                source={{ uri: directAudioUrl }}
+                style={{ position: 'absolute', width: 1, height: 1, opacity: 0 }}
+                paused={false}
+                muted={false}
+                repeat={false}
+                playInBackground={false}
+                playWhenInactive={false}
+                ignoreSilentSwitch="ignore"
+                volume={Math.max(0, Math.min(1, Number(normalizedStory?.volume) || 1))}
+                onLoad={data => {
+                  directAudioDurationRef.current = Number(data?.duration) || 0;
+                  const resumeSec = resolveOverlayAudioResumeSec();
+                  try { directAudioRef.current?.seek(resumeSec); } catch (_e) { }
+                  if (mediaLoadedRef.current && hydrationComplete && !progressStartedRef.current && !isVideo) {
+                    tryStartPlayback();
+                  }
+                }}
+                onProgress={({ currentTime }) => {
+                  overlayAudioTimeRef.current = currentTime;
+                  const fallbackEnd = directAudioDurationRef.current || 0;
+                  const end = audioTrimEndSec != null ? audioTrimEndSec : fallbackEnd;
+                  if (end > 0 && currentTime >= end - 0.12) {
+                    try { directAudioRef.current?.seek(audioTrimStartSec || 0); } catch (_e) { }
+                  }
+                  if (mediaLoadedRef.current && hydrationComplete && !progressStartedRef.current && !isVideo) {
+                    tryStartPlayback();
+                  }
+                }}
+                onEnd={() => {
+                  try { directAudioRef.current?.seek(audioTrimStartSec || 0); } catch (_e) { }
+                }}
+                onError={e => console.warn('[StoryViewerModal] Direct audio error', e)}
+              />
+            ) : null}
 
             {isPaused && (
               <View style={styles.pauseIndicator}>
@@ -434,12 +738,6 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
       </View>
     </Modal>
   );
-};
-
-const isVideoUrl = (url) => {
-  if (!url || typeof url !== 'string') return false;
-  const videoExtensions = ['.mp4', '.mov', '.avi', '.mkv', '.webm', '.m4v'];
-  return videoExtensions.some((ext) => url.toLowerCase().includes(ext));
 };
 
 const formatTimeAgo = (timestamp, t) => {
@@ -569,7 +867,21 @@ const styles = StyleSheet.create({
     bottom: 0,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#000',
+    backgroundColor: 'transparent',
+    zIndex: 2,
+  },
+  mediaErrorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  mediaErrorText: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 15,
+    textAlign: 'center',
+    marginTop: 16,
+    lineHeight: 22,
   },
   pauseIndicator: {
     position: 'absolute',

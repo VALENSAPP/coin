@@ -157,6 +157,10 @@ const SavedPostsScreen = ({ navigation }) => {
       daysLeft: item.daysLeft ?? 0,
       profile: item.profile,
       createdAt: item.createdAt,
+      location: item.location || '',
+      type: item.type || item.postType || 'normal',
+      postType: item.postType || item.type || 'normal',
+      visibleTo: item.visibleTo || item.visible_to || '',
       UserId: item.userId,
       userId: item.userId,
       boughtBy: item.boughtBy || [],
@@ -429,6 +433,14 @@ const SavedPostsScreen = ({ navigation }) => {
     }));
   }, []);
 
+  const handleLocationUpdate = useCallback((postId, location) => {
+    setPosts(prev =>
+      prev.map(post =>
+        String(post.id) === String(postId) ? { ...post, location } : post,
+      ),
+    );
+  }, []);
+
   // Open full-screen viewer
   const openPostViewer = useCallback((index) => {
     const post = posts[index];
@@ -646,6 +658,7 @@ const SavedPostsScreen = ({ navigation }) => {
             screenFocused={viewerVisible}
             playingPostId={viewerPlayingPostId}
             currentlyVisiblePostId={viewerVisiblePostId}
+            onLocationUpdate={handleLocationUpdate}
           />
         </View>
       );
@@ -666,6 +679,7 @@ const SavedPostsScreen = ({ navigation }) => {
       postLikesCount,
       postCommentsCount,
       followingByUserId,
+      handleLocationUpdate,
     ]
   );
 

@@ -305,6 +305,38 @@ function resolvePostType(post) {
   return 'regular';
 }
 
+/** Location is only for regular mint and mission posts — not flips or private content. */
+export function postSupportsLocation({ postType, fromIcon, type, raiseAmount } = {}) {
+  if (fromIcon === 'Flips' || postType === 'flip') return false;
+
+  const resolvedType = String(type || '').toLowerCase();
+  const resolvedPostType = String(postType || '').toLowerCase();
+
+  if (resolvedType === 'reel' || resolvedType === 'flip') return false;
+  if (resolvedType === 'private' || resolvedType === 'private_circle') return false;
+  if (resolvedPostType === 'private' || resolvedPostType === 'private_circle') return false;
+
+  if (
+    resolvedPostType === 'crowdfunding' ||
+    resolvedType === 'crowdfunding' ||
+    resolvedType === 'support' ||
+    raiseAmount != null
+  ) {
+    return true;
+  }
+
+  if (
+    !resolvedPostType ||
+    resolvedPostType === 'normal' ||
+    resolvedPostType === 'regular' ||
+    resolvedType === 'normal'
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
 function resolveFromIcon(post) {
   const type = String(post?.type || '').toLowerCase();
   const format = String(post?.format || '').toLowerCase();

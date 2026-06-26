@@ -52,9 +52,14 @@ import {
 import { buildStoryMetaPayload } from '../../../utils/buildStoryMeta';
 import {
   appendStoryAudioFiles,
-  getStoryBuiltinLibraryUrl,
   prepareStoryClipsAudioForUpload,
 } from '../../../utils/storyAudioUpload';
+import {
+  parseStoryMeta,
+  resolveStoryAudioPayload,
+  resolveStoryDurationMs,
+  looksLikeUrl,
+} from '../../../utils/storyAudioResolve';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { showToastMessage } from '../../displaytoastmessage';
 import { Toast, useToast } from 'react-native-toast-notifications';
@@ -71,19 +76,6 @@ import { useLanguage } from '../../../i18n';
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 const DOUBLE_TAP_DELAY = 300;
-
-/** API may return `storyMeta` as object or JSON string */
-function parseStoryMeta(raw) {
-  if (raw == null) return null;
-  if (typeof raw === 'string') {
-    try {
-      return JSON.parse(raw);
-    } catch {
-      return null;
-    }
-  }
-  return typeof raw === 'object' ? raw : null;
-}
 
 function inferStoryMediaTypeFromUrl(url) {
   if (typeof url !== 'string') return 'image';
@@ -249,131 +241,6 @@ const storyVideoLoadModalStyles = StyleSheet.create({
     fontWeight: '600',
   },
 });
-
-function toFiniteNumber(value) {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : null;
-}
-
-function resolveStoryDurationMs(storyLike) {
-  const isVideo = storyLike?.type === 'video' || !!storyLike?.isVideo;
-  const fallbackMs = isVideo ? 15000 : 5000;
-
-  const explicitMs = toFiniteNumber(storyLike?.duration);
-  if (explicitMs != null && explicitMs > 0) return explicitMs;
-
-  const visualTrimStart = Math.max(0, toFiniteNumber(storyLike?.trim?.start) || 0);
-  const visualTrimEndRaw = toFiniteNumber(storyLike?.trim?.end);
-  const visualTrimSec =
-    visualTrimEndRaw != null && visualTrimEndRaw > visualTrimStart
-      ? visualTrimEndRaw - visualTrimStart
-      : null;
-
-  const audioTrimStart = Math.max(0, toFiniteNumber(storyLike?.audioTrim?.start) || 0);
-  const audioTrimEndRaw = toFiniteNumber(storyLike?.audioTrim?.end);
-  const audioTrimSec =
-    audioTrimEndRaw != null && audioTrimEndRaw > audioTrimStart
-      ? audioTrimEndRaw - audioTrimStart
-      : null;
-
-  const chosenSec = isVideo ? visualTrimSec : (audioTrimSec ?? visualTrimSec);
-  if (chosenSec != null && chosenSec > 0) {
-    return Math.max(1000, Math.round(chosenSec * 1000));
-  }
-  return fallbackMs;
-}
-
-function looksLikeUrl(v) {
-  return typeof v === 'string' && /^(https?:)?\/\//i.test(v.trim());
-}
-
-function resolveStoryAudioPayload(storyLike) {
-  const rawSrc =
-    storyLike?.audio ??
-    storyLike?.song ??
-    storyLike?.music ??
-    storyLike?.track ??
-    null;
-  let src = rawSrc;
-
-  if (typeof src === 'string') {
-    const trimmed = src.trim();
-    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
-      try {
-        const parsed = JSON.parse(trimmed);
-        if (parsed && typeof parsed === 'object') src = parsed;
-      } catch (_e) { }
-    }
-  }
-
-  if (typeof src === 'string') {
-    const normalized = src.trim();
-    if (!normalized || normalized.toLowerCase() === 'original') {
-      return { directUrl: null, youtubeVideoId: null };
-    }
-    if (looksLikeUrl(normalized)) return { directUrl: normalized, youtubeVideoId: null };
-    const builtinUrl = getStoryBuiltinLibraryUrl(normalized);
-    if (builtinUrl) return { directUrl: builtinUrl, youtubeVideoId: null };
-    return { directUrl: null, youtubeVideoId: normalized || null };
-  }
-
-  if (src && typeof src === 'object') {
-    const normalizedMode = typeof src.mode === 'string' ? src.mode.trim().toLowerCase() : '';
-
-    if (normalizedMode === 'youtube') {
-      const uploadedUrl =
-        src.audioUrl || src.s3Url || src.fileUrl || src.url ||
-        src.songUrl || src.musicUrl || src.previewUrl || null;
-      const directUrl = looksLikeUrl(uploadedUrl) ? String(uploadedUrl).trim() : null;
-      if (directUrl) return { directUrl, youtubeVideoId: null };
-
-      const youtubeVideoId = src.videoId || src.youtubeVideoId || src.ytVideoId || null;
-      return {
-        directUrl: null,
-        youtubeVideoId:
-          typeof youtubeVideoId === 'string' && youtubeVideoId.trim()
-            ? youtubeVideoId.trim()
-            : null,
-      };
-    }
-
-    const libraryTrackId =
-      typeof src.trackId === 'string' ? src.trackId :
-        typeof src.libraryTrackId === 'string' ? src.libraryTrackId :
-          typeof src.id === 'string' ? src.id : null;
-    const libraryTitle =
-      typeof src.title === 'string' ? src.title :
-        typeof src.trackName === 'string' ? src.trackName : null;
-
-    if (normalizedMode === 'library' || libraryTrackId) {
-      const builtinUrl = getStoryBuiltinLibraryUrl(libraryTrackId || libraryTitle);
-      if (builtinUrl) return { directUrl: builtinUrl, youtubeVideoId: null };
-    }
-
-    const directUrl =
-      src.audioUrl || src.s3Url || src.fileUrl || src.url ||
-      src.songUrl || src.musicUrl || src.previewUrl || null;
-    const youtubeVideoId = src.videoId || src.youtubeVideoId || src.ytVideoId || null;
-
-    return {
-      directUrl: looksLikeUrl(directUrl) ? String(directUrl).trim() : null,
-      youtubeVideoId:
-        typeof youtubeVideoId === 'string' && youtubeVideoId.trim()
-          ? youtubeVideoId.trim()
-          : null,
-    };
-  }
-
-  const storyLevelUrl =
-    storyLike?.audioUrl || storyLike?.songUrl || storyLike?.musicUrl || storyLike?.previewUrl || null;
-  return {
-    directUrl: looksLikeUrl(storyLevelUrl) ? String(storyLevelUrl).trim() : null,
-    youtubeVideoId:
-      typeof storyLike?.videoId === 'string' && storyLike.videoId.trim()
-        ? storyLike.videoId.trim()
-        : null,
-  };
-}
 
 function resolveStoryClipThumbnailUrl(storyLike, idx, clipMeta) {
   const candidate =

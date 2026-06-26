@@ -82,27 +82,17 @@ import {
 import { fetchLyricsLRCLIB, parseLrcToSyncedLines } from '../../../utils/lyricsLrclib';
 
 const fonts = [
-  { name: 'System', style: {} },
-  { name: 'Billabong', style: { fontFamily: 'FontsFree-Net-Billabong' } },
-  {
-    name: 'Serif',
-    style: { fontFamily: Platform.select({ ios: 'Georgia', android: 'serif' }) },
-  },
-  {
-    name: 'Mono',
-    style: { fontFamily: Platform.select({ ios: 'Courier New', android: 'monospace' }) },
-  },
-  {
-    name: 'Script',
-    style: { fontFamily: Platform.select({ ios: 'Snell Roundhand', android: 'cursive' }) },
-  },
-  {
-    name: 'Bold',
-    style: {
-      fontFamily: Platform.select({ ios: 'Helvetica-Bold', android: 'sans-serif-medium' }),
-      fontWeight: Platform.OS === 'ios' ? '700' : 'bold',
-    },
-  },
+  { name: 'saffasbom', style: { fontFamily: 'SAlfaSlabOne-Regularystem' } },
+  { name: 'bitcount', style: { fontFamily: 'BitcountPropSingle_Cursive-Regular' } },
+  { name: 'fontfree', style: { fontFamily: 'FontsFree-Net-Billabong' } },
+  { name: 'liber', style: { fontFamily: 'LibertinusMono-Regular' } },
+  { name: 'opensans', style: { fontFamily: 'OpenSans-Regular' } },
+  { name: 'pacifico', style: { fontFamily: 'Pacifico-Regular' } },
+  { name: 'play1', style: { fontFamily: 'PlaywriteAUQLD-Regular' } },
+  { name: 'play2', style: { fontFamily: 'PlaywriteHU-Regular' } },
+  { name: 'play3', style: { fontFamily: 'PlaywritePL-Regular' } },
+  { name: 'roboto', style: { fontFamily: 'Roboto-Regular' } },
+  { name: 'tridon', style: { fontFamily: 'Triodion-Regular' } },
 ];
 
 const isSameFontStyle = (left, right) =>
@@ -741,20 +731,6 @@ const InstagramPostCreator = () => {
     [currentImageIndex, getContentLayoutForMedia, selectedImages],
   );
 
-  const centerDraftTextOnImage = useCallback(() => {
-    const cw = currentContentLayout.width || IMAGE_SIZE;
-    const ch = currentContentLayout.height || editorCanvasHeight || IMAGE_SIZE;
-    const centerX = Math.max(8, (cw - DRAFT_TEXT_BUBBLE_WIDTH) / 2);
-    const centerY = Math.max(8, ch * 0.28);
-    pan.setValue({ x: centerX, y: centerY });
-    pan.setOffset({ x: 0, y: 0 });
-  }, [currentContentLayout.width, currentContentLayout.height, editorCanvasHeight, pan]);
-
-  useEffect(() => {
-    if (!modalVisible2 || editingOverlayId) return;
-    centerDraftTextOnImage();
-  }, [modalVisible2, currentImageIndex, editingOverlayId, centerDraftTextOnImage]);
-
   const getOverlayBounds = (imageIndex, size = 100) => {
     const layout = getContentLayoutForMedia(selectedImages[imageIndex] || {});
     return {
@@ -913,6 +889,20 @@ const InstagramPostCreator = () => {
       onPanResponderRelease: () => { pan.flattenOffset(); },
     }),
   ).current;
+
+  const centerDraftTextOnImage = useCallback(() => {
+    const cw = currentContentLayout.width || IMAGE_SIZE;
+    const ch = currentContentLayout.height || editorCanvasHeight || IMAGE_SIZE;
+    const centerX = Math.max(8, (cw - DRAFT_TEXT_BUBBLE_WIDTH) / 2);
+    const centerY = Math.max(8, ch * 0.28);
+    pan.setValue({ x: centerX, y: centerY });
+    pan.setOffset({ x: 0, y: 0 });
+  }, [currentContentLayout.width, currentContentLayout.height, editorCanvasHeight, pan]);
+
+  useEffect(() => {
+    if (!modalVisible2 || editingOverlayId) return;
+    centerDraftTextOnImage();
+  }, [modalVisible2, currentImageIndex, editingOverlayId, centerDraftTextOnImage]);
 
   useEffect(() => {
     if (routeImages && routeImages.length > 0) {
@@ -2729,7 +2719,10 @@ const InstagramPostCreator = () => {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaView style={[styles.container, bgStyle]} edges={['top', 'left', 'right']}>
-        <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={bgStyle?.backgroundColor || '#000'} />
+        <StatusBar
+          barStyle={isDarkMode ? 'light-content' : 'dark-content'}
+          backgroundColor={bgStyle?.backgroundColor || (isFlipPost ? '#000' : '#fff')}
+        />
         <View style={styles.header}>
           <TouchableOpacity style={styles.headerButton} onPress={handleBack}>
             <Text style={[styles.headerButtonText, { color: icon }]}>×</Text>

@@ -499,17 +499,17 @@ const normalizeBattle = (raw, currentUserId = '') => {
   ));
   const normalizedVoteCounts = format === 'HEAD_TO_HEAD'
     ? (Object.keys(rawVoteCounts).length > 0 ? rawVoteCounts : options.reduce((acc, option) => {
-        const key = String(pickFirst(option?.side, option?.label, '')).trim();
-        if (key) acc[key] = Number(option.votes || 0);
-        return acc;
-      }, {}))
+      const key = String(pickFirst(option?.side, option?.label, '')).trim();
+      if (key) acc[key] = Number(option.votes || 0);
+      return acc;
+    }, {}))
     : (raw?.voteCounts && typeof raw.voteCounts === 'object' ? raw.voteCounts : {});
   const normalizedPredictionCounts = format === 'HEAD_TO_HEAD'
     ? (Object.keys(rawPredictionCounts).length > 0 ? rawPredictionCounts : options.reduce((acc, option) => {
-        const key = String(pickFirst(option?.side, option?.label, '')).trim();
-        if (key) acc[key] = Number(option.votes || 0);
-        return acc;
-      }, {}))
+      const key = String(pickFirst(option?.side, option?.label, '')).trim();
+      if (key) acc[key] = Number(option.votes || 0);
+      return acc;
+    }, {}))
     : (raw?.predictionCounts && typeof raw.predictionCounts === 'object' ? raw.predictionCounts : {});
   const normalizedOptions = options.map(option => ({
     ...option,
@@ -661,7 +661,7 @@ export default function BattleInProgress() {
   const [loading, setLoading] = useState(!hasInitialBattleData);
   const [refreshing, setRefreshing] = useState(false);
   const [submittingVote, setSubmittingVote] = useState(false);
-  const [submittingDecline, setSubmittingDecline] = useState(false);   
+  const [submittingDecline, setSubmittingDecline] = useState(false);
   const [creatorSelectionLocked, setCreatorSelectionLocked] = useState(false);
   const [submittingComment, setSubmittingComment] = useState(false);
   const [likingCommentId, setLikingCommentId] = useState('');
@@ -688,6 +688,9 @@ export default function BattleInProgress() {
 
   const scheduleCommentSelectionUpdate = useCallback((commentId, nextSelection) => {
     if (!commentId) return;
+
+    const hasRealSelection = nextSelection && nextSelection.end > nextSelection.start;
+
     pendingCommentSelectionRef.current[commentId] = nextSelection;
 
     if (commentSelectionFrameRef.current) return;
@@ -699,6 +702,15 @@ export default function BattleInProgress() {
       setCommentTextSelections(prev => {
         const next = { ...prev };
         Object.entries(pendingSelections).forEach(([id, selection]) => {
+          const isRealSelection = selection && selection.end > selection.start;
+          if (isRealSelection) {
+            // Clear all OTHER comments' selections first
+            Object.keys(next).forEach(existingId => {
+              if (existingId !== id) {
+                next[existingId] = { start: 0, end: 0 };
+              }
+            });
+          }
           next[id] = selection;
         });
         return next;
@@ -882,7 +894,7 @@ export default function BattleInProgress() {
   }, [currentUserId, isBattleCreator, isHeadToHead, isHeadToHeadCreator, isHeadToHeadOpponent, isPrediction]);
 
   const [editWindowNow, setEditWindowNow] = useState(() => Date.now());
- useEffect(() => {
+  useEffect(() => {
     if (!battle.createdAt || !isBattleCreator) return undefined;
     const interval = setInterval(() => setEditWindowNow(Date.now()), 1000);
     return () => clearInterval(interval);
@@ -1494,7 +1506,7 @@ export default function BattleInProgress() {
     }));
     try {
       const response = await pinComment({ battleId: finalBattleId, commentId });
-            console.log(response,'popin')
+      console.log(response, 'popin')
 
       if (!isSuccessfulResponse(response)) {
         const errorMessage = String(response?.message || response?.data?.message || 'Unable to pin comment.');
@@ -1532,7 +1544,7 @@ export default function BattleInProgress() {
     }));
     try {
       const response = await unpinComment({ battleId: finalBattleId, commentId });
-      console.log(response,'unpin')
+      console.log(response, 'unpin')
       if (!isSuccessfulResponse(response)) {
         const errorMessage = String(response?.message || response?.data?.message || 'Unable to unpin comment.');
         setBattle(prev => ({
@@ -1854,7 +1866,7 @@ export default function BattleInProgress() {
               contextMenuHidden={false}
               importantForAutofill="no"
               underlineColorAndroid="transparent"
-              onChangeText={() => {}}
+              onChangeText={() => { }}
               style={[
                 styles.commentMessage,
                 styles.commentMessageSelectable,
@@ -2993,20 +3005,20 @@ export default function BattleInProgress() {
                 </LinearGradient>
               </TouchableOpacity>
               <View style={{ marginTop: 20 }} >
-              {shouldShowAcceptBattleCta ? (
-                <TouchableOpacity
-                  activeOpacity={0.9}
-                  onPress={handleDeclineBattle}
-                  disabled={submittingVote || submittingDecline}
-                  style={{ opacity: (submittingVote || submittingDecline) ? 0.5 : 1, marginTop: 10 }}
-                >
-                  <View style={[styles.inviteSecondaryButton, cardStyle, { borderColor: palette.primary }]}>
-                    <Text style={[styles.secondaryButtonText, { color: palette.primary }]}>
-                      {t('battleInProgress.declineBattle')}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              ) : null}
+                {shouldShowAcceptBattleCta ? (
+                  <TouchableOpacity
+                    activeOpacity={0.9}
+                    onPress={handleDeclineBattle}
+                    disabled={submittingVote || submittingDecline}
+                    style={{ opacity: (submittingVote || submittingDecline) ? 0.5 : 1, marginTop: 10 }}
+                  >
+                    <View style={[styles.inviteSecondaryButton, cardStyle, { borderColor: palette.primary }]}>
+                      <Text style={[styles.secondaryButtonText, { color: palette.primary }]}>
+                        {t('battleInProgress.declineBattle')}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                ) : null}
               </View>
             </View>
           ) : null}
@@ -3051,7 +3063,7 @@ export default function BattleInProgress() {
           ) : null}
           {/* Comments (hide when resolved) */}
           {!canViewResults ? (
-            <View style={[styles.infoCard, cardStyle, { shadowColor: palette.primary,marginBottom:Platform.OS==='android'?'18%':0 }]}>
+            <View style={[styles.infoCard, cardStyle, { shadowColor: palette.primary, marginBottom: Platform.OS === 'android' ? '18%' : 0 }]}>
               {battle.comments.length > 0
                 ? battle.comments.map(comment => renderCommentItem(comment))
                 : (
@@ -3325,7 +3337,7 @@ const styles = StyleSheet.create({
   commentAuthorIdentity: { flexDirection: 'row', alignItems: 'flex-start', flex: 1, minWidth: 0 },
   commentAuthorTopRow: { flexDirection: 'row', alignItems: 'center', minHeight: 18 },
   commentHeaderActions: { flexDirection: 'row', alignItems: 'center', flexShrink: 0, marginLeft: 6 },
-  commentMenuButton: { width: 16, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: 14,marginLeft:8 },
+  commentMenuButton: { width: 16, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: 14, marginLeft: 8 },
   commentAvatar: { width: 34, height: 34, borderRadius: 17, marginRight: 10 },
   commentAvatarFallback: { backgroundColor: '#9CA3AF', alignItems: 'center', justifyContent: 'center' },
   commentAuthorTextWrap: { flex: 1, minWidth: 0 },

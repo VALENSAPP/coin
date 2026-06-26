@@ -28,6 +28,9 @@ export const API_PARAM = ${JSON.stringify(env.API_PARAM ?? '')};
 export const YOUTUBE_DATA_API_KEY = ${JSON.stringify(
     env.YOUTUBE_DATA_API_KEY ?? '',
   )};
+export const GOOGLE_PLACES_API_KEY = ${JSON.stringify(
+    env.GOOGLE_PLACES_API_KEY ?? '',
+  )};
 `;
 
   fs.mkdirSync(path.dirname(SHIM_PATH), {recursive: true});

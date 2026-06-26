@@ -1,4 +1,3 @@
-PODS:
   - AppAuth (1.7.6):
     - AppAuth/Core (= 1.7.6)
     - AppAuth/ExternalUserAgent (= 1.7.6)
@@ -2367,7 +2366,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - react-native-webview (13.16.1):
+  - react-native-webview (13.17.0):
     - boost
     - DoubleConversion
     - fast_float
@@ -3225,7 +3224,7 @@ PODS:
     - RNNotifee/NotifeeCore (= 9.1.8)
   - RNNotifee/NotifeeCore (9.1.8):
     - React-Core
-  - RNPermissions (5.5.3):
+  - RNPermissions (5.6.0):
     - boost
     - DoubleConversion
     - fast_float
@@ -4301,7 +4300,7 @@ SPEC CHECKSUMS:
   react-native-safe-area-context: 7794f18549493f369e4ca4b3cd66843bd050ac66
   react-native-video: d7e6372a63833708a2f7a8b48fed59036910428c
   react-native-view-shot: aab9ffbcc2f01035ee8ffd9a00c773e215b35c8b
-  react-native-webview: 83c663c5bdf1357d3e7c00986260cb888ea0e328
+  react-native-webview: fb55e85095e22e6cfb814a2b122b4860de91a620
   React-NativeModulesApple: b2ee5b48020439fd81d1fd9cba40ebf0c3af5636
   React-oscompat: 80ca388c4831481cd03a6b45ecfc82739ca9a95e
   React-perflogger: 9725c8b401ca406f52e4bb59bf0b22ef9354f96a
@@ -4353,7 +4352,7 @@ SPEC CHECKSUMS:
   RNInAppBrowser: 904d24dc75e8e6c6c98a3160329192608946f9df
   RNLocalize: c46dd4008dc8990a098fcafd6ee051122a1ccfda
   RNNotifee: 5e3b271e8ea7456a36eec994085543c9adca9168
-  RNPermissions: 755d84871bdd71adba7ce38a991dc68ce28a0494
+  RNPermissions: 76ea944dca68dfe720be6901bf405725e7fe0123
   RNReactNativeHapticFeedback: b9623bdeb59a778ca905e97035d5cc73a15d00f3
   RNReanimated: 645810b298e43814b6a3857b71ad92f965c22895
   RNScreens: cfb11dc33b79eac5e09a10b25e1ad0c2499d5b8b

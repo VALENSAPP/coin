@@ -1,4 +1,3 @@
-import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -40,7 +39,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppTheme } from '../../../theme/useApptheme';
 import { useLanguage } from '../../../i18n';
 import { navigateToUserProfile } from '../../../utils/navigateToUserProfile';
-import { isLocalMediaUri } from '../../../utils/hydratePostForEditor';
+import { isLocalMediaUri, postSupportsLocation } from '../../../utils/hydratePostForEditor';
+import PostLocationModal from '../../../components/modals/PostLocationModal';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const HEADER_HEIGHT = 56;
@@ -131,12 +131,20 @@ const PostEditorScreen = () => {
     onSave,
     initialPostMeta = null,
   } = route.params || {};
+  const supportsLocation = useMemo(
+    () => postSupportsLocation({ postType, fromIcon }),
+    [postType, fromIcon],
+  );
   const parsedInitialPostMeta = useMemo(
     () => (initialPostMeta ? parsePostMeta(initialPostMeta) : null),
     [initialPostMeta],
   );
   const [editorImages, setEditorImages] = useState(images);
   const [caption, setCaption] = useState(isEditingPost ? initialCaption : '');
+  const [location, setLocation] = useState(
+    isEditingPost && typeof initialLocation === 'string' ? initialLocation : '',
+  );
+  const [locationModalVisible, setLocationModalVisible] = useState(false);
   const [link, setLink] = useState('');
   const [isCommunityTrustPost, setIsCommunityTrustPost] = useState(
     isEditingPost ? isTrustPost : false,
@@ -273,6 +281,7 @@ const PostEditorScreen = () => {
         images: editorImages,
         caption,
         link,
+        ...(supportsLocation && location.trim() ? { location: location.trim() } : {}),
         taggedPeople,
         taggedPeopleIds,
         taggedPeopleMeta,
@@ -287,6 +296,7 @@ const PostEditorScreen = () => {
 
     const payload = {
       caption: caption.trim(),
+      ...(supportsLocation && location.trim() ? { location: location.trim() } : {}),
       taggedPeople: taggedPeopleIds,
       // Array.isArray(taggedPeople) ? taggedPeople.join(', ') : taggedPeople,
       // ...(Array.isArray(taggedPeopleIds) && taggedPeopleIds.length ? { taggedPeopleIds } : {}),
@@ -333,6 +343,9 @@ const PostEditorScreen = () => {
         const editPayload = editSkipMediaEditor
           ? {
               caption: caption.trim(),
+              ...(supportsLocation
+                ? (location.trim() ? { location: location.trim() } : { location: '' })
+                : {}),
               taggedPeople: taggedPeopleIds,
               isTrustPost: isCommunityTrustPost,
               ...(Array.isArray(taggedPeopleIds) && taggedPeopleIds.length
@@ -341,6 +354,9 @@ const PostEditorScreen = () => {
             }
           : {
               caption: caption.trim(),
+              ...(supportsLocation
+                ? (location.trim() ? { location: location.trim() } : { location: '' })
+                : {}),
               taggedPeople: taggedPeopleIds,
               ...(Array.isArray(taggedPeopleIds) && taggedPeopleIds.length
                 ? { taggedPeopleIds, taggedPeopleMeta }
@@ -367,6 +383,9 @@ const PostEditorScreen = () => {
           id: editPostId,
           ...updatedFromApi,
           caption: updatedFromApi?.caption ?? caption.trim(),
+          location: supportsLocation
+            ? (updatedFromApi?.location ?? location.trim())
+            : (updatedFromApi?.location ?? ''),
           postMeta: preservedPostMeta,
           music: editSkipMediaEditor ? updatedFromApi?.music : music || null,
           youtubeMusicMeta: editSkipMediaEditor
@@ -419,11 +438,15 @@ const PostEditorScreen = () => {
           {};
         const createdPostId = created?.id || created?.postId;
         const overlayFields = { postMeta, music, youtubeMusicMeta };
+        const createdWithLocation = {
+          ...created,
+          ...(supportsLocation && location.trim() ? { location: location.trim() } : {}),
+        };
         if (createdPostId) {
           cacheClientPostOverlayFields(createdPostId, overlayFields);
           DeviceEventEmitter.emit(
             'POST_CREATED',
-            mergePostOverlayFieldsFromClient(created, overlayFields),
+            mergePostOverlayFieldsFromClient(createdWithLocation, overlayFields),
           );
         }
         showToastMessage(toast, 'success', t('postEditor.postSuccess'));
@@ -631,7 +654,7 @@ const PostEditorScreen = () => {
 
       {Array.isArray(taggedPeople) && taggedPeople.length > 0 && (
         <View style={styles.captionSection}>
-          <Text style={styles.captionLabel}>{t('postEditor.taggedPeople')}</Text>
+          <Text style={[styles.captionLabel, textStyle]}>{t('postEditor.taggedPeople')}</Text>
           <Text style={[styles.taggedPeopleText, textStyle]}>
             {taggedPeople.map((user, idx) => {
               const clean = String(user).replace(/^@+/, '');
@@ -653,6 +676,28 @@ const PostEditorScreen = () => {
           </Text>
         </View>
       )}
+      {supportsLocation ? (
+      <View style={styles.captionSection}>
+        <Text style={[styles.captionLabel, textStyle]}>{t('postEditor.locationLabel')}</Text>
+        <TouchableOpacity
+          style={[styles.locationPickerRow, bgStyle, { borderColor: border }]}
+          onPress={() => setLocationModalVisible(true)}
+          activeOpacity={0.8}>
+          <Icon name="location-sharp" size={18} color="#E53935" />
+          <Text
+            style={[
+              styles.locationPickerText,
+              { color: text },
+              !location.trim() && [styles.locationPickerPlaceholder, { color: mutedText }],
+            ]}
+            numberOfLines={2}>
+            {location.trim() || t('postEditor.locationPlaceholder')}
+          </Text>
+          <Icon name="chevron-forward" size={18} color={mutedText} />
+        </TouchableOpacity>
+      </View>
+      ) : null}
+
       <View style={styles.captionSection}>
         <Text style={[styles.captionLabel, textStyle]}>{t('postEditor.captionLabel')}</Text>
         <TextInput
@@ -750,7 +795,7 @@ const PostEditorScreen = () => {
 
   return (
     <SafeAreaView style={[styles.container, bgStyle]} edges={['top', 'left', 'right']}>
-      <View style={[styles.header, bgStyle]}>
+      <View style={[styles.header, bgStyle, { borderBottomColor: border }]}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Icon name="arrow-back" size={24} color={icon} />
         </TouchableOpacity>
@@ -796,6 +841,19 @@ const PostEditorScreen = () => {
           {renderEditorBody()}
         </KeyboardAwareScrollView>
       )}
+
+      {supportsLocation ? (
+      <PostLocationModal
+        visible={locationModalVisible}
+        initialValue={location}
+        saving={false}
+        onClose={() => setLocationModalVisible(false)}
+        onSave={value => {
+          setLocation(String(value || '').trim());
+          setLocationModalVisible(false);
+        }}
+      />
+      ) : null}
     </SafeAreaView>
   );
 };
@@ -934,6 +992,24 @@ const styles = StyleSheet.create({
     minHeight: 100,
     fontSize: 16,
     color: '#000'
+  },
+  locationPickerRow: {
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  locationPickerText: {
+    flex: 1,
+    fontSize: 15,
+    color: '#111827',
+  },
+  locationPickerPlaceholder: {
+    color: '#9CA3AF',
   },
   linkInput: {
     borderWidth: 1,

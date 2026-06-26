@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   useWindowDimensions,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import {
   StackActions,
@@ -47,6 +48,7 @@ import { useLanguage } from '../../i18n';
 import { isPostPinned, setPostPinnedState } from '../../utils/postPinning';
 import useScreenshotProtection, {
   shouldProtectScreenshot,
+  SCREENSHOT_PROTECTED_SOURCES,
 } from '../../hooks/useScreenshotProtection';
 import { navigateToUserProfile } from '../../utils/navigateToUserProfile';
 
@@ -107,7 +109,33 @@ export default function PostView({ postData = [], userData = {} }) {
   const pinningPostIdRef = useRef('');
   const pendingInitialScrollRef = useRef(false);
   const [listViewportHeight, setListViewportHeight] = useState(0);
-  const { bgStyle } = useAppTheme();
+  const { bgStyle, text, border } = useAppTheme();
+  const [isReady, setIsReady] = useState(false);
+
+  const paramsKey = routeParams?.key;
+  useEffect(() => {
+    if (!paramsKey) {
+      setIsReady(true);
+      return;
+    }
+    setIsReady(false);
+    const nextPosts = normalizePosts(navPostData, postData);
+    setPosts(nextPosts);
+    setList(nextPosts);
+    setLiked({});
+    setSaved({});
+    setPostLikesCount({});
+    setPostCommentsCount({});
+    setHiddenById({});
+    setFollowingByUserId({});
+    setCurrentlyVisiblePostId(null);
+    setPlayingPostId(null);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setIsReady(true);
+      });
+    });
+  }, [paramsKey]);
 
   useEffect(() => {
     const nextPosts = normalizePosts(navPostData, postData);
@@ -710,12 +738,56 @@ export default function PostView({ postData = [], userData = {} }) {
     );
   }, []);
 
+  const handleLocationUpdate = useCallback((postId, location) => {
+    setList(prev =>
+      prev.map(post =>
+        String(post.id) === String(postId) ? { ...post, location } : post,
+      ),
+    );
+  }, []);
+
   const canDelete = useMemo(() => {
     if (!modalPostId || !currentUserId) return false;
     const post = list.find(x => String(x.id) === String(modalPostId));
     if (!post) return false;
     return String(post.userId) === String(currentUserId);
   }, [list, modalPostId, currentUserId]);
+
+  const canHide = useMemo(() => {
+    if (!modalPostId || !currentUserId) return false;
+
+    const post = list.find(x => String(x.id) === String(modalPostId));
+    if (!post) return false;
+
+    const viewerId = String(currentUserId);
+    const postOwnerId = String(post.userId ?? post.UserId ?? '');
+    const profileOwnerId = String(
+      routeParams.userId ??
+        routeUserData?.id ??
+        routeUserData?.userId ??
+        userData?.id ??
+        userData?.userId ??
+        '',
+    );
+    const protectionSource = routeParams.screenshotProtectionSource;
+    const isPrivateProfileContext =
+      protectionSource === SCREENSHOT_PROTECTED_SOURCES.PRIVATE_CONTENT ||
+      protectionSource === SCREENSHOT_PROTECTED_SOURCES.PRIVATE_CIRCLE;
+
+    if (isPrivateProfileContext && profileOwnerId) {
+      return viewerId === profileOwnerId;
+    }
+
+    return postOwnerId !== viewerId;
+  }, [
+    list,
+    modalPostId,
+    currentUserId,
+    routeParams.screenshotProtectionSource,
+    routeParams.userId,
+    routeUserData,
+    userData,
+  ]);
 
   const modalPost = useMemo(() => {
     if (!modalPostId) return null;
@@ -987,6 +1059,9 @@ export default function PostView({ postData = [], userData = {} }) {
             ? 'company'
             : 'user',
         createdAt: item.createdAt,
+        location: item.location || item.Location || '',
+        type: item.type || item.postType || 'normal',
+        postType: item.postType || item.type || 'normal',
         UserId: item.userId,
         userId: item.userId,
         boughtBy: item.boughtBy || [],
@@ -1027,6 +1102,7 @@ export default function PostView({ postData = [], userData = {} }) {
             isTrustPost={mapped.isTrustPost}
             isVisible={isPostVisible}
             screenFocused={screenFocused}
+            onLocationUpdate={handleLocationUpdate}
             playingPostId={playingPostId}
             currentlyVisiblePostId={currentlyVisiblePostId}
           />
@@ -1049,6 +1125,7 @@ export default function PostView({ postData = [], userData = {} }) {
       screenFocused,
       playingPostId,
       listViewportHeight,
+      handleLocationUpdate,
     ],
   );
 
@@ -1127,18 +1204,19 @@ export default function PostView({ postData = [], userData = {} }) {
   return (
     <>
       <SafeAreaView style={[styles.container, bgStyle]}>
-        <View style={styles.headerSection}>
+        <View style={[styles.headerSection, { borderBottomColor: border }]}>
           <TouchableOpacity
             onPress={handleBackPress}
             style={styles.buttons}
           >
-            <Ionicons name="arrow-back" size={24} color="#000" />
+            <Ionicons name="arrow-back" size={24} color={text} />
           </TouchableOpacity>
-          <Text style={styles.userText}>{posts[0]?.userName || t('postView.postsHeaderFallback')}</Text>
+          <Text style={[styles.userText, { color: text }]}>{posts[0]?.userName || t('postView.postsHeaderFallback')}</Text>
           <View style={styles.placeholder} />
         </View>
 
-        <FlatList
+        {isReady ? (
+          <FlatList
           ref={flatListRef}
           data={visiblePosts}
           keyExtractor={(p, i) => p.id?.toString() ?? `post-${i}`}
@@ -1166,6 +1244,11 @@ export default function PostView({ postData = [], userData = {} }) {
           windowSize={9}
           nestedScrollEnabled
         />
+        ) : (
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <ActivityIndicator size="large" color={text} />
+          </View>
+        )}
       </SafeAreaView>
 
       {/* Options Modal */}
@@ -1179,6 +1262,7 @@ export default function PostView({ postData = [], userData = {} }) {
         isPinned={!!(modalPost && isPostPinned(modalPost))}
         canDelete={!!canDelete}
         canEdit={!!canDelete}
+        canHide={canHide}
         isHidden={!!(modalPostId && hiddenById[modalPostId])}
         hideBusy={modalPostId ? hidingIds.has(modalPostId) : false}
         onHiddenChange={(id, nextHidden) => {

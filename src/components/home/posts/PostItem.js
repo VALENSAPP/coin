@@ -44,7 +44,13 @@ import {
   getTrustScrore,
   unVote,
   voteTrust,
+  editPost,
 } from '../../../services/post';
+import {
+  formatMintedDateTime,
+  getMintLabelKey,
+  resolveMintTimestamp,
+} from '../../../utils/postMintDisplay';
 import { useAppTheme } from '../../../theme/useApptheme';
 import { useThemeContext } from '../../../theme/ThemeContext';
 import { getTotalDonationAmount } from '../../../services/tokens';
@@ -59,6 +65,7 @@ import { isSupportAllowed, normalizeProfileType } from '../../../utils/supportEl
 import HexAvatar from '../story.js/HexAvatar';
 import YoutubePlayer from 'react-native-youtube-iframe';
 import { parsePostMeta, getPostMusicForSlide, getPostSlidePreviewState, getMusicTrimPlaybackWindowFromTrim } from '../../../utils/postSoundtracks';
+import { postSupportsLocation } from '../../../utils/hydratePostForEditor';
 import PostMediaTextOverlays from '../../post/PostMediaTextOverlays';
 import {
   DEFAULT_FEED_MEDIA_HEIGHT,
@@ -68,6 +75,7 @@ import {
 import { useLanguage } from '../../../i18n';
 import { navigateToUserProfile } from '../../../utils/navigateToUserProfile';
 import TrustCommentModal from '../../modals/TrustCommentModal';
+import PostLocationModal from '../../modals/PostLocationModal';
 
 const { width } = Dimensions.get('window');
 const AnimatedFastImage = Animated.createAnimatedComponent(FastImage);
@@ -516,6 +524,7 @@ function PostItem({
   taggedPeople,
   hideDonationButton = false,
   isTrustPost = false,
+  onLocationUpdate,
 }) {
   const { width: windowWidth } = useWindowDimensions();
   const heartScale = useRef(new Animated.Value(1)).current;
@@ -559,6 +568,11 @@ function PostItem({
   const [trustScore, setTrustScore] = useState(null);
   const [trustCommentModalVisible, setTrustCommentModalVisible] = useState(false);
   const [trustCommentModalType, setTrustCommentModalType] = useState(null);
+  const [localLiked, setLocalLiked] = useState(liked);
+  const [localLikesCount, setLocalLikesCount] = useState(likesCount || 0);
+
+  useEffect(() => { setLocalLiked(liked); }, [liked]);
+  useEffect(() => { setLocalLikesCount(likesCount || 0); }, [likesCount]);
 
   const { t } = useLanguage();
   const showTrustControls = isTruthyTrustPost(isTrustPost) || isTruthyTrustPost(item?.isTrustPost);
@@ -590,6 +604,11 @@ function PostItem({
   const [isKycVerified, setIsKycVerified] = useState(false);
   const [isSubscriptionActive, setIsSubscriptionActive] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [locationValue, setLocationValue] = useState(
+    typeof item?.location === 'string' ? item.location : '',
+  );
+  const [locationModalVisible, setLocationModalVisible] = useState(false);
+  const [locationSaving, setLocationSaving] = useState(false);
 
   const usernameText = item?.username || t('postItem.unknownUser');
   const captionValue = item?.caption?.trim() || '';
@@ -605,7 +624,30 @@ function PostItem({
     setTrustScoreVisible(false);
     setTrustVote(null);
     setTrustScore(null);
-  }, [item?.caption, item?.id, item?.UserId]);
+    setLocationValue(typeof item?.location === 'string' ? item.location : '');
+  }, [item?.caption, item?.id, item?.UserId, item?.location]);
+
+  const mintedDateTime = useMemo(
+    () => formatMintedDateTime(resolveMintTimestamp(item)),
+    [item?.createdAt, item?.created_at, item?.mintedAt, item?.minted_at, item?.updatedAt, item?.updated_at],
+  );
+  const mintLabelKey = useMemo(() => getMintLabelKey(item), [item]);
+  const isPostOwner = Boolean(
+    currentUserIdStr && itemUserIdStr && currentUserIdStr === itemUserIdStr,
+  );
+  const supportsLocation = useMemo(
+    () => postSupportsLocation({
+      type: item?.type,
+      postType: item?.postType,
+      raiseAmount: item?.raiseAmount,
+    }),
+    [item?.type, item?.postType, item?.raiseAmount],
+  );
+  const locationDisplayText = locationValue.trim()
+    ? locationValue.trim()
+    : isPostOwner
+      ? t('postItem.locationPlaceholder')
+      : '';
 
   const navigation = useNavigation();
   const shareRef = useRef(null);
@@ -644,6 +686,37 @@ function PostItem({
   const [selectedPostId, setSelectedPostId] = useState(null);
   const [dataFetched, setDataFetched] = useState(false);
   const modalProfileType = normalizeProfileType(userProfile || item?.profile);
+
+  const handleOpenLocationEditor = useCallback(() => {
+    if (!supportsLocation || !isPostOwner || !item?.id) return;
+    setLocationModalVisible(true);
+  }, [supportsLocation, isPostOwner, item?.id]);
+
+  const handleSaveLocation = useCallback(async (nextLocationValue) => {
+    if (!item?.id || locationSaving) return;
+
+    const nextLocation = String(nextLocationValue || '').trim();
+    setLocationSaving(true);
+    try {
+      const response = await editPost(item.id, { location: nextLocation });
+      if (response?.statusCode && response.statusCode >= 400) {
+        throw new Error(response?.message || t('postItem.locationSaveError'));
+      }
+
+      setLocationValue(nextLocation);
+      onLocationUpdate?.(item.id, nextLocation);
+      setLocationModalVisible(false);
+      showToastMessage(toast, 'success', t('postItem.locationSaved'));
+    } catch (error) {
+      showToastMessage(
+        toast,
+        'danger',
+        error?.response?.data?.message || error?.message || t('postItem.locationSaveError'),
+      );
+    } finally {
+      setLocationSaving(false);
+    }
+  }, [item?.id, locationSaving, onLocationUpdate, t, toast]);
 
   if (!item || !item.id) {
     console.warn('PostItem received invalid item:', item);
@@ -1119,9 +1192,12 @@ function PostItem({
   }, [heartScale]);
 
   const handleLike = useCallback(() => {
+    const newLiked = !localLiked;
+    setLocalLiked(newLiked);
+    setLocalLikesCount(prev => newLiked ? prev + 1 : Math.max(0, prev - 1));
     onToggleLike?.(item.id);
     animateHeart();
-  }, [onToggleLike, item.id, animateHeart]);
+  }, [localLiked, onToggleLike, item.id, animateHeart]);
 
   const unwrapTrustPayload = useCallback(response => {
     const payload = response?.data ?? response;
@@ -1213,6 +1289,11 @@ function PostItem({
     }
   }, [item?.id, toast, unwrapTrustPayload]);
 
+  useEffect(() => {
+    if (!showTrustControls || !item?.id || !isVisible) return;
+    refreshTrustScore();
+  }, [showTrustControls, item?.id, isVisible, refreshTrustScore]);
+
   const handleTrustIconPress = useCallback(() => {
     setTrustScoreVisible(false);
     setTrustPanelVisible(prev => !prev);
@@ -1298,12 +1379,14 @@ function PostItem({
 
   const handleMediaDoubleTapLike = useCallback(() => {
     if (isZooming) return;
-    if (!liked) {
+    if (!localLiked) {
+      setLocalLiked(true);
+      setLocalLikesCount(prev => prev + 1);
       onToggleLike?.(item.id);
       animateHeart();
     }
     playDoubleTapHeartBurst();
-  }, [isZooming, liked, onToggleLike, item.id, animateHeart, playDoubleTapHeartBurst]);
+  }, [isZooming, localLiked, onToggleLike, item.id, animateHeart, playDoubleTapHeartBurst]);
 
   const doubleTapLikeGesture = useMemo(
     () =>
@@ -1632,10 +1715,10 @@ function PostItem({
             />
           </TouchableOpacity>
 
-          <TouchableOpacity
-            onPress={() => handleUserProfile(item.UserId)}
-            style={styles.userInfo}>
-            <View style={styles.userRow}>
+          <View style={styles.userInfo}>
+            <TouchableOpacity
+              onPress={() => handleUserProfile(item.UserId)}
+              style={styles.userRow}>
               <Text
                 style={[
                   styles.username,
@@ -1648,8 +1731,26 @@ function PostItem({
                   <DragonflyIcon width={18} height={18} />
                 </View>
               )}
-            </View>
-          </TouchableOpacity>
+            </TouchableOpacity>
+            {supportsLocation && (isPostOwner || locationValue.trim()) ? (
+              <TouchableOpacity
+                onPress={handleOpenLocationEditor}
+                disabled={!isPostOwner}
+                activeOpacity={isPostOwner ? 0.7 : 1}
+                style={styles.locationRow}>
+                <Icon name="location-sharp" size={13} color="#E53935" style={styles.locationIcon} />
+                <Text
+                  style={[
+                    styles.locationText,
+                    { color: mutedText },
+                    !locationValue.trim() && styles.locationPlaceholderText,
+                  ]}
+                  numberOfLines={1}>
+                  {locationDisplayText}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
 
           <View style={styles.priceSection} />
 
@@ -1826,11 +1927,11 @@ function PostItem({
                   height={24}
                   style={[
                     styles.actionSvgIcon,
-                    !liked && styles.actionSvgIconInactive,
+                    !localLiked && styles.actionSvgIconInactive,
                   ]}
                 />
               </Animated.View>
-              <Text style={[styles.actionCount, { color: mutedText }]}>{likesCount || 0}</Text>
+              <Text style={[styles.actionCount, { color: mutedText }]}>{localLikesCount}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -1839,30 +1940,6 @@ function PostItem({
               <Comments width={22} height={22} style={styles.actionSvgIcon} />
               <Text style={[styles.actionCount, { color: mutedText }]}>{localCommentsCount || 0}</Text>
             </TouchableOpacity>
-
-            {showTrustControls && (
-              <TouchableOpacity
-                onPress={trustVote ? undefined : handleTrustIconPress}  // ← disabled after vote
-                style={[styles.actionButton, trustVote && { opacity: 0.6 }]}
-                activeOpacity={trustVote ? 1 : 0.85}
-                accessibilityLabel="Open trust vote">
-                <View style={[
-                  styles.trustActionIcon,
-                  trustVote?.type === 'agree' && { backgroundColor: '#059669' },
-                  trustVote?.type === 'not_sure' && { backgroundColor: '#F59E0B' },
-                  trustVote?.type === 'disagree' && { backgroundColor: '#DC2626' },
-                ]}>
-                  <Icon name="shield-checkmark" size={18} color="#FFFFFF" />
-                </View>
-                <Text style={[styles.actionCount, { color: mutedText }]}>
-                  {trustVote
-                    ? trustVote.type === 'agree' ? t('postItem.trustAgree')
-                      : trustVote.type === 'not_sure' ? t('postItem.trustNotSure')
-                        : t('postItem.trustDisagree')
-                    : t('postItem.trust')}
-                </Text>
-              </TouchableOpacity>
-            )}
 
             {item.visibleTo !== "PRIVATE_CIRCLE" &&
               <TouchableOpacity
@@ -1876,25 +1953,64 @@ function PostItem({
               </TouchableOpacity>
             }
 
+            {showTrustControls && (
+              <>
+                {!trustVote && (
+                  <TouchableOpacity
+                    onPress={handleTrustIconPress}
+                    style={styles.actionButton}
+                    activeOpacity={0.85}
+                    accessibilityLabel="Open trust vote">
+                    <View style={styles.trustActionIcon}>
+                      <Icon name="shield-checkmark" size={18} color="#FFFFFF" />
+                    </View>
+                    <Text style={[styles.actionCount, { color: mutedText }]}>
+                      {t('postItem.trust')}
+                    </Text>
+                  </TouchableOpacity>
+                )}
 
-            {/* {showTrustControls && (
-              <TouchableOpacity
-                onPress={handleTrustScorePress}
-                style={styles.trustScoreActionButton}
-                activeOpacity={0.85}>
-                <View style={styles.trustScoreActionIcon}>
-                  <Icon name="shield-checkmark" size={14} color="#FFFFFF" />
-                </View>
-                <View style={styles.trustScoreActionTextWrap}>
-                  <View style={styles.trustScoreActionTitleRow}>
-                    <Text style={styles.trustScoreActionTitle} numberOfLines={1}>{t('postItem.trustScore')}</Text>
-                    <Icon name="information-circle-outline" size={10} color="#6B7280" />
-                    <Text style={styles.trustScoreValue}>{Math.round(normalizedTrustScore.overall)}%</Text>
-                  </View>
-                  <Text style={styles.trustScoreActionSub} numberOfLines={1}>{t('postItem.communityTrustScore')}</Text>
-                </View>
-              </TouchableOpacity>
-            )} */}
+                {trustScore && (
+                  <>
+                    <View style={[styles.trustHeaderDivider, { backgroundColor: border }]} />
+                    <TouchableOpacity
+                      onPress={handleTrustScorePress}
+                      style={styles.trustScoreActionButton}
+                      activeOpacity={0.85}>
+                      <View style={styles.trustScoreActionTextWrap}>
+                        <View style={styles.trustScoreActionTitleRow}>
+                          <Text
+                            style={[
+                              styles.trustScoreActionTitle,
+                              { color: mutedText },
+                              trustVote && styles.trustScoreActionTitleVoted,
+                            ]}>
+                            {t('postItem.trustScore')}
+                          </Text>
+                          <Icon name="information-circle-outline" size={10} color={mutedText} />
+                          <Text
+                            style={[
+                              styles.trustScoreValue,
+                              trustVote && styles.trustScoreValueVoted,
+                            ]}>
+                            {Math.round(normalizedTrustScore.overall)}%
+                          </Text>
+                        </View>
+                        <Text
+                          style={[
+                            styles.trustScoreActionSub,
+                            { color: mutedText },
+                            trustVote && styles.trustScoreActionSubVoted,
+                          ]}
+                          numberOfLines={1}>
+                          {t('postItem.communityTrustScore')}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  </>
+                )}
+              </>
+            )}
           </View>
 
           {itemUserIdStr && currentUserIdStr && itemUserIdStr !== currentUserIdStr && (
@@ -1919,6 +2035,15 @@ function PostItem({
             </TouchableOpacity>
           )}
         </View>
+
+        {!!mintedDateTime && (
+          <View style={[styles.mintedSection, cardStyle]}>
+            <Icon name="calendar-outline" size={14} color={mutedText} style={styles.mintedIcon} />
+            <Text style={[styles.mintedText, { color: mutedText }]}>
+              {t(mintLabelKey, { dateTime: mintedDateTime })}
+            </Text>
+          </View>
+        )}
 
         {showTrustControls && trustPanelVisible && (
           <View style={[styles.trustVotePanel, cardStyle, { borderColor: border }]}>
@@ -1979,35 +2104,50 @@ function PostItem({
                 <Text style={styles.trustProgressValue}>{Math.round(normalizedTrustScore.overall)}%</Text>
                 <View style={styles.trustMetricRow}>
                   <View style={styles.trustMetricItem}>
-                    <Feather name="check-circle" size={15} color="#059669" />
+                    <View style={[styles.trustMetricIconBadge, { backgroundColor: '#059669' }]}>
+                      <Icon name="checkmark" size={12} color="#fff" />
+                    </View>
                     <Text style={[styles.trustMetricLabel, { color: mutedText }]}>{t('postItem.trustApprove')}</Text>
                     <Text style={[styles.trustMetricPercent, { color: '#059669' }]}>
                       {Math.round(normalizedTrustScore.agree)}%
                     </Text>
-                    <Text style={[styles.trustMetricSub, { color: mutedText }]}>
+                    <Text style={[styles.trustMetricVotes, { color: mutedText }]}>
                       {t('postItem.trustVotes', { count: normalizedTrustScore.agreeVotes })}
+                    </Text>
+                    <Text style={[styles.trustMetricSub, { color: mutedText }]}>
+                      {t('postItem.weightedByReputation')}
                     </Text>
                   </View>
                   <View style={[styles.trustMetricDivider, { backgroundColor: border }]} />
                   <View style={styles.trustMetricItem}>
-                    <Feather name="help-circle" size={15} color="#F59E0B" />
+                    <View style={[styles.trustMetricIconBadge, { backgroundColor: '#F59E0B' }]}>
+                      <Icon name="help" size={12} color="#fff" />
+                    </View>
                     <Text style={[styles.trustMetricLabel, { color: mutedText }]}>{t('postItem.trustUnsure')}</Text>
                     <Text style={[styles.trustMetricPercent, { color: '#F59E0B' }]}>
                       {Math.round(normalizedTrustScore.notSure)}%
                     </Text>
-                    <Text style={[styles.trustMetricSub, { color: mutedText }]}>
+                    <Text style={[styles.trustMetricVotes, { color: mutedText }]}>
                       {t('postItem.trustVotes', { count: normalizedTrustScore.notSureVotes })}
+                    </Text>
+                    <Text style={[styles.trustMetricSub, { color: mutedText }]}>
+                      {t('postItem.weightedByReputation')}
                     </Text>
                   </View>
                   <View style={[styles.trustMetricDivider, { backgroundColor: border }]} />
                   <View style={styles.trustMetricItem}>
-                    <Feather name="x-circle" size={15} color="#DC2626" />
+                    <View style={[styles.trustMetricIconBadge, { backgroundColor: '#DC2626' }]}>
+                      <Icon name="close" size={12} color="#fff" />
+                    </View>
                     <Text style={[styles.trustMetricLabel, { color: mutedText }]}>{t('postItem.trustDisagree')}</Text>
                     <Text style={[styles.trustMetricPercent, { color: '#DC2626' }]}>
                       {Math.round(normalizedTrustScore.disagree)}%
                     </Text>
-                    <Text style={[styles.trustMetricSub, { color: mutedText }]}>
+                    <Text style={[styles.trustMetricVotes, { color: mutedText }]}>
                       {t('postItem.trustVotes', { count: normalizedTrustScore.disagreeVotes })}
+                    </Text>
+                    <Text style={[styles.trustMetricSub, { color: mutedText }]}>
+                      {t('postItem.weightedByReputation')}
                     </Text>
                   </View>
                 </View>
@@ -2264,6 +2404,16 @@ function PostItem({
         onClose={() => setTrustCommentModalVisible(false)}
         onSubmit={handleTrustVoteWithComment}
       />
+
+      {supportsLocation ? (
+        <PostLocationModal
+          visible={locationModalVisible}
+          initialValue={locationValue}
+          saving={locationSaving}
+          onClose={() => setLocationModalVisible(false)}
+          onSave={handleSaveLocation}
+        />
+      ) : null}
     </View>
   );
 }
@@ -2282,6 +2432,8 @@ export default React.memo(PostItem, (prev, next) => {
   if (prev.isTrustPost !== next.isTrustPost) return false;
   if (prev.item?.isTrustPost !== next.item?.isTrustPost) return false;
   if (prev.shareCount !== next.shareCount) return false;
+  if (prev.item?.location !== next.item?.location) return false;
+  if (prev.item?.createdAt !== next.item?.createdAt) return false;
   return true;
 });
 
@@ -2325,6 +2477,22 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 16,
     marginRight: 6,
+  },
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+    maxWidth: '100%',
+  },
+  locationIcon: {
+    marginRight: 4,
+  },
+  locationText: {
+    fontSize: 13,
+    flexShrink: 1,
+  },
+  locationPlaceholderText: {
+    fontStyle: 'italic',
   },
   dragonflyIcon: {
     marginTop: 1,
@@ -2556,11 +2724,37 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 2,
   },
+  mintedSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+  },
+  mintedIcon: {
+    marginRight: 6,
+  },
+  mintedText: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
   trustScoreActionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     flexShrink: 1,
-    maxWidth: 104,
+    maxWidth: 170,
+  },
+  trustHeaderDivider: {
+    width: 1,
+    height: 28,
+    marginRight: 14,
+  },
+  trustMetricIconBadge: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 4,
   },
   trustScoreActionIcon: {
     width: 22,
@@ -2583,9 +2777,12 @@ const styles = StyleSheet.create({
   trustScoreActionTitle: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#111827',
     marginRight: 2,
     flexShrink: 1,
+  },
+  trustScoreActionTitleVoted: {
+    fontSize: 13,
+    fontWeight: '700',
   },
   trustScoreValue: {
     marginLeft: 2,
@@ -2593,10 +2790,17 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#10B981',
   },
+  trustScoreValueVoted: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
   trustScoreActionSub: {
     marginTop: 1,
     fontSize: 8,
-    color: '#6B7280',
+  },
+  trustScoreActionSubVoted: {
+    fontSize: 10,
+    fontWeight: '600',
   },
   trustScorePanel: {
     marginHorizontal: 14,
@@ -2645,6 +2849,11 @@ const styles = StyleSheet.create({
   trustMetricPercent: {
     fontSize: 11,
     fontWeight: '900',
+  },
+  trustMetricVotes: {
+    marginTop: 1,
+    fontSize: 8,
+    textAlign: 'center',
   },
   trustMetricSub: {
     marginTop: 2,

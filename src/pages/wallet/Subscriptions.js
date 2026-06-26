@@ -91,19 +91,9 @@ const SubventionSetupScreen = () => {
         { id: 'posts', label: t('subventionSetup.tabMint'), icon: '📝' },
         { id: 'reels', label: t('subventionSetup.tabFlips'), icon: '🎬' },
         { id: 'stories', label: t('subventionSetup.tabDrops'), icon: '⭐' },
-        { id: 'videos', label: t('subventionSetup.tabVideos'), icon: '🎥' }
+        { id: 'videos', label: t('subventionSetup.tabVideos'), icon: '🎥' },
+        { id: 'ebook', label: t('subventionSetup.tabEbook'), icon: '📚' }
     ];
-
-    useFocusEffect(
-        useCallback(() => {
-            const initializeScreen = async () => {
-                await loadTermsAgreement();
-                await fetchSubscriptionByUserId();
-                await getCredential();
-            };
-            initializeScreen();
-        }, [])
-    );
 
     const loadTermsAgreement = async () => {
         try {
@@ -334,7 +324,7 @@ const SubventionSetupScreen = () => {
         showToastMessage(toast, 'warning', t('subventionSetup.businessBasicMode'));
     };
 
-    const getCredential = async () => {
+    const getCredential = useCallback(async () => {
         try {
             const id = await AsyncStorage.getItem('userId');
             if (!id) return;
@@ -356,9 +346,9 @@ const SubventionSetupScreen = () => {
         } catch (error) {
             console.log('Get credential error:', error?.message);
         }
-    };
+    }, []);
 
-    const fetchSubscriptionByUserId = async () => {
+    const fetchSubscriptionByUserId = useCallback(async () => {
         try {
             const id = await AsyncStorage.getItem('userId');
             dispatch(showLoader());
@@ -393,7 +383,18 @@ const SubventionSetupScreen = () => {
         } finally {
             dispatch(hideLoader());
         }
-    };
+    }, [dispatch, toast]);
+
+    useFocusEffect(
+        useCallback(() => {
+            const initializeScreen = async () => {
+                await loadTermsAgreement();
+                await fetchSubscriptionByUserId();
+                await getCredential();
+            };
+            initializeScreen();
+        }, [fetchSubscriptionByUserId, getCredential])
+    );
 
     const handlePriceChange = (text) => {
         const clean = text.replace(/[^0-9.]/g, "");
@@ -584,6 +585,7 @@ const SubventionSetupScreen = () => {
             case 'posts': navigateToCreate({ postType: 'private', type: 'post' }); break;
             case 'reels': navigateToCreate({ postType: 'private', type: 'Flips' }); break;
             case 'videos': navigateToCreate({ postType: 'private', type: 'video' }); break;
+            case 'ebook': navigation.navigate('EbookPublisher', { type: 'private', format: 'ebook' }); break;
             case 'stories': handleAddStory(); break;
             default: break;
         }
@@ -766,7 +768,7 @@ const SubventionSetupScreen = () => {
                     </TouchableOpacity>
 
                     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-                        <Text style={[styles.heading, textStyle]}>{t('subventionSetup.policyHeading')}</Text>
+                        <Text style={[styles.termsHeading, textStyle]}>{t('subventionSetup.policyHeading')}</Text>
 
                         <View style={{ marginTop: 15 }} />
 
@@ -777,7 +779,7 @@ const SubventionSetupScreen = () => {
                             </TouchableOpacity>
                         ) : (
                             <TouchableOpacity
-                                style={[styles.checkboxRow, cardStyle, { borderColor: border, borderWidth: StyleSheet.hairlineWidth }]}
+                                style={[styles.termsCheckboxRow, cardStyle, { borderColor: border, borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, padding: 12 }]}
                                 activeOpacity={0.8}
                                 onPress={() => setIsChecked(!isChecked)}
                             >
@@ -1100,25 +1102,11 @@ const styles = StyleSheet.create({
         paddingLeft: 15,
         paddingRight: 15,
     },
-    heading: {
-        fontSize: 22,
-        fontWeight: '700',
-        marginBottom: 15,
-        color: '#000000',
-        textAlign: 'center',
-    },
     partTitle: {
         fontSize: 18,
         fontWeight: '700',
         marginTop: 10,
         marginBottom: 10,
-        color: '#000000',
-    },
-    sectionTitle: {
-        fontSize: 16,
-        fontWeight: '700',
-        marginTop: 7,
-        marginBottom: 5,
         color: '#000000',
     },
     subSection: {
@@ -1133,23 +1121,18 @@ const styles = StyleSheet.create({
         color: '#000000',
         lineHeight: 18,
     },
-    checkboxRow: {
-        flexDirection: "row",
-        alignItems: "center",
-    },
-
     checkboxLabel: {
         marginLeft: 10,
         fontSize: 16,
         color: "#333",
     },
-    heading: {
+    termsHeading: {
         fontSize: 16,
         fontWeight: '700',
         marginBottom: 16,
         color: '#000',
     },
-    checkboxRow: {
+    termsCheckboxRow: {
         flexDirection: 'row',
         alignItems: 'flex-start',
     },

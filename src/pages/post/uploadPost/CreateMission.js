@@ -144,6 +144,7 @@ const CreateMission = () => {
     images,
     caption,
     link,
+    location = '',
     taggedPeople = [],
     taggedPeopleIds = [],
     taggedPeopleMeta = [],
@@ -345,6 +346,7 @@ const CreateMission = () => {
 
     const payload = {
       caption: String(caption || '').trim(),
+      ...(String(location || '').trim() ? { location: String(location).trim() } : {}),
       taggedPeople: taggedPeopleIds,
       // ...(Array.isArray(taggedPeopleIds) && taggedPeopleIds.length
       //   ? {

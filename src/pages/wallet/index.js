@@ -2699,7 +2699,7 @@ const styles = StyleSheet.create({
     flex: 1,
     textTransform: 'capitalize',
     lineHeight: 16,
-    height: 32,
+    // height: 32,
   },
   kpiSubscriptionTitleWrap: {
     flex: 1,
