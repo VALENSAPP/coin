@@ -29,12 +29,14 @@ import {
   getMyClosetMe,
   updateMyCloset,
 } from '../../services/myCloset';
+import PostLocationModal from '../../components/modals/PostLocationModal';
 
 const defaultState = {
   shopName: '',
   shopUsername: '',
   description: '',
   shopLogo: null,
+  location: '',
   shippingOptions: '',
   returnPolicy: '',
   paymentMethod: '',
@@ -72,6 +74,7 @@ const normalizeShopData = source => {
     ),
     description: getFirstPresent(data, ['description', 'shopDescription', 'about']),
     shopLogo: typeof shopLogo === 'string' ? normalizeUrl(shopLogo) : shopLogo,
+    location: getFirstPresent(data, ['location', 'city', 'address', 'shopLocation']), // ← add
     shippingOptions: getFirstPresent(data, ['shippingOptions', 'shippingPolicy']),
     returnPolicy: getFirstPresent(data, ['returnPolicy', 'returnsPolicy']),
     paymentMethod: getFirstPresent(data, ['paymentMethod', 'paymentMethods']),
@@ -111,7 +114,7 @@ const EditModal = ({
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
       <Pressable style={styles.modalBackdrop} onPress={onCancel}>
-        <Pressable style={styles.modalCard} onPress={() => {}}>
+        <Pressable style={styles.modalCard} onPress={() => { }}>
           <Text style={styles.modalTitle}>{title}</Text>
           <TextInput
             value={draftValue}
@@ -168,6 +171,7 @@ const ShopSettingsScreen = ({ navigation }) => {
   const [saving, setSaving] = useState(false);
   const [data, setData] = useState(defaultState);
   const [activeField, setActiveField] = useState(null);
+  const [locationModalVisible, setLocationModalVisible] = useState(false);
 
   const loadShopSettings = useCallback(async () => {
     dispatch(showLoader());
@@ -246,6 +250,7 @@ const ShopSettingsScreen = ({ navigation }) => {
       shopName: String(data.shopName || '').trim(),
       shopUsername: String(data.shopUsername || '').trim(),
       description: String(data.description || '').trim(),
+      location: String(data.location || '').trim(),
       shippingOptions: String(data.shippingOptions || '').trim(),
       returnPolicy: String(data.returnPolicy || '').trim(),
       paymentMethod: String(data.paymentMethod || '').trim(),
@@ -388,85 +393,92 @@ const ShopSettingsScreen = ({ navigation }) => {
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
       <View style={styles.container}>
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.scrollContent}
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+        >
+          <View
+            style={[
+              styles.heroCard,
+              cardStyle,
+              { borderColor: 'rgba(91, 33, 182, 0.10)' },
+            ]}
           >
-            <View
-              style={[
-                styles.heroCard,
-                cardStyle,
-                { borderColor: 'rgba(91, 33, 182, 0.10)' },
-              ]}
-            >
-              <Text style={[styles.sectionHeaderText, textStyle]}>
-                Shop information
-              </Text>
-              <Text style={styles.heroSubtext}>
-                Update the details customers see when they visit your shop.
-              </Text>
+            <Text style={[styles.sectionHeaderText, textStyle]}>
+              Shop information
+            </Text>
+            <Text style={styles.heroSubtext}>
+              Update the details customers see when they visit your shop.
+            </Text>
 
-              <View style={styles.previewBlock}>
-                <View style={styles.previewLogoWrap}>
-                  {data.shopLogo ? (
-                    <Image
-                      source={{ uri: data.shopLogo.uri || data.shopLogo }}
-                      style={styles.previewLogo}
-                    />
-                  ) : (
-                    <View
-                      style={[
-                        styles.previewLogo,
-                        styles.previewLogoEmpty,
-                        { borderColor: 'rgba(91, 33, 182, 0.18)' },
-                      ]}
-                    >
-                      <Ionicons name="bag-handle-outline" size={26} color={text} />
-                    </View>
-                  )}
-                </View>
-                <View style={styles.previewCopy}>
-                  <Text style={[styles.previewTitle, textStyle]} numberOfLines={1}>
-                    {data.shopName || 'Your Shop'}
-                  </Text>
-                  <Text style={styles.previewHandle}>{shopLink}</Text>
-                  <Text style={styles.previewDescription} numberOfLines={2}>
-                    {data.description || 'Add a short description for your shop.'}
-                  </Text>
-                </View>
+            <View style={styles.previewBlock}>
+              <View style={styles.previewLogoWrap}>
+                {data.shopLogo ? (
+                  <Image
+                    source={{ uri: data.shopLogo.uri || data.shopLogo }}
+                    style={styles.previewLogo}
+                  />
+                ) : (
+                  <View
+                    style={[
+                      styles.previewLogo,
+                      styles.previewLogoEmpty,
+                      { borderColor: 'rgba(91, 33, 182, 0.18)' },
+                    ]}
+                  >
+                    <Ionicons name="bag-handle-outline" size={26} color={text} />
+                  </View>
+                )}
               </View>
-
-              <View style={styles.rowsCard}>
-                <Row
-                  label="Shop name"
-                  value={data.shopName || 'Tap to add'}
-                  onPress={() => setActiveField('shopName')}
-                />
-                <View style={styles.rowDivider} />
-                <Row
-                  label="Username"
-                  value={`valens.app/${data.shopUsername || 'your-shop'}`}
-                  subtitle="This is your public shop link"
-                  onPress={() => setActiveField('shopUsername')}
-                />
-                <View style={styles.rowDivider} />
-                <Row
-                  label="Shop description"
-                  value={data.description || 'Tap to describe your shop'}
-                  multiline
-                  onPress={() => setActiveField('description')}
-                />
-                <View style={styles.rowDivider} />
-                <Row
-                  label="Shop logo"
-                  value={data.shopLogo ? 'Logo uploaded' : 'Add a logo'}
-                  subtitle="Use a square image for best results."
-                  onPress={handleImagePick}
-                />
+              <View style={styles.previewCopy}>
+                <Text style={[styles.previewTitle, textStyle]} numberOfLines={1}>
+                  {data.shopName || 'Your Shop'}
+                </Text>
+                <Text style={styles.previewHandle}>{shopLink}</Text>
+                <Text style={styles.previewDescription} numberOfLines={2}>
+                  {data.description || 'Add a short description for your shop.'}
+                </Text>
               </View>
             </View>
 
-            {/* <View
+            <View style={styles.rowsCard}>
+              <Row
+                label="Shop name"
+                value={data.shopName || 'Tap to add'}
+                onPress={() => setActiveField('shopName')}
+              />
+              <View style={styles.rowDivider} />
+              <Row
+                label="Username"
+                value={`valens.app/${data.shopUsername || 'your-shop'}`}
+                subtitle="This is your public shop link"
+                onPress={() => setActiveField('shopUsername')}
+              />
+              <View style={styles.rowDivider} />
+              <Row
+                label="Shop description"
+                value={data.description || 'Tap to describe your shop'}
+                multiline
+                onPress={() => setActiveField('description')}
+              />
+              <View style={styles.rowDivider} />
+              <Row
+                label="Shop logo"
+                value={data.shopLogo ? 'Logo uploaded' : 'Add a logo'}
+                subtitle="Use a square image for best results."
+                onPress={handleImagePick}
+              />
+              <View style={styles.rowDivider} />
+              <Row
+                label="Location"
+                value={data.location || 'Tap to add your location'}
+                subtitle="Shown on your public shop page."
+                onPress={() => setLocationModalVisible(true)}
+              />
+            </View>
+          </View>
+
+          {/* <View
               style={[
                 styles.sectionCard,
                 cardStyle,
@@ -517,32 +529,43 @@ const ShopSettingsScreen = ({ navigation }) => {
               </View>
             </View> */}
 
-            <View style={styles.footerCard}>
-              <TouchableOpacity
-                activeOpacity={0.9}
-                onPress={handleSave}
-                disabled={saving}
-                style={[
-                  styles.saveButton,
-                  { backgroundColor: text, opacity: saving ? 0.8 : 1 },
-                ]}
-              >
-                {saving ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.saveButtonText}>Save changes</Text>
-                )}
-              </TouchableOpacity>
-              <TouchableOpacity
-                activeOpacity={0.9}
-                onPress={handleDeleteCloset}
-                disabled={saving}
-                style={styles.deleteButton}
-              >
-                <Text style={styles.deleteButtonText}>Delete My Closet</Text>
-              </TouchableOpacity>
-            </View>
-          </ScrollView>
+          <View style={styles.footerCard}>
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onPress={handleSave}
+              disabled={saving}
+              style={[
+                styles.saveButton,
+                { backgroundColor: text, opacity: saving ? 0.8 : 1 },
+              ]}
+            >
+              {saving ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.saveButtonText}>Save changes</Text>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onPress={handleDeleteCloset}
+              disabled={saving}
+              style={styles.deleteButton}
+            >
+              <Text style={styles.deleteButtonText}>Delete My Closet</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+
+        <PostLocationModal
+          visible={locationModalVisible}
+          initialValue={data.location}
+          saving={false}
+          onClose={() => setLocationModalVisible(false)}
+          onSave={value => {
+            setData(prev => ({ ...prev, location: String(value || '').trim() }));
+            setLocationModalVisible(false);
+          }}
+        />
 
         <EditModal
           visible={Boolean(activeModalConfig)}

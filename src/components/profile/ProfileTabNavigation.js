@@ -284,7 +284,7 @@ const ProfileTabs = memo(({
     ),
     closet: (
       !isOwnProfile || (closetCheckComplete && hasCreatedShop) ? (
-        <MyClosetShopFront       
+        <MyClosetShopFront
           navigation={navigation}
           userData={userData}
           shopDraft={shopDraft}

@@ -158,6 +158,18 @@ export const deleteMyCloset = async () => {
   return axiosInstance.delete('mycloset');
 };
 
+export const getMyClosetById = async (data) => {
+  return axiosInstance.post(`/mycloset/by-user`, data);
+};
+
+export const getClosetItemsByClosetId = async (closetId) => {
+  return axiosInstance.get(`/mycloset/${closetId}/items`);
+};
+
+export const checkoutCart = async () => {
+  return axiosInstance.post(`/cart/checkout`);
+};
+
 export const postAddress = async (address) => {
   return axiosInstance.post('address/addAddress', address);
 }

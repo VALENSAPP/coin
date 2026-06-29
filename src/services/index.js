@@ -20,13 +20,17 @@ export const authInterceptor = axiosInstance.interceptors.request.use(
         const isFormData =
             typeof FormData !== 'undefined' && config?.data instanceof FormData;
 
+        const method = (config.method || '').toLowerCase();
+        const isMyClosetCreateOrUpdate =
+            config.url === 'mycloset' && (method === 'post' || method === 'patch');
+
         if (
             isFormData ||
             config.url == "post/create" ||
             config.url == "user/editProfile" ||
             config.url == "story/upload" ||
             config.url == "company-profile/upload-documents" ||
-            config.url == "mycloset" ||
+            isMyClosetCreateOrUpdate  ||
             config.url == "mycloset/items"
         ) {
             config.headers['Content-Type'] = 'multipart/form-data';
