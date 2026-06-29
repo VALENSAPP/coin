@@ -133,6 +133,10 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
 
       try {
         const response = await getUserCredentials(storyUserId);
+        console.log('[StoryViewerModal] GET user/profile response:', {
+          storyUserId,
+          response: response?.data ?? response,
+        });
         const rawUser = unwrapUserProfileResponse(response);
 
         if (!active) return;
@@ -178,7 +182,9 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
 
     (async () => {
       try {
+        console.log('[StoryViewerModal] Opening with story payload:', story);
         const hydrated = await hydrateStoryForViewer(story, selfUserId);
+        console.log('[StoryViewerModal] Final display story:', hydrated);
         if (!cancelled) setDisplayStory(hydrated);
       } catch (_error) {
         if (!cancelled) setDisplayStory(normalizeStoryForViewer(story));

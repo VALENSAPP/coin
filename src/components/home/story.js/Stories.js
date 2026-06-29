@@ -1530,8 +1530,7 @@ console.log('VIEWER currentUser:', currentUser?.id, currentUser?.username, 'isUs
             <ShareModal
               ref={shareRef}
               story={selectedPostId}
-              onClose={() => onClose()}
-              onShare={() => { stopAndResetProgress(true); onClose(); setTimeout(() => { if (onDrawerClose) onDrawerClose(); }, 150); }}
+              onClose={handleResume}
             />
           </View>
         )}
@@ -1629,8 +1628,7 @@ console.log('VIEWER currentUser:', currentUser?.id, currentUser?.username, 'isUs
             <ShareModal
               ref={shareRef}
               story={selectedPostId}
-              onClose={() => onClose()}
-              onShare={() => { stopAndResetProgress(true); onClose(); setTimeout(() => { if (onDrawerClose) onDrawerClose(); }, 150); }}
+              onClose={handleResume}
             />
           </>
         )}

@@ -66,6 +66,8 @@ import {
   estimatePostTextOverlayFootprint,
   normalizePostTextOverlayForDisplay,
   postTextOverlayBubbleStyle,
+  getTextStyleWithFont,
+  resolveOverlayFontFamily,
 } from '../../../components/post/PostMediaTextOverlays';
 import { searchYoutubeMusicTracks, getYoutubeSearchApiKey } from '../../../services/youtubeMusic';
 import { useLanguage } from '../../../i18n';
@@ -78,24 +80,12 @@ import {
   OVERLAY_MIN_SCALE_MUSIC,
 } from '../../../components/home/story.js/storyOverlayConstants';
 import { fetchLyricsLRCLIB, parseLrcToSyncedLines } from '../../../utils/lyricsLrclib';
-
-const fonts = [
-  { name: 'saffasbom', style: { fontFamily: 'SAlfaSlabOne-Regularystem' } },
-  { name: 'bitcount', style: { fontFamily: 'BitcountPropSingle_Cursive-Regular' } },
-  { name: 'fontfree', style: { fontFamily: 'FontsFree-Net-Billabong' } },
-  { name: 'liber', style: { fontFamily: 'LibertinusMono-Regular' } },
-  { name: 'opensans', style: { fontFamily: 'OpenSans-Regular' } },
-  { name: 'pacifico', style: { fontFamily: 'Pacifico-Regular' } },
-  { name: 'play1', style: { fontFamily: 'PlaywriteAUQLD-Regular' } },
-  { name: 'play2', style: { fontFamily: 'PlaywriteHU-Regular' } },
-  { name: 'play3', style: { fontFamily: 'PlaywritePL-Regular' } },
-  { name: 'roboto', style: { fontFamily: 'Roboto-Regular' } },
-  { name: 'tridon', style: { fontFamily: 'Triodion-Regular' } },
-];
-
-const isSameFontStyle = (left, right) =>
-  (left?.fontFamily || '') === (right?.fontFamily || '') &&
-  (left?.fontWeight || '') === (right?.fontWeight || '');
+import {
+  POST_OVERLAY_FONTS,
+  isSameOverlayFontStyle,
+  normalizeOverlayFontFamily,
+  getOverlayFontTextStyle,
+} from '../../../utils/postOverlayFonts';
 
 const colors = [
   '#fff', '#ff0000', '#00ff00', '#0000ff', '#ffff00',
@@ -304,7 +294,7 @@ const InstagramPostCreator = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [modalVisible2, setModalVisible2] = useState(false);
   const [text, setText] = useState('');
-  const [selectedFont, setSelectedFont] = useState(fonts[0].style);
+  const [selectedFont, setSelectedFont] = useState(POST_OVERLAY_FONTS[0].style);
   const [showFonts, setShowFonts] = useState(true);
   const [showColors, setShowColors] = useState(false);
   const [textColor, setTextColor] = useState('#fff');
@@ -340,7 +330,7 @@ const InstagramPostCreator = () => {
   const activeSearchRequestIdRef = useRef(0);
 
   const [videoPaused, setVideoPaused] = useState({});
-  const [videoMuted, setVideoMuted] = useState(true);
+  const [videoMuted, setVideoMuted] = useState(false);
   const videoRefs = useRef({});
   const profileAvatarUri = useSelector(state => state.profileImage?.profileImg);
   const [flipUserName, setFlipUserName] = useState('');
@@ -374,7 +364,7 @@ const InstagramPostCreator = () => {
   const toast = useToast();
   const insets = useSafeAreaInsets();
   const [keyboardOffset, setKeyboardOffset] = useState(0);
-  const selectedFontKey = selectedFont?.fontFamily || 'system';
+  const selectedFontKey = normalizeOverlayFontFamily(selectedFont?.fontFamily) || 'system';
   const textEditorPreviewMaxHeight = useMemo(() => {
     if (!modalVisible2) return undefined;
     const headerSpace = insets.top + 52;
@@ -535,6 +525,11 @@ const InstagramPostCreator = () => {
     if (track.id === 'none') {
       updateCurrentImageEdits({ musicSource: 'none', musicId: 'none', musicTitle: null, musicArtist: null, musicYoutubeVideoId: null, musicYoutubeThumbUrl: null, musicYoutubeDurationSec: null, musicTrimStart: 0, musicTrimEnd: null, musicLyrics: null, musicBadge: null, showMusicCard: true });
       setFlipAudioModal(false);
+      if (isFlipPost) {
+        setFlipVolumeByIndex(prev => ({ ...prev, [currentImageIndex]: 1 }));
+      } else {
+        setVideoMuted(false);
+      }
       showToastMessage(toast, 'success', t('selectedPost.originalSound'), 1500);
       return;
     }
@@ -588,6 +583,14 @@ const InstagramPostCreator = () => {
 
   const openPostMusicPicker = () => {
     setPostStorySoundTrimVisible(false);
+    const slideEdits = getCurrentImageEdits();
+    if (!slideHasLibraryMusic(slideEdits)) {
+      if (isFlipPost) {
+        setFlipVolumeByIndex(prev => ({ ...prev, [currentImageIndex]: prev[currentImageIndex] ?? 1 }));
+      } else {
+        setVideoMuted(false);
+      }
+    }
     setFlipAudioModal(true);
   };
 
@@ -743,13 +746,6 @@ const InstagramPostCreator = () => {
     };
   };
   const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
-  const containsEmoji = value => EMOJI_REGEX.test(String(value || ''));
-  const resolveOverlayFontFamily = (value, requestedFontFamily) => containsEmoji(value) ? undefined : (requestedFontFamily || undefined);
-  const getTextStyleWithFont = (value, requestedFontFamily) => {
-    const resolvedFontFamily = resolveOverlayFontFamily(value, requestedFontFamily);
-    return resolvedFontFamily ? { fontFamily: resolvedFontFamily } : {};
-  };
-
   const getTextOverlayLayoutKey = (imageIndex, overlayId) => `${imageIndex}:${overlayId}`;
 
   const estimateTextOverlaySize = overlay =>
@@ -1447,7 +1443,9 @@ const InstagramPostCreator = () => {
             setTextColor(o.color);
             setHighlightColor(o.highlightColor);
             setTextAlign(o.textAlign);
-            setSelectedFont({ fontFamily: o.fontFamily });
+            setSelectedFont({
+              fontFamily: normalizeOverlayFontFamily(o.fontFamily),
+            });
             pan.setValue({ x: o.position?.x ?? 0, y: o.position?.y ?? 0 });
             pan.setOffset({ x: 0, y: 0 });
             setIsScrollEnabled(false);
@@ -2116,7 +2114,6 @@ const InstagramPostCreator = () => {
                                     textAlign={textAlign}
                                     style={[
                                       styles.draftTextInput,
-                                      selectedFont,
                                       getTextStyleWithFont(text, selectedFont?.fontFamily),
                                       {
                                         color: highlightColor === 'white' && textColor === '#fff' ? '#111' : textColor,
@@ -2323,7 +2320,7 @@ const InstagramPostCreator = () => {
     <View style={[styles.textEditorToolbar, bgStyle]}>
       {showFonts && (
         <FlatList
-          data={fonts}
+          data={POST_OVERLAY_FONTS}
           horizontal
           keyExtractor={item => item.name}
           renderItem={({ item }) => (
@@ -2332,13 +2329,15 @@ const InstagramPostCreator = () => {
               style={[
                 styles.fontBtn,
                 { backgroundColor: `${accent}14` },
-                isSameFontStyle(selectedFont, item.style) && {
+                isSameOverlayFontStyle(selectedFont, item.style) && {
                   borderWidth: 1,
                   borderColor: accent,
                 },
               ]}
             >
-              <Text style={[{ fontSize: 18, color: themeText }, item.style]}>{item.name}</Text>
+              <Text style={[{ fontSize: 18, color: themeText }, getOverlayFontTextStyle(item.style.fontFamily)]}>
+                {item.name}
+              </Text>
             </TouchableOpacity>
           )}
           style={styles.textEditorOptionList}

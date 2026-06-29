@@ -132,6 +132,24 @@
 		<string>Octicons.ttf</string>
 		<string>Zocial.ttf</string>
 		<string>Fontisto.ttf</string>
+		<string>AlfaSlabOne_400Regular.ttf</string>
+		<string>Caveat_400Regular.ttf</string>
+		<string>DancingScript_400Regular.ttf</string>
+		<string>FontsFree-Net-Billabong.ttf</string>
+		<string>Nunito-ExtraBold.ttf</string>
+		<string>Nunito-Medium.ttf</string>
+		<string>Nunito-SemiBold.ttf</string>
+		<string>OpenSans_400Regular.ttf</string>
+		<string>Pacifico_400Regular.ttf</string>
+		<string>PlaywriteAUQLD_400Regular.ttf</string>
+		<string>FontAwesome6_Brands.ttf</string>
+		<string>PlaywriteHU_400Regular.ttf</string>
+		<string>FontAwesome6_Regular.ttf</string>
+		<string>PlaywritePL_400Regular.ttf</string>
+		<string>RobotoMono_400Regular.ttf</string>
+		<string>FontAwesome6_Solid.ttf</string>
+		<string>Roboto_400Regular.ttf</string>
+		<string>Triodion_400Regular.ttf</string>
 	</array>
 	<key>UIBackgroundModes</key>
 	<array>
