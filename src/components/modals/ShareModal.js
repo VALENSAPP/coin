@@ -16,6 +16,7 @@ import {
 import RBSheet from 'react-native-raw-bottom-sheet';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { following as apiFollowing } from '../../services/profile';
 import { sharePost } from '../../services/post';
@@ -41,6 +42,7 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
   const [search, setSearch] = useState('');
   const { text } = useAppTheme();
   const { t } = useLanguage();
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     (async () => {
@@ -90,11 +92,16 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
 
   const toggleSelectUser = (user) => {
     const userId = String(user.id);
-    setSelectedUsers(prev =>
-      prev.includes(userId)
+    setSelectedUsers(prev => {
+      const next = prev.includes(userId)
         ? prev.filter(id => id !== userId)
-        : [...prev, userId],
-    );
+        : [...prev, userId];
+      console.log('[ShareModal] Selected users updated:', {
+        toggledUser: { id: user.id, username: user.username },
+        selectedUserIds: next,
+      });
+      return next;
+    });
   };
 
   const resolvePostId = () => {
@@ -153,12 +160,17 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
       }
 
       if (mediaType && mediaId) {
-        await sharePost({
+        const shareResponse = await sharePost({
           mediaId,
           mediaType,
           conversationType: 'MEDIA',
           sharedUserId: String(selfUserId),
           receiverUserId: selectedUsers,
+        });
+        console.log('[ShareModal] POST post/sharepost response:', {
+          selectedUserIds: selectedUsers,
+          request: { mediaId, mediaType, sharedUserId: selfUserId, receiverUserId: selectedUsers },
+          response: shareResponse,
         });
       }
 
@@ -191,6 +203,7 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
         }
 
         if (socket?.connected) socket.emit('sendMessage', messageData);
+        console.log('[ShareModal] Socket sendMessage emitted:', messageData);
       }
     } catch (e) {
       Alert.alert(
@@ -223,9 +236,15 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
         storyId: resolveStoryId(),
       };
 
+      console.log('[ShareModal] Sending share to selected users:', {
+        selectedUserIds: selectedUsers,
+        sharedContent,
+      });
+
       if (ref?.current) ref.current.close();
       setSelectedUsers([]);
       directSendToInbox(sharedContent);
+      onShare?.();
     } catch (e) {
       Alert.alert(
         t('shareModal.shareErrorTitle'),
@@ -318,14 +337,15 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
   };
 
   const sendCount = selectedUsers.length;
+  const bottomPad = insets.bottom + (Platform.OS === 'ios' ? 20 : 16);
 
   return (
     <RBSheet
       ref={ref}
       height={screenHeight * 0.7}
       draggable
-      dragOnContent
       onOpen={onOpen}
+      onClose={() => onClose?.()}
       customModalProps={{ statusBarTranslucent: true }}
       customStyles={{
         wrapper: { backgroundColor: 'rgba(0,0,0,0.35)' },
@@ -338,10 +358,10 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
           borderTopLeftRadius: 16,
           borderTopRightRadius: 16,
           paddingTop: 6,
-          paddingBottom: 0,
         },
       }}
     >
+      <View style={styles.sheetContent}>
       {/* Search */}
       <View style={{ flexDirection: 'row', alignItems: 'center', marginHorizontal: 10 }}>
         <View style={styles.searchBar}>
@@ -372,9 +392,10 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
             renderItem={renderUserCell}
             numColumns={COLS}
             showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
             contentContainerStyle={{
-              paddingBottom: sendCount > 0 ? 80 : 12,  // ← extra space so last row isn't hidden behind button
-              flexGrow: 1
+              paddingBottom: 12,
+              flexGrow: 1,
             }}
             ListEmptyComponent={() => (
               <View style={{ alignItems: 'center', paddingTop: 24 }}>
@@ -389,7 +410,7 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
 
       {/* Bottom actions */}
       {sendCount > 0 ? (
-        <View style={styles.sendBar}>
+        <View style={[styles.sendBar, { paddingBottom: bottomPad }]}>
           <TouchableOpacity
             style={[styles.sendButton, { backgroundColor: text }, sending && { opacity: 0.7 }]}
             activeOpacity={0.85}
@@ -408,11 +429,12 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
           </TouchableOpacity>
         </View>
       ) : (
-        <View style={styles.bottomBar}>
+        <View style={[styles.bottomBar, { paddingBottom: bottomPad }]}>
           <Action icon="share-social-outline" label={t('shareModal.shareToLabel')} onPress={shareToSystem} />
           <Action icon="copy-outline" label={t('shareModal.copyLinkLabel')} onPress={copyToClipboard} />
         </View>
       )}
+      </View>
     </RBSheet>
   );
 });
@@ -425,6 +447,9 @@ const Action = ({ icon, onPress, label }) => (
 );
 
 const styles = StyleSheet.create({
+  sheetContent: {
+    flex: 1,
+  },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -496,20 +521,18 @@ const styles = StyleSheet.create({
   },
 
  sendBar: {
-  // borderTopWidth: StyleSheet.hairlineWidth, 
+  borderTopWidth: StyleSheet.hairlineWidth,
   borderTopColor: '#e9e9e9',
-  backgroundColor: '#fff', 
-  padding: 12, 
+  backgroundColor: '#fff',
+  paddingTop: 14,
+  paddingHorizontal: 12,
   alignItems: 'center',
-  position: 'absolute',  // ← fixed position
-  bottom: 0,             // ← always at bottom
-  left: 0,
-  right: 0,
-  zIndex: 10,            // ← stays on top of the list
 },
   sendButton: {
-    borderRadius: 10, paddingHorizontal: 22, paddingVertical: 10, width: '90%',
-    bottom: 5
+    borderRadius: 10,
+    paddingHorizontal: 22,
+    paddingVertical: 12,
+    width: '90%',
   },
   sendButtonText: { color: '#fff', fontWeight: '600', fontSize: 15, textAlign: 'center' },
 });

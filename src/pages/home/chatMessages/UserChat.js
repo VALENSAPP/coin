@@ -222,6 +222,25 @@ const UserChat = ({ route, navigation }) => {
   const seenEmitRef = useRef(new Set());
   const isNavigatingToSubscribeRef = useRef(false);
 
+  useEffect(() => {
+    console.log('[UserChat] Opened chat with selected user:', {
+      targetUserId,
+      user: user ? {
+        id: user.id || user._id || user.userId,
+        displayName: user.displayName || user.username || user.name,
+        image: user.image || user.avatar,
+      } : null,
+      initialShared: initialShared ? {
+        type: initialShared.type,
+        postId: initialShared.postId,
+        reelId: initialShared.reelId,
+        storyId: initialShared.storyId,
+        story: initialShared.story,
+      } : null,
+      routeParams,
+    });
+  }, [targetUserId]);
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
@@ -322,6 +341,15 @@ const UserChat = ({ route, navigation }) => {
           conversationType: 'MEDIA',
           sharedUserId: currentUserId,
           receiverUserId: targetUserId,
+        });
+
+        console.log('[UserChat] POST post/sharepost response:', {
+          selectedUser: {
+            targetUserId,
+            displayName: user?.displayName || user?.username,
+          },
+          request: { mediaId: cleanMediaId, mediaType, sharedUserId: currentUserId, receiverUserId: targetUserId },
+          response: shareResponse,
         });
 
         if (!shareResponse.success) throw new Error(shareResponse.message || t('userChat.failedToShareMedia'));
@@ -670,6 +698,10 @@ const UserChat = ({ route, navigation }) => {
 
     const validMessages = formattedMessages.filter(Boolean);
     validMessages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+    const storyShareInChat = validMessages.filter(m => m.type === 'story_share' || m.type === 'story');
+    if (storyShareInChat.length > 0) {
+      console.log('[UserChat] Story share messages in chat UI:', storyShareInChat);
+    }
     setMessages(validMessages);
     setIsLoading(false);
     setTimeout(() => { if (!isUserScrolling) flatListRef.current?.scrollToEnd({ animated: true }); }, 100);
@@ -686,6 +718,15 @@ const UserChat = ({ route, navigation }) => {
       if (socket?.connected) {
         getConversation(senderId, receiverId);
         const response = await getConversationById(receiverId);
+        console.log('[UserChat] GET post/conversation response:', {
+          otherUserId: receiverId,
+          success: response?.success,
+          messageCount: Array.isArray(response?.data) ? response.data.length : 0,
+          storyShareMessages: Array.isArray(response?.data)
+            ? response.data.filter(m => (m.type || '').toUpperCase() === 'STORY_SHARE' || m.story)
+            : [],
+          fullResponse: response,
+        });
         if (response.success) {
           const filtered = response.data.filter(msg => {
             const sId = String(msg.sender?.id ?? msg.senderId);
@@ -698,6 +739,15 @@ const UserChat = ({ route, navigation }) => {
         }
       } else {
         const response = await getConversationById(receiverId);
+        console.log('[UserChat] GET post/conversation response (no socket):', {
+          otherUserId: receiverId,
+          success: response?.success,
+          messageCount: Array.isArray(response?.data) ? response.data.length : 0,
+          storyShareMessages: Array.isArray(response?.data)
+            ? response.data.filter(m => (m.type || '').toUpperCase() === 'STORY_SHARE' || m.story)
+            : [],
+          fullResponse: response,
+        });
         if (response.success) {
           const filtered = response.data.filter(msg => {
             const sId = String(msg.sender?.id ?? msg.senderId);
@@ -1402,7 +1452,7 @@ const UserChat = ({ route, navigation }) => {
                   style={[styles.sharedPostContainer, isUser && styles.userSharedPost]}
                   onPress={() => {
                     if (storyExists) {
-                      setSelectedStory({
+                      const viewerPayload = {
                         ...storyData,
                         uri: mediaUri,
                         type: mediaType,
@@ -1414,7 +1464,13 @@ const UserChat = ({ route, navigation }) => {
                         caption,
                         createdAt: storyData.createdAt || storyTimestamp || storyData.updatedAt,
                         storyMeta: storyData.storyMeta,
+                      };
+                      console.log('[UserChat] Tap to view story — chat message data:', {
+                        messageId: item.id,
+                        rawStoryFromMessage: storyData,
+                        viewerPayload,
                       });
+                      setSelectedStory(viewerPayload);
                       setStoryViewerVisible(true);
                     } else {
                       Alert.alert(t('userChat.storyUnavailableTitle'), t('userChat.storyUnavailableMessage'));

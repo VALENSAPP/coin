@@ -354,7 +354,7 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
                 key={it.key}
                 item={it}
                 accent={accent}
-                onPress={() => openItem(it)}
+                onPress={() => {/*openItem(it)*/}}
               />
             ))}
           </View>
