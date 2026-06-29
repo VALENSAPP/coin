@@ -20,13 +20,14 @@ import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 import ImagePicker from 'react-native-image-crop-picker';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { useToast } from 'react-native-toast-notifications';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { useLanguage } from '../../i18n';
 import { useAppTheme } from '../../theme/useApptheme';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { createMyCloset, createMyClosetItem } from '../../services/myCloset';
 import ShareModal from '../../components/modals/ShareModal';
+import PostLocationModal from '../../components/modals/PostLocationModal';
 
 const mixWithWhite = (hex, amount = 0.86) => {
   const normalized = String(hex || '').replace('#', '');
@@ -253,7 +254,7 @@ const FlowShell = ({
                   </Text>
                 </View>
                 {index < steps.length - 1 ? (
-                  <View style={[styles.stepConnectorLine, {backgroundColor: text}]} />
+                  <View style={[styles.stepConnectorLine, { backgroundColor: text }]} />
                 ) : null}
               </React.Fragment>
             );
@@ -331,7 +332,7 @@ const Shell = ({ navigation, activeStep, children }) => {
                   </Text>
                 </View>
                 {index < STEPS.length - 1 ? (
-                  <View style={[styles.stepConnectorLine, {backgroundColor: text}]} />
+                  <View style={[styles.stepConnectorLine, { backgroundColor: text }]} />
                 ) : null}
               </React.Fragment>
             );
@@ -555,7 +556,6 @@ const MyClosetCreateShopScreen = ({ navigation, route }) => {
   const [username, setUsername] = useState(draft.username || '');
   const [errors, setErrors] = useState({});
   const { text } = useAppTheme();
-
   const nextDraft = useMemo(
     () => ({ ...draft, shopName, username }),
     [draft, shopName, username],
@@ -728,7 +728,7 @@ const MyClosetUploadLogoScreen = ({ navigation, route }) => {
               ) : (
                 <>
                   <Ionicons name="add" size={42} color={text} />
-                  <Text style={[styles.logoHeroLabel, {color: text}]}>Upload logo</Text>
+                  <Text style={[styles.logoHeroLabel, { color: text }]}>Upload logo</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -760,6 +760,7 @@ const MyClosetTellUsScreen = ({ navigation, route }) => {
   const [description, setDescription] = useState(draft.description || '');
   const [category, setCategory] = useState(draft.category || '');
   const [location, setLocation] = useState(draft.location || '');
+  const [locationModalVisible, setLocationModalVisible] = useState(false);
   const [expandedField, setExpandedField] = useState(null);
   const [errors, setErrors] = useState({});
   const { text } = useAppTheme();
@@ -827,12 +828,44 @@ const MyClosetTellUsScreen = ({ navigation, route }) => {
             text={text}
             error={errors.category}
           />
-          <Field
-            label="Location (optional)"
-            placeholder="Select your location"
-            value={location}
-            onChangeText={setLocation}
-            text={text}
+          <View style={styles.fieldBlock}>
+            <Text style={styles.fieldLabel}>Location (optional)</Text>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() => setLocationModalVisible(true)}
+              style={[
+                styles.dropdownRow,
+                { borderColor: withAlpha(text, 0.16) },
+              ]}
+            >
+              <Ionicons
+                name="location-sharp"
+                size={18}
+                color="#E53935"
+                style={{ marginRight: 8 }}
+              />
+              <Text
+                style={[
+                  styles.dropdownText,
+                  !location.trim() && { color: '#a1a1aa' },
+                ]}
+                numberOfLines={1}
+              >
+                {location.trim() || 'Select your location'}
+              </Text>
+              <Ionicons name="chevron-forward" size={18} color={text} />
+            </TouchableOpacity>
+          </View>
+
+          <PostLocationModal
+            visible={locationModalVisible}
+            initialValue={location}
+            saving={false}
+            onClose={() => setLocationModalVisible(false)}
+            onSave={value => {
+              setLocation(String(value || '').trim());
+              setLocationModalVisible(false);
+            }}
           />
 
           <PrimaryButton
@@ -848,7 +881,7 @@ const MyClosetTellUsScreen = ({ navigation, route }) => {
 
 const MyClosetPreferencesScreen = ({ navigation, route }) => {
   const draft = route?.params?.draft || {};
-  const [shipping, setShipping] = useState('ship_items');
+  const [shipping, setShipping] = useState(['ship_items']);
   const [returnPolicy, setReturnPolicy] = useState('');
   const [paymentMethod] = useState('Valens Secure Checkout');
   const [whoCanBuy, setWhoCanBuy] = useState('');
@@ -858,7 +891,7 @@ const MyClosetPreferencesScreen = ({ navigation, route }) => {
   const dispatch = useDispatch();
   const toast = useToast();
   const { text } = useAppTheme();
-
+  const userProfile = useSelector(state => state.userProfile.userProfile);
   const nextDraft = useMemo(
     () => ({ ...draft, shipping, returnPolicy, paymentMethod, whoCanBuy }),
     [draft, shipping, returnPolicy, paymentMethod, whoCanBuy],
@@ -866,6 +899,11 @@ const MyClosetPreferencesScreen = ({ navigation, route }) => {
 
   const handleContinue = async () => {
     const nextErrors = {};
+
+    if (shipping.length == 0) {
+      nextErrors.shipping = 'Please select at least one shipping option.';
+    }
+
     if (isBlank(returnPolicy)) {
       nextErrors.returnPolicy = 'Return policy is required.';
     }
@@ -888,7 +926,7 @@ const MyClosetPreferencesScreen = ({ navigation, route }) => {
     payload.append('location', String(nextDraft.location || '').trim());
     payload.append('whoCanBuy', String(nextDraft.whoCanBuy || '').trim());
     payload.append('paymentMethod', String(nextDraft.paymentMethod || '').trim());
-    payload.append('shippingOptions', String(nextDraft.shipping || '').trim());
+    payload.append('shippingOptions', (nextDraft.shipping || []).join(','));
     payload.append('returnPolicy', String(nextDraft.returnPolicy || '').trim());
 
     if (nextDraft?.logo?.uri) {
@@ -937,17 +975,29 @@ const MyClosetPreferencesScreen = ({ navigation, route }) => {
         <>
           <Text style={styles.sectionLabel}>Shipping options</Text>
           <View style={styles.shippingGrid}>
-            {SHIPPING_CHOICES.map(choice => (
-              <OptionCard
-                key={choice.value}
-                label={choice.label}
-                description={choice.description}
-                selected={shipping === choice.value}
-                onPress={() => setShipping(choice.value)}
-                text={text}
-                icon={choice.icon}
-              />
-            ))}
+            {SHIPPING_CHOICES.map(choice => {
+              const isSelected = shipping.includes(choice.value);
+              return (
+                <OptionCard
+                  key={choice.value}
+                  label={choice.label}
+                  description={choice.description}
+                  selected={isSelected}
+                  onPress={() => {
+                    setShipping(prev =>
+                      prev.includes(choice.value)
+                        ? prev.filter(v => v !== choice.value) // unselect
+                        : [...prev, choice.value],              // add to selection
+                    );
+                  }}
+                  text={text}
+                  icon={choice.icon}
+                />
+              );
+            })}
+          </View>
+          <View style={{ marginTop: -10, marginBottom: 5 }}>
+            <InlineError message={errors.shipping} />
           </View>
 
           <DropdownRow
@@ -1029,10 +1079,11 @@ const MyClosetPreferencesScreen = ({ navigation, route }) => {
 };
 
 const MyClosetLiveScreen = ({ navigation, route }) => {
+  const userProfile = useSelector(state => state.userProfile.userProfile);
   const draft = route?.params?.draft || {};
   const isFirstItem = route?.params?.isFirstItem ?? true;
   const itemTitle = isFirstItem ? 'Add My First Item' : 'Add New Item';
-  const { text } = useAppTheme();
+  const { text, bgStyle } = useAppTheme();
   const toast = useToast();
   const shopLink = useMemo(
     () =>
@@ -1063,7 +1114,7 @@ const MyClosetLiveScreen = ({ navigation, route }) => {
   };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: '#faf5ff' }]}>
+    <SafeAreaView style={[styles.safeArea, bgStyle]}>
       <ScrollView
         contentContainerStyle={styles.successContent}
         showsVerticalScrollIndicator={false}
@@ -1090,7 +1141,7 @@ const MyClosetLiveScreen = ({ navigation, route }) => {
           </View>
         </View>
 
-        <Text style={[styles.successTitle, {color: text}]}>Your Closet is Live!</Text>
+        <Text style={[styles.successTitle, { color: text }]}>{userProfile == 'user' ? 'Your Closet is Live!' : 'Your Shop is Live!' }</Text>
         <Text style={styles.successSubtitle}>
           Your personal shop is ready. Start adding items and share your style.
         </Text>
@@ -1111,7 +1162,7 @@ const MyClosetLiveScreen = ({ navigation, route }) => {
 
         <View style={styles.successActions}>
           <SecondaryButton
-            label="Go to My Closet"
+            label={userProfile == 'user' ? "Go to My Closet" : "Go to My Shop"}
             text={text}
             onPress={() => {
               navigation.navigate('Profile', { initialTab: 'closet' })
@@ -1162,7 +1213,7 @@ const QuantityStepper = ({ value, onMinus, onPlus, text, bgStyle }) => (
       onPress={onMinus}
       style={[styles.quantityBtn, bgStyle]}
     >
-      <Text style={[styles.quantityBtnText, {color: text}]}>-</Text>
+      <Text style={[styles.quantityBtnText, { color: text }]}>-</Text>
     </TouchableOpacity>
     <Text style={styles.quantityValue}>{value}</Text>
     <TouchableOpacity
@@ -1170,7 +1221,7 @@ const QuantityStepper = ({ value, onMinus, onPlus, text, bgStyle }) => (
       onPress={onPlus}
       style={[styles.quantityBtn, bgStyle]}
     >
-      <Text style={[styles.quantityBtnText, {color: text}]}>+</Text>
+      <Text style={[styles.quantityBtnText, { color: text }]}>+</Text>
     </TouchableOpacity>
   </View>
 );
@@ -1279,12 +1330,12 @@ const MyClosetAddItemPhotosScreen = ({ navigation, route }) => {
               <TouchableOpacity
                 activeOpacity={0.9}
                 onPress={addPhotos}
-                style={[styles.photoUploadCard, {borderColor: text}]}
+                style={[styles.photoUploadCard, { borderColor: text }]}
               >
                 <View style={styles.photoHeroIconWrap}>
                   <Ionicons name="images-outline" size={40} color={text} />
                 </View>
-                <Text style={[styles.photoHeroLabel, {color: text}]}>
+                <Text style={[styles.photoHeroLabel, { color: text }]}>
                   {t('myClosetAddItem.addPhotos')}
                 </Text>
                 <Text style={styles.photoHeroSubLabel}>
@@ -1574,9 +1625,9 @@ const MyClosetAddItemPriceScreen = ({ navigation, route }) => {
             </Text>
           </View>
 
-          <View style={[styles.feeCard, bgStyle, {borderColor: text}]}>
+          <View style={[styles.feeCard, bgStyle, { borderColor: text }]}>
             <View style={styles.feeHeader}>
-              <Text style={[styles.feeTitle, {color: text}]}>Fees & Payout</Text>
+              <Text style={[styles.feeTitle, { color: text }]}>Fees & Payout</Text>
               <Ionicons
                 name="information-circle-outline"
                 size={16}
@@ -1926,12 +1977,12 @@ const MyClosetAddItemPublishedScreen = ({ navigation, route }) => {
         </View>
 
         <View style={styles.itemLiveIconWrap}>
-          <View style={[styles.itemLiveIcon, {borderColor: text}]}>
+          <View style={[styles.itemLiveIcon, { borderColor: text }]}>
             <Ionicons name="bag-handle-outline" size={36} color={text} />
           </View>
         </View>
 
-        <Text style={[styles.successTitle, {color: text}]}>Your item is live! 🎉</Text>
+        <Text style={[styles.successTitle, { color: text }]}>Your item is live! 🎉</Text>
         <Text style={styles.successSubtitle}>
           Nice work! Your item is now visible in your closet.
         </Text>

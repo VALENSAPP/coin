@@ -28,6 +28,7 @@ import {
   updateCartItem,
   deleteCartItem,
   clearCart,
+  checkoutCart,
 } from '../../services/myCloset';
 import { useAppTheme } from '../../theme/useApptheme';
 
@@ -119,7 +120,7 @@ const buildCart = (route, overrides = {}) => {
     shipping,
     serviceFee,
     itemTotal,
-    total: itemTotal + shipping + serviceFee,
+    total: itemTotal /*+ shipping + serviceFee*/,
     ...overrides,
   };
 };
@@ -311,8 +312,8 @@ const OrderSummary = ({ cart, editable, compact, onEditCart }) => (
     </View>
     <View style={styles.divider} />
     <SummaryRow label="Item total" value={currency(cart.itemTotal)} />
-    <SummaryRow label="Shipping" value={currency(cart.shipping)} />
-    <SummaryRow label="Service fee" value={currency(cart.serviceFee)} />
+    {/* <SummaryRow label="Shipping" value={currency(cart.shipping)} />
+    <SummaryRow label="Service fee" value={currency(cart.serviceFee)} /> */}
     <SummaryRow label="Total" value={currency(cart.total)} bold />
   </View>
 );
@@ -597,6 +598,7 @@ const MyClosetBuyerItemsScreen = ({ navigation, route }) => {
         seller,
         sellerId,
         items: route?.params?.items || items.map(row => row.raw || row),
+        isOwnProfile: route?.params?.isOwnProfile,
       });
     },
     [items, navigation, route?.params?.items, seller, sellerId],
@@ -667,6 +669,7 @@ const MyClosetBuyerItemsScreen = ({ navigation, route }) => {
 const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
   const item = normalizeItem(route?.params?.item || {}, 0);
   const seller = route?.params?.seller || {};
+  const isOwnProfile = route?.params?.isOwnProfile ?? false;
   const [liked, setLiked] = useState(false);
 
   const goOptions = () => {
@@ -710,9 +713,11 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
           ))}
         </View>
       </ScrollView>
-      <View style={styles.bottomBar}>
-        <BottomButton label="Buy Now" onPress={goOptions} />
-      </View>
+      {!isOwnProfile && (
+        <View style={styles.bottomBar}>
+          <BottomButton label="Buy Now" onPress={goOptions} />
+        </View>
+      )}
     </SafeAreaView>
   );
 };
@@ -722,7 +727,40 @@ const MyClosetBuyerOptionsScreen = ({ navigation, route }) => {
   const [quantity, setQuantity] = useState(1);
   const [note, setNote] = useState('');
   const [adding, setAdding] = useState(false);
+  const [syncingQty, setSyncingQty] = useState(false);
   const available = Math.max(1, item.quantityAvailable);
+
+  const productId = item.raw?.id || item.raw?._id || item.id;
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!productId) return;
+      let cancelled = false;
+      (async () => {
+        setSyncingQty(true);
+        try {
+          const response = await getCart();
+          if (cancelled) return;
+          const cartObj = response?.data?.cart;
+          const cartItems = cartObj?.cartItems ?? [];
+          const match = Array.isArray(cartItems)
+            ? cartItems.find(ci => {
+              const pid = ci?.product?.id || ci?.product?._id || ci?.productId;
+              return String(pid) === String(productId);
+            })
+            : null;
+          if (match) {
+            setQuantity(Math.max(1, Math.min(available, Number(match.quantity) || 1)));
+          }
+        } catch {
+          // silently ignore — keep whatever quantity was set
+        } finally {
+          if (!cancelled) setSyncingQty(false);
+        }
+      })();
+      return () => { cancelled = true; };
+    }, [productId, available]),
+  );
 
   const updateQuantity = delta => {
     setQuantity(prev => Math.min(available, Math.max(1, prev + delta)));
@@ -730,9 +768,7 @@ const MyClosetBuyerOptionsScreen = ({ navigation, route }) => {
 
   // ── POST /cart/items — add item to server cart ───────────────────────────
   const goCart = async () => {
-    const productId = item.raw?.id || item.raw?._id || item.id;
     if (!productId) {
-      // fallback: navigate without API if no id
       navigation.navigate('MyClosetBuyerCart', {
         item: item.raw,
         seller: route?.params?.seller || {},
@@ -790,16 +826,20 @@ const MyClosetBuyerOptionsScreen = ({ navigation, route }) => {
             style={styles.qtyButton}
             onPress={() => updateQuantity(-1)}
             activeOpacity={0.8}
-            disabled={adding}
+            disabled={adding || syncingQty}
           >
             <Ionicons name="remove" size={17} color={ACCENT} />
           </TouchableOpacity>
-          <Text style={styles.quantityText}>{quantity}</Text>
+          {syncingQty ? (
+            <ActivityIndicator size="small" color={ACCENT} />
+          ) : (
+            <Text style={styles.quantityText}>{quantity}</Text>
+          )}
           <TouchableOpacity
             style={styles.qtyButton}
             onPress={() => updateQuantity(1)}
             activeOpacity={0.8}
-            disabled={adding}
+            disabled={adding || syncingQty}
           >
             <Ionicons name="add" size={17} color={ACCENT} />
           </TouchableOpacity>
@@ -816,15 +856,15 @@ const MyClosetBuyerOptionsScreen = ({ navigation, route }) => {
             placeholder="e.g. gift wrap, message to seller..."
             placeholderTextColor="#a8a0b3"
             style={styles.noteInput}
-            editable={!adding}
+            editable={!adding && !syncingQty}
           />
           <Text style={styles.counterText}>{note.length}/100</Text>
         </View>
       </ScrollView>
       <View style={styles.bottomBar}>
         <BottomButton
-          label={adding ? 'Adding…' : 'Add to Cart'}
-          onPress={adding ? undefined : goCart}
+          label={adding ? 'Adding…' : syncingQty ? 'Loading…' : 'Add to Cart'}
+          onPress={(adding || syncingQty) ? undefined : goCart}
         />
       </View>
     </SafeAreaView>
@@ -852,8 +892,8 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
     setCartError(null);
     try {
       const response = await getCart();
-      const cartObj = response?.data?.data?.cart; 
-      const items = cartObj?.items ?? [];          
+      const cartObj = response?.data?.cart;
+      const items = cartObj?.cartItems ?? [];
       setCartItems(Array.isArray(items) ? items : []);
     } catch (err) {
       setCartError('Could not load cart. Please try again.');
@@ -870,6 +910,39 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
 
   // ── PATCH /cart/items/{cartItemId} — update quantity ──────────────────
   const handleQtyChange = async (cartItemId, delta, currentQty, maxQty) => {
+    // If already at 1 and decrementing → remove the item and go back if cart becomes empty
+    if (delta === -1 && currentQty === 1) {
+      const targetItem = cartItems.find(ci => ci.id === cartItemId);
+      const name = targetItem?.product?.name || targetItem?.name || 'this item';
+      Alert.alert(
+        'Remove item',
+        `Remove "${name}" from cart?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Remove',
+            style: 'destructive',
+            onPress: async () => {
+              setItemActionLoading(cartItemId);
+              try {
+                await deleteCartItem(cartItemId);
+                const remaining = cartItems.filter(ci => ci.id !== cartItemId);
+                setCartItems(remaining);
+                if (remaining.length === 0) {
+                  goBack(navigation);
+                }
+              } catch (err) {
+                Alert.alert('Error', err?.response?.data?.message || 'Could not remove item.');
+              } finally {
+                setItemActionLoading(null);
+              }
+            },
+          },
+        ],
+      );
+      return;
+    }
+
     const nextQty = Math.min(maxQty, Math.max(1, currentQty + delta));
     if (nextQty === currentQty) return;
 
@@ -951,7 +1024,7 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
   }, 0);
   const shipping = localCart.shipping;
   const serviceFee = localCart.serviceFee;
-  const total = computedItemTotal + shipping + serviceFee;
+  const total = computedItemTotal /* + shipping + serviceFee*/;
 
   const handleProceed = () => {
     navigation.navigate('MyClosetBuyerCheckout', {
@@ -1063,8 +1136,8 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
 
               <View style={styles.summaryBlock}>
                 <SummaryRow label="Item total" value={currency(computedItemTotal)} />
-                <SummaryRow label="Shipping" value={currency(shipping)} />
-                <SummaryRow label="Service fee" value={currency(serviceFee)} />
+                {/* <SummaryRow label="Shipping" value={currency(shipping)} />
+                <SummaryRow label="Service fee" value={currency(serviceFee)} /> */}
                 <SummaryRow label="Total" value={currency(total)} bold />
               </View>
 
@@ -1238,7 +1311,7 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
   const nextCart = {
     ...route.params,
     shipping: method === 'express' ? 20 : 10,
-    total: cart.itemTotal + (method === 'express' ? 20 : 10) + cart.serviceFee,
+    total: cart.itemTotal /*+ (method === 'express' ? 20 : 10) + cart.serviceFee*/,
     shippingMethod: method,
     // Pass selected address forward so Review screen can display it
     shippingAddress: selectedAddress,
@@ -1443,8 +1516,8 @@ const MyClosetBuyerPaymentScreen = ({ navigation, route }) => {
         <Text style={styles.sectionLabel}>Payment Method</Text>
         {[
           { key: 'secure', label: 'Valens Secure Checkout', sub: 'Pay securely on Valens', icon: 'shield-checkmark-outline' },
-          { key: 'card', label: 'Credit / Debit Card', sub: 'VISA  Mastercard  AMEX', icon: 'card-outline' },
-          { key: 'apple', label: 'Apple Pay', sub: '', icon: 'logo-apple' },
+          // { key: 'card', label: 'Credit / Debit Card', sub: 'VISA  Mastercard  AMEX', icon: 'card-outline' },
+          // { key: 'apple', label: 'Apple Pay', sub: '', icon: 'logo-apple' },
         ].map(option => (
           <TouchableOpacity
             key={option.key}
@@ -1483,8 +1556,25 @@ const MyClosetBuyerPaymentScreen = ({ navigation, route }) => {
 // ─────────────────────────────────────────────────────────────────────────────
 const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
   const cart = buildCart(route);
+  const [checking, setChecking] = useState(false);  
   // shippingAddress passed from Shipping screen via nextCart
   const addr = route?.params?.shippingAddress ?? null;
+
+  const handleContinue = async () => {
+    setChecking(true);
+    try {
+      const response = await checkoutCart();
+      const checkoutData = response?.data?.data?.checkout ?? null;
+      navigation.navigate('MyClosetBuyerOrderReceived', {
+        ...route.params,
+        checkoutData,
+      });
+    } catch (err) {
+      Alert.alert('Error', err?.response?.data?.message || 'Could not proceed to checkout. Please try again.');
+    } finally {
+      setChecking(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -1549,7 +1639,7 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
         <BottomButton
           label="Place Order"
           icon="lock-closed-outline"
-          onPress={() => navigation.navigate('MyClosetBuyerOrderReceived', route.params)}
+          onPress={() => handleContinue()}
         />
       </View>
     </SafeAreaView>
@@ -1896,7 +1986,7 @@ const styles = StyleSheet.create({
 
   paymentOption: {
     minHeight: 58, borderWidth: 1, borderColor: BORDER, borderRadius: 13,
-    paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', marginBottom: 10, backgroundColor: '#fff',
+    padding: 12, flexDirection: 'row', alignItems: 'center', marginBottom: 10, backgroundColor: '#fff',
   },
   paymentCopy: { flex: 1 },
   paymentSub: { marginLeft: 10, marginTop: 2, fontSize: 11, color: MUTED, fontWeight: '700' },
