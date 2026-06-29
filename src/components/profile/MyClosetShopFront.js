@@ -125,10 +125,9 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
   const [closetDetails, setClosetDetails] = useState(null);
   const [closetId, setClosetId] = useState(null);
 
-  const userProfile = useSelector(state => state.userProfile.userProfile);
   const { text, bgStyle } = useAppTheme(userData?.profile);
   const accent = text || '#6d28d9';
-
+  
   // stored username
   useEffect(() => {
     let ok = true;
@@ -243,7 +242,7 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
     <ScrollView style={[s.root, bgStyle]} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
 
       {/* ── Banner ── */}
-      {userProfile !== 'user' ? (
+      {userData?.profile !== 'user' ? (
         // Shop owner banner
         <TouchableOpacity
           activeOpacity={0.9}
