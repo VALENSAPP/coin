@@ -46,6 +46,42 @@ const requestLocationPermission = async t => {
   return granted === PermissionsAndroid.RESULTS.GRANTED;
 };
 
+const tryLoadLocationBias = async () => {
+  if (Platform.OS === 'android') {
+    const permitted = await PermissionsAndroid.check(
+      PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+    );
+    if (!permitted) return null;
+  }
+
+  return readCachedCoordinates();
+};
+
+const readCachedCoordinates = () =>
+  new Promise(resolve => {
+    Geolocation.getCurrentPosition(
+      position => {
+        const { latitude, longitude } = position?.coords || {};
+        if (
+          typeof latitude === 'number' &&
+          !Number.isNaN(latitude) &&
+          typeof longitude === 'number' &&
+          !Number.isNaN(longitude)
+        ) {
+          resolve({ latitude, longitude });
+          return;
+        }
+        resolve(null);
+      },
+      () => resolve(null),
+      {
+        enableHighAccuracy: false,
+        timeout: 8000,
+        maximumAge: 600000,
+      },
+    );
+  });
+
 const PostLocationModal = ({
   visible,
   initialValue = '',
@@ -60,6 +96,7 @@ const PostLocationModal = ({
   const [locating, setLocating] = useState(false);
   const [searchError, setSearchError] = useState('');
   const debounceRef = useRef(null);
+  const locationBiasRef = useRef(null);
   const hasPlacesApi = isGooglePlacesConfigured();
 
   useEffect(() => {
@@ -67,7 +104,26 @@ const PostLocationModal = ({
     setDraft(initialValue);
     setPredictions([]);
     setSearchError('');
-  }, [visible, initialValue]);
+    locationBiasRef.current = null;
+
+    if (!hasPlacesApi) return undefined;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const coords = await tryLoadLocationBias();
+        if (!cancelled && coords) {
+          locationBiasRef.current = coords;
+        }
+      } catch {
+        // Search still works without location bias.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [visible, initialValue, hasPlacesApi]);
 
   useEffect(() => {
     if (!visible || !hasPlacesApi) {
@@ -87,7 +143,8 @@ const PostLocationModal = ({
       setSearching(true);
       setSearchError('');
       try {
-        const results = await searchPlacePredictions(query);
+        const bias = locationBiasRef.current;
+        const results = await searchPlacePredictions(query, bias || undefined);
         setPredictions(results);
       } catch (error) {
         setPredictions([]);
@@ -137,6 +194,7 @@ const PostLocationModal = ({
         throw new Error(t('postItem.locationUnavailable'));
       }
 
+      locationBiasRef.current = { latitude, longitude };
       const label = await reverseGeocodeCoordinates(latitude, longitude);
       setDraft(label);
       setPredictions([]);
@@ -210,7 +268,15 @@ const PostLocationModal = ({
                     <TouchableOpacity
                       style={styles.predictionRow}
                       onPress={() => handleSelectPrediction(item.description)}>
-                      <Icon name="location-outline" size={16} color="#6B7280" />
+                      <Icon
+                        name={
+                          item.types?.includes('establishment')
+                            ? 'storefront-outline'
+                            : 'location-outline'
+                        }
+                        size={16}
+                        color="#6B7280"
+                      />
                       <Text style={styles.predictionText} numberOfLines={2}>
                         {item.description}
                       </Text>

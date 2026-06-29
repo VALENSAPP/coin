@@ -49,6 +49,12 @@ import {
 } from './storyOverlayConstants';
 import { useLanguage } from '../../../i18n';
 import { getMusicTrimPlaybackWindowFromTrim, POST_SOUNDTRACKS } from '../../../utils/postSoundtracks';
+import {
+  STORY_COMPOSER_FONTS,
+  getOverlayFontTextStyle,
+  isSameOverlayFontStyle,
+  normalizeOverlayFontFamily,
+} from '../../../utils/postOverlayFonts';
 import { getStoryBuiltinLibraryUrl } from '../../../utils/storyAudioUpload';
 
 const WAVE_BAR_STEP = 4;
@@ -63,12 +69,7 @@ const FILTERS = [
   { key: 'brightness', labelKey: 'filterBright',    overlay: 'rgba(255,255,255,0.22)' },
 ];
 
-const DEFAULT_FONTS = [
-  { name: 'System',    style: {} },
-  { name: 'Billabong', style: { fontFamily: 'FontsFree-Net-Billabong' } },
-  { name: 'Roboto',    style: { fontFamily: 'Roboto-Regular' } },
-  { name: 'Pacifico',  style: { fontFamily: 'Pacifico-Regular' } },
-];
+const DEFAULT_FONTS = STORY_COMPOSER_FONTS;
 
 // Toolbar key→labelKey mapping resolved at render time via t()
 const TOOLBAR_ITEMS = [
@@ -539,6 +540,7 @@ export default function StoryComposer({
     }
     closeSheets();
     setActiveTab('none');
+    setVolumePerIndex(prev => ({ ...prev, [index]: prev[index] ?? 1 }));
     setShowAudioModal(true);
   }, [index, audioPerIndex, openMusicTrimEditor]);
 
@@ -547,6 +549,7 @@ export default function StoryComposer({
       setAudioPerIndex(prev => ({ ...prev, [index]: 'original' }));
       setAudioTrimPerIndex(prev => ({ ...prev, [index]: { start: 0, end: null } }));
       setAudioTrimConfirmedPerIndex(prev => ({ ...prev, [index]: true }));
+      setVolumePerIndex(prev => ({ ...prev, [index]: 1 }));
     } else {
       const libraryId = track.storyLibraryId || track.id;
       setAudioPerIndex(prev => ({ ...prev, [index]: libraryId }));
@@ -703,7 +706,7 @@ export default function StoryComposer({
           id:         `${Date.now()}_${Math.random()}`,
           text:       combined,
           color:      textColor,
-          fontFamily: textFont.fontFamily,
+          fontFamily: normalizeOverlayFontFamily(textFont.fontFamily),
           x:          24,
           y:          Math.round(SCREEN_HEIGHT * 0.28),
           kind:       'lyrics',
@@ -740,7 +743,7 @@ export default function StoryComposer({
         const next = { ...prev };
         next[index] = (next[index] || []).map(item =>
           item.id === editingTextId
-            ? { ...item, text: txt, color: textColor, fontFamily: textFont.fontFamily }
+            ? { ...item, text: txt, color: textColor, fontFamily: normalizeOverlayFontFamily(textFont.fontFamily) }
             : item,
         );
         return next;
@@ -755,7 +758,7 @@ export default function StoryComposer({
             id:         `${Date.now()}_${Math.random()}`,
             text:       txt,
             color:      textColor,
-            fontFamily: textFont.fontFamily,
+            fontFamily: normalizeOverlayFontFamily(textFont.fontFamily),
             x:          50,
             y:          50,
             scale:      1,
@@ -1615,14 +1618,14 @@ export default function StoryComposer({
                           setEditingTextId(tx.id);
                           setDraftText(tx.text);
                           setTextColor(tx.color || '#fff');
-                          const match = DEFAULT_FONTS.find(
-                            f2 => f2.style.fontFamily === tx.fontFamily,
+                          const match = DEFAULT_FONTS.find(f2 =>
+                            isSameOverlayFontStyle(f2.style, { fontFamily: tx.fontFamily }),
                           );
                           setTextFont(
                             match
                               ? match.style
                               : tx.fontFamily
-                              ? { fontFamily: tx.fontFamily }
+                              ? { fontFamily: normalizeOverlayFontFamily(tx.fontFamily) }
                               : DEFAULT_FONTS[0].style,
                           );
                           setActiveTab('text');
@@ -1633,7 +1636,12 @@ export default function StoryComposer({
                 >
                   <View style={styles.textOverlayHitArea} collapsable={false}>
                     <GestureText
-                      style={[styles.textOverlay, { color: tx.color, fontFamily: tx.fontFamily }]}
+                      style={[
+                        styles.textOverlay,
+                        { color: tx.color },
+                        getOverlayFontTextStyle(tx.fontFamily),
+                        tx.fontFamily ? { fontWeight: 'normal' } : null,
+                      ]}
                     >
                       {tx.text}
                     </GestureText>
@@ -1993,7 +2001,13 @@ export default function StoryComposer({
                           <TextInput
                             placeholder={t('storyComposer.textPlaceholder')}
                             placeholderTextColor="#aaa"
-                            style={[styles.textInput, textStyle, textFont, { color: textColor }]}
+                            style={[
+                              styles.textInput,
+                              textStyle,
+                              getOverlayFontTextStyle(textFont?.fontFamily),
+                              textFont?.fontFamily ? { fontWeight: 'normal' } : null,
+                              { color: textColor },
+                            ]}
                             value={draftText}
                             onChangeText={setDraftText}
                           />
@@ -2016,11 +2030,13 @@ export default function StoryComposer({
                               onPress={() => setTextFont(f.style)}
                               style={[
                                 styles.fontChip,
-                                textFont.fontFamily === f.style.fontFamily && styles.fontChipActive,
+                                isSameOverlayFontStyle(textFont, f.style) && styles.fontChipActive,
                               ]}
                               activeOpacity={0.7}
                             >
-                              <Text style={[styles.fontChipText, f.style]}>{f.name}</Text>
+                              <Text style={[styles.fontChipText, getOverlayFontTextStyle(f.style.fontFamily)]}>
+                                {f.name}
+                              </Text>
                             </TouchableOpacity>
                           ))}
                           {['#ffffff','#ff4d4f','#40a9ff','#52c41a','#faad14','#b37feb','#000000'].map(c => (
