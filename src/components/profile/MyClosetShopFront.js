@@ -272,7 +272,7 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
       <View style={s.section}>
         <View style={s.sectionHead}>
           <Text style={s.sectionTitle}>My Items</Text>
-          <TouchableOpacity onPress={goItems} activeOpacity={0.7}>
+          <TouchableOpacity /*onPress={goItems}*/ activeOpacity={0.7}>
             <Text style={[s.seeAll, { color: accent }]}>See all ›</Text>
           </TouchableOpacity>
         </View>
@@ -294,7 +294,7 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
                 key={it.key}
                 item={it}
                 accent={accent}
-                onPress={() => openItem(it)}
+                onPress={() => {/*openItem(it)*/}}
               />
             ))}
           </View>
