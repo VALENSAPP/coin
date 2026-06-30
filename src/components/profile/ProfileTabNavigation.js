@@ -27,6 +27,7 @@ import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../displaytoastmessage';
 import ProfileEbookScreen from './ProfileEbookScreen';
 import MyClosetShopFront from './MyClosetShopFront';
+import ShopScreen from '../../pages/wallet/ShopScreen';
 const { width: screenWidth } = Dimensions.get('window');
 
 const ProfileTabs = memo(({
@@ -225,27 +226,27 @@ const ProfileTabs = memo(({
     ),
     privateContent: (
       <View style={styles.postsWrap}>
-        {userData?.profile !== 'company' &&
-          <View style={styles.mediaTabsRow}>
-            {MEDIA_TABS.map((tab) => {
-              const focused = mediaTab === tab.key;
-              return (
-                <TouchableOpacity
-                  key={tab.key}
-                  style={styles.mediaTabItem}
-                  onPress={() => setMediaTab(tab.key)}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name={tab.icon} size={22} color={focused ? text : '#6b7280'} />
-                  <Text style={[styles.mediaTabLabel, focused && { color: text }]}>
-                    {tab.label}
-                  </Text>
-                  {focused && <View style={[styles.mediaTabIndicator, { backgroundColor: text }]} />}
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        }
+        {/* {userData?.profile !== 'company' && */}
+        <View style={styles.mediaTabsRow}>
+          {MEDIA_TABS.map((tab) => {
+            const focused = mediaTab === tab.key;
+            return (
+              <TouchableOpacity
+                key={tab.key}
+                style={styles.mediaTabItem}
+                onPress={() => setMediaTab(tab.key)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name={tab.icon} size={22} color={focused ? text : '#6b7280'} />
+                <Text style={[styles.mediaTabLabel, focused && { color: text }]}>
+                  {tab.label}
+                </Text>
+                {focused && <View style={[styles.mediaTabIndicator, { backgroundColor: text }]} />}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        {/* } */}
         {mediaTab === 'ebook' ? (
           <ProfileEbookScreen
             userData={userData}
@@ -280,7 +281,15 @@ const ProfileTabs = memo(({
             activeMediaFilter={mediaTab}
           />
         )}
+
       </View>
+    ),
+    shop: (
+      <ShopScreen
+        navigation={navigation}
+        userData={userData}
+        isOwnProfile={isOwnProfile}
+      />
     ),
     closet: (
       !isOwnProfile || (closetCheckComplete && hasCreatedShop) ? (
@@ -348,38 +357,44 @@ const ProfileTabs = memo(({
     ];
 
     // Only add privateContent tab for company profiles
+    // Private Content tab (show for both User & Company)
+    list.push({
+      key: 'privateContent',
+      label: t('profileTabs.privateContentTab'),
+      icon: (focused) => (
+        <LockKey
+          fill={focused ? text : '#6b7280'}
+          height={24}
+          width={24}
+        />
+      ),
+      onPress: async () => {
+        if (!loggedInUserId || isOwnProfile || isSubscribed) return;
+
+        const hasActive = await getSubscriptionStatus(targetProfileId);
+        if (!hasActive) {
+          setPrivatKey(p => p + 1);
+          setTimeout(() => setShowSubscribeModal(true), 50);
+        }
+      },
+    });
+
+    // Shop tab (Company only)
     if (userData?.profile === 'company') {
       list.push({
-        key: 'privateContent',
+        key: 'shop',
         label: t('profileTabs.shopTab'),
-        icon: (focused) =>
-          <MaterialIcons name="shopping-bag" size={24} color={focused ? text : '#6b7280'} />,
-        onPress: async () => {
-          if (!loggedInUserId || isOwnProfile || isSubscribed) return;
-          const hasActive = await getSubscriptionStatus(targetProfileId);
-          if (!hasActive) {
-            setPrivatKey(p => p + 1);
-            setTimeout(() => setShowSubscribeModal(true), 50);
-          }
-        },
-      });
-    } else {
-      list.push({
-        key: 'privateContent',
-        label: t('profileTabs.privateContentTab'),
-        icon: (focused) =>
-          <LockKey fill={focused ? text : '#6b7280'} height={24} width={24} />,
-        onPress: async () => {
-          if (!loggedInUserId || isOwnProfile || isSubscribed) return;
-          const hasActive = await getSubscriptionStatus(targetProfileId);
-          if (!hasActive) {
-            setPrivatKey(p => p + 1);
-            setTimeout(() => setShowSubscribeModal(true), 50);
-          }
-        },
+        icon: (focused) => (
+          <MaterialIcons
+            name="shopping-bag"
+            size={24}
+            color={focused ? text : '#6b7280'}
+          />
+        ),
       });
     }
 
+    // Closet tab (User only)
     if (userData?.profile === 'user') {
       list.push({
         key: 'closet',
@@ -387,7 +402,11 @@ const ProfileTabs = memo(({
         icon: (focused) => (
           <Image
             source={require('../../assets/icons/pngicons/shop.png')}
-            style={{ width: 35, height: 35, tintColor: focused ? text : '#6b7280' }}
+            style={{
+              width: 35,
+              height: 35,
+              tintColor: focused ? text : '#6b7280',
+            }}
           />
         ),
       });
