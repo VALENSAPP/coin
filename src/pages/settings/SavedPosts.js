@@ -28,6 +28,7 @@ import { buildPostMaps } from '../../utils/postMaps';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
 import { useAppTheme } from '../../theme/useApptheme';
+
 import Video from 'react-native-video';
 import { useLanguage } from '../../i18n';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -47,7 +48,7 @@ const SavedPostsScreen = ({ navigation }) => {
   const [saved, setSaved] = useState({});
   const [postLikesCount, setPostLikesCount] = useState({});
   const [postCommentsCount, setPostCommentsCount] = useState({});
-
+  const [selectedTab, setSelectedTab] = useState('all');
   // Follow state
   const [followingByUserId, setFollowingByUserId] = useState({});
   const [followingBusy, setFollowingBusy] = useState(new Set());
@@ -190,6 +191,7 @@ const SavedPostsScreen = ({ navigation }) => {
     try {
       if (!refreshing) setLoading(true);
       const response = await getAllSavedPosts();
+      console.log(response,'data in save dposts s')
 
       if (response?.success && response?.statusCode === 200) {
         const raw = Array.isArray(response.data) ? response.data : [];

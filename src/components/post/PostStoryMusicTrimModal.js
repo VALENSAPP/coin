@@ -811,6 +811,7 @@ const styles = StyleSheet.create({
   igMusicEditorRoot: {
     flex: 1,
     backgroundColor: '#0a0a0d',
+    paddingTop: 10
   },
   igMusicHeader: {
     flexDirection: 'row',

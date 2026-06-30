@@ -62,8 +62,20 @@ const getFirstPresent = (source, keys) => {
   return '';
 };
 
+const unwrapMyClosetResponse = (source) => {
+  if (!source) return {};
+  const level1 = source?.data ?? source;
+  if (level1 && typeof level1 === 'object' && !Array.isArray(level1)) {
+    if (level1.data && typeof level1.data === 'object') {
+      return level1.data;
+    }
+    return level1;
+  }
+  return {};
+};
+
 const normalizeShopData = source => {
-  const data = source?.data || source || {};
+  const data = unwrapMyClosetResponse(source);
   const shopLogo =
     getFirstPresent(data, ['shopLogo', 'shopLogoUrl', 'logo', 'logoUrl', 'image']) || null;
 
@@ -181,8 +193,7 @@ const ShopSettingsScreen = ({ navigation }) => {
         AsyncStorage.getItem('myClosetDraft'),
       ]);
 
-      const apiData = apiResponse?.statusCode ? apiResponse : apiResponse?.data || apiResponse;
-      const normalizedApiData = normalizeShopData(apiData);
+      const normalizedApiData = normalizeShopData(apiResponse);
       let normalizedDraft = null;
 
       if (draftValue) {

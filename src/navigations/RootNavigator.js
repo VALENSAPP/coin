@@ -407,7 +407,7 @@ const GlobalDrawerNavigator = () => {
           })}
         />
       )}
-      {!isCompanyProfile && (
+      {/* {!isCompanyProfile && ( */}
 
         <Drawer.Screen
           name="DrawerSubscription"
@@ -426,7 +426,7 @@ const GlobalDrawerNavigator = () => {
             },
           })}
         />
-      )}
+      {/* )} */}
 
       <Drawer.Screen
         name="Privatecircle"

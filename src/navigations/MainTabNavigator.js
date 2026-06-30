@@ -107,6 +107,13 @@ import BattleInProgress from '../pages/settings/BattleInProgress';
 import BattleResults from '../pages/settings/BattleResults';
 import BattleReward from '../pages/settings/BattleReward';
 import BattleVoteDetails from '../pages/settings/BattleVoteDetails';
+import {
+  BattleLiveScreen,
+  BattlePreviewScreen,
+  BattleResultsScreen,
+  BattleSetupScreen,
+  CreateBattleScreen,
+} from '../pages/profile/MyClosetBattleScreens';
 import HexAvatar from '../components/home/story.js/HexAvatar';
 import { getUserCredentials } from '../services/post';
 import { getMyClosetMe } from '../services/myCloset';
@@ -563,6 +570,31 @@ export default function MainTabNavigator() {
         <Stack.Screen
           name="OpenBattle"
           component={OpenBattleScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="CreateBattle"
+          component={CreateBattleScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="BattleSetup"
+          component={BattleSetupScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="BattlePreview"
+          component={BattlePreviewScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="BattleLive"
+          component={BattleLiveScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="BattleResultsScreen"
+          component={BattleResultsScreen}
           options={{ headerShown: false }}
         />
         <Stack.Screen
@@ -1082,8 +1114,6 @@ export default function MainTabNavigator() {
         'PrivateCircleSuccess',
         'MyClosetItemsManagement',
         'MyClosetItemEditor',
-        'MyClosetOrders',
-        'MyClosetOrderDetail',
         'MyClosetBuyerItems',
         'MyClosetBuyerItemDetail',
         'MyClosetBuyerOptions',

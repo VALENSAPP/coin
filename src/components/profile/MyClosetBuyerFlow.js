@@ -667,6 +667,7 @@ const MyClosetBuyerItemsScreen = ({ navigation, route }) => {
 };
 
 const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
+  const { text, bgStyle } = useAppTheme();
   const item = normalizeItem(route?.params?.item || {}, 0);
   const seller = route?.params?.seller || {};
   const isOwnProfile = route?.params?.isOwnProfile ?? false;
@@ -682,7 +683,7 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, bgStyle]}>
       <Header
         navigation={navigation}
         title="My Closet"
