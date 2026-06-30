@@ -405,8 +405,8 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  content: { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 55 },
+  container: { flex: 1, marginBottom: 75 },
+  content: { paddingHorizontal: 12, paddingTop: 8 },
 
   // Hero
   heroCard: {

@@ -52,6 +52,7 @@ const CATEGORY_OPTIONS = [
   'Shoes > Sneakers',
   'Home > Decor',
   'Vintage > Pieces',
+  'Others'
 ];
 
 const getOptionLabel = option =>

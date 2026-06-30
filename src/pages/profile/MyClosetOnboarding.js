@@ -62,6 +62,7 @@ const CATEGORY_OPTIONS = [
   'Vintage',
   'Beauty',
   'Home Decor',
+  'Others'
 ];
 
 const RETURN_POLICY_OPTIONS = [
@@ -133,6 +134,7 @@ const ITEM_CATEGORY_OPTIONS = [
   'Shoes > Sneakers',
   'Home > Decor',
   'Vintage > Pieces',
+  'Others'
 ];
 
 const ITEM_CONDITION_OPTIONS = [
