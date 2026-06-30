@@ -1,8 +1,9 @@
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image, Alert, ActivityIndicator, DeviceEventEmitter } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { useAppTheme } from '../../theme/useApptheme';
+import { normalizeProfileType } from '../../utils/supportEligibility';
 import { useLanguage } from '../../i18n';
 import useScreenshotProtection from '../../hooks/useScreenshotProtection';
 import FileViewer from 'react-native-file-viewer';
@@ -59,12 +60,26 @@ const formatDate = (dateString) => {
   return date.toLocaleDateString();
 };
 
+const VIEWED_PROFILE_THEME_EVENT = 'VIEWED_PROFILE_THEME';
+
 const EbookDetailScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const ebook = route?.params?.ebook || {};
+  const userData = route?.params?.userData || {};
   const routeLoggedInUserId = route?.params?.loggedInUserId;
-  const { bgStyle } = useAppTheme(route?.params?.userData?.profile);
+  const profileThemeType =
+    normalizeProfileType(userData?.profile || ebook?.profile) === 'company' ? 'company' : undefined;
+  const {
+    bgStyle,
+    textStyle,
+    cardStyle,
+    border,
+    mutedText,
+    mutedTextStyle,
+    accent,
+    icon,
+  } = useAppTheme(profileThemeType);
   const { t } = useLanguage();
   const toast = useToast();
   const [isDownloading, setIsDownloading] = useState(false);
@@ -93,6 +108,19 @@ const EbookDetailScreen = () => {
     if (!viewerUserId || !ebook?.userId) return false;
     return String(viewerUserId) === String(ebook.userId);
   }, [viewerUserId, ebook?.userId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const profileType = normalizeProfileType(userData?.profile || ebook?.profile);
+      if (profileType) {
+        DeviceEventEmitter.emit(VIEWED_PROFILE_THEME_EVENT, { profileType });
+      }
+
+      return () => {
+        DeviceEventEmitter.emit(VIEWED_PROFILE_THEME_EVENT, { profileType: null });
+      };
+    }, [userData?.profile, ebook?.profile]),
+  );
 
   useScreenshotProtection({
     enabled: !isOwner,
@@ -359,23 +387,24 @@ const EbookDetailScreen = () => {
     <View style={[styles.screen, bgStyle]}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.headerRow}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={20} color="#111827" />
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={[styles.backBtn, cardStyle, { borderColor: border, borderWidth: StyleSheet.hairlineWidth }]}
+          >
+            <Ionicons name="arrow-back" size={20} color={icon} />
           </TouchableOpacity>
           <View style={styles.authorWrap}>
             <View style={styles.avatarStack}>
               <Image source={{ uri: userImage }} style={styles.avatar} />
-              {/* <View style={styles.onlineDot} /> */}
             </View>
             <View style={styles.authorTextWrap}>
               <View style={styles.authorTopLine}>
-                <Text style={styles.authorName}>{userName}</Text>
-                {/* <Ionicons name="checkmark-circle" size={16} color="#2F80ED" /> */}
+                <Text style={[styles.authorName, textStyle]}>{userName}</Text>
               </View>
-              <Text style={styles.metaText}>{createdAt}</Text>
+              <Text style={[styles.metaText, mutedTextStyle]}>{createdAt}</Text>
             </View>
-            <View style={styles.subscriberPill}>
-              <Text style={styles.subscriberPillText}>Subscribers</Text>
+            <View style={[styles.subscriberPill, { backgroundColor: `${accent}18`, borderColor: `${accent}40` }]}>
+              <Text style={[styles.subscriberPillText, { color: accent }]}>Subscribers</Text>
             </View>
             {isOwner ? (
               <View>
@@ -394,16 +423,16 @@ const EbookDetailScreen = () => {
           </View>
         </View>
 
-        <Text style={styles.postText}>
+        <Text style={[styles.postText, textStyle]}>
           {description}
         </Text>
 
-        <View style={styles.previewCard}>
+        <View style={[styles.previewCard, cardStyle, { borderColor: border }]}>
           <View style={styles.cardLeft}>
             {coverImage ? (
               <Image source={{ uri: coverImage }} style={styles.cover} resizeMode="cover" />
             ) : (
-              <View style={styles.cover}>
+              <View style={[styles.cover, { backgroundColor: accent }]}>
                 <Text style={styles.coverText} numberOfLines={3}>{title}</Text>
                 <Text style={styles.coverSub}>E-book</Text>
                 <Text style={styles.coverAuthor}>{userName.toUpperCase()}</Text>
@@ -411,21 +440,20 @@ const EbookDetailScreen = () => {
             )}
           </View>
           <View style={styles.cardRight}>
-            <Text style={styles.ebookTitle}>{title}</Text>
-            <Text style={styles.byline}>By {userName}</Text>
-            <Text style={styles.description}>
+            <Text style={[styles.ebookTitle, textStyle]}>{title}</Text>
+            <Text style={[styles.byline, mutedTextStyle]}>By {userName}</Text>
+            <Text style={[styles.description, mutedTextStyle]}>
               {description}
             </Text>
             <View style={styles.metricsRow}>
-              <Text style={styles.metric}>📚 {chapters.length} Chapters</Text>
-              {/* <Text style={styles.metric}>📄 {ebook.pages || '?'} Pages</Text> */}
+              <Text style={[styles.metric, { color: accent }]}>📚 {chapters.length} Chapters</Text>
             </View>
           </View>
         </View>
 
         {allowDownload && (
           <TouchableOpacity
-            style={styles.downloadButton}
+            style={[styles.downloadButton, { backgroundColor: accent }]}
             onPress={handleDownloadPdf}
             disabled={isDownloading}
           >
@@ -440,9 +468,12 @@ const EbookDetailScreen = () => {
           </TouchableOpacity>
         )}
 
-        <TouchableOpacity style={styles.readButton} onPress={handleReadBook}>
-          <Ionicons name="book-outline" size={16} color="#5A2D82" />
-          <Text style={styles.readButtonText}>Read e-book</Text>
+        <TouchableOpacity
+          style={[styles.readButton, { borderColor: accent, backgroundColor: `${accent}18` }]}
+          onPress={handleReadBook}
+        >
+          <Ionicons name="book-outline" size={16} color={accent} />
+          <Text style={[styles.readButtonText, { color: accent }]}>Read e-book</Text>
         </TouchableOpacity>
 
         <View style={styles.actionsRow}>
@@ -453,13 +484,13 @@ const EbookDetailScreen = () => {
             <Ionicons
               name={isLiked ? 'heart' : 'heart-outline'}
               size={25}
-              color={isLiked ? '#ef4444' : '#6b7280'}
+              color={isLiked ? '#ef4444' : mutedText}
             />
-            <Text style={styles.actionCount}>{likes}</Text>
+            <Text style={[styles.actionCount, mutedTextStyle]}>{likes}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.actionBtn} onPress={handleOpenComments}>
-            <Ionicons name="chatbubble-outline" size={25} color="#6b7280" />
-            <Text style={styles.actionCount}>{comments}</Text>
+            <Ionicons name="chatbubble-outline" size={25} color={mutedText} />
+            <Text style={[styles.actionCount, mutedTextStyle]}>{comments}</Text>
           </TouchableOpacity>
           <View style={styles.actionSpacer} />
           <TouchableOpacity
@@ -469,7 +500,7 @@ const EbookDetailScreen = () => {
             <Ionicons
               name={isSaved ? 'bookmark' : 'bookmark-outline'}
               size={25}
-              color={isSaved ? '#5A2D82' : '#6b7280'}
+              color={isSaved ? accent : mutedText}
             />
           </TouchableOpacity>
         </View>
@@ -504,7 +535,7 @@ const EbookDetailScreen = () => {
 export default memo(EbookDetailScreen);
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#fff' },
+  screen: { flex: 1 },
   content: {
     paddingHorizontal: 12,
     paddingTop: 10,
@@ -521,7 +552,6 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
@@ -559,18 +589,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
   },
-  authorName: { fontSize: 15, fontWeight: '800', color: '#111827' },
-  metaText: { fontSize: 11, color: '#8b8b94', marginTop: 1 },
+  authorName: { fontSize: 15, fontWeight: '800' },
+  metaText: { fontSize: 11, marginTop: 1 },
   subscriberPill: {
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 999,
-    backgroundColor: '#f4ecfb',
     borderWidth: 1,
-    borderColor: '#eadcf7',
     marginLeft: 8,
   },
-  subscriberPillText: { fontSize: 11, color: '#6b4b8f', fontWeight: '700' },
+  subscriberPillText: { fontSize: 11, fontWeight: '700' },
   menuBtn: {
     width: 34,
     height: 34,
@@ -580,15 +608,12 @@ const styles = StyleSheet.create({
   postText: {
     fontSize: 15,
     lineHeight: 22,
-    color: '#202124',
     marginBottom: 12,
   },
   previewCard: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#ece5f5',
     padding: 12,
     shadowColor: '#000',
     shadowOpacity: 0.03,
@@ -607,33 +632,30 @@ const styles = StyleSheet.create({
   coverSub: { color: '#E8DAF7', fontSize: 10, fontWeight: '600' },
   coverAuthor: { color: '#fff', fontSize: 10, letterSpacing: 1.1 },
   cardRight: { flex: 1 },
-  ebookTitle: { fontSize: 17, fontWeight: '800', color: '#111827', marginBottom: 4 },
-  byline: { fontSize: 12, color: '#7b7b85', marginBottom: 10 },
-  description: { fontSize: 13, color: '#4b5563', lineHeight: 19, marginBottom: 10 },
+  ebookTitle: { fontSize: 17, fontWeight: '800', marginBottom: 4 },
+  byline: { fontSize: 12, marginBottom: 10 },
+  description: { fontSize: 13, lineHeight: 19, marginBottom: 10 },
   metricsRow: {
     flexDirection: 'row',
     gap: 10,
     flexWrap: 'wrap',
   },
-  metric: { fontSize: 11, color: '#6b7280', fontWeight: '700' },
+  metric: { fontSize: 11, fontWeight: '700' },
   readButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#E2D3F4',
-    backgroundColor: '#F8F1FF',
     borderRadius: 14,
     paddingVertical: 11,
     gap: 6,
     marginTop: 14,
   },
-  readButtonText: { color: '#5A2D82', fontWeight: '800' },
+  readButtonText: { fontWeight: '800' },
   downloadButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#5A2D82',
     borderRadius: 14,
     paddingVertical: 11,
     gap: 6,
@@ -656,7 +678,6 @@ const styles = StyleSheet.create({
   },
   actionCount: {
     fontSize: 12,
-    color: '#6b7280',
     fontWeight: '700',
   },
   actionSpacer: { flex: 1 },

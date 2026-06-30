@@ -18,8 +18,12 @@ export function useBusinessProfileTheme() {
 
   useFocusEffect(
     useCallback(() => {
+      if (reduxProfile && reduxProfile !== 'normal') {
+        setIsBusinessProfile(String(reduxProfile).toLowerCase() !== 'user');
+        return;
+      }
       loadProfileType();
-    }, [loadProfileType]),
+    }, [loadProfileType, reduxProfile]),
   );
 
   useEffect(() => {

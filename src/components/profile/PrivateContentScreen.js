@@ -14,6 +14,7 @@ import {
 import Video from 'react-native-video';
 import { useFocusEffect, useIsFocused, useNavigation } from '@react-navigation/native';
 import { useAppTheme } from '../../theme/useApptheme';
+import { normalizeProfileType } from '../../utils/supportEligibility';
 import { getPostByUser } from '../../services/post';
 import { getFansubscriptionStatus } from '../../services/stirpe';
 import { getMyClosetMe } from '../../services/myCloset';
@@ -166,7 +167,10 @@ const PrivateContentScreen = ({
   const navigation = useNavigation();
   const isFocused = useIsFocused();
   const scrollY = useRef(new Animated.Value(0)).current;
-  const { bgStyle, textStyle, text, cardStyle } = useAppTheme(userData?.profile);
+  const profileThemeType =
+    normalizeProfileType(userData?.profile) === 'company' ? 'company' : undefined;
+  const { bgStyle, textStyle, text, cardStyle, card, border, mutedTextStyle, accent } =
+    useAppTheme(profileThemeType);
   const { t } = useLanguage();
 
   const shopCardMarginTop = scrollY.interpolate({
@@ -494,10 +498,10 @@ const PrivateContentScreen = ({
             <View
               style={[
                 styles.railIconBubble,
-                { backgroundColor: mixWithWhite(text, 0.9), marginTop: marginTopOverride ? '80%' : '50%' },
+                { backgroundColor: withAlpha(accent, 0.18), marginTop: marginTopOverride ? '80%' : '50%' },
               ]}
             >
-              <Ionicons name="bag-handle" size={34} color={text} />
+              <Ionicons name="bag-handle" size={34} color={accent} />
             </View>
           </LinearGradient>
 
@@ -511,7 +515,7 @@ const PrivateContentScreen = ({
                   <TouchableOpacity
                     activeOpacity={0.9}
                     onPress={handleStartShopPress}
-                    style={[styles.ctaButton, { backgroundColor: text }]}
+                    style={[styles.ctaButton, { backgroundColor: accent }]}
                   >
                     <Text style={styles.ctaText}>{t('privateContent.startNowButton')}</Text>
                   </TouchableOpacity>
@@ -528,7 +532,7 @@ const PrivateContentScreen = ({
                 <TouchableOpacity
                   activeOpacity={0.9}
                   onPress={onSubscribePress}
-                  style={[styles.ctaButton, { backgroundColor: text }]}
+                  style={[styles.ctaButton, { backgroundColor: accent }]}
                 >
                   <Text style={styles.ctaText}>{t('privateContent.shopNowButton')}</Text>
                 </TouchableOpacity>
@@ -538,21 +542,25 @@ const PrivateContentScreen = ({
         </View>
       </View>
     ),
-    [bgStyle, cardStyle, handleStartShopPress, shopCheckComplete, shopExists, text, textStyle, isOwnProfile, onSubscribePress, userData, t],
+    [bgStyle, cardStyle, handleStartShopPress, shopCheckComplete, shopExists, text, textStyle, accent, isOwnProfile, onSubscribePress, userData, t],
   );
 
   // ── Locked card ───────────────────────────────────────────────────────────
   const LockedCard = useCallback(
     () => (
       <View style={[styles.screen, bgStyle, styles.lockedContainer]}>
-        <TouchableOpacity activeOpacity={0.9} onPress={onSubscribePress} style={styles.lockedCard}>
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={onSubscribePress}
+          style={[styles.lockedCard, cardStyle, { borderColor: border }]}
+        >
           <Text style={styles.lockedIcon}>🔒</Text>
           <Text style={[styles.lockedTitle, textStyle]}>{t('privateContent.lockedTitle')}</Text>
-          <Text style={styles.lockedSubtitle}>{t('privateContent.lockedSubtitle')}</Text>
+          <Text style={[styles.lockedSubtitle, mutedTextStyle]}>{t('privateContent.lockedSubtitle')}</Text>
         </TouchableOpacity>
       </View>
     ),
-    [bgStyle, textStyle, onSubscribePress, t],
+    [bgStyle, cardStyle, border, textStyle, mutedTextStyle, onSubscribePress, t],
   );
 
   const renderEmptyComponent = useCallback(
@@ -560,17 +568,17 @@ const PrivateContentScreen = ({
       if (canViewPrivateContent) {
         return (
           <View style={[styles.screen, bgStyle, styles.lockedContainer]}>
-            <View style={[styles.lockedCard, { opacity: 0.92 }]}>
+            <View style={[styles.lockedCard, cardStyle, { borderColor: border, opacity: 0.92 }]}>
               <Text style={styles.lockedIcon}>📭</Text>
               <Text style={[styles.lockedTitle, textStyle]}>No private posts yet</Text>
-              <Text style={styles.lockedSubtitle}>Check back later.</Text>
+              <Text style={[styles.lockedSubtitle, mutedTextStyle]}>Check back later.</Text>
             </View>
           </View>
         );
       }
       return <LockedCard />;
     },
-    [LockedCard, bgStyle, canViewPrivateContent, textStyle],
+    [LockedCard, bgStyle, border, canViewPrivateContent, cardStyle, mutedTextStyle, textStyle],
   );
 
   // if (isCompany) {
@@ -603,7 +611,7 @@ const PrivateContentScreen = ({
   if (loading || statusLoading) {
     return (
       <View style={[styles.loaderContainer, bgStyle]}>
-        <ActivityIndicator size="large" color="#5A2D82" />
+        <ActivityIndicator size="large" color={accent} />
       </View>
     );
   }
@@ -747,9 +755,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingVertical: 24,
     paddingHorizontal: 20,
-    backgroundColor: '#f8fafc',
     borderWidth: 1,
-    borderColor: '#e5e7eb',
     alignItems: 'center',
   },
   lockedIcon: {
@@ -764,7 +770,6 @@ const styles = StyleSheet.create({
   },
   lockedSubtitle: {
     fontSize: 14,
-    color: '#6b7280',
     textAlign: 'center',
     lineHeight: 20,
   },

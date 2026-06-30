@@ -18,6 +18,7 @@ import { showToastMessage } from '../../components/displaytoastmessage';
 import { getPostByUser, getUserCredentials, getUserDashboard } from '../../services/post';
 import { showLoader, hideLoader } from '../../redux/actions/LoaderAction';
 import { useAppTheme } from '../../theme/useApptheme';
+import { normalizeProfileType } from '../../utils/supportEligibility';
 import WelcomeValensModal from '../../components/modals/WelcomeValensModal';
 import { useLanguage } from '../../i18n';
 import { setPostPinnedState, sortPostsByPinned } from '../../utils/postPinning';
@@ -43,7 +44,9 @@ const ProfileScreen = () => {
 
   const toast = useToast();
   const dispatch = useDispatch();
-  const { bgStyle, textStyle } = useAppTheme();
+  const profileThemeType =
+    normalizeProfileType(userData?.profile) === 'company' ? 'company' : undefined;
+  const { bgStyle, accent } = useAppTheme(profileThemeType);
   const { t } = useLanguage();
 
   const fetchProfilePosts = useCallback(async (idOverride = '') => {
@@ -204,7 +207,8 @@ const profileTabsProps = useMemo(() => ({
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={userData?.profile == 'company' ? ['#C9A15a'] : ['#7c3aed']}
+            colors={[accent]}
+            tintColor={accent}
           />
         }
       >
@@ -220,6 +224,7 @@ const profileTabsProps = useMemo(() => ({
           bio={userData?.bio}
           dashboard={userDashboard}
           userData={userData}
+          profileType={userData?.profile}
           compactLocked={compactLocked}
 
         // executeFollowAction={executeFollowAction}

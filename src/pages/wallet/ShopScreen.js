@@ -9,20 +9,10 @@ import {
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { useBusinessProfileTheme } from '../../theme/useBusinessProfileTheme';
+import { useAppTheme } from '../../theme/useApptheme';
+import { normalizeProfileType } from '../../utils/supportEligibility';
 import { useLanguage } from '../../i18n';
 import { getMyClosetMe } from '../../services/myCloset';
-
-const mixWithWhite = (hex, amount = 0.85) => {
-  const normalized = String(hex || '').replace('#', '');
-  if (normalized.length !== 6) return '#f3f4f6';
-  const r = parseInt(normalized.slice(0, 2), 16);
-  const g = parseInt(normalized.slice(2, 4), 16);
-  const b = parseInt(normalized.slice(4, 6), 16);
-  const mix = c => Math.round(c + (255 - c) * amount);
-  const toHex = c => mix(c).toString(16).padStart(2, '0');
-  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-};
 
 const withAlpha = (hex, alpha = 0.12) => {
   const normalized = String(hex || '').replace('#', '');
@@ -34,13 +24,14 @@ const withAlpha = (hex, alpha = 0.12) => {
 };
 
 const ShopScreen = ({ navigation, isOwnProfile, userData }) => {
-  const [profileType, setProfileType] = useState('company');
   const [displayName, setDisplayName] = useState('');
-  const { bgStyle, textStyle, text, cardStyle, accent } = useBusinessProfileTheme();
+  const profileThemeType =
+    normalizeProfileType(userData?.profile) === 'company' ? 'company' : undefined;
+  const { bgStyle, textStyle, text, cardStyle, accent } = useAppTheme(profileThemeType);
   const { t } = useLanguage();
   const [shopCheckComplete, setShopCheckComplete] = useState(false);
   const [shopExists, setShopExists] = useState(false);
-  const [loggedInUserId, setLoggedInUserId] = useState(null);
+
   useEffect(() => {
     const loadProfileData = async () => {
       const storedName = await AsyncStorage.getItem('currentUsername');
@@ -48,14 +39,6 @@ const ShopScreen = ({ navigation, isOwnProfile, userData }) => {
     };
 
     loadProfileData();
-  }, []);
-  useEffect(() => {
-    const loadUser = async () => {
-      const userId = await AsyncStorage.getItem('userId');
-      setLoggedInUserId(userId);
-    };
-
-    loadUser();
   }, []);
   const handleStartShopPress = useCallback(async () => {
     try {
@@ -136,17 +119,17 @@ const ShopScreen = ({ navigation, isOwnProfile, userData }) => {
             style={[
               styles.railIconBubble,
               {
-                backgroundColor: mixWithWhite(text, 0.9),
+                backgroundColor: withAlpha(accent, 0.18),
                 marginTop: isOwnProfile ? '50%' : '80%',
               },
             ]}
           >
-            <Ionicons name="bag-handle" size={34} color={text} />
+            <Ionicons name="bag-handle" size={34} color={accent} />
           </View>
         </LinearGradient>
 
         <View style={styles.marketingBody}>
-          {isOwnProfile || loggedInUserId ? (
+          {isOwnProfile ? (
             <>
               <Text style={[styles.marketingTitle, textStyle]}>
                 {displayName
@@ -162,20 +145,17 @@ const ShopScreen = ({ navigation, isOwnProfile, userData }) => {
                 {t('shop.description')}
               </Text>
 
-              <TouchableOpacity
-                activeOpacity={0.9}
-                // onPress={() =>
-                //   navigation.navigate('ProfileMain', {
-                //     screen: 'MyClosetCreateShop',
-                //   })
-                // }
-                onPress={handleStartShopPress}
-                style={[styles.ctaButton, { backgroundColor: text }]}
-              >
-                <Text style={styles.ctaText}>
-                  {t('shop.ctaButton')}
-                </Text>
-              </TouchableOpacity>
+              {!shopCheckComplete || shopExists ? null : (
+                <TouchableOpacity
+                  activeOpacity={0.9}
+                  onPress={handleStartShopPress}
+                  style={[styles.ctaButton, { backgroundColor: accent }]}
+                >
+                  <Text style={styles.ctaText}>
+                    {t('shop.ctaButton')}
+                  </Text>
+                </TouchableOpacity>
+              )}
             </>
           ) : (
             <>
@@ -196,8 +176,7 @@ const ShopScreen = ({ navigation, isOwnProfile, userData }) => {
 
               <TouchableOpacity
                 activeOpacity={0.9}
-                // onPress={onSubscribePress}
-                style={[styles.ctaButton, { backgroundColor: text }]}
+                style={[styles.ctaButton, { backgroundColor: accent }]}
               >
                 <Text style={styles.ctaText}>
                   {t('privateContent.shopNowButton')}

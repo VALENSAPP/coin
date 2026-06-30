@@ -144,6 +144,9 @@ import PrivateCircle from '../components/profile/PrivateCircle';
 import LanguageSelectionScreen from '../pages/settings/LanguageSelectionScreen';
 // ── TRANSLATION CHANGE: import useLanguage hook ──────────────────────────────
 import { useLanguage } from '../i18n';
+import { normalizeProfileType } from '../utils/supportEligibility';
+
+const VIEWED_PROFILE_THEME_EVENT = 'VIEWED_PROFILE_THEME';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -300,6 +303,7 @@ export default function MainTabNavigator() {
   const profileImage = useSelector(state => state.profileImage?.profileImg);
   const userProfile = useSelector(state => state.userProfile.userProfile);
   const navigation = useNavigation();
+  const [viewedProfileType, setViewedProfileType] = React.useState(null);
   const {
     isBusinessProfile,
     bgStyle,
@@ -316,6 +320,36 @@ export default function MainTabNavigator() {
   const headerMenuColor = isBusinessProfile ? text : isDarkMode ? icon : text;
   // ── TRANSLATION CHANGE: initialise t() ──────────────────────────────────────
   const { t } = useLanguage();
+
+  React.useEffect(() => {
+    const subscription = DeviceEventEmitter.addListener(
+      VIEWED_PROFILE_THEME_EVENT,
+      ({ profileType }) => {
+        setViewedProfileType(profileType || null);
+      },
+    );
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
+  const tabAccent = useMemo(() => {
+    if (normalizeProfileType(viewedProfileType) === 'company') {
+      return '#C9A15A';
+    }
+    return accent;
+  }, [viewedProfileType, accent]);
+
+  const profileTabBorderColor = useMemo(() => {
+    if (
+      userProfile !== 'user' ||
+      normalizeProfileType(viewedProfileType) === 'company'
+    ) {
+      return '#C9A15A';
+    }
+    return tabAccent;
+  }, [userProfile, viewedProfileType, tabAccent]);
 
   const HomeStack = useMemo(() => {
     return () => (
@@ -977,7 +1011,7 @@ export default function MainTabNavigator() {
         tabBarShowLabel: false,
         tabBarStyle: defaultTabBarStyle,
         tabBarActiveTintColor:
-          route.name === 'Reels' && isFocused ? '#ffffff' : accent,
+          route.name === 'Reels' && isFocused ? '#ffffff' : tabAccent,
         tabBarInactiveTintColor:
           route.name === 'Reels' && isFocused ? '#ffffff' : mutedText,
         tabBarHideOnKeyboard: true,
@@ -986,7 +1020,7 @@ export default function MainTabNavigator() {
           const iconColor = isReelsFocused
             ? '#ffffff'
             : focused
-              ? accent
+              ? tabAccent
               : mutedText;
 
           switch (route.name) {
@@ -1039,7 +1073,7 @@ export default function MainTabNavigator() {
                     uri={profileImage}
                     size={30}
                     borderWidth={1.5}
-                    borderColor={userProfile !== 'user' ? '#C9A15a' : accent}
+                    borderColor={profileTabBorderColor}
                   />
                 );
               } else {
@@ -1048,7 +1082,7 @@ export default function MainTabNavigator() {
                     uri={require('../assets/icons/pngicons/user.png')}
                     size={30}
                     borderWidth={1.5}
-                    borderColor={userProfile !== 'user' ? '#C9A15a' : accent}
+                    borderColor={profileTabBorderColor}
                   />
                 );
               }
@@ -1067,7 +1101,7 @@ export default function MainTabNavigator() {
 
       return baseOptions;
     },
-    [profileImage, defaultTabBarStyle, reelsTabBarStyle, accent, mutedText, userProfile],
+    [profileImage, defaultTabBarStyle, reelsTabBarStyle, tabAccent, mutedText, profileTabBorderColor],
   );
 
   // Memoize HomeMain options function

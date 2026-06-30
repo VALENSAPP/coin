@@ -158,14 +158,16 @@ const ProfilePersonData = ({
           userDataToSet = profileResponse;
         }
         setUserProfile(userDataToSet.profile || '');
-        await AsyncStorage.setItem('profile', userDataToSet.profile);
+        if (!fromUsersProfile && userDataToSet?.profile) {
+          await AsyncStorage.setItem('profile', userDataToSet.profile);
+        }
       }
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
       dispatch(hideLoader());
     }
-  }, [dispatch, userData?.id]);
+  }, [dispatch, fromUsersProfile, userData?.id]);
 
   useEffect(() => {
     setProfileImage(profilepic || null);
@@ -218,9 +220,12 @@ const ProfilePersonData = ({
   const [activeTab, setActiveTab] = useState('battle');
   const toast = useToast();
   const { startSupportPayment } = useWalletConnectSupport();
-  const effectiveProfileType = userData?.profile ? userData?.profile : profileType;
-  const normalizedProfileThemeType =
-    typeof effectiveProfileType === 'string' ? effectiveProfileType.toLowerCase() : '';
+  const effectiveProfileType =
+    userData?.profile ||
+    profileType ||
+    userProfile ||
+    (isBusinessProfile ? 'company' : undefined);
+  const normalizedProfileThemeType = normalizeProfileType(effectiveProfileType);
   const isCompanyProfile = normalizedProfileThemeType === 'company';
   const reduxProfile = useSelector(state => state.userProfile.userProfile);
   const [loggedInProfileType, setLoggedInProfileType] = useState(null);
@@ -240,14 +245,19 @@ const ProfilePersonData = ({
     const resolved = reduxProfile && reduxProfile !== 'normal'
       ? reduxProfile
       : loggedInProfileType || (fromUsersProfile ? 'user' : effectiveProfileType);
-    return String(resolved || 'user').toLowerCase() !== 'user';
+    return normalizeProfileType(resolved) === 'company';
   }, [reduxProfile, loggedInProfileType, fromUsersProfile, effectiveProfileType]);
 
-  const profileActionGradient = isViewerCompanyProfile
-    ? ['#C9A15A', '#C9A15A']
+  // Theme follows the profile being displayed, not only who's viewing it.
+  const profileThemeIsCompany = fromUsersProfile
+    ? isCompanyProfile
+    : isCompanyProfile || isBusinessProfile || isViewerCompanyProfile;
+  const uiThemeType = profileThemeIsCompany ? 'company' : undefined;
+  const { bgStyle, textStyle, text, card, bg, icon, mutedText, accent, border, cardStyle } =
+    useAppTheme(uiThemeType);
+  const profileActionGradient = profileThemeIsCompany
+    ? [accent, accent]
     : ['#513189bd', '#e54ba0'];
-  const uiThemeType = isViewerCompanyProfile ? 'company' : undefined;
-  const { bgStyle, textStyle, text, card, bg, icon, mutedText, accent, border, cardStyle } = useAppTheme(uiThemeType);
   const route = useRoute();
   const showIdentityVerified = isProfileFullyIdentityVerified(userData);
   const isSubscriptionActive = userData?.subscriptionStatus == 'ACTIVE';
@@ -701,7 +711,9 @@ const ProfilePersonData = ({
               setData(response.data);
               if (response.data.image) setProfileImage(response.data.image);
             }
-            setIsBusinessProfile(response?.data?.profile === 'company');
+            setIsBusinessProfile(
+              normalizeProfileType(response?.data?.profile) === 'company',
+            );
 
             if (!fromUsersProfile && response.data.kyc === true) {
               const hasShownWelcome = await AsyncStorage.getItem(KYC_WELCOME_SHOWN_KEY);
@@ -1181,7 +1193,7 @@ const ProfilePersonData = ({
                   style={{ marginBottom: 5 }}
                 >
                   <View style={styles.avatarWithBadge}>
-                    <HexAvatar uri={avatarUri} size={110} borderWidth={2} borderColor={icon} />
+                    <HexAvatar uri={avatarUri} size={110} borderWidth={2} borderColor={accent} />
                     {showIdentityVerified && (
                       <View
                         style={styles.verifiedAvatarBadge}
@@ -1337,7 +1349,7 @@ const ProfilePersonData = ({
                       </LinearGradient>
                     </TouchableOpacity>
 
-                    {!isBusinessProfile && (
+                    {!profileThemeIsCompany && (
                       <TouchableOpacity onPress={handleToggleTotalSupport}>
                         <LinearGradient
                           colors={profileActionGradient}
@@ -1374,7 +1386,7 @@ const ProfilePersonData = ({
               ]}
             >
               {totalSupportLoading ? (
-                <ActivityIndicator size="small" color="#513189" />
+                <ActivityIndicator size="small" color={accent} />
               ) : (
                 <>
                   <Text style={[styles.totalSupportPopoverLabel, { color: mutedText }]}>
@@ -1614,7 +1626,7 @@ const ProfilePersonData = ({
                     uri={avatarUri}
                     size={PROFILE_IMAGE_PREVIEW_SIZE}
                     borderWidth={2}
-                    borderColor={icon}
+                    borderColor={accent}
                   />
                 </View>
               </View>

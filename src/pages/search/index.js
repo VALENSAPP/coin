@@ -39,6 +39,7 @@ import {
   ScrollView,
   Pressable,
   DeviceEventEmitter,
+  StyleSheet,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useDispatch } from 'react-redux';
@@ -56,8 +57,8 @@ import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import Video from 'react-native-video';
 import styles from './Style';
-import { useAppTheme } from '../../theme/useApptheme';
 import { useBusinessProfileTheme } from '../../theme/useBusinessProfileTheme';
+import { normalizeProfileType } from '../../utils/supportEligibility';
 import { getProgressBarColor } from '../../utils/progressBarUtils';
 import { getTotalDonationAmount } from '../../services/tokens';
 import { battleByUserId, exploretBattle } from '../../services/battle';
@@ -459,7 +460,6 @@ const SearchScreen = () => {
   const [loadingLiveBattles, setLoadingLiveBattles] = useState(false);
   const [selectedBattleOptions, setSelectedBattleOptions] = useState({});
   const [showBattleExplore, setShowBattleExplore] = useState(false);
-  const [profile, setProfile] = useState('user');
 
   const searchTimeoutRef = useRef(null);
   const rafRef = useRef(null);
@@ -467,9 +467,25 @@ const SearchScreen = () => {
   const toastRef = useRef(toast);
   const activeSearchRequestIdRef = useRef(0);
 
-  const themeProfile = String(profile || '').toLowerCase() === 'company' ? 'company' : undefined;
-  const { bgStyle, text, card, border, mutedText, icon, accent } = useAppTheme(themeProfile);
+  const {
+    isBusinessProfile,
+    bgStyle,
+    textStyle,
+    cardStyle,
+    text,
+    card,
+    border,
+    mutedText,
+    mutedTextStyle,
+    icon,
+    accent,
+  } = useBusinessProfileTheme();
+  const profile = isBusinessProfile ? 'company' : 'user';
   const isScreenFocused = useIsFocused();
+
+  const getUserAccentColor = useCallback((userProfile) => (
+    normalizeProfileType(userProfile) === 'company' ? '#C9A15A' : '#5a2d82'
+  ), []);
   const isSearchActive = searchText.trim().length > 0;
   const tabBarHeight = useBottomTabBarHeight();
   const masonryBottomInset = useMemo(
@@ -540,8 +556,11 @@ const SearchScreen = () => {
       console.log(userRes, 'data in ueser profile efrafaha');
 
       if (userRes?.statusCode === 200) {
-        console.log('userres for postres------->>>>>>>>>>>>>>>>>>', userRes.data.profile);
-        setProfile(userRes.data?.profile);
+        const loggedInProfile =
+          userRes.data?.profile ||
+          userRes.data?.user?.profile ||
+          'user';
+        await AsyncStorage.setItem('profile', loggedInProfile);
       } else {
         showToastMessage(toast, 'danger', userRes?.data?.message || 'Failed to fetch profile');
       }
@@ -553,12 +572,6 @@ const SearchScreen = () => {
       dispatch(hideLoader());
     }
   }, [dispatch, toast]);
-
-  useEffect(() => {
-    AsyncStorage.getItem('profile').then(storedProfile => {
-      if (storedProfile) setProfile(storedProfile);
-    });
-  }, []);
 
   useEffect(() => {
     if (isScreenFocused) {
@@ -955,26 +968,43 @@ const SearchScreen = () => {
 
   const userKeyExtractor = useCallback((item, idx) => String(item.id ?? idx), []);
 
-  const renderListItem = useCallback(({ item }) => (
-    <TouchableOpacity style={styles.userListItem} onPress={() => handleUserProfile(item)} activeOpacity={0.7}>
-      <HexAvatar
-        uri={normalizeImageUrl(item.image) || require('../../assets/icons/pngicons/user.png')}
-        size={60} borderWidth={1.5} borderColor={text}
-      />
-      <View style={styles.userInfo}>
-        <Text style={styles.userName} numberOfLines={1}>{item?.displayName || item?.userName}</Text>
-        <Text style={styles.userHandle} numberOfLines={1}>@{item?.userName}</Text>
-      </View>
-    </TouchableOpacity>
-  ), [handleUserProfile, text]);
+  const renderListItem = useCallback(({ item }) => {
+    const userAccent = getUserAccentColor(item?.profile);
+    return (
+      <TouchableOpacity
+        style={[
+          styles.userListItem,
+          cardStyle,
+          { borderColor: border, borderWidth: StyleSheet.hairlineWidth, shadowColor: userAccent },
+        ]}
+        onPress={() => handleUserProfile(item)}
+        activeOpacity={0.7}
+      >
+        <HexAvatar
+          uri={normalizeImageUrl(item.image) || require('../../assets/icons/pngicons/user.png')}
+          size={60}
+          borderWidth={1.5}
+          borderColor={userAccent}
+        />
+        <View style={styles.userInfo}>
+          <Text style={[styles.userName, { color: userAccent }]} numberOfLines={1}>
+            {item?.displayName || item?.userName}
+          </Text>
+          <Text style={[styles.userHandle, mutedTextStyle]} numberOfLines={1}>
+            @{item?.userName}
+          </Text>
+        </View>
+      </TouchableOpacity>
+    );
+  }, [handleUserProfile, getUserAccentColor, cardStyle, border, mutedTextStyle]);
 
   const renderListHeader = useCallback(() => (
-    <Text style={styles.sectionTitle}>{t('search.searchResultsTitle')}</Text>
-  ), [t]);
+    <Text style={[styles.sectionTitle, textStyle]}>{t('search.searchResultsTitle')}</Text>
+  ), [t, textStyle]);
 
   const renderSearchBattleFooter = useCallback(() => (
     <View style={styles.searchBattlesSection}>
-      <Text style={styles.sectionTitle}>{t('search.openBattles')}</Text>
+      <Text style={[styles.sectionTitle, textStyle]}>{t('search.openBattles')}</Text>
       {searchedUserBattles.length > 0 ? (
         searchedUserBattles.map(item => (
           <View key={`search-battle-${item.id}`} style={styles.searchBattleCardWrapper}>
@@ -989,9 +1019,9 @@ const SearchScreen = () => {
           </View>
         ))
       ) : (
-        <View style={styles.searchBattlesEmpty}>
-          <Icon name="shield-outline" size={24} color="#999" />
-          <Text style={styles.emptySubtitle}>{t('search.noBattlesFound')}</Text>
+        <View style={[styles.searchBattlesEmpty, cardStyle, { borderColor: border }]}>
+          <Icon name="shield-outline" size={24} color={mutedText} />
+          <Text style={[styles.emptySubtitle, mutedTextStyle]}>{t('search.noBattlesFound')}</Text>
         </View>
       )}
     </View>
@@ -1002,6 +1032,11 @@ const SearchScreen = () => {
     updateSelectedBattleOption,
     handleUserProfile,
     t,
+    textStyle,
+    cardStyle,
+    border,
+    mutedText,
+    mutedTextStyle,
   ]);
 
   const previewMediaUrl = useMemo(() => {
@@ -1082,7 +1117,7 @@ const SearchScreen = () => {
                   <View style={{ paddingHorizontal: 12, paddingTop: 2, paddingBottom: 10 }} />
                   <AutoScrollBattleRow>
                     {loadingLiveBattles ? (
-                      <View style={[styles.card, { alignItems: 'center', justifyContent: 'center' }]}>
+                      <View style={[styles.card, cardStyle, { borderColor: border, alignItems: 'center', justifyContent: 'center' }]}>
                         <ActivityIndicator size="small" color={accent} />
                       </View>
                     ) : visibleBattleCards.length > 0 ? (
@@ -1097,8 +1132,8 @@ const SearchScreen = () => {
                         />
                       ))
                     ) : (
-                      <View style={[styles.card, { justifyContent: 'center' }]}>
-                        <Text numberOfLines={2} style={[styles.title, { textAlign: 'center' }]}>
+                      <View style={[styles.card, cardStyle, { borderColor: border, justifyContent: 'center' }]}>
+                        <Text numberOfLines={2} style={[styles.title, textStyle, { textAlign: 'center' }]}>
                           {t('search.noBattlesFoundCard')}
                         </Text>
                       </View>
@@ -1112,8 +1147,8 @@ const SearchScreen = () => {
                 <View style={styles.resultsContainer}>
                   {isSearching ? (
                     <View style={styles.emptyContainer}>
-                      <ActivityIndicator size="large" color="#999" />
-                      <Text style={styles.emptySubtitle}>{t('search.loadingUsers')}</Text>
+                      <ActivityIndicator size="large" color={accent} />
+                      <Text style={[styles.emptySubtitle, mutedTextStyle]}>{t('search.loadingUsers')}</Text>
                     </View>
                   ) : filteredUsers.length > 0 ? (
                     <FlatList
@@ -1134,9 +1169,9 @@ const SearchScreen = () => {
                     />
                   ) : hasSearched ? (
                     <View style={styles.emptyContainer}>
-                      <Icon name="search-outline" size={60} color="#ddd" />
-                      <Text style={styles.emptyTitle}>{t('search.noUsersFoundTitle')}</Text>
-                      <Text style={styles.emptySubtitle}>{t('search.noUsersFoundSubtitle')}</Text>
+                      <Icon name="search-outline" size={60} color={mutedText} />
+                      <Text style={[styles.emptyTitle, textStyle]}>{t('search.noUsersFoundTitle')}</Text>
+                      <Text style={[styles.emptySubtitle, mutedTextStyle]}>{t('search.noUsersFoundSubtitle')}</Text>
                     </View>
                   ) : null}
                 </View>
@@ -1170,8 +1205,8 @@ const SearchScreen = () => {
                   </View>
                 ) : (
                   <View style={styles.emptyContainer}>
-                    <Icon name="images-outline" size={60} color="#ddd" />
-                    <Text style={styles.emptyTitle}>{t('search.noPostsAvailable')}</Text>
+                    <Icon name="images-outline" size={60} color={mutedText} />
+                    <Text style={[styles.emptyTitle, textStyle]}>{t('search.noPostsAvailable')}</Text>
                   </View>
                 )
               ) : null}

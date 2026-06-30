@@ -15,6 +15,7 @@ import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { LockKey, ProfileReelIcon } from '../../assets/icons';
 import { Image } from 'react-native';
 import { useAppTheme } from '../../theme/useApptheme';
+import { normalizeProfileType } from '../../utils/supportEligibility';
 import { useLanguage } from '../../i18n';
 import SubscribeModal from '../modals/SubscriptionModal';
 import { getFansubscriptionStatus } from '../../services/stirpe';
@@ -56,7 +57,9 @@ const ProfileTabs = memo(({
   const [closetCheckComplete, setClosetCheckComplete] = useState(false);
 
   const effectiveProfileType = profileType || userData?.profile;
-  const { text, bg, card, border, mutedText, icon, cardStyle } = useAppTheme(effectiveProfileType);
+  const profileThemeType =
+    normalizeProfileType(effectiveProfileType) === 'company' ? 'company' : undefined;
+  const { text, bg, card, border, mutedText, icon, cardStyle } = useAppTheme(profileThemeType);
   const { t } = useLanguage();
 
   const isOwnProfile = String(loggedInUserId || '') === String(userData?.id || '');

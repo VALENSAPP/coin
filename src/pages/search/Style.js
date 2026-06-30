@@ -105,7 +105,6 @@ export default StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#333',
     marginTop: 16,
     marginBottom: 8,
   },
@@ -243,7 +242,6 @@ export default StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 12,
-    backgroundColor: '#fff',
     marginBottom: 8,
     borderRadius: 8,
     shadowColor: '#000',
@@ -268,12 +266,10 @@ export default StyleSheet.create({
   userName: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#000',
   },
 
   userHandle: {
     fontSize: 12,
-    color: '#666',
     marginTop: 2,
   },
 
@@ -311,7 +307,6 @@ export default StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#000',
     marginVertical: 12,
     paddingHorizontal: 12,
   },
@@ -330,15 +325,12 @@ export default StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 18,
     paddingHorizontal: 16,
-    backgroundColor: '#fff',
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
   },
 
   emptySubtitle: {
     fontSize: 14,
-    color: '#999',
     marginTop: 8,
   },
 

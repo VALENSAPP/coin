@@ -2,6 +2,7 @@ import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator, Image } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
+import { normalizeProfileType } from '../../utils/supportEligibility';
 import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { useLanguage } from '../../i18n';
 import useScreenshotProtection from '../../hooks/useScreenshotProtection';
@@ -96,16 +97,28 @@ const getDescription = (item) => {
   return item.description || 'No description available';
 };
 
-const EbookCard = memo(({ item, onPress }) => {
+const EbookCard = memo(({
+  item,
+  onPress,
+  accent,
+  cardStyle,
+  border,
+  textStyle,
+  mutedTextStyle,
+  isCompanyProfile,
+}) => {
   const coverImage = getCoverImage(item);
   const title = item.caption || item.title || 'E-book';
   const description = getDescription(item);
-  const palette = themeStyles[item.theme] || themeStyles.purple;
-  const chapterCount = item?.tableContent?.length || 0;
+  const palette = themeStyles[item.theme] || (isCompanyProfile ? themeStyles.gold : themeStyles.purple);
 
   return (
-    <TouchableOpacity activeOpacity={0.88} onPress={onPress} style={styles.card}>
-      <View style={styles.coverContainer}>
+    <TouchableOpacity
+      activeOpacity={0.88}
+      onPress={onPress}
+      style={[styles.card, cardStyle, { borderColor: border }]}
+    >
+      <View style={[styles.coverContainer, { backgroundColor: `${border}` }]}>
         {coverImage ? (
           <Image source={{ uri: coverImage }} style={styles.coverImage} resizeMode="cover" />
         ) : (
@@ -115,14 +128,15 @@ const EbookCard = memo(({ item, onPress }) => {
         )}
       </View>
       <View style={styles.cardBody}>
-        <Text style={styles.title} numberOfLines={1}>{title}</Text>
-        <Text style={styles.desc} numberOfLines={2}>{description}</Text>
+        <Text style={[styles.title, textStyle]} numberOfLines={1}>{title}</Text>
+        <Text style={[styles.desc, mutedTextStyle]} numberOfLines={2}>{description}</Text>
         <View style={styles.metaRow}>
-          {/* <Text style={styles.meta}>📄 {item.pages} Pages</Text> */}
-          <Text style={styles.meta}>📚  {item?.tableContent?.length || 0} Chapters</Text>
+          <Text style={[styles.meta, { color: accent }]}>
+            📚  {item?.tableContent?.length || 0} Chapters
+          </Text>
         </View>
       </View>
-      <Ionicons name="chevron-forward" size={18} color="#6b7280" />
+      <Ionicons name="chevron-forward" size={18} color={mutedTextStyle?.color || '#6b7280'} />
     </TouchableOpacity>
   );
 });
@@ -142,7 +156,11 @@ const ProfileEbookScreen = ({
   const [resolvedIsSubscribed, setResolvedIsSubscribed] = useState(false);
   const navigation = useNavigation();
   const isFocused = useIsFocused();
-  const { bgStyle, textStyle, text } = useAppTheme(userData?.profile);
+  const profileThemeType =
+    normalizeProfileType(userData?.profile) === 'company' ? 'company' : undefined;
+  const isCompanyProfile = profileThemeType === 'company';
+  const { bgStyle, textStyle, text, cardStyle, border, mutedTextStyle, accent } =
+    useAppTheme(profileThemeType);
   const { t } = useLanguage();
   const normalizedIsSubscribed =
     isSubscribed === true ||
@@ -213,16 +231,16 @@ const ProfileEbookScreen = ({
     if (!canViewPrivateContent) {
       return (
         <View style={[styles.emptyWrapper, bgStyle]}>
-          <View style={styles.lockedCard}>
+          <View style={[styles.lockedCard, cardStyle, { borderColor: border }]}>
             <Text style={styles.lockedIcon}>🔒</Text>
             <Text style={[styles.lockedTitle, textStyle]}>Premium E-books</Text>
-            <Text style={styles.lockedSubtitle}>
+            <Text style={[styles.lockedSubtitle, mutedTextStyle]}>
               Subscribe to unlock exclusive e-books and premium content from this creator.
             </Text>
             <TouchableOpacity
               activeOpacity={0.8}
               onPress={onSubscribePress}
-              style={[styles.ctaButton, { backgroundColor: text }]}
+              style={[styles.ctaButton, { backgroundColor: accent }]}
             >
               <Text style={styles.ctaText}>Subscribe Now</Text>
             </TouchableOpacity>
@@ -233,10 +251,10 @@ const ProfileEbookScreen = ({
 
     return (
       <View style={[styles.emptyWrapper, bgStyle]}>
-        <View style={styles.lockedCard}>
+        <View style={[styles.lockedCard, cardStyle, { borderColor: border }]}>
           <Text style={{ fontSize: 48, marginBottom: 16 }}>📚</Text>
           <Text style={[styles.lockedTitle, textStyle]}>No E-books Yet</Text>
-          <Text style={styles.lockedSubtitle}>
+          <Text style={[styles.lockedSubtitle, mutedTextStyle]}>
             This creator hasn't published any e-books yet. Check back soon for exclusive content!
           </Text>
         </View>
@@ -253,7 +271,7 @@ const ProfileEbookScreen = ({
   if (loading) {
     return (
       <View style={[styles.screen, bgStyle, styles.loaderContainer]}>
-        <ActivityIndicator size="large" color="#5A2D82" />
+        <ActivityIndicator size="large" color={accent} />
       </View>
     );
   }
@@ -262,7 +280,7 @@ const ProfileEbookScreen = ({
     <View style={[styles.screen, bgStyle]}>
       <View style={styles.headerRow}>
         <Text style={[styles.headerTitle, textStyle]}>E-books</Text>
-        <Text style={[styles.headerCount, textStyle]}>{data.length} E-books</Text>
+        <Text style={[styles.headerCount, mutedTextStyle]}>{data.length} E-books</Text>
       </View>
       {data.length === 0 ? (
         renderEmpty()
@@ -270,7 +288,18 @@ const ProfileEbookScreen = ({
         <FlatList
           data={data}
           keyExtractor={(item) => item.id?.toString() || item?.userId || Math.random().toString()}
-          renderItem={({ item }) => <EbookCard item={item} onPress={() => openEbook(item)} />}
+          renderItem={({ item }) => (
+            <EbookCard
+              item={item}
+              onPress={() => openEbook(item)}
+              accent={accent}
+              cardStyle={cardStyle}
+              border={border}
+              textStyle={textStyle}
+              mutedTextStyle={mutedTextStyle}
+              isCompanyProfile={isCompanyProfile}
+            />
+          )}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
         />
@@ -291,18 +320,16 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 10,
   },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: '#1f2937' },
-  headerCount: { fontSize: 12, color: '#6b7280', fontWeight: '700' },
+  headerTitle: { fontSize: 18, fontWeight: '800' },
+  headerCount: { fontSize: 12, fontWeight: '700' },
   listContent: { paddingHorizontal: 12, paddingBottom: 24 },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
     borderRadius: 16,
     padding: 12,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#E8E1F3',
   },
   cover: {
     width: 68,
@@ -320,7 +347,6 @@ const styles = StyleSheet.create({
     marginRight: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f3f4f6',
   },
   coverImage: {
     width: '100%',
@@ -334,10 +360,10 @@ const styles = StyleSheet.create({
   coverTitle: { color: '#fff', fontWeight: '800', fontSize: 12 },
   coverAuthor: { color: '#fff', fontSize: 10, opacity: 0.9 },
   cardBody: { flex: 1 },
-  title: { fontSize: 15, fontWeight: '800', color: '#111827', marginBottom: 4 },
-  desc: { fontSize: 12, color: '#6b7280', lineHeight: 16, marginBottom: 8 },
+  title: { fontSize: 15, fontWeight: '800', marginBottom: 4 },
+  desc: { fontSize: 12, lineHeight: 16, marginBottom: 8 },
   metaRow: { flexDirection: 'row', flexWrap: 'wrap' },
-  meta: { fontSize: 11, color: '#5A2D82', fontWeight: '700', marginRight: 10, marginBottom: 2 },
+  meta: { fontSize: 11, fontWeight: '700', marginRight: 10, marginBottom: 2 },
   emptyWrapper: {
     flex: 1,
     justifyContent: 'center',
@@ -346,12 +372,10 @@ const styles = StyleSheet.create({
   },
   lockedCard: {
     width: '100%',
-    backgroundColor: '#fff',
     borderRadius: 20,
     padding: 24,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E8E1F3',
     shadowColor: '#000',
     shadowOpacity: 0.08,
     shadowRadius: 16,
@@ -370,7 +394,6 @@ const styles = StyleSheet.create({
   },
   lockedSubtitle: {
     fontSize: 14,
-    color: '#6b7280',
     textAlign: 'center',
     marginBottom: 24,
     lineHeight: 20,

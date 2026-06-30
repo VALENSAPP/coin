@@ -25,6 +25,7 @@ import TokenSellModal from '../../components/modals/TokenSellModal';
 import { getProfile } from '../../services/createProfile';
 import { getUserTokenInfoByBlockChain } from '../../services/tokens';
 import { useAppTheme } from '../../theme/useApptheme';
+import { normalizeProfileType } from '../../utils/supportEligibility';
 import { getFansubscriptionStatus } from '../../services/stirpe';
 import { useLanguage } from '../../i18n';
 import { setPostPinnedState, sortPostsByPinned } from '../../utils/postPinning';
@@ -65,7 +66,9 @@ const Usersprofile = () => {
   const dispatch = useDispatch();
   const purchaseSheetRef = useRef(null);
   const sellSheetRef = useRef(null);
-  const { bgStyle, textStyle } = useAppTheme(userData?.profile);
+  const profileThemeType =
+    normalizeProfileType(userData?.profile) === 'company' ? 'company' : undefined;
+  const { bgStyle, textStyle, accent } = useAppTheme(profileThemeType);
 
   const fetchLoggedInUserId = useCallback(async () => {
     try {
@@ -341,8 +344,38 @@ const Usersprofile = () => {
 
       return () => {
         isActive = false;
+        (async () => {
+          try {
+            const id = await AsyncStorage.getItem('userId');
+            if (!id) return;
+            const res = await getUserCredentials(id);
+            if (res?.statusCode === 200) {
+              const loggedInProfile =
+                res.data?.profile ||
+                res.data?.user?.profile ||
+                'user';
+              await AsyncStorage.setItem('profile', loggedInProfile);
+            }
+          } catch {
+            // Ignore restore errors on blur
+          }
+        })();
       };
     }, [fetchAllData, fetchLoggedInUserId, navigation, resetProfileHeader, returnTo, screenParams, targetUserId]),
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      if (userData?.profile) {
+        DeviceEventEmitter.emit('VIEWED_PROFILE_THEME', {
+          profileType: normalizeProfileType(userData.profile),
+        });
+      }
+
+      return () => {
+        DeviceEventEmitter.emit('VIEWED_PROFILE_THEME', { profileType: null });
+      };
+    }, [userData?.profile]),
   );
 
   const onRefresh = wrapOnRefresh(async () => {
@@ -396,8 +429,8 @@ const Usersprofile = () => {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={['#fff']}
-            tintColor="#fff"
+            colors={[accent]}
+            tintColor={accent}
           />
         }
       >
