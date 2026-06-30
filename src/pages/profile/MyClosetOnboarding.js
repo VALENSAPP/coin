@@ -62,6 +62,7 @@ const CATEGORY_OPTIONS = [
   'Vintage',
   'Beauty',
   'Home Decor',
+  'Others'
 ];
 
 const RETURN_POLICY_OPTIONS = [
@@ -133,6 +134,7 @@ const ITEM_CATEGORY_OPTIONS = [
   'Shoes > Sneakers',
   'Home > Decor',
   'Vintage > Pieces',
+  'Others'
 ];
 
 const ITEM_CONDITION_OPTIONS = [
@@ -1585,7 +1587,7 @@ const MyClosetAddItemPriceScreen = ({ navigation, route }) => {
       return;
     }
 
-    navigation.navigate('MyClosetAddItemShipping', { draft: nextDraft });
+    navigation.navigate('MyClosetAddItemShipping', { draft: nextDraft, isFirstItem  });
   };
 
   return (
@@ -1693,7 +1695,7 @@ const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
       return;
     }
 
-    navigation.navigate('MyClosetAddItemReview', { draft: nextDraft });
+    navigation.navigate('MyClosetAddItemReview', { draft: nextDraft, isFirstItem  });
   };
 
   return (
@@ -2038,7 +2040,7 @@ const MyClosetAddItemPublishedScreen = ({ navigation, route }) => {
             label="Add Another Item"
             text={text}
             onPress={() =>
-              navigation.navigate('MyClosetAddItemPhotos', { draft: {} })
+              navigation.navigate('MyClosetAddItemPhotos', { draft: {}, isFirstItem: false })
             }
           />
         </View>

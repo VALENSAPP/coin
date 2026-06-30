@@ -16,7 +16,7 @@ import { useAppTheme } from '../../theme/useApptheme';
 import { useLanguage } from '../../i18n';
 import SubscribeModal from '../modals/SubscriptionModal';
 import { getFansubscriptionStatus } from '../../services/stirpe';
-import { getMyClosetMe } from '../../services/myCloset';
+import { getMyClosetMe, getMyClosetById } from '../../services/myCloset';
 import {
   privateSetup,
   parsePrivateCircleSetup,
@@ -62,23 +62,39 @@ const ProfileTabs = memo(({
   const isOwnProfile = String(loggedInUserId || '') === String(userData?.id || '');
   const targetProfileId = targetUserId || userData?.id;
 
+  const unwrapMyClosetResponse = useCallback((source) => {
+    const level1 = source?.data ?? source;
+    if (level1 && typeof level1 === 'object' && !Array.isArray(level1)) {
+      if (level1.data && typeof level1.data === 'object') {
+        return level1.data;
+      }
+      return level1;
+    }
+    return {};
+  }, []);
+
   useEffect(() => {
     let isMounted = true;
 
     const loadClosetState = async () => {
       try {
         const [apiResponse, draftValue, createdValue] = await Promise.all([
-          getMyClosetMe().catch(error => error?.response?.data || null),
+          isOwnProfile
+            ? getMyClosetMe().catch(error => error?.response?.data || null)
+            : getMyClosetById({ userId: targetProfileId }).catch(error => error?.response?.data || null),
           AsyncStorage.getItem('myClosetDraft'),
           AsyncStorage.getItem('myClosetCreated'),
         ]);
 
         if (!isMounted) return;
-
-        const closetData = apiResponse?.data || apiResponse;
-        const apiHasCloset =
-          apiResponse?.statusCode === 200 &&
-          Boolean(closetData?.shopName || closetData?.id || closetData?.data);
+        const closetData = unwrapMyClosetResponse(apiResponse);
+        const apiHasCloset = Boolean(
+          closetData?.closetDetails?.id ||
+          closetData?.closetDetails?.shopName ||
+          closetData?.shopName ||
+          closetData?.id ||
+          closetData?.data,
+        );
 
         setHasCreatedShop(apiHasCloset || createdValue === 'true');
 
@@ -105,7 +121,7 @@ const ProfileTabs = memo(({
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [isOwnProfile, targetProfileId, unwrapMyClosetResponse]);
 
   useEffect(() => {
     const normalizedIsSubscribed =
@@ -292,7 +308,7 @@ const ProfileTabs = memo(({
       />
     ),
     closet: (
-      !isOwnProfile || (closetCheckComplete && hasCreatedShop) ? (
+      closetCheckComplete && hasCreatedShop ? (
         <MyClosetShopFront
           navigation={navigation}
           userData={userData}
@@ -433,8 +449,10 @@ const ProfileTabs = memo(({
 
     const timer = setTimeout(async () => {
       if (!loggedInUserId || isOwnProfile) return;
+      // Keep company shop-tab navigation free of the subscription modal.
+      // if (userData?.profile === 'company') return;
       const hasActive = await getSubscriptionStatus(targetProfileId);
-      if (!hasActive && userData?.profile !== 'company') {
+      if (!hasActive) {
         setPrivatKey(p => p + 1);
         setShowSubscribeModal(true);
       }

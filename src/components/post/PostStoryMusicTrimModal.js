@@ -12,7 +12,6 @@ import {
   Dimensions,
   Image,
   TextInput,
-  Platform,
   ScrollView,
   Pressable,
   AppState,
@@ -105,6 +104,7 @@ export default function PostStoryMusicTrimModal({
   onCancel,
   onDone,
   onDelete,
+  registerCommitTrim,
 }) {
   const { t } = useLanguage();
 
@@ -174,11 +174,33 @@ export default function PostStoryMusicTrimModal({
     } else {
       setAudioTrimEndDraft('');
     }
+    audioTrimRef.current = {
+      start: Number(at.start ?? 0) || 0,
+      end:
+        at.end != null && at.end !== '' && Number.isFinite(Number(at.end))
+          ? Number(at.end)
+          : null,
+    };
     waveformSyncedRef.current = false;
     setMusicEditorPaused(false);
     setShowMusicTrimAdvanced(false);
     setSoundTrimClipSec(DEFAULT_STORY_CLIP_SEC);
   }, [visible, musicPreviewKey, initialStart, initialEnd, ytFullDurForInit]);
+
+  useEffect(() => {
+    if (!registerCommitTrim) return undefined;
+    registerCommitTrim(() => {
+      const at = audioTrimRef.current || { start: 0, end: null };
+      return {
+        start: Number(at.start) || 0,
+        end:
+          at.end != null && at.end !== '' && Number.isFinite(Number(at.end))
+            ? Number(at.end)
+            : null,
+      };
+    });
+    return () => registerCommitTrim(null);
+  }, [registerCommitTrim]);
 
   useEffect(() => {
     if (!isYoutubeTrack(audioSel) || !visible) return;
@@ -242,9 +264,7 @@ export default function PostStoryMusicTrimModal({
   const waveformWindowPx = waveformSegmentSec * WAVEFORM_PX_PER_SEC;
   const waveDimSide = Math.max(0, (waveformViewportW - waveformWindowPx) / 2);
 
-  const onWaveformScroll = e => {
-    const scrollX = e.nativeEvent.contentOffset.x;
-    setWaveformScrollX(scrollX);
+  const commitWaveformTrimFromScroll = scrollX => {
     const duration = musicTimelineDurationSec;
     if (duration <= 0) return;
     const segmentSec = Math.min(trimClipWindowSec, duration);
@@ -256,8 +276,15 @@ export default function PostStoryMusicTrimModal({
     let startSec = leftEdge / pxPerSec;
     startSec = Math.max(0, Math.min(startSec, maxStart));
     const endSec = Math.min(startSec + segmentSec, duration);
+    audioTrimRef.current = { start: startSec, end: endSec };
     setAudioTrimStartDraft(startSec.toFixed(2));
     setAudioTrimEndDraft(endSec.toFixed(2));
+  };
+
+  const onWaveformScroll = e => {
+    const scrollX = e.nativeEvent.contentOffset.x;
+    setWaveformScrollX(scrollX);
+    commitWaveformTrimFromScroll(scrollX);
   };
 
   const applySoundTrimClipLength = nextSec => {
@@ -272,6 +299,7 @@ export default function PostStoryMusicTrimModal({
     const maxStart = Math.max(0, duration - bounded);
     const clampedStart = Math.min(start, maxStart);
     const end = Math.min(clampedStart + bounded, duration);
+    audioTrimRef.current = { start: clampedStart, end };
     setAudioTrimStartDraft(clampedStart.toFixed(2));
     setAudioTrimEndDraft(end.toFixed(2));
     waveformSyncedRef.current = false;
@@ -297,9 +325,13 @@ export default function PostStoryMusicTrimModal({
   };
 
   const handleDone = () => {
+    const at = audioTrimRef.current || { start: 0, end: null };
     onDone?.({
-      start: Number(audioTrimStartDraft) || 0,
-      end: audioTrimEndDraft.trim() ? Number(audioTrimEndDraft) || null : null,
+      start: Number(at.start) || 0,
+      end:
+        at.end != null && at.end !== '' && Number.isFinite(Number(at.end))
+          ? Number(at.end)
+          : null,
     });
     setMusicEditorPaused(false);
   };
@@ -353,72 +385,112 @@ export default function PostStoryMusicTrimModal({
       ? audioSel.thumbnailUrl || audioSel.artworkUrl100 || audioSel.artworkUrl60
       : null;
 
+  const builtinGradient = useMemo(() => {
+    if (typeof audioSel === 'string') {
+      const map = {
+        chill: ['#5b4b8a', '#8b6bb8'],
+        energy: ['#c94b4b', '#e8a87c'],
+        vibe: ['#2d6a6a', '#4e9a9a'],
+      };
+      return map[audioSel] || ['#3d3d45', '#1e1e24'];
+    }
+    return ['#3d3d45', '#1e1e24'];
+  }, [audioSel]);
+
   if (!visible || !useLibraryMusic || !hasLibraryMusicPlayback) return null;
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={handleCancel}>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="fullScreen"
+      onRequestClose={handleCancel}
+    >
       <SafeAreaView style={styles.igMusicEditorRoot} edges={['top', 'bottom']}>
-        <View style={styles.igMusicEditorInner}>
-          <View style={styles.igMusicHeader}>
-            <View style={styles.igHeaderSideLeft}>
-              <TouchableOpacity onPress={handleCancel} hitSlop={12}>
-                <Text style={styles.igHeaderBtn}>{t('postStoryMusicTrim.cancel')}</Text>
+        <View style={styles.igMusicHeader}>
+          <TouchableOpacity onPress={handleCancel} hitSlop={12} style={styles.igHeaderSideBtn}>
+            <Text style={styles.igHeaderBtn}>{t('postStoryMusicTrim.cancel')}</Text>
+          </TouchableOpacity>
+          <Text style={styles.igHeaderTitle} numberOfLines={1}>
+            {getAudioTitle(audioSel, t)}
+          </Text>
+          <View style={styles.igHeaderActions}>
+            {onDelete ? (
+              <TouchableOpacity onPress={handleDelete} hitSlop={10} style={styles.igHeaderIconBtn}>
+                <Icon name="trash-outline" size={22} color="#ff6b81" />
               </TouchableOpacity>
-            </View>
-            <View style={styles.igMusicHeaderCenter}>
-              {trackArtworkUri ? (
-                <Image source={{ uri: trackArtworkUri }} style={styles.igArtwork} />
-              ) : (
-                <View style={styles.igArtworkPlaceholder}>
-                  <Icon name="musical-notes" size={20} color="#8e8e93" />
-                </View>
-              )}
-              <View style={styles.igColorRing}>
-                <LinearGradient
-                  colors={['#ff6b35', '#f7b733', '#6bcb77', '#4d96ff', '#9b59b6']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.igColorRingInner}
-                />
-              </View>
-            </View>
-            <View style={styles.igHeaderSideRight}>
-              {onDelete && (
-                <TouchableOpacity onPress={handleDelete} hitSlop={12} style={styles.igHeaderDeleteBtn}>
-                  <Icon name="trash" size={18} color="#ff4d6a" />
-                </TouchableOpacity>
-              )}
-            </View>
-            <TouchableOpacity onPress={handleDone} hitSlop={12}>
+            ) : null}
+            <TouchableOpacity onPress={handleDone} hitSlop={12} style={styles.igHeaderSideBtn}>
               <Text style={styles.igHeaderBtnDone}>{t('postStoryMusicTrim.done')}</Text>
             </TouchableOpacity>
           </View>
+        </View>
 
-          <View style={styles.igTrimPreviewArea}>
-            <View style={styles.igTrimPreviewCard}>
-              <View style={styles.igTrimPreviewArtRow}>
-                {trackArtworkUri ? (
-                  <Image source={{ uri: trackArtworkUri }} style={styles.igTrimPreviewArt} />
-                ) : (
-                  <LinearGradient
-                    colors={['#3d3d45', '#1e1e24']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.igTrimPreviewArtPlaceholder}
-                  >
-                    <Icon name="musical-notes" size={30} color="rgba(255,255,255,0.88)" />
-                  </LinearGradient>
-                )}
-                <View style={styles.igTrimPreviewTextCol}>
-                  <Text style={styles.igTrimPreviewTitle} numberOfLines={2}>
-                    {getAudioTitle(audioSel, t)}
+        <ScrollView
+          style={styles.igScroll}
+          contentContainerStyle={styles.igScrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.igHeroCard}>
+            {trackArtworkUri ? (
+              <Image source={{ uri: trackArtworkUri }} style={styles.igHeroArt} />
+            ) : (
+              <LinearGradient
+                colors={builtinGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.igHeroArtPlaceholder}
+              >
+                <Icon name="musical-notes" size={36} color="rgba(255,255,255,0.92)" />
+              </LinearGradient>
+            )}
+            <Text style={styles.igHeroTitle} numberOfLines={2}>
+              {getAudioTitle(audioSel, t)}
+            </Text>
+            {getAudioSubtitle(audioSel) ? (
+              <Text style={styles.igHeroSub} numberOfLines={1}>
+                {getAudioSubtitle(audioSel)}
+              </Text>
+            ) : null}
+
+            <View style={styles.igPlaybackRow}>
+              <Pressable
+                style={({ pressed }) => [styles.igPlayBtnOuter, pressed && styles.igPlayBtnPressed]}
+                onPress={() => setMusicEditorPaused(p => !p)}
+              >
+                <LinearGradient
+                  colors={musicEditorPaused ? ['#3a3a42', '#25252a'] : ['#4da3ff', '#6366f1']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.igPlayBtnGradient}
+                >
+                  <Icon name={musicEditorPaused ? 'play' : 'pause'} size={26} color="#fff" />
+                </LinearGradient>
+              </Pressable>
+              <View style={styles.igProgressCol}>
+                <View style={styles.igProgressHeader}>
+                  <Text style={styles.igProgressLabel}>{t('postStoryMusicTrim.preview')}</Text>
+                  <Text style={styles.igProgressTime}>
+                    {formatTimeMmSs(musicPreviewSec)} / {formatTimeMmSs(Math.max(0, igSegEnd - igSegStart))}
                   </Text>
-                  {getAudioSubtitle(audioSel) ? (
-                    <Text style={styles.igTrimPreviewSub} numberOfLines={1}>
-                      {getAudioSubtitle(audioSel)}
-                    </Text>
-                  ) : null}
                 </View>
+                <View style={styles.igProgressTrack}>
+                  <LinearGradient
+                    colors={['#4da3ff', '#a78bfa']}
+                    start={{ x: 0, y: 0.5 }}
+                    end={{ x: 1, y: 0.5 }}
+                    style={[
+                      styles.igProgressFill,
+                      { width: `${Math.round(igSegmentProgress * 1000) / 10}%` },
+                    ]}
+                  />
+                </View>
+              </View>
+              <View style={styles.igDurationBadge}>
+                <Text style={styles.igDurationBadgeText}>
+                  {Math.round(Math.max(0, igSegEnd - igSegStart))}s
+                </Text>
               </View>
             </View>
           </View>
@@ -517,107 +589,39 @@ export default function PostStoryMusicTrimModal({
             </View>
           ) : null}
 
-          <View style={styles.igPlaybackRow}>
-            <Pressable
-              style={({ pressed }) => [styles.igPlayBtnOuter, pressed && styles.igPlayBtnPressed]}
-              onPress={() => setMusicEditorPaused(p => !p)}
-            >
-              <LinearGradient
-                colors={musicEditorPaused ? ['#3a3a42', '#25252a'] : ['#4da3ff', '#6366f1']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.igPlayBtnGradient}
-              >
-                <Icon name={musicEditorPaused ? 'play' : 'pause'} size={28} color="#fff" />
-              </LinearGradient>
-            </Pressable>
-            <View style={styles.igProgressCol}>
-              <Text style={styles.igProgressLabel}>{t('postStoryMusicTrim.preview')}</Text>
-              <View style={styles.igProgressWrap}>
-                <View style={styles.igProgressTrack}>
-                  <LinearGradient
-                    colors={['#4da3ff', '#a78bfa']}
-                    start={{ x: 0, y: 0.5 }}
-                    end={{ x: 1, y: 0.5 }}
-                    style={[
-                      styles.igProgressFill,
-                      { width: `${Math.round(igSegmentProgress * 1000) / 10}%` },
-                    ]}
-                  />
-                </View>
+          <View style={styles.igSectionCard}>
+            <View style={styles.igClipLenRow}>
+              <Text style={styles.igClipLenLabel}>{t('postStoryMusicTrim.clipLength')}</Text>
+              <View style={styles.igClipSegmentTrack}>
+                <Pressable
+                  onPress={() => applySoundTrimClipLength(15)}
+                  style={({ pressed }) => [
+                    styles.igClipSegChip,
+                    trimClipWindowSec === 15 && styles.igClipSegChipOn,
+                    pressed && styles.igClipLenChipPressed,
+                  ]}
+                >
+                  <Text style={[styles.igClipSegChipText, trimClipWindowSec === 15 && styles.igClipSegChipTextOn]}>
+                    {t('postStoryMusicTrim.15s')}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => applySoundTrimClipLength(30)}
+                  style={({ pressed }) => [
+                    styles.igClipSegChip,
+                    trimClipWindowSec === 30 && styles.igClipSegChipOn,
+                    pressed && styles.igClipLenChipPressed,
+                  ]}
+                >
+                  <Text style={[styles.igClipSegChipText, trimClipWindowSec === 30 && styles.igClipSegChipTextOn]}>
+                    {t('postStoryMusicTrim.30s')}
+                  </Text>
+                </Pressable>
               </View>
             </View>
-            <View style={styles.igDurationBadge}>
-              <Text style={styles.igDurationBadgeText}>
-                {Math.round(Math.max(0, igSegEnd - igSegStart))}s
-              </Text>
-            </View>
           </View>
 
-          <View style={styles.igLyricsClipSection}>
-            <Text style={styles.igLyricsClipTitle}>{t('postStoryMusicTrim.lyricsTitle')}</Text>
-            <Text style={styles.igLyricsClipHint}>
-              {t('postStoryMusicTrim.lyricsHint')}
-            </Text>
-            <ScrollView
-              style={styles.igLyricsClipScroll}
-              nestedScrollEnabled
-              keyboardShouldPersistTaps="handled"
-            >
-              <Text style={styles.igLyricsClipText}>{clipLyricsTrimPreview}</Text>
-            </ScrollView>
-          </View>
-
-          {typeof onShowMusicCardChange === 'function' ? (
-            <View style={styles.igMusicCardToggleRow}>
-              <View style={styles.igMusicCardToggleTextCol}>
-                <Text style={styles.igMusicCardToggleLabel}>
-                  {t('postStoryMusicTrim.showMusicCard')}
-                </Text>
-                <Text style={styles.igMusicCardToggleHint}>
-                  {t('postStoryMusicTrim.showMusicCardHint')}
-                </Text>
-              </View>
-              <Switch
-                value={showMusicCard !== false}
-                onValueChange={onShowMusicCardChange}
-                trackColor={{ false: '#3f3f46', true: 'rgba(77,163,255,0.45)' }}
-                thumbColor={showMusicCard !== false ? '#4da3ff' : '#a1a1aa'}
-              />
-            </View>
-          ) : null}
-
-          <View style={styles.igClipLenRow}>
-            <Text style={styles.igClipLenLabel}>{t('postStoryMusicTrim.clipLength')}</Text>
-            <View style={styles.igClipSegmentTrack}>
-              <Pressable
-                onPress={() => applySoundTrimClipLength(15)}
-                style={({ pressed }) => [
-                  styles.igClipSegChip,
-                  trimClipWindowSec === 15 && styles.igClipSegChipOn,
-                  pressed && styles.igClipLenChipPressed,
-                ]}
-              >
-                <Text style={[styles.igClipSegChipText, trimClipWindowSec === 15 && styles.igClipSegChipTextOn]}>
-                  {t('postStoryMusicTrim.15s')}
-                </Text>
-              </Pressable>
-              <Pressable
-                onPress={() => applySoundTrimClipLength(30)}
-                style={({ pressed }) => [
-                  styles.igClipSegChip,
-                  trimClipWindowSec === 30 && styles.igClipSegChipOn,
-                  pressed && styles.igClipLenChipPressed,
-                ]}
-              >
-                <Text style={[styles.igClipSegChipText, trimClipWindowSec === 30 && styles.igClipSegChipTextOn]}>
-                  {t('postStoryMusicTrim.30s')}
-                </Text>
-              </Pressable>
-            </View>
-          </View>
-
-          <View style={styles.igWaveSection}>
+          <View style={styles.igSectionCard}>
             <Text style={styles.igWaveSectionTitle}>{t('postStoryMusicTrim.trimLabel')}</Text>
             <Text style={styles.igWaveHint}>
               {t('postStoryMusicTrim.waveHint', {
@@ -633,7 +637,6 @@ export default function PostStoryMusicTrimModal({
                   {formatTimeMmSs(musicTimelineDurationSec)}
                 </Text>
               </View>
-              <Text style={styles.igWaveMetaDot}>·</Text>
               <View style={styles.igWaveMetaPill}>
                 <Text style={styles.igWaveMetaPillLabel}>{t('postStoryMusicTrim.selection')}</Text>
                 <Text style={styles.igWaveMetaPillValue}>
@@ -675,6 +678,7 @@ export default function PostStoryMusicTrimModal({
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 onScroll={onWaveformScroll}
+                onMomentumScrollEnd={e => commitWaveformTrimFromScroll(e.nativeEvent.contentOffset.x)}
                 scrollEventThrottle={16}
                 contentContainerStyle={styles.waveformScrollContent}
               >
@@ -717,7 +721,7 @@ export default function PostStoryMusicTrimModal({
                   ]}
                 >
                   <LinearGradient
-                    colors={['rgba(255,122,51,0.25)', 'rgba(168,85,247,0.28)']}
+                    colors={['rgba(77,163,255,0.22)', 'rgba(167,139,250,0.28)']}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={StyleSheet.absoluteFillObject}
@@ -729,6 +733,12 @@ export default function PostStoryMusicTrimModal({
               style={styles.igAdvancedBtn}
               onPress={() => setShowMusicTrimAdvanced(a => !a)}
             >
+              <Icon
+                name={showMusicTrimAdvanced ? 'chevron-up' : 'chevron-down'}
+                size={16}
+                color="#4da3ff"
+                style={styles.igAdvancedBtnIcon}
+              />
               <Text style={styles.igAdvancedBtnText}>
                 {showMusicTrimAdvanced
                   ? t('postStoryMusicTrim.hideExactTimes')
@@ -737,26 +747,61 @@ export default function PostStoryMusicTrimModal({
             </TouchableOpacity>
             {showMusicTrimAdvanced ? (
               <View style={styles.igAdvancedInputs}>
-                <TextInput
-                  value={audioTrimStartDraft}
-                  onChangeText={setAudioTrimStartDraft}
-                  keyboardType="decimal-pad"
-                  placeholder={t('postStoryMusicTrim.startPlaceholder')}
-                  placeholderTextColor="#666"
-                  style={styles.igSheetInput}
-                />
-                <TextInput
-                  value={audioTrimEndDraft}
-                  onChangeText={setAudioTrimEndDraft}
-                  keyboardType="decimal-pad"
-                  placeholder={t('postStoryMusicTrim.endPlaceholder')}
-                  placeholderTextColor="#666"
-                  style={styles.igSheetInput}
-                />
+                <View style={styles.igAdvancedField}>
+                  <Text style={styles.igAdvancedFieldLabel}>{t('postStoryMusicTrim.startPlaceholder')}</Text>
+                  <TextInput
+                    value={audioTrimStartDraft}
+                    onChangeText={setAudioTrimStartDraft}
+                    keyboardType="decimal-pad"
+                    placeholder={t('postStoryMusicTrim.startPlaceholder')}
+                    placeholderTextColor="#666"
+                    style={styles.igSheetInput}
+                  />
+                </View>
+                <View style={styles.igAdvancedField}>
+                  <Text style={styles.igAdvancedFieldLabel}>{t('postStoryMusicTrim.endPlaceholder')}</Text>
+                  <TextInput
+                    value={audioTrimEndDraft}
+                    onChangeText={setAudioTrimEndDraft}
+                    keyboardType="decimal-pad"
+                    placeholder={t('postStoryMusicTrim.endPlaceholder')}
+                    placeholderTextColor="#666"
+                    style={styles.igSheetInput}
+                  />
+                </View>
               </View>
             ) : null}
           </View>
-        </View>
+
+          <View style={styles.igSectionCard}>
+            <Text style={styles.igLyricsClipTitle}>{t('postStoryMusicTrim.lyricsTitle')}</Text>
+            <Text style={styles.igLyricsClipHint}>
+              {t('postStoryMusicTrim.lyricsHint')}
+            </Text>
+            <View style={styles.igLyricsClipBody}>
+              <Text style={styles.igLyricsClipText}>{clipLyricsTrimPreview}</Text>
+            </View>
+          </View>
+
+          {typeof onShowMusicCardChange === 'function' ? (
+            <View style={styles.igMusicCardToggleRow}>
+              <View style={styles.igMusicCardToggleTextCol}>
+                <Text style={styles.igMusicCardToggleLabel}>
+                  {t('postStoryMusicTrim.showMusicCard')}
+                </Text>
+                <Text style={styles.igMusicCardToggleHint}>
+                  {t('postStoryMusicTrim.showMusicCardHint')}
+                </Text>
+              </View>
+              <Switch
+                value={showMusicCard !== false}
+                onValueChange={onShowMusicCardChange}
+                trackColor={{ false: '#3f3f46', true: 'rgba(77,163,255,0.45)' }}
+                thumbColor={showMusicCard !== false ? '#4da3ff' : '#a1a1aa'}
+              />
+            </View>
+          ) : null}
+        </ScrollView>
       </SafeAreaView>
     </Modal>
   );
@@ -765,110 +810,91 @@ export default function PostStoryMusicTrimModal({
 const styles = StyleSheet.create({
   igMusicEditorRoot: {
     flex: 1,
-    backgroundColor: '#0c0c0f',
+    backgroundColor: '#0a0a0d',
+    paddingTop: 10
   },
-  igMusicEditorInner: { flex: 1,    marginTop:'5%',
- },
   igMusicHeader: {
-    marginTop:'10%',
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
-    paddingBottom: 12,
-    paddingTop: 4,
+    paddingVertical: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: 'rgba(255,255,255,0.08)',
   },
-  igHeaderSideLeft: { width: 78, justifyContent: 'center' },
-  igHeaderSideRight: { 
-    width: 78, 
-    alignItems: 'flex-end', 
-    justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 8,
+  igHeaderSideBtn: {
+    minWidth: 64,
+    paddingVertical: 4,
   },
-  igHeaderBtn: { color: '#fff', fontSize: 17, fontWeight: '400' },
-  igHeaderBtnDone: { color: '#4da3ff', fontSize: 17, fontWeight: '600' },
-  igHeaderDeleteBtn: {
-    marginLeft: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255,77,106,0.12)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  igMusicHeaderCenter: {
+  igHeaderTitle: {
     flex: 1,
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginHorizontal: 8,
+  },
+  igHeaderActions: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 4,
+    minWidth: 64,
+    justifyContent: 'flex-end',
+  },
+  igHeaderIconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'rgba(255,107,129,0.1)',
+  },
+  igHeaderBtn: { color: '#fff', fontSize: 16, fontWeight: '400' },
+  igHeaderBtnDone: { color: '#4da3ff', fontSize: 16, fontWeight: '700' },
+  igScroll: { flex: 1 },
+  igScrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 32,
     gap: 14,
   },
-  igArtwork: { width: 36, height: 36, borderRadius: 6 },
-  igArtworkPlaceholder: {
-    width: 36,
-    height: 36,
-    borderRadius: 6,
-    backgroundColor: 'transparent',
+  igHeroCard: {
     alignItems: 'center',
-    justifyContent: 'center',
-  },
-  igColorRing: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    padding: 2,
-    backgroundColor: '#fff',
-  },
-  igColorRingInner: { flex: 1, borderRadius: 14 },
-  igTrimPreviewArea: {
-    flex: 1,
-    minHeight: 0,
+    paddingVertical: 20,
     paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 8,
-    justifyContent: 'center',
-  },
-  igTrimPreviewCard: {
-    borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.045)',
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.04)',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.1)',
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.35,
-        shadowRadius: 16,
-      },
-      android: { elevation: 4 },
-    }),
+    borderColor: 'rgba(255,255,255,0.08)',
   },
-  igTrimPreviewArtRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  igTrimPreviewArt: { width: 68, height: 68, borderRadius: 14, backgroundColor: '#1a1a1e' },
-  igTrimPreviewArtPlaceholder: {
-    width: 68,
-    height: 68,
-    borderRadius: 14,
+  igHeroArt: {
+    width: 96,
+    height: 96,
+    borderRadius: 16,
+    backgroundColor: '#1a1a1e',
+    marginBottom: 14,
+  },
+  igHeroArtPlaceholder: {
+    width: 96,
+    height: 96,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 14,
   },
-  igTrimPreviewTextCol: { flex: 1, justifyContent: 'center', minWidth: 0 },
-  igTrimPreviewTitle: {
+  igHeroTitle: {
     color: '#fff',
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '700',
-    lineHeight: 22,
+    textAlign: 'center',
+    lineHeight: 24,
     letterSpacing: -0.2,
   },
-  igTrimPreviewSub: {
+  igHeroSub: {
     color: 'rgba(255,255,255,0.52)',
     fontSize: 14,
-    marginTop: 5,
+    marginTop: 4,
     fontWeight: '500',
+    textAlign: 'center',
   },
   hiddenMusicPlayer: {
     position: 'absolute',
@@ -890,29 +916,41 @@ const styles = StyleSheet.create({
   igPlaybackRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 4,
-    paddingBottom: 16,
+    width: '100%',
+    marginTop: 20,
+    paddingTop: 16,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(255,255,255,0.08)',
   },
-  igPlayBtnOuter: { borderRadius: 28, overflow: 'hidden' },
+  igPlayBtnOuter: { borderRadius: 26, overflow: 'hidden' },
   igPlayBtnGradient: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     alignItems: 'center',
     justifyContent: 'center',
   },
   igPlayBtnPressed: { opacity: 0.88 },
-  igProgressCol: { flex: 1, marginLeft: 12, marginRight: 10, justifyContent: 'center', minWidth: 0 },
+  igProgressCol: { flex: 1, marginLeft: 14, marginRight: 10, justifyContent: 'center', minWidth: 0 },
+  igProgressHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
   igProgressLabel: {
-    color: 'rgba(255,255,255,0.38)',
+    color: 'rgba(255,255,255,0.45)',
     fontSize: 11,
     fontWeight: '700',
-    letterSpacing: 0.6,
-    marginBottom: 6,
+    letterSpacing: 0.5,
     textTransform: 'uppercase',
   },
-  igProgressWrap: { height: 10, justifyContent: 'center' },
+  igProgressTime: {
+    color: 'rgba(255,255,255,0.55)',
+    fontSize: 11,
+    fontWeight: '600',
+    fontVariant: ['tabular-nums'],
+  },
   igProgressTrack: {
     height: 6,
     borderRadius: 3,
@@ -921,58 +959,61 @@ const styles = StyleSheet.create({
   },
   igProgressFill: { height: 6, borderRadius: 3, minWidth: 2 },
   igDurationBadge: {
-    minWidth: 48,
-    height: 48,
-    paddingHorizontal: 8,
-    borderRadius: 24,
+    minWidth: 44,
+    height: 44,
+    paddingHorizontal: 10,
+    borderRadius: 22,
     backgroundColor: 'rgba(255,255,255,0.96)',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(0,0,0,0.06)',
   },
   igDurationBadgeText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '800',
     color: '#111',
     fontVariant: ['tabular-nums'],
   },
-  igLyricsClipSection: {
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    maxHeight: 140,
+  igSectionCard: {
+    borderRadius: 16,
+    padding: 16,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.08)',
   },
   igLyricsClipTitle: {
     color: 'rgba(255,255,255,0.92)',
-    fontSize: 13,
-    fontWeight: '800',
+    fontSize: 15,
+    fontWeight: '700',
     marginBottom: 4,
   },
   igLyricsClipHint: {
-    color: 'rgba(255,255,255,0.38)',
-    fontSize: 11,
-    marginBottom: 8,
-    lineHeight: 15,
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: 12,
+    marginBottom: 10,
+    lineHeight: 17,
   },
-  igLyricsClipScroll: { maxHeight: 96 },
+  igLyricsClipBody: {
+    maxHeight: 120,
+    borderRadius: 10,
+    padding: 12,
+    backgroundColor: 'rgba(0,0,0,0.25)',
+  },
   igLyricsClipText: {
     color: 'rgba(255,255,255,0.78)',
     fontSize: 13,
-    lineHeight: 19,
+    lineHeight: 20,
   },
   igMusicCardToggleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
-    marginHorizontal: 16,
-    marginBottom: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.04)',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: 'rgba(255,255,255,0.08)',
   },
   igMusicCardToggleTextCol: {
     flex: 1,
@@ -984,7 +1025,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   igMusicCardToggleHint: {
-    color: 'rgba(255,255,255,0.55)',
+    color: 'rgba(255,255,255,0.5)',
     fontSize: 12,
     marginTop: 2,
     lineHeight: 16,
@@ -993,20 +1034,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 14,
     gap: 12,
   },
   igClipLenLabel: {
-    color: 'rgba(255,255,255,0.45)',
-    fontSize: 13,
+    color: 'rgba(255,255,255,0.55)',
+    fontSize: 14,
     fontWeight: '600',
     flexShrink: 0,
   },
-  igClipSegmentTrack: { flexDirection: 'row', flex: 1, maxWidth: 220, alignSelf: 'flex-end', gap: 10 },
+  igClipSegmentTrack: { flexDirection: 'row', gap: 8 },
   igClipSegChip: {
-    paddingVertical: 10,
-    paddingHorizontal: 18,
+    paddingVertical: 9,
+    paddingHorizontal: 20,
     borderRadius: 999,
     backgroundColor: 'rgba(255,255,255,0.06)',
     borderWidth: 1,
@@ -1016,26 +1055,26 @@ const styles = StyleSheet.create({
   igClipSegChipText: { color: 'rgba(255,255,255,0.55)', fontSize: 14, fontWeight: '700' },
   igClipSegChipTextOn: { color: '#111' },
   igClipLenChipPressed: { opacity: 0.85 },
-  igWaveSection: { paddingHorizontal: 16, paddingBottom: 24 },
-  igWaveSectionTitle: { color: '#fff', fontSize: 16, fontWeight: '800', marginBottom: 6 },
+  igWaveSectionTitle: { color: '#fff', fontSize: 15, fontWeight: '700', marginBottom: 6 },
   igWaveHint: {
     color: 'rgba(255,255,255,0.45)',
     fontSize: 12,
     lineHeight: 17,
     marginBottom: 12,
   },
-  igWaveMetaRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' },
+  igWaveMetaRow: { flexDirection: 'row', alignItems: 'stretch', marginBottom: 12, gap: 8 },
   igWaveMetaPill: {
-    paddingVertical: 8,
+    flex: 1,
+    paddingVertical: 10,
     paddingHorizontal: 12,
     borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: 'rgba(0,0,0,0.22)',
   },
   igWaveMetaPillLabel: {
     color: 'rgba(255,255,255,0.38)',
     fontSize: 10,
     fontWeight: '800',
-    letterSpacing: 0.6,
+    letterSpacing: 0.5,
     textTransform: 'uppercase',
   },
   igWaveMetaPillValue: {
@@ -1046,25 +1085,24 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   igWaveMetaPillSec: { fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.55)' },
-  igWaveMetaDot: { color: 'rgba(255,255,255,0.25)', marginHorizontal: 8, fontSize: 16 },
   waveformOuterIg: {
-    height: 120,
-    borderRadius: 16,
+    height: 112,
+    borderRadius: 14,
     overflow: 'hidden',
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: 'rgba(0,0,0,0.3)',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255,255,255,0.08)',
   },
   waveformScrollContent: { alignItems: 'center' },
-  waveformBarsRowIg: { flexDirection: 'row', alignItems: 'flex-end', height: 110, paddingBottom: 8 },
+  waveformBarsRowIg: { flexDirection: 'row', alignItems: 'flex-end', height: 102, paddingBottom: 8 },
   waveformBarIg: { width: 2, marginHorizontal: 1, borderRadius: 1, backgroundColor: '#fff' },
   waveformBarIgHot: { opacity: 0.95 },
-  waveformBarIgCold: { opacity: 0.22 },
+  waveformBarIgCold: { opacity: 0.2 },
   waveDimSideIg: {
     position: 'absolute',
     top: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
   },
   waveDimLeft: { left: 0 },
   waveDimRight: { right: 0 },
@@ -1072,20 +1110,37 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     bottom: 0,
-    borderRadius: 12,
+    borderRadius: 10,
     borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.65)',
+    borderColor: 'rgba(255,255,255,0.7)',
   },
-  igAdvancedBtn: { marginTop: 12, alignSelf: 'center', paddingVertical: 8, paddingHorizontal: 12 },
+  igAdvancedBtn: {
+    marginTop: 12,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  igAdvancedBtnIcon: { marginRight: 4 },
   igAdvancedBtnText: { color: '#4da3ff', fontSize: 14, fontWeight: '600' },
-  igAdvancedInputs: { flexDirection: 'row', gap: 10, marginTop: 8 },
+  igAdvancedInputs: { flexDirection: 'row', gap: 10, marginTop: 10 },
+  igAdvancedField: { flex: 1 },
+  igAdvancedFieldLabel: {
+    color: 'rgba(255,255,255,0.45)',
+    fontSize: 11,
+    fontWeight: '600',
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
   igSheetInput: {
-    flex: 1,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.15)',
     borderRadius: 10,
     padding: 12,
     color: '#fff',
     fontSize: 16,
+    backgroundColor: 'rgba(0,0,0,0.2)',
   },
 });

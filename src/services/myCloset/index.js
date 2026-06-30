@@ -210,3 +210,28 @@ export const deleteCartItem = async (id) => {
 export const clearCart = async () => {
   return axiosInstance.delete('/cart');
 }
+
+export const getSellerOrders = async (params = {}) => {
+  const query = new URLSearchParams();
+  if (params.page) query.append('page', params.page);
+  if (params.limit) query.append('limit', params.limit);
+  if (params.status) query.append('status', params.status);
+  const queryString = query.toString();
+  return axiosInstance.get(`seller/orders${queryString ? `?${queryString}` : ''}`);
+};
+ 
+export const getSellerOrderDetails = async orderId => {
+  return axiosInstance.get(`seller/orders/${orderId}`);
+};
+
+export const markOrderProcessing = async orderId => {
+  return axiosInstance.patch(`seller/orders/${orderId}/processing`);
+};
+
+export const markOrderShipped = async orderId => {
+  return axiosInstance.patch(`seller/orders/${orderId}/ship`);
+};
+ 
+export const markOrderDelivered = async orderId => {
+  return axiosInstance.patch(`seller/orders/${orderId}/deliver`);
+};
