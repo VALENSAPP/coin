@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -11,7 +11,6 @@ import LinearGradient from 'react-native-linear-gradient';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useLanguage } from '../../i18n';
-import { getMyClosetMe } from '../../services/myCloset';
 
 const mixWithWhite = (hex, amount = 0.85) => {
   const normalized = String(hex || '').replace('#', '');
@@ -33,14 +32,12 @@ const withAlpha = (hex, alpha = 0.12) => {
   return `rgba(${r},${g},${b},${alpha})`;
 };
 
-const ShopScreen = ({ navigation, isOwnProfile, userData }) => {
+const ShopScreen = ({ navigation }) => {
   const [profileType, setProfileType] = useState('company');
   const [displayName, setDisplayName] = useState('');
   const { bgStyle, textStyle, text, cardStyle } = useAppTheme(profileType);
   const { t } = useLanguage();
-  const [shopCheckComplete, setShopCheckComplete] = useState(false);
-  const [shopExists, setShopExists] = useState(false);
-  const [loggedInUserId, setLoggedInUserId] = useState(null);
+
   useEffect(() => {
     const loadProfileData = async () => {
       const [storedProfile, storedName] = await Promise.all([
@@ -53,70 +50,7 @@ const ShopScreen = ({ navigation, isOwnProfile, userData }) => {
 
     loadProfileData();
   }, []);
-  useEffect(() => {
-    const loadUser = async () => {
-      const userId = await AsyncStorage.getItem('userId');
-      setLoggedInUserId(userId);
-    };
 
-    loadUser();
-  }, []);
-  const handleStartShopPress = useCallback(async () => {
-    try {
-      const response = await getMyClosetMe();
-      const data = response?.data || response;
-      const exists =
-        response?.statusCode === 200 &&
-        Boolean(data?.shopName || data?.id || data?.data);
-
-      if (exists) {
-        setShopExists(true);
-        setShopCheckComplete(true);
-        return;
-      }
-    } catch (error) {
-      // If the lookup fails, fall back to the create flow.
-    }
-
-    navigation.navigate('ProfileMain', { screen: 'MyClosetCreateShop' });
-  }, [navigation]);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const checkShopState = async () => {
-      if (!isOwnProfile) {
-        if (isMounted) setShopCheckComplete(true);
-        return;
-      }
-
-      try {
-        const response = await getMyClosetMe();
-        const data = response?.data || response;
-        const exists =
-          response?.statusCode === 200 &&
-          Boolean(data?.shopName || data?.id || data?.data);
-
-        if (isMounted) {
-          setShopExists(exists);
-        }
-      } catch (error) {
-        if (isMounted) {
-          setShopExists(false);
-        }
-      } finally {
-        if (isMounted) {
-          setShopCheckComplete(true);
-        }
-      }
-    };
-
-    checkShopState();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [isOwnProfile]);
   return (
     <ScrollView
       style={[styles.screen, bgStyle]}
@@ -139,10 +73,7 @@ const ShopScreen = ({ navigation, isOwnProfile, userData }) => {
           <View
             style={[
               styles.railIconBubble,
-              {
-                backgroundColor: mixWithWhite(text, 0.9),
-                marginTop: isOwnProfile ? '50%' : '80%',
-              },
+              { backgroundColor: mixWithWhite(text, 0.9) },
             ]}
           >
             <Ionicons name="bag-handle" size={34} color={text} />
@@ -150,65 +81,29 @@ const ShopScreen = ({ navigation, isOwnProfile, userData }) => {
         </LinearGradient>
 
         <View style={styles.marketingBody}>
-          {isOwnProfile || loggedInUserId ? (
-            <>
-              <Text style={[styles.marketingTitle, textStyle]}>
-                {displayName
-                  ? `${displayName} ${t('shop.title')}`
-                  : t('shop.title')}
-              </Text>
+          <Text style={[styles.marketingTitle, textStyle]}>
+            {displayName
+              ? `${displayName} ${t('shop.title')}`
+              : t('shop.title')}
+          </Text>
+          <Text style={[styles.marketingText, textStyle]}>
+            {t('shop.welcome')}
+          </Text>
+          <Text style={[styles.marketingText, textStyle]}>
+            {t('shop.description')}
+          </Text>
 
-              <Text style={[styles.marketingText, textStyle]}>
-                {t('shop.welcome')}
-              </Text>
-
-              <Text style={[styles.marketingText, textStyle]}>
-                {t('shop.description')}
-              </Text>
-
-              <TouchableOpacity
-                activeOpacity={0.9}
-                // onPress={() =>
-                //   navigation.navigate('ProfileMain', {
-                //     screen: 'MyClosetCreateShop',
-                //   })
-                // }
-                onPress={handleStartShopPress}
-                style={[styles.ctaButton, { backgroundColor: text }]}
-              >
-                <Text style={styles.ctaText}>
-                  {t('shop.ctaButton')}
-                </Text>
-              </TouchableOpacity>
-            </>
-          ) : (
-            <>
-              <Text style={[styles.marketingTitle, textStyle]}>
-                {(userData?.displayName ||
-                  userData?.userName ||
-                  t('privateContent.businessFallback'))}{' '}
-                {t('privateContent.shopSuffix')}
-              </Text>
-
-              <Text style={[styles.marketingText, textStyle]}>
-                {t('privateContent.shopGuestWelcome')}
-              </Text>
-
-              <Text style={[styles.marketingText, textStyle]}>
-                {t('privateContent.shopGuestDescription')}
-              </Text>
-
-              <TouchableOpacity
-                activeOpacity={0.9}
-                // onPress={onSubscribePress}
-                style={[styles.ctaButton, { backgroundColor: text }]}
-              >
-                <Text style={styles.ctaText}>
-                  {t('privateContent.shopNowButton')}
-                </Text>
-              </TouchableOpacity>
-            </>
-          )}
+          <TouchableOpacity
+            activeOpacity={0.9}
+            onPress={() =>
+              navigation.navigate('ProfileMain', {
+                screen: 'MyClosetCreateShop',
+              })
+            }
+            style={[styles.ctaButton, { backgroundColor: text }]}
+          >
+            <Text style={styles.ctaText}>{t('shop.ctaButton')}</Text>
+          </TouchableOpacity>
         </View>
       </View>
     </ScrollView>

@@ -16,7 +16,7 @@ import { useFocusEffect, useIsFocused, useNavigation } from '@react-navigation/n
 import { useAppTheme } from '../../theme/useApptheme';
 import { getPostByUser } from '../../services/post';
 import { getFansubscriptionStatus } from '../../services/stirpe';
-import { getMyClosetMe } from '../../services/myCloset';
+import { getMyClosetMe, getMyClosetById } from '../../services/myCloset';
 import LinearGradient from 'react-native-linear-gradient';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useLanguage } from '../../i18n';
@@ -147,7 +147,7 @@ const PostImage = memo(({ item, themeTextStyle }) => {
 
 const ItemSeparator = memo(() => <View style={styles.itemSeparator} />);
 
-const PrivateContentScreen = ({
+const BusinessShopScreen = ({
   userData,
   isSubscribed,
   loggedInUserId,
@@ -206,17 +206,25 @@ const PrivateContentScreen = ({
     let isMounted = true;
 
     const checkShopState = async () => {
-      if (!isCompany || !isOwnProfile) {
+      if (!isCompany || !userData?.id) {
         if (isMounted) setShopCheckComplete(true);
         return;
       }
 
       try {
-        const response = await getMyClosetMe();
+        const response = isOwnProfile
+          ? await getMyClosetMe()
+          : await getMyClosetById({ userId: userData.id });
         const data = response?.data || response;
         const exists =
           response?.statusCode === 200 &&
-          Boolean(data?.shopName || data?.id || data?.data);
+          Boolean(
+            data?.closetDetails?.id ||
+            data?.closetDetails?.shopName ||
+            data?.shopName ||
+            data?.id ||
+            data?.data,
+          );
 
         if (isMounted) {
           setShopExists(exists);
@@ -237,7 +245,7 @@ const PrivateContentScreen = ({
     return () => {
       isMounted = false;
     };
-  }, [isCompany, isOwnProfile]);
+  }, [isCompany, isOwnProfile, userData?.id]);
 
   useScreenshotProtection({
     enabled: isFocused && isActiveTab && !isCompany && canViewPrivateContent && !isOwnProfile,
@@ -336,7 +344,7 @@ const PrivateContentScreen = ({
   }, [activeMediaFilter]);
 
   useEffect(() => {
-    // if (isCompany) return;
+    if (isCompany) return;
     if (userData?.id) fetchPosts(userData.id);
   }, [userData?.id, fetchPosts]);
 
@@ -366,19 +374,19 @@ const PrivateContentScreen = ({
   }, [fetchPosts, getSubscriptionStatus, isOwnProfile, userData?.id]);
 
   useEffect(() => {
-    // if (isCompany) return;
+    if (isCompany) return;
     if (refreshKey !== undefined) refreshStatusAndPosts();
   }, [refreshKey]);
 
   useFocusEffect(
     useCallback(() => {
-      // if (isCompany) return () => { };
+      if (isCompany) return () => { };
       refreshStatusAndPosts();
     }, [refreshStatusAndPosts]),
   );
 
   useEffect(() => {
-    // if (isCompany) return () => { };
+    if (isCompany) return () => { };
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active' && isFocused) refreshStatusAndPosts();
     });
@@ -573,32 +581,32 @@ const PrivateContentScreen = ({
     [LockedCard, bgStyle, canViewPrivateContent, textStyle],
   );
 
-  // if (isCompany) {
-  //   if (shopCheckComplete && shopExists && isOwnProfile) {
-  //     return (
-  //       <MyClosetShopFront
-  //         navigation={navigation}
-  //         userData={userData}
-  //         shopDraft={null}
-  //         isOwnProfile={isOwnProfile}
-  //       />
-  //     );
-  //   }
+  if (isCompany) {
+    if (shopCheckComplete && shopExists) {
+      return (
+        <MyClosetShopFront
+          navigation={navigation}
+          userData={userData}
+          shopDraft={null}
+          isOwnProfile={isOwnProfile}
+        />
+      );
+    }
 
-  //   // Otherwise show ShopCard (setup or guest view)
-  //   return (
-  //     <Animated.ScrollView
-  //       style={[styles.screen, bgStyle]}
-  //       scrollEventThrottle={16}
-  //       onScroll={Animated.event(
-  //         [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-  //         { useNativeDriver: false }   // false because marginTop is a layout prop
-  //       )}
-  //     >
-  //       <ShopCard marginTopOverride={undefined} />
-  //     </Animated.ScrollView>
-  //   );
-  // }
+    // Otherwise show ShopCard (setup or guest view)
+    return (
+      <Animated.ScrollView
+        style={[styles.screen, bgStyle]}
+        scrollEventThrottle={16}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: false }   // false because marginTop is a layout prop
+        )}
+      >
+        <ShopCard marginTopOverride={undefined} />
+      </Animated.ScrollView>
+    );
+  }
 
   if (loading || statusLoading) {
     return (
@@ -610,9 +618,9 @@ const PrivateContentScreen = ({
 
   return (
     <View style={[styles.screen, bgStyle]}>
-      {/* {!canViewPrivateContent ? (
+      {!canViewPrivateContent ? (
         <LockedCard />
-      ) : ( */}
+      ) : (
         <FlatList
           data={posts}
           keyExtractor={keyExtractor}
@@ -630,12 +638,12 @@ const PrivateContentScreen = ({
           updateCellsBatchingPeriod={50}
           disableVirtualization={false}
         />
-      {/* )} */}
+      )}
     </View>
   );
 };
 
-export default memo(PrivateContentScreen);
+export default memo(BusinessShopScreen);
 const styles = StyleSheet.create({
   screen: {
     flex: 1,

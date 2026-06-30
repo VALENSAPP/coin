@@ -27,7 +27,7 @@ import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../displaytoastmessage';
 import ProfileEbookScreen from './ProfileEbookScreen';
 import MyClosetShopFront from './MyClosetShopFront';
-import ShopScreen from '../../pages/wallet/ShopScreen';
+import BusinessShop from './BusinessShop';
 const { width: screenWidth } = Dimensions.get('window');
 
 const ProfileTabs = memo(({
@@ -301,11 +301,18 @@ const ProfileTabs = memo(({
       </View>
     ),
     shop: (
-      <ShopScreen
-        navigation={navigation}
-        userData={userData}
-        isOwnProfile={isOwnProfile}
-      />
+      <BusinessShop
+            postCheck={post}
+            userData={userData}
+            isSubscribed={isSubscribed}
+            loggedInUserId={loggedInUserId}
+            onSubscribePress={() => userData?.profile !== 'company' && setShowSubscribeModal(true)}
+            isCompany={userData?.profile === 'company'}
+            refreshKey={`${refreshKey ?? 0}-${privateKey}`}
+            scrollEnabled={false}
+            isActiveTab={activeTab === PRIVATE_CONTENT_TAB_INDEX}
+            activeMediaFilter={mediaTab}
+          />
     ),
     closet: (
       closetCheckComplete && hasCreatedShop ? (

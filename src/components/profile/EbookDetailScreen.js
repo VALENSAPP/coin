@@ -64,7 +64,7 @@ const EbookDetailScreen = () => {
   const route = useRoute();
   const ebook = route?.params?.ebook || {};
   const routeLoggedInUserId = route?.params?.loggedInUserId;
-  const { bgStyle } = useAppTheme(route?.params?.userData?.profile);
+  const { bgStyle,text } = useAppTheme(route?.params?.userData?.profile);
   const { t } = useLanguage();
   const toast = useToast();
   const [isDownloading, setIsDownloading] = useState(false);
@@ -375,7 +375,7 @@ const EbookDetailScreen = () => {
               <Text style={styles.metaText}>{createdAt}</Text>
             </View>
             <View style={styles.subscriberPill}>
-              <Text style={styles.subscriberPillText}>Subscribers</Text>
+              <Text style={[styles.subscriberPillText,{color:text}]}>Subscribers</Text>
             </View>
             {isOwner ? (
               <View>
@@ -425,7 +425,7 @@ const EbookDetailScreen = () => {
 
         {allowDownload && (
           <TouchableOpacity
-            style={styles.downloadButton}
+            style={[styles.downloadButton ,{backgroundColor:text}]}
             onPress={handleDownloadPdf}
             disabled={isDownloading}
           >
@@ -434,15 +434,15 @@ const EbookDetailScreen = () => {
             ) : (
               <>
                 <Ionicons name="download-outline" size={16} color="#fff" />
-                <Text style={styles.downloadButtonText}>Download PDF</Text>
+                <Text style={[styles.downloadButtonText]}>Download PDF</Text>
               </>
             )}
           </TouchableOpacity>
         )}
 
         <TouchableOpacity style={styles.readButton} onPress={handleReadBook}>
-          <Ionicons name="book-outline" size={16} color="#5A2D82" />
-          <Text style={styles.readButtonText}>Read e-book</Text>
+          <Ionicons name="book-outline" size={16} color={text} />
+          <Text style={[styles.readButtonText,{color:text}]}>Read e-book</Text>
         </TouchableOpacity>
 
         <View style={styles.actionsRow}>
