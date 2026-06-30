@@ -115,7 +115,7 @@ function musicFieldsFromRoot(post, slide, rootMusic) {
     musicArtist: slide?.musicArtist ?? null,
     musicLyrics: slide?.lyrics ?? null,
     musicBadge: slide?.musicBadge ?? null,
-    showMusicCard: slide?.showMusicCard !== false,
+    showMusicCard: true,
   };
 
   if (rootMusic.kind === 'youtube') {
@@ -166,7 +166,7 @@ function musicFieldsFromSlide(slide, post, slideIndex, musicSlideIndex) {
     musicArtist: slide?.musicArtist ?? null,
     musicLyrics: slide?.lyrics ?? null,
     musicBadge: slide?.musicBadge ?? null,
-    showMusicCard: slide?.showMusicCard !== false,
+    showMusicCard: true,
   };
 
   if (audio?.mode === 'youtube' || audio?.videoId) {
@@ -413,7 +413,7 @@ export function buildEditorImagesFromHydrated(hydrated) {
       musicTrimEnd: edits.musicTrimEnd ?? null,
       musicLyrics: edits.musicLyrics ?? null,
       musicBadge: edits.musicBadge ?? null,
-      showMusicCard: edits.showMusicCard !== false,
+      showMusicCard: true,
       flipVolume: edits.flipVolume ?? 1,
       textOverlays: (edits.textOverlays || []).map(overlay => ({
         ...overlay,
