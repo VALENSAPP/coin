@@ -573,32 +573,32 @@ const PrivateContentScreen = ({
     [LockedCard, bgStyle, canViewPrivateContent, textStyle],
   );
 
-  if (isCompany) {
-    if (shopCheckComplete && shopExists && isOwnProfile) {
-      return (
-        <MyClosetShopFront
-          navigation={navigation}
-          userData={userData}
-          shopDraft={null}
-          isOwnProfile={isOwnProfile}
-        />
-      );
-    }
+  // if (isCompany) {
+  //   if (shopCheckComplete && shopExists && isOwnProfile) {
+  //     return (
+  //       <MyClosetShopFront
+  //         navigation={navigation}
+  //         userData={userData}
+  //         shopDraft={null}
+  //         isOwnProfile={isOwnProfile}
+  //       />
+  //     );
+  //   }
 
-    // Otherwise show ShopCard (setup or guest view)
-    return (
-      <Animated.ScrollView
-        style={[styles.screen, bgStyle]}
-        scrollEventThrottle={16}
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: false }   // false because marginTop is a layout prop
-        )}
-      >
-        <ShopCard marginTopOverride={undefined} />
-      </Animated.ScrollView>
-    );
-  }
+  //   // Otherwise show ShopCard (setup or guest view)
+  //   return (
+  //     <Animated.ScrollView
+  //       style={[styles.screen, bgStyle]}
+  //       scrollEventThrottle={16}
+  //       onScroll={Animated.event(
+  //         [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+  //         { useNativeDriver: false }   // false because marginTop is a layout prop
+  //       )}
+  //     >
+  //       <ShopCard marginTopOverride={undefined} />
+  //     </Animated.ScrollView>
+  //   );
+  // }
 
   if (loading || statusLoading) {
     return (
@@ -610,9 +610,9 @@ const PrivateContentScreen = ({
 
   return (
     <View style={[styles.screen, bgStyle]}>
-      {!canViewPrivateContent ? (
+      {/* {!canViewPrivateContent ? (
         <LockedCard />
-      ) : (
+      ) : ( */}
         <FlatList
           data={posts}
           keyExtractor={keyExtractor}
@@ -630,7 +630,7 @@ const PrivateContentScreen = ({
           updateCellsBatchingPeriod={50}
           disableVirtualization={false}
         />
-      )}
+      {/* )} */}
     </View>
   );
 };

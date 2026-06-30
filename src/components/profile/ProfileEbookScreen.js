@@ -73,7 +73,7 @@ const getCoverImage = (item) => {
 
 const getDescription = (item) => {
   if (!item) return 'No description available';
-  
+
   // If text is a JSON string, parse it
   if (typeof item.text === 'string') {
     try {
@@ -86,12 +86,12 @@ const getDescription = (item) => {
       return item.text || 'No description available';
     }
   }
-  
+
   // If text is already an array
   if (Array.isArray(item.text) && item.text.length > 0) {
     return item.text[0];
   }
-  
+
   // Fallback to description field
   return item.description || 'No description available';
 };
@@ -142,7 +142,7 @@ const ProfileEbookScreen = ({
   const [resolvedIsSubscribed, setResolvedIsSubscribed] = useState(false);
   const navigation = useNavigation();
   const isFocused = useIsFocused();
-  const { bgStyle, textStyle } = useAppTheme(userData?.profile);
+  const { bgStyle, textStyle, text } = useAppTheme(userData?.profile);
   const { t } = useLanguage();
   const normalizedIsSubscribed =
     isSubscribed === true ||
@@ -165,7 +165,7 @@ const ProfileEbookScreen = ({
     try {
       setLoading(true);
       const response = await getPostByUser(id, 'private');
-      console.log(resolvedIsSubscribed,'data in this apiaaaaaaaaaaaaiai')
+      console.log(resolvedIsSubscribed, 'data in this apiaaaaaaaaaaaaiai')
       const payload =
         response?.data?.posts ??
         response?.data?.data?.posts ??
@@ -189,8 +189,8 @@ const ProfileEbookScreen = ({
         return (
           !post?.visibleTo || post.visibleTo === ''
         ) && (
-          formatValue === 'ebook' || formatValue === 'book' || isPdf
-        );
+            formatValue === 'ebook' || formatValue === 'book' || isPdf
+          );
       });
 
       setEbooks(ebookData);
@@ -222,7 +222,7 @@ const ProfileEbookScreen = ({
             <TouchableOpacity
               activeOpacity={0.8}
               onPress={onSubscribePress}
-              style={[styles.ctaButton, { backgroundColor: '#5A2D82' }]}
+              style={[styles.ctaButton, { backgroundColor: text }]}
             >
               <Text style={styles.ctaText}>Subscribe Now</Text>
             </TouchableOpacity>
