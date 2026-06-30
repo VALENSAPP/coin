@@ -234,8 +234,8 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
 
   const goBattles = () => navigation?.navigate?.('ProfileMain', { screen: 'MyBattles' });
   const goStorefront = () => navigation?.navigate?.('ProfileMain', { screen: 'MyClosetStorefront' });
-  const goAddFirst = () => navigation?.navigate?.('ProfileMain', {
-    screen: 'MyClosetAddItemPhotos', params: { draft: {}, isFirstItem: true },
+  const goAddFirst = (isFirstItem = true) => navigation?.navigate?.('ProfileMain', {
+    screen: 'MyClosetAddItemPhotos', params: { draft: {}, isFirstItem },
   });
 
   return (
@@ -271,7 +271,7 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
             <Ionicons name="bag-handle" size={26} color={accent} />
           </View>
           <View style={s.bannerBody}>
-            <Text style={[s.bannerTitle, { color: accent }]}>{ isOwnProfile ? 'My Closet' : shopName}</Text>
+            <Text style={[s.bannerTitle, { color: accent }]}>{isOwnProfile ? 'My Closet' : shopName}</Text>
             <Text style={s.bannerSub}>
               Here you will find the things I let it go.{'\n'}
               Shop now and be happy the way I was with the item.{'\n'}
@@ -338,30 +338,44 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
             <View style={s.center}>
               <Ionicons name="shirt-outline" size={32} color="#d1d5db" />
               <Text style={s.emptyTxt}>No items yet</Text>
-              <TouchableOpacity style={[s.addBtn, { borderColor: accent }]} onPress={goAddFirst}>
-                <Text style={[s.addBtnTxt, { color: accent }]}>Add your first item</Text>
-              </TouchableOpacity>
+              <TouchableOpacity style={[s.addBtn, { borderColor: accent }]} onPress={() => goAddFirst(true)}>
+              <Text style={[s.addBtnTxt, { color: accent }]}>Add your first item</Text>
+            </TouchableOpacity>
             </View>
-          ) : (
-            <View style={s.center}>
-              <Text style={s.emptyTxt}>No items available</Text>
+      ) : (
+      <View style={s.center}>
+        <Text style={s.emptyTxt}>No items available</Text>
+      </View>
+      )
+      ) : (
+      <View style={s.grid}>
+        {tiles.map(it => (
+          <ItemTile
+            key={it.key}
+            item={it}
+            accent={accent}
+            onPress={() => { openItem(it) }}
+          />
+        ))}
+        {isOwnProfile && (
+          <TouchableOpacity
+            activeOpacity={0.85}
+            style={s.tile}
+            onPress={() => goAddFirst(false)}
+          >
+            <View style={[s.tileThumb, s.addTile]}>
+              <Ionicons name="add" size={28} color={accent} />
             </View>
-          )
-        ) : (
-          <View style={s.grid}>
-            {tiles.map(it => (
-              <ItemTile
-                key={it.key}
-                item={it}
-                accent={accent}
-                onPress={() => {/*openItem(it)*/}}
-              />
-            ))}
-          </View>
+            <Text style={[s.tileName, { color: accent }]} numberOfLines={1}>
+              Add new item
+            </Text>
+          </TouchableOpacity>
         )}
       </View>
+        )}
+    </View>
 
-    </ScrollView>
+    </ScrollView >
   );
 };
 
@@ -426,6 +440,14 @@ const s = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 12, gap: 12 },
   tile: { width: CARD_W },
   tileThumb: { width: '100%', aspectRatio: 1, borderRadius: 14, overflow: 'hidden', marginBottom: 6, backgroundColor: '#f5f3ee' },
+  addTile: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: '#d1d5db',
+    backgroundColor: '#fafafa',
+  },
   tileImg: { width: '100%', height: '100%' },
   tileImgPlaceholder: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f5f3ee' },
   heart: { position: 'absolute', top: 7, right: 7, backgroundColor: '#ffffffcc', borderRadius: 20, padding: 4 },
