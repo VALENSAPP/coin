@@ -1585,7 +1585,7 @@ const MyClosetAddItemPriceScreen = ({ navigation, route }) => {
       return;
     }
 
-    navigation.navigate('MyClosetAddItemShipping', { draft: nextDraft });
+    navigation.navigate('MyClosetAddItemShipping', { draft: nextDraft, isFirstItem  });
   };
 
   return (
@@ -1693,7 +1693,7 @@ const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
       return;
     }
 
-    navigation.navigate('MyClosetAddItemReview', { draft: nextDraft });
+    navigation.navigate('MyClosetAddItemReview', { draft: nextDraft, isFirstItem  });
   };
 
   return (
@@ -2038,7 +2038,7 @@ const MyClosetAddItemPublishedScreen = ({ navigation, route }) => {
             label="Add Another Item"
             text={text}
             onPress={() =>
-              navigation.navigate('MyClosetAddItemPhotos', { draft: {} })
+              navigation.navigate('MyClosetAddItemPhotos', { draft: {}, isFirstItem: false })
             }
           />
         </View>

@@ -134,6 +134,8 @@ import PrivateCircle from '../components/profile/PrivateCircle';
 import LanguageSelectionScreen from '../pages/settings/LanguageSelectionScreen';
 // ── TRANSLATION CHANGE: import useLanguage hook ──────────────────────────────
 import { useLanguage } from '../i18n';
+import MyClosetOrdersScreen from '../components/profile/MyClosetOrdersScreen';
+import MyClosetOrderDetailScreen from '../components/profile/MyClosetOrderDetailScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -427,6 +429,8 @@ export default function MainTabNavigator() {
           name="MyClosetItemEditor"
           component={MyClosetItemEditorScreen}
         />
+        <Stack.Screen name="MyClosetOrders" component={MyClosetOrdersScreen} />
+        <Stack.Screen name="MyClosetOrderDetail" component={MyClosetOrderDetailScreen} />
         <Stack.Screen name="MyClosetBuyerItems" component={MyClosetBuyerItemsScreen} />
         <Stack.Screen name="MyClosetBuyerItemDetail" component={MyClosetBuyerItemDetailScreen} />
         <Stack.Screen name="MyClosetBuyerOptions" component={MyClosetBuyerOptionsScreen} />

@@ -181,8 +181,7 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
 
   const handleViewAllOrders = () => {
     navigation?.navigate?.('ProfileMain', {
-      screen: 'MyClosetItemsManagement',
-      params: { section: 'orders' },
+      screen: 'MyClosetOrders',
     });
   };
 
