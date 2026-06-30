@@ -1658,6 +1658,9 @@ export const WalletDashboardScreen = ({ navigation }) => {
                       { color: mutedText },
                       isActive && styles.periodTextActive,
                     ]}
+                    numberOfLines={2}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.85}
                   >
                     {period}
                   </Text>
@@ -3307,12 +3310,13 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
     borderRadius: 6,
     overflow: 'hidden',
   },
   periodText: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#666',
     textAlign: 'center',
   },

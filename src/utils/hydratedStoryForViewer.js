@@ -28,6 +28,11 @@ async function fetchStoryRow(baseId, ownerId, selfUserId) {
   for (const candidateId of uniqueOwners) {
     try {
       const response = await getStoryByUser(candidateId, { time: 'all' });
+      console.log('[HydrateStory] GET story/by-user response:', {
+        userId: candidateId,
+        baseId,
+        response: response?.data ?? response,
+      });
       const match = findStoryRow(normalizeStoryRows(response?.data), baseId);
       if (match) return match;
     } catch (_error) {
@@ -37,6 +42,10 @@ async function fetchStoryRow(baseId, ownerId, selfUserId) {
 
   try {
     const followingRes = await getFollowingUserStories();
+    console.log('[HydrateStory] GET story/get response:', {
+      baseId,
+      response: followingRes?.data ?? followingRes,
+    });
     const match = findStoryRow(normalizeStoryRows(followingRes?.data), baseId);
     if (match) return match;
   } catch (_error) {
@@ -52,7 +61,11 @@ async function fetchStoryRow(baseId, ownerId, selfUserId) {
  */
 export async function hydrateStoryForViewer(partialStory, selfUserId = null) {
   const immediate = normalizeStoryForViewer(partialStory);
-  if (storyHasPlayableAudio(immediate)) return immediate;
+  console.log('[HydrateStory] Input from chat/viewer:', { partialStory, immediate, selfUserId });
+  if (storyHasPlayableAudio(immediate)) {
+    console.log('[HydrateStory] Using chat payload as-is (audio already present)');
+    return immediate;
+  }
 
   const { baseId, clipIndex: idClipIndex } = splitStoryClipId(
     partialStory?.storyId || partialStory?.id,
@@ -69,15 +82,20 @@ export async function hydrateStoryForViewer(partialStory, selfUserId = null) {
   ).trim();
 
   const apiStory = await fetchStoryRow(baseId, ownerId, selfUserId);
-  if (!apiStory) return immediate;
+  if (!apiStory) {
+    console.log('[HydrateStory] No API story row found, using partial payload');
+    return immediate;
+  }
 
   const clipIndex = inferClipIndex(partialStory, apiStory, idClipIndex);
 
-  return buildStoryClipFromApiRow(apiStory, clipIndex, {
+  const hydrated = buildStoryClipFromApiRow(apiStory, clipIndex, {
     userId: ownerId || apiStory.userId || apiStory.UserId || selfUserId || null,
     userName: partialStory?.userName || partialStory?.username || partialStory?.displayName,
     userImage: partialStory?.userImage || partialStory?.avatar,
     caption: partialStory?.caption || partialStory?.text,
     createdAt: partialStory?.createdAt || partialStory?.updatedAt,
   });
+  console.log('[HydrateStory] Hydrated story for viewer:', hydrated);
+  return hydrated;
 }

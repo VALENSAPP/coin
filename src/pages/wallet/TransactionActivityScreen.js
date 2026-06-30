@@ -19,6 +19,7 @@ import { getUserCredentials } from '../../services/post';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { useLanguage } from '../../i18n';
 import HexAvatar from '../../components/home/story.js/HexAvatar';
+import { resolveTransactionAmount } from '../../utils/transactionAmount';
 
 const pickFirst = (...values) =>
   values.find(value => value !== undefined && value !== null && value !== '');
@@ -49,18 +50,6 @@ const resolveTransactionUserId = (tx) => pickFirst(
   '',
 );
 
-const toNumber = (value) => {
-  const num = Number(value);
-  return Number.isFinite(num) ? num : 0;
-};
-
-const formatSignedMoney = (value) => {
-  const n = toNumber(value);
-  const sign = n < 0 ? '-' : '+';
-  const abs = Math.abs(n);
-  return `${sign}$${abs.toFixed(2)}`;
-};
-
 const formatActivityDate = (value) => {
   const date = value ? new Date(value) : null;
   if (!date || Number.isNaN(date.getTime())) return '';
@@ -86,11 +75,13 @@ const resolveIcon = (type) => {
 };
 
 const resolveTypeLabel = (tx) => {
+  const typeField = tx?.type;
+  const typeIsDirection = ['credit', 'debit'].includes(String(typeField || '').toLowerCase());
   const rawType = pickFirst(
     tx?.typeTransaction,
     tx?.action,
     tx?.forPayment,
-    tx?.type,
+    typeIsDirection ? '' : typeField,
     tx?.transactionType,
     tx?.category,
     tx?.source,
@@ -137,9 +128,7 @@ const mapTransactionsToActivity = async (raw) => {
     const userProfile = transactionUserId ? profileMap[String(transactionUserId)] : null;
     const typeLabel = resolveTypeLabel(tx);
     const status = pickFirst(tx?.status, tx?.paymentStatus, tx?.state, '');
-    const rawAmount = pickFirst(tx?.amountUsd, tx?.amountUSD, tx?.amount_usd, tx?.amount, tx?.usdAmount, tx?.value, 0);
-    const amountNumber = toNumber(rawAmount);
-    const amountTone = amountNumber < 0 ? 'negative' : 'positive';
+    const { formatted: amount, amountTone } = resolveTransactionAmount(tx);
 
     const profileName = pickFirst(
       userProfile?.displayName,
@@ -165,7 +154,7 @@ const mapTransactionsToActivity = async (raw) => {
       icon: resolveIcon(typeLabel),
       title: String(title),
       subtitle: subtitle ? String(subtitle) : [typeLabel, status].filter(Boolean).join(' • ') || '—',
-      amount: formatSignedMoney(amountNumber),
+      amount,
       amountTone,
       date: formatActivityDate(createdAt),
       typeLabel,
@@ -187,6 +176,7 @@ export default function TransactionActivityScreen() {
   const { t } = useLanguage();
 
   const initialActivity = route?.params?.activity;
+  const returnTo = route?.params?.returnTo ?? { tab: 'wallet', screen: 'TransactionActivity' };
   const [activity, setActivity] = useState(Array.isArray(initialActivity) ? initialActivity : []);
   const [loading, setLoading] = useState(false);
 
@@ -225,11 +215,11 @@ export default function TransactionActivityScreen() {
       screen: 'UsersProfile',
       params: {
         userId: item.profileUserId,
-        returnTo: { tab: 'wallet', screen: 'TransactionActivity' },
+        returnTo,
         userName: item.profileUserName,
       },
     });
-  }, [navigation]);
+  }, [navigation, returnTo]);
 
   const renderItem = useCallback(({ item }) => {
     const amountColor =

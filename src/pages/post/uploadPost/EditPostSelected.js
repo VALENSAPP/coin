@@ -58,6 +58,7 @@ import {
 } from '../../../utils/postSoundtracks';
 import YoutubePlayer from 'react-native-youtube-iframe';
 import PostStoryMusicTrimModal from '../../../components/post/PostStoryMusicTrimModal';
+import PostMusicGalleryModal from '../../../components/post/PostMusicGalleryModal';
 import {
   buildPostTextOverlayTextStyle,
   getPostTextOverlayCanvasMaxWidth,
@@ -80,24 +81,12 @@ import {
   OVERLAY_MIN_SCALE_MUSIC,
 } from '../../../components/home/story.js/storyOverlayConstants';
 import { fetchLyricsLRCLIB, parseLrcToSyncedLines } from '../../../utils/lyricsLrclib';
-
-const fonts = [
-  { name: 'saffasbom', style: { fontFamily: 'SAlfaSlabOne-Regularystem' } },
-  { name: 'bitcount', style: { fontFamily: 'BitcountPropSingle_Cursive-Regular' } },
-  { name: 'fontfree', style: { fontFamily: 'FontsFree-Net-Billabong' } },
-  { name: 'liber', style: { fontFamily: 'LibertinusMono-Regular' } },
-  { name: 'opensans', style: { fontFamily: 'OpenSans-Regular' } },
-  { name: 'pacifico', style: { fontFamily: 'Pacifico-Regular' } },
-  { name: 'play1', style: { fontFamily: 'PlaywriteAUQLD-Regular' } },
-  { name: 'play2', style: { fontFamily: 'PlaywriteHU-Regular' } },
-  { name: 'play3', style: { fontFamily: 'PlaywritePL-Regular' } },
-  { name: 'roboto', style: { fontFamily: 'Roboto-Regular' } },
-  { name: 'tridon', style: { fontFamily: 'Triodion-Regular' } },
-];
-
-const isSameFontStyle = (left, right) =>
-  (left?.fontFamily || '') === (right?.fontFamily || '') &&
-  (left?.fontWeight || '') === (right?.fontWeight || '');
+import {
+  POST_OVERLAY_FONTS,
+  isSameOverlayFontStyle,
+  normalizeOverlayFontFamily,
+  getOverlayFontTextStyle,
+} from '../../../utils/postOverlayFonts';
 
 const colors = [
   '#fff', '#ff0000', '#00ff00', '#0000ff', '#ffff00',
@@ -304,7 +293,7 @@ const InstagramPostCreator = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [modalVisible2, setModalVisible2] = useState(false);
   const [text, setText] = useState('');
-  const [selectedFont, setSelectedFont] = useState(fonts[0].style);
+  const [selectedFont, setSelectedFont] = useState(POST_OVERLAY_FONTS[0].style);
   const [showFonts, setShowFonts] = useState(true);
   const [showColors, setShowColors] = useState(false);
   const [textColor, setTextColor] = useState('#fff');
@@ -340,7 +329,7 @@ const InstagramPostCreator = () => {
   const activeSearchRequestIdRef = useRef(0);
 
   const [videoPaused, setVideoPaused] = useState({});
-  const [videoMuted, setVideoMuted] = useState(true);
+  const [videoMuted, setVideoMuted] = useState(false);
   const videoRefs = useRef({});
   const profileAvatarUri = useSelector(state => state.profileImage?.profileImg);
   const [flipUserName, setFlipUserName] = useState('');
@@ -372,7 +361,7 @@ const InstagramPostCreator = () => {
   const toast = useToast();
   const insets = useSafeAreaInsets();
   const [keyboardOffset, setKeyboardOffset] = useState(0);
-  const selectedFontKey = selectedFont?.fontFamily || 'system';
+  const selectedFontKey = normalizeOverlayFontFamily(selectedFont?.fontFamily) || 'system';
   const textEditorPreviewMaxHeight = useMemo(() => {
     if (!modalVisible2) return undefined;
     const headerSpace = insets.top + 52;
@@ -381,6 +370,8 @@ const InstagramPostCreator = () => {
   }, [modalVisible2, keyboardOffset, insets.top]);
 
   const [postStorySoundTrimVisible, setPostStorySoundTrimVisible] = useState(false);
+  const [isCapturingImage, setIsCapturingImage] = useState(false);
+  const commitMusicTrimRef = useRef(null);
   const postBgYoutubeRef = useRef(null);
   const postBgBuiltinVideoRef = useRef(null);
   const postBgMusicDurRef = useRef(30);
@@ -533,6 +524,11 @@ const InstagramPostCreator = () => {
     if (track.id === 'none') {
       updateCurrentImageEdits({ musicSource: 'none', musicId: 'none', musicTitle: null, musicArtist: null, musicYoutubeVideoId: null, musicYoutubeThumbUrl: null, musicYoutubeDurationSec: null, musicTrimStart: 0, musicTrimEnd: null, musicLyrics: null, musicBadge: null, showMusicCard: true });
       setFlipAudioModal(false);
+      if (isFlipPost) {
+        setFlipVolumeByIndex(prev => ({ ...prev, [currentImageIndex]: 1 }));
+      } else {
+        setVideoMuted(false);
+      }
       showToastMessage(toast, 'success', t('selectedPost.originalSound'), 1500);
       return;
     }
@@ -586,6 +582,14 @@ const InstagramPostCreator = () => {
 
   const openPostMusicPicker = () => {
     setPostStorySoundTrimVisible(false);
+    const slideEdits = getCurrentImageEdits();
+    if (!slideHasLibraryMusic(slideEdits)) {
+      if (isFlipPost) {
+        setFlipVolumeByIndex(prev => ({ ...prev, [currentImageIndex]: prev[currentImageIndex] ?? 1 }));
+      } else {
+        setVideoMuted(false);
+      }
+    }
     setFlipAudioModal(true);
   };
 
@@ -972,7 +976,36 @@ const InstagramPostCreator = () => {
   const getLatestTextOverlayById = overlayId => { const edits = getLatestImageEditsForIndex(currentImageIndexRef.current); return edits.textOverlays?.find(o => o.id === overlayId) ?? null; };
 
   const updateCurrentImageEdits = (updates) => {
-    setImageEdits(prev => ({ ...prev, [currentImageIndex]: { ...getCurrentImageEdits(), ...updates } }));
+    setImageEdits(prev => {
+      const idx = currentImageIndexRef.current;
+      const next = {
+        ...prev,
+        [idx]: { ...(prev[idx] || createEmptyImageEdits()), ...updates },
+      };
+      imageEditsRef.current = next;
+      return next;
+    });
+  };
+
+  const applyMusicTrimUpdate = ({ start, end }) => {
+    const layout = { width: currentContentLayout.width, height: currentContentLayout.height };
+    const idx = currentImageIndexRef.current;
+    const endVal = end != null && Number.isFinite(Number(end)) ? Number(end) : null;
+    setImageEdits(prev => {
+      const cur = prev[idx] || createEmptyImageEdits();
+      const next = {
+        ...prev,
+        [idx]: {
+          ...cur,
+          musicTrimStart: Number(start) || 0,
+          musicTrimEnd: endVal,
+          musicBadge: cur.musicBadge ?? defaultMusicBadgePosition(layout),
+        },
+      };
+      imageEditsRef.current = next;
+      return next;
+    });
+    showToastMessage(toast, 'success', t('selectedPost.musicTrimSaved'), 1500);
   };
 
   const loadLyricsForPostMusic = async (imageIndex, title, artist) => {
@@ -1132,6 +1165,8 @@ const InstagramPostCreator = () => {
 
   const captureFilteredImage = async (imageIndex, image) => {
     try {
+      setIsCapturingImage(true);
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
       if (currentImageIndexRef.current !== imageIndex) {
         setCurrentImageIndex(imageIndex);
         mainScrollViewRef.current?.scrollTo({ x: imageIndex * IMAGE_SIZE, animated: false });
@@ -1156,6 +1191,8 @@ const InstagramPostCreator = () => {
       });
     } catch (error) {
       return null;
+    } finally {
+      setIsCapturingImage(false);
     }
   };
 
@@ -1438,7 +1475,9 @@ const InstagramPostCreator = () => {
             setTextColor(o.color);
             setHighlightColor(o.highlightColor);
             setTextAlign(o.textAlign);
-            setSelectedFont(o.fontFamily ? { fontFamily: o.fontFamily } : fonts[0].style);
+            setSelectedFont({
+              fontFamily: normalizeOverlayFontFamily(o.fontFamily),
+            });
             setShowFonts(true);
             setShowColors(false);
             pan.setValue({ x: o.position?.x ?? 0, y: o.position?.y ?? 0 });
@@ -1665,16 +1704,22 @@ const InstagramPostCreator = () => {
   const handleNext = async () => {
     setVideoMuted(true); setVideoPaused(true);
     if (isDrawing) exitDrawModeDiscardStrokes();
+    if (postStorySoundTrimVisible) {
+      const trim = commitMusicTrimRef.current?.();
+      if (trim) applyMusicTrimUpdate(trim);
+      setPostStorySoundTrimVisible(false);
+      setFlipAudioModal(false);
+    }
+    const latestEdits = imageEditsRef.current;
     try {
       const processedImages = await Promise.all(
         selectedImages.map(async (image, index) => {
-          const edits = imageEdits[index] || createEmptyImageEdits();
+          const edits = latestEdits[index] || createEmptyImageEdits();
           let processedUri = edits.processedImageUri || getMediaDisplayUri(image);
           const isVideo = isMediaVideo(image);
           const hasBurnableImageEdits =
             (edits.textOverlays?.length || 0) > 0 ||
             (edits.overlayImages?.length || 0) > 0 ||
-            shouldShowPostMusicCard(edits) ||
             edits.drawings ||
             edits.processedImageUri ||
             (edits.filter && edits.filter !== 'none');
@@ -1692,7 +1737,7 @@ const InstagramPostCreator = () => {
           const captureLayout = getContentLayoutForMedia(image);
           const overlayCanvasWidth = captureLayout.width;
           const overlayCanvasHeight = captureLayout.height;
-          return { ...image, originalUri: getMediaDisplayUri(image), processedUri, filter: edits.filter, isVideo, trimStart: edits.trimStart, trimEnd: edits.trimEnd, musicId: edits.musicId, musicTitle: edits.musicTitle, musicArtist: edits.musicArtist, musicSource: edits.musicSource, musicYoutubeVideoId: edits.musicYoutubeVideoId, musicYoutubeThumbUrl: edits.musicYoutubeThumbUrl, musicYoutubeDurationSec: edits.musicYoutubeDurationSec, musicTrimStart: edits.musicTrimStart ?? 0, musicTrimEnd: edits.musicTrimEnd ?? null, musicLyrics: edits.musicLyrics ?? null, musicBadge: edits.musicBadge ?? null, showMusicCard: edits.showMusicCard !== false, flipVolume: flipVolumeByIndex[index] ?? 1, textOverlays: edits.textOverlays.map(overlay => ({ ...overlay, position: overlay.position || { x: 0, y: 0 } })), overlayImages: edits.overlayImages.map(overlay => ({ ...overlay, position: overlay.position || { x: 0, y: 0 } })), overlayCanvasWidth, overlayCanvasHeight, drawings: edits.drawings, uriBeforeAnyDrawing: edits.uriBeforeAnyDrawing, imageIndex: index };
+          return { ...image, originalUri: getMediaDisplayUri(image), processedUri, filter: edits.filter, isVideo, trimStart: edits.trimStart, trimEnd: edits.trimEnd, musicId: edits.musicId, musicTitle: edits.musicTitle, musicArtist: edits.musicArtist, musicSource: edits.musicSource, musicYoutubeVideoId: edits.musicYoutubeVideoId, musicYoutubeThumbUrl: edits.musicYoutubeThumbUrl, musicYoutubeDurationSec: edits.musicYoutubeDurationSec, musicTrimStart: edits.musicTrimStart ?? 0, musicTrimEnd: edits.musicTrimEnd ?? null, musicLyrics: edits.musicLyrics ?? null, musicBadge: edits.musicBadge ?? null, showMusicCard: false, flipVolume: flipVolumeByIndex[index] ?? 1, textOverlays: edits.textOverlays.map(overlay => ({ ...overlay, position: overlay.position || { x: 0, y: 0 } })), overlayImages: edits.overlayImages.map(overlay => ({ ...overlay, position: overlay.position || { x: 0, y: 0 } })), overlayCanvasWidth, overlayCanvasHeight, drawings: edits.drawings, uriBeforeAnyDrawing: edits.uriBeforeAnyDrawing, imageIndex: index };
         })
       );
 
@@ -1700,7 +1745,7 @@ const InstagramPostCreator = () => {
 
       navigation.navigate('PostEditor', {
         images: processedImages,
-        imageEdits: imageEdits,
+        imageEdits: latestEdits,
         postType: postType,
         fromIcon: fromIcon,
         taggedPeople: selectedTaggedPeople,
@@ -1736,7 +1781,7 @@ const InstagramPostCreator = () => {
             text: t('selectedPost.continueAnyway'),
             onPress: () => {
               const fallbackImages = selectedImages.map((image, index) => {
-                const edits = imageEdits[index] || createEmptyImageEdits();
+                const edits = imageEditsRef.current[index] || createEmptyImageEdits();
 
                 return {
                   ...image,
@@ -1757,7 +1802,7 @@ const InstagramPostCreator = () => {
                   musicTrimEnd: edits.musicTrimEnd ?? null,
                   musicLyrics: edits.musicLyrics ?? null,
                   musicBadge: edits.musicBadge ?? null,
-                  showMusicCard: edits.showMusicCard !== false,
+                  showMusicCard: false,
                   flipVolume: flipVolumeByIndex[index] ?? 1,
                   textOverlays: edits.textOverlays.map(overlay => ({
                     ...overlay,
@@ -1777,7 +1822,7 @@ const InstagramPostCreator = () => {
 
               navigation.navigate('PostEditor', {
                 images: fallbackImages,
-                imageEdits: imageEdits,
+                imageEdits: imageEditsRef.current,
                 postType: postType,
                 fromIcon: fromIcon,
                 taggedPeople: selectedTaggedPeople,
@@ -1968,16 +2013,15 @@ const InstagramPostCreator = () => {
                         ) : (
                           // Image with zoom functionality
                           <ImageZoom
-                            {...(!isDrawing && !isOverlayTransforming && !modalVisible2 ? panResponder.panHandlers : {})}
                             cropWidth={contentLayout.width}
                             cropHeight={contentLayout.height}
                             imageWidth={contentLayout.width}
                             imageHeight={contentLayout.height}
-                            panToMove={!isDrawing && !isOverlayTransforming && !modalVisible2}
-                            minScale={0.5}
-                            maxScale={4}
-                            pinchToZoom={!isDrawing && !isOverlayTransforming && !modalVisible2}
-                            enableDoubleClickZoom={!isDrawing && !isOverlayTransforming && !modalVisible2}
+                            panToMove={false}
+                            minScale={1}
+                            maxScale={1}
+                            pinchToZoom={false}
+                            enableDoubleClickZoom={false}
                             doubleClickInterval={175}
                             style={[
                               styles.imageZoomContainer,
@@ -2110,7 +2154,6 @@ const InstagramPostCreator = () => {
                                     textAlign={textAlign}
                                     style={[
                                       styles.draftTextInput,
-                                      selectedFont,
                                       getTextStyleWithFont(text, selectedFont?.fontFamily),
                                       {
                                         color: highlightColor === 'white' && textColor === '#fff' ? '#111' : textColor,
@@ -2122,7 +2165,7 @@ const InstagramPostCreator = () => {
                                 </View>
                               </Animated.View>
                             )}
-                            {shouldShowPostMusicCard(currentEdits) && !postStorySoundTrimVisible ? (() => {
+                            {shouldShowPostMusicCard(currentEdits) && !postStorySoundTrimVisible && !isCapturingImage ? (() => {
                               const postCanvasLayout = { width: contentLayout.width, height: contentLayout.height };
                               const defaultBadge = defaultMusicBadgePosition(postCanvasLayout);
                               const badge = currentEdits.musicBadge;
@@ -2179,7 +2222,7 @@ const InstagramPostCreator = () => {
                               </View>
                               );
                             })}
-                            {shouldShowPostMusicCard(imageEdits[index]) && !postStorySoundTrimVisible ? (() => {
+                            {shouldShowPostMusicCard(imageEdits[index]) && !postStorySoundTrimVisible && !isCapturingImage ? (() => {
                               const slideEdits = imageEdits[index];
                               const slideCanvasLayout = { width: contentLayout.width, height: contentLayout.height };
                               const defaultBadge = defaultMusicBadgePosition(slideCanvasLayout);
@@ -2336,7 +2379,7 @@ const InstagramPostCreator = () => {
     <View style={[styles.textEditorToolbar, bgStyle]}>
       {showFonts && (
         <FlatList
-          data={fonts}
+          data={POST_OVERLAY_FONTS}
           horizontal
           keyExtractor={item => item.name}
           renderItem={({ item }) => (
@@ -2345,13 +2388,15 @@ const InstagramPostCreator = () => {
               style={[
                 styles.fontBtn,
                 { backgroundColor: `${accent}14` },
-                isSameFontStyle(selectedFont, item.style) && {
+                isSameOverlayFontStyle(selectedFont, item.style) && {
                   borderWidth: 1,
                   borderColor: accent,
                 },
               ]}
             >
-              <Text style={[{ fontSize: 18, color: themeText }, item.style]}>{item.name}</Text>
+              <Text style={[{ fontSize: 18, color: themeText }, getOverlayFontTextStyle(item.style.fontFamily)]}>
+                {item.name}
+              </Text>
             </TouchableOpacity>
           )}
           style={styles.textEditorOptionList}
@@ -2398,14 +2443,15 @@ const InstagramPostCreator = () => {
         styles.editingSection,
         bgStyle,
         isFlipPost && styles.editingSectionFlip,
+        isFlipPost && { borderTopColor: border },
       ]}
     >
       {!modalVisible2 && (isFlipPost ? (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.flipTabScroll} contentContainerStyle={styles.flipTabScrollContent}>
           {flipToolbarItems.map(t_item => (
             <TouchableOpacity key={t_item.key} style={styles.flipTabButton} onPress={() => handleFlipToolPress(t_item.key)} activeOpacity={0.75}>
-              <Icon name={t_item.icon} size={17} color="#e5e5e5" style={{ marginBottom: 3 }} />
-              <Text style={styles.flipTabLabel}>{t_item.label}</Text>
+              <Icon name={t_item.icon} size={17} color={themeText} style={{ marginBottom: 3 }} />
+              <Text style={[styles.flipTabLabel, { color: mutedText }]}>{t_item.label}</Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
@@ -2530,92 +2576,29 @@ const InstagramPostCreator = () => {
         </View>
       </Modal>
 
-      <Modal visible={flipAudioModal} transparent animationType="slide" onRequestClose={() => setFlipAudioModal(false)}>
-        <View style={styles.flipModalBackdrop}>
-          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setFlipAudioModal(false)} />
-          <View style={[styles.flipModalSheet, { backgroundColor: cardStyle?.backgroundColor || '#fff' }]}>
-            <Text style={[styles.flipModalTitle, textStyle]}>{t('selectedPost.musicTitle')}</Text>
-            <Text style={[styles.flipModalHint, textStyle]}>{t('selectedPost.musicHint')}</Text>
-            {slideHasLibraryMusic(getCurrentImageEdits()) ? (
-              <>
-                <View style={styles.postMusicCardToggleRow}>
-                  <View style={styles.postMusicCardToggleTextCol}>
-                    <Text style={[styles.postMusicCardToggleLabel, textStyle]}>
-                      {t('selectedPost.showMusicCard')}
-                    </Text>
-                    <Text style={[styles.postMusicCardToggleHint, textStyle]}>
-                      {t('selectedPost.showMusicCardHint')}
-                    </Text>
-                  </View>
-                  <Switch
-                    value={getCurrentImageEdits().showMusicCard !== false}
-                    onValueChange={value => updateCurrentImageEdits({ showMusicCard: value })}
-                    trackColor={{ false: '#d1d5db', true: `${themeText}88` }}
-                    thumbColor={getCurrentImageEdits().showMusicCard !== false ? themeText : '#f4f4f5'}
-                  />
-                </View>
-                <TouchableOpacity style={styles.postMusicEditClipBtn} onPress={() => { setFlipAudioModal(false); setPostStorySoundTrimVisible(true); }} activeOpacity={0.8}>
-                  <Icon name="cut-outline" size={18} color={themeText} />
-                  <Text style={[styles.postMusicEditClipText, textStyle]}>{t('selectedPost.editMusicClip')}</Text>
-                </TouchableOpacity>
-              </>
-            ) : null}
-            {!getYoutubeSearchApiKey() ? <Text style={[styles.postMusicApiHint, textStyle]}>{t('selectedPost.musicApiUnavailable')}</Text> : null}
-            <TextInput placeholder={t('selectedPost.musicSearchPlaceholder')} placeholderTextColor="#999" style={[styles.postMusicSearchInput, textStyle, { borderColor: `${themeText}33`, color: themeText }]} value={postMusicQuery} onChangeText={setPostMusicQuery} autoCorrect={false} autoCapitalize="none" />
-            <FlatList
-              style={[styles.postMusicResultsList, { maxHeight: SCREEN_HEIGHT * 0.42 }]}
-              keyboardShouldPersistTaps="handled"
-              data={postMusicQuery.trim() ? postMusicResults : []}
-              keyExtractor={it => String(it.videoId)}
-              ListHeaderComponent={
-                !postMusicQuery.trim() ? (
-                  <View style={styles.postMusicQuickBlock}>
-                    <Text style={[styles.postMusicQuickTitle, textStyle]}>{t('selectedPost.quickPicks')}</Text>
-                    {POST_SOUNDTRACKS.map(track => {
-                      const cur = getCurrentImageEdits();
-                      const selected = track.id === 'none' ? (cur.musicSource === 'none' || cur.musicId === 'none') : cur.musicSource === 'builtin' && cur.musicId === track.id;
-                      return (
-                        <TouchableOpacity key={track.id} style={styles.flipMusicRow} onPress={() => handleSelectPostBuiltinTrack(track)} activeOpacity={0.7}>
-                          <Icon name="musical-notes" size={20} color={themeText} />
-                          <View style={{ flex: 1, marginLeft: 10 }}>
-                            <Text style={[textStyle, { fontWeight: '600' }]}>{track.title}</Text>
-                            <Text style={{ opacity: 0.6, color: '#666' }}>{track.artist}</Text>
-                          </View>
-                          {selected ? <Icon name="checkmark-circle" size={22} color={themeText} /> : <Icon name="chevron-forward" size={18} color="#999" />}
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                ) : null
-              }
-              renderItem={({ item: yt }) => {
-                const cur = getCurrentImageEdits();
-                const selected = cur.musicSource === 'youtube' && cur.musicYoutubeVideoId === yt.videoId;
-                return (
-                  <TouchableOpacity style={styles.postMusicYtRow} onPress={() => handleSelectPostYoutubeTrack(yt)} activeOpacity={0.7}>
-                    {yt.thumbnailUrl ? <Image source={{ uri: yt.thumbnailUrl }} style={styles.postMusicThumb} /> : <View style={[styles.postMusicThumb, styles.postMusicThumbPh]}><Icon name="musical-notes" size={18} color={themeText} /></View>}
-                    <View style={styles.postMusicYtText}>
-                      <Text style={[textStyle, styles.postMusicYtTitle]} numberOfLines={2}>{yt.title}</Text>
-                      <Text style={[styles.postMusicYtSub, textStyle]} numberOfLines={1}>{yt.channelTitle}</Text>
-                    </View>
-                    {selected ? <Icon name="checkmark-circle" size={22} color={themeText} /> : <Icon name="play-circle-outline" size={24} color={themeText} />}
-                  </TouchableOpacity>
-                );
-              }}
-              ListEmptyComponent={
-                postMusicQuery.trim() ? (
-                  <View style={styles.postMusicEmptyWrap}>
-                    {postMusicLoading ? <ActivityIndicator color={themeText} /> : !getYoutubeSearchApiKey() ? <Text style={[styles.postMusicEmptyText, textStyle]}>{t('selectedPost.searchUnavailable')}</Text> : <Text style={[styles.postMusicEmptyText, textStyle]}>{t('selectedPost.noSongsFound')}</Text>}
-                  </View>
-                ) : null
-              }
-            />
-            <TouchableOpacity onPress={() => setFlipAudioModal(false)} style={styles.flipModalClose}>
-              <Text style={{ color: themeText, fontWeight: '600' }}>{t('selectedPost.close')}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+      <PostMusicGalleryModal
+        visible={flipAudioModal}
+        onClose={() => setFlipAudioModal(false)}
+        query={postMusicQuery}
+        onQueryChange={setPostMusicQuery}
+        results={postMusicResults}
+        loading={postMusicLoading}
+        hasYoutubeApi={Boolean(getYoutubeSearchApiKey())}
+        selection={getCurrentImageEdits()}
+        hasLibraryMusic={slideHasLibraryMusic(getCurrentImageEdits())}
+        showMusicCard={getCurrentImageEdits().showMusicCard !== false}
+        onShowMusicCardChange={value => updateCurrentImageEdits({ showMusicCard: value })}
+        onEditClip={() => {
+          setFlipAudioModal(false);
+          setPostStorySoundTrimVisible(true);
+        }}
+        onSelectBuiltin={handleSelectPostBuiltinTrack}
+        onSelectYoutube={handleSelectPostYoutubeTrack}
+        backgroundColor={cardStyle?.backgroundColor || (isDarkMode ? '#121212' : '#fff')}
+        textColor={themeText}
+        accentColor={themeText}
+        isDark={isDarkMode}
+      />
 
       <PostStoryMusicTrimModal
         visible={postStorySoundTrimVisible}
@@ -2625,20 +2608,15 @@ const InstagramPostCreator = () => {
         initialTrim={{ start: getCurrentImageEdits().musicTrimStart ?? 0, end: getCurrentImageEdits().musicTrimEnd }}
         showMusicCard={getCurrentImageEdits().showMusicCard !== false}
         onShowMusicCardChange={value => updateCurrentImageEdits({ showMusicCard: value })}
+        registerCommitTrim={fn => { commitMusicTrimRef.current = fn; }}
         onCancel={() => {
           setPostStorySoundTrimVisible(false);
           if (!slideHasLibraryMusic(getCurrentImageEdits())) openPostMusicPicker();
         }}
         onDone={({ start, end }) => {
-          const layout = { width: currentContentLayout.width, height: currentContentLayout.height };
-          const cur = getCurrentImageEdits();
-          updateCurrentImageEdits({
-            musicTrimStart: start,
-            musicTrimEnd: end != null && Number.isFinite(end) ? end : null,
-            musicBadge: cur.musicBadge ?? defaultMusicBadgePosition(layout),
-          });
+          applyMusicTrimUpdate({ start, end });
           setPostStorySoundTrimVisible(false);
-          showToastMessage(toast, 'success', t('selectedPost.musicTrimSaved'), 1500);
+          setFlipAudioModal(false);
         }}
         onDelete={() => { updateCurrentImageEdits({ musicSource: 'none', musicId: 'none', musicTitle: null, musicArtist: null, musicYoutubeVideoId: null, musicYoutubeThumbUrl: null, musicYoutubeDurationSec: null, musicTrimStart: 0, musicTrimEnd: null, musicLyrics: null, musicBadge: null, showMusicCard: true }); setPostStorySoundTrimVisible(false); showToastMessage(toast, 'success', t('selectedPost.musicRemoved'), 1500); }}
       />
@@ -3163,10 +3141,8 @@ const styles = StyleSheet.create({
     marginTop: -2,
   },
   editingSectionFlip: {
-    backgroundColor: '#000',
     paddingBottom: 6,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#2a2a2a',
   },
   flipTabScroll: {
     maxHeight: 76,
@@ -3182,7 +3158,6 @@ const styles = StyleSheet.create({
     minWidth: 41,
   },
   flipTabLabel: {
-    color: '#c4c4c4',
     fontSize: 8,
     textAlign: 'center',
     lineHeight: 10,

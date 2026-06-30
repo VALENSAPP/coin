@@ -155,13 +155,14 @@ const releaseProtection = async () => {
  */
 export default function useScreenshotProtection({
   enabled = true,
+  holdProtection = false,
   title,
   message,
 } = {}) {
   const isFocused = useIsFocused();
   const lastWarningAtRef = useRef(0);
   const isActiveRef = useRef(false);
-  const shouldProtect = isFocused && enabled;
+  const shouldProtect = (isFocused || holdProtection) && enabled;
 
   const showWarning = useCallback(() => {
     if (!title || !message) return;

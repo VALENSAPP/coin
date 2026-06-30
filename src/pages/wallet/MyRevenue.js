@@ -12,13 +12,14 @@ import {
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { subscriptionEarningGraph, totalSupport } from '../../services/wallet';
+import { subscriptionEarningGraph, totalSupport, transationActivity } from '../../services/wallet';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useThemeContext } from '../../theme/ThemeContext';
 import { getWalletScreenGradient, getWalletIllustrationGradient, getWalletGradientText } from '../../utils/walletDarkTheme';
 import { getUserCredentials } from '../../services/post';
 import { useLanguage } from '../../i18n';
 import HexAvatar from '../../components/home/story.js/HexAvatar';
+import { resolveTransactionAmount } from '../../utils/transactionAmount';
 import SubscriptionTrendChart, {
     parseSubscriptionGraphResponse,
     SUBSCRIPTION_CHART_LINE,
@@ -26,6 +27,7 @@ import SubscriptionTrendChart, {
 
 const { width } = Dimensions.get('window');
 const CHART_VIEWPORT_WIDTH = width - 80;
+const RECENT_TX_PREVIEW_LIMIT = 5;
 
 const PERIOD_MAP = {
     Daily: 'daily',
@@ -39,9 +41,37 @@ const PERIOD_DELTA_LABEL = {
     Monthly: 'vs last month',
 };
 
+const pickFirst = (...values) =>
+    values.find((value) => value !== undefined && value !== null && value !== '');
+
+const resolveTransactionUserId = (tx) =>
+    pickFirst(
+        tx?.userId,
+        tx?.senderId,
+        tx?.payerId,
+        tx?.buyerId,
+        tx?.fromUserId,
+        tx?.user?.id,
+        tx?.user?._id,
+        tx?.user?.userId,
+        '',
+    );
+
+const extractTransactions = (response) => {
+    const raw =
+        response?.data?.transactions ||
+        response?.data?.data?.transactions ||
+        response?.data?.data ||
+        response?.data ||
+        [];
+    return Array.isArray(raw) ? raw : [];
+};
+
 // ── Enrich transactions with user profile (name + image) ─────────────────────
 const enrichTransactionsWithProfiles = async (transactions) => {
-    const uniqueUserIds = [...new Set(transactions.map((tx) => tx.userId).filter(Boolean))];
+    const uniqueUserIds = [
+        ...new Set(transactions.map(resolveTransactionUserId).filter(Boolean).map(String)),
+    ];
 
     const profileResults = await Promise.allSettled(
         uniqueUserIds.map((userId) => getUserCredentials(userId))
@@ -61,10 +91,14 @@ const enrichTransactionsWithProfiles = async (transactions) => {
         }
     });
 
-    return transactions.map((tx) => ({
-        ...tx,
-        _profile: profileMap[tx.userId] ?? null,
-    }));
+    return transactions.map((tx) => {
+        const userId = resolveTransactionUserId(tx);
+        return {
+            ...tx,
+            userId: userId || tx.userId,
+            _profile: userId ? profileMap[userId] ?? null : null,
+        };
+    });
 };
 
 // ── Transaction Avatar ────────────────────────────────────────────────────────
@@ -142,17 +176,32 @@ export default function RevenueFromSubscriptions({ navigation, route }) {
     const fetchRevenue = useCallback(async () => {
         setRevenueLoading(true);
         try {
-            const response = await totalSupport({ params: { page: 1 } });
-            const data = response?.data ?? response;
+            const [supportRes, activityRes] = await Promise.allSettled([
+                totalSupport({ params: { page: 1 } }),
+                transationActivity({ params: { page: 1, limit: RECENT_TX_PREVIEW_LIMIT } }),
+            ]);
 
-            setTotalRevenue(Number(data?.totalAmount) || 0);
+            if (supportRes.status === 'fulfilled') {
+                const data = supportRes.value?.data ?? supportRes.value;
+                setTotalRevenue(Number(data?.totalAmount) || 0);
+            } else {
+                setTotalRevenue(0);
+            }
 
-            const rawTransactions = Array.isArray(data?.transactions)
-                ? data.transactions
-                : [];
-
-            const enriched = await enrichTransactionsWithProfiles(rawTransactions);
-            setTransactions(enriched);
+            if (activityRes.status === 'fulfilled') {
+                const rawTransactions = extractTransactions(activityRes.value);
+                const enriched = await enrichTransactionsWithProfiles(rawTransactions);
+                setTransactions(enriched);
+            } else if (supportRes.status === 'fulfilled') {
+                const fallbackTransactions = extractTransactions(supportRes.value).map((tx) => ({
+                    ...tx,
+                    type: tx?.type || 'credit',
+                }));
+                const enriched = await enrichTransactionsWithProfiles(fallbackTransactions);
+                setTransactions(enriched);
+            } else {
+                setTransactions([]);
+            }
         } catch (error) {
             console.error('Error fetching subscription revenue:', error);
             setTotalRevenue(0);
@@ -198,6 +247,14 @@ export default function RevenueFromSubscriptions({ navigation, route }) {
             },
         });
     }, [navigation]);
+
+    const handleViewAllTransactions = useCallback(() => {
+        navigation.navigate('TransactionActivity', {
+            returnTo: { tab: 'wallet', screen: 'RevenueFromSubscriptions' },
+        });
+    }, [navigation]);
+
+    const previewTransactions = transactions.slice(0, RECENT_TX_PREVIEW_LIMIT);
 
     return (
         <SafeAreaView style={[styles.safe, bgStyle]}>
@@ -347,7 +404,18 @@ export default function RevenueFromSubscriptions({ navigation, route }) {
                 {/* ── Recent Transactions ── */}
                 <View style={[styles.section, bgStyle]}>
                     <View style={styles.txHeader}>
-                        <Text style={[styles.sectionTitle, { color: text }]}>{t('revenue.recentTransactions')}</Text>
+                        <Text style={[styles.sectionTitle, { color: text, marginBottom: 0 }]}>
+                            {t('revenue.recentTransactions')}
+                        </Text>
+                        {transactions.length > 0 ? (
+                            <TouchableOpacity
+                                onPress={handleViewAllTransactions}
+                                accessibilityRole="button"
+                                accessibilityLabel={t('valensWallet.viewAll')}
+                            >
+                                <Text style={[styles.viewAll, { color: text }]}>{t('valensWallet.viewAll')}</Text>
+                            </TouchableOpacity>
+                        ) : null}
                     </View>
 
                     {revenueLoading ? (
@@ -360,7 +428,11 @@ export default function RevenueFromSubscriptions({ navigation, route }) {
                             {t('revenue.noTransactions')}
                         </Text>
                     ) : (
-                        transactions.map((tx) => (
+                        previewTransactions.map((tx) => {
+                            const { formatted, amountTone } = resolveTransactionAmount(tx);
+                            const amountColor = amountTone === 'negative' ? '#EF4444' : '#22C55E';
+
+                            return (
                             <TouchableOpacity key={tx.id ?? tx._id} style={styles.txRow} activeOpacity={tx.userId ? 0.75 : 1} onPress={() => handleTransactionProfilePress(tx)} disabled={!tx.userId}>
                                 {/* ── Avatar: real image or fallback icon ── */}
                                 <View style={styles.txAvatar}>
@@ -384,10 +456,8 @@ export default function RevenueFromSubscriptions({ navigation, route }) {
                                 </View>
 
                                 <View style={{ alignItems: 'flex-end' }}>
-                                    <Text style={styles.txAmount}>
-                                        {tx.currency === 'USD'
-                                            ? `+$${Number(tx.amount).toFixed(2)}`
-                                            : `+${tx.amount}`}
+                                    <Text style={[styles.txAmount, { color: amountColor }]}>
+                                        {formatted}
                                     </Text>
                                     <Text style={[styles.txDate, { color: text }]}>
                                         {tx.createdAt
@@ -402,7 +472,8 @@ export default function RevenueFromSubscriptions({ navigation, route }) {
                                     </Text>
                                 </View>
                             </TouchableOpacity>
-                        ))
+                            );
+                        })
                     )}
                 </View>
 
@@ -590,6 +661,6 @@ const styles = StyleSheet.create({
     txAvatar: { marginRight: 10 },
     txName: { fontSize: 14, fontWeight: '700' },
     txSub: { fontSize: 11, opacity: 0.6 },
-    txAmount: { fontSize: 14, fontWeight: '700', color: '#16a34a' },
+    txAmount: { fontSize: 14, fontWeight: '700' },
     txDate: { fontSize: 10, opacity: 0.5, marginTop: 2 },
 });

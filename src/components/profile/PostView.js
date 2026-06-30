@@ -63,7 +63,7 @@ export default function PostView({ postData = [], userData = {} }) {
 
   // Extract params including the source screen info
   const routeParams = route.params || {};
-  const { startIndex, userChat, userData: routeUserData } = routeParams;
+  const { startIndex, userChat, userData: routeUserData, loggedInUserId: routeLoggedInUserId } = routeParams;
   const navPostData = routeParams.postData;
   const returnTo = route?.params?.returnTo;
 
@@ -156,10 +156,14 @@ export default function PostView({ postData = [], userData = {} }) {
 
   useEffect(() => {
     (async () => {
+      if (routeLoggedInUserId) {
+        setCurrentUserId(String(routeLoggedInUserId));
+        return;
+      }
       const id = await AsyncStorage.getItem('userId');
       setCurrentUserId(id ? String(id) : null);
     })();
-  }, []);
+  }, [routeLoggedInUserId]);
 
   // ─── Fetch post from API when coming from UserChat ──────────
   useEffect(() => {

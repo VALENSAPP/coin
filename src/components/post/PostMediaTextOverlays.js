@@ -1,4 +1,3 @@
-import React from 'react';
 import { View, Text, Image, StyleSheet, Platform } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import {
@@ -6,6 +5,10 @@ import {
   MUSIC_STICKER_CARD_H,
   defaultMusicBadgePosition,
 } from '../home/story.js/storyOverlayConstants';
+import {
+  getOverlayFontTextStyle,
+  normalizeOverlayFontFamily,
+} from '../../utils/postOverlayFonts';
 
 const EMOJI_REGEX = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u;
 
@@ -14,12 +17,13 @@ export function containsEmoji(value) {
 }
 
 export function resolveOverlayFontFamily(value, requestedFontFamily) {
-  return containsEmoji(value) ? undefined : requestedFontFamily || undefined;
+  if (containsEmoji(value)) return undefined;
+  return normalizeOverlayFontFamily(requestedFontFamily) || undefined;
 }
 
 export function getTextStyleWithFont(value, requestedFontFamily) {
   const resolvedFontFamily = resolveOverlayFontFamily(value, requestedFontFamily);
-  return resolvedFontFamily ? { fontFamily: resolvedFontFamily } : {};
+  return getOverlayFontTextStyle(resolvedFontFamily);
 }
 
 export function getOverlayScaleFactors(width, height, canvasWidth, canvasHeight) {

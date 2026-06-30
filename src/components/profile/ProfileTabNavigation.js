@@ -8,7 +8,7 @@ import ReelsScreen from '../profile/ReelsScreen';
 import PrivateContentScreen from './PrivateContentScreen';
 import PrivateCircle from './PrivateCircle';
 import Shop from './Shop';
-import MyClosetDashboard from './MyClosetDashboard';
+import MyClosetShopFront from './MyClosetShopFront';
 import ProfileEbookScreen from './ProfileEbookScreen';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
@@ -263,6 +263,7 @@ const ProfileTabs = memo(({
                   params: {
                     ebook,
                     userData,
+                    loggedInUserId,
                   },
                 });
               }}
@@ -286,11 +287,12 @@ const ProfileTabs = memo(({
     }
 
     if (tabKey === 'closet') {
-      return closetCheckComplete && hasCreatedShop ? (
-        <MyClosetDashboard
+      return !isOwnProfile || (closetCheckComplete && hasCreatedShop) ? (
+        <MyClosetShopFront
           navigation={navigation}
           userData={userData}
           shopDraft={shopDraft}
+          isOwnProfile={isOwnProfile}
         />
       ) : (
         <Shop

@@ -24,7 +24,7 @@ import FastImage from 'react-native-fast-image';
 import useScreenshotProtection, {
   SCREENSHOT_PROTECTED_SOURCES,
 } from '../../hooks/useScreenshotProtection';
-import MyClosetDashboard from './MyClosetDashboard';
+import MyClosetShopFront from './MyClosetShopFront';
 
 const { width: screenWidth } = Dimensions.get('window');
 const numColumns = 3;
@@ -576,10 +576,11 @@ const PrivateContentScreen = ({
   if (isCompany) {
     if (shopCheckComplete && shopExists && isOwnProfile) {
       return (
-        <MyClosetDashboard
+        <MyClosetShopFront
           navigation={navigation}
           userData={userData}
           shopDraft={null}
+          isOwnProfile={isOwnProfile}
         />
       );
     }

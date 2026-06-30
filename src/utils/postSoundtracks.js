@@ -376,8 +376,7 @@ function postMetaSlidesHaveOverlayContent(parsedPostMeta) {
   return slides.some(
     slide =>
       (Array.isArray(slide.texts) && slide.texts.length > 0) ||
-      (Array.isArray(slide.overlayImages) && slide.overlayImages.length > 0) ||
-      slideMetaHasMusicSticker(slide),
+      (Array.isArray(slide.overlayImages) && slide.overlayImages.length > 0),
   );
 }
 
@@ -429,44 +428,8 @@ export function getPostMusicStickerFromMeta(
   fallbackImage = null,
   rootItem = null,
 ) {
-  const slides = parsedPostMeta?.slides;
-  const slide =
-    (Array.isArray(slides)
-      ? slides.find(entry => Number(entry.imageIndex) === Number(slideIndex)) || slides[slideIndex]
-      : null) || {};
-
-  let hasMusic =
-    imageHasPostMusicSticker(fallbackImage) || slideMetaHasMusicSticker(slide);
-  if (!hasMusic && Number(slideIndex) === 0 && rootItem) {
-    hasMusic = !!getPostMusicForSlide(rootItem, 0, parsedPostMeta);
-  }
-  if (!hasMusic) return null;
-
-  if (fallbackImage?.showMusicCard === false || slide?.showMusicCard === false) {
-    return null;
-  }
-
-  const canvasWidth =
-    slide.overlayCanvasWidth || fallbackImage?.overlayCanvasWidth || null;
-  const canvasHeight =
-    slide.overlayCanvasHeight || fallbackImage?.overlayCanvasHeight || null;
-  const storedBadge = slide.musicBadge || fallbackImage?.musicBadge || null;
-  const layout =
-    canvasWidth && canvasHeight
-      ? { width: canvasWidth, height: canvasHeight }
-      : null;
-  const defaultBadge = layout ? defaultMusicBadgePosition(layout) : null;
-  const badge = storedBadge || (defaultBadge
-    ? { x: defaultBadge.x, y: defaultBadge.y, scale: 1, rotation: 0 }
-    : { x: null, y: null, scale: 1, rotation: 0 });
-
-  const copy = resolvePostMusicStickerCopy(slide, fallbackImage, rootItem, slideIndex);
-  return {
-    badge,
-    title: copy.title,
-    artist: copy.artist,
-    thumbnailUrl: copy.thumbnailUrl,
-  };
+  // Music sticker is editor-only (Instagram-style); published posts never show the card overlay.
+  return null;
 }
 
 export function getPostSlideOverlaysFromMeta(
@@ -635,7 +598,7 @@ function buildSlideMetaForUpload(img, imageIndex) {
       musicArtist: img.musicArtist ?? null,
       musicThumbnailUrl: img.musicYoutubeThumbUrl ?? null,
       musicBadge: sanitizeSerializable(img.musicBadge ?? null),
-      showMusicCard: img.showMusicCard !== false,
+      showMusicCard: false,
       overlayCanvasWidth: img.overlayCanvasWidth ?? null,
       overlayCanvasHeight: img.overlayCanvasHeight ?? null,
     };
@@ -656,7 +619,7 @@ function buildSlideMetaForUpload(img, imageIndex) {
     musicThumbnailUrl: img.musicYoutubeThumbUrl ?? null,
     lyrics: sanitizeSerializable(img.musicLyrics ?? null),
     musicBadge: sanitizeSerializable(img.musicBadge ?? null),
-    showMusicCard: img.showMusicCard !== false,
+    showMusicCard: false,
     texts: serializePostSlideTexts(img.textOverlays),
     overlayImages: serializePostSlideOverlayImages(img.overlayImages),
     overlayCanvasWidth: img.overlayCanvasWidth ?? null,
@@ -674,8 +637,7 @@ export function buildPostMetaFromImages(images = []) {
     slide =>
       slide.isVideo &&
       ((Array.isArray(slide.texts) && slide.texts.length > 0) ||
-        (Array.isArray(slide.overlayImages) && slide.overlayImages.length > 0) ||
-        slideMetaHasMusicSticker(slide)),
+        (Array.isArray(slide.overlayImages) && slide.overlayImages.length > 0)),
   );
   return {
     version: 1,
@@ -689,9 +651,10 @@ export function buildPostMetaFromImages(images = []) {
  * Image slides bake text/music stickers into the file; soundtrack fields apply to any slide with music.
  */
 export function buildPostUploadPayloadFromImages(images = []) {
-  const postMeta = buildPostMetaFromImages(images);
-  const { music, youtubeMusicMeta } = buildCreatePostMusicPayload(images);
-  const { videoText, videoTextItems } = buildVideoTextPayloadFromImages(images);
+  const uploadImages = images.map(img => ({ ...img, showMusicCard: false }));
+  const postMeta = buildPostMetaFromImages(uploadImages);
+  const { music, youtubeMusicMeta } = buildCreatePostMusicPayload(uploadImages);
+  const { videoText, videoTextItems } = buildVideoTextPayloadFromImages(uploadImages);
   return {
     postMeta,
     ...(music ? { music } : {}),

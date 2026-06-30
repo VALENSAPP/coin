@@ -16,6 +16,7 @@ import {
 import RBSheet from 'react-native-raw-bottom-sheet';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { following as apiFollowing } from '../../services/profile';
 import { sharePost } from '../../services/post';
@@ -41,6 +42,7 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
   const [search, setSearch] = useState('');
   const { bg, text, card, border, mutedText, accent, icon, bgStyle } = useAppTheme();
   const { t } = useLanguage();
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     (async () => {
@@ -226,6 +228,7 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
       if (ref?.current) ref.current.close();
       setSelectedUsers([]);
       directSendToInbox(sharedContent);
+      onShare?.();
     } catch (e) {
       Alert.alert(
         t('shareModal.shareErrorTitle'),
@@ -318,6 +321,7 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
   };
 
   const sendCount = selectedUsers.length;
+  const bottomPad = insets.bottom + (Platform.OS === 'ios' ? 20 : 16);
 
   return (
     <RBSheet
@@ -326,6 +330,7 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
       draggable
       dragOnContent
       onOpen={onOpen}
+      onClose={() => onClose?.()}
       customModalProps={{ statusBarTranslucent: true }}
       customStyles={{
         wrapper: { backgroundColor: 'rgba(0,0,0,0.35)' },
@@ -342,6 +347,7 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
         },
       }}
     >
+      <View style={styles.sheetContent}>
       {/* Search */}
       <View style={{ flexDirection: 'row', alignItems: 'center', marginHorizontal: 10 }}>
         <View style={[styles.searchBar, { backgroundColor: card, borderWidth: 1, borderColor: border }]}>
@@ -372,6 +378,7 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
             renderItem={renderUserCell}
             numColumns={COLS}
             showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
             contentContainerStyle={{ paddingBottom: 12, flexGrow: 1 }}
             ListEmptyComponent={() => (
               <View style={{ alignItems: 'center', paddingTop: 24 }}>
@@ -386,7 +393,7 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
 
       {/* Bottom actions */}
       {sendCount > 0 ? (
-        <View style={[styles.sendBar, bgStyle, { borderTopColor: border }]}>
+        <View style={[styles.sendBar, bgStyle, { borderTopColor: border, paddingBottom: bottomPad }]}>
           <TouchableOpacity
             style={[styles.sendButton, { backgroundColor: accent }, sending && { opacity: 0.7 }]}
             activeOpacity={0.85}
@@ -405,12 +412,13 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
           </TouchableOpacity>
         </View>
       ) : (
-        <View style={[styles.bottomBar, bgStyle, { borderTopColor: border }]}>
+        <View style={[styles.bottomBar, bgStyle, { borderTopColor: border, paddingBottom: bottomPad }]}>
           <Action icon="share-social-outline" label={t('shareModal.shareToLabel')} onPress={shareToSystem} iconColor={icon} labelColor={text} />
           <Action icon="copy-outline" label={t('shareModal.copyLinkLabel')} onPress={copyToClipboard} iconColor={icon} labelColor={text} />
           {/* <Action icon="logo-whatsapp" label={t('shareModal.whatsappLabel')} onPress={shareToWhatsApp} iconColor={icon} labelColor={text} /> */}
         </View>
       )}
+      </View>
     </RBSheet>
   );
 });
@@ -423,6 +431,9 @@ const Action = ({ icon, onPress, label, iconColor = '#222', labelColor = '#222' 
 );
 
 const styles = StyleSheet.create({
+  sheetContent: {
+    flex: 1,
+  },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',

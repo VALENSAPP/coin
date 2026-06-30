@@ -190,11 +190,11 @@ export const SettingsScreen = ({ navigation }) => {
             navigation.navigate('WalletEditProfile', { userdata: profileData });
           },
         },
-        // {
-        //   label: 'Shop Settings',
-        //   icon: 'storefront-outline',
-        //   action: () => navigation.navigate('ShopSettings'),
-        // },
+        {
+          label: 'Shop Settings',
+          icon: 'storefront-outline',
+          action: () => navigation.navigate('ShopSettings'),
+        },
         {
           label: t('walletSettings.verificationStatus'),
           icon: 'shield-checkmark',

@@ -123,6 +123,7 @@ const ReelsScreen = memo(({ postCheck, userData, isOwnProfile = false, onPostPin
       profileUserId,
       profileReels: posts,
       key: Date.now().toString(),
+      loggedInUserId: userData?.id,
     };
 
     let targetNavigation = navigation;
@@ -289,7 +290,7 @@ const styles = StyleSheet.create({
   },
   image: {
     width: IMAGE_SIZE,
-    height: IMAGE_SIZE*1.5,
+    height: IMAGE_SIZE * 1.5,
     backgroundColor: '#f0f0f0',
   },
   overlay: {
@@ -324,9 +325,9 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   videoBadge: {
-    flexDirection:'row',
-    justifyContent:'center',
-    alignSelf:'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignSelf: 'center',
     // position: 'absolute',
     // top: 8,
     // right: 8,

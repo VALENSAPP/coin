@@ -119,6 +119,19 @@ import {
   MyClosetItemEditorScreen,
   MyClosetItemsManagementScreen,
 } from '../components/profile/MyClosetItemManagement';
+import {
+  MyClosetBuyerCartScreen,
+  MyClosetBuyerCheckoutScreen,
+  MyClosetBuyerItemDetailScreen,
+  MyClosetBuyerItemsScreen,
+  MyClosetBuyerOptionsScreen,
+  MyClosetBuyerOrderReceivedScreen,
+  MyClosetBuyerPaymentScreen,
+  MyClosetBuyerReviewScreen,
+  MyClosetBuyerShippingScreen,
+} from '../components/profile/MyClosetBuyerFlow';
+import MyClosetOrdersScreen from '../components/profile/MyClosetOrdersScreen';
+import MyClosetOrderDetailScreen from '../components/profile/MyClosetOrderDetailScreen';
 import ShopScreen from '../pages/wallet/ShopScreen';
 import PrivateCircle from '../components/profile/PrivateCircle';
 import LanguageSelectionScreen from '../pages/settings/LanguageSelectionScreen';
@@ -329,6 +342,15 @@ export default function MainTabNavigator() {
         <Stack.Screen name="Following" component={Following} />
         <Stack.Screen name="UserChat" component={UserChat} />
         <Stack.Screen name="UsersProfile" component={Usersprofile} />
+        <Stack.Screen name="MyClosetBuyerItems" component={MyClosetBuyerItemsScreen} />
+        <Stack.Screen name="MyClosetBuyerItemDetail" component={MyClosetBuyerItemDetailScreen} />
+        <Stack.Screen name="MyClosetBuyerOptions" component={MyClosetBuyerOptionsScreen} />
+        <Stack.Screen name="MyClosetBuyerCart" component={MyClosetBuyerCartScreen} />
+        <Stack.Screen name="MyClosetBuyerCheckout" component={MyClosetBuyerCheckoutScreen} />
+        <Stack.Screen name="MyClosetBuyerShipping" component={MyClosetBuyerShippingScreen} />
+        <Stack.Screen name="MyClosetBuyerPayment" component={MyClosetBuyerPaymentScreen} />
+        <Stack.Screen name="MyClosetBuyerReview" component={MyClosetBuyerReviewScreen} />
+        <Stack.Screen name="MyClosetBuyerOrderReceived" component={MyClosetBuyerOrderReceivedScreen} />
         <Stack.Screen
           name="ShareProfile"
           component={ShareProfile}
@@ -414,6 +436,17 @@ export default function MainTabNavigator() {
           name="MyClosetItemEditor"
           component={MyClosetItemEditorScreen}
         />
+        <Stack.Screen name="MyClosetOrders" component={MyClosetOrdersScreen} />
+        <Stack.Screen name="MyClosetOrderDetail" component={MyClosetOrderDetailScreen} />
+        <Stack.Screen name="MyClosetBuyerItems" component={MyClosetBuyerItemsScreen} />
+        <Stack.Screen name="MyClosetBuyerItemDetail" component={MyClosetBuyerItemDetailScreen} />
+        <Stack.Screen name="MyClosetBuyerOptions" component={MyClosetBuyerOptionsScreen} />
+        <Stack.Screen name="MyClosetBuyerCart" component={MyClosetBuyerCartScreen} />
+        <Stack.Screen name="MyClosetBuyerCheckout" component={MyClosetBuyerCheckoutScreen} />
+        <Stack.Screen name="MyClosetBuyerShipping" component={MyClosetBuyerShippingScreen} />
+        <Stack.Screen name="MyClosetBuyerPayment" component={MyClosetBuyerPaymentScreen} />
+        <Stack.Screen name="MyClosetBuyerReview" component={MyClosetBuyerReviewScreen} />
+        <Stack.Screen name="MyClosetBuyerOrderReceived" component={MyClosetBuyerOrderReceivedScreen} />
         <Stack.Screen name="Settings" component={Settings} />
         <Stack.Screen
           name="FollowersFollowingScreen"
@@ -1068,6 +1101,17 @@ export default function MainTabNavigator() {
         'PrivateCircleSuccess',
         'MyClosetItemsManagement',
         'MyClosetItemEditor',
+        'MyClosetOrders',
+        'MyClosetOrderDetail',
+        'MyClosetBuyerItems',
+        'MyClosetBuyerItemDetail',
+        'MyClosetBuyerOptions',
+        'MyClosetBuyerCart',
+        'MyClosetBuyerCheckout',
+        'MyClosetBuyerShipping',
+        'MyClosetBuyerPayment',
+        'MyClosetBuyerReview',
+        'MyClosetBuyerOrderReceived',
         'BattleVoteDetails',
       ];
 
