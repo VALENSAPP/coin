@@ -30,6 +30,7 @@ import { setProfileImg } from '../../../redux/actions/ProfileImgAction';
 import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../../redux/actions/LoaderAction';
 import { useBusinessProfileTheme } from '../../../theme/useBusinessProfileTheme';
+import { useThemeContext } from '../../../theme/ThemeContext';
 import { useWalletConnectSupport } from '../../../context/WalletConnectSupportContext';
 import { useDebouncedCallback } from '../../../hooks/useDebouncedCallback';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
@@ -68,7 +69,19 @@ const ProfileEditScreen = () => {
   const refRBSheet1 = useRef();
   const toast = useToast();
   const dispatch = useDispatch();
-  const { bgStyle, textStyle, text, accent, border, card, mutedText } = useBusinessProfileTheme();
+  const { bgStyle, textStyle, cardStyle, text, accent, border, card, mutedText, mutedTextStyle, icon } =
+    useBusinessProfileTheme();
+  const { isDarkMode } = useThemeContext();
+  const inputStyle = [
+    styles.input,
+    { backgroundColor: card, borderColor: border, color: text },
+  ];
+  const inputDisabledStyle = [
+    ...inputStyle,
+    styles.inputDisabled,
+    { backgroundColor: isDarkMode ? border : '#f3f0f7', color: mutedText },
+  ];
+  const labelStyle = [styles.label, mutedTextStyle];
   const { openWalletConnect, isConnected, address } = useWalletConnectSupport();
 
   const genderOptions = [
@@ -284,7 +297,7 @@ const ProfileEditScreen = () => {
           onPress={handleBack}
           style={{ marginLeft: 15 }}
         >
-          <Icon name="arrow-left" size={24} color={text} />
+          <Icon name="arrow-left" size={24} color={icon} />
         </TouchableOpacity>
       ),
       headerRight: () => (
@@ -297,14 +310,14 @@ const ProfileEditScreen = () => {
           disabled={loading || !isFormValid()}
         >
           {loading ? (
-            <ActivityIndicator size="small" color="#0095F6" />
+            <ActivityIndicator size="small" color={accent} />
           ) : (
-            <Text style={[styles.headerButtonText, textStyle]}>{t('profileEdit.saveButton')}</Text>
+            <Text style={[styles.headerButtonText, { color: accent }]}>{t('profileEdit.saveButton')}</Text>
           )}
         </TouchableOpacity>
       ),
     });
-  }, [navigation, loading, isFormValid, handleSaveAll, returnTo, returnScreen]);
+  }, [navigation, loading, isFormValid, handleSaveAll, returnTo, returnScreen, icon, accent, t]);
 
   const handleBack = () => {
     if (returnTo === 'wallet' && returnScreen) {
@@ -479,23 +492,23 @@ const ProfileEditScreen = () => {
   const renderDisplayNameInput = () => {
     return (
       <View style={styles.inputContainer}>
-        <Text style={styles.label}>{t('profileEdit.displayNameLabel')}</Text>
+        <Text style={labelStyle}>{t('profileEdit.displayNameLabel')}</Text>
         <View style={styles.inputWrapper}>
           <TextInput
             style={[
-              styles.input,
+              ...inputStyle,
               styles.inputWithStatus,
               errors.name && styles.inputError,
             ]}
             placeholder={t('profileEdit.displayNamePlaceholder')}
             value={name}
             onChangeText={handleNameChange}
-            placeholderTextColor="#999"
+            placeholderTextColor={mutedText}
           />
           <View style={styles.inputStatus}>
             {isCheckingDisplayName && (
               <View style={styles.loadingIndicator}>
-                <ActivityIndicator size="small" color="#6B7280" />
+                <ActivityIndicator size="small" color={mutedText} />
               </View>
             )}
             {displayNameStatus === 'approved' && !isCheckingDisplayName && (
@@ -520,7 +533,7 @@ const ProfileEditScreen = () => {
 
         {displayNameSuggestions.length > 0 && (
           <View style={styles.suggestionsContainer}>
-            <Text style={styles.suggestionsTitle}>{t('profileEdit.suggestions')}</Text>
+            <Text style={[styles.suggestionsTitle, mutedTextStyle]}>{t('profileEdit.suggestions')}</Text>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -529,7 +542,7 @@ const ProfileEditScreen = () => {
               {displayNameSuggestions.map((item, index) => (
                 <TouchableOpacity
                   key={index}
-                  style={styles.suggestionChip}
+                  style={[styles.suggestionChip, { backgroundColor: card, borderColor: border }]}
                   onPress={() => selectSuggestion(item)}
                 >
                   <Text style={[styles.suggestionText, textStyle]}>{item}</Text>
@@ -555,7 +568,7 @@ const ProfileEditScreen = () => {
         keyboardOpeningTime={0}
         resetScrollToCoords={{ x: 0, y: 0 }}
         showsVerticalScrollIndicator={false}>
-        <View style={[styles.avatarContainer, bgStyle]}>
+        <View style={[styles.avatarContainer, bgStyle, { borderBottomColor: border }]}>
           <TouchableOpacity
             onPress={() => refRBSheet1.current.open()}
             style={styles.avatarTouchable}
@@ -565,7 +578,7 @@ const ProfileEditScreen = () => {
                 uri={profileImage || PLACEHOLDER_AVATAR}
                 size={75}
                 borderWidth={3}
-                borderColor={text}
+                borderColor={accent}
               />
               <View style={[styles.cameraIcon, { backgroundColor: accent, shadowColor: accent, borderColor: card }]}>
                 <Text style={styles.cameraText}>📷</Text>
@@ -578,59 +591,58 @@ const ProfileEditScreen = () => {
         <View style={styles.formSection}>
           {renderDisplayNameInput()}
 
-          <View style={[styles.inputContainer, bgStyle]}>
-            <Text style={styles.label}>{t('profileEdit.usernameLabel')}</Text>
+          <View style={styles.inputContainer}>
+            <Text style={labelStyle}>{t('profileEdit.usernameLabel')}</Text>
             <TextInput
-              style={[styles.input, errors.username && styles.inputError, styles.inputDisabled, bgStyle]}
+              style={[...inputDisabledStyle, errors.username && styles.inputError]}
               placeholder={t('profileEdit.usernamePlaceholder')}
               value={username}
               onChangeText={handleUsernameChange}
-              placeholderTextColor="#999"
+              placeholderTextColor={mutedText}
               editable={false}
             />
             {errors.username && (
               <Text style={styles.errorText}>{errors.username}</Text>
             )}
-            <Text style={styles.helperText}>{t('profileEdit.usernameCannotChange')}</Text>
+            <Text style={[styles.helperText, mutedTextStyle]}>{t('profileEdit.usernameCannotChange')}</Text>
           </View>
 
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>{t('profileEdit.bioLabel')}</Text>
+            <Text style={labelStyle}>{t('profileEdit.bioLabel')}</Text>
             <TextInput
               style={[
-                styles.input,
+                ...inputStyle,
                 styles.bioInput,
                 errors.bio && styles.inputError,
               ]}
               placeholder={t('profileEdit.bioPlaceholder')}
               value={bio == 'null' ? '' : bio}
               onChangeText={handleBioChange}
-              placeholderTextColor="#999"
+              placeholderTextColor={mutedText}
               multiline
               maxLength={200}
             />
-            <Text style={styles.characterCount}>{bio.length}/200</Text>
+            <Text style={[styles.characterCount, mutedTextStyle]}>{bio.length}/200</Text>
             {errors.bio && <Text style={styles.errorText}>{errors.bio}</Text>}
           </View>
 
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>{t('profileEdit.genderLabel')}</Text>
+            <Text style={labelStyle}>{t('profileEdit.genderLabel')}</Text>
             <TouchableOpacity
-              style={styles.genderSelector}
+              style={[styles.genderSelector, { backgroundColor: card, borderColor: border }]}
               onPress={() => refRBSheet.current.open()}
             >
-              <Text style={styles.genderText}>{getGenderDisplay()}</Text>
-              <Text style={styles.dropdownArrow}>▼</Text>
+              <Text style={[styles.genderText, textStyle]}>{getGenderDisplay()}</Text>
+              <Text style={[styles.dropdownArrow, mutedTextStyle]}>▼</Text>
             </TouchableOpacity>
           </View>
 
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>{t('profileEdit.walletAddressLabel')}</Text>
+            <Text style={labelStyle}>{t('profileEdit.walletAddressLabel')}</Text>
             <View style={styles.walletRow}>
               <TextInput
                 style={[
-                  styles.input,
-                  styles.inputDisabled,
+                  ...inputDisabledStyle,
                   styles.walletInputFlex,
                 ]}
                 value={
@@ -640,12 +652,12 @@ const ProfileEditScreen = () => {
                 }
                 placeholder={t('profileEdit.notConnected')}
                 editable={false}
-                placeholderTextColor="#999"
+                placeholderTextColor={mutedText}
               />
               <TouchableOpacity
                 style={[
                   styles.connectWalletBtnInline,
-                  { backgroundColor: text, shadowColor: text },
+                  { backgroundColor: accent, shadowColor: accent },
                   hasConnectedWallet && { opacity: 0.75 },
                 ]}
                 onPress={() => {
@@ -662,14 +674,14 @@ const ProfileEditScreen = () => {
               </TouchableOpacity>
             </View>
             {!hasConnectedWallet && (
-              <Text style={styles.helperText}>{t('profileEdit.walletHelperText')}</Text>
+              <Text style={[styles.helperText, mutedTextStyle]}>{t('profileEdit.walletHelperText')}</Text>
             )}
             <View style={{ marginTop: 12 }} />
             {hasConnectedWallet && (
               <TouchableOpacity
                 style={[
                   styles.connectWalletBtnInline,
-                  { backgroundColor: text, shadowColor: text },
+                  { backgroundColor: accent, shadowColor: accent },
                 ]}
                 onPress={() => {
                   openWalletConnect();
@@ -684,11 +696,11 @@ const ProfileEditScreen = () => {
           </View>
 
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>{t('profileEdit.websiteLabel')}</Text>
+            <Text style={labelStyle}>{t('profileEdit.websiteLabel')}</Text>
             <TextInput
               placeholder={t('profileEdit.websitePlaceholder')}
-              placeholderTextColor="#9CA3AF"
-              style={styles.input}
+              placeholderTextColor={mutedText}
+              style={inputStyle}
               keyboardType="url"
               autoCapitalize="none"
               autoCorrect={false}
@@ -698,14 +710,14 @@ const ProfileEditScreen = () => {
           </View>
 
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>{t('profileEdit.socialLinkLabel')}</Text>
+            <Text style={labelStyle}>{t('profileEdit.socialLinkLabel')}</Text>
 
-            <View style={styles.socialRow}>
-              <Icon name="link" size={20} color="#6B7280" style={styles.linkIcon} />
+            <View style={[styles.socialRow, { backgroundColor: card, borderColor: border }]}>
+              <Icon name="link" size={20} color={mutedText} style={styles.linkIcon} />
               <TextInput
                 placeholder={t('profileEdit.socialLinkPlaceholder')}
-                placeholderTextColor="#9CA3AF"
-                style={styles.socialInputField}
+                placeholderTextColor={mutedText}
+                style={[styles.socialInputField, { color: text }]}
                 keyboardType="url"
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -714,39 +726,39 @@ const ProfileEditScreen = () => {
               />
             </View>
 
-            <View style={styles.socialRow}>
+            <View style={[styles.socialRow, { backgroundColor: card, borderColor: border }]}>
               <Icon name="instagram" size={20} color="#E1306C" />
               <TextInput
                 placeholder={t('profileEdit.instagramPlaceholder')}
-                style={styles.socialInput}
+                style={[styles.socialInput, { color: text }]}
                 value={instagram}
                 onChangeText={setInstagram}
                 autoCapitalize="none"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={mutedText}
               />
             </View>
 
-            <View style={styles.socialRow}>
+            <View style={[styles.socialRow, { backgroundColor: card, borderColor: border }]}>
               <Icon name="twitter" size={20} color="#1DA1F2" />
               <TextInput
                 placeholder={t('profileEdit.twitterPlaceholder')}
-                style={styles.socialInput}
+                style={[styles.socialInput, { color: text }]}
                 value={twitter}
                 onChangeText={setTwitter}
                 autoCapitalize="none"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={mutedText}
               />
             </View>
 
-            <View style={styles.socialRow}>
+            <View style={[styles.socialRow, { backgroundColor: card, borderColor: border }]}>
               <Icon name="linkedin" size={20} color="#0077B5" />
               <TextInput
                 placeholder={t('profileEdit.linkedinPlaceholder')}
-                style={styles.socialInput}
+                style={[styles.socialInput, { color: text }]}
                 value={linkedin}
                 onChangeText={setLinkedin}
                 autoCapitalize="none"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={mutedText}
               />
             </View>
           </View>
@@ -759,12 +771,16 @@ const ProfileEditScreen = () => {
         height={250}
         customModalProps={{ statusBarTranslucent: true }}
         customStyles={{
-          container: { borderTopLeftRadius: 10, borderTopRightRadius: 10 },
-          draggableIcon: { width: 80 },
+          container: {
+            borderTopLeftRadius: 10,
+            borderTopRightRadius: 10,
+            backgroundColor: card,
+          },
+          draggableIcon: { width: 80, backgroundColor: border },
         }}
       >
-        <View style={styles.modalHeader}>
-          <Text style={styles.modalTitle}>{t('profileEdit.selectGender')}</Text>
+        <View style={[styles.modalHeader, { borderBottomColor: border }]}>
+          <Text style={[styles.modalTitle, textStyle]}>{t('profileEdit.selectGender')}</Text>
         </View>
 
         {genderOptions.map(opt => (
@@ -772,7 +788,7 @@ const ProfileEditScreen = () => {
             key={opt.value}
             style={[
               styles.genderOption,
-              gender === opt.value && styles.genderOptionSelected,
+              gender === opt.value && [styles.genderOptionSelected, { backgroundColor: isDarkMode ? border : '#f3f0f7' }],
             ]}
             onPress={() => {
               handleGenderSelect(opt.value);
@@ -783,12 +799,13 @@ const ProfileEditScreen = () => {
             <Text
               style={[
                 styles.genderOptionText,
-                gender === opt.value && styles.genderOptionTextSelected && textStyle,
+                textStyle,
+                gender === opt.value && styles.genderOptionTextSelected,
               ]}
             >
               {opt.label}
             </Text>
-            {gender === opt.value && <Text style={[styles.checkmark, textStyle]}>✓</Text>}
+            {gender === opt.value && <Text style={[styles.checkmark, { color: accent }]}>✓</Text>}
           </TouchableOpacity>
         ))}
       </RBSheet>
@@ -799,49 +816,53 @@ const ProfileEditScreen = () => {
         height={370}
         customModalProps={{ statusBarTranslucent: true }}
         customStyles={{
-          container: { borderTopLeftRadius: 10, borderTopRightRadius: 10 },
-          draggableIcon: { width: 80 },
+          container: {
+            borderTopLeftRadius: 10,
+            borderTopRightRadius: 10,
+            backgroundColor: card,
+          },
+          draggableIcon: { width: 80, backgroundColor: border },
         }}
       >
         <View style={styles.bottomSheetContent}>
-          <Text style={styles.bottomSheetTitle}>{t('profileEdit.selectImageTitle')}</Text>
-          <Text style={styles.bottomSheetSubtitle}>{t('profileEdit.selectImageSubtitle')}</Text>
+          <Text style={[styles.bottomSheetTitle, textStyle]}>{t('profileEdit.selectImageTitle')}</Text>
+          <Text style={[styles.bottomSheetSubtitle, mutedTextStyle]}>{t('profileEdit.selectImageSubtitle')}</Text>
 
           <View style={styles.optionsContainer}>
             <TouchableOpacity
-              style={[styles.optionButton, { shadowColor: text }]}
+              style={[styles.optionButton, { shadowColor: accent, backgroundColor: card, borderColor: border }]}
               onPress={pickImageFromGallery}
             >
-              <View style={styles.optionIconContainer}>
-                <Icon name="image" size={24} color="#4F46E5" />
+              <View style={[styles.optionIconContainer, { backgroundColor: isDarkMode ? border : '#f3f0f7' }]}>
+                <Icon name="image" size={24} color={accent} />
               </View>
               <View style={styles.optionTextContainer}>
-                <Text style={styles.optionTitle}>{t('profileEdit.gallery')}</Text>
-                <Text style={styles.optionSubtitle}>{t('profileEdit.gallerySubtitle')}</Text>
+                <Text style={[styles.optionTitle, textStyle]}>{t('profileEdit.gallery')}</Text>
+                <Text style={[styles.optionSubtitle, mutedTextStyle]}>{t('profileEdit.gallerySubtitle')}</Text>
               </View>
-              <Icon name="chevron-right" size={20} color="#9CA3AF" />
+              <Icon name="chevron-right" size={20} color={mutedText} />
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.optionButton, { shadowColor: text }]}
+              style={[styles.optionButton, { shadowColor: accent, backgroundColor: card, borderColor: border }]}
               onPress={pickImageFromCamera}
             >
-              <View style={styles.optionIconContainer}>
-                <Icon name="camera" size={24} color="#059669" />
+              <View style={[styles.optionIconContainer, { backgroundColor: isDarkMode ? border : '#f3f0f7' }]}>
+                <Icon name="camera" size={24} color={accent} />
               </View>
               <View style={styles.optionTextContainer}>
-                <Text style={styles.optionTitle}>{t('profileEdit.camera')}</Text>
-                <Text style={styles.optionSubtitle}>{t('profileEdit.cameraSubtitle')}</Text>
+                <Text style={[styles.optionTitle, textStyle]}>{t('profileEdit.camera')}</Text>
+                <Text style={[styles.optionSubtitle, mutedTextStyle]}>{t('profileEdit.cameraSubtitle')}</Text>
               </View>
-              <Icon name="chevron-right" size={20} color="#9CA3AF" />
+              <Icon name="chevron-right" size={20} color={mutedText} />
             </TouchableOpacity>
           </View>
 
           <TouchableOpacity
-            style={styles.cancelButton}
+            style={[styles.cancelButton, { backgroundColor: isDarkMode ? border : '#f3f0f7' }]}
             onPress={() => refRBSheet1.current.close()}
           >
-            <Text style={styles.cancelButtonText}>{t('profileEdit.cancel')}</Text>
+            <Text style={[styles.cancelButtonText, textStyle]}>{t('profileEdit.cancel')}</Text>
           </TouchableOpacity>
         </View>
       </RBSheet>
@@ -862,8 +883,7 @@ const styles = StyleSheet.create({
   avatarContainer: {
     alignItems: 'center',
     paddingVertical: 24,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   avatarTouchable: { alignItems: 'center' },
   imageWrapper: { position: 'relative' },
@@ -899,23 +919,20 @@ const styles = StyleSheet.create({
   // --- Form section
   formSection: { paddingHorizontal: 20, paddingTop: 20 },
   inputContainer: { marginBottom: 18 },
-  label: { fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 6 },
+  label: { fontSize: 14, fontWeight: '600', marginBottom: 6 },
 
   // Inputs
   inputWrapper: { position: 'relative' },
   input: {
     borderWidth: 1.5,
-    borderColor: '#E5E7EB',
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 16,
-    color: '#1F2937',
-    backgroundColor: '#fff',
   },
   inputWithStatus: { paddingRight: 42 },
-  inputError: { borderColor: '#EF4444', backgroundColor: '#FEF2F2' },
-  inputDisabled: { backgroundColor: '#f3f0f7', color: '#6B7280' },
+  inputError: { borderColor: '#EF4444' },
+  inputDisabled: {},
 
   walletRow: {
     flexDirection: 'row',
@@ -951,22 +968,20 @@ const styles = StyleSheet.create({
 
   // Suggestions
   suggestionsContainer: { marginTop: 8 },
-  suggestionsTitle: { fontSize: 12, color: '#6B7280', marginBottom: 8, fontWeight: '500' },
+  suggestionsTitle: { fontSize: 12, marginBottom: 8, fontWeight: '500' },
   suggestionsList: { paddingVertical: 4 },
   suggestionChip: {
-    backgroundColor: '#f3f0f7',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
     marginRight: 8,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
   },
   suggestionText: { fontSize: 14, fontWeight: '500' },
 
   bioInput: { height: 90, textAlignVertical: 'top' },
-  characterCount: { fontSize: 12, color: '#6B7280', textAlign: 'right', marginTop: 4 },
-  helperText: { fontSize: 12, color: '#6B7280', marginTop: 4 },
+  characterCount: { fontSize: 12, textAlign: 'right', marginTop: 4 },
+  helperText: { fontSize: 12, marginTop: 4 },
   errorText: { color: '#EF4444', fontSize: 12, marginTop: 4 },
 
   // Gender dropdown
@@ -975,14 +990,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     borderWidth: 1.5,
-    borderColor: '#E5E7EB',
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    backgroundColor: '#fff',
   },
-  genderText: { fontSize: 16, color: '#374151' },
-  dropdownArrow: { fontSize: 12, color: '#6B7280' },
+  genderText: { fontSize: 16 },
+  dropdownArrow: { fontSize: 12 },
 
   // Modals
   modalHeader: {
@@ -991,22 +1004,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  modalTitle: { fontSize: 16, fontWeight: '600', color: '#374151' },
+  modalTitle: { fontSize: 16, fontWeight: '600' },
 
   genderOption: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 12 },
-  genderOptionSelected: { backgroundColor: '#f3f0f7' },
+  genderOptionSelected: {},
   genderOptionIcon: { fontSize: 18, marginRight: 12 },
-  genderOptionText: { fontSize: 16, color: '#374151', flex: 1 },
+  genderOptionText: { fontSize: 16, flex: 1 },
   genderOptionTextSelected: { fontWeight: '600' },
   checkmark: { fontSize: 16, fontWeight: '600' },
 
   // Bottom sheet
   bottomSheetContent: { flex: 1, marginHorizontal: 15, marginBottom: 30 },
-  bottomSheetTitle: { fontSize: 18, fontWeight: '700', color: '#1F2937', textAlign: 'center', marginBottom: 6 },
-  bottomSheetSubtitle: { fontSize: 14, color: '#6B7280', textAlign: 'center', marginBottom: 24 },
+  bottomSheetTitle: { fontSize: 18, fontWeight: '700', textAlign: 'center', marginBottom: 6 },
+  bottomSheetSubtitle: { fontSize: 14, textAlign: 'center', marginBottom: 24 },
 
   optionsContainer: { marginBottom: 20 },
   optionButton: {
@@ -1016,9 +1028,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     marginBottom: 12,
     borderRadius: 12,
-    backgroundColor: '#fff',
     borderWidth: 1.5,
-    borderColor: '#E5E7EB',
     shadowOpacity: 0.06,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
@@ -1028,14 +1038,13 @@ const styles = StyleSheet.create({
     width: 46,
     height: 46,
     borderRadius: 23,
-    backgroundColor: '#f3f0f7',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
   },
   optionTextContainer: { flex: 1 },
-  optionTitle: { fontSize: 16, fontWeight: '600', color: '#1F2937', marginBottom: 2 },
-  optionSubtitle: { fontSize: 14, color: '#6B7280' },
+  optionTitle: { fontSize: 16, fontWeight: '600', marginBottom: 2 },
+  optionSubtitle: { fontSize: 14 },
 
   cancelButton: {
     width: '100%',
@@ -1043,25 +1052,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 12,
-    backgroundColor: '#f3f0f7',
   },
-  cancelButtonText: { fontSize: 16, fontWeight: '600', color: '#374151' },
+  cancelButtonText: { fontSize: 16, fontWeight: '600' },
   socialRow: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1.5,
-    borderColor: '#E5E7EB',
     borderRadius: 12,
     paddingHorizontal: 12,
     marginBottom: 10,
-    backgroundColor: '#fff',
   },
   socialInput: {
     flex: 1,
     paddingVertical: 12,
     paddingLeft: 10,
     fontSize: 16,
-    color: '#1F2937',
   },
 
   linkIcon: {
@@ -1072,7 +1077,6 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     fontSize: 16,
-    color: '#1F2937',
   },
 
 });

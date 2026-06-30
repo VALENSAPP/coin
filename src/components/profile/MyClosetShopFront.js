@@ -14,8 +14,8 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useThemeContext } from '../../theme/ThemeContext';
 import { getClosetItemsByClosetId, getMyClosetById, getMyClosetItems } from '../../services/myCloset';
-import { useSelector } from 'react-redux';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const CARD_W = (SCREEN_W - 48) / 3; // 3-col grid
@@ -49,37 +49,37 @@ const BATTLES = [
 
 // ── BattleSlide ───────────────────────────────────────────────────────────────
 
-const BattleSlide = ({ battle, accent }) => (
-  <View style={s.slide}>
+const BattleSlide = ({ battle, accent, card, border, textColor, mutedText, isDark }) => (
+  <View style={[s.slide, { backgroundColor: card, borderColor: border }]}>
     {/* left */}
     <View style={s.fighter}>
-      <View style={s.fighterThumb}>
-        <Ionicons name="bag-outline" size={34} color="#9b8c7a" />
+      <View style={[s.fighterThumb, { backgroundColor: isDark ? border : '#f5f3ee' }]}>
+        <Ionicons name="bag-outline" size={34} color={mutedText} />
       </View>
-      <Text style={s.fighterName} numberOfLines={2}>{battle.left.name}</Text>
-      <Text style={s.fighterPrice}>{battle.left.price}</Text>
+      <Text style={[s.fighterName, { color: textColor }]} numberOfLines={2}>{battle.left.name}</Text>
+      <Text style={[s.fighterPrice, { color: textColor }]}>{battle.left.price}</Text>
       <View style={s.userRow}>
-        <View style={s.avatar} />
-        <Text style={s.username}>{battle.left.user}</Text>
+        <View style={[s.avatar, { backgroundColor: border }]} />
+        <Text style={[s.username, { color: mutedText }]}>{battle.left.user}</Text>
         <Text style={[s.pct, { color: accent }]}>{battle.left.pct}%</Text>
       </View>
     </View>
 
     {/* VS */}
-    <View style={s.vsBubble}>
-      <Text style={s.vsText}>VS</Text>
+    <View style={[s.vsBubble, { backgroundColor: card, borderColor: border }]}>
+      <Text style={[s.vsText, { color: textColor }]}>VS</Text>
     </View>
 
     {/* right */}
     <View style={s.fighter}>
-      <View style={[s.fighterThumb, { backgroundColor: '#f0eeec' }]}>
-        <Ionicons name="bag-handle-outline" size={34} color="#9b8c7a" />
+      <View style={[s.fighterThumb, { backgroundColor: isDark ? border : '#f0eeec' }]}>
+        <Ionicons name="bag-handle-outline" size={34} color={mutedText} />
       </View>
-      <Text style={s.fighterName} numberOfLines={2}>{battle.right.name}</Text>
-      <Text style={s.fighterPrice}>{battle.right.price}</Text>
+      <Text style={[s.fighterName, { color: textColor }]} numberOfLines={2}>{battle.right.name}</Text>
+      <Text style={[s.fighterPrice, { color: textColor }]}>{battle.right.price}</Text>
       <View style={s.userRow}>
-        <View style={s.avatar} />
-        <Text style={s.username}>{battle.right.user}</Text>
+        <View style={[s.avatar, { backgroundColor: border }]} />
+        <Text style={[s.username, { color: mutedText }]}>{battle.right.user}</Text>
         <Text style={s.pctRed}>{battle.right.pct}%</Text>
       </View>
     </View>
@@ -88,29 +88,29 @@ const BattleSlide = ({ battle, accent }) => (
 
 // ── ItemTile ──────────────────────────────────────────────────────────────────
 
-const ItemTile = ({ item, accent, onPress }) => {
+const ItemTile = ({ item, accent, onPress, card, border, textColor, mutedText, isDark }) => {
   const [liked, setLiked] = useState(false);
   return (
     <TouchableOpacity activeOpacity={0.85} style={s.tile} onPress={onPress}>
-      <View style={s.tileThumb}>
+      <View style={[s.tileThumb, { backgroundColor: isDark ? border : '#f5f3ee' }]}>
         {item.image
           ? <Image source={{ uri: item.image }} style={s.tileImg} />
-          : <View style={s.tileImgPlaceholder}><Ionicons name="shirt-outline" size={28} color="#9b8c7a" /></View>
+          : <View style={[s.tileImgPlaceholder, { backgroundColor: isDark ? border : '#f5f3ee' }]}><Ionicons name="shirt-outline" size={28} color={mutedText} /></View>
         }
         <TouchableOpacity
-          style={s.heart}
+          style={[s.heart, { backgroundColor: isDark ? `${card}cc` : '#ffffffcc' }]}
           onPress={() => setLiked(l => !l)}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
           <Ionicons
             name={liked ? 'heart' : 'heart-outline'}
             size={18}
-            color={liked ? accent : '#9b8c7a'}
+            color={liked ? accent : mutedText}
           />
         </TouchableOpacity>
       </View>
-      <Text style={s.tileName} numberOfLines={1}>{item.name}</Text>
-      <Text style={s.tilePrice}>{item.price}</Text>
+      <Text style={[s.tileName, { color: textColor }]} numberOfLines={1}>{item.name}</Text>
+      <Text style={[s.tilePrice, { color: textColor }]}>{item.price}</Text>
     </TouchableOpacity>
   );
 };
@@ -125,8 +125,11 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
   const [closetDetails, setClosetDetails] = useState(null);
   const [closetId, setClosetId] = useState(null);
 
-  const { text, bgStyle } = useAppTheme(userData?.profile);
-  const accent = text || '#6d28d9';
+  const profileType =
+    String(userData?.profile || '').toLowerCase() === 'company' ? 'company' : undefined;
+  const { textStyle, bgStyle, text, accent, card, border, mutedText, cardStyle } =
+    useAppTheme(profileType);
+  const { isDarkMode } = useThemeContext();
   
   // stored username
   useEffect(() => {
@@ -246,7 +249,7 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
         // Shop owner banner
         <TouchableOpacity
           activeOpacity={0.9}
-          style={s.banner}
+          style={[s.banner, cardStyle, { borderColor: border, borderWidth: StyleSheet.hairlineWidth }]}
           onPress={goStorefront}
         >
           <View style={[s.bannerIcon, { backgroundColor: `${accent}18` }]}>
@@ -254,7 +257,7 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
           </View>
           <View style={s.bannerBody}>
             <Text style={[s.bannerTitle, { color: accent }]}>{shopName}</Text>
-            <Text style={s.bannerSub}>
+            <Text style={[s.bannerSub, { color: mutedText }]}>
               Welcome to this shop.{'\n'}
               Explore the collection, discover new pieces, and experience the brand behind it. Shop now.
             </Text>
@@ -264,7 +267,7 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
         // Regular user (My Closet) banner
         <TouchableOpacity
           activeOpacity={0.9}
-          style={s.banner}
+          style={[s.banner, cardStyle, { borderColor: border, borderWidth: StyleSheet.hairlineWidth }]}
           onPress={goStorefront}
         >
           <View style={[s.bannerIcon, { backgroundColor: `${accent}18` }]}>
@@ -272,7 +275,7 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
           </View>
           <View style={s.bannerBody}>
             <Text style={[s.bannerTitle, { color: accent }]}>{isOwnProfile ? 'My Closet' : shopName}</Text>
-            <Text style={s.bannerSub}>
+            <Text style={[s.bannerSub, { color: mutedText }]}>
               Here you will find the things I let it go.{'\n'}
               Shop now and be happy the way I was with the item.{'\n'}
               This is my closet - things I've created, let it go.
@@ -286,7 +289,7 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
         <View style={s.sectionHead}>
           <View style={s.sectionLeft}>
             <Text style={s.sectionEmoji}>⚔️</Text>
-            <Text style={s.sectionTitle}>Battle Picks</Text>
+            <Text style={[s.sectionTitle, textStyle]}>Battle Picks</Text>
           </View>
           <TouchableOpacity onPress={goBattles} activeOpacity={0.7}>
             <Text style={[s.seeAll, { color: accent }]}>See all ›</Text>
@@ -301,7 +304,17 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
           showsHorizontalScrollIndicator={false}
           onScroll={onScroll}
           scrollEventThrottle={16}
-          renderItem={({ item }) => <BattleSlide battle={item} accent={accent} />}
+          renderItem={({ item }) => (
+            <BattleSlide
+              battle={item}
+              accent={accent}
+              card={card}
+              border={border}
+              textColor={text}
+              mutedText={mutedText}
+              isDark={isDarkMode}
+            />
+          )}
         />
 
         {/* dots */}
@@ -313,7 +326,7 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
                 s.dot,
                 i === dotIdx
                   ? { backgroundColor: accent, width: 16 }
-                  : { backgroundColor: '#d1d5db' },
+                  : { backgroundColor: border },
               ]}
             />
           ))}
@@ -323,7 +336,7 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
       {/* ── My Items ── */}
       <View style={s.section}>
         <View style={s.sectionHead}>
-          <Text style={s.sectionTitle}>My Items</Text>
+          <Text style={[s.sectionTitle, textStyle]}>My Items</Text>
           {(isOwnProfile || tiles.length > 0) && (
             <TouchableOpacity onPress={goItems} activeOpacity={0.7}>
               <Text style={[s.seeAll, { color: accent }]}>See all ›</Text>
@@ -336,15 +349,15 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
         ) : tiles.length === 0 ? (
           isOwnProfile ? (  // ← non-own profile sees nothing when empty
             <View style={s.center}>
-              <Ionicons name="shirt-outline" size={32} color="#d1d5db" />
-              <Text style={s.emptyTxt}>No items yet</Text>
+              <Ionicons name="shirt-outline" size={32} color={mutedText} />
+              <Text style={[s.emptyTxt, { color: mutedText }]}>No items yet</Text>
               <TouchableOpacity style={[s.addBtn, { borderColor: accent }]} onPress={() => goAddFirst(true)}>
               <Text style={[s.addBtnTxt, { color: accent }]}>Add your first item</Text>
             </TouchableOpacity>
             </View>
       ) : (
       <View style={s.center}>
-        <Text style={s.emptyTxt}>No items available</Text>
+        <Text style={[s.emptyTxt, { color: mutedText }]}>No items available</Text>
       </View>
       )
       ) : (
@@ -354,6 +367,11 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
             key={it.key}
             item={it}
             accent={accent}
+            card={card}
+            border={border}
+            textColor={text}
+            mutedText={mutedText}
+            isDark={isDarkMode}
             onPress={() => { openItem(it) }}
           />
         ))}
@@ -363,7 +381,7 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
             style={s.tile}
             onPress={() => goAddFirst(false)}
           >
-            <View style={[s.tileThumb, s.addTile]}>
+            <View style={[s.tileThumb, s.addTile, { borderColor: border, backgroundColor: isDarkMode ? card : '#fafafa' }]}>
               <Ionicons name="add" size={28} color={accent} />
             </View>
             <Text style={[s.tileName, { color: accent }]} numberOfLines={1}>
@@ -392,19 +410,18 @@ const s = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center',
     margin: 12, padding: 14,
     borderRadius: 16,
-    backgroundColor: '#fff'
   },
   bannerIcon: { width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
   bannerBody: { flex: 1 },
   bannerTitle: { fontSize: 16, fontWeight: '800', marginBottom: 3 },
-  bannerSub: { fontSize: 12, color: '#6b7280', lineHeight: 17 },
+  bannerSub: { fontSize: 12, lineHeight: 17 },
 
   /* section */
   section: { marginBottom: 20 },
   sectionHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, marginBottom: 12 },
   sectionLeft: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   sectionEmoji: { fontSize: 16 },
-  sectionTitle: { fontSize: 17, fontWeight: '800', color: '#111827' },
+  sectionTitle: { fontSize: 17, fontWeight: '800' },
   seeAll: { fontSize: 13, fontWeight: '600' },
 
   /* battle slide */
@@ -413,24 +430,22 @@ const s = StyleSheet.create({
     marginLeft: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
     borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#f0ece8',
+    borderWidth: StyleSheet.hairlineWidth,
     padding: 14,
     shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8, elevation: 2,
   },
   fighter: { flex: 1, alignItems: 'center' },
-  fighterThumb: { width: 100, height: 100, borderRadius: 14, backgroundColor: '#f5f3ee', alignItems: 'center', justifyContent: 'center', marginBottom: 8, overflow: 'hidden' },
-  fighterName: { fontSize: 12, fontWeight: '700', color: '#111827', textAlign: 'center', marginBottom: 2 },
-  fighterPrice: { fontSize: 14, fontWeight: '800', color: '#111827', marginBottom: 6 },
+  fighterThumb: { width: 100, height: 100, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginBottom: 8, overflow: 'hidden' },
+  fighterName: { fontSize: 12, fontWeight: '700', textAlign: 'center', marginBottom: 2 },
+  fighterPrice: { fontSize: 14, fontWeight: '800', marginBottom: 6 },
   userRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  avatar: { width: 18, height: 18, borderRadius: 9, backgroundColor: '#d1d5db' },
-  username: { fontSize: 11, color: '#6b7280', fontWeight: '600' },
+  avatar: { width: 18, height: 18, borderRadius: 9 },
+  username: { fontSize: 11, fontWeight: '600' },
   pct: { fontSize: 12, fontWeight: '800', marginLeft: 2 },
   pctRed: { fontSize: 12, fontWeight: '800', color: '#ef4444', marginLeft: 2 },
-  vsBubble: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#fff', borderWidth: 2, borderColor: '#e5e7eb', alignItems: 'center', justifyContent: 'center', marginHorizontal: 6, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 4, elevation: 2 },
-  vsText: { fontSize: 12, fontWeight: '900', color: '#111827' },
+  vsBubble: { width: 38, height: 38, borderRadius: 19, borderWidth: 2, alignItems: 'center', justifyContent: 'center', marginHorizontal: 6, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 4, elevation: 2 },
+  vsText: { fontSize: 12, fontWeight: '900' },
 
   /* dots */
   dots: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 12 },
@@ -439,24 +454,22 @@ const s = StyleSheet.create({
   /* items grid */
   grid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 12, gap: 12 },
   tile: { width: CARD_W },
-  tileThumb: { width: '100%', aspectRatio: 1, borderRadius: 14, overflow: 'hidden', marginBottom: 6, backgroundColor: '#f5f3ee' },
+  tileThumb: { width: '100%', aspectRatio: 1, borderRadius: 14, overflow: 'hidden', marginBottom: 6 },
   addTile: {
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
     borderStyle: 'dashed',
-    borderColor: '#d1d5db',
-    backgroundColor: '#fafafa',
   },
   tileImg: { width: '100%', height: '100%' },
-  tileImgPlaceholder: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f5f3ee' },
-  heart: { position: 'absolute', top: 7, right: 7, backgroundColor: '#ffffffcc', borderRadius: 20, padding: 4 },
-  tileName: { fontSize: 12, fontWeight: '700', color: '#111827' },
-  tilePrice: { fontSize: 13, fontWeight: '800', color: '#111827', marginTop: 1 },
+  tileImgPlaceholder: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' },
+  heart: { position: 'absolute', top: 7, right: 7, borderRadius: 20, padding: 4 },
+  tileName: { fontSize: 12, fontWeight: '700' },
+  tilePrice: { fontSize: 13, fontWeight: '800', marginTop: 1 },
 
   /* empty / loading */
   center: { alignItems: 'center', paddingVertical: 40, gap: 10 },
-  emptyTxt: { fontSize: 14, color: '#9ca3af', fontWeight: '600' },
+  emptyTxt: { fontSize: 14, fontWeight: '600' },
   addBtn: { paddingHorizontal: 20, paddingVertical: 9, borderRadius: 20, borderWidth: 1.5 },
   addBtnTxt: { fontSize: 13, fontWeight: '700' },
 });

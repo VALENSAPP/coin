@@ -21,7 +21,7 @@ import { follow, unfollow, getUserCredentials } from '../../services/post';
 import SupportCreatorModal from '../../components/modals/SupportCreatorModal';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
-import { useAppTheme } from '../../theme/useApptheme';
+import { useBusinessProfileTheme } from '../../theme/useBusinessProfileTheme';
 import { useDispatch } from 'react-redux';
 import { connectWalletLogin } from '../authentication/socialLogin';
 import { updateWallet } from '../../services/wallet';
@@ -69,7 +69,17 @@ export default function FollowersFollowingScreen({ navigation, route }) {
 
   const toast = useToast();
   const { startSupportPayment } = useWalletConnectSupport();
-  const { bgStyle, textStyle, text } = useAppTheme();
+  const {
+    bgStyle,
+    textStyle,
+    accent,
+    card,
+    cardStyle,
+    border,
+    mutedText,
+    mutedTextStyle,
+    icon,
+  } = useBusinessProfileTheme();
   const { t } = useLanguage();
 
   useEffect(() => {
@@ -434,7 +444,7 @@ export default function FollowersFollowingScreen({ navigation, route }) {
 
         return (
           <TouchableOpacity
-            style={[styles.userRow, { shadowColor: accentColor }]}
+            style={[styles.userRow, cardStyle, { shadowColor: accentColor, borderColor: border, borderWidth: StyleSheet.hairlineWidth }]}
             activeOpacity={0.7}
             onPress={() => goToUserProfile(item)}
           >
@@ -449,7 +459,7 @@ export default function FollowersFollowingScreen({ navigation, route }) {
             <View style={styles.userInfo}>
               <Text style={[styles.username, { color: accentColor }]}>{item.username}</Text>
               {!!item.fullName && (
-                <Text style={styles.fullName}>{item.fullName}</Text>
+                <Text style={[styles.fullName, mutedTextStyle]}>{item.fullName}</Text>
               )}
             </View>
 
@@ -457,11 +467,9 @@ export default function FollowersFollowingScreen({ navigation, route }) {
               <TouchableOpacity
                 style={[
                   styles.followBtn,
-                  followBusyById[item.id]
-                    ? [styles.follow, { backgroundColor: accentColor, shadowColor: accentColor }]
-                    : isFollowingState
-                      ? [styles.following, { borderColor: accentColor }]
-                      : [styles.follow, { backgroundColor: accentColor, shadowColor: accentColor }],
+                  followBusyById[item.id] || !isFollowingState
+                    ? { backgroundColor: accentColor, shadowColor: accentColor }
+                    : { backgroundColor: card, borderColor: accentColor, borderWidth: 1.5 },
                 ]}
                 onPress={(e) => {
                   e?.stopPropagation?.();
@@ -492,32 +500,46 @@ export default function FollowersFollowingScreen({ navigation, route }) {
       {/* Header */}
       <View style={styles.headerView}>
         <TouchableOpacity onPress={handleBack}>
-          <Icon name="arrow-back" size={24} color="#000" />
+          <Icon name="arrow-back" size={24} color={icon} />
         </TouchableOpacity>
         <Text style={[styles.usernameHeader, textStyle]}>{headerUsername}</Text>
       </View>
 
       {/* Tabs */}
-      <View style={styles.tabsRow}>
+      <View style={[styles.tabsRow, { backgroundColor: card, borderColor: border, borderWidth: StyleSheet.hairlineWidth }]}>
         <TouchableOpacity
           style={[
             styles.tabBtn,
-            activeTab === 'followers' && styles.tabBtnActive && { backgroundColor: text, shadowColor: text },
+            activeTab === 'followers' && [styles.tabBtnActive, { backgroundColor: accent, shadowColor: accent }],
           ]}
           onPress={() => setActiveTab('followers')}
         >
-          <Text style={[styles.tabText, textStyle, activeTab === 'followers' && styles.tabTextActive]}>
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === 'followers'
+                ? styles.tabTextActive
+                : { color: mutedText },
+            ]}
+          >
             {t('followersFollowing.followersTab')}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[
             styles.tabBtn,
-            activeTab === 'following' && styles.tabBtnActive && { backgroundColor: text, shadowColor: text },
+            activeTab === 'following' && [styles.tabBtnActive, { backgroundColor: accent, shadowColor: accent }],
           ]}
           onPress={() => setActiveTab('following')}
         >
-          <Text style={[styles.tabText, textStyle, activeTab === 'following' && styles.tabTextActive]}>
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === 'following'
+                ? styles.tabTextActive
+                : { color: mutedText },
+            ]}
+          >
             {t('followersFollowing.followingTab')}
           </Text>
         </TouchableOpacity>
@@ -525,13 +547,18 @@ export default function FollowersFollowingScreen({ navigation, route }) {
 
       {/* Search */}
       <TextInput
-        style={[styles.searchBar, { shadowColor: text }]}
+        style={[
+          styles.searchBar,
+          cardStyle,
+          textStyle,
+          { shadowColor: accent, borderColor: border, borderWidth: StyleSheet.hairlineWidth },
+        ]}
         placeholder={
           activeTab === 'followers'
             ? t('followersFollowing.searchFollowers')
             : t('followersFollowing.searchFollowing')
         }
-        placeholderTextColor="#888"
+        placeholderTextColor={mutedText}
         value={search}
         onChangeText={setSearch}
       />
@@ -539,7 +566,7 @@ export default function FollowersFollowingScreen({ navigation, route }) {
       {/* List */}
       {loading ? (
         <View style={{ paddingTop: 40 }}>
-          <ActivityIndicator />
+          <ActivityIndicator color={accent} />
         </View>
       ) : (
         <FlatList
@@ -553,7 +580,7 @@ export default function FollowersFollowingScreen({ navigation, route }) {
           keyboardShouldPersistTaps="handled"
           ListEmptyComponent={() => (
             <View style={{ alignItems: 'center', paddingTop: 30 }}>
-              <Text style={{ color: '#888' }}>
+              <Text style={mutedTextStyle}>
                 {activeTab === 'followers'
                   ? t('followersFollowing.noFollowers')
                   : t('followersFollowing.noFollowing')}
@@ -604,7 +631,6 @@ export default function FollowersFollowingScreen({ navigation, route }) {
       flexDirection: 'row',
       justifyContent: 'center',
       marginBottom: 14,
-      backgroundColor: '#f3f0f7',
       borderRadius: 12,
       padding: 4,
     },
@@ -618,7 +644,6 @@ export default function FollowersFollowingScreen({ navigation, route }) {
       shadowOpacity: 0.15,
       shadowRadius: 4,
       elevation: 2,
-      backgroundColor: '#5a2d82',
     },
     tabText: {
       fontSize: 15,
@@ -630,12 +655,10 @@ export default function FollowersFollowingScreen({ navigation, route }) {
 
     // Search bar
     searchBar: {
-      backgroundColor: '#fff',
       borderRadius: 12,
       paddingHorizontal: 14,
       paddingVertical: 10,
       fontSize: 16,
-      color: '#1F2937',
       marginBottom: 14,
       shadowOpacity: 0.06,
       shadowRadius: 4,
@@ -648,7 +671,6 @@ export default function FollowersFollowingScreen({ navigation, route }) {
       alignItems: 'center',
       paddingVertical: 12,
       paddingHorizontal: 12,
-      backgroundColor: '#fff',
       borderRadius: 12,
       marginBottom: 10,
       shadowOpacity: 0.05,
@@ -660,8 +682,7 @@ export default function FollowersFollowingScreen({ navigation, route }) {
     },
     userInfo: { flex: 1 },
     username: { fontWeight: '700', fontSize: 16 },
-    fullName: { color: '#6B7280', fontSize: 14 },
-    profileType: { color: '#8B5CF6', fontSize: 12, fontWeight: '600', marginTop: 2 },
+    fullName: { fontSize: 14 },
 
     // Follow button
     followBtn: {
@@ -671,13 +692,6 @@ export default function FollowersFollowingScreen({ navigation, route }) {
       minWidth: 100,
       alignItems: 'center',
       justifyContent: 'center',
-    },
-    following: {
-      backgroundColor: '#f3f0f7',
-      borderWidth: 1.5,
-    },
-    follow: {
-      // backgroundColor: '#5a2d82',
     },
     followText: {
       color: '#fff',

@@ -93,7 +93,7 @@ import EbookPublisherScreen from '../pages/wallet/EbookPublisher';
 import KYCVerification from '../pages/authentication/kycVerification';
 import FlipsScreen from '../pages/reels';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useAppTheme } from '../theme/useApptheme';
+import { useBusinessProfileTheme } from '../theme/useBusinessProfileTheme';
 import { useThemeContext } from '../theme/ThemeContext';
 import TermConditionScreen from '../pages/profile/Term&ConditionScreen';
 import { DeviceEventEmitter } from 'react-native';
@@ -290,44 +290,25 @@ const ShopScreenWrapper = props => {
 };
 
 export default function MainTabNavigator() {
-  const [profile, setProfile] = React.useState(null);
   const profileImage = useSelector(state => state.profileImage?.profileImg);
   const userProfile = useSelector(state => state.userProfile.userProfile);
   const navigation = useNavigation();
-  const profileThemeType = profile === 'company' ? 'company' : undefined;
-  const { bgStyle, textStyle, bg, text, border, mutedText, accent, icon } =
-    useAppTheme(profileThemeType);
+  const {
+    isBusinessProfile,
+    bgStyle,
+    textStyle,
+    bg,
+    text,
+    border,
+    mutedText,
+    accent,
+    icon,
+  } = useBusinessProfileTheme();
   const { isDarkMode } = useThemeContext();
   const headerTitleColor = isDarkMode ? '#ffffff' : '#111827';
-  const headerMenuColor =
-    profile === 'company' ? text : isDarkMode ? icon : text;
+  const headerMenuColor = isBusinessProfile ? text : isDarkMode ? icon : text;
   // ── TRANSLATION CHANGE: initialise t() ──────────────────────────────────────
   const { t } = useLanguage();
-
-  const getUserDetail = async () => {
-    try {
-      // dispatch(showLoader());
-      // const id = await AsyncStorage.getItem('userId');
-      const profile = await AsyncStorage.getItem('profile');
-
-      // if (!id) {
-      //   console.log('User ID not found');
-      //   return;
-      // }
-
-      // const response = await getUserCredentials(id);
-
-      // console.log('API Response: data in thi apiaiaaiaiaai', response);
-      setProfile(profile);
-    } catch (error) {
-      console.log('Error fetching user details:', error);
-    } finally {
-      // dispatch(hideLoader()); // Add this
-    }
-  };
-  useEffect(() => {
-    getUserDetail();
-  }, []);
 
   const HomeStack = useMemo(() => {
     return () => (
@@ -636,7 +617,7 @@ export default function MainTabNavigator() {
               <TextGradient
                 style={{ fontWeight: 'bold', fontSize: 20 }}
                 locations={[0, 1]}
-                colors={['#513189bd', '#e54ba0']}
+                colors={isBusinessProfile ? ['#C9A15A', '#E8C882'] : ['#513189bd', '#e54ba0']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 text="VALENS"
@@ -853,7 +834,7 @@ export default function MainTabNavigator() {
     userProfile,
     headerTitleColor,
     headerMenuColor,
-    profile,
+    isBusinessProfile,
     isDarkMode,
   ]);
 

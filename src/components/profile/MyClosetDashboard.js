@@ -11,7 +11,8 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { useAppTheme } from '../../theme/useApptheme';
+import { useBusinessProfileTheme } from '../../theme/useBusinessProfileTheme';
+import { useThemeContext } from '../../theme/ThemeContext';
 import { getMyClosetItems } from '../../services/myCloset';
 
 const mixWithWhite = (hex, amount = 0.88) => {
@@ -27,12 +28,15 @@ const mixWithWhite = (hex, amount = 0.88) => {
 
 const withAlpha = (hex, alpha = 0.12) => {
   const normalized = String(hex || '').replace('#', '');
-  if (normalized.length !== 6) return `rgba(124,58,237,${alpha})`;
+  if (normalized.length !== 6) return `rgba(201,161,90,${alpha})`;
   const r = parseInt(normalized.slice(0, 2), 16);
   const g = parseInt(normalized.slice(2, 4), 16);
   const b = parseInt(normalized.slice(4, 6), 16);
   return `rgba(${r},${g},${b},${alpha})`;
 };
+
+const nestedSurface = (isDarkMode, accent, border) =>
+  isDarkMode ? withAlpha(accent, 0.14) : mixWithWhite(accent, 0.92);
 
 const statCards = [
   { key: 'views', label: 'Views', value: '245', delta: '+18%', icon: 'eye-outline' },
@@ -66,7 +70,18 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
   const [storedUsername, setStoredUsername] = useState('');
   const [closetItems, setClosetItems] = useState([]);
   const [itemsLoading, setItemsLoading] = useState(false);
-  const { bgStyle, textStyle, text, cardStyle } = useAppTheme(userData?.profile);
+  const {
+    bgStyle,
+    textStyle,
+    text,
+    accent,
+    cardStyle,
+    border,
+    mutedText,
+    mutedTextStyle,
+  } = useBusinessProfileTheme();
+  const { isDarkMode } = useThemeContext();
+  const surface = nestedSurface(isDarkMode, accent, border);
 
   useEffect(() => {
     let isMounted = true;
@@ -210,30 +225,30 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
       showsVerticalScrollIndicator={false}
     >
       {/* ── Hero Profile Card ── */}
-      <View style={[styles.heroCard, cardStyle, { borderColor: withAlpha(text, 0.12) }]}>
+      <View style={[styles.heroCard, cardStyle, { borderColor: border }]}>
         <View style={styles.heroTop}>
           <View style={styles.heroLeft}>
-            <View style={[styles.heroBadge, { backgroundColor: mixWithWhite(text) }]}>
+            <View style={[styles.heroBadge, { backgroundColor: withAlpha(accent, 0.15) }]}>
               {avatarUri ? (
                 <Image source={{ uri: avatarUri }} style={styles.heroAvatar} />
               ) : (
-                <Ionicons name="bag-handle" size={30} color={text} />
+                <Ionicons name="bag-handle" size={30} color={accent} />
               )}
-              <View style={[styles.verifiedDot, { backgroundColor: text }]}>
+              <View style={[styles.verifiedDot, { backgroundColor: accent }]}>
                 <Ionicons name="checkmark" size={9} color="#fff" />
               </View>
             </View>
             <View style={styles.heroMeta}>
               <Text style={[styles.heroTitle, textStyle]}>{shopName}</Text>
-              <Text style={styles.heroHandle}>valens.app/{String(shopHandle).toLowerCase()}</Text>
+              <Text style={[styles.heroHandle, mutedTextStyle]}>valens.app/{String(shopHandle).toLowerCase()}</Text>
             </View>
           </View>
           <TouchableOpacity
             activeOpacity={0.9}
             onPress={handleSharePress}
-            style={[styles.shareButton, { borderColor: withAlpha(text, 0.25) }]}
+            style={[styles.shareButton, { borderColor: withAlpha(accent, 0.35) }]}
           >
-            <Text style={[styles.shareButtonText, { color: text }]}>Share Shop</Text>
+            <Text style={[styles.shareButtonText, { color: accent }]}>Share Shop</Text>
           </TouchableOpacity>
         </View>
 
@@ -243,38 +258,38 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
             <React.Fragment key={card.key}>
               <View style={styles.heroStatItem}>
                 <Text style={[styles.heroStatValue, textStyle]}>{card.value}</Text>
-                <Text style={styles.heroStatLabel}>{card.label}</Text>
+                <Text style={[styles.heroStatLabel, mutedTextStyle]}>{card.label}</Text>
               </View>
               {idx < overviewCards.length - 1 && (
-                <View style={[styles.heroStatDivider, { backgroundColor: withAlpha(text, 0.12) }]} />
+                <View style={[styles.heroStatDivider, { backgroundColor: border }]} />
               )}
             </React.Fragment>
           ))}
         </View>
 
         {/* Live banner */}
-        <View style={[styles.liveBanner, { backgroundColor: mixWithWhite(text, 0.94) }]}>
-          <Ionicons name="bag-handle-outline" size={16} color={text} />
-          <Text style={[styles.liveBannerText, { color: text }]}>
+        <View style={[styles.liveBanner, { backgroundColor: withAlpha(accent, 0.12) }]}>
+          <Ionicons name="bag-handle-outline" size={16} color={accent} />
+          <Text style={[styles.liveBannerText, textStyle]}>
             Your shop is live! 🎉{'  '}
-            <Text style={styles.liveBannerSub}>Keep adding items and grow your closet.</Text>
+            <Text style={[styles.liveBannerSub, mutedTextStyle]}>Keep adding items and grow your closet.</Text>
           </Text>
         </View>
       </View>
 
       {/* ── Overview (this week) ── */}
-      <View style={[styles.sectionCard, cardStyle, { borderColor: withAlpha(text, 0.12) }]}>
+      <View style={[styles.sectionCard, cardStyle, { borderColor: border }]}>
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, textStyle]}>Overview</Text>
-          <Text style={styles.sectionMeta}>This week ▾</Text>
+          <Text style={[styles.sectionMeta, mutedTextStyle]}>This week ▾</Text>
         </View>
 
         <View style={styles.quickGrid}>
           {statCards.map(card => (
-            <View key={card.key} style={[styles.quickCard, { backgroundColor: mixWithWhite(text, 0.95) }]}>
-              <Ionicons name={card.icon} size={18} color={text} />
+            <View key={card.key} style={[styles.quickCard, { backgroundColor: surface }]}>
+              <Ionicons name={card.icon} size={18} color={accent} />
               <Text style={[styles.quickValue, textStyle]}>{card.value}</Text>
-              <Text style={styles.quickLabel}>{card.label}</Text>
+              <Text style={[styles.quickLabel, mutedTextStyle]}>{card.label}</Text>
               <Text style={styles.quickDelta}>↑ {card.delta}</Text>
             </View>
           ))}
@@ -282,47 +297,47 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
       </View>
 
       {/* ── Battle Performance ── */}
-      <View style={[styles.sectionCard, cardStyle, { borderColor: withAlpha(text, 0.12) }]}>
+      <View style={[styles.sectionCard, cardStyle, { borderColor: border }]}>
         <View style={styles.sectionHeader}>
           <View style={styles.rowCenter}>
-            <Ionicons name="flame-outline" size={16} color={text} style={{ marginRight: 5 }} />
+            <Ionicons name="flame-outline" size={16} color={accent} style={{ marginRight: 5 }} />
             <Text style={[styles.sectionTitle, textStyle]}>Battle Performance</Text>
-            <Ionicons name="information-circle-outline" size={14} color="#9ca3af" style={{ marginLeft: 4 }} />
+            <Ionicons name="information-circle-outline" size={14} color={mutedText} style={{ marginLeft: 4 }} />
           </View>
           <TouchableOpacity activeOpacity={0.8} onPress={handleViewAllBattles}>
-            <Text style={styles.sectionMeta}>View all battles</Text>
+            <Text style={[styles.sectionMeta, mutedTextStyle]}>View all battles</Text>
           </TouchableOpacity>
         </View>
 
         <View style={styles.battleGrid}>
           {battleStats.map(stat => (
-            <View key={stat.key} style={[styles.battleCard, { backgroundColor: mixWithWhite(text, 0.95) }]}>
-              <Ionicons name={stat.icon} size={20} color={text} />
+            <View key={stat.key} style={[styles.battleCard, { backgroundColor: surface }]}>
+              <Ionicons name={stat.icon} size={20} color={accent} />
               <Text style={[styles.battleValue, textStyle]}>{stat.value}</Text>
-              <Text style={styles.battleLabel}>{stat.label}</Text>
+              <Text style={[styles.battleLabel, mutedTextStyle]}>{stat.label}</Text>
             </View>
           ))}
         </View>
       </View>
 
       {/* ── Recent Orders ── */}
-      <View style={[styles.sectionCard, cardStyle, { borderColor: withAlpha(text, 0.12) }]}>
+      <View style={[styles.sectionCard, cardStyle, { borderColor: border }]}>
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, textStyle]}>Recent Orders</Text>
           <TouchableOpacity activeOpacity={0.8} onPress={handleViewAllOrders}>
-            <Text style={styles.sectionMeta}>View all ›</Text>
+            <Text style={[styles.sectionMeta, mutedTextStyle]}>View all ›</Text>
           </TouchableOpacity>
         </View>
 
         <View style={styles.itemList}>
           {recentOrders.map(item => (
             <TouchableOpacity key={item.key} activeOpacity={0.8} style={styles.orderRow}>
-              <View style={[styles.itemThumb, { backgroundColor: withAlpha(text, 0.1) }]}>
-                <Ionicons name="shirt-outline" size={18} color={text} />
+              <View style={[styles.itemThumb, { backgroundColor: withAlpha(accent, 0.1) }]}>
+                <Ionicons name="shirt-outline" size={18} color={accent} />
               </View>
               <View style={styles.itemCopy}>
                 <Text style={[styles.itemName, textStyle]} numberOfLines={1}>{item.name}</Text>
-                <Text style={styles.itemOrder}>{item.order}</Text>
+                <Text style={[styles.itemOrder, mutedTextStyle]}>{item.order}</Text>
               </View>
               <View style={styles.orderRight}>
                 <View style={[styles.statusBadge, { backgroundColor: `${item.statusColor}18` }]}>
@@ -336,49 +351,46 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
       </View>
 
       {/* ── Your Items Grid ── */}
-      <View style={[styles.sectionCard, cardStyle, { borderColor: withAlpha(text, 0.12) }]}>
+      <View style={[styles.sectionCard, cardStyle, { borderColor: border }]}>
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, textStyle]}>Your Items</Text>
           <TouchableOpacity activeOpacity={0.8} onPress={handleViewAllItems}>
-            <Text style={styles.sectionMeta}>View all ›</Text>
+            <Text style={[styles.sectionMeta, mutedTextStyle]}>View all ›</Text>
           </TouchableOpacity>
         </View>
 
         <View style={styles.itemsGrid}>
           {itemsLoading ? (
             <View style={styles.itemsLoadingWrap}>
-              <ActivityIndicator color={text} />
+              <ActivityIndicator color={accent} />
             </View>
           ) : displayItems.length ? (
             displayItems.map(item => (
               <TouchableOpacity key={item.key} activeOpacity={0.85} style={styles.itemGridCard}>
-                <View style={[styles.itemGridThumb, { backgroundColor: withAlpha(text, 0.08) }]}>
+                <View style={[styles.itemGridThumb, { backgroundColor: withAlpha(accent, 0.08) }]}>
                   {item.image ? (
                     <Image source={{ uri: item.image }} style={styles.itemGridImage} />
                   ) : (
-                    <Ionicons name="shirt-outline" size={28} color={text} />
+                    <Ionicons name="shirt-outline" size={28} color={accent} />
                   )}
-                  {/* <TouchableOpacity style={[styles.itemMoreDot, { borderColor: withAlpha(text, 0.15) }]}>
-                    <Ionicons name="ellipsis-horizontal" size={12} color="#9ca3af" />
-                  </TouchableOpacity> */}
                 </View>
                 <Text style={[styles.itemGridName, textStyle]} numberOfLines={1}>{item.name}</Text>
-                <Text style={styles.itemGridPrice}>{item.price}</Text>
+                <Text style={[styles.itemGridPrice, mutedTextStyle]}>{item.price}</Text>
               </TouchableOpacity>
             ))
           ) : (
-            <View style={styles.emptyItemsCard}>
-              <Ionicons name="shirt-outline" size={24} color={text} />
+            <View style={[styles.emptyItemsCard, { borderColor: border }]}>
+              <Ionicons name="shirt-outline" size={24} color={accent} />
               <Text style={[styles.emptyItemsText, textStyle]}>No items yet</Text>
             </View>
           )}
 
           {/* Add New Item tile */}
           <TouchableOpacity activeOpacity={0.85} style={styles.itemGridCard} onPress={handleAddItemPress}>
-            <View style={[styles.itemGridThumb, styles.addItemThumb, { borderColor: withAlpha(text, 0.2) }]}>
-              <Ionicons name="add" size={28} color={text} />
+            <View style={[styles.itemGridThumb, styles.addItemThumb, { borderColor: withAlpha(accent, 0.35) }]}>
+              <Ionicons name="add" size={28} color={accent} />
             </View>
-            <Text style={[styles.itemGridName, { color: text, fontWeight: '700' }]}>Add New Item</Text>
+            <Text style={[styles.itemGridName, { color: accent, fontWeight: '700' }]}>Add New Item</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -387,7 +399,7 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
       <TouchableOpacity
         activeOpacity={0.9}
         onPress={handleCreateBattlePress}
-        style={[styles.battleCta, { backgroundColor: text }]}
+        style={[styles.battleCta, { backgroundColor: accent }]}
       >
         <View style={styles.battleCtaLeft}>
           <Ionicons name="flame" size={20} color="#fff" />
@@ -447,7 +459,7 @@ const styles = StyleSheet.create({
   },
   heroMeta: { flex: 1 },
   heroTitle: { fontSize: 18, fontWeight: '800' },
-  heroHandle: { marginTop: 2, color: '#6b7280', fontSize: 12 },
+  heroHandle: { marginTop: 2, fontSize: 12 },
   shareButton: {
     borderWidth: 1,
     borderRadius: 14,
@@ -464,7 +476,7 @@ const styles = StyleSheet.create({
   },
   heroStatItem: { alignItems: 'center', flex: 1 },
   heroStatValue: { fontSize: 18, fontWeight: '800' },
-  heroStatLabel: { marginTop: 2, color: '#6b7280', fontSize: 12, fontWeight: '600' },
+  heroStatLabel: { marginTop: 2, fontSize: 12, fontWeight: '600' },
   heroStatDivider: { width: 1, height: 32 },
 
   liveBanner: {
@@ -476,7 +488,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   liveBannerText: { fontSize: 13, fontWeight: '700', flex: 1 },
-  liveBannerSub: { fontWeight: '500', color: '#6b7280' },
+  liveBannerSub: { fontWeight: '500' },
 
   // Section card
   sectionCard: {
@@ -492,7 +504,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   sectionTitle: { fontSize: 16, fontWeight: '800' },
-  sectionMeta: { fontSize: 12, color: '#6b7280', fontWeight: '600' },
+  sectionMeta: { fontSize: 12, fontWeight: '600' },
   rowCenter: { flexDirection: 'row', alignItems: 'center' },
 
   // Overview quick cards
@@ -508,7 +520,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   quickValue: { fontSize: 18, fontWeight: '800' },
-  quickLabel: { color: '#6b7280', fontSize: 12, fontWeight: '600' },
+  quickLabel: { fontSize: 12, fontWeight: '600' },
   quickDelta: { color: '#16a34a', fontSize: 12, fontWeight: '700' },
 
   // Battle
@@ -525,7 +537,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   battleValue: { fontSize: 16, fontWeight: '800', marginTop: 4 },
-  battleLabel: { color: '#6b7280', fontSize: 11, fontWeight: '600' },
+  battleLabel: { fontSize: 11, fontWeight: '600' },
 
   // Orders
   itemList: { gap: 6 },
@@ -544,7 +556,7 @@ const styles = StyleSheet.create({
   },
   itemCopy: { flex: 1 },
   itemName: { fontSize: 14, fontWeight: '700' },
-  itemOrder: { marginTop: 2, color: '#6b7280', fontSize: 12, fontWeight: '500' },
+  itemOrder: { marginTop: 2, fontSize: 12, fontWeight: '500' },
   orderRight: { alignItems: 'flex-end', gap: 4 },
   statusBadge: {
     borderRadius: 20,
@@ -595,7 +607,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   itemGridName: { fontSize: 12, fontWeight: '700', textAlign: 'left' },
-  itemGridPrice: { marginTop: 1, color: '#6b7280', fontSize: 11, fontWeight: '600' },
+  itemGridPrice: { marginTop: 1, fontSize: 11, fontWeight: '600' },
   itemsLoadingWrap: {
     width: '100%',
     minHeight: 110,
@@ -608,7 +620,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     borderStyle: 'dashed',
-    borderColor: '#e5e7eb',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,

@@ -29,7 +29,18 @@ import {
   updateHighlight,
 } from '../../../services/highlightStory';
 import { useAppTheme } from '../../../theme/useApptheme';
+import { useBusinessProfileTheme } from '../../../theme/useBusinessProfileTheme';
+import { useThemeContext } from '../../../theme/ThemeContext';
 import { useLanguage } from '../../../i18n';
+
+const withAlpha = (hex, alpha = 0.12) => {
+  const normalized = String(hex || '').replace('#', '');
+  if (normalized.length !== 6) return `rgba(201,161,90,${alpha})`;
+  const r = parseInt(normalized.slice(0, 2), 16);
+  const g = parseInt(normalized.slice(2, 4), 16);
+  const b = parseInt(normalized.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+};
 
 
 const isVideoMedia = value => {
@@ -206,7 +217,24 @@ const HighlightsScreen = ({ navigation, route }) => {
   const [removingStory, setRemovingStory] = useState(false);
 
   const toast = useToast();
-  const { bgStyle, textStyle, cardStyle, text: themeText, card } = useAppTheme(profileType);
+  const ownTheme = useBusinessProfileTheme();
+  const visitorTheme = useAppTheme(
+    String(profileType || '').toLowerCase() === 'company' ? 'company' : undefined,
+  );
+  const {
+    bgStyle,
+    textStyle,
+    cardStyle,
+    text,
+    accent,
+    card,
+    border,
+    mutedText,
+    mutedTextStyle,
+    icon,
+  } = readOnly ? visitorTheme : ownTheme;
+  const { isDarkMode } = useThemeContext();
+  const surface = isDarkMode ? withAlpha(accent, 0.14) : '#f3f4f6';
   const { t } = useLanguage();
 
   const fetchHighlights = useCallback(async (isRefreshing = false) => {
@@ -494,8 +522,8 @@ const HighlightsScreen = ({ navigation, route }) => {
           }
       }
     >
-      <View style={styles.bubbleOuter}>
-        <View style={styles.bubbleInner}>
+      <View style={[styles.bubbleOuter, { borderColor: border, backgroundColor: card }]}>
+        <View style={[styles.bubbleInner, { backgroundColor: border }]}>
           {item.coverImage ? (
             <Image source={{ uri: item.coverImage }} style={styles.bubbleImage} />
           ) : (
@@ -513,7 +541,7 @@ const HighlightsScreen = ({ navigation, route }) => {
 
   const renderPreviewThumb = (story, index, total) => {
     if (!story) {
-      return <View key={`empty_${index}`} style={[styles.previewTile, styles.previewEmpty]} />;
+      return <View key={`empty_${index}`} style={[styles.previewTile, styles.previewEmpty, { backgroundColor: surface }]} />;
     }
 
     return (
@@ -521,6 +549,7 @@ const HighlightsScreen = ({ navigation, route }) => {
         key={story.id || `${index}`}
         style={[
           styles.previewTile,
+          { backgroundColor: border },
           total === 1 && styles.previewTileFull,
           total === 2 && index === 0 && styles.previewTileTall,
           total === 2 && index === 1 && styles.previewTileTall,
@@ -539,11 +568,14 @@ const HighlightsScreen = ({ navigation, route }) => {
 
   return (
     <SafeAreaView style={[styles.container, bgStyle]} edges={['top', 'left', 'right']}>
-      <StatusBar barStyle="dark-content" backgroundColor={cardStyle?.backgroundColor || '#fff'} />
+      <StatusBar
+        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
+        backgroundColor={card}
+      />
 
-      <View style={[styles.header, cardStyle]}>
+      <View style={[styles.header, cardStyle, { borderBottomColor: border }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Icon name="arrow-back" size={24} color={themeText || '#202020'} />
+          <Icon name="arrow-back" size={24} color={icon} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, textStyle]}>
           {readOnly
@@ -554,7 +586,7 @@ const HighlightsScreen = ({ navigation, route }) => {
           <View style={styles.headerAction} />
         ) : (
           <TouchableOpacity onPress={openCreateModal} style={styles.headerAction}>
-            <Icon name="add" size={24} color={themeText || '#202020'} />
+            <Icon name="add" size={24} color={icon} />
           </TouchableOpacity>
         )}
       </View>
@@ -566,33 +598,33 @@ const HighlightsScreen = ({ navigation, route }) => {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={themeText || '#202020'}
+            tintColor={accent}
           />
         }
       >
-        <View style={[styles.introCard, { backgroundColor: card || '#fff' }]}>
+        <View style={[styles.introCard, cardStyle, { borderColor: border, borderWidth: StyleSheet.hairlineWidth }]}>
           <Text style={[styles.introTitle, textStyle]}>
             {readOnly
               ? `${screenTitle || t('highlights.titleReadOnly')} ${t('highlights.manageSubtitleReadOnly')}`
               : t('highlights.manageTitle')}
           </Text>
-          <Text style={styles.introText}>
+          <Text style={[styles.introText, mutedTextStyle]}>
             {readOnly ? t('highlights.readOnlyDesc') : t('highlights.manageDesc')}
           </Text>
 
           <View style={styles.statsRow}>
-            <View style={styles.statPill}>
-              <Text style={styles.statValue}>{highlights.length}</Text>
-              <Text style={styles.statLabel}>{t('highlights.statHighlights')}</Text>
+            <View style={[styles.statPill, { backgroundColor: surface }]}>
+              <Text style={[styles.statValue, textStyle]}>{highlights.length}</Text>
+              <Text style={[styles.statLabel, mutedTextStyle]}>{t('highlights.statHighlights')}</Text>
             </View>
-            <View style={styles.statPill}>
-              <Text style={styles.statValue}>{totalStories}</Text>
-              <Text style={styles.statLabel}>{t('highlights.statDrops')}</Text>
+            <View style={[styles.statPill, { backgroundColor: surface }]}>
+              <Text style={[styles.statValue, textStyle]}>{totalStories}</Text>
+              <Text style={[styles.statLabel, mutedTextStyle]}>{t('highlights.statDrops')}</Text>
             </View>
             {!readOnly ? (
               <TouchableOpacity
                 activeOpacity={0.9}
-                style={[styles.managePill, { backgroundColor: themeText || '#262626' }]}
+                style={[styles.managePill, { backgroundColor: accent }]}
                 onPress={openCreateModal}
               >
                 <Icon name="add-circle-outline" size={16} color="#fff" />
@@ -606,9 +638,9 @@ const HighlightsScreen = ({ navigation, route }) => {
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             {!readOnly ? (
               <TouchableOpacity activeOpacity={0.9} style={styles.bubbleItem} onPress={openCreateModal}>
-                <View style={styles.newBubbleOuter}>
-                  <View style={styles.newBubbleInner}>
-                    <Icon name="add" size={30} color="#262626" />
+                <View style={[styles.newBubbleOuter, { borderColor: border }]}>
+                  <View style={[styles.newBubbleInner, { backgroundColor: surface }]}>
+                    <Icon name="add" size={30} color={accent} />
                   </View>
                 </View>
                 <Text style={[styles.bubbleLabel, textStyle]} numberOfLines={1}>
@@ -622,7 +654,7 @@ const HighlightsScreen = ({ navigation, route }) => {
 
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, textStyle]}>{t('highlights.sectionTitle')}</Text>
-          <Text style={styles.sectionMeta}>
+          <Text style={[styles.sectionMeta, mutedTextStyle]}>
             {highlights.length
               ? `${highlights.length} ${t('highlights.statHighlights')}`
               : t('highlights.noGroups')}
@@ -631,7 +663,7 @@ const HighlightsScreen = ({ navigation, route }) => {
 
         {loading ? (
           <View style={styles.loadingWrap}>
-            <ActivityIndicator size="large" color={themeText || '#202020'} />
+            <ActivityIndicator size="large" color={accent} />
             <Text style={[styles.loadingText, textStyle]}>{t('highlights.loading')}</Text>
           </View>
         ) : highlights.length ? (
@@ -642,7 +674,7 @@ const HighlightsScreen = ({ navigation, route }) => {
               <TouchableOpacity
                 key={item.id}
                 activeOpacity={0.92}
-                style={[styles.collectionCard, { backgroundColor: card || '#fff' }]}
+                style={[styles.collectionCard, cardStyle, { borderColor: border, borderWidth: StyleSheet.hairlineWidth }]}
                 onPress={() => openViewer(item)}
                 onLongPress={
                   readOnly
@@ -657,8 +689,8 @@ const HighlightsScreen = ({ navigation, route }) => {
               >
                 <View style={styles.collectionTopRow}>
                   <View style={styles.collectionIdentity}>
-                    <View style={styles.collectionAvatarOuter}>
-                      <View style={styles.collectionAvatarInner}>
+                    <View style={[styles.collectionAvatarOuter, { borderColor: border, backgroundColor: card }]}>
+                      <View style={[styles.collectionAvatarInner, { backgroundColor: border }]}>
                         {item.coverImage ? (
                           <Image source={{ uri: item.coverImage }} style={styles.collectionAvatarImage} />
                         ) : (
@@ -673,7 +705,7 @@ const HighlightsScreen = ({ navigation, route }) => {
                       <Text style={[styles.collectionTitle, textStyle]} numberOfLines={1}>
                         {item.title}
                       </Text>
-                      <Text style={styles.collectionMeta}>
+                      <Text style={[styles.collectionMeta, mutedTextStyle]}>
                         {item.storyCount}{' '}
                         {item.storyCount === 1
                           ? t('highlights.dropsSaved_one', { count: item.storyCount })
@@ -686,15 +718,15 @@ const HighlightsScreen = ({ navigation, route }) => {
                     {!readOnly ? (
                       <TouchableOpacity
                         activeOpacity={0.9}
-                        style={styles.collectionAddButton}
+                        style={[styles.collectionAddButton, { backgroundColor: surface }]}
                         onPress={() => openArchiveForExistingHighlight(item.id)}
                       >
-                        <Icon name="add" size={14} color="#262626" />
+                        <Icon name="add" size={14} color={accent} />
                       </TouchableOpacity>
                     ) : null}
                     <TouchableOpacity
                       activeOpacity={0.9}
-                      style={[styles.watchButton, { backgroundColor: themeText || '#262626' }]}
+                      style={[styles.watchButton, { backgroundColor: accent }]}
                       onPress={() => openViewer(item)}
                     >
                       <Icon name="play" size={14} color="#fff" />
@@ -712,20 +744,20 @@ const HighlightsScreen = ({ navigation, route }) => {
             );
           })
         ) : (
-          <View style={[styles.emptyCard, { backgroundColor: card || '#fff' }]}>
-            <View style={styles.emptyCircle}>
-              <Icon name="add" size={28} color="#262626" />
+          <View style={[styles.emptyCard, cardStyle, { borderColor: border, borderWidth: StyleSheet.hairlineWidth }]}>
+            <View style={[styles.emptyCircle, { backgroundColor: surface, borderColor: border }]}>
+              <Icon name="add" size={28} color={accent} />
             </View>
             <Text style={[styles.emptyTitle, textStyle]}>
               {readOnly ? t('highlights.emptyTitleReadOnly') : t('highlights.emptyTitle')}
             </Text>
-            <Text style={styles.emptyText}>
+            <Text style={[styles.emptyText, mutedTextStyle]}>
               {readOnly ? t('highlights.emptyDescReadOnly') : t('highlights.emptyDesc')}
             </Text>
             {!readOnly ? (
               <TouchableOpacity
                 activeOpacity={0.9}
-                style={[styles.emptyButton, { backgroundColor: themeText || '#262626' }]}
+                style={[styles.emptyButton, { backgroundColor: accent }]}
                 onPress={openCreateModal}
               >
                 <Text style={styles.emptyButtonText}>{t('highlights.createButton')}</Text>
@@ -804,7 +836,7 @@ const HighlightsScreen = ({ navigation, route }) => {
                 activeOpacity={0.9}
                 style={[
                   styles.viewerFooterButton,
-                  { backgroundColor: themeText || '#262626' },
+                  { backgroundColor: accent },
                   removingStory && styles.viewerFooterButtonDisabled,
                 ]}
                 onPress={handleRemoveCurrentStory}
@@ -827,11 +859,11 @@ const HighlightsScreen = ({ navigation, route }) => {
       {/* Create / Edit modal */}
       <Modal visible={managerVisible && !readOnly} transparent animationType="fade" onRequestClose={closeManagerModal}>
         <View style={styles.managerOverlay}>
-          <View style={[styles.managerCard, { backgroundColor: card || '#fff' }]}>
+          <View style={[styles.managerCard, cardStyle, { borderColor: border, borderWidth: StyleSheet.hairlineWidth }]}>
             <Text style={[styles.managerTitle, textStyle]}>
               {managerMode === 'create' ? t('highlights.createModalTitle') : t('highlights.editModalTitle')}
             </Text>
-            <Text style={styles.managerSubtitle}>
+            <Text style={[styles.managerSubtitle, mutedTextStyle]}>
               {managerMode === 'create' ? t('highlights.createModalDesc') : t('highlights.editModalDesc')}
             </Text>
 
@@ -839,8 +871,15 @@ const HighlightsScreen = ({ navigation, route }) => {
               value={highlightTitle}
               onChangeText={setHighlightTitle}
               placeholder={t('highlights.highlightNamePlaceholder')}
-              placeholderTextColor="#9ca3af"
-              style={[styles.managerInput, { color: themeText || '#202020' }]}
+              placeholderTextColor={mutedText}
+              style={[
+                styles.managerInput,
+                textStyle,
+                {
+                  borderColor: border,
+                  backgroundColor: surface,
+                },
+              ]}
               maxLength={40}
             />
 
@@ -848,7 +887,7 @@ const HighlightsScreen = ({ navigation, route }) => {
               activeOpacity={0.9}
               style={[
                 styles.managerPrimaryButton,
-                { backgroundColor: themeText || '#262626' },
+                { backgroundColor: accent },
                 savingHighlight && styles.managerPrimaryButtonDisabled,
               ]}
               onPress={handleCreateOrUpdateHighlight}
@@ -863,8 +902,12 @@ const HighlightsScreen = ({ navigation, route }) => {
               )}
             </TouchableOpacity>
 
-            <TouchableOpacity activeOpacity={0.9} style={styles.managerSecondaryButton} onPress={closeManagerModal}>
-              <Text style={styles.managerSecondaryText}>{t('highlights.cancelModal')}</Text>
+            <TouchableOpacity
+              activeOpacity={0.9}
+              style={[styles.managerSecondaryButton, { backgroundColor: surface }]}
+              onPress={closeManagerModal}
+            >
+              <Text style={[styles.managerSecondaryText, textStyle]}>{t('highlights.cancelModal')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -883,8 +926,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderBottomWidth: 0.5,
-    borderBottomColor: '#e6e6e6',
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   backButton: {
     width: 36,
@@ -896,7 +938,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 18,
     fontWeight: '700',
-    color: '#202020',
   },
   headerAction: {
     width: 36,
@@ -915,13 +956,11 @@ const styles = StyleSheet.create({
   introTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#202020',
   },
   introText: {
     marginTop: 8,
     fontSize: 14,
     lineHeight: 21,
-    color: '#6b7280',
   },
   statsRow: {
     flexDirection: 'row',
@@ -931,7 +970,6 @@ const styles = StyleSheet.create({
   statPill: {
     minWidth: 74,
     borderRadius: 14,
-    backgroundColor: '#f3f4f6',
     paddingHorizontal: 14,
     paddingVertical: 10,
     marginRight: 10,
@@ -940,18 +978,15 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#202020',
   },
   statLabel: {
     marginTop: 2,
     fontSize: 11,
-    color: '#6b7280',
   },
   managePill: {
     marginLeft: 'auto',
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#262626',
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 10,
@@ -976,15 +1011,12 @@ const styles = StyleSheet.create({
     height: 76,
     borderRadius: 38,
     borderWidth: 1,
-    borderColor: '#d1d5db',
     padding: 3,
-    backgroundColor: '#fff',
   },
   bubbleInner: {
     flex: 1,
     borderRadius: 34,
     overflow: 'hidden',
-    backgroundColor: '#d1d5db',
   },
   bubbleImage: {
     width: '100%',
@@ -1002,20 +1034,17 @@ const styles = StyleSheet.create({
     borderRadius: 38,
     borderWidth: 1,
     borderStyle: 'dashed',
-    borderColor: '#9ca3af',
     padding: 3,
   },
   newBubbleInner: {
     flex: 1,
     borderRadius: 34,
-    backgroundColor: '#f3f4f6',
     alignItems: 'center',
     justifyContent: 'center',
   },
   bubbleLabel: {
     marginTop: 8,
     fontSize: 12,
-    color: '#202020',
     textAlign: 'center',
   },
   sectionHeader: {
@@ -1029,11 +1058,9 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#202020',
   },
   sectionMeta: {
     fontSize: 12,
-    color: '#6b7280',
   },
   loadingWrap: {
     paddingVertical: 40,
@@ -1066,15 +1093,12 @@ const styles = StyleSheet.create({
     height: 56,
     borderRadius: 28,
     borderWidth: 1,
-    borderColor: '#d1d5db',
     padding: 2,
-    backgroundColor: '#fff',
   },
   collectionAvatarInner: {
     flex: 1,
     borderRadius: 25,
     overflow: 'hidden',
-    backgroundColor: '#d1d5db',
   },
   collectionAvatarImage: {
     width: '100%',
@@ -1087,13 +1111,11 @@ const styles = StyleSheet.create({
   collectionTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#202020',
   },
   collectionMeta: {
     marginTop: 4,
     fontSize: 12,
     lineHeight: 18,
-    color: '#6b7280',
   },
   collectionActions: {
     flexDirection: 'row',
@@ -1105,13 +1127,11 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#f3f4f6',
     marginRight: 8,
   },
   watchButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    // backgroundColor: '#262626',
     borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -1132,7 +1152,6 @@ const styles = StyleSheet.create({
     aspectRatio: 0.82,
     borderRadius: 14,
     overflow: 'hidden',
-    backgroundColor: '#e5e7eb',
   },
   previewTileFull: {
     width: '100%',
@@ -1144,9 +1163,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  previewEmpty: {
-    backgroundColor: '#f3f4f6',
-  },
+  previewEmpty: {},
   videoThumb: {
     flex: 1,
     alignItems: 'center',
@@ -1165,27 +1182,22 @@ const styles = StyleSheet.create({
     borderRadius: 37,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#f3f4f6',
     borderWidth: 1,
-    borderColor: '#d1d5db',
   },
   emptyTitle: {
     marginTop: 16,
     fontSize: 20,
     fontWeight: '700',
-    color: '#202020',
   },
   emptyText: {
     marginTop: 8,
     fontSize: 14,
     lineHeight: 21,
     textAlign: 'center',
-    color: '#6b7280',
   },
   emptyButton: {
     marginTop: 18,
     borderRadius: 999,
-    backgroundColor: '#262626',
     paddingHorizontal: 22,
     paddingVertical: 12,
   },
@@ -1295,23 +1307,19 @@ const styles = StyleSheet.create({
   managerTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#202020',
   },
   managerSubtitle: {
     marginTop: 6,
     fontSize: 13,
     lineHeight: 19,
-    color: '#6b7280',
   },
   managerInput: {
     marginTop: 16,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
     borderRadius: 14,
     paddingHorizontal: 14,
     paddingVertical: 13,
     fontSize: 15,
-    backgroundColor: '#f9fafb',
   },
   managerPrimaryButton: {
     marginTop: 16,
@@ -1319,7 +1327,6 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#262626',
   },
   managerPrimaryButtonDisabled: {
     opacity: 0.75,
@@ -1335,10 +1342,8 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#f3f4f6',
   },
   managerSecondaryText: {
-    color: '#202020',
     fontSize: 14,
     fontWeight: '700',
   },

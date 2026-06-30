@@ -356,7 +356,7 @@ const InstagramPostCreator = () => {
   const [flipVolumeModal, setFlipVolumeModal] = useState(false);
   const [trimStartInput, setTrimStartInput] = useState('0');
   const [trimEndInput, setTrimEndInput] = useState('');
-  const { bgStyle, textStyle, cardStyle, text: themeText, icon, accent, mutedText, border } = useAppTheme();
+  const { bgStyle, textStyle, cardStyle, text: themeText, icon, accent, mutedText, border, bg } = useAppTheme();
   const { isDarkMode } = useThemeContext();
   const toast = useToast();
   const insets = useSafeAreaInsets();
@@ -2594,9 +2594,9 @@ const InstagramPostCreator = () => {
         }}
         onSelectBuiltin={handleSelectPostBuiltinTrack}
         onSelectYoutube={handleSelectPostYoutubeTrack}
-        backgroundColor={cardStyle?.backgroundColor || (isDarkMode ? '#121212' : '#fff')}
+        backgroundColor={isDarkMode ? bg : (cardStyle?.backgroundColor || '#fff')}
         textColor={themeText}
-        accentColor={themeText}
+        accentColor={accent}
         isDark={isDarkMode}
       />
 

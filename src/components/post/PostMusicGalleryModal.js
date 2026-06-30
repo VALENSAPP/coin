@@ -19,6 +19,8 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { POST_SOUNDTRACKS } from '../../utils/postSoundtracks';
 import { searchYoutubeMusicTracks, getYoutubeSearchApiKey } from '../../services/youtubeMusic';
 import { useLanguage } from '../../i18n';
+import { useBusinessProfileTheme } from '../../theme/useBusinessProfileTheme';
+import { useThemeContext } from '../../theme/ThemeContext';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -103,6 +105,20 @@ export default function PostMusicGalleryModal({
   isDark = false,
 }) {
   const { t } = useLanguage();
+  const profileTheme = useBusinessProfileTheme();
+  const { isDarkMode } = useThemeContext();
+  const dark = isDark ?? isDarkMode;
+  const resolvedBackground = dark ? profileTheme.bg : backgroundColor;
+  const resolvedText = textColor ?? profileTheme.text;
+  const resolvedAccent =
+    accentColor === textColor || accentColor === '#ffffff' || accentColor === '#fff'
+      ? profileTheme.accent
+      : (accentColor ?? profileTheme.accent);
+  const borderColor = dark ? profileTheme.border : 'rgba(0,0,0,0.08)';
+  const mutedColor = dark ? profileTheme.mutedText : 'rgba(0,0,0,0.5)';
+  const searchBg = dark ? profileTheme.card : 'rgba(0,0,0,0.05)';
+  const iconColor = profileTheme.icon;
+
   const [activeMood, setActiveMood] = useState('all');
   const [browseResults, setBrowseResults] = useState([]);
   const [browseLoading, setBrowseLoading] = useState(false);
@@ -171,10 +187,6 @@ export default function PostMusicGalleryModal({
     };
   }, [visible, activeMood, isSearching]);
 
-  const borderColor = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)';
-  const mutedColor = isDark ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.5)';
-  const searchBg = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)';
-
   const renderYoutubeRow = ({ item }) => {
     const selected = isYoutubeSelected(item, selection);
     return (
@@ -187,11 +199,11 @@ export default function PostMusicGalleryModal({
           <Image source={{ uri: item.thumbnailUrl }} style={styles.trackArtImage} />
         ) : (
           <View style={[styles.trackArtImage, styles.trackArtPlaceholder, { backgroundColor: searchBg }]}>
-            <Icon name="musical-notes" size={20} color={accentColor} />
+            <Icon name="musical-notes" size={20} color={resolvedAccent} />
           </View>
         )}
         <View style={styles.trackTextCol}>
-          <Text style={[styles.trackTitle, { color: textColor }]} numberOfLines={2}>
+          <Text style={[styles.trackTitle, { color: resolvedText }]} numberOfLines={2}>
             {item.title}
           </Text>
           <Text style={[styles.trackArtist, { color: mutedColor }]} numberOfLines={1}>
@@ -199,9 +211,9 @@ export default function PostMusicGalleryModal({
           </Text>
         </View>
         {selected ? (
-          <Icon name="checkmark-circle" size={24} color={accentColor} />
+          <Icon name="checkmark-circle" size={24} color={resolvedAccent} />
         ) : (
-          <Icon name="play-circle-outline" size={26} color={accentColor} />
+          <Icon name="play-circle-outline" size={26} color={resolvedAccent} />
         )}
       </TouchableOpacity>
     );
@@ -209,7 +221,7 @@ export default function PostMusicGalleryModal({
 
   const listHeader = (
     <View style={styles.browseSections}>
-      <Text style={[styles.sectionTitle, { color: textColor }]}>
+      <Text style={[styles.sectionTitle, { color: resolvedText }]}>
         {t('selectedPost.musicBrowseMoods')}
       </Text>
       <ScrollView
@@ -226,8 +238,8 @@ export default function PostMusicGalleryModal({
               style={[
                 styles.moodChip,
                 {
-                  backgroundColor: active ? accentColor : searchBg,
-                  borderColor: active ? accentColor : borderColor,
+                  backgroundColor: active ? resolvedAccent : searchBg,
+                  borderColor: active ? resolvedAccent : borderColor,
                 },
               ]}
               onPress={() => {
@@ -238,7 +250,7 @@ export default function PostMusicGalleryModal({
               }}
               activeOpacity={0.8}
             >
-              <Text style={[styles.moodChipText, { color: active ? '#fff' : textColor }]}>
+              <Text style={[styles.moodChipText, { color: active ? '#fff' : resolvedText }]}>
                 {t(`selectedPost.${item.labelKey}`)}
               </Text>
             </TouchableOpacity>
@@ -246,7 +258,7 @@ export default function PostMusicGalleryModal({
         })}
       </ScrollView>
 
-      <Text style={[styles.sectionTitle, { color: textColor, marginTop: 12 }]}>
+      <Text style={[styles.sectionTitle, { color: resolvedText, marginTop: 12 }]}>
         {listSectionTitle}
       </Text>
 
@@ -260,7 +272,7 @@ export default function PostMusicGalleryModal({
 
   const listFooter = originalTrack ? (
     <View style={styles.footerSection}>
-      <Text style={[styles.sectionTitle, { color: textColor }]}>
+      <Text style={[styles.sectionTitle, { color: resolvedText }]}>
         {t('selectedPost.musicOriginalAudio')}
       </Text>
       <TouchableOpacity
@@ -272,7 +284,7 @@ export default function PostMusicGalleryModal({
           <Icon name="volume-high-outline" size={20} color={mutedColor} />
         </View>
         <View style={styles.trackTextCol}>
-          <Text style={[styles.trackTitle, { color: textColor }]} numberOfLines={1}>
+          <Text style={[styles.trackTitle, { color: resolvedText }]} numberOfLines={1}>
             {originalTrack.title}
           </Text>
           <Text style={[styles.trackArtist, { color: mutedColor }]} numberOfLines={1}>
@@ -280,7 +292,7 @@ export default function PostMusicGalleryModal({
           </Text>
         </View>
         {isOriginalSelected(selection) ? (
-          <Icon name="checkmark-circle" size={24} color={accentColor} />
+          <Icon name="checkmark-circle" size={24} color={resolvedAccent} />
         ) : null}
       </TouchableOpacity>
     </View>
@@ -289,7 +301,7 @@ export default function PostMusicGalleryModal({
   const listEmpty = (
     <View style={styles.emptyWrap}>
       {listLoading ? (
-        <ActivityIndicator color={accentColor} size="large" />
+        <ActivityIndicator color={resolvedAccent} size="large" />
       ) : !hasYoutubeApi ? (
         <Text style={[styles.emptyText, { color: mutedColor }]}>
           {t('selectedPost.searchUnavailable')}
@@ -309,7 +321,7 @@ export default function PostMusicGalleryModal({
       presentationStyle="fullScreen"
       onRequestClose={onClose}
     >
-      <SafeAreaView style={[styles.root, { backgroundColor }]} edges={['top', 'left', 'right', 'bottom']}>
+      <SafeAreaView style={[styles.root, { backgroundColor: resolvedBackground }]} edges={['top', 'left', 'right', 'bottom']}>
         <View style={[styles.header, { borderBottomColor: borderColor }]}>
           <TouchableOpacity
             onPress={onClose}
@@ -318,20 +330,20 @@ export default function PostMusicGalleryModal({
             accessibilityRole="button"
             accessibilityLabel={t('selectedPost.close')}
           >
-            <Icon name="chevron-back" size={28} color={textColor} />
+            <Icon name="chevron-back" size={28} color={iconColor} />
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: textColor }]}>
+          <Text style={[styles.headerTitle, { color: resolvedText }]}>
             {t('selectedPost.musicTitle')}
           </Text>
           <View style={styles.headerBtn} />
         </View>
 
-        <View style={[styles.searchBar, { backgroundColor: searchBg }]}>
+        <View style={[styles.searchBar, { backgroundColor: searchBg, borderWidth: dark ? StyleSheet.hairlineWidth : 0, borderColor }]}>
           <Icon name="search" size={20} color={mutedColor} style={styles.searchIcon} />
           <TextInput
             placeholder={t('selectedPost.musicSearchPlaceholder')}
             placeholderTextColor={mutedColor}
-            style={[styles.searchInput, { color: textColor }]}
+            style={[styles.searchInput, { color: resolvedText }]}
             value={query}
             onChangeText={onQueryChange}
             autoCorrect={false}
@@ -348,20 +360,20 @@ export default function PostMusicGalleryModal({
         {hasLibraryMusic ? (
           <View style={[styles.currentTrackBar, { backgroundColor: searchBg }]}>
             <TouchableOpacity style={styles.editClipBtn} onPress={onEditClip} activeOpacity={0.8}>
-              <Icon name="cut-outline" size={18} color={accentColor} />
-              <Text style={[styles.editClipText, { color: accentColor }]}>
+              <Icon name="cut-outline" size={18} color={resolvedAccent} />
+              <Text style={[styles.editClipText, { color: resolvedAccent }]}>
                 {t('selectedPost.editMusicClip')}
               </Text>
             </TouchableOpacity>
             <View style={styles.showCardToggle}>
-              <Text style={[styles.showCardLabel, { color: textColor }]} numberOfLines={1}>
+              <Text style={[styles.showCardLabel, { color: resolvedText }]} numberOfLines={1}>
                 {t('selectedPost.showMusicCard')}
               </Text>
               <Switch
                 value={showMusicCard}
                 onValueChange={onShowMusicCardChange}
-                trackColor={{ false: '#d1d5db', true: `${accentColor}88` }}
-                thumbColor={showMusicCard ? accentColor : '#f4f4f5'}
+                trackColor={{ false: dark ? profileTheme.border : '#d1d5db', true: `${resolvedAccent}88` }}
+                thumbColor={showMusicCard ? resolvedAccent : (dark ? profileTheme.mutedText : '#f4f4f5')}
               />
             </View>
           </View>
