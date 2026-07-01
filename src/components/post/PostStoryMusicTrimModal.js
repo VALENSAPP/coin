@@ -404,25 +404,26 @@ export default function PostStoryMusicTrimModal({
       visible={visible}
       animationType="slide"
       presentationStyle="fullScreen"
+      statusBarTranslucent
       onRequestClose={handleCancel}
     >
       <SafeAreaView style={styles.igMusicEditorRoot} edges={['top', 'bottom']}>
         <View style={styles.igMusicHeader}>
-          <TouchableOpacity onPress={handleCancel} hitSlop={12} style={styles.igHeaderSideBtn}>
+          <Pressable onPress={handleCancel} hitSlop={12} style={styles.igHeaderSideBtn}>
             <Text style={styles.igHeaderBtn}>{t('postStoryMusicTrim.cancel')}</Text>
-          </TouchableOpacity>
-          <Text style={styles.igHeaderTitle} numberOfLines={1}>
+          </Pressable>
+          <Text style={styles.igHeaderTitle} numberOfLines={1} pointerEvents="none">
             {getAudioTitle(audioSel, t)}
           </Text>
           <View style={styles.igHeaderActions}>
             {onDelete ? (
-              <TouchableOpacity onPress={handleDelete} hitSlop={10} style={styles.igHeaderIconBtn}>
+              <Pressable onPress={handleDelete} hitSlop={10} style={styles.igHeaderIconBtn}>
                 <Icon name="trash-outline" size={22} color="#ff6b81" />
-              </TouchableOpacity>
+              </Pressable>
             ) : null}
-            <TouchableOpacity onPress={handleDone} hitSlop={12} style={styles.igHeaderSideBtn}>
+            <Pressable onPress={handleDone} hitSlop={12} style={styles.igHeaderSideBtn}>
               <Text style={styles.igHeaderBtnDone}>{t('postStoryMusicTrim.done')}</Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
         </View>
 
@@ -494,100 +495,6 @@ export default function PostStoryMusicTrimModal({
               </View>
             </View>
           </View>
-
-          {musicPreviewUri && !trimPreviewPaused ? (
-            <Video
-              ref={musicPreviewRef}
-              key={`post_music_${musicPreviewKey}`}
-              source={{ uri: musicPreviewUri }}
-              style={styles.hiddenMusicPlayer}
-              repeat={false}
-              muted={false}
-              paused={false}
-              volume={1}
-              resizeMode="contain"
-              ignoreSilentSwitch="ignore"
-              onLoad={data => {
-                const loaded = data?.duration || 30;
-                musicPreviewDurationRef.current = loaded;
-                setMusicPreviewDur(loaded);
-                const at = audioTrimRef.current;
-                const dur = loaded;
-                const { start: playStart, end: playEnd, hasOverlap } = getMusicTrimPlaybackWindowFromTrim(at, dur);
-                if (!hasOverlap) {
-                  setTimeout(() => {
-                    musicPreviewRef.current?.seek(0);
-                    setMusicPreviewSec(0);
-                  }, 80);
-                  return;
-                }
-                let seekTo = playStart;
-                if (dur > 0 && playEnd > playStart && seekTo >= playEnd) {
-                  seekTo = Math.max(0, playEnd - 0.3);
-                }
-                setTimeout(() => {
-                  musicPreviewRef.current?.seek(seekTo);
-                  setMusicPreviewSec(seekTo);
-                }, 80);
-              }}
-              onProgress={({ currentTime }) => {
-                setMusicPreviewSec(currentTime);
-                const dur = musicPreviewDurationRef.current || 30;
-                const at = audioTrimRef.current;
-                const { start: playStart, end: playEnd, hasOverlap } = getMusicTrimPlaybackWindowFromTrim(at, dur);
-                const margin = Math.min(0.35, Math.max(0.08, (playEnd - playStart) * 0.02));
-                if (hasOverlap && dur > 0 && playEnd > playStart && currentTime >= playEnd - margin) {
-                  musicPreviewRef.current?.seek(playStart);
-                  setMusicPreviewSec(playStart);
-                }
-              }}
-            />
-          ) : null}
-
-          {isYoutubeTrack(audioSel) && !trimPreviewPaused ? (
-            <View style={styles.hiddenYoutubePlayer} pointerEvents="none">
-              <YoutubePlayer
-                ref={youtubePreviewRef}
-                key={`post_yt_${musicPreviewKey}`}
-                height={200}
-                width={200}
-                videoId={audioSel.videoId}
-                play={true}
-                mute={false}
-                volume={100}
-                initialPlayerParams={{ controls: false, modestbranding: true, rel: false }}
-                onReady={async () => {
-                  try {
-                    const d = await youtubePreviewRef.current?.getDuration?.();
-                    if (typeof d === 'number' && d > 0 && Number.isFinite(d)) {
-                      musicPreviewDurationRef.current = d;
-                      setMusicPreviewDur(d);
-                    } else if (audioSel?.fullDurationSec) {
-                      const f = Number(audioSel.fullDurationSec);
-                      if (Number.isFinite(f) && f > 0) {
-                        musicPreviewDurationRef.current = f;
-                        setMusicPreviewDur(f);
-                      }
-                    }
-                    const at = audioTrimRef.current;
-                    const dur = musicPreviewDurationRef.current || 180;
-                    const { start: playStart, end: playEnd, hasOverlap } = getMusicTrimPlaybackWindowFromTrim(at, dur);
-                    if (!hasOverlap) {
-                      youtubePreviewRef.current?.seekTo?.(0, true);
-                      setMusicPreviewSec(0);
-                      return;
-                    }
-                    let seekTo = playStart;
-                    if (dur > 0 && playEnd > playStart && seekTo >= playEnd) {
-                      seekTo = Math.max(0, playEnd - 0.3);
-                    }
-                    youtubePreviewRef.current?.seekTo?.(seekTo, true);
-                    setMusicPreviewSec(seekTo);
-                  } catch (_) {}
-                }}
-              />
-            </View>
-          ) : null}
 
           <View style={styles.igSectionCard}>
             <View style={styles.igClipLenRow}>
@@ -802,6 +709,103 @@ export default function PostStoryMusicTrimModal({
             </View>
           ) : null}
         </ScrollView>
+
+        <View style={styles.hiddenPlayersHost} pointerEvents="none" collapsable={false}>
+          {musicPreviewUri && !trimPreviewPaused ? (
+            <Video
+              ref={musicPreviewRef}
+              key={`post_music_${musicPreviewKey}`}
+              source={{ uri: musicPreviewUri }}
+              style={styles.hiddenMusicPlayer}
+              repeat={false}
+              muted={false}
+              paused={false}
+              volume={1}
+              resizeMode="contain"
+              ignoreSilentSwitch="ignore"
+              pointerEvents="none"
+              onLoad={data => {
+                const loaded = data?.duration || 30;
+                musicPreviewDurationRef.current = loaded;
+                setMusicPreviewDur(loaded);
+                const at = audioTrimRef.current;
+                const dur = loaded;
+                const { start: playStart, end: playEnd, hasOverlap } = getMusicTrimPlaybackWindowFromTrim(at, dur);
+                if (!hasOverlap) {
+                  setTimeout(() => {
+                    musicPreviewRef.current?.seek(0);
+                    setMusicPreviewSec(0);
+                  }, 80);
+                  return;
+                }
+                let seekTo = playStart;
+                if (dur > 0 && playEnd > playStart && seekTo >= playEnd) {
+                  seekTo = Math.max(0, playEnd - 0.3);
+                }
+                setTimeout(() => {
+                  musicPreviewRef.current?.seek(seekTo);
+                  setMusicPreviewSec(seekTo);
+                }, 80);
+              }}
+              onProgress={({ currentTime }) => {
+                setMusicPreviewSec(currentTime);
+                const dur = musicPreviewDurationRef.current || 30;
+                const at = audioTrimRef.current;
+                const { start: playStart, end: playEnd, hasOverlap } = getMusicTrimPlaybackWindowFromTrim(at, dur);
+                const margin = Math.min(0.35, Math.max(0.08, (playEnd - playStart) * 0.02));
+                if (hasOverlap && dur > 0 && playEnd > playStart && currentTime >= playEnd - margin) {
+                  musicPreviewRef.current?.seek(playStart);
+                  setMusicPreviewSec(playStart);
+                }
+              }}
+            />
+          ) : null}
+
+          {isYoutubeTrack(audioSel) && !trimPreviewPaused ? (
+            <View style={styles.hiddenYoutubePlayer} pointerEvents="none">
+              <YoutubePlayer
+                ref={youtubePreviewRef}
+                key={`post_yt_${musicPreviewKey}`}
+                height={200}
+                width={200}
+                videoId={audioSel.videoId}
+                play={true}
+                mute={false}
+                volume={100}
+                initialPlayerParams={{ controls: false, modestbranding: true, rel: false }}
+                onReady={async () => {
+                  try {
+                    const d = await youtubePreviewRef.current?.getDuration?.();
+                    if (typeof d === 'number' && d > 0 && Number.isFinite(d)) {
+                      musicPreviewDurationRef.current = d;
+                      setMusicPreviewDur(d);
+                    } else if (audioSel?.fullDurationSec) {
+                      const f = Number(audioSel.fullDurationSec);
+                      if (Number.isFinite(f) && f > 0) {
+                        musicPreviewDurationRef.current = f;
+                        setMusicPreviewDur(f);
+                      }
+                    }
+                    const at = audioTrimRef.current;
+                    const dur = musicPreviewDurationRef.current || 180;
+                    const { start: playStart, end: playEnd, hasOverlap } = getMusicTrimPlaybackWindowFromTrim(at, dur);
+                    if (!hasOverlap) {
+                      youtubePreviewRef.current?.seekTo?.(0, true);
+                      setMusicPreviewSec(0);
+                      return;
+                    }
+                    let seekTo = playStart;
+                    if (dur > 0 && playEnd > playStart && seekTo >= playEnd) {
+                      seekTo = Math.max(0, playEnd - 0.3);
+                    }
+                    youtubePreviewRef.current?.seekTo?.(seekTo, true);
+                    setMusicPreviewSec(seekTo);
+                  } catch (_) {}
+                }}
+              />
+            </View>
+          ) : null}
+        </View>
       </SafeAreaView>
     </Modal>
   );
@@ -811,18 +815,22 @@ const styles = StyleSheet.create({
   igMusicEditorRoot: {
     flex: 1,
     backgroundColor: '#0a0a0d',
-    paddingTop: 10
   },
   igMusicHeader: {
+    paddingTop:40,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: 'rgba(255,255,255,0.08)',
+    zIndex: 20,
+    elevation: 20,
   },
   igHeaderSideBtn: {
     minWidth: 64,
+    minHeight: 44,
+    justifyContent: 'center',
     paddingVertical: 4,
   },
   igHeaderTitle: {
@@ -896,22 +904,26 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     textAlign: 'center',
   },
-  hiddenMusicPlayer: {
+  hiddenPlayersHost: {
     position: 'absolute',
-    width: 1,
-    height: 1,
-    opacity: 0,
-    left: -200,
+    left: -9999,
     top: 0,
-  },
-  hiddenYoutubePlayer: {
-    position: 'absolute',
-    width: 1,
-    height: 1,
+    width: 200,
+    height: 200,
     opacity: 0,
     overflow: 'hidden',
-    left: -220,
-    top: 0,
+    zIndex: -1,
+  },
+  hiddenMusicPlayer: {
+    width: 2,
+    height: 2,
+    opacity: 0,
+  },
+  hiddenYoutubePlayer: {
+    width: 200,
+    height: 200,
+    opacity: 0,
+    overflow: 'hidden',
   },
   igPlaybackRow: {
     flexDirection: 'row',

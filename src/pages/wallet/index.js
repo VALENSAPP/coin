@@ -1372,7 +1372,12 @@ export const WalletDashboardScreen = ({ navigation }) => {
               accessibilityRole="button"
               accessibilityLabel={t('walletDashboard.battlePoints.referPointsInfoTitle')}
             >
-              <Ionicons name="information-circle-outline" size={18} color={text} />            </TouchableOpacity>
+              <Ionicons
+                name="information-circle-outline"
+                size={18}
+                color={text}
+              />
+            </TouchableOpacity>
           )}
         </View>
         <Text style={[styles.kpiValue, isMissionPostCard && styles.kpiValueMultiline, { color: text }]} numberOfLines={3}>
