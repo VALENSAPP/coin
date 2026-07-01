@@ -1177,7 +1177,22 @@ const MyClosetPreferencesScreen = ({ navigation, route }) => {
     payload.append('location', String(nextDraft.location || '').trim());
     payload.append('whoCanBuy', String(nextDraft.whoCanBuy || '').trim());
     payload.append('paymentMethod', String(nextDraft.paymentMethod || '').trim());
-    payload.append('shippingOptions', (nextDraft.shipping || []).join(','));
+    const selectedShipping = nextDraft.shipping || [];
+
+    let shippingOptions = 'ship_items';
+
+    if (
+      selectedShipping.includes('ship_items') &&
+      selectedShipping.includes('local_pick')
+    ) {
+      shippingOptions = 'both';
+    } else if (selectedShipping.includes('local_pick')) {
+      shippingOptions = 'local_pick';
+    } else if (selectedShipping.includes('ship_items')) {
+      shippingOptions = 'ship_items';
+    }
+
+    payload.append('shippingOptions', shippingOptions);
     payload.append('returnPolicy', String(nextDraft.returnPolicy || '').trim());
 
     if (nextDraft?.logo?.uri) {
