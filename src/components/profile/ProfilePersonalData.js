@@ -74,6 +74,7 @@ import { useWalletConnectSupport } from '../../context/WalletConnectSupportConte
 import { isSupportAllowed, normalizeProfileType } from '../../utils/supportEligibility';
 import HexAvatar from '../home/story.js/HexAvatar';
 import { useLanguage } from '../../i18n';
+import { getCart } from '../../services/myCloset';
 
 const KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShownEver';
 const LEGACY_KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShown';
@@ -194,6 +195,7 @@ const ProfilePersonData = ({
   const [imageViewerVisible, setImageViewerVisible] = useState(false);
   const [totalSupportAmount, setTotalSupportAmount] = useState(0);
   const [hasLiveBattle, setHasLiveBattle] = useState(false);
+  const [cartCount, setCartCount] = useState(0);
   const totalSupportAnim = useRef(new Animated.Value(0)).current;
   const followActionsAnim = useRef(new Animated.Value(0)).current;
   const dispatch = useDispatch();
@@ -266,6 +268,27 @@ const ProfilePersonData = ({
       launchCamera(options, callback);
     });
   };
+
+  const fetchCartCount = useCallback(async () => {
+    try {
+      const response = await getCart();
+      const cartObj = response?.data?.data?.cart ?? response?.data?.cart;
+      const totals = response?.data?.data?.totals ?? response?.data?.totals;
+      const items = cartObj?.cartItems ?? [];
+      const count =
+        totals?.totalItems ??
+        items.reduce((sum, ci) => sum + (Number(ci?.quantity) || 0), 0);
+      setCartCount(count || 0);
+    } catch (error) {
+      setCartCount(0);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchCartCount();
+    }, [fetchCartCount]),
+  );
 
   const createMediaListFromResponse = response => {
     const assets = (response?.assets || []).filter(asset => asset?.uri || asset?.path);
@@ -1111,9 +1134,26 @@ const ProfilePersonData = ({
               <Ionicons name="share-outline" size={25} color="#111100" />
             </TouchableOpacity>
             {!fromUsersProfile && (
-              <TouchableOpacity style={styles.iconButton} onPress={() => setModalVisible(true)}>
-                <FontAwesome name="plus-square-o" size={25} color="#111100" />
-              </TouchableOpacity>
+              <>
+                <TouchableOpacity
+                  style={styles.iconButton}
+                  onPress={() => navigation.navigate('MyClosetBuyerCart')}
+                >
+                  <View>
+                    <Ionicons name="cart-outline" size={25} color="#111100" />
+                    {cartCount > 0 && (
+                      <View style={styles.cartBadge}>
+                        <Text style={styles.cartBadgeText}>
+                          {cartCount > 99 ? '99+' : cartCount}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.iconButton} onPress={() => setModalVisible(true)}>
+                  <FontAwesome name="plus-square-o" size={25} color="#111100" />
+                </TouchableOpacity>
+              </>
             )}
             {fromUsersProfile ? (
               <TouchableOpacity style={styles.iconButton} onPress={() => setUsernameModalVisible(true)}>
@@ -2047,5 +2087,24 @@ const styles = StyleSheet.create({
     height: PROFILE_IMAGE_PREVIEW_SIZE,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  cartBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -6,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#E11D48',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+    borderWidth: 1,
+    borderColor: '#fff',
+  },
+  cartBadgeText: {
+    color: '#fff',
+    fontSize: 9,
+    fontWeight: '800',
   },
 });

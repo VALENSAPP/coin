@@ -3395,7 +3395,10 @@
   },
   "chatMessages": {
     "title": "Messages",
+    "myClosetChatLabel": "Chat de mon dressing",
     "messagesLabel": "Messages",
+    "noClosetChatsYet": "Aucun chat privé pour le moment",
+    "closetChatHint": "Les discussions conservées ici restent séparées de votre boîte de réception principale",
     "searchPlaceholder": "Rechercher des messages...",
     "pullToRefresh": "Tirez pour actualiser",
     "errorTitle": "Erreur",

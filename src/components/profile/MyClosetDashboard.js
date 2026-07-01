@@ -12,7 +12,7 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
-import { getMyClosetItems } from '../../services/myCloset';
+import { getMyClosetItems, getSellerOrders, getBuyerOrders } from '../../services/myCloset';
 
 const mixWithWhite = (hex, amount = 0.88) => {
   const normalized = String(hex || '').replace('#', '');
@@ -56,16 +56,74 @@ const battleStats = [
   { key: 'battleviews', label: 'Battle Views', value: '860', icon: 'eye-outline' },
 ];
 
-const recentOrders = [
-  { key: 'jacket', name: 'Vintage Leather Jacket', order: 'Order #1023', price: '$120.00', status: 'Delivered', statusColor: '#16a34a' },
-  { key: 'bag', name: 'Mini Shoulder Bag', order: 'Order #1022', price: '$85.00', status: 'Shipped', statusColor: '#2563eb' },
-  { key: 'shoes', name: 'White Sneakers', order: 'Order #1021', price: '$65.00', status: 'Processing', statusColor: '#d97706' },
-];
+const ORDER_STATUS_META = {
+  pending: { label: 'To ship', color: '#7c3aed' },
+  confirmed: { label: 'Confirmed', color: '#0891b2' },
+  processing: { label: 'Processing', color: '#d97706' },
+  shipped: { label: 'Shipped', color: '#2563eb' },
+  delivered: { label: 'Delivered', color: '#16a34a' },
+  cancelled: { label: 'Cancelled', color: '#dc2626' },
+};
+
+const normalizeOrderStatus = raw => {
+  const value = String(raw || '').trim().toLowerCase();
+  if (['delivered', 'shipped', 'processing', 'confirmed', 'cancelled'].includes(value)) {
+    return value;
+  }
+  return 'pending';
+};
+
+const formatOrderPrice = value => {
+  if (value == null || value === '') return '$0.00';
+  const textValue = String(value).trim();
+  if (textValue.startsWith('$')) return textValue;
+  const numericValue = Number(textValue);
+  return Number.isNaN(numericValue) ? textValue : `$${numericValue.toFixed(2)}`;
+};
+
+const getOrderThumbImage = order =>
+  order?.item?.images?.[0] ||
+  order?.item?.image ||
+  order?.product?.images?.[0] ||
+  order?.image ||
+  null;
+
+const getOrderDisplayName = order => {
+  if (order?.item?.name || order?.item?.title) return order.item.name || order.item.title;
+  if (order?.product?.name) return order.product.name;
+  if (order?.itemName) return order.itemName;
+  const count = order?.totalItemCount;
+  if (count) return `${count} item${count === 1 ? '' : 's'}`;
+  return 'Order item';
+};
+
+const getOrderAmount = order =>
+  order?.totalAmount ?? order?.amount ?? order?.price ?? order?.item?.price ?? 0;
+
+const normalizeBuyerOrder = (order, index) => {
+  const status = normalizeOrderStatus(order?.orderStatus ?? order?.status);
+  const meta = ORDER_STATUS_META[status];
+  return {
+    key: String(order?.id || order?._id || index),
+    id: order?.id || order?._id,
+    name: getOrderDisplayName(order),
+    order: `Order #${order?.orderNumber || order?.orderId || order?.id || order?._id || index + 1}`,
+    price: formatOrderPrice(getOrderAmount(order)),
+    status: meta.label,
+    statusColor: meta.color,
+    image: getOrderThumbImage(order),
+    raw: order,
+  };
+};
 
 const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
   const [storedUsername, setStoredUsername] = useState('');
   const [closetItems, setClosetItems] = useState([]);
   const [itemsLoading, setItemsLoading] = useState(false);
+  const [recentOrders, setRecentOrders] = useState([]);            // Seller: orders received
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [buyerOrders, setBuyerOrders] = useState([]);         // Buyer: orders placed
+  const [buyerOrdersLoading, setBuyerOrdersLoading] = useState(false);
   const { bgStyle, textStyle, text, cardStyle } = useAppTheme(userData?.profile);
 
   useEffect(() => {
@@ -81,6 +139,68 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
     loadUsername();
     return () => { isMounted = false; };
   }, []);
+
+  const loadRecentOrders = useCallback(async () => {
+    setOrdersLoading(true);
+    try {
+      const response = await getSellerOrders({ page: 1, limit: 3 });
+      const payload =
+        response?.data?.data ??
+        response?.data?.orders ??
+        response?.data ??
+        response;
+
+      const list = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.orders)
+          ? payload.orders
+          : Array.isArray(payload?.data)
+            ? payload.data
+            : [];
+
+      setRecentOrders(list.slice(0, 3).map(normalizeBuyerOrder));
+    } catch (error) {
+      console.warn('Unable to load recent orders:', error);
+      setRecentOrders([]);
+    } finally {
+      setOrdersLoading(false);
+    }
+  }, []);
+
+  const loadBuyerOrders = useCallback(async () => {
+    setBuyerOrdersLoading(true);
+    try {
+      const response = await getBuyerOrders();
+      const payload =
+        response?.data?.data ??
+        response?.data?.orders ??
+        response?.data ??
+        response;
+
+      const list = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.orders)
+          ? payload.orders
+          : Array.isArray(payload?.data)
+            ? payload.data
+            : [];
+
+      setBuyerOrders(list.slice(0, 3).map(normalizeBuyerOrder));
+    } catch (error) {
+      console.warn('Unable to load buyer orders:', error);
+      setBuyerOrders([]);
+    } finally {
+      setBuyerOrdersLoading(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadClosetItems();
+      loadRecentOrders();
+      loadBuyerOrders();
+    }, [loadClosetItems, loadRecentOrders, loadBuyerOrders]),
+  );
 
   const loadClosetItems = useCallback(async () => {
     setItemsLoading(true);
@@ -108,12 +228,6 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
       setItemsLoading(false);
     }
   }, []);
-
-  useFocusEffect(
-    useCallback(() => {
-      loadClosetItems();
-    }, [loadClosetItems]),
-  );
 
   const shopName = useMemo(
     () =>
@@ -182,6 +296,36 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
   const handleViewAllOrders = () => {
     navigation?.navigate?.('ProfileMain', {
       screen: 'MyClosetOrders',
+      params: { viewType: 'seller' },
+    });
+  };
+
+  const handleOpenOrder = order => {
+    navigation?.navigate?.('ProfileMain', {
+      screen: 'MyClosetOrderDetail',
+      params: {
+        orderId: order.raw?.id || order.raw?._id || order.id,
+        orderPreview: order.raw,
+        viewType: 'seller',
+      },
+    });
+  };
+
+  const handleViewAllBuyerOrders = () => {
+    navigation?.navigate?.('ProfileMain', {
+      screen: 'MyClosetOrders',
+      params: { viewType: 'buyer' },
+    });
+  };
+
+  const handleOpenBuyerOrder = order => {
+    navigation?.navigate?.('ProfileMain', {
+      screen: 'MyClosetOrderDetail',
+      params: {
+        orderId: order.raw?.id || order.raw?._id || order.id,
+        orderPreview: order.raw,
+        viewType: 'buyer',
+      },
     });
   };
 
@@ -305,34 +449,107 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
         </View>
       </View>
 
-      {/* ── Recent Orders ── */}
+      {/* ── Seller Order History (orders you've received) ── */}
       <View style={[styles.sectionCard, cardStyle, { borderColor: withAlpha(text, 0.12) }]}>
         <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, textStyle]}>Recent Orders</Text>
+          <Text style={[styles.sectionTitle, textStyle]}>Orders — As a Seller</Text>
           <TouchableOpacity activeOpacity={0.8} onPress={handleViewAllOrders}>
             <Text style={styles.sectionMeta}>View all ›</Text>
           </TouchableOpacity>
         </View>
 
-        <View style={styles.itemList}>
-          {recentOrders.map(item => (
-            <TouchableOpacity key={item.key} activeOpacity={0.8} style={styles.orderRow}>
-              <View style={[styles.itemThumb, { backgroundColor: withAlpha(text, 0.1) }]}>
-                <Ionicons name="shirt-outline" size={18} color={text} />
-              </View>
-              <View style={styles.itemCopy}>
-                <Text style={[styles.itemName, textStyle]} numberOfLines={1}>{item.name}</Text>
-                <Text style={styles.itemOrder}>{item.order}</Text>
-              </View>
-              <View style={styles.orderRight}>
-                <View style={[styles.statusBadge, { backgroundColor: `${item.statusColor}18` }]}>
-                  <Text style={[styles.statusText, { color: item.statusColor }]}>{item.status}</Text>
+        {ordersLoading ? (
+          <View style={styles.itemsLoadingWrap}>
+            <ActivityIndicator color={text} />
+          </View>
+        ) : recentOrders.length ? (
+          <View style={styles.itemList}>
+            {recentOrders.map(item => (
+              <TouchableOpacity
+                key={item.key}
+                activeOpacity={0.8}
+                style={styles.orderRow}
+                onPress={() => handleOpenOrder(item)}
+              >
+                <View style={[styles.itemThumb, { backgroundColor: withAlpha(text, 0.1) }]}>
+                  {item.image ? (
+                    <Image source={{ uri: item.image }} style={styles.itemGridImage} />
+                  ) : (
+                    <Ionicons name="shirt-outline" size={18} color={text} />
+                  )}
                 </View>
-                <Text style={[styles.orderPrice, textStyle]}>{item.price}</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
+                <View style={styles.itemCopy}>
+                  <Text style={[styles.itemName, textStyle]} numberOfLines={1}>{item.name}</Text>
+                  <Text style={styles.itemOrder}>{item.order}</Text>
+                </View>
+                <View style={styles.orderRight}>
+                  <View style={[styles.statusBadge, { backgroundColor: `${item.statusColor}18` }]}>
+                    <Text style={[styles.statusText, { color: item.statusColor }]}>{item.status}</Text>
+                  </View>
+                  <Text style={[styles.orderPrice, textStyle]}>{item.price}</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        ) : (
+          <View style={styles.emptyItemsCard}>
+            <Ionicons name="bag-outline" size={24} color={text} />
+            <Text style={[styles.emptyItemsText, textStyle]}>No orders yet</Text>
+          </View>
+        )}
+      </View>
+
+      {/* ── Buyer Order History (orders you've placed) ── */}
+      <View style={[styles.sectionCard, cardStyle, { borderColor: withAlpha(text, 0.12) }]}>
+        <View style={styles.sectionHeader}>
+          <View style={styles.rowCenter}>
+            <Ionicons name="cart-outline" size={16} color={text} style={{ marginRight: 5 }} />
+            <Text style={[styles.sectionTitle, textStyle]}>Orders — As a Buyer</Text>
+          </View>
+          <TouchableOpacity activeOpacity={0.8} onPress={handleViewAllBuyerOrders}>
+            <Text style={styles.sectionMeta}>View all ›</Text>
+          </TouchableOpacity>
         </View>
+
+        {buyerOrdersLoading ? (
+          <View style={styles.itemsLoadingWrap}>
+            <ActivityIndicator color={text} />
+          </View>
+        ) : buyerOrders.length ? (
+          <View style={styles.itemList}>
+            {buyerOrders.map(item => (
+              <TouchableOpacity
+                key={item.key}
+                activeOpacity={0.8}
+                style={styles.orderRow}
+                onPress={() => handleOpenBuyerOrder(item)}
+              >
+                <View style={[styles.itemThumb, { backgroundColor: withAlpha(text, 0.1) }]}>
+                  {item.image ? (
+                    <Image source={{ uri: item.image }} style={styles.itemGridImage} />
+                  ) : (
+                    <Ionicons name="shirt-outline" size={18} color={text} />
+                  )}
+                </View>
+                <View style={styles.itemCopy}>
+                  <Text style={[styles.itemName, textStyle]} numberOfLines={1}>{item.name}</Text>
+                  <Text style={styles.itemOrder}>{item.order}</Text>
+                </View>
+                <View style={styles.orderRight}>
+                  <View style={[styles.statusBadge, { backgroundColor: `${item.statusColor}18` }]}>
+                    <Text style={[styles.statusText, { color: item.statusColor }]}>{item.status}</Text>
+                  </View>
+                  <Text style={[styles.orderPrice, textStyle]}>{item.price}</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        ) : (
+          <View style={styles.emptyItemsCard}>
+            <Ionicons name="cart-outline" size={24} color={text} />
+            <Text style={[styles.emptyItemsText, textStyle]}>No purchases yet</Text>
+          </View>
+        )}
       </View>
 
       {/* ── Your Items Grid ── */}
@@ -631,7 +848,7 @@ const styles = StyleSheet.create({
   },
   battleCtaLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   battleCtaTitle: { color: '#fff', fontSize: 15, fontWeight: '800' },
-  battleCtaSub: { color: 'rgba(255,255,255,0.75)', fontSize: 12, marginTop: 1 },
+  battleCtaSub: { color: 'rgba(255,255,255,0.75)', fontSize: 12, marginTop: 1, width: '75%', },
   battleCtaButton: {
     borderRadius: 14,
     paddingHorizontal: 14,

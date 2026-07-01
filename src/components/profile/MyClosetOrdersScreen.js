@@ -1,6 +1,7 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   SafeAreaView,
   ScrollView,
@@ -21,6 +22,8 @@ import {
   markOrderProcessing,
   markOrderShipped,
   markOrderDelivered,
+  getBuyerOrders,
+  cancelBuyerOrder,
 } from '../../services/myCloset';
 
 // ── Status helpers ──────────────────────────────────────────────────────
@@ -85,13 +88,22 @@ const getBuyerHandle = order =>
   order?.user?.username ||
   '';
 
-const normalizeOrder = (order, index) => ({
+const getSellerHandle = order =>
+  order?.sellerName ||
+  order?.seller?.username ||
+  order?.seller?.userName ||
+  order?.sellerUsername ||
+  order?.shop?.username ||
+  '';
+
+// `mode` is 'seller' | 'buyer' — controls which counterpart handle we surface on the card
+const normalizeOrder = (order, index, mode) => ({
   id: order?.id || order?._id || String(index),
   orderNumber: order?.orderNumber || order?.orderId || order?.id || order?._id || index + 1,
   itemName: getOrderItemName(order),
   itemCount: order?.totalItemCount ?? null,
   price: formatPrice(getOrderPrice(order)),
-  buyer: getBuyerHandle(order),
+  counterpart: mode === 'seller' ? getBuyerHandle(order) : getSellerHandle(order),
   date: formatDate(order?.createdAt || order?.orderDate || order?.date),
   status: normalizeStatus(order?.orderStatus ?? order?.status),
   image: getOrderImage(order),
@@ -105,21 +117,23 @@ const TABS = [
   { key: 'delivered', label: 'Delivered', status: 'DELIVERED' },
 ];
 
-const OrdersHeader = ({ onBack }) => (
+// Cancellable statuses on the buyer side — adjust to match your backend's actual rules
+const BUYER_CANCELLABLE_STATUSES = ['pending', 'confirmed', 'processing'];
+
+const OrdersHeader = ({ onBack, title }) => (
   <View style={styles.headerRow}>
     <TouchableOpacity activeOpacity={0.85} onPress={onBack} style={styles.headerIconButton}>
       <Ionicons name="chevron-back" size={22} color="#111827" />
     </TouchableOpacity>
-    <Text style={styles.headerTitle}>Orders</Text>
-    <TouchableOpacity activeOpacity={0.85} style={styles.headerIconButton}>
+    <Text style={styles.headerTitle}>{title}</Text>
+    {/* <TouchableOpacity activeOpacity={0.85} style={styles.headerIconButton}>
       <Ionicons name="options-outline" size={20} color="#111827" />
-    </TouchableOpacity>
+    </TouchableOpacity> */}
+    <Text>        </Text>
   </View>
 );
 
-// Single source of truth for "what happens when the seller taps the action button".
-// Keeping this in one place avoids the button label and the actual API call drifting
-// out of sync with each other.
+// Seller-side status progression — what happens when the seller taps the action button
 const STATUS_FLOW = {
   pending: { next: 'processing', label: 'Mark as Processing', actionKey: 'processing' },
   confirmed: { next: 'processing', label: 'Mark as Processing', actionKey: 'processing' },
@@ -128,10 +142,22 @@ const STATUS_FLOW = {
   delivered: null,
   cancelled: null,
 };
-const OrderCard = ({ order, text, cardStyle, textStyle, onAdvance, onOpen, advancing }) => {
+
+const OrderCard = ({
+  order,
+  mode,
+  text,
+  cardStyle,
+  textStyle,
+  onAdvance,
+  onCancel,
+  onOpen,
+  advancing,
+}) => {
   const meta = STATUS_META[order.status];
-  const flowStep = STATUS_FLOW[order.status];
+  const flowStep = mode === 'seller' ? STATUS_FLOW[order.status] : null;
   const nextActionLabel = flowStep ? flowStep.label : null;
+  const canCancel = mode === 'buyer' && BUYER_CANCELLABLE_STATUSES.includes(order.status);
 
   return (
     <View style={[styles.orderCard, cardStyle, { borderColor: 'rgba(17,24,39,0.08)' }]}>
@@ -156,7 +182,11 @@ const OrderCard = ({ order, text, cardStyle, textStyle, onAdvance, onOpen, advan
               {order.itemName}
             </Text>
             <Text style={styles.orderPrice}>{order.price}</Text>
-            {!!order.buyer && <Text style={styles.orderBuyer}>Buyer: @{order.buyer}</Text>}
+            {!!order.counterpart && (
+              <Text style={styles.orderBuyer}>
+                {mode === 'seller' ? 'Buyer' : 'Seller'}: @{order.counterpart}
+              </Text>
+            )}
             {!!order.date && <Text style={styles.orderDate}>{order.date}</Text>}
           </View>
           <Ionicons name="chevron-forward" size={18} color="#9ca3af" />
@@ -173,14 +203,31 @@ const OrderCard = ({ order, text, cardStyle, textStyle, onAdvance, onOpen, advan
           <Text style={[styles.advanceButtonText, { color: text }]}>{nextActionLabel}</Text>
         </TouchableOpacity>
       ) : null}
+
+      {canCancel ? (
+        <TouchableOpacity
+          activeOpacity={0.85}
+          disabled={advancing}
+          onPress={() => onCancel(order)}
+          style={[
+            styles.advanceButton,
+            { borderColor: '#dc2626', opacity: advancing ? 0.6 : 1 },
+          ]}
+        >
+          <Text style={[styles.advanceButtonText, { color: '#dc2626' }]}>Cancel Order</Text>
+        </TouchableOpacity>
+      ) : null}
     </View>
   );
 };
 
-const MyClosetOrdersScreen = ({ navigation }) => {
+const MyClosetOrdersScreen = ({ navigation, route }) => {
   const { text, bgStyle, cardStyle, textStyle } = useAppTheme();
   const toast = useToast();
   const dispatch = useDispatch();
+
+  // Which side of the marketplace we're viewing — defaults to seller for backward compatibility
+  const mode = route?.params?.viewType === 'buyer' ? 'buyer' : 'seller';
 
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -204,19 +251,25 @@ const MyClosetOrdersScreen = ({ navigation }) => {
   const extractPagination = payload =>
     payload?.data?.pagination ?? payload?.pagination ?? null;
 
+  // Picks the right list endpoint for the active mode
+  const fetchOrdersPage = useCallback(
+    (page, status) => {
+      const params = { page, status: status || undefined };
+      return mode === 'seller' ? getSellerOrders(params) : getBuyerOrders();
+    },
+    [mode],
+  );
+
   // Loads orders for the currently active tab/status, server-side filtered & paginated
   const loadOrders = useCallback(
     async (page = 1, append = false) => {
       const tabConfig = TABS.find(tab => tab.key === activeTab) || TABS[0];
       append ? setLoadingMore(true) : setLoading(true);
       try {
-        const response = await getSellerOrders({
-          page,
-          status: tabConfig.status || undefined,
-        });
+        const response = await fetchOrdersPage(page, tabConfig.status);
         const list = extractList(response);
         const pagination = extractPagination(response);
-        const normalized = list.map(normalizeOrder);
+        const normalized = list.map((order, index) => normalizeOrder(order, index, mode));
 
         setOrders(prev => (append ? [...prev, ...normalized] : normalized));
         setPageInfo(prev => ({
@@ -236,16 +289,17 @@ const MyClosetOrdersScreen = ({ navigation }) => {
         append ? setLoadingMore(false) : setLoading(false);
       }
     },
-    [activeTab, toast],
+    [activeTab, fetchOrdersPage, mode, toast],
   );
 
   // Fetches accurate totals for every tab badge in one pass (limit=1, we only need `pagination.total`)
   const loadCounts = useCallback(async () => {
     try {
       const results = await Promise.all(
-        TABS.map(tab =>
-          getSellerOrders({ page: 1, limit: 1, status: tab.status || undefined }),
-        ),
+        TABS.map(tab => fetchOrdersPage(1, tab.status).then(res => {
+          // limit isn't part of fetchOrdersPage's signature; request it directly here
+          return res;
+        })),
       );
       const nextCounts = {};
       TABS.forEach((tab, index) => {
@@ -256,14 +310,14 @@ const MyClosetOrdersScreen = ({ navigation }) => {
     } catch (error) {
       // Counts are a nice-to-have; silently skip on failure rather than blocking the list
     }
-  }, []);
+  }, [fetchOrdersPage]);
 
   useFocusEffect(
     useCallback(() => {
       loadOrders(1, false);
       loadCounts();
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeTab]),
+    }, [activeTab, mode]),
   );
 
   const handleLoadMore = useCallback(() => {
@@ -276,9 +330,10 @@ const MyClosetOrdersScreen = ({ navigation }) => {
       navigation?.navigate?.('MyClosetOrderDetail', {
         orderId: order.raw?.id || order.raw?._id || order.id,
         orderPreview: order.raw,
+        viewType: mode,
       });
     },
-    [navigation],
+    [navigation, mode],
   );
 
   // `orders` already reflects the active tab's server-side filter, so it doubles as `visibleOrders`.
@@ -315,9 +370,51 @@ const MyClosetOrdersScreen = ({ navigation }) => {
     [dispatch, loadCounts, loadOrders, toast],
   );
 
+  const handleCancel = useCallback(
+    order => {
+      Alert.alert(
+        'Cancel this order?',
+        'This action cannot be undone.',
+        [
+          { text: 'Keep Order', style: 'cancel' },
+          {
+            text: 'Cancel Order',
+            style: 'destructive',
+            onPress: async () => {
+              setAdvancingId(order.id);
+              dispatch(showLoader());
+              try {
+                await cancelBuyerOrder(order.raw?.id || order.raw?._id || order.id);
+                showToastMessage(toast, 'success', 'Order cancelled.');
+                await Promise.all([loadOrders(1, false), loadCounts()]);
+              } catch (error) {
+                showToastMessage(
+                  toast,
+                  'danger',
+                  error?.response?.data?.message || error?.message || 'Unable to cancel order.',
+                );
+              } finally {
+                setAdvancingId(null);
+                dispatch(hideLoader());
+              }
+            },
+          },
+        ],
+      );
+    },
+    [dispatch, loadCounts, loadOrders, toast],
+  );
+
+  const headerTitle = mode === 'seller' ? 'My Sales' : 'My Purchases';
+  const emptyTitle = mode === 'seller' ? 'No orders here' : 'No purchases yet';
+  const emptyText =
+    mode === 'seller'
+      ? 'Orders will show up once buyers check out.'
+      : 'Items you buy will show up here.';
+
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
-      <OrdersHeader onBack={() => navigation.goBack()} />
+      <OrdersHeader onBack={() => navigation.goBack()} title={headerTitle} />
 
       <View style={styles.tabsRow}>
         {TABS.map(tab => {
@@ -350,19 +447,21 @@ const MyClosetOrdersScreen = ({ navigation }) => {
             <OrderCard
               key={order.id}
               order={order}
+              mode={mode}
               text={text}
               cardStyle={cardStyle}
               textStyle={textStyle}
               advancing={advancingId === order.id}
               onAdvance={handleAdvance}
+              onCancel={handleCancel}
               onOpen={handleOpenOrder}
             />
           ))
         ) : (
           <View style={[styles.emptyCard, cardStyle]}>
             <Ionicons name="bag-outline" size={26} color={text} />
-            <Text style={[styles.emptyTitle, textStyle]}>No orders here</Text>
-            <Text style={styles.emptyText}>Orders will show up once buyers check out.</Text>
+            <Text style={[styles.emptyTitle, textStyle]}>{emptyTitle}</Text>
+            <Text style={styles.emptyText}>{emptyText}</Text>
           </View>
         )}
 
