@@ -11,7 +11,6 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { useRoute } from '@react-navigation/native';
-import Video from 'react-native-video';
 import { useAppTheme } from '../../theme/useApptheme';
 import { getProgressBarColor } from '../../utils/progressBarUtils';
 import { getTotalDonationAmount } from '../../services/tokens';
@@ -19,6 +18,7 @@ import { pinPost, unpinPost } from '../../services/post';
 import { isPostPinned, setPostPinnedState, sortPostsByPinned } from '../../utils/postPinning';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useLanguage } from '../../i18n';
+import { isPostVideoUrl } from '../../utils/postMediaFormat';
 
 const { width: screenWidth } = Dimensions.get('window');
 const numColumns = 3;
@@ -106,27 +106,26 @@ const normalizeImageUrl = (url) => {
   return `https://api.valens.app/${trimmed}`;
 };
 
-const isVideoUrl = (url) => {
-  if (!url || typeof url !== 'string') return false;
-  return /\.(mp4|mov|avi|mkv|webm|m4v|3gp)(\?|$)/i.test(url);
-};
+const getPostPrimaryMediaUrl = (post) =>
+  post?.images?.[0] || post?.image || post?.video || null;
 
 const getPreviewMedia = (post) => {
-  const mediaUrl = post?.images?.[0] || post?.image || post?.video;
-
+  const rawUrl = getPostPrimaryMediaUrl(post);
+  const mediaUrl = normalizeImageUrl(rawUrl);
   const thumbnailUrl = normalizeImageUrl(
     post?.thumbnails?.[0] ||
     post?.thumbnail ||
-    post?.poster
+    post?.poster,
   );
 
   const isVideo =
-    post?.type === 'reel' ||
-    /\.(mp4|mov|avi|mkv|webm|m4v|3gp)(\?|$)/i.test(mediaUrl || '');
+    String(post?.type || '').toLowerCase() === 'reel' ||
+    String(post?.format || '').toLowerCase() === 'video' ||
+    isPostVideoUrl(rawUrl);
 
   return {
     mediaUrl,
-    thumbnailUrl,
+    thumbnailUrl: thumbnailUrl || (isVideo ? null : mediaUrl),
     isVideo,
   };
 };
@@ -144,30 +143,24 @@ const getImagePosts = postList =>
 // Memoized image component for better performance
 const PostImage = memo(({ item, index, onPress, themeTextStyle }) => {
   const [imageError, setImageError] = useState(false);
-  const [isVideoLoading, setIsVideoLoading] = useState(true);
-  const [videoError, setVideoError] = useState(false);
   const { mediaUrl, thumbnailUrl, isVideo } = getPreviewMedia(item);
 
   if (isVideo) {
+    const previewUri = thumbnailUrl || null;
     return (
       <View style={styles.image}>
-        <Image
-          source={{ uri: thumbnailUrl }}
-          style={styles.image}
-          resizeMode="cover"
-        />
-
-        <View
-          style={[
-            styles.videoBadge,
-            {
-              position: 'absolute',
-              top: '50%',
-              left: '50%',
-              transform: [{ translateX: -15 }, { translateY: -15 }],
-            },
-          ]}
-        >
+        {previewUri ? (
+          <Image
+            source={{ uri: previewUri }}
+            style={styles.image}
+            resizeMode="cover"
+          />
+        ) : (
+          <View style={[styles.image, styles.placeholderImage]}>
+            <Text style={[styles.placeholderText, themeTextStyle]}>🎬</Text>
+          </View>
+        )}
+        <View style={[styles.videoBadge, styles.videoBadgeOverlay]}>
           <Text style={styles.videoBadgeText}>▶</Text>
         </View>
       </View>
@@ -206,11 +199,25 @@ const PostScreen = memo(({ scrollEnabled = true, postCheck, userData: propUserDa
   const { bgStyle, textStyle, text } = useAppTheme(userData?.profile);
   // ✅ Move ALL hooks/useMemo/useCallback BEFORE any early returns
   const filteredPosts = useMemo(() => {
-    if (activeMediaFilter === 'video') return posts.filter((post) => isVideoUrl(post?.images?.[0] || post?.image || post?.video));
-    if (activeMediaFilter === 'ebook') return posts.filter((post) => /\.pdf(\?|$)/i.test(String(post?.images?.[0] || post?.image || post?.video || '')) || ['ebook', 'book'].includes(String(post?.type || post?.format || '').toLowerCase()));
-    // if (activeMediaFilter === 'reel') return posts.filter((post) => String(post?.type || '').toLowerCase() === 'reel');
-    // if (activeMediaFilter === 'all') return posts;
-    return posts.filter((post) => !isVideoUrl(post?.images?.[0] || post?.image || post?.video) && !(/\.pdf(\?|$)/i.test(String(post?.images?.[0] || post?.image || post?.video || ''))));
+    const primaryUrl = post => getPostPrimaryMediaUrl(post);
+    if (activeMediaFilter === 'video') {
+      return posts.filter(post => isPostVideoUrl(primaryUrl(post)));
+    }
+    if (activeMediaFilter === 'ebook') {
+      return posts.filter(
+        post =>
+          /\.pdf(\?|$)/i.test(String(primaryUrl(post) || '')) ||
+          ['ebook', 'book'].includes(String(post?.type || post?.format || '').toLowerCase()),
+      );
+    }
+    // Photos tab: show images and video posts (thumbnail + play badge), exclude PDFs/ebooks.
+    return posts.filter(post => {
+      const url = String(primaryUrl(post) || '');
+      const formatValue = String(post?.type || post?.format || '').toLowerCase();
+      if (['ebook', 'book'].includes(formatValue)) return false;
+      if (/\.pdf(\?|$)/i.test(url)) return false;
+      return Boolean(url);
+    });
   }, [activeMediaFilter, posts]);
 
   const rows = useMemo(() => {
@@ -264,19 +271,17 @@ const PostScreen = memo(({ scrollEnabled = true, postCheck, userData: propUserDa
   }, [posts]);
 
   const openPosts = useCallback((index) => {
-    const selectedPost = posts?.[index];
+    const selectedPost = filteredPosts?.[index];
     if (!selectedPost) return;
-    const { isVideo } = getPreviewMedia(selectedPost);
-    // if (isVideo) {
-    //   navigation.getParent().navigate('ProfileMain', {
-    //     screen: 'FlipsScreen',
-    //     params: { item: selectedPost, key: Date.now().toString() },
-    //   });
-    //   return;
-    // }
     navigation.getParent().navigate('ProfileMain', {
       screen: 'PostView',
-      params: { postData: filteredPosts, startIndex: index, hideTabBar: true, userData, loggedInUserId: userData?.id, },
+      params: {
+        postData: filteredPosts,
+        startIndex: index,
+        hideTabBar: true,
+        userData,
+        loggedInUserId: userData?.id,
+      },
     });
   }, [navigation, filteredPosts, userData]);
 
@@ -528,16 +533,16 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
   videoBadge: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignSelf: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
   },
   videoBadgeOverlay: {
-    alignSelf: 'center',
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: [{ translateX: -15 }, { translateY: -15 }],
     justifyContent: 'center',
     alignItems: 'center',
   },
