@@ -51,6 +51,7 @@ import useScreenshotProtection, {
   SCREENSHOT_PROTECTED_SOURCES,
 } from '../../hooks/useScreenshotProtection';
 import { navigateToUserProfile } from '../../utils/navigateToUserProfile';
+import { isPostVideoUrl } from '../../utils/postMediaFormat';
 
 const isTruthyTrustPost = value =>
   value === true || value === 1 || String(value).toLowerCase() === 'true';
@@ -305,19 +306,7 @@ export default function PostView({ postData = [], userData = {} }) {
     navigation.navigate('HomeMain');
   }, [navigation, currentUserId, route.params, routeUserData]);
 
-  const getMediaType = url => {
-    if (!url || typeof url !== 'string') return 'image';
-    const lowerUrl = url.toLowerCase();
-    const videoExtensions = ['mp4', 'mov', 'avi', 'mkv', 'webm', '3gp', 'm4v'];
-    const urlParts = lowerUrl.split('.');
-    const extension = urlParts[urlParts.length - 1];
-    const isVideo =
-      videoExtensions.includes(extension) ||
-      lowerUrl.includes('.mp4') ||
-      lowerUrl.includes('video') ||
-      lowerUrl.includes('/mp4/');
-    return isVideo ? 'video' : 'image';
-  };
+  const getMediaType = url => (isPostVideoUrl(url) ? 'video' : 'image');
 
   const formatUrl = (url) => {
     if (!url || typeof url !== 'string') return url;
@@ -1023,9 +1012,14 @@ export default function PostView({ postData = [], userData = {} }) {
           item.userImage == null
             ? 'https://cdn-icons-png.flaticon.com/512/149/149071.png'
             : formatUrl(item.userImage),
-        media: (item.images || []).map(url => ({
+        media: (item.images || []).map((url, mediaIndex) => ({
           type: getMediaType(url),
           url: formatUrl(url),
+          thumbnail: formatUrl(
+            item.thumbnails?.[mediaIndex] ??
+            item.thumbnails?.[0] ??
+            null,
+          ),
         })),
         caption: item.caption,
         PostsProfile: 'Support',

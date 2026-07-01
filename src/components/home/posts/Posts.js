@@ -45,17 +45,14 @@ import { getSuggestedUsers } from '../../../services/home';
 import { useAppTheme } from '../../../theme/useApptheme';
 import { log } from 'console';
 import { extractPostMusicPayloadFromApi, applyClientPostOverlayCache } from '../../../utils/postSoundtracks';
+import { isPostVideoUrl } from '../../../utils/postMediaFormat';
 import { useLanguage } from '../../../i18n';
 
 const isTruthyTrustPost = value => value === true || value === 1 || String(value).toLowerCase() === 'true';
 
 const isVideoMediaUrl = (url, postType) => {
   if (String(postType || '').toLowerCase() === 'reel') return true;
-  if (!url || typeof url !== 'string') return false;
-  const lower = url.toLowerCase().split('?')[0];
-  return ['mp4', 'mov', 'avi', 'mkv', 'webm', '3gp', 'm4v'].some(ext =>
-    lower.endsWith(`.${ext}`),
-  );
+  return isPostVideoUrl(url);
 };
 
 const Posts = forwardRef(function Posts(
