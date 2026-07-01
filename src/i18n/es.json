@@ -3395,7 +3395,10 @@
   },
   "chatMessages": {
     "title": "Mensajes",
+    "myClosetChatLabel": "Chat de mi armario",
     "messagesLabel": "Mensajes",
+    "noClosetChatsYet": "Aún no tienes chats privados",
+    "closetChatHint": "Los chats que guardas aquí se mantienen separados de tu bandeja principal",
     "searchPlaceholder": "Buscar mensajes...",
     "pullToRefresh": "Desliza para actualizar",
     "errorTitle": "Error",

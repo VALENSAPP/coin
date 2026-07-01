@@ -235,3 +235,16 @@ export const markOrderShipped = async orderId => {
 export const markOrderDelivered = async orderId => {
   return axiosInstance.patch(`seller/orders/${orderId}/deliver`);
 };
+
+// ── Buyer Orders ────────────────────────────────────────────────
+export const getBuyerOrders = async () => {
+  return axiosInstance.get('/orders');
+}
+
+export const getBuyerOrderDetail = async orderId => {
+  return axiosInstance.get(`/orders/${orderId}`);
+};
+
+export const cancelBuyerOrder = async orderId => {
+  return axiosInstance.patch(`/orders/${orderId}/cancel`);
+};

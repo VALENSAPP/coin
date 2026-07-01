@@ -84,6 +84,12 @@ const AVATAR_SIZE = 50;
 const AVATAR_BORDER = 68;
 const NOTE_CARD_HEIGHT = 32;
 
+// Tab keys for the top switcher
+const CHAT_TABS = {
+  MESSAGES: 'messages',
+  CLOSET: 'closet',
+};
+
 export default function ChatMessages() {
   const navigation = useNavigation();
   const route = useRoute();
@@ -105,7 +111,10 @@ export default function ChatMessages() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const [dataSource, setDataSource] = useState('none');
-  
+
+  // ✅ Active tab: 'messages' | 'closet'
+  const [activeTab, setActiveTab] = useState(CHAT_TABS.MESSAGES);
+
   const hasProcessedShareRef = useRef(false);
   // Locally hidden chats (survives socket refresh until server marks isHidden)
   const hiddenChatIdsRef = useRef(new Set());
@@ -987,7 +996,17 @@ export default function ChatMessages() {
     </TouchableOpacity>
   );
 
-  const filteredConversations = conversations.filter(c =>
+  // Only "Messages" tab conversations are regular chats for now.
+  // "My closet chat" surfaces conversations flagged as closet chats
+  // (adjust the `isClosetChat` check below once the backend field is finalized).
+  const messagesTabConversations = conversations.filter(c => !c.isClosetChat);
+  const closetTabConversations = conversations.filter(c => c.isClosetChat);
+
+  const activeConversations = activeTab === CHAT_TABS.CLOSET
+    ? closetTabConversations
+    : messagesTabConversations;
+
+  const filteredConversations = activeConversations.filter(c =>
     c.username.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -1021,11 +1040,40 @@ export default function ChatMessages() {
         </View>
       </TouchableOpacity>
 
-      {/* Messages Row */}
-      <View style={styles.messagesRow}>
-        <Text style={[styles.messagesTitle, textStyle]}>{t('chatMessages.messagesLabel')}</Text>
-        <TouchableOpacity>
-          {/* <Text style={styles.requestsLink}>Requests</Text> */}
+      {/* Messages / My closet chat Tabs */}
+      <View style={styles.tabRow}>
+        <TouchableOpacity
+          style={styles.tabButton}
+          onPress={() => setActiveTab(CHAT_TABS.MESSAGES)}
+          activeOpacity={0.7}
+        >
+          <Text
+            style={[
+              styles.tabText,
+              textStyle,
+              activeTab === CHAT_TABS.MESSAGES && styles.tabTextActive,
+            ]}
+          >
+            {t('chatMessages.messagesLabel')}
+          </Text>
+          {activeTab === CHAT_TABS.MESSAGES && <View style={styles.tabUnderline} />}
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.tabButton}
+          onPress={() => setActiveTab(CHAT_TABS.CLOSET)}
+          activeOpacity={0.7}
+        >
+          <Text
+            style={[
+              styles.tabText,
+              textStyle,
+              activeTab === CHAT_TABS.CLOSET && styles.tabTextActive,
+            ]}
+          >
+            {t('chatMessages.myClosetChatLabel') || 'My closet chat'}
+          </Text>
+          {activeTab === CHAT_TABS.CLOSET && <View style={styles.tabUnderline} />}
         </TouchableOpacity>
       </View>
 
@@ -1052,8 +1100,8 @@ export default function ChatMessages() {
         ) : error ? (
           <View style={styles.errorContainer}>
             <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity 
-              style={[styles.retryButton, { backgroundColor: accent }]} 
+            <TouchableOpacity
+              style={[styles.retryButton, { backgroundColor: text }]}
               onPress={() => {
                 const socket = getSocket();
                 if (socket?.connected) {
@@ -1068,11 +1116,19 @@ export default function ChatMessages() {
           </View>
         ) : filteredConversations.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Text style={[styles.emptyText, { color: mutedText }]}>
-              {search ? t('chatMessages.noConversationsFound') : t('chatMessages.noConversationsYet')}
+            <Text style={styles.emptyText}>
+              {search
+                ? t('chatMessages.noConversationsFound')
+                : activeTab === CHAT_TABS.CLOSET
+                  ? (t('chatMessages.noClosetChatsYet') || 'No closet chats yet')
+                  : t('chatMessages.noConversationsYet')}
             </Text>
             {!search && (
-              <Text style={[styles.emptySubtext, { color: mutedText }]}>{t('chatMessages.startConversationHint')}</Text>
+              <Text style={styles.emptySubtext}>
+                {activeTab === CHAT_TABS.CLOSET
+                  ? (t('chatMessages.closetChatHint') || 'Chats you keep here stay separate from your main inbox')
+                  : t('chatMessages.startConversationHint')}
+              </Text>
             )}
           </View>
         ) : (
@@ -1180,16 +1236,34 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#000',
   },
-  messagesRow: {
+  tabRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingTop: 4,
+    paddingBottom: 10,
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#e5e0ea',
   },
-  messagesTitle: {
+  tabButton: {
+    marginRight: 24,
+    paddingBottom: 8,
+  },
+  tabText: {
     fontSize: 15,
+    fontWeight: '600',
+    color: '#9ca3af',
+  },
+  tabTextActive: {
+    color: '#5a2d82',
     fontWeight: '700',
+  },
+  tabUnderline: {
+    marginTop: 6,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: '#5a2d82',
+    width: '100%',
   },
   chatItem: {
     flexDirection: 'row',

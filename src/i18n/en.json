@@ -3398,7 +3398,10 @@
   },
   "chatMessages": {
     "title": "Messages",
+    "myClosetChatLabel": "My closet chat",
     "messagesLabel": "Messages",
+    "noClosetChatsYet": "No closet chats yet",
+    "closetChatHint": "Chats you keep here stay separate from your main inbox",
     "searchPlaceholder": "Search messages...",
     "pullToRefresh": "Pull to refresh",
     "errorTitle": "Error",

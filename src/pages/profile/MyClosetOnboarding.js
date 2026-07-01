@@ -10,7 +10,8 @@ import {
   TextInput,
   Platform,
   PermissionsAndroid,
-  Share,
+  Linking,
+  ActivityIndicator,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -28,6 +29,7 @@ import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { createMyCloset, createMyClosetItem } from '../../services/myCloset';
 import ShareModal from '../../components/modals/ShareModal';
 import PostLocationModal from '../../components/modals/PostLocationModal';
+import { getPlaceDetails, isGooglePlacesConfigured, searchPlacePredictions, searchCityPredictions } from '../../services/googlePlaces';
 
 const mixWithWhite = (hex, amount = 0.86) => {
   const normalized = String(hex || '').replace('#', '');
@@ -166,6 +168,57 @@ const ITEM_SHIPPING_TIME_OPTIONS = [
   '3 - 5 business days',
   '5 - 7 business days',
 ];
+
+// ── New: item-level shipping/pickup constants ───────────────────────────────
+const ITEM_SHIPPING_FEE_OPTIONS = [
+  'Free shipping',
+  '$3.99',
+  '$5.99',
+  '$7.99',
+  '$9.99',
+  '$12.99',
+];
+
+const PICKUP_CITY_OPTIONS = [
+  'Los Angeles, CA',
+  'New York, NY',
+  'San Francisco, CA',
+  'Chicago, IL',
+  'Austin, TX',
+];
+
+const PICKUP_LOCATIONS_BY_CITY = {
+  'Los Angeles, CA': [
+    { label: 'Westwood Village', address: '108 Westwood Blvd, Los Angeles, CA 90024' },
+    { label: 'Downtown LA', address: '350 S Grand Ave, Los Angeles, CA 90071' },
+  ],
+  'New York, NY': [
+    { label: 'Union Square', address: '4 Union Square S, New York, NY 10003' },
+    { label: 'Williamsburg', address: '221 Bedford Ave, Brooklyn, NY 11249' },
+  ],
+  'San Francisco, CA': [
+    { label: 'Hayes Valley', address: '388 Hayes St, San Francisco, CA 94102' },
+  ],
+  'Chicago, IL': [
+    { label: 'Wicker Park', address: '1500 N Milwaukee Ave, Chicago, IL 60622' },
+  ],
+  'Austin, TX': [
+    { label: 'South Congress', address: '1600 S Congress Ave, Austin, TX 78704' },
+  ],
+};
+
+const PICKUP_TIME_OPTIONS = [
+  '8:00 AM', '9:00 AM', '10:00 AM', '11:00 AM', '12:00 PM',
+  '1:00 PM', '2:00 PM', '3:00 PM', '4:00 PM', '5:00 PM',
+  '6:00 PM', '7:00 PM', '8:00 PM',
+];
+
+const DEFAULT_PICKUP_HOURS = {
+  weekdayStart: '10:00 AM',
+  weekdayEnd: '6:00 PM',
+  weekendStart: '11:00 AM',
+  weekendEnd: '4:00 PM',
+};
 
 const getOptionValue = option =>
   typeof option === 'string' ? option : option?.value;
@@ -423,6 +476,117 @@ const Field = ({
   </View>
 );
 
+const PlaceFieldRow = ({
+  icon,
+  label,
+  placeholder,
+  value,            // committed value only — shown when collapsed
+  filled,
+  loading,
+  expanded,
+  disabled,
+  onToggle,
+  onCollapse,
+  text,
+  error,
+  query,            // live search text — only used while expanded
+  onQueryChange,
+  predictions,
+  searching,
+  onSelectPrediction,
+}) => (
+  <View style={styles.placeFieldBlock}>
+    <View style={styles.placeFieldTopRow}>
+      <View style={styles.placeFieldIconWrap}>
+        <Ionicons name={icon} size={17} color="#5A2386" />
+      </View>
+      <Text style={styles.placeFieldLabel} numberOfLines={1}>
+        {label}
+      </Text>
+
+      {expanded ? (
+        <View
+          style={[
+            styles.placeFieldValueBox,
+            styles.placeFieldValueBoxActive,
+            { borderColor: error ? '#dc2626' : withAlpha(text, 0.16) },
+          ]}
+        >
+          <TextInput
+            value={query}
+            onChangeText={onQueryChange}
+            placeholder={`Search ${label.toLowerCase()}...`}
+            placeholderTextColor="#a1a1aa"
+            autoFocus
+            style={styles.placeFieldSearchInline}
+          />
+          <TouchableOpacity onPress={onCollapse} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Ionicons name="chevron-up" size={16} color="#6b7280" />
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={disabled ? undefined : onToggle}
+          style={[
+            styles.placeFieldValueBox,
+            disabled && styles.placeFieldValueBoxDisabled,
+            { borderColor: error ? '#dc2626' : withAlpha(text, 0.16) },
+          ]}
+        >
+          <Text
+            style={[styles.placeFieldValueText, !value && { color: '#a1a1aa' }]}
+            numberOfLines={1}
+          >
+            {value || placeholder}
+          </Text>
+          <Ionicons name="chevron-down" size={16} color="#6b7280" />
+        </TouchableOpacity>
+      )}
+
+      {loading ? (
+        <ActivityIndicator size="small" color={text} style={styles.placeFieldCheck} />
+      ) : filled && !expanded ? (
+        <View style={styles.placeFieldCheck}>
+          <Ionicons name="checkmark-circle" size={22} color="#22c55e" />
+        </View>
+      ) : (
+        <View style={styles.placeFieldCheck} />
+      )}
+    </View>
+
+    {expanded ? (
+      <View style={styles.placeFieldPredictionsBox}>
+        {searching ? (
+          <View style={styles.placeFieldSearchingRow}>
+            <ActivityIndicator size="small" color="#5A2386" />
+          </View>
+        ) : null}
+        {predictions.map((item, index) => (
+          <TouchableOpacity
+            key={item.id}
+            activeOpacity={0.8}
+            onPress={() => onSelectPrediction(item)}
+            style={[
+              styles.dropdownItem,
+              index !== predictions.length - 1 && styles.dropdownItemBorder,
+            ]}
+          >
+            <Text style={styles.dropdownItemText} numberOfLines={2}>
+              {item.description}
+            </Text>
+          </TouchableOpacity>
+        ))}
+        {!searching && query.trim().length >= 2 && predictions.length === 0 ? (
+          <Text style={styles.placeFieldNoResults}>No matches found</Text>
+        ) : null}
+      </View>
+    ) : null}
+
+    <InlineError message={error} />
+  </View>
+);
+
 const DropdownRow = ({
   label,
   placeholder,
@@ -459,7 +623,14 @@ const DropdownRow = ({
         />
       </TouchableOpacity>
       {expanded ? (
-        <View style={styles.dropdownList}>
+        <ScrollView
+          style={styles.dropdownList}
+          contentContainerStyle={styles.dropdownListContent}
+          nestedScrollEnabled
+          showsVerticalScrollIndicator
+          persistentScrollbar
+          keyboardShouldPersistTaps="handled"
+        >
           {options.map((item, index) => {
             const itemValue = getOptionValue(item);
             const itemLabel = getOptionLabel(item);
@@ -489,7 +660,7 @@ const DropdownRow = ({
               </TouchableOpacity>
             );
           })}
-        </View>
+        </ScrollView>
       ) : null}
       <InlineError message={error} />
     </View>
@@ -521,6 +692,84 @@ const OptionCard = ({ label, description, selected, onPress, text, icon }) => (
       color={text}
     />
   </TouchableOpacity>
+);
+
+// ── New: multi-select delivery method card with checkbox + inline bullet list
+const DeliveryOptionCard = ({
+  label,
+  description,
+  bullets,
+  selected,
+  onPress,
+  text,
+  icon,
+}) => (
+  <TouchableOpacity
+    activeOpacity={0.9}
+    onPress={onPress}
+    style={[
+      styles.deliveryCard,
+      {
+        borderColor: selected ? text : withAlpha(text, 0.14),
+        backgroundColor: selected ? mixWithWhite(text, 0.94) : '#fff',
+      },
+    ]}
+  >
+    <View style={styles.deliveryCardTopRow}>
+      <View style={styles.optionIconWrap}>
+        <Ionicons name={icon} size={18} color={text} />
+      </View>
+      <View
+        style={[
+          styles.checkboxBadge,
+          selected
+            ? { backgroundColor: text }
+            : { backgroundColor: '#fff', borderWidth: 1, borderColor: withAlpha(text, 0.3) },
+        ]}
+      >
+        {selected ? <Ionicons name="checkmark" size={13} color="#fff" /> : null}
+      </View>
+    </View>
+    <Text style={styles.deliveryLabel}>{label}</Text>
+    <Text style={styles.deliveryDescription}>{description}</Text>
+    {bullets?.length ? (
+      <View style={styles.deliveryBulletList}>
+        {bullets.map(bullet => (
+          <View key={bullet} style={styles.deliveryBulletRow}>
+            <Ionicons name={bullet.icon || 'ellipse'} size={4} color="#9ca3af" />
+            <Text style={styles.deliveryBulletText}>{bullet}</Text>
+          </View>
+        ))}
+      </View>
+    ) : null}
+  </TouchableOpacity>
+);
+
+// ── New: simple pill-style toggle switch, mirrors the buyer chat toggle
+const ToggleSwitch = ({ value, onValueChange, accent }) => (
+  <TouchableOpacity
+    activeOpacity={0.85}
+    onPress={() => onValueChange(!value)}
+    style={[
+      styles.toggleTrack,
+      { backgroundColor: value ? accent : '#e5e7eb' },
+    ]}
+  >
+    <View style={[styles.toggleThumb, value && styles.toggleThumbActive]} />
+  </TouchableOpacity>
+);
+
+// ── New: labelled section header used inside the shipping & return step
+const SectionHeader = ({ icon, title, badge, text }) => (
+  <View style={styles.sectionHeaderRow}>
+    {icon ? <Ionicons name={icon} size={16} color={text} /> : null}
+    <Text style={[styles.sectionHeaderTitle, icon && { marginLeft: 6 }]}>{title}</Text>
+    {badge ? (
+      <View style={styles.sectionHeaderBadge}>
+        <Text style={styles.sectionHeaderBadgeText}>{badge}</Text>
+      </View>
+    ) : null}
+  </View>
 );
 
 const requestCameraPermission = async () => {
@@ -928,7 +1177,22 @@ const MyClosetPreferencesScreen = ({ navigation, route }) => {
     payload.append('location', String(nextDraft.location || '').trim());
     payload.append('whoCanBuy', String(nextDraft.whoCanBuy || '').trim());
     payload.append('paymentMethod', String(nextDraft.paymentMethod || '').trim());
-    payload.append('shippingOptions', (nextDraft.shipping || []).join(','));
+    const selectedShipping = nextDraft.shipping || [];
+
+    let shippingOptions = 'ship_items';
+
+    if (
+      selectedShipping.includes('ship_items') &&
+      selectedShipping.includes('local_pick')
+    ) {
+      shippingOptions = 'both';
+    } else if (selectedShipping.includes('local_pick')) {
+      shippingOptions = 'local_pick';
+    } else if (selectedShipping.includes('ship_items')) {
+      shippingOptions = 'ship_items';
+    }
+
+    payload.append('shippingOptions', shippingOptions);
     payload.append('returnPolicy', String(nextDraft.returnPolicy || '').trim());
 
     if (nextDraft?.logo?.uri) {
@@ -1143,7 +1407,7 @@ const MyClosetLiveScreen = ({ navigation, route }) => {
           </View>
         </View>
 
-        <Text style={[styles.successTitle, { color: text }]}>{userProfile == 'user' ? 'Your Closet is Live!' : 'Your Shop is Live!' }</Text>
+        <Text style={[styles.successTitle, { color: text }]}>{userProfile == 'user' ? 'Your Closet is Live!' : 'Your Shop is Live!'}</Text>
         <Text style={styles.successSubtitle}>
           Your personal shop is ready. Start adding items and share your style.
         </Text>
@@ -1587,7 +1851,7 @@ const MyClosetAddItemPriceScreen = ({ navigation, route }) => {
       return;
     }
 
-    navigation.navigate('MyClosetAddItemShipping', { draft: nextDraft, isFirstItem  });
+    navigation.navigate('MyClosetAddItemShipping', { draft: nextDraft, isFirstItem });
   };
 
   return (
@@ -1654,48 +1918,307 @@ const MyClosetAddItemPriceScreen = ({ navigation, route }) => {
   );
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Shipping & return — step 4 of "Add item"
+//
+// Buyers may be offered either or both delivery methods on a single item:
+//   • Shipping   – seller ships to the buyer's address
+//   • Local pickup – buyer picks up in person at a seller-chosen spot/time,
+//                    coordinated over Valens chat
+// ─────────────────────────────────────────────────────────────────────────────
 const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
   const draft = route?.params?.draft || {};
   const isFirstItem = route?.params?.isFirstItem ?? true;
   const itemTitle = isFirstItem ? 'Add My First Item' : 'Add New Item';
-  const [shippingType, setShippingType] = useState(
-    draft.shippingType || 'ship',
+  const { text } = useAppTheme();
+
+  // Delivery methods — both can be selected at once
+  const [shippingEnabled, setShippingEnabled] = useState(
+    draft.shippingEnabled ?? true,
   );
-  const [shippingMethod, setShippingMethod] = useState(
-    draft.shippingMethod || '',
+  const [pickupEnabled, setPickupEnabled] = useState(
+    draft.pickupEnabled ?? false,
   );
+
+  // Shipping details
   const [shippingTime, setShippingTime] = useState(draft.shippingTime || '');
+  const [shippingFee, setShippingFee] = useState(draft.shippingFee || '');
+
+  // Pickup details                                    ← ADD THESE BACK
+  const [pickupCity, setPickupCity] = useState(draft.pickupCity || '');
+  const [pickupLocation, setPickupLocation] = useState(draft.pickupLocation || '');
+  const [pickupAddress, setPickupAddress] = useState(draft.pickupAddress || '');
+  const [pickupCoords, setPickupCoords] = useState(null);
+
+  const hasPlacesApi = useMemo(() => isGooglePlacesConfigured(), []);
+
+  const [cityQuery, setCityQuery] = useState(draft.pickupCity || '');
+  const [cityPredictions, setCityPredictions] = useState([]);
+  const [citySearching, setCitySearching] = useState(false);
+  const [cityResolving, setCityResolving] = useState(false);
+  const cityDebounceRef = useRef(null);
+
+  const [pickupQuery, setPickupQuery] = useState(
+    draft.pickupLocation
+      ? `${draft.pickupLocation}${draft.pickupAddress ? `, ${draft.pickupAddress}` : ''}`
+      : '',
+  );
+  const [pickupPredictions, setPickupPredictions] = useState([]);
+  const [pickupSearching, setPickupSearching] = useState(false);
+  const [pickupResolving, setPickupResolving] = useState(false);
+  const pickupDebounceRef = useRef(null);
+  const [pickupHours, setPickupHours] = useState(
+    draft.pickupHours || DEFAULT_PICKUP_HOURS,
+  );
+  const [hoursExpanded, setHoursExpanded] = useState(false);
+  const [buyerChatEnabled, setBuyerChatEnabled] = useState(
+    draft.buyerChatEnabled ?? true,
+  );
+
   const [returnPolicy, setReturnPolicy] = useState(draft.returnPolicy || '');
+
   const [expandedField, setExpandedField] = useState(null);
   const [errors, setErrors] = useState({});
-  const { text } = useAppTheme();
+
+  const pickupLocationOptions = useMemo(
+    () => (PICKUP_LOCATIONS_BY_CITY[pickupCity] || []).map(place => place.label),
+    [pickupCity],
+  );
 
   const nextDraft = useMemo(
     () => ({
       ...draft,
-      shippingType,
-      shippingMethod,
+      shippingEnabled,
+      pickupEnabled,
       shippingTime,
+      shippingFee,
+      pickupCity,
+      pickupLocation,
+      pickupAddress,
+      pickupHours,
+      buyerChatEnabled,
+      // Kept for backwards compatibility with anything still reading these
+      shippingType: shippingEnabled && pickupEnabled
+        ? 'both'
+        : pickupEnabled ? 'pickup' : 'ship',
       returnPolicy,
     }),
-    [draft, shippingType, shippingMethod, shippingTime, returnPolicy],
+    [
+      draft,
+      shippingEnabled,
+      pickupEnabled,
+      shippingTime,
+      shippingFee,
+      pickupCity,
+      pickupLocation,
+      pickupAddress,
+      pickupHours,
+      buyerChatEnabled,
+      returnPolicy,
+    ],
   );
+
+  // City search
+  useEffect(() => {
+    if (!hasPlacesApi || expandedField !== 'pickupCity') return undefined;
+    const query = cityQuery.trim();
+    if (query.length < 2) { setCityPredictions([]); return undefined; }
+
+    if (cityDebounceRef.current) clearTimeout(cityDebounceRef.current);
+    cityDebounceRef.current = setTimeout(async () => {
+      setCitySearching(true);
+      try {
+        const results = await searchCityPredictions(query);
+        setCityPredictions(results);
+      } catch {
+        setCityPredictions([]);
+      } finally {
+        setCitySearching(false);
+      }
+    }, 320);
+
+    return () => cityDebounceRef.current && clearTimeout(cityDebounceRef.current);
+  }, [cityQuery, hasPlacesApi, expandedField]);
+
+  const handleSelectCityPrediction = async prediction => {
+    setCityQuery(prediction.description);
+    setCityPredictions([]);
+    setExpandedField(null);
+    setExpandedField(null);
+
+    setCityResolving(true);
+    try {
+      const details = await getPlaceDetails(prediction.id);
+      const cityLabel = details.city || prediction.description;
+      setPickupCity(cityLabel);
+      setCityQuery(cityLabel);
+      if (details.latitude != null && details.longitude != null) {
+        setPickupCoords({ latitude: details.latitude, longitude: details.longitude });
+      }
+      // Changing city invalidates any previously chosen pickup spot
+      setPickupLocation('');
+      setPickupAddress('');
+      setPickupQuery('');
+      if (errors.pickupCity) setErrors(prev => ({ ...prev, pickupCity: null }));
+    } catch {
+      setPickupCity(prediction.description);
+      setCityQuery(prediction.description);
+    } finally {
+      setCityResolving(false);
+    }
+  };
+
+  // Pickup location search (scoped near the chosen city once available)
+  useEffect(() => {
+    if (!hasPlacesApi || expandedField !== 'pickupLocation' || !pickupCity) return undefined;
+    const query = pickupQuery.trim();
+    if (query.length < 2) { setPickupPredictions([]); return undefined; }
+
+    if (pickupDebounceRef.current) clearTimeout(pickupDebounceRef.current);
+    pickupDebounceRef.current = setTimeout(async () => {
+      setPickupSearching(true);
+      try {
+        const results = await searchPlacePredictions(query, pickupCoords || undefined);
+        setPickupPredictions(results);
+      } catch {
+        setPickupPredictions([]);
+      } finally {
+        setPickupSearching(false);
+      }
+    }, 320);
+
+    return () => pickupDebounceRef.current && clearTimeout(pickupDebounceRef.current);
+  }, [pickupQuery, hasPlacesApi, expandedField, pickupCity, pickupCoords]);
+
+  const handleSelectPickupPrediction = async prediction => {
+    setPickupQuery(prediction.description);
+    setPickupPredictions([]);
+    setExpandedField(null);
+    setExpandedField(null);
+
+    setPickupResolving(true);
+    try {
+      const details = await getPlaceDetails(prediction.id);
+      const fallbackLabel = prediction.description.split(',')[0];
+      setPickupLocation(details.name || fallbackLabel);
+      setPickupQuery(details.name || fallbackLabel);
+      setPickupAddress(details.formattedAddress || prediction.description);
+      if (errors.pickupLocation) setErrors(prev => ({ ...prev, pickupLocation: null }));
+    } catch {
+      setPickupLocation(prediction.description.split(',')[0]);
+      setPickupAddress(prediction.description);
+    } finally {
+      setPickupResolving(false);
+    }
+  };
+
+  const openInMaps = () => {
+    if (!pickupAddress) return;
+    const query = encodeURIComponent(pickupAddress);
+    Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${query}`).catch(() => { });
+  };
+
+  const toggleShipping = () => {
+    setShippingEnabled(prev => {
+      const next = !prev;
+      // At least one delivery method must remain selected
+      if (!next && !pickupEnabled) return prev;
+      return next;
+    });
+    if (errors.delivery) setErrors(prev => ({ ...prev, delivery: null }));
+  };
+
+  const togglePickup = () => {
+    setPickupEnabled(prev => {
+      const next = !prev;
+      if (!next && !shippingEnabled) return prev;
+      return next;
+    });
+    if (errors.delivery) setErrors(prev => ({ ...prev, delivery: null }));
+  };
+
+  useEffect(() => {
+    if (!hasPlacesApi) return undefined;
+
+    const query = pickupQuery.trim();
+    if (query.length < 2) {
+      setPickupPredictions([]);
+      return undefined;
+    }
+
+    if (pickupDebounceRef.current) clearTimeout(pickupDebounceRef.current);
+    pickupDebounceRef.current = setTimeout(async () => {
+      setPickupSearching(true);
+      try {
+        const results = await searchPlacePredictions(query);
+        setPickupPredictions(results);
+      } catch {
+        setPickupPredictions([]);
+      } finally {
+        setPickupSearching(false);
+      }
+    }, 320);
+
+    return () => {
+      if (pickupDebounceRef.current) clearTimeout(pickupDebounceRef.current);
+    };
+  }, [pickupQuery, hasPlacesApi]);
+
+  const handleSelectCity = city => {
+    setPickupCity(city);
+    setPickupLocation('');
+    setPickupAddress('');
+    setExpandedField(null);
+    if (errors.pickupCity) setErrors(prev => ({ ...prev, pickupCity: null }));
+  };
+
+  const handleSelectPickupLocation = label => {
+    const match = (PICKUP_LOCATIONS_BY_CITY[pickupCity] || []).find(
+      place => place.label === label,
+    );
+    setPickupLocation(label);
+    setPickupAddress(match?.address || '');
+    setExpandedField(null);
+    if (errors.pickupLocation) {
+      setErrors(prev => ({ ...prev, pickupLocation: null }));
+    }
+  };
+
+  const previewChat = () => {
+    if (navigation?.navigate) {
+      // Opens the Valens chat inbox preview so the seller can see how buyers
+      // will reach them to coordinate a pickup meet-up ("C," chat prefix).
+      navigation.navigate('ChatPreview', {
+        context: 'pickup',
+        itemName: draft.itemName,
+      });
+      return;
+    }
+    Alert.alert('Buyer chat', 'Buyers will message you here to arrange pickup.');
+  };
 
   const handleContinue = () => {
     const nextErrors = {};
-    if (isBlank(shippingMethod))
-      nextErrors.shippingMethod = 'Shipping method is required.';
-    if (isBlank(shippingTime))
-      nextErrors.shippingTime = 'Estimated shipping time is required.';
-    if (isBlank(returnPolicy))
-      nextErrors.returnPolicy = 'Return policy is required.';
+
+    if (!shippingEnabled && !pickupEnabled) {
+      nextErrors.delivery = 'Select at least one delivery method.';
+    }
+    if (shippingEnabled) {
+      if (isBlank(shippingTime)) nextErrors.shippingTime = 'Estimated shipping time is required.';
+      if (isBlank(shippingFee)) nextErrors.shippingFee = 'Shipping fee is required.';
+    }
+    if (pickupEnabled) {
+      if (isBlank(pickupCity)) nextErrors.pickupCity = 'City is required.';
+      if (isBlank(pickupLocation)) nextErrors.pickupLocation = 'Pickup location is required.';
+    }
+    if (isBlank(returnPolicy)) nextErrors.returnPolicy = 'Return policy is required.';
 
     if (Object.keys(nextErrors).length) {
       setErrors(nextErrors);
       return;
     }
 
-    navigation.navigate('MyClosetAddItemReview', { draft: nextDraft, isFirstItem  });
+    navigation.navigate('MyClosetAddItemReview', { draft: nextDraft, isFirstItem });
   };
 
   return (
@@ -1708,86 +2231,346 @@ const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
     >
       {() => (
         <>
-          <Text style={styles.sectionLabel}>Shipping</Text>
-          <View style={styles.shippingGrid}>
-            <OptionCard
-              label="I’ll ship"
+          <SectionHeader icon="cube-outline" title="Shipping options" text={text} />
+          <Text style={styles.helperLineTop}>Choose how buyers will receive this item.</Text>
+
+          <View style={styles.deliveryGrid}>
+            <DeliveryOptionCard
+              label="I'll ship"
               description="Ship to buyers"
-              selected={shippingType === 'ship'}
-              onPress={() => setShippingType('ship')}
+              bullets={['Buyer provides address', 'You handle shipping']}
+              selected={shippingEnabled}
+              onPress={toggleShipping}
               text={text}
               icon="cube-outline"
             />
-            <OptionCard
+            <DeliveryOptionCard
               label="Local pickup"
               description="Buyers pick up locally"
-              selected={shippingType === 'pickup'}
-              onPress={() => setShippingType('pickup')}
+              bullets={['Buyer picks up', 'No shipping cost']}
+              selected={pickupEnabled}
+              onPress={togglePickup}
               text={text}
               icon="location-outline"
             />
           </View>
+          <InlineError message={errors.delivery} />
 
-          <DropdownRow
-            label="Shipping method"
-            placeholder="Select shipping method"
-            value={shippingMethod}
-            expanded={expandedField === 'shippingMethod'}
-            onToggle={() =>
-              setExpandedField(prev =>
-                prev === 'shippingMethod' ? null : 'shippingMethod',
-              )
-            }
-            onSelect={item => {
-              setShippingMethod(item);
-              setExpandedField(null);
-              if (errors.shippingMethod)
-                setErrors(prev => ({ ...prev, shippingMethod: null }));
-            }}
-            options={ITEM_SHIPPING_METHOD_OPTIONS}
-            text={text}
-            error={errors.shippingMethod}
-          />
-          <DropdownRow
-            label="Estimated shipping time"
-            placeholder="Select time"
-            value={shippingTime}
-            expanded={expandedField === 'shippingTime'}
-            onToggle={() =>
-              setExpandedField(prev =>
-                prev === 'shippingTime' ? null : 'shippingTime',
-              )
-            }
-            onSelect={item => {
-              setShippingTime(item);
-              setExpandedField(null);
-              if (errors.shippingTime)
-                setErrors(prev => ({ ...prev, shippingTime: null }));
-            }}
-            options={ITEM_SHIPPING_TIME_OPTIONS}
-            text={text}
-            error={errors.shippingTime}
-          />
-          <DropdownRow
-            label="Return policy"
-            placeholder="Select return policy"
-            value={returnPolicy}
-            expanded={expandedField === 'returnPolicy'}
-            onToggle={() =>
-              setExpandedField(prev =>
-                prev === 'returnPolicy' ? null : 'returnPolicy',
-              )
-            }
-            onSelect={item => {
-              setReturnPolicy(item);
-              setExpandedField(null);
-              if (errors.returnPolicy)
-                setErrors(prev => ({ ...prev, returnPolicy: null }));
-            }}
-            options={RETURN_POLICY_OPTIONS}
-            text={text}
-            error={errors.returnPolicy}
-          />
+          {shippingEnabled && pickupEnabled ? (
+            <View style={styles.bothSelectedBanner}>
+              <Ionicons name="checkmark-circle" size={18} color="#16a34a" />
+              <View>
+                <Text style={styles.bothSelectedBoldText}>
+                  Both options selected
+                </Text>
+                <Text style={styles.bothSelectedText}>
+                  Buyers can choose their preferred delivery method at checkout.
+                </Text>
+              </View>
+            </View>
+          ) : null}
+
+          {shippingEnabled ? (
+            <View style={styles.detailBlock}>
+              <SectionHeader icon="cube-outline" title="Shipping details" text={text} />
+              <DropdownRow
+                label="Estimated shipping time"
+                placeholder="Select time"
+                value={shippingTime}
+                expanded={expandedField === 'shippingTime'}
+                onToggle={() =>
+                  setExpandedField(prev => (prev === 'shippingTime' ? null : 'shippingTime'))
+                }
+                onSelect={item => {
+                  setShippingTime(item);
+                  setExpandedField(null);
+                  if (errors.shippingTime) setErrors(prev => ({ ...prev, shippingTime: null }));
+                }}
+                options={ITEM_SHIPPING_TIME_OPTIONS}
+                text={text}
+                error={errors.shippingTime}
+              />
+              <DropdownRow
+                label="Shipping fee"
+                placeholder="Select fee"
+                value={shippingFee}
+                expanded={expandedField === 'shippingFee'}
+                onToggle={() =>
+                  setExpandedField(prev => (prev === 'shippingFee' ? null : 'shippingFee'))
+                }
+                onSelect={item => {
+                  setShippingFee(item);
+                  setExpandedField(null);
+                  if (errors.shippingFee) setErrors(prev => ({ ...prev, shippingFee: null }));
+                }}
+                options={ITEM_SHIPPING_FEE_OPTIONS}
+                text={text}
+                error={errors.shippingFee}
+              />
+            </View>
+          ) : null}
+
+          {pickupEnabled ? (
+            <View style={styles.detailBlock}>
+              <SectionHeader
+                icon="location-outline"
+                title="Local pickup details"
+                badge="Local pickup"
+                text={text}
+              />
+              {hasPlacesApi ? (
+                <>
+                  <PlaceFieldRow
+                    icon="business-outline"
+                    label="City"
+                    placeholder="Select your city"
+                    value={pickupCity}
+                    filled={Boolean(pickupCity)}
+                    loading={cityResolving}
+                    expanded={expandedField === 'pickupCity'}
+                    onToggle={() => {
+                      setCityQuery(pickupCity || '');
+                      setExpandedField('pickupCity');
+                    }}
+                    onCollapse={() => {
+                      setExpandedField(null);
+                      setCityPredictions([]);
+                    }}
+                    text={text}
+                    error={errors.pickupCity}
+                    query={cityQuery}
+                    onQueryChange={value => {
+                      setCityQuery(value);
+                      if (errors.pickupCity) setErrors(prev => ({ ...prev, pickupCity: null }));
+                    }}
+                    predictions={cityPredictions}
+                    searching={citySearching}
+                    onSelectPrediction={handleSelectCityPrediction}
+                  />
+
+                  <PlaceFieldRow
+                    icon="location-outline"
+                    label="Pickup location"
+                    placeholder={pickupCity ? 'Select a pickup spot' : 'Select a city first'}
+                    value={pickupLocation}
+                    filled={Boolean(pickupLocation)}
+                    loading={pickupResolving}
+                    disabled={!pickupCity}
+                    expanded={expandedField === 'pickupLocation'}
+                    onToggle={() => {
+                      if (!pickupCity) return;
+                      setPickupQuery(pickupLocation || '');
+                      setExpandedField('pickupLocation');
+                    }}
+                    onCollapse={() => {
+                      setExpandedField(null);
+                      setPickupPredictions([]);
+                    }}
+                    text={text}
+                    error={errors.pickupLocation}
+                    query={pickupQuery}
+                    onQueryChange={value => {
+                      setPickupQuery(value);
+                      if (errors.pickupLocation) setErrors(prev => ({ ...prev, pickupLocation: null }));
+                    }}
+                    predictions={pickupPredictions}
+                    searching={pickupSearching}
+                    onSelectPrediction={handleSelectPickupPrediction}
+                  />
+
+                  {pickupAddress ? (
+                    <View style={styles.pickupAddressPreview}>
+                      <Text style={styles.pickupAddressText}>{pickupAddress}</Text>
+                      <TouchableOpacity activeOpacity={0.8} onPress={openInMaps} style={styles.viewOnMapRow}>
+                        <Ionicons name="map-outline" size={14} color="#5A2386" />
+                        <Text style={styles.viewOnMapText}>View on map</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : null}
+                </>
+              ) : (
+                <>
+                  <DropdownRow
+                    label="City"
+                    placeholder="Select your city"
+                    value={pickupCity}
+                    expanded={expandedField === 'pickupCity'}
+                    onToggle={() => setExpandedField(prev => (prev === 'pickupCity' ? null : 'pickupCity'))}
+                    onSelect={handleSelectCityFallback}
+                    options={PICKUP_CITY_OPTIONS}
+                    text={text}
+                    error={errors.pickupCity}
+                  />
+                  <DropdownRow
+                    label="Pickup location"
+                    placeholder={pickupCity ? 'Select a pickup spot' : 'Select a city first'}
+                    value={pickupLocation}
+                    expanded={expandedField === 'pickupLocation'}
+                    onToggle={() => {
+                      if (!pickupCity) return;
+                      setExpandedField(prev => (prev === 'pickupLocation' ? null : 'pickupLocation'));
+                    }}
+                    onSelect={handleSelectPickupLocationFallback}
+                    options={pickupLocationOptions}
+                    text={text}
+                    error={errors.pickupLocation}
+                  />
+                </>
+              )}
+              {pickupAddress ? (
+                <View style={styles.addressPreviewRow}>
+                  <Ionicons name="pin-outline" size={14} color="#6b7280" />
+                  <Text style={styles.addressPreviewText}>{pickupAddress}</Text>
+                </View>
+              ) : null}
+
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => setHoursExpanded(prev => !prev)}
+                style={styles.hoursRow}
+              >
+                <Ionicons name="time-outline" size={16} color={text} />
+                <View style={styles.hoursCopy}>
+                  <Text style={styles.hoursLabel}>Available hours</Text>
+                  <Text style={styles.hoursValue}>
+                    Mon - Fri {pickupHours.weekdayStart} - {pickupHours.weekdayEnd}
+                  </Text>
+                  <Text style={styles.hoursValue}>
+                    Sat - Sun {pickupHours.weekendStart} - {pickupHours.weekendEnd}
+                  </Text>
+                </View>
+                <Ionicons
+                  name={hoursExpanded ? 'chevron-up' : 'chevron-down'}
+                  size={16}
+                  color={text}
+                />
+              </TouchableOpacity>
+
+              {hoursExpanded ? (
+                <View style={styles.hoursEditor}>
+                  <Text style={styles.hoursEditorLabel}>Weekdays (Mon - Fri)</Text>
+                  <View style={styles.hoursEditorRow}>
+                    <View style={styles.hoursEditorField}>
+                      <DropdownRow
+                        label="Opens"
+                        placeholder="Start time"
+                        value={pickupHours.weekdayStart}
+                        expanded={expandedField === 'weekdayStart'}
+                        onToggle={() =>
+                          setExpandedField(prev => (prev === 'weekdayStart' ? null : 'weekdayStart'))
+                        }
+                        onSelect={item => {
+                          setPickupHours(prev => ({ ...prev, weekdayStart: item }));
+                          setExpandedField(null);
+                        }}
+                        options={PICKUP_TIME_OPTIONS}
+                        text={text}
+                      />
+                    </View>
+                    <View style={styles.hoursEditorField}>
+                      <DropdownRow
+                        label="Closes"
+                        placeholder="End time"
+                        value={pickupHours.weekdayEnd}
+                        expanded={expandedField === 'weekdayEnd'}
+                        onToggle={() =>
+                          setExpandedField(prev => (prev === 'weekdayEnd' ? null : 'weekdayEnd'))
+                        }
+                        onSelect={item => {
+                          setPickupHours(prev => ({ ...prev, weekdayEnd: item }));
+                          setExpandedField(null);
+                        }}
+                        options={PICKUP_TIME_OPTIONS}
+                        text={text}
+                      />
+                    </View>
+                  </View>
+                  <Text style={styles.hoursEditorLabel}>Weekends (Sat - Sun)</Text>
+                  <View style={styles.hoursEditorRow}>
+                    <View style={styles.hoursEditorField}>
+                      <DropdownRow
+                        label="Opens"
+                        placeholder="Start time"
+                        value={pickupHours.weekendStart}
+                        expanded={expandedField === 'weekendStart'}
+                        onToggle={() =>
+                          setExpandedField(prev => (prev === 'weekendStart' ? null : 'weekendStart'))
+                        }
+                        onSelect={item => {
+                          setPickupHours(prev => ({ ...prev, weekendStart: item }));
+                          setExpandedField(null);
+                        }}
+                        options={PICKUP_TIME_OPTIONS}
+                        text={text}
+                      />
+                    </View>
+                    <View style={styles.hoursEditorField}>
+                      <DropdownRow
+                        label="Closes"
+                        placeholder="End time"
+                        value={pickupHours.weekendEnd}
+                        expanded={expandedField === 'weekendEnd'}
+                        onToggle={() =>
+                          setExpandedField(prev => (prev === 'weekendEnd' ? null : 'weekendEnd'))
+                        }
+                        onSelect={item => {
+                          setPickupHours(prev => ({ ...prev, weekendEnd: item }));
+                          setExpandedField(null);
+                        }}
+                        options={PICKUP_TIME_OPTIONS}
+                        text={text}
+                      />
+                    </View>
+                  </View>
+                </View>
+              ) : null}
+
+              <View style={styles.chatToggleRow}>
+                <Ionicons name="chatbubble-ellipses-outline" size={18} color={text} />
+                <View style={styles.chatToggleCopy}>
+                  <Text style={styles.chatToggleLabel}>Buyer chat</Text>
+                  <Text style={styles.chatToggleSubtext}>
+                    Allow buyers to message you about pickup details
+                  </Text>
+                </View>
+                <ToggleSwitch
+                  value={buyerChatEnabled}
+                  onValueChange={setBuyerChatEnabled}
+                  accent={text}
+                />
+              </View>
+              {buyerChatEnabled ? (
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={previewChat}
+                  style={styles.previewChatButton}
+                >
+                  <Ionicons name="chatbubble-outline" size={14} color={text} />
+                  <Text style={[styles.previewChatText, { color: text }]}>Preview chat</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          ) : null}
+
+          <View style={styles.detailBlock}>
+            <DropdownRow
+              label="Return policy"
+              placeholder="Select return policy"
+              value={returnPolicy}
+              expanded={expandedField === 'returnPolicy'}
+              onToggle={() =>
+                setExpandedField(prev => (prev === 'returnPolicy' ? null : 'returnPolicy'))
+              }
+              onSelect={item => {
+                setReturnPolicy(item);
+                setExpandedField(null);
+                if (errors.returnPolicy) setErrors(prev => ({ ...prev, returnPolicy: null }));
+              }}
+              options={RETURN_POLICY_OPTIONS}
+              text={text}
+              error={errors.returnPolicy}
+            />
+          </View>
 
           <PrimaryButton
             label="Continue"
@@ -1810,14 +2593,36 @@ const MyClosetAddItemReviewScreen = ({ navigation, route }) => {
   const [isPublishing, setIsPublishing] = useState(false);
   const heroPhoto = draft.photos?.[0];
 
+  const shippingEnabled = draft.shippingEnabled ?? (draft.shippingType ? draft.shippingType !== 'pickup' : true);
+  const pickupEnabled = draft.pickupEnabled ?? (draft.shippingType === 'pickup' || draft.shippingType === 'both');
+
+  const deliverySummaryLines = useMemo(() => {
+    const lines = [];
+    if (shippingEnabled) {
+      lines.push(
+        `Ship items${draft.shippingFee ? ` · ${draft.shippingFee}` : ''}${draft.shippingTime ? ` · ${draft.shippingTime}` : ''
+        }`,
+      );
+    }
+    if (pickupEnabled) {
+      const hours = draft.pickupHours || DEFAULT_PICKUP_HOURS;
+      lines.push(
+        `Local pickup${draft.pickupLocation ? ` · ${draft.pickupLocation}` : ''}`,
+      );
+      if (draft.pickupAddress) lines.push(draft.pickupAddress);
+      lines.push(
+        `Mon-Fri ${hours.weekdayStart}-${hours.weekdayEnd}, Sat-Sun ${hours.weekendStart}-${hours.weekendEnd}`,
+      );
+    }
+    return lines;
+  }, [shippingEnabled, pickupEnabled, draft]);
+
   const publish = async () => {
     if (isPublishing) return;
 
-    const normalizeShippingOption = value => {
-      const normalized = String(value || '').trim().toLowerCase();
-      if (normalized === 'pickup' || normalized === 'local_pick') return 'local_pick';
-      return 'ship_items';
-    };
+    const shippingOptions = [];
+    if (shippingEnabled) shippingOptions.push('ship_items');
+    if (pickupEnabled) shippingOptions.push('local_pick');
 
     const payload = {
       images: draft.photos || [],
@@ -1828,9 +2633,19 @@ const MyClosetAddItemReviewScreen = ({ navigation, route }) => {
       description: draft.description,
       price: draft.price,
       quantity: draft.quantity,
-      shippingOption: normalizeShippingOption(draft.shippingMethod || draft.shippingType),
-      shippingOptions: normalizeShippingOption(draft.shippingMethod || draft.shippingType),
+      shippingOption: shippingOptions[0] || 'ship_items',
+      shippingOptions,
       estimateShippingTime: draft.shippingTime,
+      shippingFee: draft.shippingFee,
+      pickup: pickupEnabled
+        ? {
+          city: draft.pickupCity,
+          location: draft.pickupLocation,
+          address: draft.pickupAddress,
+          hours: draft.pickupHours || DEFAULT_PICKUP_HOURS,
+          buyerChatEnabled: draft.buyerChatEnabled ?? true,
+        }
+        : undefined,
       returnPolicy: draft.returnPolicy,
     };
 
@@ -1918,12 +2733,27 @@ const MyClosetAddItemReviewScreen = ({ navigation, route }) => {
               </Text>
             </View>
             <View style={styles.reviewRow}>
-              <Text style={styles.reviewLabel}>Shipping</Text>
-              <Text style={styles.reviewValue}>
-                {getShippingOptionLabel(draft.shippingMethod || draft.shippingType) || 'Ship items'}{' '}
-                - {draft.shippingTime || '3 - 5 business days'}
-              </Text>
+              <Text style={styles.reviewLabel}>Delivery</Text>
+              <View style={styles.reviewValueStack}>
+                {deliverySummaryLines.length ? (
+                  deliverySummaryLines.map((line, index) => (
+                    <Text key={`${line}-${index}`} style={styles.reviewValue}>
+                      {line}
+                    </Text>
+                  ))
+                ) : (
+                  <Text style={styles.reviewValue}>Ship items</Text>
+                )}
+              </View>
             </View>
+            {pickupEnabled ? (
+              <View style={styles.reviewRow}>
+                <Text style={styles.reviewLabel}>Buyer chat</Text>
+                <Text style={styles.reviewValue}>
+                  {(draft.buyerChatEnabled ?? true) ? 'Enabled' : 'Disabled'}
+                </Text>
+              </View>
+            ) : null}
             <View style={styles.reviewRow}>
               <Text style={styles.reviewLabel}>Return policy</Text>
               <Text style={styles.reviewValue}>
@@ -2182,6 +3012,107 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 14,
   },
+  placeFieldSearchInline: {
+    flex: 1,
+    fontSize: 14,
+    color: '#111827',
+    paddingVertical: 0,
+    marginRight: 6,
+  },
+  placeFieldPredictionsBox: {
+    marginTop: 4,
+    marginLeft: 44,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 12,
+    backgroundColor: '#fff',
+    overflow: 'hidden',
+  },
+  placeFieldNoResults: {
+    fontSize: 12,
+    color: '#9ca3af',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    textAlign: 'center',
+  },
+  placeFieldBlock: {
+    marginBottom: 14,
+  },
+  placeFieldTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  placeFieldIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#f5f3ff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  placeFieldLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#374151',
+    marginRight: 8,
+  },
+  placeFieldValueBox: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    backgroundColor: '#fff',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+  },
+  placeFieldValueBoxDisabled: {
+    opacity: 0.5,
+  },
+  placeFieldValueBoxActive: {
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+  },
+  placeFieldValueText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#111827',
+    flex: 1,
+    marginRight: 8,
+  },
+  placeFieldCheck: {
+    width: 26,
+    marginLeft: 8,
+    alignItems: 'center',
+  },
+  placeFieldSearchingRow: {
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  pickupAddressPreview: {
+    marginLeft: 44,
+    marginTop: -4,
+    marginBottom: 14,
+  },
+  pickupAddressText: {
+    fontSize: 12,
+    color: '#6b7280',
+    lineHeight: 16,
+    marginBottom: 4,
+  },
+  viewOnMapRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  viewOnMapText: {
+    marginLeft: 5,
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#5A2386',
+    textDecorationLine: 'underline',
+  },
   fieldPrefix: {
     fontSize: 14,
     fontWeight: '700',
@@ -2215,13 +3146,16 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   dropdownList: {
+    maxHeight: 150,
     backgroundColor: '#fff',
     borderWidth: 1,
     borderTopWidth: 0,
     borderColor: '#e5e7eb',
     borderBottomLeftRadius: 16,
     borderBottomRightRadius: 16,
-    overflow: 'hidden',
+  },
+  dropdownListContent: {
+    flexGrow: 0,
   },
   dropdownItem: {
     minHeight: 48,
@@ -2367,6 +3301,239 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
     color: '#6b7280',
+  },
+  // ── New: delivery method multi-select cards ─────────────────────────────
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  sectionHeaderTitle: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#111827',
+  },
+  sectionHeaderBadge: {
+    marginLeft: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+    backgroundColor: '#f5f3ff',
+  },
+  sectionHeaderBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#5A2386',
+  },
+  helperLineTop: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginBottom: 12,
+  },
+  deliveryGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  deliveryCard: {
+    width: '48%',
+    borderRadius: 18,
+    borderWidth: 1,
+    backgroundColor: '#fff',
+    padding: 12,
+  },
+  deliveryCardTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  checkboxBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deliveryLabel: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#111827',
+    marginBottom: 2,
+  },
+  deliveryDescription: {
+    fontSize: 11,
+    color: '#6b7280',
+    marginBottom: 8,
+  },
+  deliveryBulletList: {
+    marginTop: 2,
+  },
+  deliveryBulletRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  deliveryBulletText: {
+    marginLeft: 6,
+    fontSize: 11,
+    color: '#6b7280',
+  },
+  bothSelectedBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ecfdf3',
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+    borderRadius: 14,
+    padding: 12,
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  bothSelectedBoldText: {
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 12,
+    lineHeight: 17,
+    color: '#000',
+    fontWeight: 'bold',
+  },
+  bothSelectedText: {
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 12,
+    lineHeight: 17,
+    color: '#000',
+    fontWeight: '400',
+  },
+  detailBlock: {
+    marginTop: 18,
+  },
+  addressPreviewRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: -6,
+    marginBottom: 14,
+  },
+  addressPreviewText: {
+    flex: 1,
+    marginLeft: 6,
+    fontSize: 12,
+    color: '#6b7280',
+    lineHeight: 16,
+  },
+  hoursRow: {
+    minHeight: 58,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#fff',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 14,
+  },
+  hoursCopy: {
+    flex: 1,
+    marginLeft: 10,
+  },
+  hoursLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#3f3f46',
+    marginBottom: 3,
+  },
+  hoursValue: {
+    fontSize: 12,
+    color: '#6b7280',
+  },
+  hoursEditor: {
+    marginTop: -6,
+    marginBottom: 14,
+    padding: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#fafafa',
+  },
+  hoursEditorLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#3f3f46',
+    marginBottom: 8,
+  },
+  hoursEditorRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 10,
+    marginBottom: 6,
+  },
+  hoursEditorField: {
+    flex: 1,
+  },
+  chatToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#fff',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  chatToggleCopy: {
+    flex: 1,
+    marginLeft: 10,
+    marginRight: 10,
+  },
+  chatToggleLabel: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#111827',
+    marginBottom: 2,
+  },
+  chatToggleSubtext: {
+    fontSize: 11,
+    color: '#6b7280',
+    lineHeight: 15,
+  },
+  toggleTrack: {
+    width: 44,
+    height: 26,
+    borderRadius: 13,
+    padding: 3,
+    justifyContent: 'center',
+  },
+  toggleThumb: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#fff',
+  },
+  toggleThumbActive: {
+    alignSelf: 'flex-end',
+  },
+  previewChatButton: {
+    marginTop: 10,
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#fff',
+  },
+  previewChatText: {
+    marginLeft: 6,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  reviewValueStack: {
+    width: '64%',
+    alignItems: 'flex-end',
   },
   paymentCard: {
     borderRadius: 18,

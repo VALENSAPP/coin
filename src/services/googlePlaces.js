@@ -19,10 +19,6 @@ export function isGooglePlacesConfigured() {
   return getGooglePlacesApiKey().length > 0;
 }
 
-/**
- * @param {Record<string, string>} params
- * @returns {Promise<any>}
- */
 async function fetchGoogleMapsJson(url, params) {
   const apiKey = getGooglePlacesApiKey();
   if (!apiKey) {
@@ -43,11 +39,6 @@ async function fetchGoogleMapsJson(url, params) {
   return json;
 }
 
-/**
- * @param {string} input
- * @param {{ latitude?: number, longitude?: number, radius?: number }} [options]
- * @returns {Promise<Array<{ id: string, description: string, types?: string[] }>>}
- */
 export async function searchPlacePredictions(input, options = {}) {
   const query = String(input || '').trim();
   const apiKey = getGooglePlacesApiKey();
@@ -55,7 +46,6 @@ export async function searchPlacePredictions(input, options = {}) {
 
   const params = {
     input: query,
-    // Businesses (restaurants, shops, etc.) plus cities/addresses — like Instagram.
     types: 'establishment|geocode',
   };
 
@@ -87,12 +77,6 @@ export async function searchPlacePredictions(input, options = {}) {
   }, []);
 }
 
-/**
- * Prefer a nearby business name when the user is at a POI (restaurant, store, etc.).
- * @param {number} latitude
- * @param {number} longitude
- * @returns {Promise<string|null>}
- */
 async function findNearbyEstablishmentLabel(latitude, longitude) {
   const json = await fetchGoogleMapsJson(PLACES_NEARBY_URL, {
     location: `${latitude},${longitude}`,
@@ -109,11 +93,6 @@ async function findNearbyEstablishmentLabel(latitude, longitude) {
   return vicinity ? `${name}, ${vicinity}` : name;
 }
 
-/**
- * @param {number} latitude
- * @param {number} longitude
- * @returns {Promise<string>}
- */
 export async function reverseGeocodeCoordinates(latitude, longitude) {
   try {
     const establishmentLabel = await findNearbyEstablishmentLabel(latitude, longitude);
@@ -133,4 +112,78 @@ export async function reverseGeocodeCoordinates(latitude, longitude) {
   }
 
   return label;
+}
+
+// ── New: place details lookup, used by MyClosetAddItemShippingScreen to
+// resolve a selected prediction into a city + formatted address. Purely
+// additive — does not alter any function above.
+const PLACES_DETAILS_URL = 'https://maps.googleapis.com/maps/api/place/details/json';
+
+/**
+ * @param {string} placeId
+ * @returns {Promise<{ formattedAddress: string, city: string, name: string, latitude: number|null, longitude: number|null }>}
+ */
+export async function getPlaceDetails(placeId) {
+  const id = String(placeId || '').trim();
+  if (!id) {
+    throw new Error('A place_id is required');
+  }
+
+  const json = await fetchGoogleMapsJson(PLACES_DETAILS_URL, {
+    place_id: id,
+    fields: 'formatted_address,address_component,geometry,name',
+  });
+
+  const result = json.result || {};
+  const components = Array.isArray(result.address_components)
+    ? result.address_components
+    : [];
+  const findComponent = type => components.find(c => c.types?.includes(type));
+
+  const locality =
+    findComponent('locality') ||
+    findComponent('postal_town') ||
+    findComponent('sublocality') ||
+    findComponent('administrative_area_level_2');
+  const state = findComponent('administrative_area_level_1');
+
+  const cityName = locality?.long_name || '';
+  const stateAbbr = state?.short_name || '';
+  const city = cityName ? [cityName, stateAbbr].filter(Boolean).join(', ') : '';
+  const location = result.geometry?.location || {};
+
+  return {
+    formattedAddress: result.formatted_address || '',
+    city,
+    name: result.name || '',
+    latitude: typeof location.lat === 'number' ? location.lat : null,
+    longitude: typeof location.lng === 'number' ? location.lng : null,
+  };
+}
+
+const CITY_AUTOCOMPLETE_TYPES = '(cities)';
+
+/**
+ * @param {string} input
+ * @returns {Promise<Array<{ id: string, description: string }>>}
+ */
+export async function searchCityPredictions(input) {
+  const query = String(input || '').trim();
+  const apiKey = getGooglePlacesApiKey();
+  if (!apiKey || query.length < 2) return [];
+
+  const json = await fetchGoogleMapsJson(PLACES_AUTOCOMPLETE_URL, {
+    input: query,
+    types: CITY_AUTOCOMPLETE_TYPES,
+  });
+
+  const predictions = Array.isArray(json.predictions) ? json.predictions : [];
+  const seen = new Set();
+  return predictions.reduce((acc, item) => {
+    const description = String(item?.description || '').trim();
+    if (!description || seen.has(description)) return acc;
+    seen.add(description);
+    acc.push({ id: item.place_id, description });
+    return acc;
+  }, []);
 }
