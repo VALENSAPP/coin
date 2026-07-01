@@ -36,7 +36,6 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const GRID_GAP = 12;
 const GRID_ITEM_WIDTH = (SCREEN_WIDTH - 48) / 2;
 const HERO_IMAGE_WIDTH = SCREEN_WIDTH - 40;
-const ACCENT = '#5A2386';
 const MUTED = '#6b7280';
 const BORDER = '#ebe4f3';
 const SURFACE = '#fbf8ff';
@@ -153,12 +152,19 @@ const Header = ({ navigation, title, rightIcon, onRightPress }) => (
   </View>
 );
 
-const BottomButton = ({ label, onPress, icon }) => (
-  <TouchableOpacity activeOpacity={0.9} onPress={onPress} style={styles.bottomButton}>
-    {icon ? <Ionicons name={icon} size={16} color="#fff" style={styles.buttonIcon} /> : null}
-    <Text style={styles.bottomButtonText}>{label}</Text>
-  </TouchableOpacity>
-);
+const BottomButton = ({ label, onPress, icon }) => {
+  const { text } = useAppTheme();
+  return (
+    <TouchableOpacity
+      activeOpacity={0.9}
+      onPress={onPress}
+      style={[styles.bottomButton, { backgroundColor: text }]}
+    >
+      {icon ? <Ionicons name={icon} size={16} color="#fff" style={styles.buttonIcon} /> : null}
+      <Text style={styles.bottomButtonText}>{label}</Text>
+    </TouchableOpacity>
+  );
+};
 
 const ImageBox = ({ uri, style, iconSize = 34 }) => (
   <View style={[styles.imageBox, style]}>
@@ -176,6 +182,7 @@ const ImageBox = ({ uri, style, iconSize = 34 }) => (
 );
 
 const DetailImageCarousel = ({ images }) => {
+  const { text } = useAppTheme();
   const [activeIndex, setActiveIndex] = useState(0);
   const galleryImages = images.length ? images : [null];
 
@@ -213,7 +220,7 @@ const DetailImageCarousel = ({ images }) => {
           {galleryImages.map((_, index) => (
             <View
               key={index}
-              style={[styles.photoDot, index === activeIndex && styles.photoDotActive]}
+              style={[styles.photoDot, index === activeIndex && { backgroundColor: text }]}
             />
           ))}
         </View>
@@ -224,14 +231,20 @@ const DetailImageCarousel = ({ images }) => {
   );
 };
 
-const SummaryRow = ({ label, value, bold }) => (
-  <View style={styles.summaryRow}>
-    <Text style={[styles.summaryLabel, bold && styles.summaryStrong]}>{label}</Text>
-    <Text style={[styles.summaryValue, bold && styles.summaryTotal]}>{value}</Text>
-  </View>
-);
+const SummaryRow = ({ label, value, bold }) => {
+  const { text } = useAppTheme();
+  return (
+    <View style={styles.summaryRow}>
+      <Text style={[styles.summaryLabel, bold && styles.summaryStrong]}>{label}</Text>
+      <Text style={[styles.summaryValue, bold && styles.summaryTotal, bold && { color: text }]}>
+        {value}
+      </Text>
+    </View>
+  );
+};
 
 const CheckoutSteps = ({ current }) => {
+  const { text } = useAppTheme();
   const steps = ['Cart', 'Shipping', 'Payment', 'Review'];
   return (
     <View style={styles.stepsWrap}>
@@ -241,7 +254,12 @@ const CheckoutSteps = ({ current }) => {
         return (
           <React.Fragment key={step}>
             <View style={styles.stepItem}>
-              <View style={[styles.stepCircle, (done || active) && styles.stepCircleActive]}>
+              <View
+                style={[
+                  styles.stepCircle,
+                  (done || active) && { backgroundColor: text, borderColor: text },
+                ]}
+              >
                 {done ? (
                   <Ionicons name="checkmark" size={12} color="#fff" />
                 ) : (
@@ -250,13 +268,13 @@ const CheckoutSteps = ({ current }) => {
                   </Text>
                 )}
               </View>
-              <Text style={[styles.stepLabel, active && styles.stepLabelActive]}>{step}</Text>
+              <Text style={[styles.stepLabel, active && { color: text }]}>{step}</Text>
             </View>
             {index < steps.length - 1 && (
               <View
                 style={[
                   styles.stepConnector,
-                  index < current && styles.stepConnectorActive,
+                  index < current && { backgroundColor: text },
                 ]}
               />
             )}
@@ -267,56 +285,62 @@ const CheckoutSteps = ({ current }) => {
   );
 };
 
-const SellerCard = ({ seller }) => (
-  <View style={styles.sellerCard}>
-    <View style={styles.sellerAvatar}>
-      {seller?.image ? (
-        <Image source={{ uri: seller.image }} style={styles.coverImage} />
-      ) : (
-        <Ionicons name="person" size={20} color="#fff" />
-      )}
-    </View>
-    <View style={styles.sellerCopy}>
-      <Text style={styles.sellerName}>
-        {seller?.displayName || seller?.userName || 'Closet seller'}
-      </Text>
-      <Text style={styles.sellerMeta}>Active 2h ago</Text>
-      <View style={styles.ratingRow}>
-        <Ionicons name="star" size={12} color="#f59e0b" />
-        <Text style={styles.ratingText}>4.8 (32)</Text>
+const SellerCard = ({ seller }) => {
+  const { text } = useAppTheme();
+  return (
+    <View style={styles.sellerCard}>
+      <View style={[styles.sellerAvatar, { backgroundColor: text }]}>
+        {seller?.image ? (
+          <Image source={{ uri: seller.image }} style={styles.coverImage} />
+        ) : (
+          <Ionicons name="person" size={20} color="#fff" />
+        )}
       </View>
-    </View>
-    <Ionicons name="chevron-forward" size={18} color="#17072d" />
-  </View>
-);
-
-const OrderSummary = ({ cart, editable, compact, onEditCart }) => (
-  <View style={[styles.card, compact && styles.compactCard]}>
-    <View style={styles.cardHeaderRow}>
-      <Text style={styles.cardTitle}>Order Summary</Text>
-      {editable ? (
-        <TouchableOpacity activeOpacity={0.8} onPress={onEditCart}>
-          <Text style={styles.editText}>Edit Cart</Text>
-        </TouchableOpacity>
-      ) : null}
-    </View>
-    <View style={styles.summaryItemRow}>
-      <ImageBox uri={cart.item.image} style={styles.summaryThumb} iconSize={22} />
-      <View style={styles.summaryItemCopy}>
-        <Text style={styles.summaryItemName} numberOfLines={2}>
-          {cart.item.name}
+      <View style={styles.sellerCopy}>
+        <Text style={styles.sellerName}>
+          {seller?.displayName || seller?.userName || 'Closet seller'}
         </Text>
-        <Text style={styles.summaryItemPrice}>{cart.item.price}</Text>
-        <Text style={styles.summaryItemQty}>Qty: {cart.quantity}</Text>
+        <Text style={styles.sellerMeta}>Active 2h ago</Text>
+        <View style={styles.ratingRow}>
+          <Ionicons name="star" size={12} color="#f59e0b" />
+          <Text style={styles.ratingText}>4.8 (32)</Text>
+        </View>
       </View>
+      <Ionicons name="chevron-forward" size={18} color="#17072d" />
     </View>
-    <View style={styles.divider} />
-    <SummaryRow label="Item total" value={currency(cart.itemTotal)} />
-    {/* <SummaryRow label="Shipping" value={currency(cart.shipping)} />
-    <SummaryRow label="Service fee" value={currency(cart.serviceFee)} /> */}
-    <SummaryRow label="Total" value={currency(cart.total)} bold />
-  </View>
-);
+  );
+};
+
+const OrderSummary = ({ cart, editable, compact, onEditCart }) => {
+  const { text } = useAppTheme();
+  return (
+    <View style={[styles.card, compact && styles.compactCard]}>
+      <View style={styles.cardHeaderRow}>
+        <Text style={styles.cardTitle}>Order Summary</Text>
+        {editable ? (
+          <TouchableOpacity activeOpacity={0.8} onPress={onEditCart}>
+            <Text style={[styles.editText, { color: text }]}>Edit Cart</Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
+      <View style={styles.summaryItemRow}>
+        <ImageBox uri={cart.item.image} style={styles.summaryThumb} iconSize={22} />
+        <View style={styles.summaryItemCopy}>
+          <Text style={styles.summaryItemName} numberOfLines={2}>
+            {cart.item.name}
+          </Text>
+          <Text style={[styles.summaryItemPrice, { color: text }]}>{cart.item.price}</Text>
+          <Text style={styles.summaryItemQty}>Qty: {cart.quantity}</Text>
+        </View>
+      </View>
+      <View style={styles.divider} />
+      <SummaryRow label="Item total" value={currency(cart.itemTotal)} />
+      {/* <SummaryRow label="Shipping" value={currency(cart.shipping)} />
+      <SummaryRow label="Service fee" value={currency(cart.serviceFee)} /> */}
+      <SummaryRow label="Total" value={currency(cart.total)} bold />
+    </View>
+  );
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Field validation rules
@@ -394,6 +418,7 @@ const EMPTY_ADDRESS = {
 
 // editAddress prop: if passed, modal opens in edit mode pre-filled with that address
 const AddAddressModal = ({ visible, onClose, onSaved, editAddress }) => {
+  const { text } = useAppTheme();
   const isEdit = !!editAddress;
 
   const [form, setForm] = useState(EMPTY_ADDRESS);
@@ -533,7 +558,7 @@ const AddAddressModal = ({ visible, onClose, onSaved, editAddress }) => {
             <Ionicons
               name={form.isDefault ? 'checkbox' : 'square-outline'}
               size={20}
-              color={ACCENT}
+              color={text}
             />
             <Text style={styles.defaultLabel}>Set as default address</Text>
           </TouchableOpacity>
@@ -559,7 +584,7 @@ const MyClosetBuyerItemsScreen = ({ navigation, route }) => {
   const [loading, setLoading] = useState(false);
   const seller = useMemo(() => route?.params?.seller || {}, [route?.params?.seller]);
   const sellerId = route?.params?.sellerId || seller?.id;
-  const accent = text || ACCENT;
+  const accent = text;
 
   const loadItems = useCallback(async () => {
     if (items.length) return;
@@ -696,7 +721,7 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
       >
         <DetailImageCarousel images={item.images} />
         <Text style={styles.detailName}>{item.name}</Text>
-        <Text style={styles.detailPrice}>{item.price}</Text>
+        <Text style={[styles.detailPrice, { color: text }]}>{item.price}</Text>
         <SellerCard seller={seller} />
         <Text style={styles.sectionLabel}>Description</Text>
         <Text style={styles.description}>{item.description}</Text>
@@ -707,7 +732,7 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
             { icon: 'albums-outline', label: 'Category', value: item.category },
           ].map(attr => (
             <View key={attr.label} style={styles.attributeRow}>
-              <Ionicons name={attr.icon} size={15} color={ACCENT} />
+              <Ionicons name={attr.icon} size={15} color={text} />
               <Text style={styles.attributeLabel}>{attr.label}</Text>
               <Text style={styles.attributeValue}>{attr.value}</Text>
             </View>
@@ -724,6 +749,7 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
 };
 
 const MyClosetBuyerOptionsScreen = ({ navigation, route }) => {
+  const { text } = useAppTheme();
   const item = normalizeItem(route?.params?.item || {}, 0);
   const [quantity, setQuantity] = useState(1);
   const [note, setNote] = useState('');
@@ -829,10 +855,10 @@ const MyClosetBuyerOptionsScreen = ({ navigation, route }) => {
             activeOpacity={0.8}
             disabled={adding || syncingQty}
           >
-            <Ionicons name="remove" size={17} color={ACCENT} />
+            <Ionicons name="remove" size={17} color={text} />
           </TouchableOpacity>
           {syncingQty ? (
-            <ActivityIndicator size="small" color={ACCENT} />
+            <ActivityIndicator size="small" color={text} />
           ) : (
             <Text style={styles.quantityText}>{quantity}</Text>
           )}
@@ -842,7 +868,7 @@ const MyClosetBuyerOptionsScreen = ({ navigation, route }) => {
             activeOpacity={0.8}
             disabled={adding || syncingQty}
           >
-            <Ionicons name="add" size={17} color={ACCENT} />
+            <Ionicons name="add" size={17} color={text} />
           </TouchableOpacity>
         </View>
         <Text style={styles.availabilityText}>Only {available} available</Text>
@@ -876,6 +902,7 @@ const MyClosetBuyerOptionsScreen = ({ navigation, route }) => {
 // Cart screen — GET /cart on mount, PATCH quantity, DELETE item, DELETE /cart
 // ─────────────────────────────────────────────────────────────────────────────
 const MyClosetBuyerCartScreen = ({ navigation, route }) => {
+  const { text } = useAppTheme();
   const localCart = buildCart(route); // fallback data from route params
 
   // ── Server cart state ───────────────────────────────────────────────────
@@ -1054,7 +1081,7 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
 
       {cartLoading ? (
         <View style={styles.loaderWrap}>
-          <ActivityIndicator color={ACCENT} />
+          <ActivityIndicator color={text} />
         </View>
       ) : cartError ? (
         <View style={styles.emptyState}>
@@ -1080,8 +1107,8 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
             <>
               {clearingCart ? (
                 <View style={styles.cartClearingBanner}>
-                  <ActivityIndicator size="small" color={ACCENT} />
-                  <Text style={styles.cartClearingText}>Clearing cart…</Text>
+                  <ActivityIndicator size="small" color={text} />
+                  <Text style={[styles.cartClearingText, { color: text }]}>Clearing cart…</Text>
                 </View>
               ) : null}
 
@@ -1096,7 +1123,7 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
                       <Text style={styles.cartItemName} numberOfLines={2}>
                         {cartItemName(ci)}
                       </Text>
-                      <Text style={styles.cartPrice}>{cartItemPrice(ci)}</Text>
+                      <Text style={[styles.cartPrice, { color: text }]}>{cartItemPrice(ci)}</Text>
                       {/* Inline quantity editor → PATCH /cart/items/{cartItemId} */}
                       <View style={styles.cartQtyRow}>
                         <TouchableOpacity
@@ -1105,10 +1132,10 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
                           activeOpacity={0.8}
                           disabled={isActing}
                         >
-                          <Ionicons name="remove" size={14} color={ACCENT} />
+                          <Ionicons name="remove" size={14} color={text} />
                         </TouchableOpacity>
                         {isActing ? (
-                          <ActivityIndicator size="small" color={ACCENT} style={{ minWidth: 18 }} />
+                          <ActivityIndicator size="small" color={text} style={{ minWidth: 18 }} />
                         ) : (
                           <Text style={styles.cartQtyText}>{qty}</Text>
                         )}
@@ -1118,7 +1145,7 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
                           activeOpacity={0.8}
                           disabled={isActing}
                         >
-                          <Ionicons name="add" size={14} color={ACCENT} />
+                          <Ionicons name="add" size={14} color={text} />
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -1144,9 +1171,9 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
 
               <View style={styles.protectionCard}>
                 <View style={styles.protectionIcon}>
-                  <Ionicons name="shield-checkmark-outline" size={24} color={ACCENT} />
+                  <Ionicons name="shield-checkmark-outline" size={24} color={text} />
                 </View>
-                <Text style={styles.protectionText}>
+                <Text style={[styles.protectionText, { color: text }]}>
                   You're protected with Valens Purchase Protection
                 </Text>
                 <Ionicons name="information-circle-outline" size={16} color="#8b5e9f" />
@@ -1196,6 +1223,7 @@ const MyClosetBuyerCheckoutScreen = ({ navigation, route }) => {
 // Shipping screen — fetches real addresses from GET /address/getAddress
 // ─────────────────────────────────────────────────────────────────────────────
 const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
+  const { text } = useAppTheme();
   const cart = buildCart(route);
   const [method, setMethod] = useState('standard');
   const [showAddressModal, setShowAddressModal] = useState(false);
@@ -1332,7 +1360,7 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
         {/* ── Address list states ── */}
         {addressLoading ? (
           <View style={styles.addressLoader}>
-            <ActivityIndicator size="small" color={ACCENT} />
+            <ActivityIndicator size="small" color={text} />
             <Text style={styles.addressLoaderText}>Loading addresses…</Text>
           </View>
         ) : addressError ? (
@@ -1356,7 +1384,11 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
             return (
               <View
                 key={addr.id || idx}
-                style={[styles.addressCard, isSelected && styles.addressCardSelected]}
+                style={[
+                  styles.addressCard,
+                  isSelected && styles.addressCardSelected,
+                  isSelected && { borderColor: text },
+                ]}
               >
                 {/* Tap row selects address */}
                 <TouchableOpacity
@@ -1369,7 +1401,7 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
                       <Text style={styles.addressName}>{addr.fullName}</Text>
                       {addr.isDefault ? (
                         <View style={styles.defaultBadge}>
-                          <Text style={styles.defaultBadgeText}>Default</Text>
+                          <Text style={[styles.defaultBadgeText, { color: text }]}>Default</Text>
                         </View>
                       ) : null}
                     </View>
@@ -1388,12 +1420,12 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
                     ) : null}
                   </View>
                   {isActing ? (
-                    <ActivityIndicator size="small" color={ACCENT} style={{ marginLeft: 8 }} />
+                    <ActivityIndicator size="small" color={text} style={{ marginLeft: 8 }} />
                   ) : (
                     <Ionicons
                       name={isSelected ? 'radio-button-on' : 'radio-button-off'}
                       size={20}
-                      color={ACCENT}
+                      color={text}
                     />
                   )}
                 </TouchableOpacity>
@@ -1407,8 +1439,8 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
                     onPress={() => handleEdit(addr)}
                     disabled={isActing}
                   >
-                    <Ionicons name="create-outline" size={14} color={ACCENT} />
-                    <Text style={styles.addressActionText}>Edit</Text>
+                    <Ionicons name="create-outline" size={14} color={text} />
+                    <Text style={[styles.addressActionText, { color: text }]}>Edit</Text>
                   </TouchableOpacity>
 
                   <View style={styles.addressActionDivider} />
@@ -1453,8 +1485,8 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
           style={styles.addAddressButton}
           onPress={() => setShowAddressModal(true)}
         >
-          <Ionicons name="add-circle-outline" size={18} color={ACCENT} />
-          <Text style={styles.addAddressText}>Add new address</Text>
+          <Ionicons name="add-circle-outline" size={18} color={text} />
+          <Text style={[styles.addAddressText, { color: text }]}>Add new address</Text>
         </TouchableOpacity>
 
         <Text style={styles.sectionLabel}>Shipping Method</Text>
@@ -1466,12 +1498,16 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
             key={option.key}
             activeOpacity={0.85}
             onPress={() => setMethod(option.key)}
-            style={[styles.radioCard, method === option.key && styles.radioCardSelected]}
+            style={[
+              styles.radioCard,
+              method === option.key && styles.radioCardSelected,
+              method === option.key && { borderColor: text },
+            ]}
           >
             <Ionicons
               name={method === option.key ? 'radio-button-on' : 'radio-button-off'}
               size={20}
-              color={method === option.key ? ACCENT : '#c4b5d4'}
+              color={method === option.key ? text : '#c4b5d4'}
             />
             <Text style={styles.radioLabel}>{option.label}</Text>
             <Text style={styles.radioPrice}>{currency(option.price)}</Text>
@@ -1503,6 +1539,7 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
 };
 
 const MyClosetBuyerPaymentScreen = ({ navigation, route }) => {
+  const { text } = useAppTheme();
   const cart = buildCart(route);
   const [paymentMethod, setPaymentMethod] = useState('secure');
 
@@ -1524,18 +1561,22 @@ const MyClosetBuyerPaymentScreen = ({ navigation, route }) => {
             key={option.key}
             activeOpacity={0.85}
             onPress={() => setPaymentMethod(option.key)}
-            style={[styles.paymentOption, paymentMethod === option.key && styles.radioCardSelected]}
+            style={[
+              styles.paymentOption,
+              paymentMethod === option.key && styles.radioCardSelected,
+              paymentMethod === option.key && { borderColor: text },
+            ]}
           >
             <Ionicons
               name={paymentMethod === option.key ? 'radio-button-on' : 'radio-button-off'}
               size={20}
-              color={paymentMethod === option.key ? ACCENT : '#c4b5d4'}
+              color={paymentMethod === option.key ? text : '#c4b5d4'}
             />
             <View style={styles.paymentCopy}>
               <Text style={styles.radioLabel}>{option.label}</Text>
               {option.sub ? <Text style={styles.paymentSub}>{option.sub}</Text> : null}
             </View>
-            <Ionicons name={option.icon} size={18} color={ACCENT} />
+            <Ionicons name={option.icon} size={18} color={text} />
           </TouchableOpacity>
         ))}
         <OrderSummary cart={cart} compact />
@@ -1556,6 +1597,7 @@ const MyClosetBuyerPaymentScreen = ({ navigation, route }) => {
 // Review screen — shows dynamically selected address instead of hardcoded one
 // ─────────────────────────────────────────────────────────────────────────────
 const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
+  const { text } = useAppTheme();
   const cart = buildCart(route);
   const [checking, setChecking] = useState(false);  
   // shippingAddress passed from Shipping screen via nextCart
@@ -1588,7 +1630,7 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
         <View style={styles.reviewSectionHeader}>
           <Text style={styles.sectionLabel}>Shipping Address</Text>
           <TouchableOpacity onPress={() => navigation.navigate('MyClosetBuyerShipping', route.params)}>
-            <Text style={styles.editText}>Edit</Text>
+            <Text style={[styles.editText, { color: text }]}>Edit</Text>
           </TouchableOpacity>
         </View>
         <View style={styles.reviewCard}>
@@ -1610,7 +1652,7 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
         <View style={styles.reviewSectionHeader}>
           <Text style={styles.sectionLabel}>Shipping Method</Text>
           <TouchableOpacity onPress={() => navigation.navigate('MyClosetBuyerShipping', route.params)}>
-            <Text style={styles.editText}>Edit</Text>
+            <Text style={[styles.editText, { color: text }]}>Edit</Text>
           </TouchableOpacity>
         </View>
         <View style={styles.reviewLineCard}>
@@ -1624,11 +1666,11 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
         <View style={styles.reviewSectionHeader}>
           <Text style={styles.sectionLabel}>Payment Method</Text>
           <TouchableOpacity onPress={() => navigation.navigate('MyClosetBuyerPayment', route.params)}>
-            <Text style={styles.editText}>Edit</Text>
+            <Text style={[styles.editText, { color: text }]}>Edit</Text>
           </TouchableOpacity>
         </View>
         <View style={styles.reviewLineCard}>
-          <Ionicons name="shield-checkmark-outline" size={18} color={ACCENT} />
+          <Ionicons name="shield-checkmark-outline" size={18} color={text} />
           <Text style={styles.radioLabel}>Valens Secure Checkout</Text>
         </View>
         <OrderSummary cart={cart} compact />
@@ -1648,6 +1690,7 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
 };
 
 const MyClosetBuyerOrderReceivedScreen = ({ navigation, route }) => {
+  const { text } = useAppTheme();
   const cart = buildCart(route);
   const today = new Date();
   const orderId = useMemo(() => `V${String(Date.now()).slice(-7)}`, []);
@@ -1672,11 +1715,11 @@ const MyClosetBuyerOrderReceivedScreen = ({ navigation, route }) => {
               ]}
             />
           ))}
-          <View style={styles.checkCircle}>
+          <View style={[styles.checkCircle, { backgroundColor: text }]}>
             <Ionicons name="checkmark" size={48} color="#fff" />
           </View>
         </View>
-        <Text style={styles.receivedTitle}>Order Received!</Text>
+        <Text style={[styles.receivedTitle, { color: text }]}>Order Received!</Text>
         <Text style={styles.receivedSubtitle}>
           Thank you for your purchase. Your order has been placed successfully.
         </Text>
@@ -1689,12 +1732,12 @@ const MyClosetBuyerOrderReceivedScreen = ({ navigation, route }) => {
                 {today.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </Text>
             </View>
-            <Text style={styles.editText}>View Details</Text>
+            <Text style={[styles.editText, { color: text }]}>View Details</Text>
           </View>
           <View style={styles.divider} />
           <Text style={styles.sectionLabel}>Estimated Delivery</Text>
           <Text style={styles.addressText}>May 13 - May 15, 2026</Text>
-          <Text style={styles.receivedTotal}>Total {currency(cart.total)}</Text>
+          <Text style={[styles.receivedTotal, { color: text }]}>Total {currency(cart.total)}</Text>
         </View>
       </ScrollView>
       <View style={styles.bottomBar}>
@@ -1704,7 +1747,7 @@ const MyClosetBuyerOrderReceivedScreen = ({ navigation, route }) => {
           style={styles.secondaryButton}
           onPress={() => navigation.popToTop?.()}
         >
-          <Text style={styles.secondaryButtonText}>Go to My Orders</Text>
+          <Text style={[styles.secondaryButtonText, { color: text }]}>Go to My Orders</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -1786,10 +1829,9 @@ const styles = StyleSheet.create({
   heroImage: { width: HERO_IMAGE_WIDTH, height: 220, borderRadius: 18 },
   photoDots: { flexDirection: 'row', justifyContent: 'center', gap: 7, marginTop: 18, marginBottom: 16 },
   photoDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#d7cce3' },
-  photoDotActive: { backgroundColor: ACCENT },
   photoDotsSpacer: { height: 42 },
   detailName: { fontSize: 22, fontWeight: '900', color: '#17072d' },
-  detailPrice: { marginTop: 3, fontSize: 21, fontWeight: '900', color: ACCENT },
+  detailPrice: { marginTop: 3, fontSize: 21, fontWeight: '900' },
 
   sellerCard: {
     flexDirection: 'row', alignItems: 'center',
@@ -1798,7 +1840,7 @@ const styles = StyleSheet.create({
   },
   sellerAvatar: {
     width: 44, height: 44, borderRadius: 22,
-    backgroundColor: ACCENT, alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+    alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
   },
   sellerCopy: { flex: 1, paddingHorizontal: 12 },
   sellerName: { fontSize: 13, fontWeight: '900', color: '#17072d' },
@@ -1819,7 +1861,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffffee', borderTopWidth: 1, borderTopColor: '#f0eaf6',
   },
   bottomButton: {
-    minHeight: 50, borderRadius: 13, backgroundColor: ACCENT,
+    minHeight: 50, borderRadius: 13,
     alignItems: 'center', justifyContent: 'center', flexDirection: 'row',
   },
   bottomButtonText: { color: '#fff', fontSize: 15, fontWeight: '900' },
@@ -1829,7 +1871,7 @@ const styles = StyleSheet.create({
   optionProductRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 26 },
   optionThumb: { width: 76, height: 58, borderRadius: 10, marginRight: 14 },
   optionName: { fontSize: 15, fontWeight: '900', color: '#17072d' },
-  optionPrice: { marginTop: 4, fontSize: 16, fontWeight: '900', color: ACCENT },
+  optionPrice: { marginTop: 4, fontSize: 16, fontWeight: '900', color: '#17072d' },
   helperText: { fontSize: 12, color: MUTED, marginBottom: 10 },
   quantityBox: {
     width: 142, height: 44, borderRadius: 12,
@@ -1858,7 +1900,7 @@ const styles = StyleSheet.create({
   cartThumb: { width: 72, height: 58, borderRadius: 10 },
   cartCopy: { flex: 1, paddingHorizontal: 12 },
   cartItemName: { fontSize: 13, color: '#17072d', fontWeight: '900' },
-  cartPrice: { marginTop: 3, fontSize: 13, color: ACCENT, fontWeight: '900' },
+  cartPrice: { marginTop: 3, fontSize: 13, fontWeight: '900' },
   cartQtyRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 8 },
   cartQtyBtn: {
     width: 26, height: 26, borderRadius: 13,
@@ -1873,21 +1915,21 @@ const styles = StyleSheet.create({
     backgroundColor: SURFACE, borderRadius: 10, padding: 12, marginBottom: 14,
     borderWidth: 1, borderColor: BORDER,
   },
-  cartClearingText: { fontSize: 13, color: ACCENT, fontWeight: '700' },
+  cartClearingText: { fontSize: 13, fontWeight: '700' },
 
   summaryBlock: { borderTopWidth: 1, borderTopColor: BORDER, paddingTop: 16 },
   summaryRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 13 },
   summaryLabel: { fontSize: 13, color: '#43324f' },
   summaryValue: { fontSize: 13, color: '#17072d', fontWeight: '700' },
   summaryStrong: { fontSize: 16, fontWeight: '900', color: '#17072d' },
-  summaryTotal: { fontSize: 18, fontWeight: '900', color: ACCENT },
+  summaryTotal: { fontSize: 18, fontWeight: '900' },
 
   protectionCard: {
     flexDirection: 'row', alignItems: 'center', marginTop: 12,
     borderWidth: 1, borderColor: BORDER, borderRadius: 13, padding: 12, backgroundColor: SURFACE,
   },
   protectionIcon: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
-  protectionText: { flex: 1, fontSize: 12, lineHeight: 16, color: ACCENT, fontWeight: '800' },
+  protectionText: { flex: 1, fontSize: 12, lineHeight: 16, fontWeight: '800' },
 
   stepsWrap: {
     flexDirection: 'row',
@@ -1902,24 +1944,21 @@ const styles = StyleSheet.create({
     borderWidth: 1.5, borderColor: '#d7cce3',
     alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff',
   },
-  stepCircleActive: { backgroundColor: ACCENT, borderColor: ACCENT },
   stepNumber: { fontSize: 12, color: '#a99aba', fontWeight: '800' },
   stepNumberActive: { color: '#fff' },
   stepLabel: { marginTop: 6, fontSize: 10, color: MUTED, fontWeight: '700' },
-  stepLabelActive: { color: ACCENT },
   stepConnector: { flex: 1, height: 2, backgroundColor: '#e5ddf0', marginBottom: 14 },
-  stepConnectorActive: { backgroundColor: ACCENT },
 
   card: { borderWidth: 1, borderColor: BORDER, borderRadius: 14, padding: 14, backgroundColor: SURFACE },
   compactCard: { marginTop: 14 },
   cardHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
   cardTitle: { fontSize: 14, color: '#21083f', fontWeight: '900' },
-  editText: { fontSize: 12, color: ACCENT, fontWeight: '900' },
+  editText: { fontSize: 12, fontWeight: '900' },
   summaryItemRow: { flexDirection: 'row', alignItems: 'center' },
   summaryThumb: { width: 76, height: 76, borderRadius: 10 },
   summaryItemCopy: { flex: 1, paddingLeft: 12 },
   summaryItemName: { fontSize: 13, color: '#17072d', fontWeight: '900' },
-  summaryItemPrice: { marginTop: 3, fontSize: 13, color: ACCENT, fontWeight: '900' },
+  summaryItemPrice: { marginTop: 3, fontSize: 13, fontWeight: '900' },
   summaryItemQty: { marginTop: 3, fontSize: 11, color: MUTED, fontWeight: '700' },
   divider: { height: 1, backgroundColor: BORDER, marginVertical: 16 },
 
@@ -1927,7 +1966,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: BORDER, borderRadius: 13,
     marginBottom: 10, backgroundColor: SURFACE, overflow: 'hidden',
   },
-  addressCardSelected: { borderColor: ACCENT, backgroundColor: '#f5f0ff' },
+  addressCardSelected: { backgroundColor: '#f5f0ff' },
   addressCardContent: {
     flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between',
     padding: 14,
@@ -1942,7 +1981,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4, paddingHorizontal: 6,
   },
   addressActionText: {
-    fontSize: 12, fontWeight: '800', color: ACCENT,
+    fontSize: 12, fontWeight: '800',
   },
   addressActionDivider: {
     width: 1, height: 14, backgroundColor: BORDER, marginHorizontal: 6,
@@ -1955,7 +1994,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#ede9f8', borderRadius: 6,
     paddingHorizontal: 7, paddingVertical: 2,
   },
-  defaultBadgeText: { fontSize: 10, color: ACCENT, fontWeight: '800' },
+  defaultBadgeText: { fontSize: 10, fontWeight: '800' },
 
   // Address loading / error / empty states
   addressLoader: { flexDirection: 'row', alignItems: 'center', paddingVertical: 18, gap: 10 },
@@ -1975,13 +2014,13 @@ const styles = StyleSheet.create({
     minHeight: 48, borderWidth: 1, borderColor: BORDER, borderRadius: 13,
     paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', marginBottom: 20,
   },
-  addAddressText: { marginLeft: 10, color: ACCENT, fontSize: 13, fontWeight: '900' },
+  addAddressText: { marginLeft: 10, fontSize: 13, fontWeight: '900' },
 
   radioCard: {
     minHeight: 58, borderWidth: 1, borderColor: BORDER, borderRadius: 13,
     paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', marginBottom: 12, backgroundColor: '#fff',
   },
-  radioCardSelected: { borderColor: ACCENT, backgroundColor: SURFACE },
+  radioCardSelected: { backgroundColor: SURFACE },
   radioLabel: { flex: 1, marginLeft: 10, fontSize: 13, color: '#17072d', fontWeight: '800' },
   radioPrice: { fontSize: 12, color: '#17072d', fontWeight: '900' },
 
@@ -2001,17 +2040,17 @@ const styles = StyleSheet.create({
   receivedContent: { paddingHorizontal: 20, paddingBottom: 170, alignItems: 'center' },
   confettiArea: { width: '100%', height: 190, alignItems: 'center', justifyContent: 'flex-end' },
   confetti: { position: 'absolute', width: 5, height: 5, borderRadius: 3 },
-  checkCircle: { width: 96, height: 96, borderRadius: 48, alignItems: 'center', justifyContent: 'center', backgroundColor: ACCENT },
-  receivedTitle: { marginTop: 24, fontSize: 28, color: ACCENT, fontWeight: '900', textAlign: 'center' },
+  checkCircle: { width: 96, height: 96, borderRadius: 48, alignItems: 'center', justifyContent: 'center' },
+  receivedTitle: { marginTop: 24, fontSize: 28, fontWeight: '900', textAlign: 'center' },
   receivedSubtitle: { marginTop: 8, fontSize: 14, lineHeight: 20, color: MUTED, textAlign: 'center' },
   orderCard: { alignSelf: 'stretch', marginTop: 26, borderWidth: 1, borderColor: BORDER, borderRadius: 14, padding: 14, backgroundColor: '#fff' },
   orderCardHeader: { flexDirection: 'row', justifyContent: 'space-between' },
   orderId: { fontSize: 13, color: '#17072d', fontWeight: '900' },
   orderDate: { marginTop: 4, fontSize: 11, color: MUTED },
-  receivedTotal: { marginTop: 12, color: ACCENT, fontSize: 13, fontWeight: '900' },
+  receivedTotal: { marginTop: 12, fontSize: 13, fontWeight: '900' },
 
   secondaryButton: { minHeight: 48, borderRadius: 13, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: BORDER, backgroundColor: '#fff', marginTop: 10 },
-  secondaryButtonText: { color: ACCENT, fontSize: 14, fontWeight: '900' },
+  secondaryButtonText: { fontSize: 14, fontWeight: '900' },
 
   // add address modal form
   modalContent: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 120 },

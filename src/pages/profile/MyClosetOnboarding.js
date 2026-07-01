@@ -2417,12 +2417,6 @@ const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
                   />
                 </>
               )}
-              {pickupAddress ? (
-                <View style={styles.addressPreviewRow}>
-                  <Ionicons name="pin-outline" size={14} color="#6b7280" />
-                  <Text style={styles.addressPreviewText}>{pickupAddress}</Text>
-                </View>
-              ) : null}
 
               <TouchableOpacity
                 activeOpacity={0.85}
@@ -3405,6 +3399,7 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     color: '#000',
     fontWeight: '400',
+    paddingRight: 5
   },
   detailBlock: {
     marginTop: 18,

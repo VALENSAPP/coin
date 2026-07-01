@@ -20,6 +20,7 @@ import {
   reverseGeocodeCoordinates,
   searchPlacePredictions,
 } from '../../services/googlePlaces';
+import { useAppTheme } from '../../theme/useApptheme';
 
 const requestLocationPermission = async t => {
   if (Platform.OS === 'ios') {
@@ -98,6 +99,7 @@ const PostLocationModal = ({
   const debounceRef = useRef(null);
   const locationBiasRef = useRef(null);
   const hasPlacesApi = isGooglePlacesConfigured();
+  const { text } = useAppTheme();
 
   useEffect(() => {
     if (!visible) return;
@@ -236,11 +238,11 @@ const PostLocationModal = ({
                   onPress={handleUseCurrentLocation}
                   disabled={locating || saving}>
                   {locating ? (
-                    <ActivityIndicator size="small" color="#5a2d82" />
+                    <ActivityIndicator size="small" color={text} />
                   ) : (
                     <>
-                      <Icon name="navigate" size={16} color="#5a2d82" />
-                      <Text style={styles.currentLocationText}>
+                      <Icon name="navigate" size={16} color={text} />
+                      <Text style={[styles.currentLocationText, { color: text }]}>
                         {t('postItem.useCurrentLocation')}
                       </Text>
                     </>
@@ -286,7 +288,7 @@ const PostLocationModal = ({
               ) : null}
 
               <TouchableOpacity
-                style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
+                style={[styles.saveBtn, saving && styles.saveBtnDisabled, { backgroundColor: text }]}
                 onPress={handleSave}
                 disabled={saving}>
                 {saving ? (
@@ -297,7 +299,7 @@ const PostLocationModal = ({
               </TouchableOpacity>
 
               <TouchableOpacity onPress={onClose} style={styles.cancelBtn}>
-                <Text style={styles.cancelText}>{t('postItem.cancelLocation')}</Text>
+                <Text style={[styles.cancelText, { color: text }]}>{t('postItem.cancelLocation')}</Text>
               </TouchableOpacity>
             </View>
           </TouchableWithoutFeedback>
@@ -352,7 +354,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   currentLocationText: {
-    color: '#5a2d82',
     fontWeight: '600',
     fontSize: 14,
   },
@@ -392,7 +393,6 @@ const styles = StyleSheet.create({
     color: '#374151',
   },
   saveBtn: {
-    backgroundColor: '#5a2d82',
     borderRadius: 10,
     paddingVertical: 12,
     alignItems: 'center',
@@ -411,7 +411,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   cancelText: {
-    color: '#5a2d82',
     fontWeight: '600',
     fontSize: 14,
   },
