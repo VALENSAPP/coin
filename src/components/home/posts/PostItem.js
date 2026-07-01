@@ -1353,10 +1353,15 @@ function PostItem({
 
   const handleMediaDoubleTapLike = useCallback(() => {
     if (isZooming) return;
+    const newLiked = !localLiked;
+    setLocalLiked(newLiked);
+    setLocalLikesCount(prev => newLiked ? prev + 1 : Math.max(0, prev - 1));
     onToggleLike?.(item.id);
     animateHeart();
-    playDoubleTapHeartBurst();
-  }, [isZooming, onToggleLike, item.id, animateHeart, playDoubleTapHeartBurst]);
+    if (newLiked) {
+      playDoubleTapHeartBurst();
+    }
+  }, [isZooming, localLiked, onToggleLike, item.id, animateHeart, playDoubleTapHeartBurst]);
 
   const doubleTapLikeGesture = useMemo(
     () =>
