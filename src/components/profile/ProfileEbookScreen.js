@@ -221,7 +221,7 @@ const ProfileEbookScreen = ({
   }, [resolvedIsSubscribed]);
 
   useEffect(() => {
-    if (isCompany) return;
+    // if (isCompany) return;
     if (userData?.id && isFocused && isActiveTab) {
       fetchEbooks(userData.id);
     }

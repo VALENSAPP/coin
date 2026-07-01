@@ -1,5 +1,12 @@
 const VIDEO_EXTENSIONS = ['.mp4', '.mov', '.avi', '.mkv', '.webm', '.m4v', '.3gp'];
 
+/** True when a remote URL points at a video file (ignores query/hash). */
+export const isPostVideoUrl = (url) => {
+  if (!url || typeof url !== 'string') return false;
+  const lower = url.toLowerCase().split('?')[0].split('#')[0];
+  return VIDEO_EXTENSIONS.some(ext => lower.endsWith(ext));
+};
+
 export const getPostMediaUri = (media) =>
   media?.processedUri ||
   media?.originalUri ||

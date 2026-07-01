@@ -2664,7 +2664,13 @@ const InstagramPostCreator = () => {
       </Modal>
 
       {!modalVisible2 && (
-      <View style={[styles.NextButtonView, isFlipPost && styles.NextButtonViewFlip]}>
+      <View
+        style={[
+          styles.NextButtonView,
+          isFlipPost && styles.NextButtonViewFlip,
+          { paddingBottom: Math.max(12, insets.bottom) },
+        ]}
+      >
         {slideHasLibraryMusic(getCurrentImageEdits()) ? (
           <View style={[styles.postMusicCardToggleBar, isFlipPost && styles.postMusicCardToggleBarFlip]}>
             <View style={styles.postMusicCardToggleTextCol}>
@@ -2680,12 +2686,11 @@ const InstagramPostCreator = () => {
             />
           </View>
         ) : null}
-        {isFlipPost && isCurrentMediaVideo() && (
-          <TouchableOpacity style={styles.flipEditVideoPill} onPress={() => handleFlipToolPress('Edit')} activeOpacity={0.85}>
-            <Text style={styles.flipEditVideoPillText}>{t('selectedPost.editVideoTitle')}</Text>
-          </TouchableOpacity>
-        )}
-        <TouchableOpacity style={[styles.nextButton, isFlipPost && styles.nextButtonFlip, { backgroundColor: isFlipPost ? '#2d7ff9' : accent }]} onPress={handleNext}>
+        <TouchableOpacity
+          style={[styles.nextButton, { backgroundColor: accent }]}
+          onPress={handleNext}
+          activeOpacity={0.88}
+        >
           <Text style={styles.nextButtonText}>{t('selectedPost.next')}</Text>
           <Text style={styles.nextArrow}>→</Text>
         </TouchableOpacity>
@@ -3711,35 +3716,32 @@ const styles = StyleSheet.create({
   },
   NextButtonView: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: 8,
+    paddingBottom: 12,
   },
   NextButtonViewFlip: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    justifyContent: 'space-between',
+    width: '100%',
   },
   nextButton: {
-    // backgroundColor: '#5a2d82',
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 14,
-    borderRadius: 8,
-  },
-  nextButtonFlip: {
-    flex: 1,
-    borderRadius: 24,
+    alignSelf: 'stretch',
+    paddingVertical: 16,
+    borderRadius: 28,
+    width: '100%',
   },
   nextButtonText: {
     color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginRight: 8,
+    fontSize: 17,
+    fontWeight: '700',
+    marginRight: 6,
+    letterSpacing: 0.2,
   },
   nextArrow: {
     color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 17,
+    fontWeight: '700',
   },
   zoomIndicator: {
     position: 'absolute',

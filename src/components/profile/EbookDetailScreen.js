@@ -72,6 +72,7 @@ const EbookDetailScreen = () => {
     normalizeProfileType(userData?.profile || ebook?.profile) === 'company' ? 'company' : undefined;
   const {
     bgStyle,
+    text ,
     textStyle,
     cardStyle,
     border,
@@ -462,7 +463,7 @@ const EbookDetailScreen = () => {
             ) : (
               <>
                 <Ionicons name="download-outline" size={16} color="#fff" />
-                <Text style={styles.downloadButtonText}>Download PDF</Text>
+                <Text style={[styles.downloadButtonText]}>Download PDF</Text>
               </>
             )}
           </TouchableOpacity>

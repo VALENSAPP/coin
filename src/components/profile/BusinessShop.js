@@ -14,10 +14,9 @@ import {
 import Video from 'react-native-video';
 import { useFocusEffect, useIsFocused, useNavigation } from '@react-navigation/native';
 import { useAppTheme } from '../../theme/useApptheme';
-import { normalizeProfileType } from '../../utils/supportEligibility';
 import { getPostByUser } from '../../services/post';
 import { getFansubscriptionStatus } from '../../services/stirpe';
-import { getMyClosetMe } from '../../services/myCloset';
+import { getMyClosetMe, getMyClosetById } from '../../services/myCloset';
 import LinearGradient from 'react-native-linear-gradient';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useLanguage } from '../../i18n';
@@ -148,7 +147,7 @@ const PostImage = memo(({ item, themeTextStyle }) => {
 
 const ItemSeparator = memo(() => <View style={styles.itemSeparator} />);
 
-const PrivateContentScreen = ({
+const BusinessShopScreen = ({
   userData,
   isSubscribed,
   loggedInUserId,
@@ -158,6 +157,7 @@ const PrivateContentScreen = ({
   isActiveTab = false,
   activeMediaFilter = 'photo',
 }) => {
+  console.log(activeMediaFilter,'activeMediaFilteractiveMediaFilteractiveMediaFilter')
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [statusLoading, setStatusLoading] = useState(false);
@@ -167,10 +167,7 @@ const PrivateContentScreen = ({
   const navigation = useNavigation();
   const isFocused = useIsFocused();
   const scrollY = useRef(new Animated.Value(0)).current;
-  const profileThemeType =
-    normalizeProfileType(userData?.profile) === 'company' ? 'company' : undefined;
-  const { bgStyle, textStyle, text, cardStyle, card, border, mutedTextStyle, accent } =
-    useAppTheme(profileThemeType);
+  const { bgStyle, textStyle, text, cardStyle } = useAppTheme(userData?.profile);
   const { t } = useLanguage();
 
   const shopCardMarginTop = scrollY.interpolate({
@@ -185,7 +182,6 @@ const PrivateContentScreen = ({
     String(isSubscribed || '').toLowerCase() === 'true';
   const isOwnProfile = String(loggedInUserId || '') === String(userData?.id || '');
   const canViewPrivateContent = isOwnProfile || resolvedIsSubscribed;
-
   const handleStartShopPress = useCallback(async () => {
     try {
       const response = await getMyClosetMe();
@@ -210,17 +206,25 @@ const PrivateContentScreen = ({
     let isMounted = true;
 
     const checkShopState = async () => {
-      if (!isCompany || !isOwnProfile) {
+      if (!isCompany || !userData?.id) {
         if (isMounted) setShopCheckComplete(true);
         return;
       }
 
       try {
-        const response = await getMyClosetMe();
+        const response = isOwnProfile
+          ? await getMyClosetMe()
+          : await getMyClosetById({ userId: userData.id });
         const data = response?.data || response;
         const exists =
           response?.statusCode === 200 &&
-          Boolean(data?.shopName || data?.id || data?.data);
+          Boolean(
+            data?.closetDetails?.id ||
+            data?.closetDetails?.shopName ||
+            data?.shopName ||
+            data?.id ||
+            data?.data,
+          );
 
         if (isMounted) {
           setShopExists(exists);
@@ -241,7 +245,7 @@ const PrivateContentScreen = ({
     return () => {
       isMounted = false;
     };
-  }, [isCompany, isOwnProfile]);
+  }, [isCompany, isOwnProfile, userData?.id]);
 
   useScreenshotProtection({
     enabled: isFocused && isActiveTab && !isCompany && canViewPrivateContent && !isOwnProfile,
@@ -340,9 +344,9 @@ const PrivateContentScreen = ({
   }, [activeMediaFilter]);
 
   useEffect(() => {
-    // if (isCompany) return;
+    if (isCompany) return;
     if (userData?.id) fetchPosts(userData.id);
-  }, [userData?.id, fetchPosts, isCompany]);
+  }, [userData?.id, fetchPosts]);
 
   const refreshStatusAndPosts = useCallback(async () => {
     if (!userData?.id) {
@@ -370,19 +374,19 @@ const PrivateContentScreen = ({
   }, [fetchPosts, getSubscriptionStatus, isOwnProfile, userData?.id]);
 
   useEffect(() => {
-    // if (isCompany) return;
+    if (isCompany) return;
     if (refreshKey !== undefined) refreshStatusAndPosts();
   }, [refreshKey]);
 
   useFocusEffect(
     useCallback(() => {
-      // if (isCompany) return () => { };
+      if (isCompany) return () => { };
       refreshStatusAndPosts();
     }, [refreshStatusAndPosts]),
   );
 
   useEffect(() => {
-    // if (isCompany) return () => { };
+    if (isCompany) return () => { };
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active' && isFocused) refreshStatusAndPosts();
     });
@@ -498,10 +502,10 @@ const PrivateContentScreen = ({
             <View
               style={[
                 styles.railIconBubble,
-                { backgroundColor: withAlpha(accent, 0.18), marginTop: marginTopOverride ? '80%' : '50%' },
+                { backgroundColor: mixWithWhite(text, 0.9), marginTop: marginTopOverride ? '80%' : '50%' },
               ]}
             >
-              <Ionicons name="bag-handle" size={34} color={accent} />
+              <Ionicons name="bag-handle" size={34} color={text} />
             </View>
           </LinearGradient>
 
@@ -515,7 +519,7 @@ const PrivateContentScreen = ({
                   <TouchableOpacity
                     activeOpacity={0.9}
                     onPress={handleStartShopPress}
-                    style={[styles.ctaButton, { backgroundColor: accent }]}
+                    style={[styles.ctaButton, { backgroundColor: text }]}
                   >
                     <Text style={styles.ctaText}>{t('privateContent.startNowButton')}</Text>
                   </TouchableOpacity>
@@ -532,7 +536,7 @@ const PrivateContentScreen = ({
                 <TouchableOpacity
                   activeOpacity={0.9}
                   onPress={onSubscribePress}
-                  style={[styles.ctaButton, { backgroundColor: accent }]}
+                  style={[styles.ctaButton, { backgroundColor: text }]}
                 >
                   <Text style={styles.ctaText}>{t('privateContent.shopNowButton')}</Text>
                 </TouchableOpacity>
@@ -542,25 +546,21 @@ const PrivateContentScreen = ({
         </View>
       </View>
     ),
-    [bgStyle, cardStyle, handleStartShopPress, shopCheckComplete, shopExists, text, textStyle, accent, isOwnProfile, onSubscribePress, userData, t],
+    [bgStyle, cardStyle, handleStartShopPress, shopCheckComplete, shopExists, text, textStyle, isOwnProfile, onSubscribePress, userData, t],
   );
 
   // ── Locked card ───────────────────────────────────────────────────────────
   const LockedCard = useCallback(
     () => (
       <View style={[styles.screen, bgStyle, styles.lockedContainer]}>
-        <TouchableOpacity
-          activeOpacity={0.9}
-          onPress={onSubscribePress}
-          style={[styles.lockedCard, cardStyle, { borderColor: border }]}
-        >
+        <TouchableOpacity activeOpacity={0.9} onPress={onSubscribePress} style={styles.lockedCard}>
           <Text style={styles.lockedIcon}>🔒</Text>
           <Text style={[styles.lockedTitle, textStyle]}>{t('privateContent.lockedTitle')}</Text>
-          <Text style={[styles.lockedSubtitle, mutedTextStyle]}>{t('privateContent.lockedSubtitle')}</Text>
+          <Text style={styles.lockedSubtitle}>{t('privateContent.lockedSubtitle')}</Text>
         </TouchableOpacity>
       </View>
     ),
-    [bgStyle, cardStyle, border, textStyle, mutedTextStyle, onSubscribePress, t],
+    [bgStyle, textStyle, onSubscribePress, t],
   );
 
   const renderEmptyComponent = useCallback(
@@ -568,59 +568,59 @@ const PrivateContentScreen = ({
       if (canViewPrivateContent) {
         return (
           <View style={[styles.screen, bgStyle, styles.lockedContainer]}>
-            <View style={[styles.lockedCard, cardStyle, { borderColor: border, opacity: 0.92 }]}>
+            <View style={[styles.lockedCard, { opacity: 0.92 }]}>
               <Text style={styles.lockedIcon}>📭</Text>
               <Text style={[styles.lockedTitle, textStyle]}>No private posts yet</Text>
-              <Text style={[styles.lockedSubtitle, mutedTextStyle]}>Check back later.</Text>
+              <Text style={styles.lockedSubtitle}>Check back later.</Text>
             </View>
           </View>
         );
       }
       return <LockedCard />;
     },
-    [LockedCard, bgStyle, border, canViewPrivateContent, cardStyle, mutedTextStyle, textStyle],
+    [LockedCard, bgStyle, canViewPrivateContent, textStyle],
   );
 
-  // if (isCompany) {
-  //   if (shopCheckComplete && shopExists && isOwnProfile) {
-  //     return (
-  //       <MyClosetShopFront
-  //         navigation={navigation}
-  //         userData={userData}
-  //         shopDraft={null}
-  //         isOwnProfile={isOwnProfile}
-  //       />
-  //     );
-  //   }
+  if (isCompany) {
+    if (shopCheckComplete && shopExists) {
+      return (
+        <MyClosetShopFront
+          navigation={navigation}
+          userData={userData}
+          shopDraft={null}
+          isOwnProfile={isOwnProfile}
+        />
+      );
+    }
 
-  //   // Otherwise show ShopCard (setup or guest view)
-  //   return (
-  //     <Animated.ScrollView
-  //       style={[styles.screen, bgStyle]}
-  //       scrollEventThrottle={16}
-  //       onScroll={Animated.event(
-  //         [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-  //         { useNativeDriver: false }   // false because marginTop is a layout prop
-  //       )}
-  //     >
-  //       <ShopCard marginTopOverride={undefined} />
-  //     </Animated.ScrollView>
-  //   );
-  // }
+    // Otherwise show ShopCard (setup or guest view)
+    return (
+      <Animated.ScrollView
+        style={[styles.screen, bgStyle]}
+        scrollEventThrottle={16}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: false }   // false because marginTop is a layout prop
+        )}
+      >
+        <ShopCard marginTopOverride={undefined} />
+      </Animated.ScrollView>
+    );
+  }
 
   if (loading || statusLoading) {
     return (
       <View style={[styles.loaderContainer, bgStyle]}>
-        <ActivityIndicator size="large" color={accent} />
+        <ActivityIndicator size="large" color="#5A2D82" />
       </View>
     );
   }
 
   return (
     <View style={[styles.screen, bgStyle]}>
-      {/* {!canViewPrivateContent ? (
+      {!canViewPrivateContent ? (
         <LockedCard />
-      ) : ( */}
+      ) : (
         <FlatList
           data={posts}
           keyExtractor={keyExtractor}
@@ -638,12 +638,12 @@ const PrivateContentScreen = ({
           updateCellsBatchingPeriod={50}
           disableVirtualization={false}
         />
-      {/* )} */}
+      )}
     </View>
   );
 };
 
-export default memo(PrivateContentScreen);
+export default memo(BusinessShopScreen);
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
@@ -755,7 +755,9 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingVertical: 24,
     paddingHorizontal: 20,
+    backgroundColor: '#f8fafc',
     borderWidth: 1,
+    borderColor: '#e5e7eb',
     alignItems: 'center',
   },
   lockedIcon: {
@@ -770,6 +772,7 @@ const styles = StyleSheet.create({
   },
   lockedSubtitle: {
     fontSize: 14,
+    color: '#6b7280',
     textAlign: 'center',
     lineHeight: 20,
   },
