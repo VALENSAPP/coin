@@ -957,7 +957,7 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
     try {
       const dataToSend = { sellerId: route?.params?.sellerId };
       const response = await getCart(dataToSend);
-      const cartsArr = response?.data?.carts ?? [];
+      const cartsArr = response?.data?.data?.carts ?? response?.data?.carts ?? [];
       const cartObj = cartsArr[0] ?? null;
       const items = cartObj?.cartItems ?? [];
       setCartItems(Array.isArray(items) ? items : []);

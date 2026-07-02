@@ -1139,7 +1139,9 @@ const ProfilePersonData = ({
               <>
                 <TouchableOpacity
                   style={styles.iconButton}
-                  onPress={() => navigation.navigate('MyClosetBuyerCart')}
+                  onPress={() => navigation.navigate('MyClosetBuyerCart', {
+                    sellerId: targetUserId || userData?.id || userData?._id || userData?.userId || userId || '',
+                  })}
                 >
                   <View>
                     <Ionicons name="cart-outline" size={25} color="#111100" />
