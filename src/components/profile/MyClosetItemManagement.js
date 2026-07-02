@@ -19,40 +19,44 @@ import { useToast } from 'react-native-toast-notifications';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { showToastMessage } from '../displaytoastmessage';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useLanguage } from '../../i18n';
 import {
   deleteMyClosetItem,
   getMyClosetItems,
   updateMyClosetItem,
 } from '../../services/myCloset';
 
-const CONDITION_OPTIONS = [
-  { label: 'New', value: 'New' },
-  { label: 'Used', value: 'Used' },
-  { label: 'Good condition', value: 'Good_condition' },
-  { label: 'Needs attention', value: 'Need_attention' },
+// Option lists are functions of `t` so they stay in sync when the language changes.
+// NOTE: `value` stays a fixed English identifier — only `label` is translated —
+// so the payload sent to the API never changes with locale.
+const getConditionOptions = t => [
+  { label: t('myClosetItems.conditionNew'), value: 'New' },
+  { label: t('myClosetItems.conditionUsed'), value: 'Used' },
+  { label: t('myClosetItems.conditionGood'), value: 'Good_condition' },
+  { label: t('myClosetItems.conditionNeedsAttention'), value: 'Need_attention' },
 ];
 
-const SHIPPING_OPTIONS = [
-  { label: 'Ship items', value: 'ship_items' },
-  { label: 'Local pickup', value: 'local_pick' },
+const getShippingOptions = t => [
+  { label: t('myClosetItems.shippingShip'), value: 'ship_items' },
+  { label: t('myClosetItems.shippingLocalPickup'), value: 'local_pick' },
 ];
 
-const RETURN_POLICY_OPTIONS = [
-  'No returns',
-  '7-day returns',
-  '14-day returns',
-  'Exchange only',
+const getReturnPolicyOptions = t => [
+  { label: t('myClosetItems.returnPolicyNone'), value: 'No returns' },
+  { label: t('myClosetItems.returnPolicy7Day'), value: '7-day returns' },
+  { label: t('myClosetItems.returnPolicy14Day'), value: '14-day returns' },
+  { label: t('myClosetItems.returnPolicyExchangeOnly'), value: 'Exchange only' },
 ];
 
-const CATEGORY_OPTIONS = [
-  'Women > Jackets',
-  'Women > Dresses',
-  'Men > Shirts',
-  'Accessories > Bags',
-  'Shoes > Sneakers',
-  'Home > Decor',
-  'Vintage > Pieces',
-  'Others'
+const getCategoryOptions = t => [
+  { label: t('myClosetItems.categoryWomenJackets'), value: 'Women > Jackets' },
+  { label: t('myClosetItems.categoryWomenDresses'), value: 'Women > Dresses' },
+  { label: t('myClosetItems.categoryMenShirts'), value: 'Men > Shirts' },
+  { label: t('myClosetItems.categoryAccessoriesBags'), value: 'Accessories > Bags' },
+  { label: t('myClosetItems.categoryShoesSneakers'), value: 'Shoes > Sneakers' },
+  { label: t('myClosetItems.categoryHomeDecor'), value: 'Home > Decor' },
+  { label: t('myClosetItems.categoryVintagePieces'), value: 'Vintage > Pieces' },
+  { label: t('myClosetItems.categoryOthers'), value: 'Others' },
 ];
 
 const getOptionLabel = option =>
@@ -61,27 +65,27 @@ const getOptionLabel = option =>
 const getOptionValue = option =>
   typeof option === 'string' ? option : option?.value || '';
 
-const getConditionLabel = value => {
+const getConditionLabel = (value, t) => {
   switch (String(value || '').trim()) {
     case 'New':
-      return 'New';
+      return t('myClosetItems.conditionNew');
     case 'Used':
-      return 'Used';
+      return t('myClosetItems.conditionUsed');
     case 'Good_condition':
-      return 'Good condition';
+      return t('myClosetItems.conditionGood');
     case 'Need_attention':
-      return 'Needs attention';
+      return t('myClosetItems.conditionNeedsAttention');
     default:
       return value || '';
   }
 };
 
-const getShippingLabel = value => {
+const getShippingLabel = (value, t) => {
   switch (String(value || '').trim()) {
     case 'ship_items':
-      return 'Ship items';
+      return t('myClosetItems.shippingShip');
     case 'local_pick':
-      return 'Local pickup';
+      return t('myClosetItems.shippingLocalPickup');
     default:
       return value || '';
   }
@@ -218,6 +222,7 @@ const ClosestHeader = ({ title, subtitle, onBack }) => (
 
 const MyClosetItemsManagementScreen = ({ navigation, route }) => {
   const { text, bgStyle, cardStyle, textStyle } = useAppTheme();
+  const { t } = useLanguage();
   const toast = useToast();
   const dispatch = useDispatch();
   const [items, setItems] = useState([]);
@@ -246,14 +251,14 @@ const MyClosetItemsManagementScreen = ({ navigation, route }) => {
       showToastMessage(
         toast,
         'danger',
-        error?.response?.data?.message || error?.message || 'Unable to load items.',
+        error?.response?.data?.message || error?.message || t('myClosetItems.loadError'),
       );
       setItems([]);
     } finally {
       setLoading(false);
       dispatch(hideLoader());
     }
-  }, [dispatch, toast]);
+  }, [dispatch, toast, t]);
 
   useFocusEffect(
     useCallback(() => {
@@ -264,12 +269,12 @@ const MyClosetItemsManagementScreen = ({ navigation, route }) => {
   const handleDelete = useCallback(
     item => {
       Alert.alert(
-        'Delete item',
-        'This will remove the item from your closet.',
+        t('myClosetItems.deleteConfirmTitle'),
+        t('myClosetItems.deleteConfirmMessage'),
         [
-          { text: 'Cancel', style: 'cancel' },
+          { text: t('myClosetItems.cancel'), style: 'cancel' },
           {
-            text: 'Delete',
+            text: t('myClosetItems.delete'),
             style: 'destructive',
             onPress: async () => {
               dispatch(showLoader());
@@ -281,7 +286,7 @@ const MyClosetItemsManagementScreen = ({ navigation, route }) => {
                   response === '' ||
                   response == null;
                 if (deleted) {
-                  showToastMessage(toast, 'success', 'Item deleted successfully.');
+                  showToastMessage(toast, 'success', t('myClosetItems.deleteSuccess'));
                   await loadItems();
                   return;
                 }
@@ -289,13 +294,13 @@ const MyClosetItemsManagementScreen = ({ navigation, route }) => {
                 showToastMessage(
                   toast,
                   'danger',
-                  response?.message || 'Unable to delete item.',
+                  response?.message || t('myClosetItems.deleteError'),
                 );
               } catch (error) {
                 showToastMessage(
                   toast,
                   'danger',
-                  error?.response?.data?.message || error?.message || 'Unable to delete item.',
+                  error?.response?.data?.message || error?.message || t('myClosetItems.deleteError'),
                 );
               } finally {
                 dispatch(hideLoader());
@@ -305,19 +310,19 @@ const MyClosetItemsManagementScreen = ({ navigation, route }) => {
         ],
       );
     },
-    [dispatch, loadItems, toast],
+    [dispatch, loadItems, toast, t],
   );
 
   const subtitle =
     section === 'orders'
-      ? 'Recent orders and item management'
-      : 'Manage, edit, and delete your closet items';
+      ? t('myClosetItems.subtitleOrders')
+      : t('myClosetItems.subtitleItems');
 
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
       <ScrollView contentContainerStyle={styles.screenContent} showsVerticalScrollIndicator={false}>
         <ClosestHeader
-          title={section === 'orders' ? 'Recent Orders' : 'Your Items'}
+          title={section === 'orders' ? t('myClosetItems.headerTitleOrders') : t('myClosetItems.headerTitleItems')}
           subtitle={subtitle}
           onBack={() => navigation.goBack()}
         />
@@ -343,7 +348,7 @@ const MyClosetItemsManagementScreen = ({ navigation, route }) => {
                       {normalized.name}
                     </Text>
                     <Text style={styles.itemMeta}>{formatPrice(normalized.price)}</Text>
-                    <Text style={styles.itemMeta}>{getConditionLabel(normalized.condition)}</Text>
+                    <Text style={styles.itemMeta}>{getConditionLabel(normalized.condition, t)}</Text>
                   </View>
                 </View>
                 <View style={styles.itemButtonRow}>
@@ -352,14 +357,14 @@ const MyClosetItemsManagementScreen = ({ navigation, route }) => {
                     onPress={() => navigation.navigate('MyClosetItemEditor', { item: normalized })}
                     style={[styles.actionButton, { borderColor: text }]}
                   >
-                    <Text style={[styles.actionButtonText, { color: text }]}>Edit</Text>
+                    <Text style={[styles.actionButtonText, { color: text }]}>{t('myClosetItems.edit')}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     activeOpacity={0.85}
                     onPress={() => handleDelete(normalized)}
                     style={[styles.deleteButton, { borderColor: '#fecaca' }]}
                   >
-                    <Text style={styles.deleteButtonText}>Delete</Text>
+                    <Text style={styles.deleteButtonText}>{t('myClosetItems.delete')}</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -368,8 +373,8 @@ const MyClosetItemsManagementScreen = ({ navigation, route }) => {
         ) : (
           <View style={[styles.emptyCard, cardStyle]}>
             <Ionicons name="shirt-outline" size={28} color={text} />
-            <Text style={[styles.emptyTitle, textStyle]}>No items yet</Text>
-            <Text style={styles.emptyText}>Start by adding your first item.</Text>
+            <Text style={[styles.emptyTitle, textStyle]}>{t('myClosetItems.emptyTitle')}</Text>
+            <Text style={styles.emptyText}>{t('myClosetItems.emptyText')}</Text>
           </View>
         )}
       </ScrollView>
@@ -379,11 +384,17 @@ const MyClosetItemsManagementScreen = ({ navigation, route }) => {
 
 const MyClosetItemEditorScreen = ({ navigation, route }) => {
   const { text, bgStyle, cardStyle, textStyle } = useAppTheme();
+  const { t } = useLanguage();
   const toast = useToast();
   const dispatch = useDispatch();
   const item = route?.params?.item || {};
   const [draft, setDraft] = useState(() => toEditableItem(item));
   const [saving, setSaving] = useState(false);
+
+  const CONDITION_OPTIONS = useMemo(() => getConditionOptions(t), [t]);
+  const SHIPPING_OPTIONS = useMemo(() => getShippingOptions(t), [t]);
+  const RETURN_POLICY_OPTIONS = useMemo(() => getReturnPolicyOptions(t), [t]);
+  const CATEGORY_OPTIONS = useMemo(() => getCategoryOptions(t), [t]);
 
   useEffect(() => {
     setDraft(toEditableItem(item));
@@ -396,7 +407,7 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
     try {
       const response = await updateMyClosetItem(draft.id, buildPayload(draft));
       if (response?.statusCode === 200 || response?.statusCode === 201) {
-        showToastMessage(toast, 'success', response?.message || 'Item updated successfully.');
+        showToastMessage(toast, 'success', response?.message || t('myClosetItemEditor.updateSuccess'));
         navigation.goBack();
         return;
       }
@@ -404,26 +415,26 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
       showToastMessage(
         toast,
         'danger',
-        response?.message || 'Unable to update item.',
+        response?.message || t('myClosetItemEditor.updateError'),
       );
     } catch (error) {
       showToastMessage(
         toast,
         'danger',
-        error?.response?.data?.message || error?.message || 'Unable to update item.',
+        error?.response?.data?.message || error?.message || t('myClosetItemEditor.updateError'),
       );
     } finally {
       setSaving(false);
       dispatch(hideLoader());
     }
-  }, [draft, dispatch, navigation, toast]);
+  }, [draft, dispatch, navigation, toast, t]);
 
   const handleDelete = useCallback(() => {
     if (!draft.id) return;
-    Alert.alert('Delete item', 'This will permanently delete the item.', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('myClosetItemEditor.deleteConfirmTitle'), t('myClosetItemEditor.deleteConfirmMessage'), [
+      { text: t('myClosetItems.cancel'), style: 'cancel' },
       {
-        text: 'Delete',
+        text: t('myClosetItems.delete'),
         style: 'destructive',
         onPress: async () => {
           setSaving(true);
@@ -436,7 +447,7 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
               response === '' ||
               response == null;
             if (deleted) {
-              showToastMessage(toast, 'success', 'Item deleted successfully.');
+              showToastMessage(toast, 'success', t('myClosetItemEditor.deleteSuccess'));
               navigation.goBack();
               return;
             }
@@ -444,13 +455,13 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
             showToastMessage(
               toast,
               'danger',
-              response?.message || 'Unable to delete item.',
+              response?.message || t('myClosetItemEditor.deleteError'),
             );
           } catch (error) {
             showToastMessage(
               toast,
               'danger',
-              error?.response?.data?.message || error?.message || 'Unable to delete item.',
+              error?.response?.data?.message || error?.message || t('myClosetItemEditor.deleteError'),
             );
           } finally {
             setSaving(false);
@@ -459,83 +470,83 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
         },
       },
     ]);
-  }, [draft.id, dispatch, navigation, toast]);
+  }, [draft.id, dispatch, navigation, toast, t]);
 
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
       <ScrollView contentContainerStyle={styles.screenContent} showsVerticalScrollIndicator={false}>
         <ClosestHeader
-          title="Edit Item"
+          title={t('myClosetItemEditor.headerTitle')}
           subtitle="/mycloset/items/{itemId}"
           onBack={() => navigation.goBack()}
         />
 
         <View style={[styles.formCard, cardStyle]}>
           <Field
-            label="Item name"
+            label={t('myClosetItemEditor.itemNameLabel')}
             value={draft.name}
             onChangeText={value => setDraft(prev => ({ ...prev, name: value }))}
-            placeholder="Vintage Leather Jacket"
+            placeholder={t('myClosetItemEditor.itemNamePlaceholder')}
           />
           <DropdownRow
-            label="Category"
+            label={t('myClosetItemEditor.categoryLabel')}
             value={draft.category}
             options={CATEGORY_OPTIONS}
-            placeholder="Select category"
+            placeholder={t('myClosetItemEditor.categoryPlaceholder')}
             onSelect={value => setDraft(prev => ({ ...prev, category: value }))}
           />
           <Field
-            label="Brand"
+            label={t('myClosetItemEditor.brandLabel')}
             value={draft.brand}
             onChangeText={value => setDraft(prev => ({ ...prev, brand: value }))}
-            placeholder="Brand"
+            placeholder={t('myClosetItemEditor.brandPlaceholder')}
           />
           <DropdownRow
-            label="Condition"
+            label={t('myClosetItemEditor.conditionLabel')}
             value={draft.condition}
             options={CONDITION_OPTIONS}
-            placeholder="Select condition"
+            placeholder={t('myClosetItemEditor.conditionPlaceholder')}
             onSelect={value => setDraft(prev => ({ ...prev, condition: value }))}
           />
           <Field
-            label="Description"
+            label={t('myClosetItemEditor.descriptionLabel')}
             value={draft.description}
             onChangeText={value => setDraft(prev => ({ ...prev, description: value }))}
-            placeholder="Describe the item"
+            placeholder={t('myClosetItemEditor.descriptionPlaceholder')}
             multiline
           />
           <Field
-            label="Price"
+            label={t('myClosetItemEditor.priceLabel')}
             value={draft.price}
             onChangeText={value => setDraft(prev => ({ ...prev, price: value }))}
-            placeholder="0.00"
+            placeholder={t('myClosetItemEditor.pricePlaceholder')}
             keyboardType="numeric"
           />
           <Field
-            label="Quantity"
+            label={t('myClosetItemEditor.quantityLabel')}
             value={draft.quantity}
             onChangeText={value => setDraft(prev => ({ ...prev, quantity: value }))}
-            placeholder="1"
+            placeholder={t('myClosetItemEditor.quantityPlaceholder')}
             keyboardType="numeric"
           />
           <DropdownRow
-            label="Shipping option"
+            label={t('myClosetItemEditor.shippingOptionLabel')}
             value={draft.shippingOption}
             options={SHIPPING_OPTIONS}
-            placeholder="Select shipping option"
+            placeholder={t('myClosetItemEditor.shippingOptionPlaceholder')}
             onSelect={value => setDraft(prev => ({ ...prev, shippingOption: value }))}
           />
           <Field
-            label="Estimated shipping time"
+            label={t('myClosetItemEditor.shippingTimeLabel')}
             value={draft.shippingTime}
             onChangeText={value => setDraft(prev => ({ ...prev, shippingTime: value }))}
-            placeholder="3 - 5 business days"
+            placeholder={t('myClosetItemEditor.shippingTimePlaceholder')}
           />
           <DropdownRow
-            label="Return policy"
+            label={t('myClosetItemEditor.returnPolicyLabel')}
             value={draft.returnPolicy}
             options={RETURN_POLICY_OPTIONS}
-            placeholder="Select return policy"
+            placeholder={t('myClosetItemEditor.returnPolicyPlaceholder')}
             onSelect={value => setDraft(prev => ({ ...prev, returnPolicy: value }))}
           />
         </View>
@@ -547,7 +558,7 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
             disabled={saving}
             style={[styles.primaryButton, { backgroundColor: text, opacity: saving ? 0.8 : 1 }]}
           >
-           <Text style={styles.primaryButtonText}>Update Item</Text>
+           <Text style={styles.primaryButtonText}>{t('myClosetItemEditor.updateButton')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             activeOpacity={0.9}
@@ -555,7 +566,7 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
             disabled={saving}
             style={styles.deleteButtonLarge}
           >
-            <Text style={styles.deleteButtonLargeText}>Delete Item</Text>
+            <Text style={styles.deleteButtonLargeText}>{t('myClosetItemEditor.deleteButton')}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

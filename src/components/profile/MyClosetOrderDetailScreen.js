@@ -22,6 +22,7 @@ import {
   markOrderDelivered,
 } from '../../services/myCloset';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useLanguage } from '../../i18n';
 
 // ── Same design tokens as the buyer checkout flow ──────────────────────────
 const ACCENT = '#5A2386';
@@ -30,20 +31,22 @@ const BORDER = '#ebe4f3';
 const SURFACE = '#fbf8ff';
 
 // ── Status meta + flow (kept in sync with the orders list screen) ─────────
+// Labels are stored as i18n keys and resolved with t() inside the components
+// that render them, since these constants live outside any component.
 const STATUS_META = {
-  pending: { label: 'To ship', color: '#7c3aed', bg: 'rgba(124,58,237,0.12)' },
-  confirmed: { label: 'Confirmed', color: '#0891b2', bg: 'rgba(8,145,178,0.12)' },
-  processing: { label: 'Processing', color: '#d97706', bg: 'rgba(217,119,6,0.12)' },
-  shipped: { label: 'Shipped', color: '#2563eb', bg: 'rgba(37,99,235,0.12)' },
-  delivered: { label: 'Delivered', color: '#16a34a', bg: 'rgba(22,163,74,0.12)' },
-  cancelled: { label: 'Cancelled', color: '#dc2626', bg: 'rgba(220,38,38,0.12)' },
+  pending: { labelKey: 'myClosetOrderDetail.status.pending', color: '#7c3aed', bg: 'rgba(124,58,237,0.12)' },
+  confirmed: { labelKey: 'myClosetOrderDetail.status.confirmed', color: '#0891b2', bg: 'rgba(8,145,178,0.12)' },
+  processing: { labelKey: 'myClosetOrderDetail.status.processing', color: '#d97706', bg: 'rgba(217,119,6,0.12)' },
+  shipped: { labelKey: 'myClosetOrderDetail.status.shipped', color: '#2563eb', bg: 'rgba(37,99,235,0.12)' },
+  delivered: { labelKey: 'myClosetOrderDetail.status.delivered', color: '#16a34a', bg: 'rgba(22,163,74,0.12)' },
+  cancelled: { labelKey: 'myClosetOrderDetail.status.cancelled', color: '#dc2626', bg: 'rgba(220,38,38,0.12)' },
 };
 
 const STATUS_FLOW = {
-  pending: { label: 'Mark as Processing', actionKey: 'processing' },
-  confirmed: { label: 'Mark as Processing', actionKey: 'processing' },
-  processing: { label: 'Mark as Shipped', actionKey: 'shipped' },
-  shipped: { label: 'Mark as Delivered', actionKey: 'delivered' },
+  pending: { labelKey: 'myClosetOrderDetail.markAsProcessing', actionKey: 'processing' },
+  confirmed: { labelKey: 'myClosetOrderDetail.markAsProcessing', actionKey: 'processing' },
+  processing: { labelKey: 'myClosetOrderDetail.markAsShipped', actionKey: 'shipped' },
+  shipped: { labelKey: 'myClosetOrderDetail.markAsDelivered', actionKey: 'delivered' },
   delivered: null,
   cancelled: null,
 };
@@ -92,12 +95,12 @@ const getLineItemImage = line =>
   imageUri(line?.image) ||
   null;
 
-const getLineItemName = line =>
-  line?.product?.name || line?.product?.title || line?.item?.name || line?.name || 'Item';
+const getLineItemName = (line, t) =>
+  line?.product?.name || line?.product?.title || line?.item?.name || line?.name || t('myClosetOrderDetail.defaultItemName');
 
 const getLineItemPrice = line => line?.product?.price ?? line?.price ?? 0;
 
-const normalizeOrderDetail = order => {
+const normalizeOrderDetail = (order, t) => {
   const lineItems = Array.isArray(order?.orderItems)
     ? order.orderItems
     : Array.isArray(order?.items)
@@ -108,7 +111,7 @@ const normalizeOrderDetail = order => {
 
   const normalizedLines = lineItems.map((line, index) => ({
     id: line?.id || line?._id || String(index),
-    name: getLineItemName(line),
+    name: getLineItemName(line, t),
     image: getLineItemImage(line),
     quantity: Number(line?.quantity || 1),
     price: currency(getLineItemPrice(line)),
@@ -122,7 +125,7 @@ const normalizeOrderDetail = order => {
     orderNumber: order?.orderNumber || order?.orderId || order?.id,
     status: normalizeStatus(order?.orderStatus ?? order?.status),
     createdAt: formatDate(order?.createdAt || order?.orderDate),
-    buyerName: order?.buyerName || order?.buyer?.username || order?.buyer?.userName || 'Buyer',
+    buyerName: order?.buyerName || order?.buyer?.username || order?.buyer?.userName || t('myClosetOrderDetail.buyer'),
     buyerId: order?.buyerId || order?.buyer?.id,
     totalAmount: currency(order?.totalAmount ?? order?.amount ?? order?.total),
     totalItemCount: order?.totalItemCount ?? normalizedLines.length,
@@ -172,6 +175,7 @@ const BottomButton = ({ label, onPress, disabled }) => (
 
 // Small horizontal progress tracker: Pending → Processing → Shipped → Delivered
 const StatusTimeline = ({ status }) => {
+  const { t } = useLanguage();
   const currentIndex = TIMELINE_STEPS.indexOf(status === 'cancelled' ? 'pending' : status);
   return (
     <View style={styles.timelineWrap}>
@@ -186,7 +190,7 @@ const StatusTimeline = ({ status }) => {
                 {done ? <Ionicons name="checkmark" size={11} color="#fff" /> : null}
               </View>
               <Text style={[styles.timelineLabel, active && { color: ACCENT, fontWeight: '900' }]}>
-                {meta.label}
+                {t(meta.labelKey)}
               </Text>
             </View>
             {index < TIMELINE_STEPS.length - 1 && (
@@ -203,7 +207,8 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
   const orderId = route?.params?.orderId;
   const toast = useToast();
   const dispatch = useDispatch();
-   const { text, bgStyle } = useAppTheme();
+  const { text, bgStyle } = useAppTheme();
+  const { t } = useLanguage();
 
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -212,7 +217,7 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
 
   const loadOrder = useCallback(async () => {
     if (!orderId) {
-      setError('Missing order reference.');
+      setError(t('myClosetOrderDetail.missingOrderReference'));
       setLoading(false);
       return;
     }
@@ -221,13 +226,13 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
     try {
       const response = await getSellerOrderDetails(orderId);
       const payload = response?.data?.data ?? response?.data ?? response;
-      setOrder(normalizeOrderDetail(payload));
+      setOrder(normalizeOrderDetail(payload, t));
     } catch (err) {
-      setError(err?.response?.data?.message || err?.message || 'Could not load order details.');
+      setError(err?.response?.data?.message || err?.message || t('myClosetOrderDetail.couldNotLoadOrder'));
     } finally {
       setLoading(false);
     }
-  }, [orderId]);
+  }, [orderId, t]);
 
   useFocusEffect(
     useCallback(() => {
@@ -245,26 +250,26 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
     dispatch(showLoader());
     try {
       await action(order.id);
-      showToastMessage(toast, 'success', 'Order status updated.');
+      showToastMessage(toast, 'success', t('myClosetOrderDetail.orderStatusUpdated'));
       await loadOrder();
     } catch (err) {
       showToastMessage(
         toast,
         'danger',
-        err?.response?.data?.message || err?.message || 'Unable to update order status.',
+        err?.response?.data?.message || err?.message || t('myClosetOrderDetail.unableToUpdateStatus'),
       );
     } finally {
       setAdvancing(false);
       dispatch(hideLoader());
     }
-  }, [dispatch, loadOrder, order, toast]);
+  }, [dispatch, loadOrder, order, t, toast]);
 
   const goBack = () => (navigation.canGoBack?.() ? navigation.goBack() : null);
 
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <Header onBack={goBack} title="Order Details" />
+        <Header onBack={goBack} title={t('myClosetOrderDetail.headerTitle')} />
         <View style={styles.loaderWrap}>
           <ActivityIndicator color={ACCENT} />
         </View>
@@ -275,13 +280,13 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
   if (error || !order) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <Header onBack={goBack} title="Order Details" />
+        <Header onBack={goBack} title={t('myClosetOrderDetail.headerTitle')} />
         <View style={styles.emptyState}>
           <Ionicons name="alert-circle-outline" size={34} color="#dc2626" />
-          <Text style={styles.emptyTitle}>Couldn't load order</Text>
+          <Text style={styles.emptyTitle}>{t('myClosetOrderDetail.couldntLoadOrder')}</Text>
           <Text style={styles.emptyText}>{error}</Text>
           <TouchableOpacity activeOpacity={0.85} style={styles.retryButton} onPress={loadOrder}>
-            <Text style={styles.retryText}>Retry</Text>
+            <Text style={styles.retryText}>{t('myClosetOrderDetail.retry')}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -293,19 +298,19 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
 
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
-      <Header onBack={goBack} title={`Order #${order.orderNumber}`} />
+      <Header onBack={goBack} title={t('myClosetOrderDetail.orderNumberTitle', { orderNumber: order.orderNumber })} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.topRow}>
           <Text style={styles.orderDate}>{order.createdAt}</Text>
           <View style={[styles.statusBadge, { backgroundColor: meta.bg }]}>
-            <Text style={[styles.statusText, { color: meta.color }]}>{meta.label}</Text>
+            <Text style={[styles.statusText, { color: meta.color }]}>{t(meta.labelKey)}</Text>
           </View>
         </View>
 
         {order.status !== 'cancelled' && <StatusTimeline status={order.status} />}
 
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Buyer</Text>
+          <Text style={styles.cardTitle}>{t('myClosetOrderDetail.buyer')}</Text>
           <View style={styles.buyerRow}>
             <View style={styles.buyerAvatar}>
               <Ionicons name="person" size={18} color="#fff" />
@@ -316,7 +321,7 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
 
         {order.address ? (
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Shipping Address</Text>
+            <Text style={styles.cardTitle}>{t('myClosetOrderDetail.shippingAddress')}</Text>
             <Text style={styles.addressText}>{order.address.fullName}</Text>
             {order.address.phoneNumber ? (
               <Text style={styles.addressSub}>{order.address.phoneNumber}</Text>
@@ -334,7 +339,7 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
         ) : null}
 
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Items ({order.totalItemCount})</Text>
+          <Text style={styles.cardTitle}>{t('myClosetOrderDetail.items', { count: order.totalItemCount })}</Text>
           {order.lines.length ? (
             order.lines.map(line => (
               <View key={line.id} style={styles.lineRow}>
@@ -344,24 +349,24 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
                     {line.name}
                   </Text>
                   <Text style={styles.linePrice}>{line.price}</Text>
-                  <Text style={styles.lineQty}>Qty: {line.quantity}</Text>
+                  <Text style={styles.lineQty}>{t('myClosetOrderDetail.qty', { count: line.quantity })}</Text>
                 </View>
                 <Text style={styles.lineTotal}>{line.lineTotal}</Text>
               </View>
             ))
           ) : (
-            <Text style={styles.addressSub}>No item details available for this order.</Text>
+            <Text style={styles.addressSub}>{t('myClosetOrderDetail.noItemDetails')}</Text>
           )}
         </View>
 
         <View style={styles.card}>
-          <SummaryRow label="Order total" value={order.totalAmount} bold />
+          <SummaryRow label={t('myClosetOrderDetail.orderTotal')} value={order.totalAmount} bold />
         </View>
 
       {flowStep ? (
         <View style={styles.bottomBar}>
           <BottomButton
-            label={advancing ? 'Updating…' : flowStep.label}
+            label={advancing ? t('myClosetOrderDetail.updating') : t(flowStep.labelKey)}
             onPress={handleAdvance}
             disabled={advancing}
           />

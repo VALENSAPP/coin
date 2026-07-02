@@ -248,3 +248,7 @@ export const getBuyerOrderDetail = async orderId => {
 export const cancelBuyerOrder = async orderId => {
   return axiosInstance.patch(`/orders/${orderId}/cancel`);
 };
+
+export const getSellerDashboard = async () => {
+  return axiosInstance.get('/dashboard');
+};

@@ -13,6 +13,7 @@ import {
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useLanguage } from '../../i18n';
 
 const PURPLE = '#5B2FB5';
 const PURPLE_2 = '#7A49D6';
@@ -71,58 +72,69 @@ const PhoneFrame = ({ children }) => (
   </View>
 );
 
-const BattleCard = ({ left, right, showWinner = false, accent = PURPLE }) => (
-  <View style={styles.cardBlock}>
-    {showWinner ? (
-      <View style={styles.confettiCard}>
-        <Text style={styles.winnerBadge}>🏆 Winner</Text>
-        <View style={styles.winnerRow}>
-          <View style={styles.heroThumb}>
-            <View style={[styles.itemThumb, { backgroundColor: '#C9B79E' }]} />
+const BattleCard = ({ left, right, showWinner = false, accent = PURPLE }) => {
+  const { t } = useLanguage();
+  return (
+    <View style={styles.cardBlock}>
+      {showWinner ? (
+        <View style={styles.confettiCard}>
+          <Text style={styles.winnerBadge}>🏆 {t('battle.winner')}</Text>
+          <View style={styles.winnerRow}>
+            <View style={styles.heroThumb}>
+              <View style={[styles.itemThumb, { backgroundColor: '#C9B79E' }]} />
+            </View>
+            <View style={styles.winnerCopy}>
+              <Text style={styles.winnerTitle}>{left.name}</Text>
+              <Text style={styles.winnerPrice}>{left.price}</Text>
+            </View>
+            <View style={[styles.percentPill, { backgroundColor: accent }]}><Text style={styles.percentText}>62%</Text></View>
           </View>
-          <View style={styles.winnerCopy}>
-            <Text style={styles.winnerTitle}>{left.name}</Text>
-            <Text style={styles.winnerPrice}>{left.price}</Text>
-          </View>
-          <View style={[styles.percentPill, { backgroundColor: accent }]}><Text style={styles.percentText}>62%</Text></View>
+        </View>
+      ) : null}
+      <View style={styles.vsGrid}>
+        <View style={styles.itemTile}>
+          <Image source={{ uri: left.image }} style={styles.itemThumb} />
+          <Text style={styles.itemName}>{left.name}</Text>
+          <Text style={styles.itemPrice}>{left.price}</Text>
+        </View>
+        <View style={styles.vsBubble}><Text style={styles.vsText}>{t('battle.vs')}</Text></View>
+        <View style={styles.itemTile}>
+          <Image source={{ uri: right.image }} style={styles.itemThumb} />
+          <Text style={styles.itemName}>{right.name}</Text>
+          <Text style={styles.itemPrice}>{right.price}</Text>
         </View>
       </View>
-    ) : null}
-    <View style={styles.vsGrid}>
-      <View style={styles.itemTile}>
-        <Image source={{ uri: left.image }} style={styles.itemThumb} />
-        <Text style={styles.itemName}>{left.name}</Text>
-        <Text style={styles.itemPrice}>{left.price}</Text>
-      </View>
-      <View style={styles.vsBubble}><Text style={styles.vsText}>VS</Text></View>
-      <View style={styles.itemTile}>
-        <Image source={{ uri: right.image }} style={styles.itemThumb} />
-        <Text style={styles.itemName}>{right.name}</Text>
-        <Text style={styles.itemPrice}>{right.price}</Text>
-      </View>
     </View>
-  </View>
-);
+  );
+};
 
-const Stepper = ({ active = 1, labels = ['Items', 'Setup', 'Preview'] }) => (
-  <View style={styles.stepper}>
-    {labels.map((label, index) => {
-      const step = index + 1;
-      const focused = active >= step;
-      return (
-        <React.Fragment key={label}>
-          <View style={styles.stepItem}>
-            <View style={[styles.stepCircle, focused && styles.stepCircleActive]}>
-              <Text style={[styles.stepCircleText, focused && styles.stepCircleTextActive]}>{step}</Text>
+const Stepper = ({ active = 1, labels }) => {
+  const { t } = useLanguage();
+  const stepLabels = labels || [
+    t('battle.stepper.items'),
+    t('battle.stepper.setup'),
+    t('battle.stepper.preview'),
+  ];
+  return (
+    <View style={styles.stepper}>
+      {stepLabels.map((label, index) => {
+        const step = index + 1;
+        const focused = active >= step;
+        return (
+          <React.Fragment key={label}>
+            <View style={styles.stepItem}>
+              <View style={[styles.stepCircle, focused && styles.stepCircleActive]}>
+                <Text style={[styles.stepCircleText, focused && styles.stepCircleTextActive]}>{step}</Text>
+              </View>
+              <Text style={[styles.stepLabel, focused && styles.stepLabelActive]}>{label}</Text>
             </View>
-            <Text style={[styles.stepLabel, focused && styles.stepLabelActive]}>{label}</Text>
-          </View>
-          {index < labels.length - 1 ? <View style={styles.stepLine} /> : null}
-        </React.Fragment>
-      );
-    })}
-  </View>
-);
+            {index < stepLabels.length - 1 ? <View style={styles.stepLine} /> : null}
+          </React.Fragment>
+        );
+      })}
+    </View>
+  );
+};
 
 const StatRow = ({ items }) => (
   <View style={styles.statsRow}>
@@ -137,6 +149,7 @@ const StatRow = ({ items }) => (
 
 export function CreateBattleScreen({ navigation }) {
   const { bgStyle, text, card, bg } = useAppTheme();
+  const { t } = useLanguage();
   const accent = text || PURPLE;
   const [selectedIds, setSelectedIds] = useState(['jacket', 'bag']);
   const selectedItems = useMemo(
@@ -146,18 +159,18 @@ export function CreateBattleScreen({ navigation }) {
   const handleShare = async () => {
     try {
       await Share.share({
-        message: 'Check out my closet battle preview on Valens.',
+        message: t('battle.sharePreviewMessage'),
       });
     } catch {
-      Alert.alert('Share', 'Unable to open the share sheet right now.');
+      Alert.alert(t('battle.shareTitle'), t('battle.shareUnavailable'));
     }
   };
   return (
     <View style={[styles.screen, bgStyle]}>
-      <Header title="Battle Item" onBack={() => navigation.goBack()} onShare={handleShare} />
+      <Header title={t('battle.headerTitle')} onBack={() => navigation.goBack()} onShare={handleShare} />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <Text style={styles.sectionTitle}>Choose items for battle</Text>
-        <Text style={styles.sectionHint}>Select 2 items from your closet</Text>
+        <Text style={styles.sectionTitle}>{t('battle.chooseItemsTitle')}</Text>
+        <Text style={styles.sectionHint}>{t('battle.chooseItemsHint')}</Text>
         <View style={styles.grid}>
           {SAMPLE_ITEMS.map((item, index) => (
             <TouchableOpacity
@@ -192,7 +205,7 @@ export function CreateBattleScreen({ navigation }) {
         </View>
         <TouchableOpacity activeOpacity={0.9} onPress={() => navigation.navigate('BattleSetup', { selectedItems })}>
           <LinearGradient colors={[accent, PURPLE_2]} style={styles.primaryButton}>
-            <Text style={styles.primaryButtonText}>Next</Text>
+            <Text style={styles.primaryButtonText}>{t('battle.next')}</Text>
           </LinearGradient>
         </TouchableOpacity>
       </ScrollView>
@@ -202,20 +215,21 @@ export function CreateBattleScreen({ navigation }) {
 
 export function BattleSetupScreen({ navigation }) {
   const { bgStyle, text, card, bg } = useAppTheme();
+  const { t } = useLanguage();
   const accent = text || PURPLE;
-  const initialQuestion = 'Which one do you prefer?';
+  const initialQuestion = t('battle.defaultQuestion');
   const [question, setQuestion] = useState(initialQuestion);
   const [battleType, setBattleType] = useState('OPINION');
   const [duration, setDuration] = useState('3 DAYS');
-  const [visibility, setVisibility] = useState('Public');
+  const [visibility, setVisibility] = useState(t('battle.public'));
   const [errors, setErrors] = useState({});
 
   const validate = () => {
     const nextErrors = {};
-    if (!question.trim()) nextErrors.question = 'Battle question is required.';
-    if (!battleType) nextErrors.battleType = 'Please choose a battle type.';
-    if (!duration) nextErrors.duration = 'Please choose a battle duration.';
-    if (!visibility) nextErrors.visibility = 'Visibility is required.';
+    if (!question.trim()) nextErrors.question = t('battle.errors.questionRequired');
+    if (!battleType) nextErrors.battleType = t('battle.errors.typeRequired');
+    if (!duration) nextErrors.duration = t('battle.errors.durationRequired');
+    if (!visibility) nextErrors.visibility = t('battle.errors.visibilityRequired');
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   };
@@ -228,20 +242,20 @@ export function BattleSetupScreen({ navigation }) {
   return (
     <View style={[styles.screen, bgStyle, { backgroundColor: bg || SOFT_BG }]}>
       <Header
-        title="Battle Item"
+        title={t('battle.headerTitle')}
         onBack={() => navigation.goBack()}
         onShare={async () => {
           try {
-            await Share.share({ message: `Battle setup: ${question}` });
+            await Share.share({ message: t('battle.shareSetupMessage', { question }) });
           } catch {
-            Alert.alert('Share', 'Unable to open the share sheet right now.');
+            Alert.alert(t('battle.shareTitle'), t('battle.shareUnavailable'));
           }
         }}
       />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <Stepper active={2} />
         <View style={styles.field}>
-          <Text style={styles.fieldLabel}>Battle question</Text>
+          <Text style={styles.fieldLabel}>{t('battle.questionLabel')}</Text>
           <View style={[styles.inputCard, errors.question && styles.inputCardError]}>
             <TextInput
               value={question}
@@ -249,7 +263,7 @@ export function BattleSetupScreen({ navigation }) {
                 setQuestion(text);
                 if (errors.question) setErrors(prev => ({ ...prev, question: '' }));
               }}
-              placeholder="Which one do you prefer?"
+              placeholder={t('battle.defaultQuestion')}
               placeholderTextColor="#a78bfa"
               style={styles.inputText}
             />
@@ -257,44 +271,44 @@ export function BattleSetupScreen({ navigation }) {
           {errors.question ? <Text style={styles.errorText}>{errors.question}</Text> : null}
         </View>
         <View style={styles.field}>
-          <Text style={styles.fieldLabel}>Battle type</Text>
+          <Text style={styles.fieldLabel}>{t('battle.typeLabel')}</Text>
           <TouchableOpacity onPress={() => setBattleType('OPINION')} activeOpacity={0.9} style={[styles.optionCardSelected, battleType === 'OPINION' && { borderColor: accent, backgroundColor: card || '#fff' }]}>
-            <Text style={styles.optionTitle}>Opinion Battle</Text>
-            <Text style={styles.optionSub}>Users vote for their favorite</Text>
+            <Text style={styles.optionTitle}>{t('battle.opinionBattle')}</Text>
+            <Text style={styles.optionSub}>{t('battle.opinionBattleSub')}</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => setBattleType('STYLE')} activeOpacity={0.9} style={[styles.optionCard, battleType === 'STYLE' && { borderColor: accent, backgroundColor: card || '#fff' }]}>
-            <Text style={styles.optionTitle}>Style Battle</Text>
-            <Text style={styles.optionSub}>Users vote based on style match</Text>
+            <Text style={styles.optionTitle}>{t('battle.styleBattle')}</Text>
+            <Text style={styles.optionSub}>{t('battle.styleBattleSub')}</Text>
           </TouchableOpacity>
           {errors.battleType ? <Text style={styles.errorText}>{errors.battleType}</Text> : null}
         </View>
         <View style={styles.field}>
-          <Text style={styles.fieldLabel}>Battle duration</Text>
+          <Text style={styles.fieldLabel}>{t('battle.durationLabel')}</Text>
           <View style={styles.pillRow}>
-            <TouchableOpacity onPress={() => setDuration('24 HOURS')} style={styles.pill}><Text style={styles.pillText}>24 Hours</Text></TouchableOpacity>
-            <TouchableOpacity onPress={() => setDuration('3 DAYS')} style={[styles.pillActive, { borderColor: accent }]}><Text style={[styles.pillTextActive, { color: accent }]}>3 Days</Text></TouchableOpacity>
-            <TouchableOpacity onPress={() => setDuration('7 DAYS')} style={styles.pill}><Text style={styles.pillText}>7 Days</Text></TouchableOpacity>
+            <TouchableOpacity onPress={() => setDuration('24 HOURS')} style={styles.pill}><Text style={styles.pillText}>{t('battle.duration24h')}</Text></TouchableOpacity>
+            <TouchableOpacity onPress={() => setDuration('3 DAYS')} style={[styles.pillActive, { borderColor: accent }]}><Text style={[styles.pillTextActive, { color: accent }]}>{t('battle.duration3d')}</Text></TouchableOpacity>
+            <TouchableOpacity onPress={() => setDuration('7 DAYS')} style={styles.pill}><Text style={styles.pillText}>{t('battle.duration7d')}</Text></TouchableOpacity>
           </View>
           {errors.duration ? <Text style={styles.errorText}>{errors.duration}</Text> : null}
         </View>
         <View style={styles.field}>
-          <Text style={styles.fieldLabel}>Who can vote?</Text>
-          <TouchableOpacity onPress={() => setVisibility(prev => (prev === 'Public' ? 'Followers only' : 'Public'))} style={styles.inlineRow}>
+          <Text style={styles.fieldLabel}>{t('battle.whoCanVote')}</Text>
+          <TouchableOpacity onPress={() => setVisibility(prev => (prev === t('battle.public') ? t('battle.followersOnly') : t('battle.public')))} style={styles.inlineRow}>
             <Text style={styles.inlineValue}>{visibility}</Text>
-            <Text style={styles.inlineLink}>Change</Text>
+            <Text style={styles.inlineLink}>{t('battle.change')}</Text>
           </TouchableOpacity>
           {errors.visibility ? <Text style={styles.errorText}>{errors.visibility}</Text> : null}
         </View>
         <View style={styles.field}>
-          <Text style={styles.fieldLabel}>Visibility</Text>
-          <TouchableOpacity onPress={() => setVisibility(prev => (prev === 'Public' ? 'Private' : 'Public'))} style={styles.inlineRow}>
+          <Text style={styles.fieldLabel}>{t('battle.visibilityLabel')}</Text>
+          <TouchableOpacity onPress={() => setVisibility(prev => (prev === t('battle.public') ? t('battle.private') : t('battle.public')))} style={styles.inlineRow}>
             <Text style={styles.inlineValue}>{visibility}</Text>
-            <Text style={styles.inlineLink}>Change</Text>
+            <Text style={styles.inlineLink}>{t('battle.change')}</Text>
           </TouchableOpacity>
         </View>
         <TouchableOpacity activeOpacity={0.9} onPress={handlePreview}>
           <LinearGradient colors={[accent, PURPLE_2]} style={styles.primaryButton}>
-            <Text style={styles.primaryButtonText}>Preview Battle</Text>
+            <Text style={styles.primaryButtonText}>{t('battle.previewBattle')}</Text>
           </LinearGradient>
         </TouchableOpacity>
       </ScrollView>
@@ -304,19 +318,20 @@ export function BattleSetupScreen({ navigation }) {
 
 export function BattlePreviewScreen({ navigation }) {
   const { bgStyle, text, card, bg } = useAppTheme();
+  const { t } = useLanguage();
   const accent = text || PURPLE;
   const route = navigation?.getState?.()?.routes?.find?.(r => r.name === 'BattlePreview');
-  const previewQuestion = route?.params?.question || 'Which one do you prefer?';
+  const previewQuestion = route?.params?.question || t('battle.defaultQuestion');
   return (
     <View style={[styles.screen, bgStyle, { backgroundColor: bg || SOFT_BG }]}>
       <Header
-        title="Preview Battle"
+        title={t('battle.previewTitle')}
         onBack={() => navigation.goBack()}
         onShare={async () => {
           try {
-            await Share.share({ message: `Preview this battle: ${previewQuestion}` });
+            await Share.share({ message: t('battle.sharePreviewQuestionMessage', { question: previewQuestion }) });
           } catch {
-            Alert.alert('Share', 'Unable to open the share sheet right now.');
+            Alert.alert(t('battle.shareTitle'), t('battle.shareUnavailable'));
           }
         }}
       />
@@ -325,17 +340,21 @@ export function BattlePreviewScreen({ navigation }) {
         <Text style={styles.sectionTitle}>{previewQuestion}</Text>
         <BattleCard left={SAMPLE_ITEMS[0]} right={SAMPLE_ITEMS[1]} accent={accent} />
         <View style={styles.infoRow}>
-          <Text style={styles.infoText}>3 Days left</Text>
-          <Text style={styles.infoText}>Everyone can vote</Text>
+          <Text style={styles.infoText}>{t('battle.daysLeft', { count: 3 })}</Text>
+          <Text style={styles.infoText}>{t('battle.everyoneCanVote')}</Text>
         </View>
         <View style={[styles.aboutCard, { backgroundColor: card || '#fff' }]}>
-          <Text style={styles.aboutTitle}>About this battle</Text>
-          <Text style={styles.aboutText}>Help others choose their favorite!</Text>
+          <Text style={styles.aboutTitle}>{t('battle.aboutTitle')}</Text>
+          <Text style={styles.aboutText}>{t('battle.aboutTextPreview')}</Text>
         </View>
-        <StatRow items={[{ label: 'Votes', value: '0' }, { label: 'Views', value: '0' }, { label: 'Comments', value: '0' }]} />
+        <StatRow items={[
+          { label: t('battle.stats.votes'), value: '0' },
+          { label: t('battle.stats.views'), value: '0' },
+          { label: t('battle.stats.comments'), value: '0' },
+        ]} />
         <TouchableOpacity activeOpacity={0.9} onPress={() => navigation.navigate('BattleLive')}>
           <LinearGradient colors={[accent, PURPLE_2]} style={styles.primaryButton}>
-            <Text style={styles.primaryButtonText}>Launch Battle</Text>
+            <Text style={styles.primaryButtonText}>{t('battle.launchBattle')}</Text>
           </LinearGradient>
         </TouchableOpacity>
       </ScrollView>
@@ -345,41 +364,46 @@ export function BattlePreviewScreen({ navigation }) {
 
 export function BattleLiveScreen({ navigation }) {
   const { bgStyle, text, card, bg } = useAppTheme();
+  const { t } = useLanguage();
   const accent = text || PURPLE;
   return (
     <View style={[styles.screen, bgStyle, { backgroundColor: bg || SOFT_BG }]}>
       <Header
-        title="Battle Live"
+        title={t('battle.liveTitle')}
         onBack={() => navigation.goBack()}
         rightIcon="share-outline"
         onShare={async () => {
           try {
-            await Share.share({ message: 'Vote in my live closet battle on Valens.' });
+            await Share.share({ message: t('battle.shareLiveMessage') });
           } catch {
-            Alert.alert('Share', 'Unable to open the share sheet right now.');
+            Alert.alert(t('battle.shareTitle'), t('battle.shareUnavailable'));
           }
         }}
       />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.liveTopRow}>
-          <View style={[styles.pillOutline, { borderColor: accent }]}><Text style={[styles.pillOutlineText, { color: accent }]}>Opinion Battle</Text></View>
-          <Text style={styles.liveMuted}>3 Days left</Text>
+          <View style={[styles.pillOutline, { borderColor: accent }]}><Text style={[styles.pillOutlineText, { color: accent }]}>{t('battle.opinionBattle')}</Text></View>
+          <Text style={styles.liveMuted}>{t('battle.daysLeft', { count: 3 })}</Text>
         </View>
-        <Text style={styles.sectionTitle}>Which one do you prefer?</Text>
+        <Text style={styles.sectionTitle}>{t('battle.defaultQuestion')}</Text>
         <BattleCard left={SAMPLE_ITEMS[0]} right={SAMPLE_ITEMS[1]} accent={accent} />
         <View style={styles.voteCopy}>
-          <Text style={styles.voteTitle}>Vote and see results</Text>
-          <Text style={styles.voteSub}>Your vote helps others decide!</Text>
+          <Text style={styles.voteTitle}>{t('battle.voteAndSeeResults')}</Text>
+          <Text style={styles.voteSub}>{t('battle.voteHelpsOthers')}</Text>
         </View>
         <TouchableOpacity activeOpacity={0.9} onPress={() => navigation.navigate('BattleResultsScreen')}>
           <LinearGradient colors={[accent, PURPLE_2]} style={styles.primaryButton}>
-            <Text style={styles.primaryButtonText}>Vote Jacket</Text>
+            <Text style={styles.primaryButtonText}>{t('battle.voteFor', { name: SAMPLE_ITEMS[0].name })}</Text>
           </LinearGradient>
         </TouchableOpacity>
         <View style={[styles.secondaryButton, { borderColor: accent }]}>
-          <Text style={[styles.secondaryButtonText, { color: accent }]}>Vote Bag</Text>
+          <Text style={[styles.secondaryButtonText, { color: accent }]}>{t('battle.voteFor', { name: SAMPLE_ITEMS[1].name })}</Text>
         </View>
-        <StatRow items={[{ label: 'Votes', value: '125' }, { label: 'Views', value: '860' }, { label: 'Comments', value: '24' }]} />
+        <StatRow items={[
+          { label: t('battle.stats.votes'), value: '125' },
+          { label: t('battle.stats.views'), value: '860' },
+          { label: t('battle.stats.comments'), value: '24' },
+        ]} />
       </ScrollView>
     </View>
   );
@@ -387,36 +411,37 @@ export function BattleLiveScreen({ navigation }) {
 
 export function BattleResultsScreen({ navigation }) {
   const { bgStyle, text, card, bg } = useAppTheme();
+  const { t } = useLanguage();
   const accent = text || PURPLE;
   return (
     <View style={[styles.screen, bgStyle, { backgroundColor: bg || SOFT_BG }]}>
       <Header
-        title="Battle Results"
+        title={t('battle.resultsTitle')}
         onBack={() => navigation.goBack()}
         onShare={async () => {
           try {
-            await Share.share({ message: 'Check out the results of my closet battle on Valens.' });
+            await Share.share({ message: t('battle.shareResultsMessage') });
           } catch {
-            Alert.alert('Share', 'Unable to open the share sheet right now.');
+            Alert.alert(t('battle.shareTitle'), t('battle.shareUnavailable'));
           }
         }}
       />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <BattleCard left={SAMPLE_ITEMS[1]} right={SAMPLE_ITEMS[0]} showWinner accent={accent} />
         <View style={[styles.resultsBlock, { backgroundColor: card || '#fff' }]}>
-          <Text style={styles.sectionTitle}>Battle Insights</Text>
-          <View style={styles.resultsRow}><Text style={styles.resultsLabel}>Total Votes</Text><Text style={styles.resultsValue}>125</Text></View>
-          <View style={styles.resultsRow}><Text style={styles.resultsLabel}>Total Views</Text><Text style={styles.resultsValue}>860</Text></View>
-          <View style={styles.resultsRow}><Text style={styles.resultsLabel}>Comments</Text><Text style={styles.resultsValue}>24</Text></View>
-          <View style={styles.resultsRow}><Text style={styles.resultsLabel}>Shares</Text><Text style={styles.resultsValue}>12</Text></View>
+          <Text style={styles.sectionTitle}>{t('battle.battleInsights')}</Text>
+          <View style={styles.resultsRow}><Text style={styles.resultsLabel}>{t('battle.stats.totalVotes')}</Text><Text style={styles.resultsValue}>125</Text></View>
+          <View style={styles.resultsRow}><Text style={styles.resultsLabel}>{t('battle.stats.totalViews')}</Text><Text style={styles.resultsValue}>860</Text></View>
+          <View style={styles.resultsRow}><Text style={styles.resultsLabel}>{t('battle.stats.comments')}</Text><Text style={styles.resultsValue}>24</Text></View>
+          <View style={styles.resultsRow}><Text style={styles.resultsLabel}>{t('battle.stats.shares')}</Text><Text style={styles.resultsValue}>12</Text></View>
         </View>
         <View style={[styles.aboutCard, { backgroundColor: card || '#fff' }]}>
-          <Text style={styles.aboutTitle}>Use these insights</Text>
-          <Text style={styles.aboutText}>This item is more desired by the community. Consider promoting it or creating similar items.</Text>
+          <Text style={styles.aboutTitle}>{t('battle.useInsightsTitle')}</Text>
+          <Text style={styles.aboutText}>{t('battle.useInsightsText')}</Text>
         </View>
         <View style={styles.actionRow}>
-          <TouchableOpacity activeOpacity={0.9} style={[styles.outlineBtn, { borderColor: accent }]}><Text style={[styles.outlineBtnText, { color: accent }]}>Share Results</Text></TouchableOpacity>
-          <TouchableOpacity activeOpacity={0.9} style={[styles.actionBtn, { backgroundColor: accent }]}><Text style={styles.actionBtnText}>View Item</Text></TouchableOpacity>
+          <TouchableOpacity activeOpacity={0.9} style={[styles.outlineBtn, { borderColor: accent }]}><Text style={[styles.outlineBtnText, { color: accent }]}>{t('battle.shareResults')}</Text></TouchableOpacity>
+          <TouchableOpacity activeOpacity={0.9} style={[styles.actionBtn, { backgroundColor: accent }]}><Text style={styles.actionBtnText}>{t('battle.viewItem')}</Text></TouchableOpacity>
         </View>
       </ScrollView>
     </View>

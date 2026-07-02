@@ -31,6 +31,7 @@ import {
   checkoutCart,
 } from '../../services/myCloset';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useLanguage } from '../../i18n';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const GRID_GAP = 12;
@@ -80,32 +81,31 @@ const prefetchImageUrls = async items => {
   await Promise.allSettled([...new Set(urls)].map(url => Image.prefetch(url)));
 };
 
-const normalizeItem = (item = {}, index = 0) => ({
+// `description`/`brand`/`condition` fall back to translated defaults when the API omits them.
+const normalizeItem = (item = {}, index = 0, t) => ({
   id: String(item?.id || item?._id || `item-${index}`),
   raw: item,
-  name: item?.name || item?.title || item?.itemName || 'Untitled item',
+  name: item?.name || item?.title || item?.itemName || t('myClosetBuyer.untitledItem'),
   price: currency(item?.price ?? item?.amount ?? item?.salePrice),
   priceValue: numberFromPrice(item?.price ?? item?.amount ?? item?.salePrice),
   image: itemImage(item),
   images: itemImages(item),
-  brand: item?.brand || 'Valens Closet',
-  category: item?.category || 'Accessories',
-  condition: item?.condition || 'Like new',
-  description:
-    item?.description ||
-    'Authentic closet item in excellent condition. Worn only a few times and ready for a new home.',
+  brand: item?.brand || t('myClosetBuyer.defaultBrand'),
+  category: item?.category || t('myClosetBuyer.defaultCategory'),
+  condition: item?.condition || t('myClosetBuyer.defaultCondition'),
+  description: item?.description || t('myClosetBuyer.defaultDescription'),
   quantityAvailable: Number(item?.quantity || item?.availableQuantity || 1) || 1,
   sellerName: item?.sellerName || item?.userName || item?.ownerName || '',
 });
 
-const normalizeItems = items =>
-  (Array.isArray(items) ? items : []).map((item, index) => normalizeItem(item, index));
+const normalizeItems = (items, t) =>
+  (Array.isArray(items) ? items : []).map((item, index) => normalizeItem(item, index, t));
 
-const getRouteItems = route =>
-  normalizeItems(route?.params?.items || route?.params?.initialItems || []);
+const getRouteItems = (route, t) =>
+  normalizeItems(route?.params?.items || route?.params?.initialItems || [], t);
 
-const buildCart = (route, overrides = {}) => {
-  const item = normalizeItem(route?.params?.item || {}, 0);
+const buildCart = (route, t, overrides = {}) => {
+  const item = normalizeItem(route?.params?.item || {}, 0, t);
   const quantity = Number(route?.params?.quantity || 1) || 1;
   const shipping = Number(route?.params?.shipping ?? 10);
   const serviceFee = Number(route?.params?.serviceFee ?? 5);
@@ -126,6 +126,55 @@ const buildCart = (route, overrides = {}) => {
 
 const goBack = navigation => {
   if (navigation.canGoBack?.()) navigation.goBack();
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Field validation rules — labels/messages are functions of `t` so components
+// re-derive them via useMemo when the language changes.
+// ─────────────────────────────────────────────────────────────────────────────
+const getFieldRules = t => ({
+  fullName: { required: true, label: t('myClosetBuyer.field.fullName') },
+  phoneNumber: {
+    required: true,
+    label: t('myClosetBuyer.field.phoneNumber'),
+    pattern: /^[+\d\s\-()]{7,20}$/,
+    patternMsg: t('myClosetBuyer.field.invalidPhone'),
+  },
+  alternateNumber: {
+    required: false,
+    label: t('myClosetBuyer.field.alternateNumber'),
+    pattern: /^[+\d\s\-()]{7,20}$/,
+    patternMsg: t('myClosetBuyer.field.invalidPhone'),
+  },
+  addressLine1: { required: true, label: t('myClosetBuyer.field.addressLine1') },
+  addressLine2: { required: false, label: t('myClosetBuyer.field.addressLine2') },
+  city: { required: true, label: t('myClosetBuyer.field.city') },
+  state: { required: false, label: t('myClosetBuyer.field.state') },
+  country: { required: false, label: t('myClosetBuyer.field.country') },
+  postalCode: {
+    required: false,
+    label: t('myClosetBuyer.field.postalCode'),
+    pattern: /^\d{3,10}$/,
+    patternMsg: t('myClosetBuyer.field.invalidPostalCode'),
+  },
+});
+
+const validateField = (key, value, fieldRules, t) => {
+  const rule = fieldRules[key];
+  if (!rule) return null;
+  const trimmed = String(value ?? '').trim();
+  if (rule.required && !trimmed) return t('myClosetBuyer.field.required', { label: rule.label });
+  if (trimmed && rule.pattern && !rule.pattern.test(trimmed)) return rule.patternMsg;
+  return null;
+};
+
+const validateForm = (form, fieldRules, t) => {
+  const errors = {};
+  Object.keys(fieldRules).forEach(key => {
+    const err = validateField(key, form[key], fieldRules, t);
+    if (err) errors[key] = err;
+  });
+  return errors;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -245,7 +294,13 @@ const SummaryRow = ({ label, value, bold }) => {
 
 const CheckoutSteps = ({ current }) => {
   const { text } = useAppTheme();
-  const steps = ['Cart', 'Shipping', 'Payment', 'Review'];
+  const { t } = useLanguage();
+  const steps = [
+    t('myClosetBuyer.steps.cart'),
+    t('myClosetBuyer.steps.shipping'),
+    t('myClosetBuyer.steps.payment'),
+    t('myClosetBuyer.steps.review'),
+  ];
   return (
     <View style={styles.stepsWrap}>
       {steps.map((step, index) => {
@@ -287,6 +342,7 @@ const CheckoutSteps = ({ current }) => {
 
 const SellerCard = ({ seller }) => {
   const { text } = useAppTheme();
+  const { t } = useLanguage();
   return (
     <View style={styles.sellerCard}>
       <View style={[styles.sellerAvatar, { backgroundColor: text }]}>
@@ -298,9 +354,9 @@ const SellerCard = ({ seller }) => {
       </View>
       <View style={styles.sellerCopy}>
         <Text style={styles.sellerName}>
-          {seller?.displayName || seller?.userName || 'Closet seller'}
+          {seller?.displayName || seller?.userName || t('myClosetBuyer.closetSellerFallback')}
         </Text>
-        <Text style={styles.sellerMeta}>Active 2h ago</Text>
+        <Text style={styles.sellerMeta}>{t('myClosetBuyer.sellerActive2h')}</Text>
         <View style={styles.ratingRow}>
           <Ionicons name="star" size={12} color="#f59e0b" />
           <Text style={styles.ratingText}>4.8 (32)</Text>
@@ -313,13 +369,14 @@ const SellerCard = ({ seller }) => {
 
 const OrderSummary = ({ cart, editable, compact, onEditCart }) => {
   const { text } = useAppTheme();
+  const { t } = useLanguage();
   return (
     <View style={[styles.card, compact && styles.compactCard]}>
       <View style={styles.cardHeaderRow}>
-        <Text style={styles.cardTitle}>Order Summary</Text>
+        <Text style={styles.cardTitle}>{t('myClosetBuyer.orderSummary')}</Text>
         {editable ? (
           <TouchableOpacity activeOpacity={0.8} onPress={onEditCart}>
-            <Text style={[styles.editText, { color: text }]}>Edit Cart</Text>
+            <Text style={[styles.editText, { color: text }]}>{t('myClosetBuyer.editCart')}</Text>
           </TouchableOpacity>
         ) : null}
       </View>
@@ -330,49 +387,16 @@ const OrderSummary = ({ cart, editable, compact, onEditCart }) => {
             {cart.item.name}
           </Text>
           <Text style={[styles.summaryItemPrice, { color: text }]}>{cart.item.price}</Text>
-          <Text style={styles.summaryItemQty}>Qty: {cart.quantity}</Text>
+          <Text style={styles.summaryItemQty}>{t('myClosetBuyer.qtyLabel', { qty: cart.quantity })}</Text>
         </View>
       </View>
       <View style={styles.divider} />
-      <SummaryRow label="Item total" value={currency(cart.itemTotal)} />
+      <SummaryRow label={t('myClosetBuyer.itemTotal')} value={currency(cart.itemTotal)} />
       {/* <SummaryRow label="Shipping" value={currency(cart.shipping)} />
       <SummaryRow label="Service fee" value={currency(cart.serviceFee)} /> */}
-      <SummaryRow label="Total" value={currency(cart.total)} bold />
+      <SummaryRow label={t('myClosetBuyer.total')} value={currency(cart.total)} bold />
     </View>
   );
-};
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Field validation rules
-// ─────────────────────────────────────────────────────────────────────────────
-const FIELD_RULES = {
-  fullName: { required: true, label: 'Full Name' },
-  phoneNumber: { required: true, label: 'Phone Number', pattern: /^[+\d\s\-()]{7,20}$/, patternMsg: 'Enter a valid phone number' },
-  alternateNumber: { required: false, label: 'Alternate Number', pattern: /^[+\d\s\-()]{7,20}$/, patternMsg: 'Enter a valid phone number' },
-  addressLine1: { required: true, label: 'Address Line 1' },
-  addressLine2: { required: false, label: 'Address Line 2' },
-  city: { required: true, label: 'City' },
-  state: { required: false, label: 'State / Province' },
-  country: { required: false, label: 'Country' },
-  postalCode: { required: false, label: 'Postal Code', pattern: /^\d{3,10}$/, patternMsg: 'Enter a valid postal code' },
-};
-
-const validateField = (key, value) => {
-  const rule = FIELD_RULES[key];
-  if (!rule) return null;
-  const trimmed = String(value ?? '').trim();
-  if (rule.required && !trimmed) return `${rule.label} is required`;
-  if (trimmed && rule.pattern && !rule.pattern.test(trimmed)) return rule.patternMsg;
-  return null;
-};
-
-const validateForm = form => {
-  const errors = {};
-  Object.keys(FIELD_RULES).forEach(key => {
-    const err = validateField(key, form[key]);
-    if (err) errors[key] = err;
-  });
-  return errors;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -419,7 +443,9 @@ const EMPTY_ADDRESS = {
 // editAddress prop: if passed, modal opens in edit mode pre-filled with that address
 const AddAddressModal = ({ visible, onClose, onSaved, editAddress }) => {
   const { text } = useAppTheme();
+  const { t } = useLanguage();
   const isEdit = !!editAddress;
+  const fieldRules = useMemo(() => getFieldRules(t), [t]);
 
   const [form, setForm] = useState(EMPTY_ADDRESS);
   const [errors, setErrors] = useState({});
@@ -452,21 +478,21 @@ const AddAddressModal = ({ visible, onClose, onSaved, editAddress }) => {
   const set = useCallback((key, value) => {
     setForm(prev => ({ ...prev, [key]: value }));
     if (touched[key]) {
-      const err = validateField(key, value);
+      const err = validateField(key, value, fieldRules, t);
       setErrors(prev => ({ ...prev, [key]: err }));
     }
-  }, [touched]);
+  }, [touched, fieldRules, t]);
 
   const handleBlur = useCallback(key => {
     setTouched(prev => ({ ...prev, [key]: true }));
-    const err = validateField(key, form[key]);
+    const err = validateField(key, form[key], fieldRules, t);
     setErrors(prev => ({ ...prev, [key]: err }));
-  }, [form]);
+  }, [form, fieldRules, t]);
 
   const handleSave = async () => {
-    const allTouched = Object.keys(FIELD_RULES).reduce((acc, k) => ({ ...acc, [k]: true }), {});
+    const allTouched = Object.keys(fieldRules).reduce((acc, k) => ({ ...acc, [k]: true }), {});
     setTouched(allTouched);
-    const allErrors = validateForm(form);
+    const allErrors = validateForm(form, fieldRules, t);
     setErrors(allErrors);
     if (Object.keys(allErrors).length > 0) return;
 
@@ -498,7 +524,7 @@ const AddAddressModal = ({ visible, onClose, onSaved, editAddress }) => {
       setTouched({});
       onClose();
     } catch (err) {
-      Alert.alert('Error', err?.response?.data?.message || 'Could not save address. Please try again.');
+      Alert.alert(t('myClosetBuyer.errorTitle'), err?.response?.data?.message || t('myClosetBuyer.addressSaveError'));
     } finally {
       setSaving(false);
     }
@@ -518,35 +544,35 @@ const AddAddressModal = ({ visible, onClose, onSaved, editAddress }) => {
           <TouchableOpacity onPress={handleClose} style={styles.iconButton}>
             <Ionicons name="close" size={22} color="#17072d" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>{isEdit ? 'Edit Address' : 'New Address'}</Text>
+          <Text style={styles.headerTitle}>{isEdit ? t('myClosetBuyer.editAddressTitle') : t('myClosetBuyer.newAddressTitle')}</Text>
           <View style={styles.iconButton} />
         </View>
         <ScrollView contentContainerStyle={styles.modalContent} showsVerticalScrollIndicator={false}>
-          <Field label="Full Name *" fieldKey="fullName" placeholder="John Doe"
+          <Field label={`${t('myClosetBuyer.field.fullName')} *`} fieldKey="fullName" placeholder="John Doe"
             value={form.fullName} onChangeText={v => set('fullName', v)}
             onBlur={() => handleBlur('fullName')} error={errors.fullName} />
-          <Field label="Phone Number *" fieldKey="phoneNumber" placeholder="+1 555 000 0000"
+          <Field label={`${t('myClosetBuyer.field.phoneNumber')} *`} fieldKey="phoneNumber" placeholder="+1 555 000 0000"
             keyboardType="phone-pad" value={form.phoneNumber} onChangeText={v => set('phoneNumber', v)}
             onBlur={() => handleBlur('phoneNumber')} error={errors.phoneNumber} />
-          <Field label="Alternate Number" fieldKey="alternateNumber"
+          <Field label={t('myClosetBuyer.field.alternateNumber')} fieldKey="alternateNumber"
             keyboardType="phone-pad" value={form.alternateNumber} onChangeText={v => set('alternateNumber', v)}
             onBlur={() => handleBlur('alternateNumber')} error={errors.alternateNumber} />
-          <Field label="Address Line 1 *" fieldKey="addressLine1" placeholder="123 Main Street"
+          <Field label={`${t('myClosetBuyer.field.addressLine1')} *`} fieldKey="addressLine1" placeholder="123 Main Street"
             value={form.addressLine1} onChangeText={v => set('addressLine1', v)}
             onBlur={() => handleBlur('addressLine1')} error={errors.addressLine1} />
-          <Field label="Address Line 2" fieldKey="addressLine2" placeholder="Apt, Suite, Floor…"
+          <Field label={t('myClosetBuyer.field.addressLine2')} fieldKey="addressLine2" placeholder="Apt, Suite, Floor…"
             value={form.addressLine2} onChangeText={v => set('addressLine2', v)}
             onBlur={() => handleBlur('addressLine2')} error={errors.addressLine2} />
-          <Field label="City *" fieldKey="city" placeholder="New York"
+          <Field label={`${t('myClosetBuyer.field.city')} *`} fieldKey="city" placeholder="New York"
             value={form.city} onChangeText={v => set('city', v)}
             onBlur={() => handleBlur('city')} error={errors.city} />
-          <Field label="State / Province" fieldKey="state" placeholder="NY"
+          <Field label={t('myClosetBuyer.field.state')} fieldKey="state" placeholder="NY"
             value={form.state} onChangeText={v => set('state', v)}
             onBlur={() => handleBlur('state')} error={errors.state} />
-          <Field label="Country" fieldKey="country" placeholder="United States"
+          <Field label={t('myClosetBuyer.field.country')} fieldKey="country" placeholder="United States"
             value={form.country} onChangeText={v => set('country', v)}
             onBlur={() => handleBlur('country')} error={errors.country} />
-          <Field label="Postal Code" fieldKey="postalCode" placeholder="10001"
+          <Field label={t('myClosetBuyer.field.postalCode')} fieldKey="postalCode" placeholder="10001"
             keyboardType="numeric" value={form.postalCode} onChangeText={v => set('postalCode', v)}
             onBlur={() => handleBlur('postalCode')} error={errors.postalCode} />
 
@@ -560,12 +586,12 @@ const AddAddressModal = ({ visible, onClose, onSaved, editAddress }) => {
               size={20}
               color={text}
             />
-            <Text style={styles.defaultLabel}>Set as default address</Text>
+            <Text style={styles.defaultLabel}>{t('myClosetBuyer.setAsDefaultAddress')}</Text>
           </TouchableOpacity>
         </ScrollView>
         <View style={styles.bottomBar}>
           <BottomButton
-            label={saving ? 'Saving…' : isEdit ? 'Update Address' : 'Save Address'}
+            label={saving ? t('myClosetBuyer.saving') : isEdit ? t('myClosetBuyer.updateAddressButton') : t('myClosetBuyer.saveAddressButton')}
             onPress={saving ? undefined : handleSave}
           />
         </View>
@@ -580,7 +606,8 @@ const AddAddressModal = ({ visible, onClose, onSaved, editAddress }) => {
 
 const MyClosetBuyerItemsScreen = ({ navigation, route }) => {
   const { bgStyle, text } = useAppTheme(route?.params?.seller?.profile);
-  const [items, setItems] = useState(() => getRouteItems(route));
+  const { t } = useLanguage();
+  const [items, setItems] = useState(() => getRouteItems(route, t));
   const [loading, setLoading] = useState(false);
   const seller = useMemo(() => route?.params?.seller || {}, [route?.params?.seller]);
   const sellerId = route?.params?.sellerId || seller?.id;
@@ -600,7 +627,7 @@ const MyClosetBuyerItemsScreen = ({ navigation, route }) => {
           : Array.isArray(payload?.data)
             ? payload.data
             : [];
-      const normalized = normalizeItems(nextItems);
+      const normalized = normalizeItems(nextItems, t);
       prefetchImageUrls(nextItems);
       setItems(normalized);
     } catch {
@@ -608,7 +635,7 @@ const MyClosetBuyerItemsScreen = ({ navigation, route }) => {
     } finally {
       setLoading(false);
     }
-  }, [items.length, sellerId]);
+  }, [items.length, sellerId, t]);
 
   useFocusEffect(
     useCallback(() => {
@@ -648,7 +675,7 @@ const MyClosetBuyerItemsScreen = ({ navigation, route }) => {
 
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
-      <Header navigation={navigation} title="My Closet" />
+      <Header navigation={navigation} title={t('myClosetBuyer.myClosetTitle')} />
       {loading ? (
         <View style={styles.loaderWrap}>
           <ActivityIndicator color={accent} />
@@ -669,19 +696,21 @@ const MyClosetBuyerItemsScreen = ({ navigation, route }) => {
           ListHeaderComponent={(
             <View style={styles.listIntro}>
               <Text style={styles.listTitle}>
-                {seller?.displayName || seller?.userName || 'Closet'} items
+                {t('myClosetBuyer.closetItemsHeading', {
+                  name: seller?.displayName || seller?.userName || t('myClosetBuyer.closetFallback'),
+                })}
               </Text>
               <Text style={styles.listSubtitle}>
-                {items.length} item{items.length === 1 ? '' : 's'} available
+                {t('myClosetBuyer.itemsAvailable', { count: items.length })}
               </Text>
             </View>
           )}
           ListEmptyComponent={(
             <View style={styles.emptyState}>
               <Ionicons name="shirt-outline" size={34} color="#c4b5d4" />
-              <Text style={styles.emptyTitle}>No items available</Text>
+              <Text style={styles.emptyTitle}>{t('myClosetBuyer.noItemsAvailable')}</Text>
               <Text style={styles.emptyText}>
-                This closet does not have any listed items yet.
+                {t('myClosetBuyer.noItemsAvailableText')}
               </Text>
             </View>
           )}
@@ -693,7 +722,8 @@ const MyClosetBuyerItemsScreen = ({ navigation, route }) => {
 
 const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
   const { text, bgStyle } = useAppTheme();
-  const item = normalizeItem(route?.params?.item || {}, 0);
+  const { t } = useLanguage();
+  const item = normalizeItem(route?.params?.item || {}, 0, t);
   const seller = route?.params?.seller || {};
   const isOwnProfile = route?.params?.isOwnProfile ?? false;
   const [liked, setLiked] = useState(false);
@@ -711,7 +741,7 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
       <Header
         navigation={navigation}
-        title="My Closet"
+        title={t('myClosetBuyer.myClosetTitle')}
         rightIcon={liked ? 'heart' : 'heart-outline'}
         onRightPress={() => setLiked(prev => !prev)}
       />
@@ -723,13 +753,13 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
         <Text style={styles.detailName}>{item.name}</Text>
         <Text style={[styles.detailPrice, { color: text }]}>{item.price}</Text>
         <SellerCard seller={seller} />
-        <Text style={styles.sectionLabel}>Description</Text>
+        <Text style={styles.sectionLabel}>{t('myClosetBuyer.description')}</Text>
         <Text style={styles.description}>{item.description}</Text>
         <View style={styles.attributeList}>
           {[
-            { icon: 'shield-checkmark-outline', label: 'Condition', value: item.condition },
-            { icon: 'pricetag-outline', label: 'Brand', value: item.brand },
-            { icon: 'albums-outline', label: 'Category', value: item.category },
+            { icon: 'shield-checkmark-outline', label: t('myClosetBuyer.condition'), value: item.condition },
+            { icon: 'pricetag-outline', label: t('myClosetBuyer.brand'), value: item.brand },
+            { icon: 'albums-outline', label: t('myClosetBuyer.category'), value: item.category },
           ].map(attr => (
             <View key={attr.label} style={styles.attributeRow}>
               <Ionicons name={attr.icon} size={15} color={text} />
@@ -741,7 +771,7 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
       </ScrollView>
       {!isOwnProfile && (
         <View style={styles.bottomBar}>
-          <BottomButton label="Buy Now" onPress={goOptions} />
+          <BottomButton label={t('myClosetBuyer.buyNow')} onPress={goOptions} />
         </View>
       )}
     </SafeAreaView>
@@ -750,7 +780,8 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
 
 const MyClosetBuyerOptionsScreen = ({ navigation, route }) => {
   const { text } = useAppTheme();
-  const item = normalizeItem(route?.params?.item || {}, 0);
+  const { t } = useLanguage();
+  const item = normalizeItem(route?.params?.item || {}, 0, t);
   const [quantity, setQuantity] = useState(1);
   const [note, setNote] = useState('');
   const [adding, setAdding] = useState(false);
@@ -811,7 +842,7 @@ const MyClosetBuyerOptionsScreen = ({ navigation, route }) => {
       await addCartItem({ productId, quantity });
     } catch (err) {
       setAdding(false);
-      Alert.alert('Error', err?.response?.data?.message || 'Could not add item to cart.');
+      Alert.alert(t('myClosetBuyer.errorTitle'), err?.response?.data?.message || t('myClosetBuyer.addToCartError'));
       return;
     } finally {
       setAdding(false);
@@ -830,7 +861,7 @@ const MyClosetBuyerOptionsScreen = ({ navigation, route }) => {
     <SafeAreaView style={styles.safeArea}>
       <Header
         navigation={navigation}
-        title="Select Options"
+        title={t('myClosetBuyer.selectOptions')}
         rightIcon="close"
         onRightPress={() => goBack(navigation)}
       />
@@ -846,8 +877,8 @@ const MyClosetBuyerOptionsScreen = ({ navigation, route }) => {
           </View>
         </View>
 
-        <Text style={styles.sectionLabel}>Quantity</Text>
-        <Text style={styles.helperText}>How many would you like?</Text>
+        <Text style={styles.sectionLabel}>{t('myClosetBuyer.quantity')}</Text>
+        <Text style={styles.helperText}>{t('myClosetBuyer.quantityHelper')}</Text>
         <View style={styles.quantityBox}>
           <TouchableOpacity
             style={styles.qtyButton}
@@ -871,16 +902,16 @@ const MyClosetBuyerOptionsScreen = ({ navigation, route }) => {
             <Ionicons name="add" size={17} color={text} />
           </TouchableOpacity>
         </View>
-        <Text style={styles.availabilityText}>Only {available} available</Text>
+        <Text style={styles.availabilityText}>{t('myClosetBuyer.onlyAvailable', { count: available })}</Text>
 
-        <Text style={styles.sectionLabel}>Add a note (optional)</Text>
+        <Text style={styles.sectionLabel}>{t('myClosetBuyer.addNoteOptional')}</Text>
         <View style={styles.noteBox}>
           <TextInput
             value={note}
             onChangeText={setNote}
             maxLength={100}
             multiline
-            placeholder="e.g. gift wrap, message to seller..."
+            placeholder={t('myClosetBuyer.notePlaceholder')}
             placeholderTextColor="#a8a0b3"
             style={styles.noteInput}
             editable={!adding && !syncingQty}
@@ -890,7 +921,7 @@ const MyClosetBuyerOptionsScreen = ({ navigation, route }) => {
       </ScrollView>
       <View style={styles.bottomBar}>
         <BottomButton
-          label={adding ? 'Adding…' : syncingQty ? 'Loading…' : 'Add to Cart'}
+          label={adding ? t('myClosetBuyer.adding') : syncingQty ? t('myClosetBuyer.loading') : t('myClosetBuyer.addToCart')}
           onPress={(adding || syncingQty) ? undefined : goCart}
         />
       </View>
@@ -903,7 +934,8 @@ const MyClosetBuyerOptionsScreen = ({ navigation, route }) => {
 // ─────────────────────────────────────────────────────────────────────────────
 const MyClosetBuyerCartScreen = ({ navigation, route }) => {
   const { text } = useAppTheme();
-  const localCart = buildCart(route); // fallback data from route params
+  const { t } = useLanguage();
+  const localCart = buildCart(route, t); // fallback data from route params
 
   // ── Server cart state ───────────────────────────────────────────────────
   const [cartItems, setCartItems] = useState([]); // array of items from GET /cart
@@ -924,11 +956,11 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
       const items = cartObj?.cartItems ?? [];
       setCartItems(Array.isArray(items) ? items : []);
     } catch (err) {
-      setCartError('Could not load cart. Please try again.');
+      setCartError(t('myClosetBuyer.cartLoadError'));
     } finally {
       setCartLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useFocusEffect(
     useCallback(() => {
@@ -941,14 +973,14 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
     // If already at 1 and decrementing → remove the item and go back if cart becomes empty
     if (delta === -1 && currentQty === 1) {
       const targetItem = cartItems.find(ci => ci.id === cartItemId);
-      const name = targetItem?.product?.name || targetItem?.name || 'this item';
+      const name = targetItem?.product?.name || targetItem?.name || t('myClosetBuyer.thisItemFallback');
       Alert.alert(
-        'Remove item',
-        `Remove "${name}" from cart?`,
+        t('myClosetBuyer.removeItemTitle'),
+        t('myClosetBuyer.removeItemMessage', { name }),
         [
-          { text: 'Cancel', style: 'cancel' },
+          { text: t('myClosetBuyer.cancel'), style: 'cancel' },
           {
-            text: 'Remove',
+            text: t('myClosetBuyer.remove'),
             style: 'destructive',
             onPress: async () => {
               setItemActionLoading(cartItemId);
@@ -960,7 +992,7 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
                   goBack(navigation);
                 }
               } catch (err) {
-                Alert.alert('Error', err?.response?.data?.message || 'Could not remove item.');
+                Alert.alert(t('myClosetBuyer.errorTitle'), err?.response?.data?.message || t('myClosetBuyer.removeItemError'));
               } finally {
                 setItemActionLoading(null);
               }
@@ -986,7 +1018,7 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
       setCartItems(prev =>
         prev.map(ci => (ci.id === cartItemId ? { ...ci, quantity: currentQty } : ci)),
       );
-      Alert.alert('Error', err?.response?.data?.message || 'Could not update quantity.');
+      Alert.alert(t('myClosetBuyer.errorTitle'), err?.response?.data?.message || t('myClosetBuyer.updateQuantityError'));
     } finally {
       setItemActionLoading(null);
     }
@@ -994,14 +1026,14 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
 
   // ── DELETE /cart/items/{cartItemId} — remove single item ─────────────
   const handleRemoveItem = cartItem => {
-    const name = cartItem?.product?.name || cartItem?.name || 'this item';
+    const name = cartItem?.product?.name || cartItem?.name || t('myClosetBuyer.thisItemFallback');
     Alert.alert(
-      'Remove item',
-      `Remove "${name}" from cart?`,
+      t('myClosetBuyer.removeItemTitle'),
+      t('myClosetBuyer.removeItemMessage', { name }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('myClosetBuyer.cancel'), style: 'cancel' },
         {
-          text: 'Remove',
+          text: t('myClosetBuyer.remove'),
           style: 'destructive',
           onPress: async () => {
             setItemActionLoading(cartItem.id);
@@ -1009,7 +1041,7 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
               await deleteCartItem(cartItem.id);
               setCartItems(prev => prev.filter(ci => ci.id !== cartItem.id));
             } catch (err) {
-              Alert.alert('Error', err?.response?.data?.message || 'Could not remove item.');
+              Alert.alert(t('myClosetBuyer.errorTitle'), err?.response?.data?.message || t('myClosetBuyer.removeItemError'));
             } finally {
               setItemActionLoading(null);
             }
@@ -1022,12 +1054,12 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
   // ── DELETE /cart — clear entire cart ─────────────────────────────────
   const handleClearCart = () => {
     Alert.alert(
-      'Clear Cart',
-      'Remove all items from your cart?',
+      t('myClosetBuyer.clearCartTitle'),
+      t('myClosetBuyer.clearCartMessage'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('myClosetBuyer.cancel'), style: 'cancel' },
         {
-          text: 'Clear All',
+          text: t('myClosetBuyer.clearAll'),
           style: 'destructive',
           onPress: async () => {
             setClearingCart(true);
@@ -1035,7 +1067,7 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
               await clearCart();
               setCartItems([]);
             } catch (err) {
-              Alert.alert('Error', err?.response?.data?.message || 'Could not clear cart.');
+              Alert.alert(t('myClosetBuyer.errorTitle'), err?.response?.data?.message || t('myClosetBuyer.clearCartError'));
             } finally {
               setClearingCart(false);
             }
@@ -1066,7 +1098,7 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
 
   // ── Helper: resolve image + name from a cart item ────────────────────
   const cartItemImage = ci => imageUri(ci?.product?.images?.[0]) || imageUri(ci?.product?.image) || imageUri(ci?.image) || null;
-  const cartItemName = ci => ci?.product?.name || ci?.product?.title || ci?.name || 'Item';
+  const cartItemName = ci => ci?.product?.name || ci?.product?.title || ci?.name || t('myClosetBuyer.itemFallback');
   const cartItemPrice = ci => currency(ci?.product?.price ?? ci?.price ?? 0);
   const cartItemMax = ci => Number(ci?.product?.quantity || ci?.product?.availableQuantity || 99) || 99;
 
@@ -1074,7 +1106,7 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
     <SafeAreaView style={styles.safeArea}>
       <Header
         navigation={navigation}
-        title={cartLoading ? 'Cart' : `Cart (${cartItems.length})`}
+        title={cartLoading ? t('myClosetBuyer.cartTitle') : t('myClosetBuyer.cartTitleWithCount', { count: cartItems.length })}
         rightIcon={cartItems.length > 0 ? 'trash-outline' : undefined}
         onRightPress={handleClearCart}
       />
@@ -1086,10 +1118,10 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
       ) : cartError ? (
         <View style={styles.emptyState}>
           <Ionicons name="alert-circle-outline" size={36} color={ERROR_COLOR} />
-          <Text style={styles.emptyTitle}>Couldn't load cart</Text>
+          <Text style={styles.emptyTitle}>{t('myClosetBuyer.cartLoadErrorTitle')}</Text>
           <Text style={styles.emptyText}>{cartError}</Text>
           <TouchableOpacity onPress={fetchCart} style={styles.retryButton}>
-            <Text style={styles.retryText}>Retry</Text>
+            <Text style={styles.retryText}>{t('myClosetBuyer.retry')}</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -1100,15 +1132,15 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
           {isEmpty ? (
             <View style={styles.emptyState}>
               <Ionicons name="cart-outline" size={40} color="#c4b5d4" />
-              <Text style={styles.emptyTitle}>Your cart is empty</Text>
-              <Text style={styles.emptyText}>Items you add will appear here.</Text>
+              <Text style={styles.emptyTitle}>{t('myClosetBuyer.emptyCartTitle')}</Text>
+              <Text style={styles.emptyText}>{t('myClosetBuyer.emptyCartText')}</Text>
             </View>
           ) : (
             <>
               {clearingCart ? (
                 <View style={styles.cartClearingBanner}>
                   <ActivityIndicator size="small" color={text} />
-                  <Text style={[styles.cartClearingText, { color: text }]}>Clearing cart…</Text>
+                  <Text style={[styles.cartClearingText, { color: text }]}>{t('myClosetBuyer.clearingCart')}</Text>
                 </View>
               ) : null}
 
@@ -1163,10 +1195,10 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
               })}
 
               <View style={styles.summaryBlock}>
-                <SummaryRow label="Item total" value={currency(computedItemTotal)} />
+                <SummaryRow label={t('myClosetBuyer.itemTotal')} value={currency(computedItemTotal)} />
                 {/* <SummaryRow label="Shipping" value={currency(shipping)} />
                 <SummaryRow label="Service fee" value={currency(serviceFee)} /> */}
-                <SummaryRow label="Total" value={currency(total)} bold />
+                <SummaryRow label={t('myClosetBuyer.total')} value={currency(total)} bold />
               </View>
 
               <View style={styles.protectionCard}>
@@ -1174,7 +1206,7 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
                   <Ionicons name="shield-checkmark-outline" size={24} color={text} />
                 </View>
                 <Text style={[styles.protectionText, { color: text }]}>
-                  You're protected with Valens Purchase Protection
+                  {t('myClosetBuyer.purchaseProtection')}
                 </Text>
                 <Ionicons name="information-circle-outline" size={16} color="#8b5e9f" />
               </View>
@@ -1185,7 +1217,7 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
 
       {!isEmpty && !cartLoading && !cartError && (
         <View style={styles.bottomBar}>
-          <BottomButton label="Proceed to Checkout" onPress={handleProceed} />
+          <BottomButton label={t('myClosetBuyer.proceedToCheckout')} onPress={handleProceed} />
         </View>
       )}
     </SafeAreaView>
@@ -1193,7 +1225,8 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
 };
 
 const MyClosetBuyerCheckoutScreen = ({ navigation, route }) => {
-  const cart = buildCart(route);
+  const { t } = useLanguage();
+  const cart = buildCart(route, t);
 
   const handleEditCart = () => {
     navigation.navigate('MyClosetBuyerCart', route.params);
@@ -1201,7 +1234,7 @@ const MyClosetBuyerCheckoutScreen = ({ navigation, route }) => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <Header navigation={navigation} title="Checkout" />
+      <Header navigation={navigation} title={t('myClosetBuyer.checkoutTitle')} />
       <ScrollView
         contentContainerStyle={styles.checkoutContent}
         showsVerticalScrollIndicator={false}
@@ -1211,7 +1244,7 @@ const MyClosetBuyerCheckoutScreen = ({ navigation, route }) => {
       </ScrollView>
       <View style={styles.bottomBar}>
         <BottomButton
-          label="Continue to Shipping"
+          label={t('myClosetBuyer.continueToShipping')}
           onPress={() => navigation.navigate('MyClosetBuyerShipping', route.params)}
         />
       </View>
@@ -1224,7 +1257,8 @@ const MyClosetBuyerCheckoutScreen = ({ navigation, route }) => {
 // ─────────────────────────────────────────────────────────────────────────────
 const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
   const { text } = useAppTheme();
-  const cart = buildCart(route);
+  const { t } = useLanguage();
+  const cart = buildCart(route, t);
   const [method, setMethod] = useState('standard');
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [editingAddress, setEditingAddress] = useState(null); // address being edited
@@ -1252,11 +1286,11 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
       const defaultIdx = arr.findIndex(a => a.isDefault);
       setSelectedAddressIndex(defaultIdx >= 0 ? defaultIdx : 0);
     } catch (err) {
-      setAddressError('Could not load addresses. Please try again.');
+      setAddressError(t('myClosetBuyer.addressLoadError'));
     } finally {
       setAddressLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     fetchAddresses();
@@ -1289,12 +1323,12 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
   // ── DELETE: PATCH /address/deleteAddress/{addressId} ──────────────────────
   const handleDelete = addr => {
     Alert.alert(
-      'Delete Address',
-      `Remove "${addr.fullName}" (${addr.addressLine1})?`,
+      t('myClosetBuyer.deleteAddressTitle'),
+      t('myClosetBuyer.deleteAddressMessage', { name: addr.fullName, line: addr.addressLine1 }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('myClosetBuyer.cancel'), style: 'cancel' },
         {
-          text: 'Delete',
+          text: t('myClosetBuyer.delete'),
           style: 'destructive',
           onPress: async () => {
             setActionLoading(addr.id);
@@ -1306,7 +1340,7 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
                 return updated;
               });
             } catch (err) {
-              Alert.alert('Error', err?.response?.data?.message || 'Could not delete address.');
+              Alert.alert(t('myClosetBuyer.errorTitle'), err?.response?.data?.message || t('myClosetBuyer.deleteAddressError'));
             } finally {
               setActionLoading(null);
             }
@@ -1329,7 +1363,7 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
       const newIdx = addresses.findIndex(a => a.id === addr.id);
       if (newIdx >= 0) setSelectedAddressIndex(newIdx);
     } catch (err) {
-      Alert.alert('Error', err?.response?.data?.message || 'Could not set default address.');
+      Alert.alert(t('myClosetBuyer.errorTitle'), err?.response?.data?.message || t('myClosetBuyer.setDefaultAddressError'));
     } finally {
       setActionLoading(null);
     }
@@ -1348,34 +1382,34 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <Header navigation={navigation} title="Shipping Information" />
+      <Header navigation={navigation} title={t('myClosetBuyer.shippingInformationTitle')} />
       <ScrollView
         contentContainerStyle={styles.checkoutContent}
         showsVerticalScrollIndicator={false}
       >
         <CheckoutSteps current={1} />
 
-        <Text style={styles.sectionLabel}>Shipping Address</Text>
+        <Text style={styles.sectionLabel}>{t('myClosetBuyer.shippingAddress')}</Text>
 
         {/* ── Address list states ── */}
         {addressLoading ? (
           <View style={styles.addressLoader}>
             <ActivityIndicator size="small" color={text} />
-            <Text style={styles.addressLoaderText}>Loading addresses…</Text>
+            <Text style={styles.addressLoaderText}>{t('myClosetBuyer.loadingAddresses')}</Text>
           </View>
         ) : addressError ? (
           <View style={styles.addressErrorBox}>
             <Ionicons name="alert-circle-outline" size={18} color={ERROR_COLOR} />
             <Text style={styles.addressErrorText}>{addressError}</Text>
             <TouchableOpacity onPress={fetchAddresses} style={styles.retryButton}>
-              <Text style={styles.retryText}>Retry</Text>
+              <Text style={styles.retryText}>{t('myClosetBuyer.retry')}</Text>
             </TouchableOpacity>
           </View>
         ) : addresses.length === 0 ? (
           <View style={styles.noAddressBox}>
             <Ionicons name="location-outline" size={32} color="#c4b5d4" />
-            <Text style={styles.noAddressTitle}>No saved addresses</Text>
-            <Text style={styles.noAddressText}>Add an address to continue checkout.</Text>
+            <Text style={styles.noAddressTitle}>{t('myClosetBuyer.noSavedAddresses')}</Text>
+            <Text style={styles.noAddressText}>{t('myClosetBuyer.addAddressToContinue')}</Text>
           </View>
         ) : (
           addresses.map((addr, idx) => {
@@ -1401,7 +1435,7 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
                       <Text style={styles.addressName}>{addr.fullName}</Text>
                       {addr.isDefault ? (
                         <View style={styles.defaultBadge}>
-                          <Text style={[styles.defaultBadgeText, { color: text }]}>Default</Text>
+                          <Text style={[styles.defaultBadgeText, { color: text }]}>{t('myClosetBuyer.defaultBadge')}</Text>
                         </View>
                       ) : null}
                     </View>
@@ -1440,7 +1474,7 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
                     disabled={isActing}
                   >
                     <Ionicons name="create-outline" size={14} color={text} />
-                    <Text style={[styles.addressActionText, { color: text }]}>Edit</Text>
+                    <Text style={[styles.addressActionText, { color: text }]}>{t('myClosetBuyer.edit')}</Text>
                   </TouchableOpacity>
 
                   <View style={styles.addressActionDivider} />
@@ -1453,7 +1487,7 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
                     disabled={isActing}
                   >
                     <Ionicons name="trash-outline" size={14} color={ERROR_COLOR} />
-                    <Text style={[styles.addressActionText, { color: ERROR_COLOR }]}>Delete</Text>
+                    <Text style={[styles.addressActionText, { color: ERROR_COLOR }]}>{t('myClosetBuyer.delete')}</Text>
                   </TouchableOpacity>
 
                   {/* Set as Default (hidden if already default) */}
@@ -1468,7 +1502,7 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
                       >
                         <Ionicons name="star-outline" size={14} color="#f59e0b" />
                         <Text style={[styles.addressActionText, { color: '#b45309' }]}>
-                          Set Default
+                          {t('myClosetBuyer.setDefault')}
                         </Text>
                       </TouchableOpacity>
                     </>
@@ -1486,13 +1520,13 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
           onPress={() => setShowAddressModal(true)}
         >
           <Ionicons name="add-circle-outline" size={18} color={text} />
-          <Text style={[styles.addAddressText, { color: text }]}>Add new address</Text>
+          <Text style={[styles.addAddressText, { color: text }]}>{t('myClosetBuyer.addNewAddress')}</Text>
         </TouchableOpacity>
 
-        <Text style={styles.sectionLabel}>Shipping Method</Text>
+        <Text style={styles.sectionLabel}>{t('myClosetBuyer.shippingMethod')}</Text>
         {[
-          { key: 'standard', label: 'Standard Shipping (3-5 days)', price: 10 },
-          { key: 'express', label: 'Express Shipping (1-2 days)', price: 20 },
+          { key: 'standard', label: t('myClosetBuyer.standardShipping'), price: 10 },
+          { key: 'express', label: t('myClosetBuyer.expressShipping'), price: 20 },
         ].map(option => (
           <TouchableOpacity
             key={option.key}
@@ -1517,10 +1551,10 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
 
       <View style={styles.bottomBar}>
         <BottomButton
-          label="Continue to Payment"
+          label={t('myClosetBuyer.continueToPayment')}
           onPress={() => {
             if (!selectedAddress && addresses.length > 0) {
-              Alert.alert('Select address', 'Please select a shipping address to continue.');
+              Alert.alert(t('myClosetBuyer.selectAddressTitle'), t('myClosetBuyer.selectAddressMessage'));
               return;
             }
             navigation.navigate('MyClosetBuyerPayment', nextCart);
@@ -1540,20 +1574,21 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
 
 const MyClosetBuyerPaymentScreen = ({ navigation, route }) => {
   const { text } = useAppTheme();
-  const cart = buildCart(route);
+  const { t } = useLanguage();
+  const cart = buildCart(route, t);
   const [paymentMethod, setPaymentMethod] = useState('secure');
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <Header navigation={navigation} title="Payment" />
+      <Header navigation={navigation} title={t('myClosetBuyer.paymentTitle')} />
       <ScrollView
         contentContainerStyle={styles.checkoutContent}
         showsVerticalScrollIndicator={false}
       >
         <CheckoutSteps current={2} />
-        <Text style={styles.sectionLabel}>Payment Method</Text>
+        <Text style={styles.sectionLabel}>{t('myClosetBuyer.paymentMethod')}</Text>
         {[
-          { key: 'secure', label: 'Valens Secure Checkout', sub: 'Pay securely on Valens', icon: 'shield-checkmark-outline' },
+          { key: 'secure', label: t('myClosetBuyer.secureCheckout'), sub: t('myClosetBuyer.secureCheckoutSub'), icon: 'shield-checkmark-outline' },
           // { key: 'card', label: 'Credit / Debit Card', sub: 'VISA  Mastercard  AMEX', icon: 'card-outline' },
           // { key: 'apple', label: 'Apple Pay', sub: '', icon: 'logo-apple' },
         ].map(option => (
@@ -1583,7 +1618,7 @@ const MyClosetBuyerPaymentScreen = ({ navigation, route }) => {
       </ScrollView>
       <View style={styles.bottomBar}>
         <BottomButton
-          label="Continue to Review"
+          label={t('myClosetBuyer.continueToReview')}
           onPress={() =>
             navigation.navigate('MyClosetBuyerReview', { ...route.params, paymentMethod })
           }
@@ -1598,8 +1633,9 @@ const MyClosetBuyerPaymentScreen = ({ navigation, route }) => {
 // ─────────────────────────────────────────────────────────────────────────────
 const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
   const { text } = useAppTheme();
-  const cart = buildCart(route);
-  const [checking, setChecking] = useState(false);  
+  const { t } = useLanguage();
+  const cart = buildCart(route, t);
+  const [checking, setChecking] = useState(false);
   // shippingAddress passed from Shipping screen via nextCart
   const addr = route?.params?.shippingAddress ?? null;
 
@@ -1613,7 +1649,7 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
         checkoutData,
       });
     } catch (err) {
-      Alert.alert('Error', err?.response?.data?.message || 'Could not proceed to checkout. Please try again.');
+      Alert.alert(t('myClosetBuyer.errorTitle'), err?.response?.data?.message || t('myClosetBuyer.checkoutError'));
     } finally {
       setChecking(false);
     }
@@ -1621,16 +1657,16 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <Header navigation={navigation} title="Review Order" />
+      <Header navigation={navigation} title={t('myClosetBuyer.reviewOrderTitle')} />
       <ScrollView
         contentContainerStyle={styles.checkoutContent}
         showsVerticalScrollIndicator={false}
       >
         <CheckoutSteps current={3} />
         <View style={styles.reviewSectionHeader}>
-          <Text style={styles.sectionLabel}>Shipping Address</Text>
+          <Text style={styles.sectionLabel}>{t('myClosetBuyer.shippingAddress')}</Text>
           <TouchableOpacity onPress={() => navigation.navigate('MyClosetBuyerShipping', route.params)}>
-            <Text style={[styles.editText, { color: text }]}>Edit</Text>
+            <Text style={[styles.editText, { color: text }]}>{t('myClosetBuyer.edit')}</Text>
           </TouchableOpacity>
         </View>
         <View style={styles.reviewCard}>
@@ -1646,41 +1682,41 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
               {addr.country ? <Text style={styles.addressText}>{addr.country}</Text> : null}
             </>
           ) : (
-            <Text style={styles.addressText}>No address selected</Text>
+            <Text style={styles.addressText}>{t('myClosetBuyer.noAddressSelected')}</Text>
           )}
         </View>
         <View style={styles.reviewSectionHeader}>
-          <Text style={styles.sectionLabel}>Shipping Method</Text>
+          <Text style={styles.sectionLabel}>{t('myClosetBuyer.shippingMethod')}</Text>
           <TouchableOpacity onPress={() => navigation.navigate('MyClosetBuyerShipping', route.params)}>
-            <Text style={[styles.editText, { color: text }]}>Edit</Text>
+            <Text style={[styles.editText, { color: text }]}>{t('myClosetBuyer.edit')}</Text>
           </TouchableOpacity>
         </View>
         <View style={styles.reviewLineCard}>
           <Text style={styles.radioLabel}>
             {route?.params?.shippingMethod === 'express'
-              ? 'Express Shipping (1-2 days)'
-              : 'Standard Shipping (3-5 days)'}
+              ? t('myClosetBuyer.expressShipping')
+              : t('myClosetBuyer.standardShipping')}
           </Text>
           <Text style={styles.radioPrice}>{currency(cart.shipping)}</Text>
         </View>
         <View style={styles.reviewSectionHeader}>
-          <Text style={styles.sectionLabel}>Payment Method</Text>
+          <Text style={styles.sectionLabel}>{t('myClosetBuyer.paymentMethod')}</Text>
           <TouchableOpacity onPress={() => navigation.navigate('MyClosetBuyerPayment', route.params)}>
-            <Text style={[styles.editText, { color: text }]}>Edit</Text>
+            <Text style={[styles.editText, { color: text }]}>{t('myClosetBuyer.edit')}</Text>
           </TouchableOpacity>
         </View>
         <View style={styles.reviewLineCard}>
           <Ionicons name="shield-checkmark-outline" size={18} color={text} />
-          <Text style={styles.radioLabel}>Valens Secure Checkout</Text>
+          <Text style={styles.radioLabel}>{t('myClosetBuyer.secureCheckout')}</Text>
         </View>
         <OrderSummary cart={cart} compact />
         <Text style={styles.termsText}>
-          By placing this order, you agree to Valens Terms of Service and Privacy Policy.
+          {t('myClosetBuyer.termsText')}
         </Text>
       </ScrollView>
       <View style={styles.bottomBar}>
         <BottomButton
-          label="Place Order"
+          label={t('myClosetBuyer.placeOrder')}
           icon="lock-closed-outline"
           onPress={() => handleContinue()}
         />
@@ -1691,7 +1727,8 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
 
 const MyClosetBuyerOrderReceivedScreen = ({ navigation, route }) => {
   const { text } = useAppTheme();
-  const cart = buildCart(route);
+  const { t } = useLanguage();
+  const cart = buildCart(route, t);
   const today = new Date();
   const orderId = useMemo(() => `V${String(Date.now()).slice(-7)}`, []);
 
@@ -1719,35 +1756,35 @@ const MyClosetBuyerOrderReceivedScreen = ({ navigation, route }) => {
             <Ionicons name="checkmark" size={48} color="#fff" />
           </View>
         </View>
-        <Text style={[styles.receivedTitle, { color: text }]}>Order Received!</Text>
+        <Text style={[styles.receivedTitle, { color: text }]}>{t('myClosetBuyer.orderReceivedTitle')}</Text>
         <Text style={styles.receivedSubtitle}>
-          Thank you for your purchase. Your order has been placed successfully.
+          {t('myClosetBuyer.orderReceivedSubtitle')}
         </Text>
         <View style={styles.orderCard}>
           <View style={styles.orderCardHeader}>
             <View>
-              <Text style={styles.orderId}>Order #{orderId}</Text>
+              <Text style={styles.orderId}>{t('myClosetBuyer.orderIdLabel', { id: orderId })}</Text>
               <Text style={styles.orderDate}>
                 {today.toLocaleDateString()} at{' '}
                 {today.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </Text>
             </View>
-            <Text style={[styles.editText, { color: text }]}>View Details</Text>
+            <Text style={[styles.editText, { color: text }]}>{t('myClosetBuyer.viewDetails')}</Text>
           </View>
           <View style={styles.divider} />
-          <Text style={styles.sectionLabel}>Estimated Delivery</Text>
+          <Text style={styles.sectionLabel}>{t('myClosetBuyer.estimatedDelivery')}</Text>
           <Text style={styles.addressText}>May 13 - May 15, 2026</Text>
-          <Text style={[styles.receivedTotal, { color: text }]}>Total {currency(cart.total)}</Text>
+          <Text style={[styles.receivedTotal, { color: text }]}>{t('myClosetBuyer.totalLabel', { amount: currency(cart.total) })}</Text>
         </View>
       </ScrollView>
       <View style={styles.bottomBar}>
-        <BottomButton label="Continue Shopping" onPress={() => navigation.popToTop?.()} />
+        <BottomButton label={t('myClosetBuyer.continueShopping')} onPress={() => navigation.popToTop?.()} />
         <TouchableOpacity
           activeOpacity={0.85}
           style={styles.secondaryButton}
           onPress={() => navigation.popToTop?.()}
         >
-          <Text style={[styles.secondaryButtonText, { color: text }]}>Go to My Orders</Text>
+          <Text style={[styles.secondaryButtonText, { color: text }]}>{t('myClosetBuyer.goToMyOrders')}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

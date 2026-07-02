@@ -12,7 +12,8 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
-import { getMyClosetItems, getSellerOrders, getBuyerOrders } from '../../services/myCloset';
+import { useLanguage } from '../../i18n';
+import { getMyClosetItems, getSellerOrders, getBuyerOrders, getSellerDashboard } from '../../services/myCloset';
 
 const mixWithWhite = (hex, amount = 0.88) => {
   const normalized = String(hex || '').replace('#', '');
@@ -34,35 +35,44 @@ const withAlpha = (hex, alpha = 0.12) => {
   return `rgba(${r},${g},${b},${alpha})`;
 };
 
-const statCards = [
-  { key: 'views', label: 'Views', value: '245', delta: '+18%', icon: 'eye-outline' },
-  { key: 'likes', label: 'Likes', value: '32', delta: '+12%', icon: 'heart-outline' },
-  { key: 'orders', label: 'Orders', value: '3', delta: '+50%', icon: 'bag-outline' },
-  { key: 'revenue', label: 'Revenue', value: '$210', delta: '+22%', icon: 'cash-outline' },
-];
+const buildStatCards = (data, t) => ([
+  { key: 'views', label: t('myClosetDashboard.stats.views'), value: String(data?.views ?? 0), delta: '+18%', icon: 'eye-outline' },
+  { key: 'likes', label: t('myClosetDashboard.stats.likes'), value: String(data?.likes ?? 0), delta: '+12%', icon: 'heart-outline' },
+  { key: 'orders', label: t('myClosetDashboard.stats.orders'), value: String(data?.orders ?? 0), delta: '+50%', icon: 'bag-outline' },
+  { key: 'revenue', label: t('myClosetDashboard.stats.revenue'), value: `$${Number(data?.revenue ?? 0).toFixed(0)}`, delta: '+22%', icon: 'cash-outline' },
+]);
 
-const overviewCards = [
-  { key: 'items', label: 'Items', value: '12' },
-  { key: 'sold', label: 'Sold', value: '8' },
-  { key: 'earnings', label: 'Earnings', value: '$1,250' },
-  { key: 'rating', label: 'Rating', value: '4.8' },
-];
+const buildOverviewCards = (data, t) => ([
+  { key: 'items', label: t('myClosetDashboard.overview.items'), value: String(data?.totalItems ?? 0) },
+  { key: 'sold', label: t('myClosetDashboard.overview.sold'), value: String(data?.sold ?? 0) },
+  { key: 'earnings', label: t('myClosetDashboard.overview.earnings'), value: `$${Number(data?.revenue ?? 0).toFixed(0)}` },
+  { key: 'rating', label: t('myClosetDashboard.overview.rating'), value: data?.rating != null ? String(data.rating) : '—' },
+]);
 
-const battleStats = [
-  { key: 'entered', label: 'Battles Entered', value: '5', icon: 'trophy-outline' },
-  { key: 'votes', label: 'Total Votes', value: '125', icon: 'people-outline' },
-  { key: 'winrate', label: 'Win Rate', value: '62%', icon: 'trending-up-outline' },
-  { key: 'topranked', label: 'Top Ranked', value: '2', icon: 'navigate-circle-outline' },
-  { key: 'battleviews', label: 'Battle Views', value: '860', icon: 'eye-outline' },
-];
+const buildBattleStats = t => ([
+  { key: 'entered', label: t('myClosetDashboard.battle.entered'), value: '5', icon: 'trophy-outline' },
+  { key: 'votes', label: t('myClosetDashboard.battle.votes'), value: '125', icon: 'people-outline' },
+  { key: 'winrate', label: t('myClosetDashboard.battle.winRate'), value: '62%', icon: 'trending-up-outline' },
+  { key: 'topranked', label: t('myClosetDashboard.battle.topRanked'), value: '2', icon: 'navigate-circle-outline' },
+  { key: 'battleviews', label: t('myClosetDashboard.battle.battleViews'), value: '860', icon: 'eye-outline' },
+]);
 
-const ORDER_STATUS_META = {
-  pending: { label: 'To ship', color: '#7c3aed' },
-  confirmed: { label: 'Confirmed', color: '#0891b2' },
-  processing: { label: 'Processing', color: '#d97706' },
-  shipped: { label: 'Shipped', color: '#2563eb' },
-  delivered: { label: 'Delivered', color: '#16a34a' },
-  cancelled: { label: 'Cancelled', color: '#dc2626' },
+const ORDER_STATUS_KEYS = {
+  pending: 'myClosetDashboard.orderStatus.pending',
+  confirmed: 'myClosetDashboard.orderStatus.confirmed',
+  processing: 'myClosetDashboard.orderStatus.processing',
+  shipped: 'myClosetDashboard.orderStatus.shipped',
+  delivered: 'myClosetDashboard.orderStatus.delivered',
+  cancelled: 'myClosetDashboard.orderStatus.cancelled',
+};
+
+const ORDER_STATUS_COLORS = {
+  pending: '#7c3aed',
+  confirmed: '#0891b2',
+  processing: '#d97706',
+  shipped: '#2563eb',
+  delivered: '#16a34a',
+  cancelled: '#dc2626',
 };
 
 const normalizeOrderStatus = raw => {
@@ -88,43 +98,48 @@ const getOrderThumbImage = order =>
   order?.image ||
   null;
 
-const getOrderDisplayName = order => {
+const getOrderDisplayName = (order, t) => {
   if (order?.item?.name || order?.item?.title) return order.item.name || order.item.title;
   if (order?.product?.name) return order.product.name;
   if (order?.itemName) return order.itemName;
   const count = order?.totalItemCount;
-  if (count) return `${count} item${count === 1 ? '' : 's'}`;
-  return 'Order item';
+  if (count) return t('myClosetDashboard.orderItemsCount', { count });
+  return t('myClosetDashboard.orderItemFallback');
 };
 
 const getOrderAmount = order =>
   order?.totalAmount ?? order?.amount ?? order?.price ?? order?.item?.price ?? 0;
 
-const normalizeBuyerOrder = (order, index) => {
+const normalizeBuyerOrder = (order, index, t) => {
   const status = normalizeOrderStatus(order?.orderStatus ?? order?.status);
-  const meta = ORDER_STATUS_META[status];
   return {
     key: String(order?.id || order?._id || index),
     id: order?.id || order?._id,
-    name: getOrderDisplayName(order),
-    order: `Order #${order?.orderNumber || order?.orderId || order?.id || order?._id || index + 1}`,
+    name: getOrderDisplayName(order, t),
+    order: t('myClosetDashboard.orderNumber', {
+      number: order?.orderNumber || order?.orderId || order?.id || order?._id || index + 1,
+    }),
     price: formatOrderPrice(getOrderAmount(order)),
-    status: meta.label,
-    statusColor: meta.color,
+    status: t(ORDER_STATUS_KEYS[status]),
+    statusColor: ORDER_STATUS_COLORS[status],
     image: getOrderThumbImage(order),
     raw: order,
   };
 };
 
 const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
+  const { t } = useLanguage();
   const [storedUsername, setStoredUsername] = useState('');
   const [closetItems, setClosetItems] = useState([]);
   const [itemsLoading, setItemsLoading] = useState(false);
   const [recentOrders, setRecentOrders] = useState([]);            // Seller: orders received
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [buyerOrders, setBuyerOrders] = useState([]);         // Buyer: orders placed
+  const [dashboardData, setDashboardData] = useState(null);
+  const [dashboardLoading, setDashboardLoading] = useState(false);
   const [buyerOrdersLoading, setBuyerOrdersLoading] = useState(false);
   const { bgStyle, textStyle, text, cardStyle } = useAppTheme(userData?.profile);
+  const battleStats = useMemo(() => buildBattleStats(t), [t]);
 
   useEffect(() => {
     let isMounted = true;
@@ -158,14 +173,14 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
             ? payload.data
             : [];
 
-      setRecentOrders(list.slice(0, 3).map(normalizeBuyerOrder));
+      setRecentOrders(list.slice(0, 3).map((order, index) => normalizeBuyerOrder(order, index, t)));
     } catch (error) {
       console.warn('Unable to load recent orders:', error);
       setRecentOrders([]);
     } finally {
       setOrdersLoading(false);
     }
-  }, []);
+  }, [t]);
 
   const loadBuyerOrders = useCallback(async () => {
     setBuyerOrdersLoading(true);
@@ -185,22 +200,28 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
             ? payload.data
             : [];
 
-      setBuyerOrders(list.slice(0, 3).map(normalizeBuyerOrder));
+      setBuyerOrders(list.slice(0, 3).map((order, index) => normalizeBuyerOrder(order, index, t)));
     } catch (error) {
       console.warn('Unable to load buyer orders:', error);
       setBuyerOrders([]);
     } finally {
       setBuyerOrdersLoading(false);
     }
-  }, []);
+  }, [t]);
 
-  useFocusEffect(
-    useCallback(() => {
-      loadClosetItems();
-      loadRecentOrders();
-      loadBuyerOrders();
-    }, [loadClosetItems, loadRecentOrders, loadBuyerOrders]),
-  );
+  const loadDashboard = useCallback(async () => {
+    setDashboardLoading(true);
+    try {
+      const response = await getSellerDashboard();
+      const data = response?.data?.data ?? response?.data ?? response;
+      setDashboardData(data);
+    } catch (error) {
+      console.warn('Unable to load dashboard stats:', error);
+      setDashboardData(null);
+    } finally {
+      setDashboardLoading(false);
+    }
+  }, []);
 
   const loadClosetItems = useCallback(async () => {
     setItemsLoading(true);
@@ -229,6 +250,18 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
     }
   }, []);
 
+  useFocusEffect(
+    useCallback(() => {
+      loadClosetItems();
+      loadRecentOrders();
+      loadBuyerOrders();
+      loadDashboard();
+    }, [loadClosetItems, loadRecentOrders, loadBuyerOrders, loadDashboard]),
+  );
+
+  const statCards = useMemo(() => buildStatCards(dashboardData, t), [dashboardData, t]);
+  const overviewCards = useMemo(() => buildOverviewCards(dashboardData, t), [dashboardData, t]);
+
   const shopName = useMemo(
     () =>
       shopDraft?.shopName ||
@@ -236,8 +269,8 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
       userData?.companyProfile?.businessName ||
       storedUsername ||
       userData?.displayName ||
-      'My Closet',
-    [shopDraft?.shopName, storedUsername, userData?.businessName, userData?.companyProfile?.businessName, userData?.displayName],
+      t('myClosetDashboard.defaultShopName'),
+    [shopDraft?.shopName, storedUsername, userData?.businessName, userData?.companyProfile?.businessName, userData?.displayName, t],
   );
 
   const shopHandle = useMemo(
@@ -342,7 +375,7 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
 
   const displayItems = closetItems.slice(0, 6).map((item, index) => ({
     key: String(item?.id || item?._id || index),
-    name: item?.name || item?.title || item?.itemName || 'Untitled item',
+    name: item?.name || item?.title || item?.itemName || t('myClosetDashboard.untitledItem'),
     price: formatPrice(item?.price ?? item?.amount ?? item?.salePrice),
     image: getItemImage(item),
   }));
@@ -377,7 +410,7 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
             onPress={handleSharePress}
             style={[styles.shareButton, { borderColor: withAlpha(text, 0.25) }]}
           >
-            <Text style={[styles.shareButtonText, { color: text }]}>Share Shop</Text>
+            <Text style={[styles.shareButtonText, { color: text }]}>{t('myClosetDashboard.shareShop')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -400,8 +433,8 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
         <View style={[styles.liveBanner, { backgroundColor: mixWithWhite(text, 0.94) }]}>
           <Ionicons name="bag-handle-outline" size={16} color={text} />
           <Text style={[styles.liveBannerText, { color: text }]}>
-            Your shop is live! 🎉{'  '}
-            <Text style={styles.liveBannerSub}>Keep adding items and grow your closet.</Text>
+            {t('myClosetDashboard.liveBannerTitle')}{'  '}
+            <Text style={styles.liveBannerSub}>{t('myClosetDashboard.liveBannerSubtitle')}</Text>
           </Text>
         </View>
       </View>
@@ -409,19 +442,26 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
       {/* ── Overview (this week) ── */}
       <View style={[styles.sectionCard, cardStyle, { borderColor: withAlpha(text, 0.12) }]}>
         <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, textStyle]}>Overview</Text>
-          <Text style={styles.sectionMeta}>This week ▾</Text>
+          <Text style={[styles.sectionTitle, textStyle]}>{t('myClosetDashboard.overviewTitle')}</Text>
+          <Text style={styles.sectionMeta}>{t('myClosetDashboard.thisWeek')} ▾</Text>
         </View>
 
         <View style={styles.quickGrid}>
-          {statCards.map(card => (
-            <View key={card.key} style={[styles.quickCard, { backgroundColor: mixWithWhite(text, 0.95) }]}>
-              <Ionicons name={card.icon} size={18} color={text} />
-              <Text style={[styles.quickValue, textStyle]}>{card.value}</Text>
-              <Text style={styles.quickLabel}>{card.label}</Text>
-              <Text style={styles.quickDelta}>↑ {card.delta}</Text>
+          {dashboardLoading ? (
+            <View style={styles.itemsLoadingWrap}>
+              <ActivityIndicator color={text} />
             </View>
-          ))}
+          ) : (
+            <View style={styles.quickGrid}>
+              {statCards.map(card => (
+                <View key={card.key} style={[styles.quickCard, { backgroundColor: mixWithWhite(text, 0.95) }]}>
+                  <Ionicons name={card.icon} size={18} color={text} />
+                  <Text style={[styles.quickValue, textStyle]}>{card.value}</Text>
+                  <Text style={styles.quickLabel}>{card.label}</Text>
+                </View>
+              ))}
+            </View>
+          )}
         </View>
       </View>
 
@@ -430,11 +470,11 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
         <View style={styles.sectionHeader}>
           <View style={styles.rowCenter}>
             <Ionicons name="flame-outline" size={16} color={text} style={{ marginRight: 5 }} />
-            <Text style={[styles.sectionTitle, textStyle]}>Battle Performance</Text>
+            <Text style={[styles.sectionTitle, textStyle]}>{t('myClosetDashboard.battlePerformanceTitle')}</Text>
             <Ionicons name="information-circle-outline" size={14} color="#9ca3af" style={{ marginLeft: 4 }} />
           </View>
           <TouchableOpacity activeOpacity={0.8} onPress={handleViewAllBattles}>
-            <Text style={styles.sectionMeta}>View all battles</Text>
+            <Text style={styles.sectionMeta}>{t('myClosetDashboard.viewAllBattles')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -452,9 +492,9 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
       {/* ── Seller Order History (orders you've received) ── */}
       <View style={[styles.sectionCard, cardStyle, { borderColor: withAlpha(text, 0.12) }]}>
         <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, textStyle]}>Orders — As a Seller</Text>
+          <Text style={[styles.sectionTitle, textStyle]}>{t('myClosetDashboard.sellerOrdersTitle')}</Text>
           <TouchableOpacity activeOpacity={0.8} onPress={handleViewAllOrders}>
-            <Text style={styles.sectionMeta}>View all ›</Text>
+            <Text style={styles.sectionMeta}>{t('myClosetDashboard.viewAll')} ›</Text>
           </TouchableOpacity>
         </View>
 
@@ -494,7 +534,7 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
         ) : (
           <View style={styles.emptyItemsCard}>
             <Ionicons name="bag-outline" size={24} color={text} />
-            <Text style={[styles.emptyItemsText, textStyle]}>No orders yet</Text>
+            <Text style={[styles.emptyItemsText, textStyle]}>{t('myClosetDashboard.noOrdersYet')}</Text>
           </View>
         )}
       </View>
@@ -504,10 +544,10 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
         <View style={styles.sectionHeader}>
           <View style={styles.rowCenter}>
             <Ionicons name="cart-outline" size={16} color={text} style={{ marginRight: 5 }} />
-            <Text style={[styles.sectionTitle, textStyle]}>Orders — As a Buyer</Text>
+            <Text style={[styles.sectionTitle, textStyle]}>{t('myClosetDashboard.buyerOrdersTitle')}</Text>
           </View>
           <TouchableOpacity activeOpacity={0.8} onPress={handleViewAllBuyerOrders}>
-            <Text style={styles.sectionMeta}>View all ›</Text>
+            <Text style={styles.sectionMeta}>{t('myClosetDashboard.viewAll')} ›</Text>
           </TouchableOpacity>
         </View>
 
@@ -547,7 +587,7 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
         ) : (
           <View style={styles.emptyItemsCard}>
             <Ionicons name="cart-outline" size={24} color={text} />
-            <Text style={[styles.emptyItemsText, textStyle]}>No purchases yet</Text>
+            <Text style={[styles.emptyItemsText, textStyle]}>{t('myClosetDashboard.noPurchasesYet')}</Text>
           </View>
         )}
       </View>
@@ -555,9 +595,9 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
       {/* ── Your Items Grid ── */}
       <View style={[styles.sectionCard, cardStyle, { borderColor: withAlpha(text, 0.12) }]}>
         <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, textStyle]}>Your Items</Text>
+          <Text style={[styles.sectionTitle, textStyle]}>{t('myClosetDashboard.yourItemsTitle')}</Text>
           <TouchableOpacity activeOpacity={0.8} onPress={handleViewAllItems}>
-            <Text style={styles.sectionMeta}>View all ›</Text>
+            <Text style={styles.sectionMeta}>{t('myClosetDashboard.viewAll')} ›</Text>
           </TouchableOpacity>
         </View>
 
@@ -575,9 +615,6 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
                   ) : (
                     <Ionicons name="shirt-outline" size={28} color={text} />
                   )}
-                  {/* <TouchableOpacity style={[styles.itemMoreDot, { borderColor: withAlpha(text, 0.15) }]}>
-                    <Ionicons name="ellipsis-horizontal" size={12} color="#9ca3af" />
-                  </TouchableOpacity> */}
                 </View>
                 <Text style={[styles.itemGridName, textStyle]} numberOfLines={1}>{item.name}</Text>
                 <Text style={styles.itemGridPrice}>{item.price}</Text>
@@ -586,7 +623,7 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
           ) : (
             <View style={styles.emptyItemsCard}>
               <Ionicons name="shirt-outline" size={24} color={text} />
-              <Text style={[styles.emptyItemsText, textStyle]}>No items yet</Text>
+              <Text style={[styles.emptyItemsText, textStyle]}>{t('myClosetDashboard.noItemsYet')}</Text>
             </View>
           )}
 
@@ -595,7 +632,7 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
             <View style={[styles.itemGridThumb, styles.addItemThumb, { borderColor: withAlpha(text, 0.2) }]}>
               <Ionicons name="add" size={28} color={text} />
             </View>
-            <Text style={[styles.itemGridName, { color: text, fontWeight: '700' }]}>Add New Item</Text>
+            <Text style={[styles.itemGridName, { color: text, fontWeight: '700' }]}>{t('myClosetDashboard.addNewItem')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -609,12 +646,12 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
         <View style={styles.battleCtaLeft}>
           <Ionicons name="flame" size={20} color="#fff" />
           <View style={{ marginLeft: 10 }}>
-            <Text style={styles.battleCtaTitle}>Battle Item</Text>
-            <Text style={styles.battleCtaSub}>Let your items compete and earn votes!</Text>
+            <Text style={styles.battleCtaTitle}>{t('myClosetDashboard.battleCtaTitle')}</Text>
+            <Text style={styles.battleCtaSub}>{t('myClosetDashboard.battleCtaSubtitle')}</Text>
           </View>
         </View>
         <View style={[styles.battleCtaButton, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
-          <Text style={styles.battleCtaButtonText}>Create Battle</Text>
+          <Text style={styles.battleCtaButtonText}>{t('myClosetDashboard.createBattleButton')}</Text>
         </View>
       </TouchableOpacity>
     </ScrollView>

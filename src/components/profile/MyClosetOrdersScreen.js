@@ -17,6 +17,7 @@ import { useToast } from 'react-native-toast-notifications';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { showToastMessage } from '../displaytoastmessage';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useLanguage } from '../../i18n';
 import {
   getSellerOrders,
   markOrderProcessing,
@@ -27,13 +28,14 @@ import {
 } from '../../services/myCloset';
 
 // ── Status helpers ──────────────────────────────────────────────────────
+// Colors stay fixed; the display label is resolved via t('myClosetOrders.status.<key>') at render time.
 const STATUS_META = {
-  pending: { label: 'To ship', color: '#7c3aed', bg: 'rgba(124,58,237,0.12)' },
-  confirmed: { label: 'Confirmed', color: '#0891b2', bg: 'rgba(8,145,178,0.12)' },
-  processing: { label: 'Processing', color: '#d97706', bg: 'rgba(217,119,6,0.12)' },
-  shipped: { label: 'Shipped', color: '#2563eb', bg: 'rgba(37,99,235,0.12)' },
-  delivered: { label: 'Delivered', color: '#16a34a', bg: 'rgba(22,163,74,0.12)' },
-  cancelled: { label: 'Cancelled', color: '#dc2626', bg: 'rgba(220,38,38,0.12)' },
+  pending: { color: '#7c3aed', bg: 'rgba(124,58,237,0.12)' },
+  confirmed: { color: '#0891b2', bg: 'rgba(8,145,178,0.12)' },
+  processing: { color: '#d97706', bg: 'rgba(217,119,6,0.12)' },
+  shipped: { color: '#2563eb', bg: 'rgba(37,99,235,0.12)' },
+  delivered: { color: '#16a34a', bg: 'rgba(22,163,74,0.12)' },
+  cancelled: { color: '#dc2626', bg: 'rgba(220,38,38,0.12)' },
 };
 
 const normalizeStatus = raw => {
@@ -68,13 +70,13 @@ const getOrderImage = order =>
   order?.image ||
   null;
 
-const getOrderItemName = order => {
+const getOrderItemName = (order, t) => {
   if (order?.item?.name || order?.item?.title) return order.item.name || order.item.title;
   if (order?.product?.name) return order.product.name;
   if (order?.itemName) return order.itemName;
   const count = order?.totalItemCount;
-  if (count) return `${count} item${count === 1 ? '' : 's'}`;
-  return 'Order item';
+  if (count) return t('myClosetOrders.itemCount', { count });
+  return t('myClosetOrders.orderItemFallback');
 };
 
 const getOrderPrice = order =>
@@ -97,10 +99,10 @@ const getSellerHandle = order =>
   '';
 
 // `mode` is 'seller' | 'buyer' — controls which counterpart handle we surface on the card
-const normalizeOrder = (order, index, mode) => ({
+const normalizeOrder = (order, index, mode, t) => ({
   id: order?.id || order?._id || String(index),
   orderNumber: order?.orderNumber || order?.orderId || order?.id || order?._id || index + 1,
-  itemName: getOrderItemName(order),
+  itemName: getOrderItemName(order, t),
   itemCount: order?.totalItemCount ?? null,
   price: formatPrice(getOrderPrice(order)),
   counterpart: mode === 'seller' ? getBuyerHandle(order) : getSellerHandle(order),
@@ -111,10 +113,10 @@ const normalizeOrder = (order, index, mode) => ({
 });
 
 const TABS = [
-  { key: 'all', label: 'All', status: null },
-  { key: 'pending', label: 'To ship', status: 'PENDING' },
-  { key: 'processing', label: 'Processing', status: 'PROCESSING' },
-  { key: 'delivered', label: 'Delivered', status: 'DELIVERED' },
+  { key: 'all', status: null },
+  { key: 'pending', status: 'PENDING' },
+  { key: 'processing', status: 'PROCESSING' },
+  { key: 'delivered', status: 'DELIVERED' },
 ];
 
 // Cancellable statuses on the buyer side — adjust to match your backend's actual rules
@@ -133,12 +135,13 @@ const OrdersHeader = ({ onBack, title }) => (
   </View>
 );
 
-// Seller-side status progression — what happens when the seller taps the action button
+// Seller-side status progression — what happens when the seller taps the action button.
+// `label` is resolved via t('myClosetOrders.action.<actionKey>') at render time.
 const STATUS_FLOW = {
-  pending: { next: 'processing', label: 'Mark as Processing', actionKey: 'processing' },
-  confirmed: { next: 'processing', label: 'Mark as Processing', actionKey: 'processing' },
-  processing: { next: 'shipped', label: 'Mark as Shipped', actionKey: 'shipped' },
-  shipped: { next: 'delivered', label: 'Mark as Delivered', actionKey: 'delivered' },
+  pending: { next: 'processing', actionKey: 'processing' },
+  confirmed: { next: 'processing', actionKey: 'processing' },
+  processing: { next: 'shipped', actionKey: 'shipped' },
+  shipped: { next: 'delivered', actionKey: 'delivered' },
   delivered: null,
   cancelled: null,
 };
@@ -153,10 +156,12 @@ const OrderCard = ({
   onCancel,
   onOpen,
   advancing,
+  t,
 }) => {
   const meta = STATUS_META[order.status];
+  const statusLabel = t(`myClosetOrders.status.${order.status}`);
   const flowStep = mode === 'seller' ? STATUS_FLOW[order.status] : null;
-  const nextActionLabel = flowStep ? flowStep.label : null;
+  const nextActionLabel = flowStep ? t(`myClosetOrders.action.${flowStep.actionKey}`) : null;
   const canCancel = mode === 'buyer' && BUYER_CANCELLABLE_STATUSES.includes(order.status);
 
   return (
@@ -165,7 +170,7 @@ const OrderCard = ({
         <View style={styles.orderCardTop}>
           <Text style={styles.orderNumber}>#{order.orderNumber}</Text>
           <View style={[styles.statusBadge, { backgroundColor: meta.bg }]}>
-            <Text style={[styles.statusText, { color: meta.color }]}>{meta.label}</Text>
+            <Text style={[styles.statusText, { color: meta.color }]}>{statusLabel}</Text>
           </View>
         </View>
 
@@ -184,7 +189,7 @@ const OrderCard = ({
             <Text style={styles.orderPrice}>{order.price}</Text>
             {!!order.counterpart && (
               <Text style={styles.orderBuyer}>
-                {mode === 'seller' ? 'Buyer' : 'Seller'}: @{order.counterpart}
+                {mode === 'seller' ? t('myClosetOrders.buyerLabel') : t('myClosetOrders.sellerLabel')}: @{order.counterpart}
               </Text>
             )}
             {!!order.date && <Text style={styles.orderDate}>{order.date}</Text>}
@@ -214,7 +219,7 @@ const OrderCard = ({
             { borderColor: '#dc2626', opacity: advancing ? 0.6 : 1 },
           ]}
         >
-          <Text style={[styles.advanceButtonText, { color: '#dc2626' }]}>Cancel Order</Text>
+          <Text style={[styles.advanceButtonText, { color: '#dc2626' }]}>{t('myClosetOrders.cancelOrderButton')}</Text>
         </TouchableOpacity>
       ) : null}
     </View>
@@ -223,6 +228,7 @@ const OrderCard = ({
 
 const MyClosetOrdersScreen = ({ navigation, route }) => {
   const { text, bgStyle, cardStyle, textStyle } = useAppTheme();
+  const { t } = useLanguage();
   const toast = useToast();
   const dispatch = useDispatch();
 
@@ -269,7 +275,7 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
         const response = await fetchOrdersPage(page, tabConfig.status);
         const list = extractList(response);
         const pagination = extractPagination(response);
-        const normalized = list.map((order, index) => normalizeOrder(order, index, mode));
+        const normalized = list.map((order, index) => normalizeOrder(order, index, mode, t));
 
         setOrders(prev => (append ? [...prev, ...normalized] : normalized));
         setPageInfo(prev => ({
@@ -282,14 +288,14 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
         showToastMessage(
           toast,
           'danger',
-          error?.response?.data?.message || error?.message || 'Unable to load orders.',
+          error?.response?.data?.message || error?.message || t('myClosetOrders.loadError'),
         );
         if (!append) setOrders([]);
       } finally {
         append ? setLoadingMore(false) : setLoading(false);
       }
     },
-    [activeTab, fetchOrdersPage, mode, toast],
+    [activeTab, fetchOrdersPage, mode, toast, t],
   );
 
   // Fetches accurate totals for every tab badge in one pass (limit=1, we only need `pagination.total`)
@@ -354,44 +360,44 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
       dispatch(showLoader());
       try {
         await action(order.raw?.id || order.raw?._id || order.id);
-        showToastMessage(toast, 'success', 'Order status updated.');
+        showToastMessage(toast, 'success', t('myClosetOrders.statusUpdateSuccess'));
         await Promise.all([loadOrders(1, false), loadCounts()]);
       } catch (error) {
         showToastMessage(
           toast,
           'danger',
-          error?.response?.data?.message || error?.message || 'Unable to update order status.',
+          error?.response?.data?.message || error?.message || t('myClosetOrders.statusUpdateError'),
         );
       } finally {
         setAdvancingId(null);
         dispatch(hideLoader());
       }
     },
-    [dispatch, loadCounts, loadOrders, toast],
+    [dispatch, loadCounts, loadOrders, toast, t],
   );
 
   const handleCancel = useCallback(
     order => {
       Alert.alert(
-        'Cancel this order?',
-        'This action cannot be undone.',
+        t('myClosetOrders.cancelConfirmTitle'),
+        t('myClosetOrders.cancelConfirmMessage'),
         [
-          { text: 'Keep Order', style: 'cancel' },
+          { text: t('myClosetOrders.keepOrder'), style: 'cancel' },
           {
-            text: 'Cancel Order',
+            text: t('myClosetOrders.cancelOrderButton'),
             style: 'destructive',
             onPress: async () => {
               setAdvancingId(order.id);
               dispatch(showLoader());
               try {
                 await cancelBuyerOrder(order.raw?.id || order.raw?._id || order.id);
-                showToastMessage(toast, 'success', 'Order cancelled.');
+                showToastMessage(toast, 'success', t('myClosetOrders.cancelSuccess'));
                 await Promise.all([loadOrders(1, false), loadCounts()]);
               } catch (error) {
                 showToastMessage(
                   toast,
                   'danger',
-                  error?.response?.data?.message || error?.message || 'Unable to cancel order.',
+                  error?.response?.data?.message || error?.message || t('myClosetOrders.cancelError'),
                 );
               } finally {
                 setAdvancingId(null);
@@ -402,15 +408,15 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
         ],
       );
     },
-    [dispatch, loadCounts, loadOrders, toast],
+    [dispatch, loadCounts, loadOrders, toast, t],
   );
 
-  const headerTitle = mode === 'seller' ? 'My Sales' : 'My Purchases';
-  const emptyTitle = mode === 'seller' ? 'No orders here' : 'No purchases yet';
+  const headerTitle = mode === 'seller' ? t('myClosetOrders.headerSales') : t('myClosetOrders.headerPurchases');
+  const emptyTitle = mode === 'seller' ? t('myClosetOrders.emptyTitleSeller') : t('myClosetOrders.emptyTitleBuyer');
   const emptyText =
     mode === 'seller'
-      ? 'Orders will show up once buyers check out.'
-      : 'Items you buy will show up here.';
+      ? t('myClosetOrders.emptyTextSeller')
+      : t('myClosetOrders.emptyTextBuyer');
 
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
@@ -428,7 +434,7 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
               style={styles.tabItem}
             >
               <Text style={[styles.tabLabel, isActive && { color: text, fontWeight: '800' }]}>
-                {tab.label}
+                {t(`myClosetOrders.tabs.${tab.key}`)}
                 {tab.key !== 'all' ? ` (${count})` : ''}
               </Text>
               {isActive && <View style={[styles.tabUnderline, { backgroundColor: text }]} />}
@@ -455,6 +461,7 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
               onAdvance={handleAdvance}
               onCancel={handleCancel}
               onOpen={handleOpenOrder}
+              t={t}
             />
           ))
         ) : (
@@ -468,7 +475,11 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
         {!loading && visibleOrders.length ? (
           <View style={styles.paginationFooter}>
             <Text style={styles.paginationText}>
-              Page {pageInfo.page} of {pageInfo.totalPages} · {pageInfo.total} total orders
+              {t('myClosetOrders.pagination', {
+                page: pageInfo.page,
+                totalPages: pageInfo.totalPages,
+                total: pageInfo.total,
+              })}
             </Text>
             {pageInfo.page < pageInfo.totalPages ? (
               <TouchableOpacity
@@ -480,7 +491,7 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
                 {loadingMore ? (
                   <ActivityIndicator color={text} size="small" />
                 ) : (
-                  <Text style={[styles.loadMoreText, { color: text }]}>Load more</Text>
+                  <Text style={[styles.loadMoreText, { color: text }]}>{t('myClosetOrders.loadMore')}</Text>
                 )}
               </TouchableOpacity>
             ) : null}

@@ -14,6 +14,7 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useLanguage } from '../../i18n';
 import { getClosetItemsByClosetId, getMyClosetById, getMyClosetItems } from '../../services/myCloset';
 import { useSelector } from 'react-redux';
 
@@ -60,7 +61,7 @@ const BATTLES = [
 
 // ── BattleSlide ───────────────────────────────────────────────────────────────
 
-const BattleSlide = ({ battle, accent }) => (
+const BattleSlide = ({ battle, accent, t }) => (
   <View style={s.slide}>
     {/* left */}
     <View style={s.fighter}>
@@ -78,7 +79,7 @@ const BattleSlide = ({ battle, accent }) => (
 
     {/* VS */}
     <View style={s.vsBubble}>
-      <Text style={s.vsText}>VS</Text>
+      <Text style={s.vsText}>{t('myClosetShopFront.vs')}</Text>
     </View>
 
     {/* right */}
@@ -129,6 +130,7 @@ const ItemTile = ({ item, accent, onPress }) => {
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = true }) => {
+  const { t } = useLanguage();
   const [storedUsername, setStoredUsername] = useState('');
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -139,7 +141,7 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
 
   const { text, bgStyle } = useAppTheme(userData?.profile);
   const accent = text || '#6d28d9';
-  
+
   // stored username
   useEffect(() => {
     let ok = true;
@@ -207,19 +209,19 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
 
   const shopName = useMemo(() =>
     closetDetails?.shopName
-    || 'My Closet',
-    [closetDetails?.shopName],
+    || t('myClosetShopFront.defaultShopName'),
+    [closetDetails?.shopName, t],
   );
 
   const tiles = useMemo(() =>
     items.slice(0, 6).map((it, i) => ({
       key: String(it?.id || it?._id || i),
-      name: it?.name || it?.title || it?.itemName || 'Untitled',
+      name: it?.name || it?.title || it?.itemName || t('myClosetShopFront.untitled'),
       price: fmt(it?.price ?? it?.amount ?? it?.salePrice),
       image: thumb(it),
       raw: it,
     })),
-    [items],
+    [items, t],
   );
 
   const onScroll = (e) => {
@@ -239,7 +241,7 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
     seller,
     sellerId: userData?.id,
     closetId,
-    isOwnProfile, 
+    isOwnProfile,
   });
 
   const openItem = item => navigation?.navigate?.('MyClosetBuyerItemDetail', {
@@ -248,7 +250,7 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
     seller,
     sellerId: userData?.id,
     closetId,
-    isOwnProfile, 
+    isOwnProfile,
   });
 
   const goBattles = () => navigation?.navigate?.('ProfileMain', { screen: 'MyBattles' });
@@ -274,8 +276,7 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
           <View style={s.bannerBody}>
             <Text style={[s.bannerTitle, { color: accent }]}>{shopName}</Text>
             <Text style={s.bannerSub}>
-              Welcome to this shop.{'\n'}
-              Explore the collection, discover new pieces, and experience the brand behind it. Shop now.
+              {t('myClosetShopFront.shopOwnerBannerSubtitle')}
             </Text>
           </View>
         </TouchableOpacity>
@@ -292,9 +293,7 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
           <View style={s.bannerBody}>
             <Text style={[s.bannerTitle, { color: accent }]}>{shopName}</Text>
             <Text style={s.bannerSub}>
-              Here you will find the things I let it go.{'\n'}
-              Shop now and be happy the way I was with the item.{'\n'}
-              This is my closet - things I've created, let it go.
+              {t('myClosetShopFront.userBannerSubtitle')}
             </Text>
           </View>
         </TouchableOpacity>
@@ -305,10 +304,10 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
         <View style={s.sectionHead}>
           <View style={s.sectionLeft}>
             <Text style={s.sectionEmoji}>⚔️</Text>
-            <Text style={s.sectionTitle}>Battle Picks</Text>
+            <Text style={s.sectionTitle}>{t('myClosetShopFront.battlePicksTitle')}</Text>
           </View>
           <TouchableOpacity onPress={goBattles} activeOpacity={0.7}>
-            <Text style={[s.seeAll, { color: accent }]}>See all ›</Text>
+            <Text style={[s.seeAll, { color: accent }]}>{t('myClosetShopFront.seeAll')} ›</Text>
           </TouchableOpacity>
         </View>
 
@@ -320,7 +319,7 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
           showsHorizontalScrollIndicator={false}
           onScroll={onScroll}
           scrollEventThrottle={16}
-          renderItem={({ item }) => <BattleSlide battle={item} accent={accent} />}
+          renderItem={({ item }) => <BattleSlide battle={item} accent={accent} t={t} />}
         />
 
         {/* dots */}
@@ -342,10 +341,10 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
       {/* ── My Items ── */}
       <View style={s.section}>
         <View style={s.sectionHead}>
-          <Text style={s.sectionTitle}>My Items</Text>
+          <Text style={s.sectionTitle}>{t('myClosetShopFront.myItemsTitle')}</Text>
           {(isOwnProfile || tiles.length > 0) && (
             <TouchableOpacity onPress={goItems} activeOpacity={0.7}>
-              <Text style={[s.seeAll, { color: accent }]}>See all ›</Text>
+              <Text style={[s.seeAll, { color: accent }]}>{t('myClosetShopFront.seeAll')} ›</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -356,45 +355,45 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
           isOwnProfile ? (  // ← non-own profile sees nothing when empty
             <View style={s.center}>
               <Ionicons name="shirt-outline" size={32} color="#d1d5db" />
-              <Text style={s.emptyTxt}>No items yet</Text>
+              <Text style={s.emptyTxt}>{t('myClosetShopFront.noItemsYet')}</Text>
               <TouchableOpacity style={[s.addBtn, { borderColor: accent }]} onPress={() => goAddFirst(true)}>
-              <Text style={[s.addBtnTxt, { color: accent }]}>Add your first item</Text>
-            </TouchableOpacity>
+                <Text style={[s.addBtnTxt, { color: accent }]}>{t('myClosetShopFront.addFirstItem')}</Text>
+              </TouchableOpacity>
             </View>
-      ) : (
-      <View style={s.center}>
-        <Text style={s.emptyTxt}>No items available</Text>
-      </View>
-      )
-      ) : (
-      <View style={s.grid}>
-        {tiles.map(it => (
-          <ItemTile
-            key={it.key}
-            item={it}
-            accent={accent}
-            onPress={() => { openItem(it) }}
-          />
-        ))}
-        {isOwnProfile && (
-          <TouchableOpacity
-            activeOpacity={0.85}
-            style={s.tile}
-            onPress={() => goAddFirst(false)}
-          >
-            <View style={[s.tileThumb, s.addTile]}>
-              <Ionicons name="add" size={28} color={accent} />
+          ) : (
+            <View style={s.center}>
+              <Text style={s.emptyTxt}>{t('myClosetShopFront.noItemsAvailable')}</Text>
             </View>
-            <Text style={[s.tileName, { color: accent }]} numberOfLines={1}>
-              Add new item
-            </Text>
-          </TouchableOpacity>
+          )
+        ) : (
+          <View style={s.grid}>
+            {tiles.map(it => (
+              <ItemTile
+                key={it.key}
+                item={it}
+                accent={accent}
+                onPress={() => { openItem(it) }}
+              />
+            ))}
+            {isOwnProfile && (
+              <TouchableOpacity
+                activeOpacity={0.85}
+                style={s.tile}
+                onPress={() => goAddFirst(false)}
+              >
+                <View style={[s.tileThumb, s.addTile]}>
+                  <Ionicons name="add" size={28} color={accent} />
+                </View>
+                <Text style={[s.tileName, { color: accent }]} numberOfLines={1}>
+                  {t('myClosetShopFront.addNewItem')}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
         )}
       </View>
-        )}
-    </View>
 
-    </ScrollView >
+    </ScrollView>
   );
 };
 
