@@ -257,7 +257,10 @@ export default function Main() {
       if (lockLogoutInFlight.current) return;
 
       const response = await lockProfile();
-      const isLock = String(response?.data?.isLock ?? '').toLowerCase() === 'true';
+      console.log(response,'lock prolfe have ')
+      const rawPayload = response?.data ?? response;
+      const isLock =
+        String(rawPayload?.profileLock ?? rawPayload?.isLock ?? rawPayload?.data?.profileLock ?? rawPayload?.data?.isLock ?? '').toLowerCase() === 'true';
       if (!isLock) return;
 
       lockLogoutInFlight.current = true;
@@ -304,10 +307,14 @@ export default function Main() {
       return;
     }
 
-    navigationRef.current.navigate('BlockedVerification', {
-      profile: blockedVerificationProfile,
-    });
-    setBlockedVerificationProfile(null);
+    const timer = setTimeout(() => {
+      navigationRef.current?.navigate('BlockedVerification', {
+        profile: blockedVerificationProfile,
+      });
+      setBlockedVerificationProfile(null);
+    }, 300);
+
+    return () => clearTimeout(timer);
   }, [blockedVerificationProfile, isLoading, isLoggedIn, isNavigationReady]);
 
   useEffect(() => {

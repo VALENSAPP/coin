@@ -1061,13 +1061,7 @@ const ProfilePersonData = ({
       const screen = returnByTo?.screen;
       const params = returnByTo?.params;
       if (tab) {
-        const parentNav = navigation.getParent?.();
-        if (parentNav?.jumpTo) {
-          parentNav.jumpTo(tab);
-          if (screen) parentNav.navigate(tab, { screen, params });
-        } else {
-          navigation.navigate(tab, screen ? { screen, params } : undefined);
-        }
+        navigation.navigate(tab, screen ? { screen, params } : undefined);
         return;
       }
     }

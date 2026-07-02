@@ -280,7 +280,9 @@ export default function LoginScreen() {
         }
         try {
           const lockResponse = await lockProfile();
-          const isLock = String(lockResponse?.data?.isLock ?? '').toLowerCase() === 'true';
+          const rawLockPayload = lockResponse?.data ?? lockResponse;
+          const isLock =
+            String(rawLockPayload?.profileLock ?? rawLockPayload?.isLock ?? rawLockPayload?.data?.profileLock ?? rawLockPayload?.data?.isLock ?? '').toLowerCase() === 'true';
           if (isLock) {
             const userId = response.data.user.id;
 

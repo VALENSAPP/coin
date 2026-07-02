@@ -62,6 +62,7 @@ const formatDate = (dateString) => {
 const EbookDetailScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
+  console.log('📥 EbookDetailScreen received params:', JSON.stringify(route?.params, null, 2));
   const ebook = route?.params?.ebook || {};
   const routeLoggedInUserId = route?.params?.loggedInUserId;
   const { bgStyle,text } = useAppTheme(route?.params?.userData?.profile);
@@ -75,9 +76,40 @@ const EbookDetailScreen = () => {
   const userName = ebook.userName || 'Unknown Author';
   const userImage = ebook.userImage || 'https://i.pravatar.cc/80?img=32';
   const description = getDescription(ebook.text);
-  const coverImage = ebook.images?.[0] || null;
-  const pdfUrl = ebook.ebookpdf;
-  const allowDownload = ebook.allowDownload === true;
+
+  const pdfUrl = useMemo(() => {
+    let rawPdf = ebook.ebookpdf;
+    if (!rawPdf) {
+      const mediaList = [
+        ...(Array.isArray(ebook.images) ? ebook.images : []),
+        ebook.image,
+        ebook.video,
+        ebook.media,
+      ].filter(Boolean);
+      rawPdf = mediaList.find(m => typeof m === 'string' && /\.pdf(\?|$)/i.test(m));
+    }
+    if (!rawPdf || typeof rawPdf !== 'string') return null;
+
+    const trimmed = rawPdf.trim();
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return trimmed;
+    }
+    return `https://${trimmed}`;
+  }, [ebook]);
+
+  const coverImage = useMemo(() => {
+    const rawCover = ebook.images?.[0] || ebook.image || null;
+    if (typeof rawCover === 'string' && /\.pdf(\?|$)/i.test(rawCover)) {
+      return null;
+    }
+    return rawCover;
+  }, [ebook]);
+
+  const allowDownload = useMemo(() => {
+    if (!pdfUrl) return false;
+    const val = ebook.allowDownload ?? ebook.isAllowDownload;
+    return val === true || val === 'true';
+  }, [ebook.allowDownload, ebook.isAllowDownload, pdfUrl]);
   const [isLiked, setIsLiked] = useState(!!ebook?.isLike);
   const [likes, setLikes] = useState(ebook?.likeCount || 0);
 
@@ -287,14 +319,26 @@ const EbookDetailScreen = () => {
     );
   };
   const handleReadBook = async () => {
-    if (await InAppBrowser.isAvailable()) {
-      await InAppBrowser.open(pdfUrl, {
-        dismissButtonStyle: 'close',
-        readerMode: false,
-        animated: true,
-        modalEnabled: true,
-        enableBarCollapsing: true,
-      });
+    console.log('📖 Attempting to read ebook. Passed params:', { ebook, pdfUrl });
+    if (!pdfUrl) {
+      Alert.alert('Error', 'Ebook PDF URL is not available');
+      return;
+    }
+    try {
+      if (await InAppBrowser.isAvailable()) {
+        await InAppBrowser.open(pdfUrl, {
+          dismissButtonStyle: 'close',
+          readerMode: false,
+          animated: true,
+          modalEnabled: true,
+          enableBarCollapsing: true,
+        });
+      } else {
+        Alert.alert('Error', 'InAppBrowser is not available on this device');
+      }
+    } catch (err) {
+      console.log('InAppBrowser opening failed:', err);
+      Alert.alert('Error', 'Unable to open ebook. Invalid or unreachable PDF link.');
     }
   };
   const chapters = useMemo(() => {
