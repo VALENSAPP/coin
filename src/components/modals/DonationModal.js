@@ -114,6 +114,10 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
             setNote('');
             onClose();
 
+            setTimeout(() => {
+                global.isDonationInProgress = false;
+            }, 1000);
+
             showToastMessage(toast, 'success', t('missionSupportScreen.donationSuccess'));
         });
 
@@ -123,6 +127,7 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
     }, [visible]);
 
     const runPaymentFlow = async (createPaymentSession) => {
+        global.isDonationInProgress = true;
         const onboardingStatus = await GetInbordingstatus();
 
         if (isOnboardingReady(onboardingStatus)) {

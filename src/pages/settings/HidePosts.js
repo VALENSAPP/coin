@@ -38,10 +38,29 @@ import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useLanguage } from '../../i18n';
+import useScreenshotProtection, { shouldProtectScreenshot } from '../../hooks/useScreenshotProtection';
 
 const HidePosts = ({ navigation }) => {
   const isScreenFocused = useIsFocused();
   const { t } = useLanguage();
+
+  const [currentUserId, setCurrentUserId] = useState(null);
+
+  const shouldProtectPrivateContent = useMemo(
+    () =>
+      shouldProtectScreenshot({
+        posts,
+        currentUserId,
+      }),
+    [posts, currentUserId],
+  );
+
+  useScreenshotProtection({
+    enabled: shouldProtectPrivateContent,
+    title: t('postView.screenshotWarningTitle'),
+    message: t('postView.screenshotWarningMessage'),
+  });
+
   const [feedVisiblePostId, setFeedVisiblePostId] = useState(null);
   const [feedPlayingPostId, setFeedPlayingPostId] = useState(null);
 
@@ -69,7 +88,6 @@ const HidePosts = ({ navigation }) => {
   // Options modal
   const [modalVisible, setModalVisible] = useState(false);
   const [modalPostId, setModalPostId] = useState(null);
-  const [currentUserId, setCurrentUserId] = useState(null);
 
   // Saved state (for OptionsModal save/unsave)
   const [savedById, setSavedById] = useState({});

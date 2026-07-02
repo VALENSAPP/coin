@@ -43,6 +43,11 @@ const SavedPostsScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  const nonReelPosts = useMemo(
+    () => posts.filter(p => p?.type !== 'reel'),
+    [posts],
+  );
+
   // Per-post UI state
   const [liked, setLiked] = useState({});
   const [saved, setSaved] = useState({});
@@ -94,20 +99,14 @@ const SavedPostsScreen = ({ navigation }) => {
     ) ?? null;
   }, [viewerVisible, viewerVisiblePostId, posts]);
 
-  const shouldProtectPrivateContent = useMemo(() => {
-    if (!activeViewerPost) return false;
-
-    const post = activeViewerPost;
-
-    // Direct field checks based on your API response shape
-    const isPrivate =
-      post?.type === 'private' ||
-      post?.private_circle === true ||
-      post?.visibleTo === 'PRIVATE_CIRCLE' ||
-      post?.profileStatus === 'private';
-
-    return isPrivate;
-  }, [activeViewerPost]);
+  const shouldProtectPrivateContent = useMemo(
+    () =>
+      shouldProtectScreenshot({
+        posts,
+        currentUserId,
+      }),
+    [posts, currentUserId],
+  );
 
   useScreenshotProtection({
     enabled: shouldProtectPrivateContent,
@@ -488,7 +487,7 @@ const SavedPostsScreen = ({ navigation }) => {
     // Otherwise open the in-screen viewer modal
     setInitialPostIndex(index);
     setViewerVisible(true);
-  }, [navigation, posts]);
+  }, [navigation, posts, nonReelPosts]);
 
   // Close viewer
   const closePostViewer = useCallback(() => {
@@ -542,11 +541,6 @@ const SavedPostsScreen = ({ navigation }) => {
       clearTimeout(timeout);
     };
   }, [initialPostIndex, posts?.length, viewerVisible]);
-
-  const nonReelPosts = useMemo(
-    () => posts.filter(p => p?.type !== 'reel'),
-    [posts],
-  );
 
   // Grid item renderer
   const renderGridItem = useCallback(

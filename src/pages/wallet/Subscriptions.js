@@ -408,7 +408,7 @@ const SubventionSetupScreen = () => {
         const numValue = parseFloat(rawAmount);
         let finalValue = numValue;
         if (numValue < 9) finalValue = 9;
-        if (numValue > 100) finalValue = 100;
+        if (numValue > 1000) finalValue = 1000;
         setRawAmount(finalValue.toString());
         if (hasDecimal) {
             setPrice(finalValue.toString());
@@ -677,7 +677,7 @@ const SubventionSetupScreen = () => {
 
                         <View style={styles.priceRange}>
                             <Text style={[styles.rangeText, { color: mutedText }]}>{t('subventionSetup.minPrice')}: $9</Text>
-                            <Text style={[styles.rangeText, { color: mutedText }]}>{t('subventionSetup.maxPrice')}: $100</Text>
+                            <Text style={[styles.rangeText, { color: mutedText }]}>{t('subventionSetup.maxPrice')}: $1000</Text>
                         </View>
 
                         <TextInput

@@ -634,6 +634,11 @@ const openLinkedStory = useCallback(async (sharedStoryId) => {
     const subscription = DeviceEventEmitter.addListener('PAYMENT_COMPLETED', (data) => {
       console.log('🔔 HomeScreen: PAYMENT_COMPLETED event received!', data);
 
+      if (global.isDonationInProgress) {
+        console.log('Home: Donation in progress, skipping full feed reload.');
+        return;
+      }
+
       Promise.all([
         fetchData(),
         fetchProfileData()
