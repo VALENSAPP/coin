@@ -101,7 +101,7 @@ export default function ChatMessages() {
   const [error, setError] = useState(null);
   const [socketReady, setSocketReady] = useState(false);
   const inputRef = useRef(null);
-  const { bgStyle, textStyle, text, card, cardStyle, border, mutedText, icon, accent } = useAppTheme();
+  const { bgStyle, textStyle, text, card, cardStyle, border, mutedText, mutedTextStyle, icon, accent } = useAppTheme();
   const toast = useToast();
   const { t } = useLanguage();
   const [isScreenFocused, setIsScreenFocused] = useState(true);
@@ -962,7 +962,7 @@ export default function ChatMessages() {
             style={[
               styles.lastMessage,
               { color: item.unreadCount > 0 ? text : mutedText },
-              item.unreadCount > 0 && styles.unreadLastMessage,
+              item.unreadCount > 0 && { fontWeight: '700' },
             ]}
             numberOfLines={1}
           >
@@ -970,7 +970,7 @@ export default function ChatMessages() {
           </Text>
         ) : (
           <Text
-            style={[styles.lastMessage, { color: mutedText }, item.unreadCount > 0 && styles.unreadLastMessage]}
+            style={[styles.lastMessage, { color: mutedText }, item.unreadCount > 0 && { fontWeight: '600' }]}
             numberOfLines={1}
           >
             {t('chatMessages.startConversation')}
@@ -1015,7 +1015,7 @@ export default function ChatMessages() {
       {/* Header */}
       <View style={[styles.header, bgStyle, { shadowColor: text, borderBottomColor: border }]}>
         <TouchableOpacity onPress={handleBackPress}>
-          <SafeIcon name="arrow-back" size={24} color={icon} />
+          <SafeIcon name="arrow-back" size={24} color={accent} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, textStyle]}>{t('chatMessages.title')}</Text>
         <View style={{ flex: 1 }} />
@@ -1031,7 +1031,7 @@ export default function ChatMessages() {
           <SafeIcon name="search" size={20} color={mutedText} style={styles.searchIcon} />
           <TextInput
             ref={inputRef}
-            style={[styles.searchInput, { color: text }]}
+            style={[styles.searchInput, textStyle]}
             placeholder={t('chatMessages.searchPlaceholder')}
             value={search}
             onChangeText={setSearch}
@@ -1041,7 +1041,7 @@ export default function ChatMessages() {
       </TouchableOpacity>
 
       {/* Messages / My closet chat Tabs */}
-      <View style={styles.tabRow}>
+      <View style={[styles.tabRow, { borderBottomColor: border }]}>
         <TouchableOpacity
           style={styles.tabButton}
           onPress={() => setActiveTab(CHAT_TABS.MESSAGES)}
@@ -1050,13 +1050,16 @@ export default function ChatMessages() {
           <Text
             style={[
               styles.tabText,
-              textStyle,
-              activeTab === CHAT_TABS.MESSAGES && styles.tabTextActive,
+              activeTab === CHAT_TABS.MESSAGES
+                ? { color: accent, fontWeight: '700' }
+                : mutedTextStyle,
             ]}
           >
             {t('chatMessages.messagesLabel')}
           </Text>
-          {activeTab === CHAT_TABS.MESSAGES && <View style={styles.tabUnderline} />}
+          {activeTab === CHAT_TABS.MESSAGES && (
+            <View style={[styles.tabUnderline, { backgroundColor: accent }]} />
+          )}
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -1067,13 +1070,16 @@ export default function ChatMessages() {
           <Text
             style={[
               styles.tabText,
-              textStyle,
-              activeTab === CHAT_TABS.CLOSET && styles.tabTextActive,
+              activeTab === CHAT_TABS.CLOSET
+                ? { color: accent, fontWeight: '700' }
+                : mutedTextStyle,
             ]}
           >
             {t('chatMessages.myClosetChatLabel') || 'My closet chat'}
           </Text>
-          {activeTab === CHAT_TABS.CLOSET && <View style={styles.tabUnderline} />}
+          {activeTab === CHAT_TABS.CLOSET && (
+            <View style={[styles.tabUnderline, { backgroundColor: accent }]} />
+          )}
         </TouchableOpacity>
       </View>
 
@@ -1101,7 +1107,7 @@ export default function ChatMessages() {
           <View style={styles.errorContainer}>
             <Text style={styles.errorText}>{error}</Text>
             <TouchableOpacity
-              style={[styles.retryButton, { backgroundColor: text }]}
+              style={[styles.retryButton, { backgroundColor: accent }]}
               onPress={() => {
                 const socket = getSocket();
                 if (socket?.connected) {
@@ -1116,7 +1122,7 @@ export default function ChatMessages() {
           </View>
         ) : filteredConversations.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>
+            <Text style={[styles.emptyText, textStyle]}>
               {search
                 ? t('chatMessages.noConversationsFound')
                 : activeTab === CHAT_TABS.CLOSET
@@ -1124,7 +1130,7 @@ export default function ChatMessages() {
                   : t('chatMessages.noConversationsYet')}
             </Text>
             {!search && (
-              <Text style={styles.emptySubtext}>
+              <Text style={[styles.emptySubtext, mutedTextStyle]}>
                 {activeTab === CHAT_TABS.CLOSET
                   ? (t('chatMessages.closetChatHint') || 'Chats you keep here stay separate from your main inbox')
                   : t('chatMessages.startConversationHint')}
@@ -1214,7 +1220,6 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
     borderRadius: 16,
     marginHorizontal: 16,
     marginVertical: 12,
@@ -1234,7 +1239,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     fontSize: 15,
-    color: '#000',
+    flex: 1,
   },
   tabRow: {
     flexDirection: 'row',
@@ -1243,7 +1248,6 @@ const styles = StyleSheet.create({
     paddingTop: 4,
     paddingBottom: 10,
     borderBottomWidth: 0.5,
-    borderBottomColor: '#e5e0ea',
   },
   tabButton: {
     marginRight: 24,
@@ -1252,17 +1256,11 @@ const styles = StyleSheet.create({
   tabText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#9ca3af',
-  },
-  tabTextActive: {
-    color: '#5a2d82',
-    fontWeight: '700',
   },
   tabUnderline: {
     marginTop: 6,
     height: 3,
     borderRadius: 2,
-    backgroundColor: '#5a2d82',
     width: '100%',
   },
   chatItem: {
@@ -1319,7 +1317,6 @@ const styles = StyleSheet.create({
   },
   unreadMessage: {
     fontWeight: '700',
-    color: '#000',
   },
   timestamp: {
     fontSize: 12,
@@ -1335,15 +1332,12 @@ const styles = StyleSheet.create({
   },
   lastMessage: {
     fontSize: 14,
-    color: '#666',
     flex: 1,
   },
   unreadLastMessage: {
-    color: '#111',
     fontWeight: '600',
   },
   unreadBadge: {
-    backgroundColor: '#5a2d82',
     borderRadius: 12,
     minWidth: 24,
     height: 24,
@@ -1402,13 +1396,11 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    color: '#666',
     textAlign: 'center',
     marginBottom: 8,
   },
   emptySubtext: {
     fontSize: 14,
-    color: '#999',
     textAlign: 'center',
   },
   modalOverlay: {

@@ -19,7 +19,7 @@ export default function ProfileBattleScreen() {
   const { t } = useLanguage();
   const returnTo = route?.params?.returnTo;
   const { profile } = route.params || {};
-  const { bgStyle, text } = useAppTheme(profile);
+  const { bgStyle, accent } = useAppTheme(profile);
   const viewedUserId = route?.params?.viewedUserId || '';
   const isOwner = Boolean(route?.params?.isOwner);
   const title = route?.params?.title || t('profileBattle.defaultTitle');
@@ -43,9 +43,9 @@ export default function ProfileBattleScreen() {
           onPress={handleBack}
           style={styles.headerIconBtn}
         >
-          <Icon name="arrow-back-ios-new" size={20} color={text} />
+          <Icon name="arrow-back-ios-new" size={20} color={accent} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: text }]}>{title}</Text>
+        <Text style={[styles.headerTitle, { color: accent }]}>{title}</Text>
         <View style={styles.headerIconBtn} />
       </View>
 

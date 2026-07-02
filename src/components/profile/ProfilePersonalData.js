@@ -1161,7 +1161,7 @@ const ProfilePersonData = ({
               )}
               <View style={styles.userRow}>
                 <Text
-                  style={[styles.headerText, textStyle]}
+                  style={[styles.headerText, { color: accent }]}
                   numberOfLines={1}
                   ellipsizeMode="tail">
                   {Userdata.Username}
@@ -1170,7 +1170,7 @@ const ProfilePersonData = ({
                   <DragonflyIcon width={30} height={30} style={styles.icon} />
                 )}
                 {!fromUsersProfile && (
-                  <Ionicons name="chevron-down" size={18} color={icon} style={styles.headerChevron} />
+                  <Ionicons name="chevron-down" size={18} color={accent} style={styles.headerChevron} />
                 )}
               </View>
             </TouchableOpacity>
@@ -1192,7 +1192,7 @@ const ProfilePersonData = ({
                   onPress={() => navigation.navigate('MyClosetBuyerCart')}
                 >
                   <View>
-                    <Ionicons name="cart-outline" size={25} color="#111100" />
+                    <Ionicons name="cart-outline" size={25} color={icon} />
                     {cartCount > 0 && (
                       <View style={styles.cartBadge}>
                         <Text style={styles.cartBadgeText}>
@@ -1203,7 +1203,7 @@ const ProfilePersonData = ({
                   </View>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.iconButton} onPress={() => setModalVisible(true)}>
-                  <FontAwesome name="plus-square-o" size={25} color="#111100" />
+                  <FontAwesome name="plus-square-o" size={25} color={icon} />
                 </TouchableOpacity>
               </>
             )}
@@ -1439,7 +1439,7 @@ const ProfilePersonData = ({
               )}
             </Animated.View>
 
-            <Text style={[styles.displaynamee, textStyle]} numberOfLines={2}>
+            <Text style={[styles.displaynamee, { color: accent }]} numberOfLines={2}>
               {Userdata.Displayname}
             </Text>
           </View>
@@ -1792,10 +1792,8 @@ const styles = StyleSheet.create({
   },
   displaynamee: {
     fontSize: 16,
-    color: '#1F2937',
     fontWeight: '700',
     marginTop: 6,
-    // textAlign: 'center',       // ← name centered across full width
     width: '100%',
   },
   image: {

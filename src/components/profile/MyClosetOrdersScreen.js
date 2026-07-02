@@ -17,6 +17,7 @@ import { useToast } from 'react-native-toast-notifications';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { showToastMessage } from '../displaytoastmessage';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useThemeContext } from '../../theme/ThemeContext';
 import {
   getSellerOrders,
   markOrderProcessing,
@@ -120,18 +121,33 @@ const TABS = [
 // Cancellable statuses on the buyer side — adjust to match your backend's actual rules
 const BUYER_CANCELLABLE_STATUSES = ['pending', 'confirmed', 'processing'];
 
-const OrdersHeader = ({ onBack, title }) => (
-  <View style={styles.headerRow}>
-    <TouchableOpacity activeOpacity={0.85} onPress={onBack} style={styles.headerIconButton}>
-      <Ionicons name="chevron-back" size={22} color="#111827" />
-    </TouchableOpacity>
-    <Text style={styles.headerTitle}>{title}</Text>
-    {/* <TouchableOpacity activeOpacity={0.85} style={styles.headerIconButton}>
-      <Ionicons name="options-outline" size={20} color="#111827" />
-    </TouchableOpacity> */}
-    <Text>        </Text>
-  </View>
-);
+const withAlpha = (hex, alpha = 0.12) => {
+  const normalized = String(hex || '').replace('#', '');
+  if (normalized.length !== 6) return `rgba(124,58,237,${alpha})`;
+  const r = parseInt(normalized.slice(0, 2), 16);
+  const g = parseInt(normalized.slice(2, 4), 16);
+  const b = parseInt(normalized.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+};
+
+const OrdersHeader = ({ onBack, title, accent, textStyle }) => {
+  const { isDarkMode } = useThemeContext();
+  const chipSurface = isDarkMode ? 'rgba(255,255,255,0.08)' : '#ffffff';
+
+  return (
+    <View style={styles.headerRow}>
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={onBack}
+        style={[styles.headerIconButton, { backgroundColor: chipSurface, borderRadius: 19 }]}
+      >
+        <Ionicons name="chevron-back" size={22} color={accent} />
+      </TouchableOpacity>
+      <Text style={[styles.headerTitle, textStyle]}>{title}</Text>
+      <Text>        </Text>
+    </View>
+  );
+};
 
 // Seller-side status progression — what happens when the seller taps the action button
 const STATUS_FLOW = {
@@ -146,9 +162,11 @@ const STATUS_FLOW = {
 const OrderCard = ({
   order,
   mode,
-  text,
+  accent,
   cardStyle,
   textStyle,
+  mutedTextStyle,
+  border,
   onAdvance,
   onCancel,
   onOpen,
@@ -160,10 +178,10 @@ const OrderCard = ({
   const canCancel = mode === 'buyer' && BUYER_CANCELLABLE_STATUSES.includes(order.status);
 
   return (
-    <View style={[styles.orderCard, cardStyle, { borderColor: 'rgba(17,24,39,0.08)' }]}>
+    <View style={[styles.orderCard, cardStyle, { borderColor: border || withAlpha(accent, 0.12) }]}>
       <TouchableOpacity activeOpacity={0.8} onPress={() => onOpen(order)}>
         <View style={styles.orderCardTop}>
-          <Text style={styles.orderNumber}>#{order.orderNumber}</Text>
+          <Text style={[styles.orderNumber, mutedTextStyle]}>#{order.orderNumber}</Text>
           <View style={[styles.statusBadge, { backgroundColor: meta.bg }]}>
             <Text style={[styles.statusText, { color: meta.color }]}>{meta.label}</Text>
           </View>
@@ -174,22 +192,22 @@ const OrderCard = ({
             {order.image ? (
               <Image source={{ uri: order.image }} style={styles.orderThumbImage} />
             ) : (
-              <Ionicons name="shirt-outline" size={22} color={text} />
+              <Ionicons name="shirt-outline" size={22} color={accent} />
             )}
           </View>
           <View style={styles.orderCopy}>
             <Text style={[styles.orderItemName, textStyle]} numberOfLines={1}>
               {order.itemName}
             </Text>
-            <Text style={styles.orderPrice}>{order.price}</Text>
+            <Text style={[styles.orderPrice, textStyle]}>{order.price}</Text>
             {!!order.counterpart && (
-              <Text style={styles.orderBuyer}>
+              <Text style={[styles.orderBuyer, mutedTextStyle]}>
                 {mode === 'seller' ? 'Buyer' : 'Seller'}: @{order.counterpart}
               </Text>
             )}
-            {!!order.date && <Text style={styles.orderDate}>{order.date}</Text>}
+            {!!order.date && <Text style={[styles.orderDate, mutedTextStyle]}>{order.date}</Text>}
           </View>
-          <Ionicons name="chevron-forward" size={18} color="#9ca3af" />
+          <Ionicons name="chevron-forward" size={18} color={mutedTextStyle?.color || '#9ca3af'} />
         </View>
       </TouchableOpacity>
 
@@ -198,9 +216,9 @@ const OrderCard = ({
           activeOpacity={0.85}
           disabled={advancing}
           onPress={() => onAdvance(order)}
-          style={[styles.advanceButton, { borderColor: text, opacity: advancing ? 0.6 : 1 }]}
+          style={[styles.advanceButton, { borderColor: accent, opacity: advancing ? 0.6 : 1 }]}
         >
-          <Text style={[styles.advanceButtonText, { color: text }]}>{nextActionLabel}</Text>
+          <Text style={[styles.advanceButtonText, { color: accent }]}>{nextActionLabel}</Text>
         </TouchableOpacity>
       ) : null}
 
@@ -222,7 +240,8 @@ const OrderCard = ({
 };
 
 const MyClosetOrdersScreen = ({ navigation, route }) => {
-  const { text, bgStyle, cardStyle, textStyle } = useAppTheme();
+  const { accent, bgStyle, cardStyle, textStyle, mutedTextStyle, border } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
   const toast = useToast();
   const dispatch = useDispatch();
 
@@ -414,9 +433,14 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
 
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
-      <OrdersHeader onBack={() => navigation.goBack()} title={headerTitle} />
+      <OrdersHeader
+        onBack={() => navigation.goBack()}
+        title={headerTitle}
+        accent={accent}
+        textStyle={textStyle}
+      />
 
-      <View style={styles.tabsRow}>
+      <View style={[styles.tabsRow, { borderBottomColor: withAlpha(accent, isDarkMode ? 0.2 : 0.08) }]}>
         {TABS.map(tab => {
           const isActive = activeTab === tab.key;
           const count = counts[tab.key];
@@ -427,11 +451,11 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
               onPress={() => setActiveTab(tab.key)}
               style={styles.tabItem}
             >
-              <Text style={[styles.tabLabel, isActive && { color: text, fontWeight: '800' }]}>
+              <Text style={[styles.tabLabel, mutedTextStyle, isActive && { color: accent, fontWeight: '800' }]}>
                 {tab.label}
                 {tab.key !== 'all' ? ` (${count})` : ''}
               </Text>
-              {isActive && <View style={[styles.tabUnderline, { backgroundColor: text }]} />}
+              {isActive && <View style={[styles.tabUnderline, { backgroundColor: accent }]} />}
             </TouchableOpacity>
           );
         })}
@@ -440,7 +464,7 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
       <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
         {loading ? (
           <View style={styles.loadingWrap}>
-            <ActivityIndicator color={text} />
+            <ActivityIndicator color={accent} />
           </View>
         ) : visibleOrders.length ? (
           visibleOrders.map(order => (
@@ -448,9 +472,11 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
               key={order.id}
               order={order}
               mode={mode}
-              text={text}
+              accent={accent}
               cardStyle={cardStyle}
               textStyle={textStyle}
+              mutedTextStyle={mutedTextStyle}
+              border={border}
               advancing={advancingId === order.id}
               onAdvance={handleAdvance}
               onCancel={handleCancel}
@@ -459,15 +485,15 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
           ))
         ) : (
           <View style={[styles.emptyCard, cardStyle]}>
-            <Ionicons name="bag-outline" size={26} color={text} />
+            <Ionicons name="bag-outline" size={26} color={accent} />
             <Text style={[styles.emptyTitle, textStyle]}>{emptyTitle}</Text>
-            <Text style={styles.emptyText}>{emptyText}</Text>
+            <Text style={[styles.emptyText, mutedTextStyle]}>{emptyText}</Text>
           </View>
         )}
 
         {!loading && visibleOrders.length ? (
           <View style={styles.paginationFooter}>
-            <Text style={styles.paginationText}>
+            <Text style={[styles.paginationText, mutedTextStyle]}>
               Page {pageInfo.page} of {pageInfo.totalPages} · {pageInfo.total} total orders
             </Text>
             {pageInfo.page < pageInfo.totalPages ? (
@@ -475,12 +501,12 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
                 activeOpacity={0.8}
                 disabled={loadingMore}
                 onPress={handleLoadMore}
-                style={[styles.loadMoreButton, { borderColor: text, opacity: loadingMore ? 0.6 : 1 }]}
+                style={[styles.loadMoreButton, { borderColor: accent, opacity: loadingMore ? 0.6 : 1 }]}
               >
                 {loadingMore ? (
-                  <ActivityIndicator color={text} size="small" />
+                  <ActivityIndicator color={accent} size="small" />
                 ) : (
-                  <Text style={[styles.loadMoreText, { color: text }]}>Load more</Text>
+                  <Text style={[styles.loadMoreText, { color: accent }]}>Load more</Text>
                 )}
               </TouchableOpacity>
             ) : null}

@@ -317,7 +317,7 @@ export default function MainTabNavigator() {
   } = useBusinessProfileTheme();
   const { isDarkMode } = useThemeContext();
   const headerTitleColor = isDarkMode ? '#ffffff' : '#111827';
-  const headerMenuColor = isBusinessProfile ? text : isDarkMode ? icon : text;
+  const headerMenuColor = accent;
   // ── TRANSLATION CHANGE: initialise t() ──────────────────────────────────────
   const { t } = useLanguage();
 
@@ -341,15 +341,8 @@ export default function MainTabNavigator() {
     return accent;
   }, [viewedProfileType, accent]);
 
-  const profileTabBorderColor = useMemo(() => {
-    if (
-      userProfile !== 'user' ||
-      normalizeProfileType(viewedProfileType) === 'company'
-    ) {
-      return '#C9A15A';
-    }
-    return tabAccent;
-  }, [userProfile, viewedProfileType, tabAccent]);
+  const profileTabBorderColor =
+    userProfile !== 'user' || isBusinessProfile ? '#C9A15a' : '#5a2d82';
 
   const HomeStack = useMemo(() => {
     return () => (
@@ -661,6 +654,7 @@ export default function MainTabNavigator() {
           initialRouteName={initialScreen}
           screenOptions={({ navigation }) => ({
             headerShown: true,
+            contentStyle: { backgroundColor: bg },
             headerStyle: {
               elevation: 0,
               shadowOpacity: 0,
@@ -683,7 +677,7 @@ export default function MainTabNavigator() {
               <TextGradient
                 style={{ fontWeight: 'bold', fontSize: 20 }}
                 locations={[0, 1]}
-                colors={isBusinessProfile ? ['#C9A15A', '#E8C882'] : ['#513189bd', '#e54ba0']}
+                colors={['#513189bd', '#e54ba0']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 text="VALENS"
@@ -896,8 +890,8 @@ export default function MainTabNavigator() {
     t,
     bg,
     text,
+    accent,
     icon,
-    userProfile,
     headerTitleColor,
     headerMenuColor,
     isBusinessProfile,
@@ -1079,7 +1073,6 @@ export default function MainTabNavigator() {
               } else {
                 return (
                   <HexAvatar
-                    uri={require('../assets/icons/pngicons/user.png')}
                     size={30}
                     borderWidth={1.5}
                     borderColor={profileTabBorderColor}
@@ -1101,7 +1094,7 @@ export default function MainTabNavigator() {
 
       return baseOptions;
     },
-    [profileImage, defaultTabBarStyle, reelsTabBarStyle, tabAccent, mutedText, profileTabBorderColor],
+    [profileImage, defaultTabBarStyle, reelsTabBarStyle, tabAccent, mutedText, profileTabBorderColor, isBusinessProfile],
   );
 
   // Memoize HomeMain options function

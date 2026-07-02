@@ -24,6 +24,7 @@ import { useToast } from 'react-native-toast-notifications';
 import { useDispatch, useSelector } from 'react-redux';
 import { useLanguage } from '../../i18n';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useThemeContext } from '../../theme/ThemeContext';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { createMyCloset, createMyClosetItem } from '../../services/myCloset';
@@ -50,6 +51,11 @@ const withAlpha = (hex, alpha = 0.12) => {
   const b = parseInt(normalized.slice(4, 6), 16);
   return `rgba(${r},${g},${b},${alpha})`;
 };
+
+const formSurfaces = isDarkMode => ({
+  inputSurface: isDarkMode ? 'rgba(255,255,255,0.08)' : '#ffffff',
+  labelColor: isDarkMode ? '#ffffff' : '#3f3f46',
+});
 
 const isBlank = value => !String(value || '').trim();
 
@@ -261,6 +267,8 @@ const FlowShell = ({
   children,
 }) => {
   const { bgStyle, textStyle, mutedTextStyle, accent, icon, cardStyle, border } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const chipSurface = isDarkMode ? 'rgba(255,255,255,0.08)' : '#ffffff';
   const currentStep = steps.find(step => step.index === activeStep) || steps[0];
   const themeProps = {
     accent,
@@ -287,9 +295,9 @@ const FlowShell = ({
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={() => navigation.goBack()}
-            style={styles.backButton}
+            style={[styles.backButton, { backgroundColor: chipSurface }]}
           >
-            <Ionicons name="chevron-back" size={24} color={icon} />
+            <Ionicons name="chevron-back" size={24} color={accent} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, textStyle]}>{title}</Text>
           <View style={styles.headerSpacer} />
@@ -312,6 +320,7 @@ const FlowShell = ({
                   <Text
                     style={[
                       styles.stepCircleText,
+                      !(active || completed) && mutedTextStyle,
                       (active || completed) && styles.stepCircleTextActive,
                     ]}
                   >
@@ -354,6 +363,8 @@ const FlowShell = ({
 
 const Shell = ({ navigation, activeStep, children }) => {
   const { bgStyle, textStyle, mutedTextStyle, accent, icon, cardStyle, border } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const chipSurface = isDarkMode ? 'rgba(255,255,255,0.08)' : '#ffffff';
   const currentStep = STEPS.find(step => step.index === activeStep) || STEPS[0];
   const themeProps = {
     accent,
@@ -380,9 +391,9 @@ const Shell = ({ navigation, activeStep, children }) => {
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={() => navigation.goBack()}
-            style={styles.backButton}
+            style={[styles.backButton, { backgroundColor: chipSurface }]}
           >
-            <Ionicons name="chevron-back" size={24} color={icon} />
+            <Ionicons name="chevron-back" size={24} color={accent} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, textStyle]}>My Closet</Text>
           <View style={styles.headerSpacer} />
@@ -405,6 +416,7 @@ const Shell = ({ navigation, activeStep, children }) => {
                   <Text
                     style={[
                       styles.stepCircleText,
+                      !(active || completed) && mutedTextStyle,
                       (active || completed) && styles.stepCircleTextActive,
                     ]}
                   >
@@ -485,30 +497,43 @@ const Field = ({
   height,
   error,
   keyboardType,
-}) => (
-  <View style={styles.fieldBlock}>
-    <Text style={styles.fieldLabel}>{label}</Text>
-    <View
-      style={[
-        styles.fieldWrap,
-        { borderColor: error ? '#dc2626' : withAlpha(text, 0.16) },
-      ]}
-    >
-      {prefix ? <Text style={styles.fieldPrefix}>{prefix}</Text> : null}
-      <TextInput
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        placeholderTextColor="#a1a1aa"
-        multiline={multiline}
-        keyboardType={keyboardType}
-        textAlignVertical={multiline ? 'top' : 'center'}
-        style={[styles.fieldInput, multiline && { minHeight: height || 92 }]}
-      />
+}) => {
+  const { isDarkMode } = useThemeContext();
+  const { textStyle } = useAppTheme();
+  const { inputSurface, labelColor } = formSurfaces(isDarkMode);
+
+  return (
+    <View style={styles.fieldBlock}>
+      <Text style={[styles.fieldLabel, { color: labelColor }]}>{label}</Text>
+      <View
+        style={[
+          styles.fieldWrap,
+          {
+            borderColor: error ? '#dc2626' : withAlpha(text, 0.16),
+            backgroundColor: inputSurface,
+          },
+        ]}
+      >
+        {prefix ? <Text style={styles.fieldPrefix}>{prefix}</Text> : null}
+        <TextInput
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          placeholderTextColor="#a1a1aa"
+          multiline={multiline}
+          keyboardType={keyboardType}
+          textAlignVertical={multiline ? 'top' : 'center'}
+          style={[
+            styles.fieldInput,
+            textStyle,
+            multiline && { minHeight: height || 92 },
+          ]}
+        />
+      </View>
+      <InlineError message={error} />
     </View>
-    <InlineError message={error} />
-  </View>
-);
+  );
+};
 
 const PlaceFieldRow = ({
   icon,
@@ -632,22 +657,34 @@ const DropdownRow = ({
   text,
   error,
 }) => {
+  const { isDarkMode } = useThemeContext();
+  const { textStyle } = useAppTheme();
+  const { inputSurface, labelColor } = formSurfaces(isDarkMode);
   const selectedOption = options.find(item => getOptionValue(item) === value);
   const displayValue = selectedOption ? getOptionLabel(selectedOption) : value;
 
   return (
     <View style={styles.fieldBlock}>
-      <Text style={styles.fieldLabel}>{label}</Text>
+      <Text style={[styles.fieldLabel, { color: labelColor }]}>{label}</Text>
       <TouchableOpacity
         activeOpacity={0.85}
         onPress={onToggle}
         style={[
           styles.dropdownRow,
           expanded && styles.dropdownRowActive,
-          { borderColor: error ? '#dc2626' : withAlpha(text, 0.16) },
+          {
+            borderColor: error ? '#dc2626' : withAlpha(text, 0.16),
+            backgroundColor: inputSurface,
+          },
         ]}
       >
-        <Text style={[styles.dropdownText, !value && { color: '#a1a1aa' }]}>
+        <Text
+          style={[
+            styles.dropdownText,
+            textStyle,
+            !value && { color: '#a1a1aa' },
+          ]}
+        >
           {displayValue || placeholder}
         </Text>
         <Ionicons
@@ -658,7 +695,13 @@ const DropdownRow = ({
       </TouchableOpacity>
       {expanded ? (
         <ScrollView
-          style={styles.dropdownList}
+          style={[
+            styles.dropdownList,
+            {
+              backgroundColor: inputSurface,
+              borderColor: withAlpha(text, 0.16),
+            },
+          ]}
           contentContainerStyle={styles.dropdownListContent}
           nestedScrollEnabled
           showsVerticalScrollIndicator
@@ -676,20 +719,22 @@ const DropdownRow = ({
                 onPress={() => onSelect(itemValue)}
                 style={[
                   styles.dropdownItem,
+                  { backgroundColor: inputSurface },
                   index !== options.length - 1 && styles.dropdownItemBorder,
-                  selected && styles.dropdownItemSelected,
+                  selected && { backgroundColor: withAlpha(text, 0.12) },
                 ]}
               >
                 <Text
                   style={[
                     styles.dropdownItemText,
-                    selected && styles.dropdownItemTextSelected,
+                    textStyle,
+                    selected && { color: text, fontWeight: '800' },
                   ]}
                 >
                   {itemLabel}
                 </Text>
                 {selected ? (
-                  <Ionicons name="checkmark" size={16} color="#4f46e5" />
+                  <Ionicons name="checkmark" size={16} color={text} />
                 ) : null}
               </TouchableOpacity>
             );
@@ -701,32 +746,38 @@ const DropdownRow = ({
   );
 };
 
-const OptionCard = ({ label, description, selected, onPress, text, icon }) => (
-  <TouchableOpacity
-    activeOpacity={0.9}
-    onPress={onPress}
-    style={[
-      styles.optionCard,
-      {
-        borderColor: selected ? text : withAlpha(text, 0.14),
-        backgroundColor: selected ? mixWithWhite(text, 0.93) : '#fff',
-      },
-    ]}
-  >
-    <View style={styles.optionIconWrap}>
-      <Ionicons name={icon} size={18} color={text} />
-    </View>
-    <View style={styles.optionCopy}>
-      <Text style={styles.optionLabel}>{label}</Text>
-      <Text style={styles.optionDescription}>{description}</Text>
-    </View>
-    <Ionicons
-      name={selected ? 'radio-button-on' : 'radio-button-off'}
-      size={20}
-      color={text}
-    />
-  </TouchableOpacity>
-);
+const OptionCard = ({ label, description, selected, onPress, text, icon }) => {
+  const { isDarkMode } = useThemeContext();
+  const { textStyle, mutedTextStyle } = useAppTheme();
+  const { inputSurface } = formSurfaces(isDarkMode);
+
+  return (
+    <TouchableOpacity
+      activeOpacity={0.9}
+      onPress={onPress}
+      style={[
+        styles.optionCard,
+        {
+          borderColor: selected ? text : withAlpha(text, 0.14),
+          backgroundColor: selected ? withAlpha(text, 0.12) : inputSurface,
+        },
+      ]}
+    >
+      <View style={[styles.optionIconWrap, { backgroundColor: withAlpha(text, 0.1) }]}>
+        <Ionicons name={icon} size={18} color={text} />
+      </View>
+      <View style={styles.optionCopy}>
+        <Text style={[styles.optionLabel, textStyle]}>{label}</Text>
+        <Text style={[styles.optionDescription, mutedTextStyle]}>{description}</Text>
+      </View>
+      <Ionicons
+        name={selected ? 'radio-button-on' : 'radio-button-off'}
+        size={20}
+        color={text}
+      />
+    </TouchableOpacity>
+  );
+};
 
 // ── New: multi-select delivery method card with checkbox + inline bullet list
 const DeliveryOptionCard = ({
@@ -737,47 +788,57 @@ const DeliveryOptionCard = ({
   onPress,
   text,
   icon,
-}) => (
-  <TouchableOpacity
-    activeOpacity={0.9}
-    onPress={onPress}
-    style={[
-      styles.deliveryCard,
-      {
-        borderColor: selected ? text : withAlpha(text, 0.14),
-        backgroundColor: selected ? mixWithWhite(text, 0.94) : '#fff',
-      },
-    ]}
-  >
-    <View style={styles.deliveryCardTopRow}>
-      <View style={styles.optionIconWrap}>
-        <Ionicons name={icon} size={18} color={text} />
+}) => {
+  const { isDarkMode } = useThemeContext();
+  const { textStyle, mutedTextStyle } = useAppTheme();
+  const { inputSurface } = formSurfaces(isDarkMode);
+
+  return (
+    <TouchableOpacity
+      activeOpacity={0.9}
+      onPress={onPress}
+      style={[
+        styles.deliveryCard,
+        {
+          borderColor: selected ? text : withAlpha(text, 0.14),
+          backgroundColor: selected ? withAlpha(text, 0.12) : inputSurface,
+        },
+      ]}
+    >
+      <View style={styles.deliveryCardTopRow}>
+        <View style={[styles.optionIconWrap, { backgroundColor: withAlpha(text, 0.1) }]}>
+          <Ionicons name={icon} size={18} color={text} />
+        </View>
+        <View
+          style={[
+            styles.checkboxBadge,
+            selected
+              ? { backgroundColor: text }
+              : {
+                  backgroundColor: inputSurface,
+                  borderWidth: 1,
+                  borderColor: withAlpha(text, 0.3),
+                },
+          ]}
+        >
+          {selected ? <Ionicons name="checkmark" size={13} color="#fff" /> : null}
+        </View>
       </View>
-      <View
-        style={[
-          styles.checkboxBadge,
-          selected
-            ? { backgroundColor: text }
-            : { backgroundColor: '#fff', borderWidth: 1, borderColor: withAlpha(text, 0.3) },
-        ]}
-      >
-        {selected ? <Ionicons name="checkmark" size={13} color="#fff" /> : null}
-      </View>
-    </View>
-    <Text style={styles.deliveryLabel}>{label}</Text>
-    <Text style={styles.deliveryDescription}>{description}</Text>
-    {bullets?.length ? (
-      <View style={styles.deliveryBulletList}>
-        {bullets.map(bullet => (
-          <View key={bullet} style={styles.deliveryBulletRow}>
-            <Ionicons name={bullet.icon || 'ellipse'} size={4} color="#9ca3af" />
-            <Text style={styles.deliveryBulletText}>{bullet}</Text>
-          </View>
-        ))}
-      </View>
-    ) : null}
-  </TouchableOpacity>
-);
+      <Text style={[styles.deliveryLabel, textStyle]}>{label}</Text>
+      <Text style={[styles.deliveryDescription, mutedTextStyle]}>{description}</Text>
+      {bullets?.length ? (
+        <View style={styles.deliveryBulletList}>
+          {bullets.map(bullet => (
+            <View key={bullet} style={styles.deliveryBulletRow}>
+              <Ionicons name={bullet.icon || 'ellipse'} size={4} color={mutedTextStyle?.color || '#9ca3af'} />
+              <Text style={[styles.deliveryBulletText, mutedTextStyle]}>{bullet}</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+    </TouchableOpacity>
+  );
+};
 
 // ── New: simple pill-style toggle switch, mirrors the buyer chat toggle
 const ToggleSwitch = ({ value, onValueChange, accent }) => (
@@ -794,17 +855,23 @@ const ToggleSwitch = ({ value, onValueChange, accent }) => (
 );
 
 // ── New: labelled section header used inside the shipping & return step
-const SectionHeader = ({ icon, title, badge, text }) => (
-  <View style={styles.sectionHeaderRow}>
-    {icon ? <Ionicons name={icon} size={16} color={text} /> : null}
-    <Text style={[styles.sectionHeaderTitle, icon && { marginLeft: 6 }]}>{title}</Text>
-    {badge ? (
-      <View style={styles.sectionHeaderBadge}>
-        <Text style={styles.sectionHeaderBadgeText}>{badge}</Text>
-      </View>
-    ) : null}
-  </View>
-);
+const SectionHeader = ({ icon, title, badge, text }) => {
+  const { textStyle } = useAppTheme();
+
+  return (
+    <View style={styles.sectionHeaderRow}>
+      {icon ? <Ionicons name={icon} size={16} color={text} /> : null}
+      <Text style={[styles.sectionHeaderTitle, textStyle, icon && { marginLeft: 6 }]}>
+        {title}
+      </Text>
+      {badge ? (
+        <View style={[styles.sectionHeaderBadge, { backgroundColor: withAlpha(text, 0.1) }]}>
+          <Text style={[styles.sectionHeaderBadgeText, { color: text }]}>{badge}</Text>
+        </View>
+      ) : null}
+    </View>
+  );
+};
 
 const requestCameraPermission = async () => {
   if (Platform.OS !== 'android') return true;
@@ -1051,6 +1118,8 @@ const MyClosetTellUsScreen = ({ navigation, route }) => {
   const [expandedField, setExpandedField] = useState(null);
   const [errors, setErrors] = useState({});
   const { accent, textStyle, cardStyle, mutedTextStyle } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const { inputSurface, labelColor } = formSurfaces(isDarkMode);
 
   const nextDraft = useMemo(
     () => ({ ...draft, description, category, location }),
@@ -1116,13 +1185,16 @@ const MyClosetTellUsScreen = ({ navigation, route }) => {
             error={errors.category}
           />
           <View style={styles.fieldBlock}>
-            <Text style={styles.fieldLabel}>Location (optional)</Text>
+            <Text style={[styles.fieldLabel, { color: labelColor }]}>Location (optional)</Text>
             <TouchableOpacity
               activeOpacity={0.85}
               onPress={() => setLocationModalVisible(true)}
               style={[
                 styles.dropdownRow,
-                { borderColor: withAlpha(accent, 0.16) },
+                {
+                  borderColor: withAlpha(accent, 0.16),
+                  backgroundColor: inputSurface,
+                },
               ]}
             >
               <Ionicons
@@ -1134,6 +1206,7 @@ const MyClosetTellUsScreen = ({ navigation, route }) => {
               <Text
                 style={[
                   styles.dropdownText,
+                  textStyle,
                   !location.trim() && { color: '#a1a1aa' },
                 ]}
                 numberOfLines={1}
@@ -1178,6 +1251,9 @@ const MyClosetPreferencesScreen = ({ navigation, route }) => {
   const dispatch = useDispatch();
   const toast = useToast();
   const { accent, textStyle, cardStyle, mutedTextStyle } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const { inputSurface, labelColor } = formSurfaces(isDarkMode);
+  const paymentSurface = isDarkMode ? withAlpha(accent, 0.12) : mixWithWhite(accent, 0.95);
   const userProfile = useSelector(state => state.userProfile.userProfile);
   const nextDraft = useMemo(
     () => ({ ...draft, shipping, returnPolicy, paymentMethod, whoCanBuy }),
@@ -1275,7 +1351,7 @@ const MyClosetPreferencesScreen = ({ navigation, route }) => {
     <Shell navigation={navigation} activeStep={4}>
       {() => (
         <>
-          <Text style={styles.sectionLabel}>Shipping options</Text>
+          <Text style={[styles.sectionLabel, { color: labelColor }]}>Shipping options</Text>
           <View style={styles.shippingGrid}>
             {SHIPPING_CHOICES.map(choice => {
               const isSelected = shipping.includes(choice.value);
@@ -1329,11 +1405,11 @@ const MyClosetPreferencesScreen = ({ navigation, route }) => {
               styles.paymentCard,
               {
                 borderColor: withAlpha(accent, 0.16),
-                backgroundColor: mixWithWhite(accent, 0.95),
+                backgroundColor: paymentSurface,
               },
             ]}
           >
-            <View style={styles.paymentIcon}>
+            <View style={[styles.paymentIcon, { backgroundColor: withAlpha(accent, 0.15) }]}>
               <Ionicons
                 name="shield-checkmark-outline"
                 size={20}
@@ -1341,8 +1417,8 @@ const MyClosetPreferencesScreen = ({ navigation, route }) => {
               />
             </View>
             <View style={styles.paymentCopy}>
-              <Text style={styles.paymentTitle}>Valens Secure Checkout</Text>
-              <Text style={styles.paymentSubtitle}>
+              <Text style={[styles.paymentTitle, textStyle]}>Valens Secure Checkout</Text>
+              <Text style={[styles.paymentSubtitle, mutedTextStyle]}>
                 Get paid securely on Valens
               </Text>
             </View>
@@ -1386,6 +1462,8 @@ const MyClosetLiveScreen = ({ navigation, route }) => {
   const isFirstItem = route?.params?.isFirstItem ?? true;
   const itemTitle = isFirstItem ? 'Add My First Item' : 'Add New Item';
   const { accent, textStyle, cardStyle, mutedTextStyle, bgStyle } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const { inputSurface } = formSurfaces(isDarkMode);
   const toast = useToast();
   const shopLink = useMemo(
     () =>
@@ -1433,7 +1511,10 @@ const MyClosetLiveScreen = ({ navigation, route }) => {
           <View
             style={[
               styles.successAvatar,
-              { borderColor: withAlpha(accent, 0.18), backgroundColor: '#fff' },
+              {
+                borderColor: withAlpha(accent, 0.18),
+                backgroundColor: inputSurface,
+              },
             ]}
           >
             <Ionicons name="bag-handle-outline" size={28} color={accent} />
@@ -1444,19 +1525,19 @@ const MyClosetLiveScreen = ({ navigation, route }) => {
         </View>
 
         <Text style={[styles.successTitle, textStyle]}>{userProfile == 'user' ? 'Your Closet is Live!' : 'Your Shop is Live!'}</Text>
-        <Text style={styles.successSubtitle}>
+        <Text style={[styles.successSubtitle, mutedTextStyle]}>
           Your personal shop is ready. Start adding items and share your style.
         </Text>
 
         <View style={[styles.linkCard, cardStyle, { borderColor: withAlpha(accent, 0.16) }]}>
           <View style={styles.linkCopy}>
-            <Text style={styles.linkLabel}>Your shop link</Text>
-            <Text style={styles.linkValue}>{shopLink}</Text>
+            <Text style={[styles.linkLabel, mutedTextStyle]}>Your shop link</Text>
+            <Text style={[styles.linkValue, textStyle]}>{shopLink}</Text>
           </View>
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={copyShopLink}
-            style={styles.copyButton}
+            style={[styles.copyButton, { backgroundColor: withAlpha(accent, 0.15) }]}
           >
             <Ionicons name="copy-outline" size={18} color={accent} />
           </TouchableOpacity>
@@ -1510,25 +1591,36 @@ const PhotoTile = ({ photo, onRemove }) => (
   </View>
 );
 
-const QuantityStepper = ({ value, onMinus, onPlus, text, bgStyle }) => (
-  <View style={styles.quantityStepper}>
-    <TouchableOpacity
-      activeOpacity={0.8}
-      onPress={onMinus}
-      style={[styles.quantityBtn, bgStyle]}
+const QuantityStepper = ({ value, onMinus, onPlus, text, bgStyle }) => {
+  const { textStyle } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const { inputSurface } = formSurfaces(isDarkMode);
+
+  return (
+    <View
+      style={[
+        styles.quantityStepper,
+        { backgroundColor: inputSurface, borderColor: withAlpha(text, 0.16) },
+      ]}
     >
-      <Text style={[styles.quantityBtnText, { color: text }]}>-</Text>
-    </TouchableOpacity>
-    <Text style={styles.quantityValue}>{value}</Text>
-    <TouchableOpacity
-      activeOpacity={0.8}
-      onPress={onPlus}
-      style={[styles.quantityBtn, bgStyle]}
-    >
-      <Text style={[styles.quantityBtnText, { color: text }]}>+</Text>
-    </TouchableOpacity>
-  </View>
-);
+      <TouchableOpacity
+        activeOpacity={0.8}
+        onPress={onMinus}
+        style={[styles.quantityBtn, bgStyle]}
+      >
+        <Text style={[styles.quantityBtnText, { color: text }]}>-</Text>
+      </TouchableOpacity>
+      <Text style={[styles.quantityValue, textStyle]}>{value}</Text>
+      <TouchableOpacity
+        activeOpacity={0.8}
+        onPress={onPlus}
+        style={[styles.quantityBtn, bgStyle]}
+      >
+        <Text style={[styles.quantityBtnText, { color: text }]}>+</Text>
+      </TouchableOpacity>
+    </View>
+  );
+};
 
 const MyClosetAddItemPhotosScreen = ({ navigation, route }) => {
   const draft = route?.params?.draft || {};
@@ -1537,6 +1629,9 @@ const MyClosetAddItemPhotosScreen = ({ navigation, route }) => {
   const [photos, setPhotos] = useState(draft.photos || []);
   const [error, setError] = useState('');
   const { accent, textStyle, cardStyle, mutedTextStyle } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const uploadSurface = isDarkMode ? 'rgba(255,255,255,0.06)' : '#ffffff';
+  const iconBubble = isDarkMode ? 'rgba(255,255,255,0.1)' : '#ffffff';
   const { t } = useLanguage();
 
   const handleSelectedPhotos = assets => {
@@ -1634,15 +1729,18 @@ const MyClosetAddItemPhotosScreen = ({ navigation, route }) => {
               <TouchableOpacity
                 activeOpacity={0.9}
                 onPress={addPhotos}
-                style={[styles.photoUploadCard, { borderColor: accent }]}
+                style={[
+                  styles.photoUploadCard,
+                  { borderColor: accent, backgroundColor: uploadSurface },
+                ]}
               >
-                <View style={styles.photoHeroIconWrap}>
+                <View style={[styles.photoHeroIconWrap, { backgroundColor: iconBubble }]}>
                   <Ionicons name="images-outline" size={40} color={accent} />
                 </View>
                 <Text style={[styles.photoHeroLabel, textStyle]}>
                   {t('myClosetAddItem.addPhotos')}
                 </Text>
-                <Text style={styles.photoHeroSubLabel}>
+                <Text style={[styles.photoHeroSubLabel, mutedTextStyle]}>
                   {t('myClosetAddItem.upToPhotos')}
                 </Text>
               </TouchableOpacity>
@@ -1651,19 +1749,19 @@ const MyClosetAddItemPhotosScreen = ({ navigation, route }) => {
               <View style={styles.photoTips}>
                 <View style={styles.tipRow}>
                   <Ionicons name="sunny-outline" size={16} color={accent} />
-                  <Text style={styles.tipText}>
+                  <Text style={[styles.tipText, mutedTextStyle]}>
                     {t('myClosetAddItem.tipNaturalLight')}
                   </Text>
                 </View>
                 <View style={styles.tipRow}>
                   <Ionicons name="camera-outline" size={16} color={accent} />
-                  <Text style={styles.tipText}>
+                  <Text style={[styles.tipText, mutedTextStyle]}>
                     {t('myClosetAddItem.tipAngles')}
                   </Text>
                 </View>
                 <View style={styles.tipRow}>
                   <Ionicons name="scan-outline" size={16} color={accent} />
-                  <Text style={styles.tipText}>
+                  <Text style={[styles.tipText, mutedTextStyle]}>
                     {t('myClosetAddItem.tipCloseUps')}
                   </Text>
                 </View>
@@ -1674,10 +1772,10 @@ const MyClosetAddItemPhotosScreen = ({ navigation, route }) => {
           {photos.length ? (
             <View style={styles.selectedPhotosSection}>
               <View style={styles.selectedPhotosHeader}>
-                <Text style={styles.selectedPhotosTitle}>
+                <Text style={[styles.selectedPhotosTitle, textStyle]}>
                   {t('myClosetAddItem.selectedPhotos')}
                 </Text>
-                <Text style={styles.selectedPhotosCount}>
+                <Text style={[styles.selectedPhotosCount, mutedTextStyle]}>
                   {photos.length}/10
                 </Text>
               </View>
@@ -1704,20 +1802,32 @@ const MyClosetAddItemPhotosScreen = ({ navigation, route }) => {
                 <TouchableOpacity
                   activeOpacity={0.85}
                   onPress={pickFromGallery}
-                  style={styles.addMoreMiniButton}
+                  style={[
+                    styles.addMoreMiniButton,
+                    {
+                      backgroundColor: uploadSurface,
+                      borderColor: withAlpha(accent, 0.2),
+                    },
+                  ]}
                 >
                   <Ionicons name="images-outline" size={18} color={accent} />
-                  <Text style={styles.addMoreMiniText}>
+                  <Text style={[styles.addMoreMiniText, textStyle]}>
                     {t('myClosetAddItem.addFromGallery')}
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   activeOpacity={0.85}
                   onPress={pickFromCamera}
-                  style={styles.addMoreMiniButton}
+                  style={[
+                    styles.addMoreMiniButton,
+                    {
+                      backgroundColor: uploadSurface,
+                      borderColor: withAlpha(accent, 0.2),
+                    },
+                  ]}
                 >
                   <Ionicons name="camera-outline" size={18} color={accent} />
-                  <Text style={styles.addMoreMiniText}>
+                  <Text style={[styles.addMoreMiniText, textStyle]}>
                     {t('myClosetAddItem.addFromCamera')}
                   </Text>
                 </TouchableOpacity>
@@ -1872,7 +1982,9 @@ const MyClosetAddItemPriceScreen = ({ navigation, route }) => {
   const [price, setPrice] = useState(draft.price || '');
   const [quantity, setQuantity] = useState(Number(draft.quantity || 1));
   const [errors, setErrors] = useState({});
-  const { accent, textStyle, cardStyle, mutedTextStyle, bgStyle } = useAppTheme();
+  const { accent, textStyle, cardStyle, mutedTextStyle, bgStyle, mutedText } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const { labelColor } = formSurfaces(isDarkMode);
 
   const nextDraft = useMemo(
     () => ({ ...draft, price, quantity }),
@@ -1916,7 +2028,7 @@ const MyClosetAddItemPriceScreen = ({ navigation, route }) => {
             keyboardType="numeric"
           />
           <View style={styles.quantityBlock}>
-            <Text style={styles.fieldLabel}>Quantity</Text>
+            <Text style={[styles.fieldLabel, { color: labelColor }]}>Quantity</Text>
             <QuantityStepper
               value={quantity}
               onMinus={() => setQuantity(prev => Math.max(1, prev - 1))}
@@ -1924,7 +2036,7 @@ const MyClosetAddItemPriceScreen = ({ navigation, route }) => {
               text={accent}
               bgStyle={bgStyle}
             />
-            <Text style={styles.helperLine}>
+            <Text style={[styles.helperLine, mutedTextStyle]}>
               How many of this item do you have?
             </Text>
           </View>
@@ -1935,14 +2047,14 @@ const MyClosetAddItemPriceScreen = ({ navigation, route }) => {
               <Ionicons
                 name="information-circle-outline"
                 size={16}
-                color="#6b7280"
+                color={mutedText}
               />
             </View>
-            <Text style={styles.feeMain}>You keep 90%</Text>
-            <Text style={styles.feeText}>
+            <Text style={[styles.feeMain, textStyle]}>You keep 90%</Text>
+            <Text style={[styles.feeText, mutedTextStyle]}>
               We take a small fee when your item sells.
             </Text>
-            <Text style={styles.feeText}>Secure payments. Fast payouts.</Text>
+            <Text style={[styles.feeText, mutedTextStyle]}>Secure payments. Fast payouts.</Text>
           </View>
 
           <PrimaryButton
@@ -2619,7 +2731,9 @@ const MyClosetAddItemReviewScreen = ({ navigation, route }) => {
   const draft = route?.params?.draft || {};
   const isFirstItem = route?.params?.isFirstItem ?? true;  // add
   const itemTitle = isFirstItem ? 'Add My First Item' : 'Add New Item';
-  const { accent, textStyle, cardStyle, mutedTextStyle } = useAppTheme();
+  const { accent, textStyle, mutedTextStyle } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const { inputSurface } = formSurfaces(isDarkMode);
   const dispatch = useDispatch();
   const toast = useToast();
   const [isPublishing, setIsPublishing] = useState(false);
@@ -2722,7 +2836,12 @@ const MyClosetAddItemReviewScreen = ({ navigation, route }) => {
     >
       {() => (
         <>
-          <View style={styles.reviewHeroCard}>
+          <View
+            style={[
+              styles.reviewHeroCard,
+              { backgroundColor: inputSurface, borderColor: withAlpha(accent, 0.2) },
+            ]}
+          >
             {heroPhoto ? (
               <Image
                 source={{ uri: heroPhoto.uri }}
@@ -2730,21 +2849,21 @@ const MyClosetAddItemReviewScreen = ({ navigation, route }) => {
               />
             ) : null}
             <View style={styles.reviewHeroCopy}>
-              <Text style={styles.reviewHeroTitle}>
+              <Text style={[styles.reviewHeroTitle, textStyle]}>
                 {draft.itemName || 'Vintage Leather Jacket'}
               </Text>
-              {draft.brand &&
-                <Text style={styles.reviewHeroText}>
+              {draft.brand ? (
+                <Text style={[styles.reviewHeroText, mutedTextStyle]}>
                   {draft.brand}
                 </Text>
-              }
-              <Text style={styles.reviewHeroText}>
+              ) : null}
+              <Text style={[styles.reviewHeroText, mutedTextStyle]}>
                 {getConditionLabel(draft.condition) || 'Good condition'}
               </Text>
-              <Text style={styles.reviewHeroText}>
+              <Text style={[styles.reviewHeroText, mutedTextStyle]}>
                 ${draft.price || '120.00'}
               </Text>
-              <Text style={styles.reviewHeroText}>
+              <Text style={[styles.reviewHeroText, mutedTextStyle]}>
                 Quantity: {draft.quantity || 1}
               </Text>
             </View>
@@ -2752,49 +2871,49 @@ const MyClosetAddItemReviewScreen = ({ navigation, route }) => {
 
           <View style={styles.reviewRows}>
             <View style={styles.reviewRow}>
-              <Text style={styles.reviewLabel}>Category</Text>
-              <Text style={styles.reviewValue}>
+              <Text style={[styles.reviewLabel, mutedTextStyle]}>Category</Text>
+              <Text style={[styles.reviewValue, textStyle]}>
                 {draft.category || 'Women > Jackets'}
               </Text>
             </View>
             <View style={styles.reviewRow}>
-              <Text style={styles.reviewLabel}>Description</Text>
-              <Text style={styles.reviewValue}>
+              <Text style={[styles.reviewLabel, mutedTextStyle]}>Description</Text>
+              <Text style={[styles.reviewValue, textStyle]}>
                 {draft.description ||
                   'Classic vintage leather jacket in great condition.'}
               </Text>
             </View>
             <View style={styles.reviewRow}>
-              <Text style={styles.reviewLabel}>Delivery</Text>
+              <Text style={[styles.reviewLabel, mutedTextStyle]}>Delivery</Text>
               <View style={styles.reviewValueStack}>
                 {deliverySummaryLines.length ? (
                   deliverySummaryLines.map((line, index) => (
-                    <Text key={`${line}-${index}`} style={styles.reviewValue}>
+                    <Text key={`${line}-${index}`} style={[styles.reviewValue, textStyle]}>
                       {line}
                     </Text>
                   ))
                 ) : (
-                  <Text style={styles.reviewValue}>Ship items</Text>
+                  <Text style={[styles.reviewValue, textStyle]}>Ship items</Text>
                 )}
               </View>
             </View>
             {pickupEnabled ? (
               <View style={styles.reviewRow}>
-                <Text style={styles.reviewLabel}>Buyer chat</Text>
-                <Text style={styles.reviewValue}>
+                <Text style={[styles.reviewLabel, mutedTextStyle]}>Buyer chat</Text>
+                <Text style={[styles.reviewValue, textStyle]}>
                   {(draft.buyerChatEnabled ?? true) ? 'Enabled' : 'Disabled'}
                 </Text>
               </View>
             ) : null}
             <View style={styles.reviewRow}>
-              <Text style={styles.reviewLabel}>Return policy</Text>
-              <Text style={styles.reviewValue}>
+              <Text style={[styles.reviewLabel, mutedTextStyle]}>Return policy</Text>
+              <Text style={[styles.reviewValue, textStyle]}>
                 {draft.returnPolicy || 'No returns'}
               </Text>
             </View>
             <View style={styles.reviewRow}>
-              <Text style={styles.reviewLabel}>Payment method</Text>
-              <Text style={styles.reviewValue}>Valens Secure Checkout</Text>
+              <Text style={[styles.reviewLabel, mutedTextStyle]}>Payment method</Text>
+              <Text style={[styles.reviewValue, textStyle]}>Valens Secure Checkout</Text>
             </View>
           </View>
 
@@ -2814,6 +2933,8 @@ const MyClosetAddItemPublishedScreen = ({ navigation, route }) => {
   const draft = route?.params?.draft || {};
   const item = route?.params?.item || {};
   const { accent, textStyle, cardStyle, mutedTextStyle, bgStyle } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const { inputSurface } = formSurfaces(isDarkMode);
   const heroPhoto = draft.photos?.[0];
   const publishedName = item?.name || draft.itemName || 'Vintage Leather Jacket';
   const publishedPrice =
@@ -2841,17 +2962,27 @@ const MyClosetAddItemPublishedScreen = ({ navigation, route }) => {
         </View>
 
         <View style={styles.itemLiveIconWrap}>
-          <View style={[styles.itemLiveIcon, { borderColor: accent }]}>
+          <View
+            style={[
+              styles.itemLiveIcon,
+              { borderColor: accent, backgroundColor: inputSurface },
+            ]}
+          >
             <Ionicons name="bag-handle-outline" size={36} color={accent} />
           </View>
         </View>
 
         <Text style={[styles.successTitle, textStyle]}>Your item is live! 🎉</Text>
-        <Text style={styles.successSubtitle}>
+        <Text style={[styles.successSubtitle, mutedTextStyle]}>
           Nice work! Your item is now visible in your closet.
         </Text>
 
-        <View style={styles.publishedCard}>
+        <View
+          style={[
+            styles.publishedCard,
+            { backgroundColor: inputSurface, borderColor: withAlpha(accent, 0.2) },
+          ]}
+        >
           {heroPhoto ? (
             <Image
               source={{ uri: heroPhoto.uri }}
@@ -2859,16 +2990,16 @@ const MyClosetAddItemPublishedScreen = ({ navigation, route }) => {
             />
           ) : null}
           <View style={styles.publishedCopy}>
-            <Text style={styles.publishedTitle}>
+            <Text style={[styles.publishedTitle, textStyle]}>
               {publishedName}
             </Text>
-            <Text style={styles.publishedSubtitle}>
+            <Text style={[styles.publishedSubtitle, mutedTextStyle]}>
               ${publishedPrice}
             </Text>
-            <Text style={styles.publishedSubtitle}>
+            <Text style={[styles.publishedSubtitle, mutedTextStyle]}>
               Quantity: {publishedQuantity}
             </Text>
-            <Text style={styles.publishedSubtitle}>
+            <Text style={[styles.publishedSubtitle, mutedTextStyle]}>
               {getConditionLabel(draft.condition) || 'Good condition'}
             </Text>
           </View>
@@ -2878,10 +3009,14 @@ const MyClosetAddItemPublishedScreen = ({ navigation, route }) => {
           <TouchableOpacity
             activeOpacity={0.85}
             onPress={handleShareItem}
-            style={styles.nextActionCard}
+            style={[
+              styles.nextActionCard,
+              cardStyle,
+              { borderColor: withAlpha(accent, 0.2) },
+            ]}
           >
             <Ionicons name="share-social-outline" size={18} color={accent} />
-            <Text style={styles.nextActionText}>Share your item</Text>
+            <Text style={[styles.nextActionText, textStyle]}>Share your item</Text>
           </TouchableOpacity>
 
           {/* <View style={styles.nextActionCard}>
@@ -2963,7 +3098,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#fff',
   },
   headerTitle: {
     fontSize: 18,
@@ -2985,12 +3119,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#fff',
   },
   stepCircleText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#6b7280',
   },
   stepCircleTextActive: {
     color: '#fff',
@@ -3007,18 +3139,15 @@ const styles = StyleSheet.create({
   heroTitle: {
     fontSize: 25,
     fontWeight: '900',
-    color: '#111827',
     marginBottom: 6,
   },
   heroSubtitle: {
     fontSize: 14,
     lineHeight: 20,
-    color: '#4b5563',
   },
   card: {
     borderRadius: 26,
     borderWidth: 1,
-    backgroundColor: '#fff',
     padding: 16,
   },
   fieldBlock: {
@@ -3573,7 +3702,6 @@ const styles = StyleSheet.create({
   paymentCard: {
     borderRadius: 18,
     borderWidth: 1,
-    backgroundColor: '#fff',
     padding: 14,
     flexDirection: 'row',
     alignItems: 'center',
@@ -3583,7 +3711,6 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -3594,12 +3721,10 @@ const styles = StyleSheet.create({
   paymentTitle: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#111827',
     marginBottom: 3,
   },
   paymentSubtitle: {
     fontSize: 12,
-    color: '#6b7280',
   },
   successContent: {
     paddingHorizontal: 18,
@@ -3676,7 +3801,6 @@ const styles = StyleSheet.create({
   successSubtitle: {
     fontSize: 15,
     lineHeight: 22,
-    color: '#4b5563',
     textAlign: 'center',
     marginBottom: 20,
   },
@@ -3684,7 +3808,6 @@ const styles = StyleSheet.create({
     width: '100%',
     borderRadius: 18,
     borderWidth: 1,
-    backgroundColor: '#fff',
     padding: 14,
     flexDirection: 'row',
     alignItems: 'center',
@@ -3696,13 +3819,11 @@ const styles = StyleSheet.create({
   },
   linkLabel: {
     fontSize: 12,
-    color: '#6b7280',
     marginBottom: 4,
   },
   linkValue: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#111827',
   },
   copyButton: {
     width: 40,
@@ -3710,7 +3831,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#f5f3ff',
   },
   successActions: {
     width: '100%',
@@ -3736,7 +3856,6 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#fff',
     overflow: 'hidden',
   },
   photoHeroImage: {
@@ -3750,7 +3869,6 @@ const styles = StyleSheet.create({
     borderRadius: 38,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#fff',
     marginBottom: 10,
   },
   photoHeroLabel: {
@@ -3760,7 +3878,6 @@ const styles = StyleSheet.create({
   },
   photoHeroSubLabel: {
     fontSize: 13,
-    color: '#6b7280',
   },
   photoTips: {
     marginTop: 14,
@@ -3773,7 +3890,6 @@ const styles = StyleSheet.create({
   },
   tipText: {
     marginLeft: 8,
-    color: '#374151',
     fontSize: 13,
     fontWeight: '600',
   },
@@ -3919,10 +4035,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
     overflow: 'hidden',
     marginBottom: 14,
-    backgroundColor: '#fff',
   },
   reviewHeroImage: {
     width: 100,
@@ -3931,17 +4045,15 @@ const styles = StyleSheet.create({
   },
   reviewHeroCopy: {
     flex: 1,
-    padding: 8
+    padding: 8,
   },
   reviewHeroTitle: {
     fontSize: 14,
     fontWeight: '900',
-    color: '#111827',
     marginBottom: 4,
   },
   reviewHeroText: {
     fontSize: 12,
-    color: '#4b5563',
     marginBottom: 2,
   },
   reviewRows: {
@@ -3956,13 +4068,11 @@ const styles = StyleSheet.create({
   reviewLabel: {
     width: '32%',
     fontSize: 12,
-    color: '#6b7280',
     fontWeight: '700',
   },
   reviewValue: {
     width: '64%',
     fontSize: 12,
-    color: '#111827',
     fontWeight: '700',
     textAlign: 'right',
   },
@@ -3976,7 +4086,6 @@ const styles = StyleSheet.create({
     width: 96,
     height: 96,
     borderRadius: 48,
-    backgroundColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
@@ -3986,9 +4095,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 16,
-    backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#e5e7eb',
     overflow: 'hidden',
     marginBottom: 14,
   },
@@ -4004,12 +4111,10 @@ const styles = StyleSheet.create({
   publishedTitle: {
     fontSize: 14,
     fontWeight: '900',
-    color: '#111827',
     marginBottom: 4,
   },
   publishedSubtitle: {
     fontSize: 12,
-    color: '#4b5563',
     marginBottom: 2,
   },
   nextActions: {
@@ -4020,8 +4125,6 @@ const styles = StyleSheet.create({
     minHeight: 50,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    backgroundColor: '#fff',
     paddingHorizontal: 14,
     flexDirection: 'row',
     alignItems: 'center',
@@ -4031,6 +4134,5 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     fontSize: 13,
     fontWeight: '700',
-    color: '#111827',
   },
 });

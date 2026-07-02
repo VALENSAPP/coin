@@ -14,8 +14,32 @@ import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { battleByUserId, battlePoint, filtterBattle } from '../../services/battle';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useThemeContext } from '../../theme/ThemeContext';
 import { useLanguage } from '../../i18n';
 import { sortBattlesLiveFirst } from '../../utils/battleCardUtils';
+
+const mixWithWhite = (hex, amount = 0.88) => {
+  const normalized = String(hex || '').replace('#', '');
+  if (normalized.length !== 6) return '#f5f3ff';
+  const r = parseInt(normalized.slice(0, 2), 16);
+  const g = parseInt(normalized.slice(2, 4), 16);
+  const b = parseInt(normalized.slice(4, 6), 16);
+  const mix = channel => Math.round(channel + (255 - channel) * amount);
+  const toHex = channel => mix(channel).toString(16).padStart(2, '0');
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+};
+
+const withAlpha = (hex, alpha = 0.12) => {
+  const normalized = String(hex || '').replace('#', '');
+  if (normalized.length !== 6) return `rgba(201,161,90,${alpha})`;
+  const r = parseInt(normalized.slice(0, 2), 16);
+  const g = parseInt(normalized.slice(2, 4), 16);
+  const b = parseInt(normalized.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+};
+
+const nestedSurface = (isDarkMode, accent) =>
+  isDarkMode ? withAlpha(accent, 0.14) : mixWithWhite(accent, 0.92);
 
 const pickFirst = (...values) =>
   values.find((value) => value !== undefined && value !== null && value !== '');
@@ -154,8 +178,14 @@ export default function ProfileBattleHub({
   isCompanyProfile,
 }) {
   const navigation = useNavigation();
-  const { text, bgStyle } = useAppTheme(profile);
+  const { bgStyle, accent, border, mutedText } = useAppTheme(profile);
+  const { isDarkMode } = useThemeContext();
   const { t } = useLanguage();
+  const labelColor = isDarkMode ? '#ffffff' : '#111827';
+  const inputSurface = isDarkMode ? 'rgba(255,255,255,0.08)' : '#f2f2f2';
+  const surfaceBg = nestedSurface(isDarkMode, accent);
+  const chipSurface = isDarkMode ? 'rgba(255,255,255,0.08)' : '#F3F4F6';
+  const tabsSurface = isDarkMode ? 'rgba(255,255,255,0.06)' : '#F3F4F6';
 
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -290,14 +320,16 @@ export default function ProfileBattleHub({
       contentContainerStyle={styles.contentContainer}
     >
       {/* Hero card */}
-      <View style={[styles.heroCard, bgStyle]}>
-        <Text style={[styles.heroEyebrow, { color: `${text}AA` }]}>
+      <View style={[styles.heroCard, bgStyle, { borderColor: border }]}>
+        <Text style={[styles.heroEyebrow, { color: accent }]}>
           {t('battleHub.heroEyebrow')}
         </Text>
-        <Text style={[styles.heroTitle, { color: profile === 'user' ? '#5a2d82' : '#C9A15a' }]}>
+        <Text style={[styles.heroTitle, { color: accent }]}>
           {t('battleHub.heroTitle')}
         </Text>
-        <Text style={styles.heroSubtitle}>{t('battleHub.heroSubtitle')}</Text>
+        <Text style={[styles.heroSubtitle, { color: mutedText }]}>
+          {t('battleHub.heroSubtitle')}
+        </Text>
 
         <View style={styles.statsGrid}>
           {stats.map((item) => (
@@ -305,11 +337,11 @@ export default function ProfileBattleHub({
               key={item.key}
               style={[
                 styles.statCard,
-                { backgroundColor: profile === 'user' ? '#f4e9fd' : '#f6f1e8' },
+                { backgroundColor: surfaceBg },
               ]}
             >
-              <Text style={styles.statValue}>{item.value}</Text>
-              <Text style={styles.statLabel}>{item.label}</Text>
+              <Text style={[styles.statValue, { color: labelColor }]}>{item.value}</Text>
+              <Text style={[styles.statLabel, { color: mutedText }]}>{item.label}</Text>
             </View>
           ))}
         </View>
@@ -338,42 +370,53 @@ export default function ProfileBattleHub({
       </View>
 
       {/* Search */}
-      <View style={[styles.searchContainer, bgStyle]}>
-        <Ionicons name="search" size={20} color="#999" style={styles.searchIcon} />
+      <View
+        style={[
+          styles.searchContainer,
+          {
+            backgroundColor: inputSurface,
+            borderColor: border,
+          },
+        ]}
+      >
+        <Ionicons name="search" size={20} color={mutedText} style={styles.searchIcon} />
         <TextInput
-          style={styles.searchInput}
+          style={[styles.searchInput, { color: labelColor }]}
           placeholder={t('battleHub.searchPlaceholder')}
-          placeholderTextColor="#999"
+          placeholderTextColor={mutedText}
           value={searchText}
           onChangeText={setSearchText}
           returnKeyType="search"
         />
         {searchText.length > 0 && (
           <TouchableOpacity onPress={() => setSearchText('')} style={styles.clearSearchBtn}>
-            <Ionicons name="close-circle" size={20} color="#999" />
+            <Ionicons name="close-circle" size={20} color={mutedText} />
           </TouchableOpacity>
         )}
       </View>
 
       {/* Section header */}
       <View style={styles.sectionHeader}>
-        <Text style={[styles.sectionTitle, { color: profile === 'user' ? '#5a2d82' : '#C9A15a' }]}>
+        <Text style={[styles.sectionTitle, { color: accent }]}>
           {t('battleHub.recentBattles')}
         </Text>
-        <Text style={styles.sectionSubtitle}>{t('battleHub.recentBattlesSubtitle')}</Text>
+        <Text style={[styles.sectionSubtitle, { color: mutedText }]}>
+          {t('battleHub.recentBattlesSubtitle')}
+        </Text>
       </View>
       {isOwner ? (
-        <View style={styles.tabsContainer}>
+        <View style={[styles.tabsContainer, { backgroundColor: tabsSurface }]}>
           <TouchableOpacity
             style={[
               styles.tabButton,
-              activeTab === 'myBattle' && styles.activeTabButton,
+              activeTab === 'myBattle' && [styles.activeTabButton, { backgroundColor: accent }],
             ]}
             onPress={() => setActiveTab('myBattle')}
           >
             <Text
               style={[
                 styles.tabText,
+                { color: mutedText },
                 activeTab === 'myBattle' && styles.activeTabText,
               ]}
             >
@@ -384,13 +427,14 @@ export default function ProfileBattleHub({
           <TouchableOpacity
             style={[
               styles.tabButton,
-              activeTab === 'battleArena' && styles.activeTabButton,
+              activeTab === 'battleArena' && [styles.activeTabButton, { backgroundColor: accent }],
             ]}
             onPress={() => setActiveTab('battleArena')}
           >
             <Text
               style={[
                 styles.tabText,
+                { color: mutedText },
                 activeTab === 'battleArena' && styles.activeTabText,
               ]}
             >
@@ -401,13 +445,14 @@ export default function ProfileBattleHub({
           <TouchableOpacity
             style={[
               styles.tabButton,
-              activeTab === 'pastBattle' && styles.activeTabButton,
+              activeTab === 'pastBattle' && [styles.activeTabButton, { backgroundColor: accent }],
             ]}
             onPress={() => setActiveTab('pastBattle')}
           >
             <Text
               style={[
                 styles.tabText,
+                { color: mutedText },
                 activeTab === 'pastBattle' && styles.activeTabText,
               ]}
             >
@@ -419,7 +464,7 @@ export default function ProfileBattleHub({
       {/* Battle list */}
       {loading ? (
         <View style={styles.loadingWrap}>
-          <ActivityIndicator size="small" color={text} />
+          <ActivityIndicator size="small" color={accent} />
         </View>
       ) : filteredBattles.length > 0 ? (
         filteredBattles.map((battle) => {
@@ -431,7 +476,7 @@ export default function ProfileBattleHub({
               activeOpacity={0.86}
               style={[
                 styles.battleCard,
-                { backgroundColor: profile === 'user' ? '#f4e9fd' : '#f6f1e8' },
+                { backgroundColor: surfaceBg, borderColor: border },
               ]}
               onPress={() => openBattle(battle)}
             >
@@ -441,27 +486,32 @@ export default function ProfileBattleHub({
                     {t(statusMeta.labelKey)}
                   </Text>
                 </View>
-                <Text style={styles.cardMeta}>
+                <Text style={[styles.cardMeta, { color: mutedText }]}>
                   {battle.battleType === 'prediction'
                     ? t('battleHub.typePrediction')
                     : t('battleHub.typeOpinion')}
                 </Text>
               </View>
 
-              <Text style={styles.cardTitle}>{battle.title}</Text>
+              <Text style={[styles.cardTitle, { color: labelColor }]}>{battle.title}</Text>
 
               {!!battle.options.length && (
                 <View style={styles.optionRow}>
                   {battle.options.slice(0, 3).map((option) => (
-                    <View key={`${battle.id}-${option.id}`} style={styles.optionChip}>
-                      <Text style={styles.optionText}>{option.label}</Text>
+                    <View
+                      key={`${battle.id}-${option.id}`}
+                      style={[styles.optionChip, { backgroundColor: chipSurface }]}
+                    >
+                      <Text style={[styles.optionText, { color: mutedText }]}>
+                        {option.label}
+                      </Text>
                     </View>
                   ))}
                 </View>
               )}
 
               <View style={styles.cardFooter}>
-                <Text style={styles.footerText}>{dateLabel}</Text>
+                <Text style={[styles.footerText, { color: mutedText }]}>{dateLabel}</Text>
               </View>
             </TouchableOpacity>
           );
@@ -470,14 +520,14 @@ export default function ProfileBattleHub({
         <View
           style={[
             styles.emptyCard,
-            { backgroundColor: profile === 'user' ? '#f4e9fd' : '#f6f1e8' },
+            { backgroundColor: surfaceBg, borderColor: border },
           ]}
         >
-          <Ionicons name="trophy-outline" size={28} color="#9CA3AF" />
-          <Text style={[styles.emptyTitle, { color: text }]}>
+          <Ionicons name="trophy-outline" size={28} color={mutedText} />
+          <Text style={[styles.emptyTitle, { color: accent }]}>
             {searchText.trim() ? t('battleHub.noResultsFound') : t('battleHub.noBattlesYet')}
           </Text>
-          <Text style={styles.emptySubtitle}>
+          <Text style={[styles.emptySubtitle, { color: mutedText }]}>
             {searchText.trim()
               ? t('battleHub.noResultsSubtitle')
               : t('battleHub.noBattlesSubtitle')}
@@ -497,7 +547,6 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#EEE7FF',
     marginBottom: 16,
   },
   heroEyebrow: {
@@ -515,7 +564,6 @@ const styles = StyleSheet.create({
   heroSubtitle: {
     fontSize: 13,
     lineHeight: 19,
-    color: '#6B7280',
     marginTop: 8,
     marginBottom: 14,
   },
@@ -528,7 +576,6 @@ const styles = StyleSheet.create({
   statCard: {
     width: '48%',
     borderRadius: 14,
-    backgroundColor: '#F8FAFC',
     paddingVertical: 12,
     paddingHorizontal: 12,
     marginBottom: 10,
@@ -536,12 +583,10 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 20,
     fontWeight: '900',
-    color: '#111827',
   },
   statLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#6B7280',
     marginTop: 4,
   },
   primaryButton: {
@@ -562,12 +607,10 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f2f2f2',
     paddingHorizontal: 12,
     marginBottom: 12,
     borderWidth: 1.5,
     borderRadius: 24,
-    borderColor: '#e6e6e6',
     paddingVertical: 8,
   },
   searchIcon: {
@@ -576,7 +619,6 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 15,
-    color: '#000',
     fontWeight: '500',
   },
   clearSearchBtn: {
@@ -588,7 +630,6 @@ const styles = StyleSheet.create({
   },
   sectionSubtitle: {
     fontSize: 12,
-    color: '#6B7280',
     marginTop: 4,
   },
   loadingWrap: {
@@ -597,10 +638,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   battleCard: {
-    backgroundColor: '#fff',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#ECE7F6',
     padding: 14,
     marginBottom: 12,
   },
@@ -622,12 +661,10 @@ const styles = StyleSheet.create({
   cardMeta: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#6B7280',
   },
   cardTitle: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#111827',
     lineHeight: 21,
   },
   optionRow: {
@@ -638,14 +675,12 @@ const styles = StyleSheet.create({
   },
   optionChip: {
     borderRadius: 999,
-    backgroundColor: '#F3F4F6',
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
   optionText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#4B5563',
   },
   cardFooter: {
     flexDirection: 'row',
@@ -657,15 +692,12 @@ const styles = StyleSheet.create({
   footerText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#6B7280',
   },
   emptyCard: {
-    backgroundColor: '#fff',
     borderRadius: 16,
     padding: 20,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#ECE7F6',
   },
   emptyTitle: {
     fontSize: 15,
@@ -675,14 +707,12 @@ const styles = StyleSheet.create({
   emptySubtitle: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#6B7280',
     marginTop: 6,
     textAlign: 'center',
     lineHeight: 18,
   },
   tabsContainer: {
     flexDirection: 'row',
-    backgroundColor: '#F3F4F6',
     borderRadius: 12,
     padding: 4,
     marginBottom: 16,
@@ -695,14 +725,11 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
 
-  activeTabButton: {
-    backgroundColor: '#5a2d82',
-  },
+  activeTabButton: {},
 
   tabText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#6B7280',
   },
 
   activeTabText: {

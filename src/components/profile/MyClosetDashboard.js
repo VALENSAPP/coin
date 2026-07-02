@@ -12,6 +12,7 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useThemeContext } from '../../theme/ThemeContext';
 import { getMyClosetItems, getSellerOrders, getBuyerOrders } from '../../services/myCloset';
 
 const mixWithWhite = (hex, amount = 0.88) => {
@@ -127,7 +128,10 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [buyerOrders, setBuyerOrders] = useState([]);         // Buyer: orders placed
   const [buyerOrdersLoading, setBuyerOrdersLoading] = useState(false);
-  const { bgStyle, textStyle, text, cardStyle } = useAppTheme(userData?.profile);
+  const { bgStyle, textStyle, accent, cardStyle, border, mutedText, mutedTextStyle } = useAppTheme(userData?.profile);
+  const { isDarkMode } = useThemeContext();
+  const labelColor = isDarkMode ? '#ffffff' : '#111827';
+  const surface = nestedSurface(isDarkMode, accent, border);
 
   useEffect(() => {
     let isMounted = true;
@@ -453,7 +457,7 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
       </View>
 
       {/* ── Seller Order History (orders you've received) ── */}
-      <View style={[styles.sectionCard, cardStyle, { borderColor: withAlpha(text, 0.12) }]}>
+      <View style={[styles.sectionCard, cardStyle, { borderColor: withAlpha(accent, 0.12) }]}>
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, textStyle]}>Orders — As a Seller</Text>
           <TouchableOpacity activeOpacity={0.8} onPress={handleViewAllOrders}>
@@ -463,7 +467,7 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
 
         {ordersLoading ? (
           <View style={styles.itemsLoadingWrap}>
-            <ActivityIndicator color={text} />
+            <ActivityIndicator color={accent} />
           </View>
         ) : recentOrders.length ? (
           <View style={styles.itemList}>
@@ -474,16 +478,16 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
                 style={styles.orderRow}
                 onPress={() => handleOpenOrder(item)}
               >
-                <View style={[styles.itemThumb, { backgroundColor: withAlpha(text, 0.1) }]}>
+                <View style={[styles.itemThumb, { backgroundColor: withAlpha(accent, 0.1) }]}>
                   {item.image ? (
                     <Image source={{ uri: item.image }} style={styles.itemGridImage} />
                   ) : (
-                    <Ionicons name="shirt-outline" size={18} color={text} />
+                    <Ionicons name="shirt-outline" size={18} color={accent} />
                   )}
                 </View>
                 <View style={styles.itemCopy}>
                   <Text style={[styles.itemName, textStyle]} numberOfLines={1}>{item.name}</Text>
-                  <Text style={styles.itemOrder}>{item.order}</Text>
+                  <Text style={[styles.itemOrder, mutedTextStyle]}>{item.order}</Text>
                 </View>
                 <View style={styles.orderRight}>
                   <View style={[styles.statusBadge, { backgroundColor: `${item.statusColor}18` }]}>
@@ -496,27 +500,27 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
           </View>
         ) : (
           <View style={styles.emptyItemsCard}>
-            <Ionicons name="bag-outline" size={24} color={text} />
+            <Ionicons name="bag-outline" size={24} color={accent} />
             <Text style={[styles.emptyItemsText, textStyle]}>No orders yet</Text>
           </View>
         )}
       </View>
 
       {/* ── Buyer Order History (orders you've placed) ── */}
-      <View style={[styles.sectionCard, cardStyle, { borderColor: withAlpha(text, 0.12) }]}>
+      <View style={[styles.sectionCard, cardStyle, { borderColor: withAlpha(accent, 0.12) }]}>
         <View style={styles.sectionHeader}>
           <View style={styles.rowCenter}>
-            <Ionicons name="cart-outline" size={16} color={text} style={{ marginRight: 5 }} />
+            <Ionicons name="cart-outline" size={16} color={accent} style={{ marginRight: 5 }} />
             <Text style={[styles.sectionTitle, textStyle]}>Orders — As a Buyer</Text>
           </View>
           <TouchableOpacity activeOpacity={0.8} onPress={handleViewAllBuyerOrders}>
-            <Text style={styles.sectionMeta}>View all ›</Text>
+            <Text style={[styles.sectionMeta, mutedTextStyle]}>View all ›</Text>
           </TouchableOpacity>
         </View>
 
         {buyerOrdersLoading ? (
           <View style={styles.itemsLoadingWrap}>
-            <ActivityIndicator color={text} />
+            <ActivityIndicator color={accent} />
           </View>
         ) : buyerOrders.length ? (
           <View style={styles.itemList}>
@@ -527,16 +531,16 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
                 style={styles.orderRow}
                 onPress={() => handleOpenBuyerOrder(item)}
               >
-                <View style={[styles.itemThumb, { backgroundColor: withAlpha(text, 0.1) }]}>
+                <View style={[styles.itemThumb, { backgroundColor: withAlpha(accent, 0.1) }]}>
                   {item.image ? (
                     <Image source={{ uri: item.image }} style={styles.itemGridImage} />
                   ) : (
-                    <Ionicons name="shirt-outline" size={18} color={text} />
+                    <Ionicons name="shirt-outline" size={18} color={accent} />
                   )}
                 </View>
                 <View style={styles.itemCopy}>
                   <Text style={[styles.itemName, textStyle]} numberOfLines={1}>{item.name}</Text>
-                  <Text style={styles.itemOrder}>{item.order}</Text>
+                  <Text style={[styles.itemOrder, mutedTextStyle]}>{item.order}</Text>
                 </View>
                 <View style={styles.orderRight}>
                   <View style={[styles.statusBadge, { backgroundColor: `${item.statusColor}18` }]}>
@@ -549,7 +553,7 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
           </View>
         ) : (
           <View style={styles.emptyItemsCard}>
-            <Ionicons name="cart-outline" size={24} color={text} />
+            <Ionicons name="cart-outline" size={24} color={accent} />
             <Text style={[styles.emptyItemsText, textStyle]}>No purchases yet</Text>
           </View>
         )}
@@ -622,8 +626,8 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, marginBottom: 75 },
-  content: { paddingHorizontal: 12, paddingTop: 8 },
+  container: { flex: 1 },
+  content: { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 100 },
 
   // Hero
   heroCard: {

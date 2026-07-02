@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef, memo } from 'react';
+import React, { useEffect, useState, useCallback, useRef, memo, useMemo } from 'react';
 import {
   View,
   Text,
@@ -24,6 +24,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Clipboard from '@react-native-clipboard/clipboard';
 import { useDispatch, useSelector } from 'react-redux';
 import { useAppTheme } from '../../../theme/useApptheme';
+import { useThemeContext } from '../../../theme/ThemeContext';
 import HexAvatar from '../story.js/HexAvatar';
 import { useLanguage } from '../../../i18n';
 import { useNavigation } from '@react-navigation/native';
@@ -102,6 +103,11 @@ const CommentItem = memo(
     commentVotes,
   }) => {
     const { t } = useLanguage();
+    const { cardStyle, border, mutedText, accent } = useAppTheme();
+    const { isDarkMode } = useThemeContext();
+    const labelColor = isDarkMode ? '#ffffff' : '#111827';
+    const inputSurface = isDarkMode ? 'rgba(255,255,255,0.08)' : '#f2f2f2';
+    const replySurface = isDarkMode ? 'rgba(255,255,255,0.06)' : '#f8f8f8';
 
     const navigation = useNavigation();
     const normalizeId = id => (id != null ? String(id).trim() : '');
@@ -165,6 +171,8 @@ const CommentItem = memo(
       <View
         style={[
           styles.commentCard,
+          cardStyle,
+          { borderColor: border },
           item.isOptimistic && styles.optimisticComment,
         ]}>
         <View style={styles.commentRow}>
@@ -174,18 +182,20 @@ const CommentItem = memo(
             style={styles.hexAvatarWrap}
             accessibilityRole="button"
           >
-            <HexAvatar uri={item.avatar} size={28} borderWidth={1} borderColor="#e5e5e5" />
+            <HexAvatar uri={item.avatar} size={28} borderWidth={1} borderColor={accent} />
           </TouchableOpacity>
           <View style={styles.commentContent}>
             <View style={styles.commentHeader}>
-              <Text style={styles.username}>{item.username}</Text>
-              <Text style={styles.time}>{item.time}</Text>
+              <Text style={[styles.username, { color: labelColor }]}>{item.username}</Text>
+              <Text style={[styles.time, { color: mutedText }]}>{item.time}</Text>
             </View>
             <TrustVoteBadge commentType={item.commentType} />
-            <Text style={styles.commentText}>{item.text}</Text>
+            <Text style={[styles.commentText, { color: labelColor }]}>{item.text}</Text>
             <View style={styles.commentActionsRow}>
               <TouchableOpacity onPress={() => onReplyPress?.(item)}>
-                <Text style={styles.replyButtonText}>{t('commentSheet.reply')}</Text>
+                <Text style={[styles.replyButtonText, { color: accent }]}>
+                  {t('commentSheet.reply')}
+                </Text>
               </TouchableOpacity>
 
               <View style={styles.votingContainer}>
@@ -204,7 +214,7 @@ const CommentItem = memo(
                     <Text
                       style={[
                         styles.voteCount,
-                        votes.userVote === 'up' && styles.voteCountActive,
+                        votes.userVote === 'up' && [styles.voteCountActive, { color: accent }],
                       ]}>
                       {votes.thumbsUp}
                     </Text>
@@ -226,7 +236,7 @@ const CommentItem = memo(
                     <Text
                       style={[
                         styles.voteCount,
-                        votes.userVote === 'down' && styles.voteCountActive,
+                        votes.userVote === 'down' && [styles.voteCountActive, { color: accent }],
                       ]}>
                       {votes.thumbsDown}
                     </Text>
@@ -236,7 +246,7 @@ const CommentItem = memo(
 
               {hasReplies ? (
                 <TouchableOpacity onPress={() => onToggleReplies?.(item.id)}>
-                  <Text style={styles.replyButtonText}>
+                  <Text style={[styles.replyButtonText, { color: accent }]}>
                     {isExpanded
                       ? t('commentSheet.hideReplies')
                       : t('commentSheet.viewReplies', { count: item.replies.length })}
@@ -251,37 +261,47 @@ const CommentItem = memo(
               style={styles.starIcon}
               onPress={() => onMorePress?.(item)}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <Icon name="ellipsis-vertical" size={18} color="#000" />
+              <Icon name="ellipsis-vertical" size={18} color={labelColor} />
             </TouchableOpacity>
           )}
         </View>
 
         {replyingToThreadId === item.id && (
-          <View style={styles.replyComposer}>
-            <Text style={styles.replyingLabel}>
+          <View style={[styles.replyComposer, { borderTopColor: border }]}>
+            <Text style={[styles.replyingLabel, { color: mutedText }]}>
               {t('commentSheet.replyingTo')} {replyingToUsername || item.username}
             </Text>
             <View style={styles.inlineReplyRow}>
               <TextInput
                 placeholder={t('commentSheet.writeReplyPlaceholder')}
-                placeholderTextColor="#999"
-                style={styles.replyInput}
+                placeholderTextColor={mutedText}
+                style={[
+                  styles.replyInput,
+                  {
+                    color: labelColor,
+                    backgroundColor: inputSurface,
+                    borderColor: border,
+                  },
+                ]}
                 value={replyText}
                 onChangeText={onChangeReplyText}
                 editable={!isPosting}
               />
               <TouchableOpacity onPress={onCancelReply}>
-                <Text style={styles.replyCancelText}>{t('commentSheet.cancel')}</Text>
+                <Text style={[styles.replyCancelText, { color: mutedText }]}>
+                  {t('commentSheet.cancel')}
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={onSubmitReply}
                 disabled={isPosting || !replyText.trim()}>
                 {isPosting ? (
-                  <ActivityIndicator size="small" color="#007AFF" />
+                  <ActivityIndicator size="small" color={accent} />
                 ) : (
                   <Text
                     style={[
                       styles.sendText,
+                      { color: accent },
                       !replyText.trim() && styles.sendTextDisabled,
                     ]}>
                     {t('commentSheet.post')}
@@ -305,24 +325,26 @@ const CommentItem = memo(
               const isReplyAuthor = viewerId && replyUserId === viewerId;
               const canModerateReply = isReplyAuthor || isPostOwner;
               return (
-                <View key={reply.id} style={styles.replyCard}>
+                <View key={reply.id} style={[styles.replyCard, { backgroundColor: replySurface }]}>
                   <TouchableOpacity
                     onPress={() => handleNavigateToProfile(reply?.userId)}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     style={styles.hexAvatarWrap}
                     accessibilityRole="button"
                   >
-                    <HexAvatar uri={reply.avatar} size={28} borderWidth={1} borderColor="#e5e5e5" />
+                    <HexAvatar uri={reply.avatar} size={28} borderWidth={1} borderColor={accent} />
                   </TouchableOpacity>
                   <View style={styles.commentContent}>
                     <View style={styles.commentHeader}>
-                      <Text style={styles.username}>{reply.username}</Text>
-                      <Text style={styles.time}>{reply.time}</Text>
+                      <Text style={[styles.username, { color: labelColor }]}>{reply.username}</Text>
+                      <Text style={[styles.time, { color: mutedText }]}>{reply.time}</Text>
                     </View>
-                    <Text style={styles.commentText}>{reply.text}</Text>
+                    <Text style={[styles.commentText, { color: labelColor }]}>{reply.text}</Text>
                     <View style={styles.commentActionsRow}>
                       <TouchableOpacity onPress={() => onReplyPress?.(reply)}>
-                        <Text style={styles.replyButtonText}>{t('commentSheet.reply')}</Text>
+                        <Text style={[styles.replyButtonText, { color: accent }]}>
+                          {t('commentSheet.reply')}
+                        </Text>
                       </TouchableOpacity>
                       <View style={styles.votingContainer}>
                         <TouchableOpacity
@@ -340,7 +362,7 @@ const CommentItem = memo(
                             <Text
                               style={[
                                 styles.voteCount,
-                                replyVotes.userVote === 'up' && styles.voteCountActive,
+                                replyVotes.userVote === 'up' && [styles.voteCountActive, { color: accent }],
                               ]}>
                               {replyVotes.thumbsUp}
                             </Text>
@@ -361,7 +383,7 @@ const CommentItem = memo(
                             <Text
                               style={[
                                 styles.voteCount,
-                                replyVotes.userVote === 'down' && styles.voteCountActive,
+                                replyVotes.userVote === 'down' && [styles.voteCountActive, { color: accent }],
                               ]}>
                               {replyVotes.thumbsDown}
                             </Text>
@@ -376,7 +398,7 @@ const CommentItem = memo(
                           <Icon
                             name="ellipsis-vertical"
                             size={18}
-                            color="#000"
+                            color={labelColor}
                           />
                         </TouchableOpacity>
                       )}
@@ -418,7 +440,10 @@ export default function CommentSheet({
   const toast = useToast();
   const { t } = useLanguage();
   const profileImage = useSelector(state => state.profileImage?.profileImg);
-  const { bgStyle, textStyle, text } = useAppTheme();
+  const { bgStyle, card, border, mutedText, accent } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const labelColor = isDarkMode ? '#ffffff' : '#111827';
+  const inputSurface = isDarkMode ? 'rgba(255,255,255,0.08)' : '#f2f2f2';
 
   // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -847,17 +872,17 @@ export default function CommentSheet({
 
   return (
     <View style={[styles.container, bgStyle]}>
-      <Text style={styles.title}>
+      <Text style={[styles.title, { color: labelColor }]}>
         {t('commentSheet.title', { count: comments.length })}
       </Text>
 
       {initialLoading ? (
         <View style={styles.emptyContainer}>
-          <ActivityIndicator size="small" color="#007AFF" />
+          <ActivityIndicator size="small" color={accent} />
         </View>
       ) : comments.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>{t('commentSheet.noComments')}</Text>
+          <Text style={[styles.emptyText, { color: mutedText }]}>{t('commentSheet.noComments')}</Text>
         </View>
       ) : (
         <FlatList
@@ -870,13 +895,13 @@ export default function CommentSheet({
       )}
 
       {/* Input row */}
-      <View style={[styles.inputRow, bgStyle]}>
+      <View style={[styles.inputRow, bgStyle, { borderTopColor: border }]}>
         <View style={{ marginRight: 8 }}>
           <HexAvatar
             uri={profileImage}
             size={30}
             borderWidth={1}
-            borderColor={text}
+            borderColor={accent}
           />
         </View>
         <TextInput
@@ -887,8 +912,15 @@ export default function CommentSheet({
                 ? t('commentSheet.replyPlaceholder', { username: replyingToComment.username })
                 : t('commentSheet.addCommentPlaceholder')
           }
-          placeholderTextColor="#999"
-          style={styles.input}
+          placeholderTextColor={mutedText}
+          style={[
+            styles.input,
+            {
+              color: labelColor,
+              backgroundColor: inputSurface,
+              borderColor: border,
+            },
+          ]}
           value={replyingToComment ? replyText : commentText}
           onChangeText={replyingToComment ? setReplyText : setCommentText}
           editable={!isPosting}
@@ -900,11 +932,12 @@ export default function CommentSheet({
             !(replyingToComment ? replyText.trim() : commentText.trim())
           }>
           {isPosting ? (
-            <ActivityIndicator size="small" color="#007AFF" />
+            <ActivityIndicator size="small" color={accent} />
           ) : (
             <Text
               style={[
                 styles.sendText,
+                { color: accent },
                 !(replyingToComment
                   ? replyText.trim()
                   : commentText.trim()) && styles.sendTextDisabled,
@@ -927,7 +960,7 @@ export default function CommentSheet({
               setReplyingToComment(null);
               setReplyText('');
             }}>
-            <Icon name="close-circle" size={20} color="#999" />
+            <Icon name="close-circle" size={20} color={mutedText} />
           </TouchableOpacity>
         )}
       </View>
@@ -942,21 +975,21 @@ export default function CommentSheet({
           setSelectedComment(null);
         }}>
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { backgroundColor: card }]}>
             <TouchableOpacity
-              style={styles.modalButton}
+              style={[styles.modalButton, { borderBottomColor: border, borderBottomWidth: 1 }]}
               onPress={handleCopyComment}
               disabled={!selectedComment?.text?.trim()}>
-              <Text style={styles.modalButtonText}>
+              <Text style={[styles.modalButtonText, { color: labelColor }]}>
                 {t('commentSheet.copyComment')}
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.modalButton}
+              style={[styles.modalButton, { borderBottomColor: border, borderBottomWidth: 1 }]}
               onPress={handleDeleteComment}
               disabled={selectedComment && isDeleting.has(selectedComment.id)}>
-              <Text style={styles.modalButtonText}>
+              <Text style={[styles.modalButtonText, { color: '#EF4444' }]}>
                 {selectedComment && isDeleting.has(selectedComment.id)
                   ? t('commentSheet.deleting')
                   : t('commentSheet.deleteComment')}
@@ -965,19 +998,23 @@ export default function CommentSheet({
 
             {selectedComment?.userId === String(currentUser?.id ?? userId) && (
               <TouchableOpacity
-                style={styles.modalButton}
+                style={[styles.modalButton, { borderBottomColor: border, borderBottomWidth: 1 }]}
                 onPress={handleEditComment}>
-                <Text style={styles.modalButtonText}>{t('commentSheet.editComment')}</Text>
+                <Text style={[styles.modalButtonText, { color: labelColor }]}>
+                  {t('commentSheet.editComment')}
+                </Text>
               </TouchableOpacity>
             )}
 
             <TouchableOpacity
-              style={[styles.modalButton, styles.cancelButton]}
+              style={styles.modalButton}
               onPress={() => {
                 setIsModalVisible(false);
                 setSelectedComment(null);
               }}>
-              <Text style={styles.modalButtonText}>{t('commentSheet.cancel')}</Text>
+              <Text style={[styles.modalButtonText, { color: mutedText }]}>
+                {t('commentSheet.cancel')}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1000,13 +1037,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
     marginBottom: 16,
-    color: '#000',
   },
   commentCard: {
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#eee',
-    backgroundColor: '#fff',
     padding: 12,
     marginBottom: 12,
   },
@@ -1040,16 +1074,13 @@ const styles = StyleSheet.create({
   username: {
     fontWeight: '600',
     fontSize: 14,
-    color: '#000',
     marginRight: 6,
   },
   time: {
     fontSize: 12,
-    color: '#888',
   },
   commentText: {
     fontSize: 14,
-    color: '#000',
     marginTop: 2,
   },
   commentActionsRow: {
@@ -1061,7 +1092,6 @@ const styles = StyleSheet.create({
   replyButtonText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#007AFF',
   },
   votingContainer: {
     flexDirection: 'row',
@@ -1085,12 +1115,10 @@ const styles = StyleSheet.create({
   },
   voteCount: {
     fontSize: 11,
-    color: '#666',
     fontWeight: '500',
     opacity: 0.6,
   },
   voteCountActive: {
-    color: '#007AFF',
     fontWeight: '600',
     opacity: 1,
   },
@@ -1102,11 +1130,9 @@ const styles = StyleSheet.create({
     marginTop: 10,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#eee',
   },
   replyingLabel: {
     fontSize: 12,
-    color: '#666',
     marginBottom: 8,
   },
   inlineReplyRow: {
@@ -1117,17 +1143,13 @@ const styles = StyleSheet.create({
   replyInput: {
     flex: 1,
     borderWidth: 1,
-    borderColor: 'lightgrey',
-    backgroundColor: '#f2f2f2',
     borderRadius: 16,
     paddingHorizontal: 12,
     paddingVertical: 8,
     fontSize: 13,
-    color: '#000',
   },
   replyCancelText: {
     fontSize: 13,
-    color: '#666',
     fontWeight: '500',
   },
   repliesSection: {
@@ -1138,7 +1160,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     borderRadius: 14,
-    backgroundColor: '#f8f8f8',
     padding: 10,
     marginTop: 8,
   },
@@ -1152,27 +1173,22 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     paddingHorizontal: 12,
     borderTopWidth: 1,
-    borderTopColor: '#eee',
   },
   input: {
     width: '70%',
     borderWidth: 1,
-    borderColor: 'lightgrey',
-    backgroundColor: '#f2f2f2',
     borderRadius: 20,
     paddingHorizontal: 14,
     paddingVertical: 6,
     fontSize: 14,
-    color: '#000',
     marginRight: 20,
   },
   sendText: {
-    color: '#007AFF',
     fontWeight: '600',
     fontSize: 18,
   },
   sendTextDisabled: {
-    color: '#ccc',
+    opacity: 0.4,
   },
   emptyContainer: {
     flex: 1,
@@ -1182,7 +1198,6 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    color: '#888',
   },
   commentsListContent: {
     paddingBottom: 70,
@@ -1194,22 +1209,17 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.2)',
   },
   modalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 10,
+    borderRadius: 12,
+    paddingVertical: 4,
     width: '80%',
+    overflow: 'hidden',
   },
   modalButton: {
-    paddingVertical: 12,
+    paddingVertical: 14,
     paddingHorizontal: 16,
   },
   modalButtonText: {
     fontSize: 16,
-    color: '#007AFF',
     textAlign: 'center',
-  },
-  cancelButton: {
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
   },
 });

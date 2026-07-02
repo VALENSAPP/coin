@@ -31,6 +31,7 @@ import {
   checkoutCart,
 } from '../../services/myCloset';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useThemeContext } from '../../theme/ThemeContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const GRID_GAP = 12;
@@ -128,37 +129,71 @@ const goBack = navigation => {
   if (navigation.canGoBack?.()) navigation.goBack();
 };
 
+const withAlphaFlow = (hex, alpha = 0.12) => {
+  const normalized = String(hex || '').replace('#', '');
+  if (normalized.length !== 6) return `rgba(90,35,134,${alpha})`;
+  const r = parseInt(normalized.slice(0, 2), 16);
+  const g = parseInt(normalized.slice(2, 4), 16);
+  const b = parseInt(normalized.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+};
+
+const BottomBar = ({ children }) => {
+  const { bgStyle, accent } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  return (
+    <View
+      style={[
+        styles.bottomBar,
+        {
+          backgroundColor: isDarkMode ? bgStyle.backgroundColor : '#ffffffee',
+          borderTopColor: isDarkMode ? withAlphaFlow(accent, 0.2) : '#f0eaf6',
+        },
+      ]}
+    >
+      {children}
+    </View>
+  );
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared UI atoms
 // ─────────────────────────────────────────────────────────────────────────────
 
-const Header = ({ navigation, title, rightIcon, onRightPress }) => (
+const Header = ({ navigation, title, rightIcon, onRightPress }) => {
+  const { accent } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const labelColor = isDarkMode ? '#ffffff' : '#17072d';
+  const chipSurface = isDarkMode ? 'rgba(255,255,255,0.08)' : '#ffffff';
+
+  return (
   <View style={styles.header}>
     <TouchableOpacity
       onPress={() => goBack(navigation)}
-      style={styles.iconButton}
+      style={[styles.iconButton, { backgroundColor: chipSurface }]}
       activeOpacity={0.8}
     >
-      <Ionicons name="chevron-back" size={22} color="#17072d" />
+      <Ionicons name="chevron-back" size={22} color={accent} />
     </TouchableOpacity>
-    <Text style={styles.headerTitle}>{title}</Text>
+    <Text style={[styles.headerTitle, { color: labelColor }]}>{title}</Text>
     {rightIcon ? (
-      <TouchableOpacity onPress={onRightPress} style={styles.iconButton} activeOpacity={0.8}>
-        <Ionicons name={rightIcon} size={21} color="#17072d" />
+      <TouchableOpacity onPress={onRightPress} style={[styles.iconButton, { backgroundColor: chipSurface }]} activeOpacity={0.8}>
+        <Ionicons name={rightIcon} size={21} color={accent} />
       </TouchableOpacity>
     ) : (
       <View style={styles.iconButton} />
     )}
   </View>
-);
+  );
+};
 
 const BottomButton = ({ label, onPress, icon }) => {
-  const { text } = useAppTheme();
+  const { accent } = useAppTheme();
   return (
     <TouchableOpacity
       activeOpacity={0.9}
       onPress={onPress}
-      style={[styles.bottomButton, { backgroundColor: text }]}
+      style={[styles.bottomButton, { backgroundColor: accent }]}
     >
       {icon ? <Ionicons name={icon} size={16} color="#fff" style={styles.buttonIcon} /> : null}
       <Text style={styles.bottomButtonText}>{label}</Text>
@@ -182,7 +217,9 @@ const ImageBox = ({ uri, style, iconSize = 34 }) => (
 );
 
 const DetailImageCarousel = ({ images }) => {
-  const { text } = useAppTheme();
+  const { accent } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const dotInactive = isDarkMode ? 'rgba(255,255,255,0.25)' : '#d7cce3';
   const [activeIndex, setActiveIndex] = useState(0);
   const galleryImages = images.length ? images : [null];
 
@@ -220,7 +257,7 @@ const DetailImageCarousel = ({ images }) => {
           {galleryImages.map((_, index) => (
             <View
               key={index}
-              style={[styles.photoDot, index === activeIndex && { backgroundColor: text }]}
+              style={[styles.photoDot, { backgroundColor: index === activeIndex ? accent : dotInactive }]}
             />
           ))}
         </View>
@@ -232,11 +269,11 @@ const DetailImageCarousel = ({ images }) => {
 };
 
 const SummaryRow = ({ label, value, bold }) => {
-  const { text } = useAppTheme();
+  const { accent, textStyle, mutedTextStyle } = useAppTheme();
   return (
     <View style={styles.summaryRow}>
-      <Text style={[styles.summaryLabel, bold && styles.summaryStrong]}>{label}</Text>
-      <Text style={[styles.summaryValue, bold && styles.summaryTotal, bold && { color: text }]}>
+      <Text style={[styles.summaryLabel, mutedTextStyle, bold && styles.summaryStrong]}>{label}</Text>
+      <Text style={[styles.summaryValue, textStyle, bold && styles.summaryTotal, bold && { color: accent }]}>
         {value}
       </Text>
     </View>
@@ -244,7 +281,9 @@ const SummaryRow = ({ label, value, bold }) => {
 };
 
 const CheckoutSteps = ({ current }) => {
-  const { text } = useAppTheme();
+  const { accent, mutedTextStyle } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const stepSurface = isDarkMode ? 'rgba(255,255,255,0.08)' : '#ffffff';
   const steps = ['Cart', 'Shipping', 'Payment', 'Review'];
   return (
     <View style={styles.stepsWrap}>
@@ -257,24 +296,26 @@ const CheckoutSteps = ({ current }) => {
               <View
                 style={[
                   styles.stepCircle,
-                  (done || active) && { backgroundColor: text, borderColor: text },
+                  { backgroundColor: stepSurface, borderColor: withAlphaFlow(accent, 0.35) },
+                  (done || active) && { backgroundColor: accent, borderColor: accent },
                 ]}
               >
                 {done ? (
                   <Ionicons name="checkmark" size={12} color="#fff" />
                 ) : (
-                  <Text style={[styles.stepNumber, (done || active) && styles.stepNumberActive]}>
+                  <Text style={[styles.stepNumber, mutedTextStyle, (done || active) && styles.stepNumberActive]}>
                     {index + 1}
                   </Text>
                 )}
               </View>
-              <Text style={[styles.stepLabel, active && { color: text }]}>{step}</Text>
+              <Text style={[styles.stepLabel, mutedTextStyle, active && { color: accent }]}>{step}</Text>
             </View>
             {index < steps.length - 1 && (
               <View
                 style={[
                   styles.stepConnector,
-                  index < current && { backgroundColor: text },
+                  { backgroundColor: withAlphaFlow(accent, 0.25) },
+                  index < current && { backgroundColor: accent },
                 ]}
               />
             )}
@@ -286,10 +327,13 @@ const CheckoutSteps = ({ current }) => {
 };
 
 const SellerCard = ({ seller }) => {
-  const { text } = useAppTheme();
+  const { accent, textStyle, mutedTextStyle } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const cardSurface = isDarkMode ? withAlphaFlow(accent, 0.1) : '#ffffff';
+
   return (
-    <View style={styles.sellerCard}>
-      <View style={[styles.sellerAvatar, { backgroundColor: text }]}>
+    <View style={[styles.sellerCard, { backgroundColor: cardSurface, borderColor: withAlphaFlow(accent, 0.2) }]}>
+      <View style={[styles.sellerAvatar, { backgroundColor: accent }]}>
         {seller?.image ? (
           <Image source={{ uri: seller.image }} style={styles.coverImage} />
         ) : (
@@ -297,46 +341,47 @@ const SellerCard = ({ seller }) => {
         )}
       </View>
       <View style={styles.sellerCopy}>
-        <Text style={styles.sellerName}>
+        <Text style={[styles.sellerName, textStyle]}>
           {seller?.displayName || seller?.userName || 'Closet seller'}
         </Text>
-        <Text style={styles.sellerMeta}>Active 2h ago</Text>
+        <Text style={[styles.sellerMeta, mutedTextStyle]}>Active 2h ago</Text>
         <View style={styles.ratingRow}>
           <Ionicons name="star" size={12} color="#f59e0b" />
-          <Text style={styles.ratingText}>4.8 (32)</Text>
+          <Text style={[styles.ratingText, textStyle]}>4.8 (32)</Text>
         </View>
       </View>
-      <Ionicons name="chevron-forward" size={18} color="#17072d" />
+      <Ionicons name="chevron-forward" size={18} color={accent} />
     </View>
   );
 };
 
 const OrderSummary = ({ cart, editable, compact, onEditCart }) => {
-  const { text } = useAppTheme();
+  const { accent, textStyle, mutedTextStyle, cardStyle, border } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const surface = isDarkMode ? withAlphaFlow(accent, 0.1) : SURFACE;
+
   return (
-    <View style={[styles.card, compact && styles.compactCard]}>
+    <View style={[styles.card, cardStyle, { borderColor: border, backgroundColor: surface }, compact && styles.compactCard]}>
       <View style={styles.cardHeaderRow}>
-        <Text style={styles.cardTitle}>Order Summary</Text>
+        <Text style={[styles.cardTitle, textStyle]}>Order Summary</Text>
         {editable ? (
           <TouchableOpacity activeOpacity={0.8} onPress={onEditCart}>
-            <Text style={[styles.editText, { color: text }]}>Edit Cart</Text>
+            <Text style={[styles.editText, { color: accent }]}>Edit Cart</Text>
           </TouchableOpacity>
         ) : null}
       </View>
       <View style={styles.summaryItemRow}>
         <ImageBox uri={cart.item.image} style={styles.summaryThumb} iconSize={22} />
         <View style={styles.summaryItemCopy}>
-          <Text style={styles.summaryItemName} numberOfLines={2}>
+          <Text style={[styles.summaryItemName, textStyle]} numberOfLines={2}>
             {cart.item.name}
           </Text>
-          <Text style={[styles.summaryItemPrice, { color: text }]}>{cart.item.price}</Text>
-          <Text style={styles.summaryItemQty}>Qty: {cart.quantity}</Text>
+          <Text style={[styles.summaryItemPrice, { color: accent }]}>{cart.item.price}</Text>
+          <Text style={[styles.summaryItemQty, mutedTextStyle]}>Qty: {cart.quantity}</Text>
         </View>
       </View>
-      <View style={styles.divider} />
+      <View style={[styles.divider, { backgroundColor: withAlphaFlow(accent, 0.15) }]} />
       <SummaryRow label="Item total" value={currency(cart.itemTotal)} />
-      {/* <SummaryRow label="Shipping" value={currency(cart.shipping)} />
-      <SummaryRow label="Service fee" value={currency(cart.serviceFee)} /> */}
       <SummaryRow label="Total" value={currency(cart.total)} bold />
     </View>
   );
@@ -418,7 +463,9 @@ const EMPTY_ADDRESS = {
 
 // editAddress prop: if passed, modal opens in edit mode pre-filled with that address
 const AddAddressModal = ({ visible, onClose, onSaved, editAddress }) => {
-  const { text } = useAppTheme();
+  const { accent, bgStyle, textStyle, mutedTextStyle } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const inputSurface = isDarkMode ? 'rgba(255,255,255,0.08)' : '#ffffff';
   const isEdit = !!editAddress;
 
   const [form, setForm] = useState(EMPTY_ADDRESS);
@@ -513,12 +560,12 @@ const AddAddressModal = ({ visible, onClose, onSaved, editAddress }) => {
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={handleClose}>
-      <SafeAreaView style={styles.modalSafe}>
-        <View style={styles.modalHeader}>
+      <SafeAreaView style={[styles.modalSafe, bgStyle]}>
+        <View style={[styles.modalHeader, { borderBottomColor: withAlphaFlow(accent, 0.2) }]}>
           <TouchableOpacity onPress={handleClose} style={styles.iconButton}>
-            <Ionicons name="close" size={22} color="#17072d" />
+            <Ionicons name="close" size={22} color={accent} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>{isEdit ? 'Edit Address' : 'New Address'}</Text>
+          <Text style={[styles.headerTitle, textStyle]}>{isEdit ? 'Edit Address' : 'New Address'}</Text>
           <View style={styles.iconButton} />
         </View>
         <ScrollView contentContainerStyle={styles.modalContent} showsVerticalScrollIndicator={false}>
@@ -558,17 +605,17 @@ const AddAddressModal = ({ visible, onClose, onSaved, editAddress }) => {
             <Ionicons
               name={form.isDefault ? 'checkbox' : 'square-outline'}
               size={20}
-              color={text}
+              color={accent}
             />
-            <Text style={styles.defaultLabel}>Set as default address</Text>
+            <Text style={[styles.defaultLabel, textStyle]}>Set as default address</Text>
           </TouchableOpacity>
         </ScrollView>
-        <View style={styles.bottomBar}>
+        <BottomBar>
           <BottomButton
             label={saving ? 'Saving…' : isEdit ? 'Update Address' : 'Save Address'}
             onPress={saving ? undefined : handleSave}
           />
-        </View>
+        </BottomBar>
       </SafeAreaView>
     </Modal>
   );
@@ -579,12 +626,14 @@ const AddAddressModal = ({ visible, onClose, onSaved, editAddress }) => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const MyClosetBuyerItemsScreen = ({ navigation, route }) => {
-  const { bgStyle, text } = useAppTheme(route?.params?.seller?.profile);
+  const { bgStyle, accent, mutedText } = useAppTheme(route?.params?.seller?.profile);
+  const { isDarkMode } = useThemeContext();
+  const labelColor = isDarkMode ? '#ffffff' : '#17072d';
+  const imageSurface = isDarkMode ? 'rgba(255,255,255,0.06)' : '#f6f0ee';
   const [items, setItems] = useState(() => getRouteItems(route));
   const [loading, setLoading] = useState(false);
   const seller = useMemo(() => route?.params?.seller || {}, [route?.params?.seller]);
   const sellerId = route?.params?.sellerId || seller?.id;
-  const accent = text;
 
   const loadItems = useCallback(async () => {
     if (items.length) return;
@@ -635,12 +684,12 @@ const MyClosetBuyerItemsScreen = ({ navigation, route }) => {
       style={styles.gridCard}
       onPress={() => openItem(item)}
     >
-      <ImageBox uri={item.image} style={styles.gridImage} />
-      <Text style={styles.gridTitle} numberOfLines={2}>
+      <ImageBox uri={item.image} style={[styles.gridImage, { backgroundColor: imageSurface }]} />
+      <Text style={[styles.gridTitle, { color: labelColor }]} numberOfLines={2}>
         {item.name}
       </Text>
       <Text style={[styles.gridPrice, { color: accent }]}>{item.price}</Text>
-      <Text style={styles.gridMeta} numberOfLines={1}>
+      <Text style={[styles.gridMeta, { color: mutedText }]} numberOfLines={1}>
         {item.condition}
       </Text>
     </TouchableOpacity>
@@ -668,19 +717,19 @@ const MyClosetBuyerItemsScreen = ({ navigation, route }) => {
           removeClippedSubviews
           ListHeaderComponent={(
             <View style={styles.listIntro}>
-              <Text style={styles.listTitle}>
+              <Text style={[styles.listTitle, { color: labelColor }]}>
                 {seller?.displayName || seller?.userName || 'Closet'} items
               </Text>
-              <Text style={styles.listSubtitle}>
+              <Text style={[styles.listSubtitle, { color: mutedText }]}>
                 {items.length} item{items.length === 1 ? '' : 's'} available
               </Text>
             </View>
           )}
           ListEmptyComponent={(
             <View style={styles.emptyState}>
-              <Ionicons name="shirt-outline" size={34} color="#c4b5d4" />
-              <Text style={styles.emptyTitle}>No items available</Text>
-              <Text style={styles.emptyText}>
+              <Ionicons name="shirt-outline" size={34} color={accent} />
+              <Text style={[styles.emptyTitle, { color: labelColor }]}>No items available</Text>
+              <Text style={[styles.emptyText, { color: mutedText }]}>
                 This closet does not have any listed items yet.
               </Text>
             </View>
@@ -692,7 +741,9 @@ const MyClosetBuyerItemsScreen = ({ navigation, route }) => {
 };
 
 const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
-  const { text, bgStyle } = useAppTheme();
+  const { accent, bgStyle, textStyle, mutedTextStyle } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const cardSurface = isDarkMode ? withAlphaFlow(accent, 0.1) : '#ffffff';
   const item = normalizeItem(route?.params?.item || {}, 0);
   const seller = route?.params?.seller || {};
   const isOwnProfile = route?.params?.isOwnProfile ?? false;
@@ -720,11 +771,11 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
         showsVerticalScrollIndicator={false}
       >
         <DetailImageCarousel images={item.images} />
-        <Text style={styles.detailName}>{item.name}</Text>
-        <Text style={[styles.detailPrice, { color: text }]}>{item.price}</Text>
+        <Text style={[styles.detailName, textStyle]}>{item.name}</Text>
+        <Text style={[styles.detailPrice, { color: accent }]}>{item.price}</Text>
         <SellerCard seller={seller} />
-        <Text style={styles.sectionLabel}>Description</Text>
-        <Text style={styles.description}>{item.description}</Text>
+        <Text style={[styles.sectionLabel, textStyle]}>Description</Text>
+        <Text style={[styles.description, mutedTextStyle]}>{item.description}</Text>
         <View style={styles.attributeList}>
           {[
             { icon: 'shield-checkmark-outline', label: 'Condition', value: item.condition },
@@ -732,24 +783,26 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
             { icon: 'albums-outline', label: 'Category', value: item.category },
           ].map(attr => (
             <View key={attr.label} style={styles.attributeRow}>
-              <Ionicons name={attr.icon} size={15} color={text} />
-              <Text style={styles.attributeLabel}>{attr.label}</Text>
-              <Text style={styles.attributeValue}>{attr.value}</Text>
+              <Ionicons name={attr.icon} size={15} color={accent} />
+              <Text style={[styles.attributeLabel, mutedTextStyle]}>{attr.label}</Text>
+              <Text style={[styles.attributeValue, textStyle]}>{attr.value}</Text>
             </View>
           ))}
         </View>
       </ScrollView>
       {!isOwnProfile && (
-        <View style={styles.bottomBar}>
-          <BottomButton label="Buy Now" onPress={goOptions} />
-        </View>
+      <BottomBar>
+        <BottomButton label="Buy Now" onPress={goOptions} />
+      </BottomBar>
       )}
     </SafeAreaView>
   );
 };
 
 const MyClosetBuyerOptionsScreen = ({ navigation, route }) => {
-  const { text } = useAppTheme();
+  const { accent, bgStyle, textStyle, mutedTextStyle } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const inputSurface = isDarkMode ? 'rgba(255,255,255,0.08)' : '#ffffff';
   const item = normalizeItem(route?.params?.item || {}, 0);
   const [quantity, setQuantity] = useState(1);
   const [note, setNote] = useState('');
@@ -827,7 +880,7 @@ const MyClosetBuyerOptionsScreen = ({ navigation, route }) => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, bgStyle]}>
       <Header
         navigation={navigation}
         title="Select Options"
@@ -855,12 +908,12 @@ const MyClosetBuyerOptionsScreen = ({ navigation, route }) => {
             activeOpacity={0.8}
             disabled={adding || syncingQty}
           >
-            <Ionicons name="remove" size={17} color={text} />
+            <Ionicons name="remove" size={17} color={accent} />
           </TouchableOpacity>
           {syncingQty ? (
-            <ActivityIndicator size="small" color={text} />
+            <ActivityIndicator size="small" color={accent} />
           ) : (
-            <Text style={styles.quantityText}>{quantity}</Text>
+            <Text style={[styles.quantityText, textStyle]}>{quantity}</Text>
           )}
           <TouchableOpacity
             style={styles.qtyButton}
@@ -868,7 +921,7 @@ const MyClosetBuyerOptionsScreen = ({ navigation, route }) => {
             activeOpacity={0.8}
             disabled={adding || syncingQty}
           >
-            <Ionicons name="add" size={17} color={text} />
+            <Ionicons name="add" size={17} color={accent} />
           </TouchableOpacity>
         </View>
         <Text style={styles.availabilityText}>Only {available} available</Text>
@@ -888,12 +941,12 @@ const MyClosetBuyerOptionsScreen = ({ navigation, route }) => {
           <Text style={styles.counterText}>{note.length}/100</Text>
         </View>
       </ScrollView>
-      <View style={styles.bottomBar}>
+      <BottomBar>
         <BottomButton
           label={adding ? 'Adding…' : syncingQty ? 'Loading…' : 'Add to Cart'}
           onPress={(adding || syncingQty) ? undefined : goCart}
         />
-      </View>
+      </BottomBar>
     </SafeAreaView>
   );
 };
@@ -902,7 +955,9 @@ const MyClosetBuyerOptionsScreen = ({ navigation, route }) => {
 // Cart screen — GET /cart on mount, PATCH quantity, DELETE item, DELETE /cart
 // ─────────────────────────────────────────────────────────────────────────────
 const MyClosetBuyerCartScreen = ({ navigation, route }) => {
-  const { text } = useAppTheme();
+  const { accent, bgStyle, textStyle, mutedTextStyle, cardStyle, border } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const inputSurface = isDarkMode ? 'rgba(255,255,255,0.08)' : '#ffffff';
   const localCart = buildCart(route); // fallback data from route params
 
   // ── Server cart state ───────────────────────────────────────────────────
@@ -1071,7 +1126,7 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
   const cartItemMax = ci => Number(ci?.product?.quantity || ci?.product?.availableQuantity || 99) || 99;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, bgStyle]}>
       <Header
         navigation={navigation}
         title={cartLoading ? 'Cart' : `Cart (${cartItems.length})`}
@@ -1081,7 +1136,7 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
 
       {cartLoading ? (
         <View style={styles.loaderWrap}>
-          <ActivityIndicator color={text} />
+          <ActivityIndicator color={accent} />
         </View>
       ) : cartError ? (
         <View style={styles.emptyState}>
@@ -1107,7 +1162,7 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
             <>
               {clearingCart ? (
                 <View style={styles.cartClearingBanner}>
-                  <ActivityIndicator size="small" color={text} />
+                  <ActivityIndicator size="small" color={accent} />
                   <Text style={[styles.cartClearingText, { color: text }]}>Clearing cart…</Text>
                 </View>
               ) : null}
@@ -1132,10 +1187,10 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
                           activeOpacity={0.8}
                           disabled={isActing}
                         >
-                          <Ionicons name="remove" size={14} color={text} />
+                          <Ionicons name="remove" size={14} color={accent} />
                         </TouchableOpacity>
                         {isActing ? (
-                          <ActivityIndicator size="small" color={text} style={{ minWidth: 18 }} />
+                          <ActivityIndicator size="small" color={accent} style={{ minWidth: 18 }} />
                         ) : (
                           <Text style={styles.cartQtyText}>{qty}</Text>
                         )}
@@ -1145,7 +1200,7 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
                           activeOpacity={0.8}
                           disabled={isActing}
                         >
-                          <Ionicons name="add" size={14} color={text} />
+                          <Ionicons name="add" size={14} color={accent} />
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -1171,7 +1226,7 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
 
               <View style={styles.protectionCard}>
                 <View style={styles.protectionIcon}>
-                  <Ionicons name="shield-checkmark-outline" size={24} color={text} />
+                  <Ionicons name="shield-checkmark-outline" size={24} color={accent} />
                 </View>
                 <Text style={[styles.protectionText, { color: text }]}>
                   You're protected with Valens Purchase Protection
@@ -1184,15 +1239,16 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
       )}
 
       {!isEmpty && !cartLoading && !cartError && (
-        <View style={styles.bottomBar}>
+        <BottomBar>
           <BottomButton label="Proceed to Checkout" onPress={handleProceed} />
-        </View>
+        </BottomBar>
       )}
     </SafeAreaView>
   );
 };
 
 const MyClosetBuyerCheckoutScreen = ({ navigation, route }) => {
+  const { bgStyle } = useAppTheme();
   const cart = buildCart(route);
 
   const handleEditCart = () => {
@@ -1200,7 +1256,7 @@ const MyClosetBuyerCheckoutScreen = ({ navigation, route }) => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, bgStyle]}>
       <Header navigation={navigation} title="Checkout" />
       <ScrollView
         contentContainerStyle={styles.checkoutContent}
@@ -1209,12 +1265,12 @@ const MyClosetBuyerCheckoutScreen = ({ navigation, route }) => {
         <CheckoutSteps current={0} />
         <OrderSummary cart={cart} editable onEditCart={handleEditCart} />
       </ScrollView>
-      <View style={styles.bottomBar}>
+      <BottomBar>
         <BottomButton
           label="Continue to Shipping"
           onPress={() => navigation.navigate('MyClosetBuyerShipping', route.params)}
         />
-      </View>
+      </BottomBar>
     </SafeAreaView>
   );
 };
@@ -1223,7 +1279,10 @@ const MyClosetBuyerCheckoutScreen = ({ navigation, route }) => {
 // Shipping screen — fetches real addresses from GET /address/getAddress
 // ─────────────────────────────────────────────────────────────────────────────
 const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
-  const { text } = useAppTheme();
+  const { accent, bgStyle, textStyle, mutedTextStyle, cardStyle, border } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const inputSurface = isDarkMode ? 'rgba(255,255,255,0.08)' : '#ffffff';
+  const surface = isDarkMode ? withAlphaFlow(accent, 0.1) : SURFACE;
   const cart = buildCart(route);
   const [method, setMethod] = useState('standard');
   const [showAddressModal, setShowAddressModal] = useState(false);
@@ -1347,7 +1406,7 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, bgStyle]}>
       <Header navigation={navigation} title="Shipping Information" />
       <ScrollView
         contentContainerStyle={styles.checkoutContent}
@@ -1360,7 +1419,7 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
         {/* ── Address list states ── */}
         {addressLoading ? (
           <View style={styles.addressLoader}>
-            <ActivityIndicator size="small" color={text} />
+            <ActivityIndicator size="small" color={accent} />
             <Text style={styles.addressLoaderText}>Loading addresses…</Text>
           </View>
         ) : addressError ? (
@@ -1387,7 +1446,7 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
                 style={[
                   styles.addressCard,
                   isSelected && styles.addressCardSelected,
-                  isSelected && { borderColor: text },
+                  isSelected && { borderColor: accent },
                 ]}
               >
                 {/* Tap row selects address */}
@@ -1420,12 +1479,12 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
                     ) : null}
                   </View>
                   {isActing ? (
-                    <ActivityIndicator size="small" color={text} style={{ marginLeft: 8 }} />
+                    <ActivityIndicator size="small" color={accent} style={{ marginLeft: 8 }} />
                   ) : (
                     <Ionicons
                       name={isSelected ? 'radio-button-on' : 'radio-button-off'}
                       size={20}
-                      color={text}
+                      color={accent}
                     />
                   )}
                 </TouchableOpacity>
@@ -1439,7 +1498,7 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
                     onPress={() => handleEdit(addr)}
                     disabled={isActing}
                   >
-                    <Ionicons name="create-outline" size={14} color={text} />
+                    <Ionicons name="create-outline" size={14} color={accent} />
                     <Text style={[styles.addressActionText, { color: text }]}>Edit</Text>
                   </TouchableOpacity>
 
@@ -1485,7 +1544,7 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
           style={styles.addAddressButton}
           onPress={() => setShowAddressModal(true)}
         >
-          <Ionicons name="add-circle-outline" size={18} color={text} />
+          <Ionicons name="add-circle-outline" size={18} color={accent} />
           <Text style={[styles.addAddressText, { color: text }]}>Add new address</Text>
         </TouchableOpacity>
 
@@ -1501,7 +1560,7 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
             style={[
               styles.radioCard,
               method === option.key && styles.radioCardSelected,
-              method === option.key && { borderColor: text },
+              method === option.key && { borderColor: accent },
             ]}
           >
             <Ionicons
@@ -1515,7 +1574,7 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
         ))}
       </ScrollView>
 
-      <View style={styles.bottomBar}>
+      <BottomBar>
         <BottomButton
           label="Continue to Payment"
           onPress={() => {
@@ -1526,7 +1585,7 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
             navigation.navigate('MyClosetBuyerPayment', nextCart);
           }}
         />
-      </View>
+      </BottomBar>
 
       <AddAddressModal
         visible={showAddressModal}
@@ -1539,12 +1598,14 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
 };
 
 const MyClosetBuyerPaymentScreen = ({ navigation, route }) => {
-  const { text } = useAppTheme();
+  const { accent, bgStyle, textStyle, mutedTextStyle } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const inputSurface = isDarkMode ? 'rgba(255,255,255,0.08)' : '#ffffff';
   const cart = buildCart(route);
   const [paymentMethod, setPaymentMethod] = useState('secure');
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, bgStyle]}>
       <Header navigation={navigation} title="Payment" />
       <ScrollView
         contentContainerStyle={styles.checkoutContent}
@@ -1564,7 +1625,7 @@ const MyClosetBuyerPaymentScreen = ({ navigation, route }) => {
             style={[
               styles.paymentOption,
               paymentMethod === option.key && styles.radioCardSelected,
-              paymentMethod === option.key && { borderColor: text },
+              paymentMethod === option.key && { borderColor: accent },
             ]}
           >
             <Ionicons
@@ -1576,19 +1637,19 @@ const MyClosetBuyerPaymentScreen = ({ navigation, route }) => {
               <Text style={styles.radioLabel}>{option.label}</Text>
               {option.sub ? <Text style={styles.paymentSub}>{option.sub}</Text> : null}
             </View>
-            <Ionicons name={option.icon} size={18} color={text} />
+            <Ionicons name={option.icon} size={18} color={accent} />
           </TouchableOpacity>
         ))}
         <OrderSummary cart={cart} compact />
       </ScrollView>
-      <View style={styles.bottomBar}>
+      <BottomBar>
         <BottomButton
           label="Continue to Review"
           onPress={() =>
             navigation.navigate('MyClosetBuyerReview', { ...route.params, paymentMethod })
           }
         />
-      </View>
+      </BottomBar>
     </SafeAreaView>
   );
 };
@@ -1597,7 +1658,9 @@ const MyClosetBuyerPaymentScreen = ({ navigation, route }) => {
 // Review screen — shows dynamically selected address instead of hardcoded one
 // ─────────────────────────────────────────────────────────────────────────────
 const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
-  const { text } = useAppTheme();
+  const { accent, bgStyle, textStyle, mutedTextStyle } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const surface = isDarkMode ? withAlphaFlow(accent, 0.1) : SURFACE;
   const cart = buildCart(route);
   const [checking, setChecking] = useState(false);  
   // shippingAddress passed from Shipping screen via nextCart
@@ -1620,7 +1683,7 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, bgStyle]}>
       <Header navigation={navigation} title="Review Order" />
       <ScrollView
         contentContainerStyle={styles.checkoutContent}
@@ -1670,7 +1733,7 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
           </TouchableOpacity>
         </View>
         <View style={styles.reviewLineCard}>
-          <Ionicons name="shield-checkmark-outline" size={18} color={text} />
+          <Ionicons name="shield-checkmark-outline" size={18} color={accent} />
           <Text style={styles.radioLabel}>Valens Secure Checkout</Text>
         </View>
         <OrderSummary cart={cart} compact />
@@ -1678,25 +1741,27 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
           By placing this order, you agree to Valens Terms of Service and Privacy Policy.
         </Text>
       </ScrollView>
-      <View style={styles.bottomBar}>
+      <BottomBar>
         <BottomButton
           label="Place Order"
           icon="lock-closed-outline"
           onPress={() => handleContinue()}
         />
-      </View>
+      </BottomBar>
     </SafeAreaView>
   );
 };
 
 const MyClosetBuyerOrderReceivedScreen = ({ navigation, route }) => {
-  const { text } = useAppTheme();
+  const { accent, bgStyle, textStyle, mutedTextStyle } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const inputSurface = isDarkMode ? 'rgba(255,255,255,0.08)' : '#ffffff';
   const cart = buildCart(route);
   const today = new Date();
   const orderId = useMemo(() => `V${String(Date.now()).slice(-7)}`, []);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, bgStyle]}>
       <ScrollView
         contentContainerStyle={styles.receivedContent}
         showsVerticalScrollIndicator={false}
@@ -1715,12 +1780,12 @@ const MyClosetBuyerOrderReceivedScreen = ({ navigation, route }) => {
               ]}
             />
           ))}
-          <View style={[styles.checkCircle, { backgroundColor: text }]}>
+          <View style={[styles.checkCircle, { backgroundColor: accent }]}>
             <Ionicons name="checkmark" size={48} color="#fff" />
           </View>
         </View>
-        <Text style={[styles.receivedTitle, { color: text }]}>Order Received!</Text>
-        <Text style={styles.receivedSubtitle}>
+        <Text style={[styles.receivedTitle, textStyle]}>Order Received!</Text>
+        <Text style={[styles.receivedSubtitle, mutedTextStyle]}>
           Thank you for your purchase. Your order has been placed successfully.
         </Text>
         <View style={styles.orderCard}>
@@ -1732,24 +1797,24 @@ const MyClosetBuyerOrderReceivedScreen = ({ navigation, route }) => {
                 {today.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </Text>
             </View>
-            <Text style={[styles.editText, { color: text }]}>View Details</Text>
+            <Text style={[styles.editText, { color: accent }]}>View Details</Text>
           </View>
-          <View style={styles.divider} />
-          <Text style={styles.sectionLabel}>Estimated Delivery</Text>
-          <Text style={styles.addressText}>May 13 - May 15, 2026</Text>
-          <Text style={[styles.receivedTotal, { color: text }]}>Total {currency(cart.total)}</Text>
+          <View style={[styles.divider, { backgroundColor: withAlphaFlow(accent, 0.15) }]} />
+          <Text style={[styles.sectionLabel, textStyle]}>Estimated Delivery</Text>
+          <Text style={[styles.addressText, mutedTextStyle]}>May 13 - May 15, 2026</Text>
+          <Text style={[styles.receivedTotal, { color: accent }]}>Total {currency(cart.total)}</Text>
         </View>
       </ScrollView>
-      <View style={styles.bottomBar}>
+      <BottomBar>
         <BottomButton label="Continue Shopping" onPress={() => navigation.popToTop?.()} />
         <TouchableOpacity
           activeOpacity={0.85}
-          style={styles.secondaryButton}
+          style={[styles.secondaryButton, { borderColor: withAlphaFlow(accent, 0.25), backgroundColor: inputSurface }]}
           onPress={() => navigation.popToTop?.()}
         >
-          <Text style={[styles.secondaryButtonText, { color: text }]}>Go to My Orders</Text>
+          <Text style={[styles.secondaryButtonText, { color: accent }]}>Go to My Orders</Text>
         </TouchableOpacity>
-      </View>
+      </BottomBar>
     </SafeAreaView>
   );
 };
@@ -1770,8 +1835,8 @@ export {
 // Styles
 // ─────────────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#fff', paddingTop: 40 },
-  modalSafe: { flex: 1, backgroundColor: '#fff' },
+  safeArea: { flex: 1, paddingTop: 40 },
+  modalSafe: { flex: 1 },
 
   header: {
     height: 54,
@@ -1801,18 +1866,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 15,
     fontWeight: '900',
-    color: '#21083f',
   },
 
   // grid
   gridContent: { paddingHorizontal: 18, paddingBottom: 110 },
   gridRow: { gap: GRID_GAP },
   listIntro: { paddingTop: 8, paddingBottom: 14 },
-  listTitle: { fontSize: 22, fontWeight: '900', color: '#17072d' },
-  listSubtitle: { marginTop: 4, fontSize: 13, color: MUTED, fontWeight: '600' },
+  listTitle: { fontSize: 22, fontWeight: '900' },
+  listSubtitle: { marginTop: 4, fontSize: 13, fontWeight: '600' },
   gridCard: { width: GRID_ITEM_WIDTH, marginBottom: 18 },
   gridImage: { width: '100%', aspectRatio: 1, borderRadius: 16 },
-  gridTitle: { marginTop: 8, minHeight: 36, fontSize: 14, lineHeight: 18, color: '#17072d', fontWeight: '800' },
+  gridTitle: { marginTop: 8, minHeight: 36, fontSize: 14, lineHeight: 18, fontWeight: '800' },
   gridPrice: { marginTop: 4, fontSize: 15, fontWeight: '900' },
   gridMeta: { marginTop: 3, fontSize: 12, color: MUTED },
 
@@ -1821,8 +1885,8 @@ const styles = StyleSheet.create({
 
   loaderWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 80 },
-  emptyTitle: { marginTop: 12, fontSize: 17, fontWeight: '900', color: '#17072d' },
-  emptyText: { marginTop: 5, fontSize: 13, color: MUTED, textAlign: 'center' },
+  emptyTitle: { marginTop: 12, fontSize: 17, fontWeight: '900' },
+  emptyText: { marginTop: 5, fontSize: 13, textAlign: 'center' },
 
   // detail
   detailContent: { paddingHorizontal: 20, paddingBottom: 110 },
@@ -1858,7 +1922,7 @@ const styles = StyleSheet.create({
   bottomBar: {
     position: 'absolute', left: 0, right: 0, bottom: 0,
     paddingHorizontal: 20, paddingTop: 12, paddingBottom: 22,
-    backgroundColor: '#ffffffee', borderTopWidth: 1, borderTopColor: '#f0eaf6',
+    borderTopWidth: 1,
   },
   bottomButton: {
     minHeight: 50, borderRadius: 13,

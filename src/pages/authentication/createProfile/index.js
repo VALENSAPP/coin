@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   View,
@@ -29,6 +29,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import RBSheet from 'react-native-raw-bottom-sheet';
 import { useRoute } from '@react-navigation/native';
 import { useAppTheme } from '../../../theme/useApptheme';
+import { useThemeContext } from '../../../theme/ThemeContext';
 import { useDebouncedCallback } from '../../../hooks/useDebouncedCallback';
 import { setUserProfile } from '../../../redux/actions/UserProfileAction';
 import { showLoader, hideLoader } from '../../../redux/actions/LoaderAction';
@@ -64,7 +65,14 @@ export default function CreateProfile() {
   const [isCheckingDisplayName, setIsCheckingDisplayName] = useState(false);
   const refRBSheet = useRef();
   const [imageMeta, setImageMeta] = useState(null);
-  const { bgStyle, textStyle, bg } = useAppTheme(profileFromRoute);
+  const { bgStyle, card, border, mutedText, accent, cardStyle } = useAppTheme(profileFromRoute);
+  const { isDarkMode } = useThemeContext();
+  const ui = useMemo(() => ({
+    labelColor: isDarkMode ? '#ffffff' : '#111827',
+    inputColor: isDarkMode ? '#ffffff' : '#1F2937',
+    inputSurface: isDarkMode ? 'rgba(255,255,255,0.06)' : '#ffffff',
+    policyInfoBg: isDarkMode ? 'rgba(255,255,255,0.08)' : '#EEF2FF',
+  }), [isDarkMode]);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   useEffect(() => {
@@ -298,15 +306,19 @@ export default function CreateProfile() {
 
   const renderDisplayNameInput = () => (
     <View style={styles.field}>
-      <Text style={styles.label}>{t('createProfile.displayNameLabel')}</Text>
+      <Text style={[styles.label, { color: mutedText }]}>{t('createProfile.displayNameLabel')}</Text>
       <View style={styles.inputContainer}>
         <TextInput
           placeholder={t('createProfile.displayNamePlaceholder')}
-          placeholderTextColor="#6B7280"
+          placeholderTextColor={mutedText}
           style={[
             styles.inputFull,
             errors.displayName && styles.inputErrorWrapper,
-            bgStyle,
+            {
+              color: ui.inputColor,
+              backgroundColor: ui.inputSurface,
+              borderColor: border,
+            },
           ]}
           value={displayName}
           onChangeText={handleDisplayNameChange}
@@ -358,14 +370,22 @@ export default function CreateProfile() {
   );
 
   const renderTermsAndPrivacySection = () => (
-    <View style={styles.termsSection}>
-      <Text style={styles.termsSectionTitle}>{t('createProfile.legalAgreements')}</Text>
-      <Text style={styles.termsSectionSubtitle}>{t('createProfile.legalAgreementsSubtitle')}</Text>
+    <View style={[styles.termsSection, cardStyle, { borderColor: border }]}>
+      <Text style={[styles.termsSectionTitle, { color: ui.labelColor }]}>
+        {t('createProfile.legalAgreements')}
+      </Text>
+      <Text style={[styles.termsSectionSubtitle, { color: mutedText }]}>
+        {t('createProfile.legalAgreementsSubtitle')}
+      </Text>
 
       {/* Terms and Conditions */}
       <View style={styles.checkboxContainer}>
         <TouchableOpacity
-          style={[styles.checkbox, acceptTerms && styles.checkboxChecked]}
+          style={[
+            styles.checkbox,
+            { borderColor: border },
+            acceptTerms && [styles.checkboxChecked, { backgroundColor: accent, borderColor: accent }],
+          ]}
           onPress={() => {
             setAcceptTerms(!acceptTerms);
             setErrors(prev => ({ ...prev, terms: '' }));
@@ -374,9 +394,9 @@ export default function CreateProfile() {
           {acceptTerms && <Icon name="check" size={14} color="#FFF" />}
         </TouchableOpacity>
         <View style={styles.checkboxTextContainer}>
-          <Text style={styles.checkboxLabel}>
+          <Text style={[styles.checkboxLabel, { color: ui.labelColor }]}>
             {t('createProfile.termsLabel')}{' '}
-            <Text style={styles.linkText} onPress={() => naviGationButton('termsCondition')}>
+            <Text style={[styles.linkText, { color: accent }]} onPress={() => naviGationButton('termsCondition')}>
               {t('createProfile.termsLink')}
             </Text>
             {' '}{t('createProfile.termsDescription')}
@@ -388,7 +408,11 @@ export default function CreateProfile() {
       {/* Privacy Policy */}
       <View style={styles.checkboxContainer}>
         <TouchableOpacity
-          style={[styles.checkbox, acceptPrivacy && styles.checkboxChecked]}
+          style={[
+            styles.checkbox,
+            { borderColor: border },
+            acceptPrivacy && [styles.checkboxChecked, { backgroundColor: accent, borderColor: accent }],
+          ]}
           onPress={() => {
             setAcceptPrivacy(!acceptPrivacy);
             setErrors(prev => ({ ...prev, privacy: '' }));
@@ -397,9 +421,9 @@ export default function CreateProfile() {
           {acceptPrivacy && <Icon name="check" size={14} color="#FFF" />}
         </TouchableOpacity>
         <View style={styles.checkboxTextContainer}>
-          <Text style={styles.checkboxLabel}>
+          <Text style={[styles.checkboxLabel, { color: ui.labelColor }]}>
             {t('createProfile.privacyLabel')}{' '}
-            <Text style={styles.linkText} onPress={() => naviGationButton('privacyPolicy')}>
+            <Text style={[styles.linkText, { color: accent }]} onPress={() => naviGationButton('privacyPolicy')}>
               {t('createProfile.privacyLink')}
             </Text>
             {' '}{t('createProfile.privacyDescription')}
@@ -408,9 +432,9 @@ export default function CreateProfile() {
       </View>
       {errors.privacy && <Text style={styles.errorText}>{errors.privacy}</Text>}
 
-      <View style={styles.policyInfoBox}>
-        <Icon name="info" size={16} color="#4F46E5" />
-        <Text style={styles.policyInfoText}>{t('createProfile.policyInfoText')}</Text>
+      <View style={[styles.policyInfoBox, { backgroundColor: ui.policyInfoBg, borderLeftColor: accent }]}>
+        <Icon name="info" size={16} color={accent} />
+        <Text style={[styles.policyInfoText, { color: accent }]}>{t('createProfile.policyInfoText')}</Text>
       </View>
     </View>
   );
@@ -501,7 +525,7 @@ export default function CreateProfile() {
       >
         <View style={styles.inner}>
           <StepHeader currentStep={1} />
-          <Text style={styles.title}>{t('createProfile.screenTitle')}</Text>
+          <Text style={[styles.title, { color: ui.labelColor }]}>{t('createProfile.screenTitle')}</Text>
 
           <View style={styles.avatarContainer}>
             {imageUri ? (
@@ -509,21 +533,33 @@ export default function CreateProfile() {
             ) : (
               <LinearGradient colors={['#EA580C', '#FCD34D']} style={styles.avatarCircle} />
             )}
-            <TouchableOpacity style={styles.editButton} onPress={() => refRBSheet.current.open()}>
-              <Icon name="edit-2" size={16} color="#1F2937" backgroundColor={bg} />
+            <TouchableOpacity
+              style={[styles.editButton, { backgroundColor: card, borderColor: border, borderWidth: 1 }]}
+              onPress={() => refRBSheet.current.open()}
+            >
+              <Icon name="edit-2" size={16} color={ui.labelColor} />
             </TouchableOpacity>
           </View>
 
           <View style={styles.form}>
             {/* Username Field */}
             <View style={styles.field}>
-              <Text style={styles.label}>{t('createProfile.usernameLabel')}</Text>
-              <View style={[styles.inputWrapper, errors.username && styles.inputErrorWrapper, bgStyle]}>
-                <Text style={styles.prefix}>@</Text>
+              <Text style={[styles.label, { color: mutedText }]}>{t('createProfile.usernameLabel')}</Text>
+              <View
+                style={[
+                  styles.inputWrapper,
+                  errors.username && styles.inputErrorWrapper,
+                  {
+                    backgroundColor: ui.inputSurface,
+                    borderColor: border,
+                  },
+                ]}
+              >
+                <Text style={[styles.prefix, { color: mutedText }]}>@</Text>
                 <TextInput
                   placeholder={t('createProfile.usernamePlaceholder')}
-                  placeholderTextColor="#6B7280"
-                  style={styles.input}
+                  placeholderTextColor={mutedText}
+                  style={[styles.input, { color: ui.inputColor }]}
                   value={username}
                   onChangeText={txt => {
                     setUsername(txt);
@@ -531,7 +567,7 @@ export default function CreateProfile() {
                   }}
                 />
               </View>
-              <Text style={styles.helperText}>{t('signup.usernameHelper')}</Text>
+              <Text style={[styles.helperText, { color: mutedText }]}>{t('signup.usernameHelper')}</Text>
               {errors.username && <Text style={styles.errorText}>{errors.username}</Text>}
             </View>
 
@@ -539,11 +575,19 @@ export default function CreateProfile() {
 
             {/* Bio Field */}
             <View style={styles.field}>
-              <Text style={styles.label}>{t('createProfile.bioLabel')}</Text>
+              <Text style={[styles.label, { color: mutedText }]}>{t('createProfile.bioLabel')}</Text>
               <TextInput
                 placeholder={t('createProfile.bioPlaceholder')}
-                placeholderTextColor="#6B7280"
-                style={[styles.inputFull2, errors.bio && styles.inputErrorWrapper, bgStyle]}
+                placeholderTextColor={mutedText}
+                style={[
+                  styles.inputFull2,
+                  errors.bio && styles.inputErrorWrapper,
+                  {
+                    color: ui.inputColor,
+                    backgroundColor: ui.inputSurface,
+                    borderColor: border,
+                  },
+                ]}
                 multiline
                 textAlignVertical="top"
                 value={bio}
@@ -554,7 +598,7 @@ export default function CreateProfile() {
               />
               <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                 {errors.bio && <Text style={styles.errorText}>{errors.bio}</Text>}
-                <Text style={styles.counter}>{bio.length}/250</Text>
+                <Text style={[styles.counter, { color: mutedText }]}>{bio.length}/250</Text>
               </View>
             </View>
 
@@ -563,18 +607,26 @@ export default function CreateProfile() {
             {/* Email Opt-in */}
             <View style={styles.checkboxContainer}>
               <TouchableOpacity
-                style={[styles.checkbox, receiveEmails && styles.checkboxChecked]}
+                style={[
+                  styles.checkbox,
+                  { borderColor: border },
+                  receiveEmails && [styles.checkboxChecked, { backgroundColor: accent, borderColor: accent }],
+                ]}
                 onPress={() => setReceiveEmails(!receiveEmails)}
               >
                 {receiveEmails && <Icon name="check" size={14} color="#FFF" />}
               </TouchableOpacity>
-              <Text style={styles.checkboxLabel}>{t('createProfile.emailOptIn')}</Text>
+              <Text style={[styles.checkboxLabel, { color: ui.labelColor }]}>
+                {t('createProfile.emailOptIn')}
+              </Text>
             </View>
 
-            {/* Continue Button */}
             <TouchableOpacity
               onPress={continueNext}
-              style={[styles.createButton, isValid && styles.createButtonActive]}
+              style={[
+                styles.createButton,
+                isValid && [styles.createButtonActive, { backgroundColor: accent }],
+              ]}
               disabled={!isValid}
             >
               <Text style={[styles.createButtonText, isValid && styles.createButtonTextActive]}>
@@ -596,9 +648,9 @@ export default function CreateProfile() {
             borderTopRightRadius: 20,
             padding: 20,
             paddingVertical: 10,
-            backgroundColor: '#fff',
+            backgroundColor: card,
           },
-          draggableIcon: { width: 80, backgroundColor: '#ccc' },
+          draggableIcon: { width: 80, backgroundColor: border },
         }}
       >
         <View style={styles.bottomSheetContent}>
@@ -725,7 +777,7 @@ const styles = StyleSheet.create({
   checkboxTextContainer: { flex: 1 },
   termsSection: {
     marginTop: 8, marginBottom: 24, padding: 16,
-    backgroundColor: '#FAFBFC', borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB',
+    borderRadius: 12, borderWidth: 1,
   },
   termsSectionTitle: { fontSize: 16, fontWeight: '600', color: '#1F2937', marginBottom: 4 },
   termsSectionSubtitle: { fontSize: 13, color: '#6B7280', marginBottom: 16 },

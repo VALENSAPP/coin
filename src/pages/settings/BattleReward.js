@@ -12,6 +12,7 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useRoute } from '@react-navigation/native';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useThemeContext } from '../../theme/ThemeContext';
 import { normalizeProfileType } from '../../utils/supportEligibility';
 import { useLanguage } from '../../i18n';
 
@@ -69,7 +70,9 @@ export default function BattleReward({ navigation }) {
   const route = useRoute();
   const { t } = useLanguage();
   const resolvedProfileType = normalizeProfileType(route?.params?.profile);
-  const { bgStyle, text, card } = useAppTheme(resolvedProfileType);
+  const { bgStyle, accent, card, mutedText } = useAppTheme(resolvedProfileType);
+  const { isDarkMode } = useThemeContext();
+  const labelColor = isDarkMode ? '#ffffff' : '#111827';
 
   const rewardData = useMemo(
     () => buildRewardData(route?.params?.battle, t),
@@ -78,20 +81,20 @@ export default function BattleReward({ navigation }) {
   );
 
   const palette = useMemo(() => {
-    const primary = text || '#5a2d82';
+    const primary = accent || '#5a2d82';
     const secondary =
-      primary.toLowerCase() === '#C9A15a' ? '#b8924f' : '#8f54f7';
+      primary.toLowerCase() === '#c9a15a' ? '#b8924f' : '#8f54f7';
 
     return {
       primary,
       secondary,
-      surface: card || '#fff',
-      muted: withAlpha(primary, 'B5'),
-      soft: withAlpha(primary, '18'),
+      surface: card || (isDarkMode ? '#1E1E1E' : '#fff'),
+      muted: mutedText || withAlpha(primary, 'B5'),
+      soft: isDarkMode ? withAlpha(primary, '24') : withAlpha(primary, '18'),
       warm: '#ffd184',
       warmText: '#97591a',
     };
-  }, [card, text]);
+  }, [accent, card, isDarkMode, mutedText]);
 
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
@@ -106,17 +109,17 @@ export default function BattleReward({ navigation }) {
             onPress={() => navigation.goBack()}
             style={styles.headerIconBtn}
           >
-            <Icon name="arrow-back-ios-new" size={20} color={text} />
+            <Icon name="arrow-back-ios-new" size={20} color={accent} />
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: text }]}>
+          <Text style={[styles.headerTitle, { color: labelColor }]}>
             {t('battleReward.headerTitle')}
           </Text>
           <TouchableOpacity style={styles.headerIconBtn}>
-            <Ionicons name="gift-outline" size={20} color={text} />
+            <Ionicons name="gift-outline" size={20} color={accent} />
           </TouchableOpacity>
         </View>
 
-        <Text style={[styles.subTitle, { color: text }]}>
+        <Text style={[styles.subTitle, { color: accent }]}>
           {rewardData.title}
         </Text>
 
@@ -158,7 +161,7 @@ export default function BattleReward({ navigation }) {
             { backgroundColor: palette.surface, shadowColor: palette.primary },
           ]}
         >
-          <Text style={[styles.infoTitle, { color: withAlpha(text, 'D0') }]}>
+          <Text style={[styles.infoTitle, { color: labelColor }]}>
             {t('battleReward.rewardSummaryTitle')}
           </Text>
           <Text style={[styles.infoText, { color: palette.muted }]}>
@@ -173,7 +176,7 @@ export default function BattleReward({ navigation }) {
             { backgroundColor: palette.surface, shadowColor: palette.primary },
           ]}
         >
-          <Text style={[styles.infoTitle, { color: withAlpha(text, 'D0') }]}>
+          <Text style={[styles.infoTitle, { color: labelColor }]}>
             {t('battleReward.pointsBreakdownTitle')}
           </Text>
           {rewardData.breakdown.map(item => (
@@ -181,7 +184,7 @@ export default function BattleReward({ navigation }) {
               <Text style={[styles.breakdownLabel, { color: palette.muted }]}>
                 {item.label}
               </Text>
-              <Text style={[styles.breakdownValue, { color: text }]}>
+              <Text style={[styles.breakdownValue, { color: accent }]}>
                 {item.value}
               </Text>
             </View>
@@ -195,7 +198,7 @@ export default function BattleReward({ navigation }) {
             { backgroundColor: palette.surface, shadowColor: palette.primary },
           ]}
         >
-          <Text style={[styles.infoTitle, { color: withAlpha(text, 'D0') }]}>
+          <Text style={[styles.infoTitle, { color: labelColor }]}>
             {t('battleReward.unlockedPerksTitle')}
           </Text>
           {rewardData.perks.map(item => (

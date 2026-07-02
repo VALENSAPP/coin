@@ -1,14 +1,27 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import { useLanguage } from '../../../i18n';
+import { useAppTheme } from '../../../theme/useApptheme';
+import { useThemeContext } from '../../../theme/ThemeContext';
 
 const { width } = Dimensions.get('window');
 
 export default function StepHeader({ currentStep }) {
-  const { t } = useLanguage(); // i18n
+  const { t } = useLanguage();
+  const { border, mutedText, accent } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
 
-  // Steps array now uses translation keys
+  const ui = useMemo(() => ({
+    labelColor: isDarkMode ? '#ffffff' : '#111827',
+    upcomingColor: mutedText,
+    completeBg: isDarkMode ? accent : '#000000',
+    currentBorder: isDarkMode ? accent : '#000000',
+    currentBg: isDarkMode ? 'rgba(255,255,255,0.08)' : '#ffffff',
+    upcomingCircleBg: isDarkMode ? 'rgba(255,255,255,0.08)' : '#F3F4F6',
+    currentNumberColor: isDarkMode ? '#ffffff' : '#000000',
+  }), [isDarkMode, mutedText, accent]);
+
   const steps = [
     t('stepHeader.email'),
     t('stepHeader.profile'),
@@ -27,23 +40,42 @@ export default function StepHeader({ currentStep }) {
               <View
                 style={[
                   styles.circleSmall,
-                  status === 'complete' && styles.circleCompleteSmall,
-                  status === 'current' && styles.circleCurrentSmall,
+                  status === 'upcoming' && { backgroundColor: ui.upcomingCircleBg },
+                  status === 'complete' && { backgroundColor: ui.completeBg },
+                  status === 'current' && {
+                    borderWidth: 2,
+                    borderColor: ui.currentBorder,
+                    backgroundColor: ui.currentBg,
+                  },
                 ]}
               >
                 {status === 'complete' ? (
                   <Icon name="check" size={16} color="#fff" />
                 ) : (
-                  <Text style={[styles.stepNumber, status === 'current' && styles.textCurrent]}>
+                  <Text
+                    style={[
+                      styles.stepNumber,
+                      { color: status === 'current' ? ui.currentNumberColor : ui.upcomingColor },
+                      status === 'current' && styles.textCurrent,
+                    ]}
+                  >
                     {index + 1}
                   </Text>
                 )}
               </View>
-              <Text style={[styles.stepLabel, status === 'current' && styles.labelCurrent]}>
+              <Text
+                style={[
+                  styles.stepLabel,
+                  { color: status === 'current' ? ui.labelColor : ui.upcomingColor },
+                  status === 'current' && styles.labelCurrent,
+                ]}
+              >
                 {label}
               </Text>
             </View>
-            {index < steps.length - 1 && <View style={styles.stepDivider} />}
+            {index < steps.length - 1 && (
+              <View style={[styles.stepDivider, { backgroundColor: border }]} />
+            )}
           </View>
         );
       })}
@@ -69,7 +101,6 @@ const styles = StyleSheet.create({
   stepDivider: {
     height: 1,
     width: 16,
-    backgroundColor: '#E5E7EB',
     marginHorizontal: 8,
   },
   circleSmall: {
@@ -78,31 +109,18 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F3F4F6',
-  },
-  circleCompleteSmall: {
-    backgroundColor: '#000',
-  },
-  circleCurrentSmall: {
-    borderWidth: 2,
-    borderColor: '#000',
-    backgroundColor: '#fff',
   },
   stepNumber: {
     fontSize: 14,
-    color: '#6B7280',
   },
   textCurrent: {
-    color: '#000',
     fontWeight: '600',
   },
   stepLabel: {
     marginTop: 4,
     fontSize: 11,
-    color: '#6B7280',
   },
   labelCurrent: {
     fontWeight: '600',
-    color: '#000',
   },
 });

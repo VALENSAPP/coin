@@ -22,7 +22,8 @@ import { useToast } from 'react-native-toast-notifications';
 import { useFocusEffect } from '@react-navigation/native';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { showToastMessage } from '../../components/displaytoastmessage';
-import { useAppTheme } from '../../theme/useApptheme';
+import { useBusinessProfileTheme } from '../../theme/useBusinessProfileTheme';
+import { useThemeContext } from '../../theme/ThemeContext';
 import {
   createMyCloset,
   deleteMyCloset,
@@ -113,8 +114,13 @@ const EditModal = ({
   multiline = false,
   onCancel,
   onSave,
+  accent,
+  cardStyle,
+  border,
+  labelColor,
+  mutedText,
+  isDarkMode,
 }) => {
-  const { text } = useAppTheme();
   const [draftValue, setDraftValue] = useState(value || '');
 
   useEffect(() => {
@@ -126,29 +132,40 @@ const EditModal = ({
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
       <Pressable style={styles.modalBackdrop} onPress={onCancel}>
-        <Pressable style={styles.modalCard} onPress={() => { }}>
-          <Text style={styles.modalTitle}>{title}</Text>
+        <Pressable style={[styles.modalCard, cardStyle, { borderColor: border, borderWidth: 1 }]} onPress={() => { }}>
+          <Text style={[styles.modalTitle, { color: labelColor }]}>{title}</Text>
           <TextInput
             value={draftValue}
             onChangeText={setDraftValue}
             placeholder={placeholder}
-            placeholderTextColor="#a1a1aa"
+            placeholderTextColor={mutedText}
             multiline={multiline}
             textAlignVertical={multiline ? 'top' : 'center'}
             style={[
               styles.modalInput,
               multiline && styles.modalInputMultiline,
-              { borderColor: 'rgba(91, 33, 182, 0.18)' },
+              {
+                borderColor: border,
+                color: labelColor,
+                backgroundColor: isDarkMode ? 'rgba(255,255,255,0.06)' : '#fff',
+              },
             ]}
           />
           <View style={styles.modalActions}>
-            <TouchableOpacity activeOpacity={0.9} onPress={onCancel} style={styles.modalSecondary}>
-              <Text style={styles.modalSecondaryText}>Cancel</Text>
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onPress={onCancel}
+              style={[
+                styles.modalSecondary,
+                { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.08)' : '#f3f4f6' },
+              ]}
+            >
+              <Text style={[styles.modalSecondaryText, { color: labelColor }]}>Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity
               activeOpacity={0.9}
               onPress={() => onSave(draftValue)}
-              style={[styles.modalPrimary, { backgroundColor: text }]}
+              style={[styles.modalPrimary, { backgroundColor: accent }]}
             >
               <Text style={styles.modalPrimaryText}>Save</Text>
             </TouchableOpacity>
@@ -159,19 +176,35 @@ const EditModal = ({
   );
 };
 
-const Row = ({ label, value, onPress, multiline = false, subtitle }) => (
+const Row = ({
+  label,
+  value,
+  onPress,
+  multiline = false,
+  subtitle,
+  labelColor,
+  mutedText,
+  border,
+}) => (
   <TouchableOpacity activeOpacity={0.85} onPress={onPress} style={styles.row}>
     <View style={styles.rowCopy}>
-      <Text style={styles.rowLabel}>{label}</Text>
-      {subtitle ? <Text style={styles.rowSubtitle}>{subtitle}</Text> : null}
+      <Text style={[styles.rowLabel, { color: labelColor }]}>{label}</Text>
+      {subtitle ? <Text style={[styles.rowSubtitle, { color: mutedText }]}>{subtitle}</Text> : null}
       {value ? (
-        <Text style={[styles.rowValue, multiline && styles.rowValueMultiline]} numberOfLines={multiline ? 3 : 1}>
+        <Text
+          style={[
+            styles.rowValue,
+            { color: mutedText },
+            multiline && styles.rowValueMultiline,
+          ]}
+          numberOfLines={multiline ? 3 : 1}
+        >
           {value}
         </Text>
       ) : null}
     </View>
     <View style={styles.rowRight}>
-      <Ionicons name="chevron-forward" size={18} color="#9ca3af" />
+      <Ionicons name="chevron-forward" size={18} color={mutedText} />
     </View>
   </TouchableOpacity>
 );
@@ -179,7 +212,10 @@ const Row = ({ label, value, onPress, multiline = false, subtitle }) => (
 const ShopSettingsScreen = ({ navigation }) => {
   const dispatch = useDispatch();
   const toast = useToast();
-  const { bgStyle, textStyle, text, cardStyle } = useAppTheme();
+  const { bgStyle, cardStyle, accent, mutedText, border } =
+    useBusinessProfileTheme();
+  const { isDarkMode } = useThemeContext();
+  const labelColor = isDarkMode ? '#ffffff' : '#111827';
   const [saving, setSaving] = useState(false);
   const [data, setData] = useState(defaultState);
   const [activeField, setActiveField] = useState(null);
@@ -412,13 +448,13 @@ const ShopSettingsScreen = ({ navigation }) => {
             style={[
               styles.heroCard,
               cardStyle,
-              { borderColor: 'rgba(91, 33, 182, 0.10)' },
+              { borderColor: border },
             ]}
           >
-            <Text style={[styles.sectionHeaderText, textStyle]}>
+            <Text style={[styles.sectionHeaderText, { color: accent }]}>
               Shop information
             </Text>
-            <Text style={styles.heroSubtext}>
+            <Text style={[styles.heroSubtext, { color: mutedText }]}>
               Update the details customers see when they visit your shop.
             </Text>
 
@@ -434,57 +470,75 @@ const ShopSettingsScreen = ({ navigation }) => {
                     style={[
                       styles.previewLogo,
                       styles.previewLogoEmpty,
-                      { borderColor: 'rgba(91, 33, 182, 0.18)' },
+                      {
+                        borderColor: border,
+                        backgroundColor: isDarkMode ? 'rgba(255,255,255,0.06)' : '#f5f3ff',
+                      },
                     ]}
                   >
-                    <Ionicons name="bag-handle-outline" size={26} color={text} />
+                    <Ionicons name="bag-handle-outline" size={26} color={accent} />
                   </View>
                 )}
               </View>
               <View style={styles.previewCopy}>
-                <Text style={[styles.previewTitle, textStyle]} numberOfLines={1}>
+                <Text style={[styles.previewTitle, { color: labelColor }]} numberOfLines={1}>
                   {data.shopName || 'Your Shop'}
                 </Text>
-                <Text style={styles.previewHandle}>{shopLink}</Text>
-                <Text style={styles.previewDescription} numberOfLines={2}>
+                <Text style={[styles.previewHandle, { color: mutedText }]}>{shopLink}</Text>
+                <Text style={[styles.previewDescription, { color: mutedText }]} numberOfLines={2}>
                   {data.description || 'Add a short description for your shop.'}
                 </Text>
               </View>
             </View>
 
-            <View style={styles.rowsCard}>
+            <View style={[styles.rowsCard, cardStyle]}>
               <Row
                 label="Shop name"
                 value={data.shopName || 'Tap to add'}
                 onPress={() => setActiveField('shopName')}
+                labelColor={labelColor}
+                mutedText={mutedText}
+                border={border}
               />
-              <View style={styles.rowDivider} />
+              <View style={[styles.rowDivider, { backgroundColor: border }]} />
               <Row
                 label="Username"
                 value={`valens.app/${data.shopUsername || 'your-shop'}`}
                 subtitle="This is your public shop link"
                 onPress={() => setActiveField('shopUsername')}
+                labelColor={labelColor}
+                mutedText={mutedText}
+                border={border}
               />
-              <View style={styles.rowDivider} />
+              <View style={[styles.rowDivider, { backgroundColor: border }]} />
               <Row
                 label="Shop description"
                 value={data.description || 'Tap to describe your shop'}
                 multiline
                 onPress={() => setActiveField('description')}
+                labelColor={labelColor}
+                mutedText={mutedText}
+                border={border}
               />
-              <View style={styles.rowDivider} />
+              <View style={[styles.rowDivider, { backgroundColor: border }]} />
               <Row
                 label="Shop logo"
                 value={data.shopLogo ? 'Logo uploaded' : 'Add a logo'}
                 subtitle="Use a square image for best results."
                 onPress={handleImagePick}
+                labelColor={labelColor}
+                mutedText={mutedText}
+                border={border}
               />
-              <View style={styles.rowDivider} />
+              <View style={[styles.rowDivider, { backgroundColor: border }]} />
               <Row
                 label="Location"
                 value={data.location || 'Tap to add your location'}
                 subtitle="Shown on your public shop page."
                 onPress={() => setLocationModalVisible(true)}
+                labelColor={labelColor}
+                mutedText={mutedText}
+                border={border}
               />
             </View>
           </View>
@@ -547,7 +601,7 @@ const ShopSettingsScreen = ({ navigation }) => {
               disabled={saving}
               style={[
                 styles.saveButton,
-                { backgroundColor: text, opacity: saving ? 0.8 : 1 },
+                { backgroundColor: accent, opacity: saving ? 0.8 : 1 },
               ]}
             >
               {saving ? (
@@ -560,7 +614,13 @@ const ShopSettingsScreen = ({ navigation }) => {
               activeOpacity={0.9}
               onPress={handleDeleteCloset}
               disabled={saving}
-              style={styles.deleteButton}
+              style={[
+                styles.deleteButton,
+                {
+                  borderColor: isDarkMode ? 'rgba(248, 113, 113, 0.45)' : '#fecaca',
+                  backgroundColor: isDarkMode ? 'rgba(220, 38, 38, 0.12)' : '#fff1f2',
+                },
+              ]}
             >
               <Text style={styles.deleteButtonText}>Delete My Closet</Text>
             </TouchableOpacity>
@@ -589,6 +649,12 @@ const ShopSettingsScreen = ({ navigation }) => {
             setData(prev => ({ ...prev, [activeField]: value }));
             setActiveField(null);
           }}
+          accent={accent}
+          cardStyle={cardStyle}
+          border={border}
+          labelColor={labelColor}
+          mutedText={mutedText}
+          isDarkMode={isDarkMode}
         />
       </View>
     </SafeAreaView>
@@ -647,14 +713,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: 16,
     marginBottom: 14,
-    backgroundColor: '#fff',
   },
   sectionCard: {
     borderRadius: 24,
     borderWidth: 1,
     padding: 16,
     marginBottom: 14,
-    backgroundColor: '#fff',
   },
   sectionHeaderText: {
     fontSize: 18,
@@ -664,7 +728,6 @@ const styles = StyleSheet.create({
   heroSubtext: {
     fontSize: 13,
     lineHeight: 18,
-    color: '#6b7280',
     marginBottom: 14,
   },
   previewBlock: {
@@ -680,7 +743,6 @@ const styles = StyleSheet.create({
     height: 64,
     borderRadius: 20,
     overflow: 'hidden',
-    backgroundColor: '#f5f3ff',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -698,19 +760,16 @@ const styles = StyleSheet.create({
   },
   previewHandle: {
     fontSize: 13,
-    color: '#6b7280',
     marginBottom: 6,
     fontWeight: '600',
   },
   previewDescription: {
     fontSize: 13,
-    color: '#4b5563',
     lineHeight: 18,
   },
   rowsCard: {
     borderRadius: 20,
     overflow: 'hidden',
-    backgroundColor: '#fff',
   },
   row: {
     minHeight: 72,
@@ -727,19 +786,16 @@ const styles = StyleSheet.create({
   rowLabel: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#111827',
     marginBottom: 6,
   },
   rowSubtitle: {
     fontSize: 12,
-    color: '#6b7280',
     lineHeight: 16,
   },
   rowValue: {
     marginTop: 6,
     fontSize: 14,
     fontWeight: '600',
-    color: '#4b5563',
   },
   rowValueMultiline: {
     lineHeight: 19,
@@ -750,7 +806,6 @@ const styles = StyleSheet.create({
   },
   rowDivider: {
     height: 1,
-    backgroundColor: '#f1f5f9',
     marginLeft: 6,
   },
   notificationRow: {
@@ -782,8 +837,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 12,
     borderWidth: 1,
-    borderColor: '#fecaca',
-    backgroundColor: '#fff1f2',
   },
   deleteButtonText: {
     color: '#dc2626',
@@ -798,14 +851,12 @@ const styles = StyleSheet.create({
   },
   modalCard: {
     borderRadius: 20,
-    backgroundColor: '#fff',
     padding: 16,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: '800',
     marginBottom: 12,
-    color: '#111827',
   },
   modalInput: {
     minHeight: 50,
@@ -814,8 +865,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: Platform.OS === 'ios' ? 14 : 10,
     fontSize: 15,
-    color: '#111827',
-    backgroundColor: '#fff',
   },
   modalInputMultiline: {
     minHeight: 110,
@@ -833,10 +882,8 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#f3f4f6',
   },
   modalSecondaryText: {
-    color: '#111827',
     fontSize: 15,
     fontWeight: '700',
   },

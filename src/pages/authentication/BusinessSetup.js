@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState, useEffect } from 'react';
+import React, { useCallback, useRef, useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -30,6 +30,7 @@ import {
 import { EditProfile } from '../../services/createProfile';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useThemeContext } from '../../theme/ThemeContext';
 import { setUserProfile } from '../../redux/actions/UserProfileAction';
 import { pick } from '@react-native-documents/picker';
 import { launchImageLibrary } from 'react-native-image-picker';
@@ -51,7 +52,13 @@ const BusinessProfileForm = () => {
   const profileFromRoute = route?.params?.profile || profileData?.profile || 'user';
   const dispatch = useDispatch();
   const toast = useToast();
-  const { bgStyle, text } = useAppTheme(profileFromRoute);
+  const { bgStyle, card, border, mutedText, accent, cardStyle } = useAppTheme(profileFromRoute);
+  const { isDarkMode } = useThemeContext();
+  const ui = useMemo(() => ({
+    labelColor: isDarkMode ? '#ffffff' : '#1F2937',
+    inputColor: isDarkMode ? '#ffffff' : '#1F2937',
+    inputSurface: isDarkMode ? 'rgba(255,255,255,0.06)' : '#F9FAFB',
+  }), [isDarkMode]);
   const { t } = useLanguage();
 
   useEffect(() => {
@@ -572,21 +579,34 @@ const BusinessProfileForm = () => {
           />
 
           <View style={styles.formWrapper}>
-            <View style={styles.card}>
+            <View style={[styles.card, cardStyle]}>
               <View style={styles.welcomeSection}>
-                <Text style={styles.welcomeTitle}>{t('businessProfile.welcomeTitle')}</Text>
-                <Text style={styles.welcomeSubtitle}>{t('businessProfile.welcomeSubtitle')}</Text>
+                <Text style={[styles.welcomeTitle, { color: ui.labelColor }]}>
+                  {t('businessProfile.welcomeTitle')}
+                </Text>
+                <Text style={[styles.welcomeSubtitle, { color: mutedText }]}>
+                  {t('businessProfile.welcomeSubtitle')}
+                </Text>
               </View>
 
               <View style={styles.inputContainer}>
                 {fields.map(field => (
                   <View key={field.key} style={styles.inputWrapper}>
-                    <Text style={styles.inputLabel}>{field.label}</Text>
-                    <View style={[styles.inputGroup, errors[field.key] && styles.inputError]}>
+                    <Text style={[styles.inputLabel, { color: mutedText }]}>{field.label}</Text>
+                    <View
+                      style={[
+                        styles.inputGroup,
+                        {
+                          backgroundColor: ui.inputSurface,
+                          borderColor: border,
+                        },
+                        errors[field.key] && styles.inputError,
+                      ]}
+                    >
                       {field.key === 'phone' ? (
                         <View style={styles.phoneInputRow}>
                           <TouchableOpacity
-                            style={styles.countryCodeButton}
+                            style={[styles.countryCodeButton, { borderRightColor: border }]}
                             onPress={() => setShowCountryPicker(true)}
                             activeOpacity={0.8}
                           >
@@ -600,12 +620,14 @@ const BusinessProfileForm = () => {
                               onClose={() => setShowCountryPicker(false)}
                               onSelect={handleCountrySelect}
                             />
-                            <Text style={styles.countryCodeText}>{getDialCode()}</Text>
+                            <Text style={[styles.countryCodeText, { color: ui.inputColor }]}>
+                              {getDialCode()}
+                            </Text>
                           </TouchableOpacity>
                           <TextInput
-                            style={[styles.textInput, styles.phoneTextInput]}
+                            style={[styles.textInput, styles.phoneTextInput, { color: ui.inputColor }]}
                             placeholder={field.placeholder}
-                            placeholderTextColor="#9CA3AF"
+                            placeholderTextColor={mutedText}
                             value={getPhoneInputValue()}
                             onChangeText={handlePhoneChange}
                             keyboardType={field.keyboardType || 'phone-pad'}
@@ -615,9 +637,9 @@ const BusinessProfileForm = () => {
                         </View>
                       ) : (
                         <TextInput
-                          style={[styles.textInput, field.multiline && styles.textArea]}
+                          style={[styles.textInput, field.multiline && styles.textArea, { color: ui.inputColor }]}
                           placeholder={field.placeholder}
-                          placeholderTextColor="#9CA3AF"
+                          placeholderTextColor={mutedText}
                           value={form[field.key]}
                           onChangeText={value => handleChange(field.key, value)}
                           keyboardType={field.keyboardType || 'default'}
@@ -634,14 +656,24 @@ const BusinessProfileForm = () => {
 
                 {/* Document Upload */}
                 <View style={styles.inputWrapper}>
-                  <Text style={styles.inputLabel}>{t('businessProfile.documentLabel')}</Text>
+                  <Text style={[styles.inputLabel, { color: mutedText }]}>{t('businessProfile.documentLabel')}</Text>
                   <TouchableOpacity
-                    style={[styles.inputGroup, errors.document && styles.inputError]}
+                    style={[
+                      styles.inputGroup,
+                      {
+                        backgroundColor: ui.inputSurface,
+                        borderColor: border,
+                      },
+                      errors.document && styles.inputError,
+                    ]}
                     onPress={handlePickDocument}
                     activeOpacity={0.8}
                   >
                     <Text
-                      style={[styles.uploadText, !selectedDocument && styles.uploadPlaceholder]}
+                      style={[
+                        styles.uploadText,
+                        { color: selectedDocument ? ui.inputColor : mutedText },
+                      ]}
                       numberOfLines={1}
                     >
                       {selectedDocument?.name || t('businessProfile.documentPlaceholder')}
@@ -658,7 +690,7 @@ const BusinessProfileForm = () => {
 
               {/* Verify (Sumsub) Button */}
               <TouchableOpacity
-                style={[styles.submitButton, { backgroundColor: '#C9A15a', shadowColor: '#C9A15a' }]}
+                style={[styles.submitButton, { backgroundColor: accent, shadowColor: accent }]}
                 onPress={launchSumsub}
                 disabled={isLaunchingSumsub}
               >
@@ -673,7 +705,7 @@ const BusinessProfileForm = () => {
 
               {/* Continue (Save) Button */}
               <TouchableOpacity
-                style={[styles.submitButton, { backgroundColor: '#C9A15a', shadowColor: '#C9A15a' }]}
+                style={[styles.submitButton, { backgroundColor: accent, shadowColor: accent }]}
                 onPress={handleSubmit}
                 disabled={isSubmitting || isUploadingDocument}
               >
@@ -701,7 +733,6 @@ const styles = StyleSheet.create({
   contentContainer: { flexGrow: 1 },
   formWrapper: { flex: 1, marginTop: -30, paddingHorizontal: 7 },
   card: {
-    backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
     padding: 20,
@@ -713,22 +744,20 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   welcomeSection: { alignItems: 'center', marginBottom: 24 },
-  welcomeTitle: { fontSize: 24, fontWeight: '700', color: '#1F2937', marginBottom: 10, textAlign: 'center' },
-  welcomeSubtitle: { fontSize: 15, color: '#6B7280', textAlign: 'center', lineHeight: 22 },
+  welcomeTitle: { fontSize: 24, fontWeight: '700', marginBottom: 10, textAlign: 'center' },
+  welcomeSubtitle: { fontSize: 15, textAlign: 'center', lineHeight: 22 },
   inputContainer: { width: '100%' },
   inputWrapper: { marginBottom: 14 },
-  inputLabel: { fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8 },
+  inputLabel: { fontSize: 14, fontWeight: '600', marginBottom: 8 },
   inputGroup: {
     minHeight: 52,
-    backgroundColor: '#F9FAFB',
     borderRadius: 16,
     borderWidth: 1.5,
-    borderColor: '#E5E7EB',
     paddingHorizontal: 14,
     justifyContent: 'center',
   },
   inputError: { borderColor: '#EF4444', backgroundColor: '#FEF2F2' },
-  textInput: { flex: 1, color: '#1F2937', fontSize: 16, paddingVertical: 0 },
+  textInput: { flex: 1, fontSize: 16, paddingVertical: 0 },
   phoneInputRow: { flexDirection: 'row', alignItems: 'center' },
   countryCodeButton: {
     flexDirection: 'row',
@@ -736,9 +765,8 @@ const styles = StyleSheet.create({
     marginRight: 12,
     paddingRight: 12,
     borderRightWidth: 1,
-    borderRightColor: '#E5E7EB',
   },
-  countryCodeText: { marginLeft: 8, color: '#1F2937', fontSize: 16, fontWeight: '600' },
+  countryCodeText: { marginLeft: 8, fontSize: 16, fontWeight: '600' },
   phoneTextInput: { paddingVertical: 14 },
   textArea: { minHeight: 100, paddingTop: 12, paddingBottom: 12 },
   errorText: { color: '#EF4444', fontSize: 12, marginTop: 5, marginLeft: 4, fontWeight: '500' },
@@ -755,7 +783,6 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   submitButtonText: { color: '#fff', fontWeight: '700', fontSize: 17 },
-  uploadText: { color: '#1F2937', fontSize: 15 },
-  uploadPlaceholder: { color: '#9CA3AF' },
+  uploadText: { fontSize: 15 },
   documentPreview: { marginTop: 10, width: 92, height: 92, borderRadius: 10, backgroundColor: '#E5E7EB' },
 });

@@ -22,12 +22,18 @@ import {
   markOrderDelivered,
 } from '../../services/myCloset';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useThemeContext } from '../../theme/ThemeContext';
 
-// ── Same design tokens as the buyer checkout flow ──────────────────────────
-const ACCENT = '#5A2386';
+const withAlpha = (hex, alpha = 0.12) => {
+  const normalized = String(hex || '').replace('#', '');
+  if (normalized.length !== 6) return `rgba(90,35,134,${alpha})`;
+  const r = parseInt(normalized.slice(0, 2), 16);
+  const g = parseInt(normalized.slice(2, 4), 16);
+  const b = parseInt(normalized.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+};
+
 const MUTED = '#6b7280';
-const BORDER = '#ebe4f3';
-const SURFACE = '#fbf8ff';
 
 // ── Status meta + flow (kept in sync with the orders list screen) ─────────
 const STATUS_META = {
@@ -133,46 +139,69 @@ const normalizeOrderDetail = order => {
 };
 
 // ── Shared atoms (mirroring the buyer flow's design system) ────────────────
-const Header = ({ onBack, title }) => (
-  <View style={styles.header}>
-    <TouchableOpacity onPress={onBack} style={styles.iconButton} activeOpacity={0.8}>
-      <Ionicons name="chevron-back" size={22} color="#17072d" />
+const Header = ({ onBack, title }) => {
+  const { accent, textStyle } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const chipSurface = isDarkMode ? 'rgba(255,255,255,0.08)' : '#ffffff';
+
+  return (
+    <View style={styles.header}>
+      <TouchableOpacity
+        onPress={onBack}
+        style={[styles.iconButton, { backgroundColor: chipSurface }]}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="chevron-back" size={22} color={accent} />
+      </TouchableOpacity>
+      <Text style={[styles.headerTitle, textStyle]}>{title}</Text>
+      <View style={styles.iconButton} />
+    </View>
+  );
+};
+
+const ImageBox = ({ uri, style, iconSize = 22 }) => {
+  const { isDarkMode } = useThemeContext();
+  const imageSurface = isDarkMode ? 'rgba(255,255,255,0.06)' : '#f6f0ee';
+
+  return (
+    <View style={[styles.imageBox, { backgroundColor: imageSurface }, style]}>
+      {uri ? (
+        <Image source={{ uri }} style={styles.coverImage} resizeMode="cover" />
+      ) : (
+        <Ionicons name="shirt-outline" size={iconSize} color="#9b8c7a" />
+      )}
+    </View>
+  );
+};
+
+const SummaryRow = ({ label, value, bold }) => {
+  const { textStyle, mutedTextStyle } = useAppTheme();
+  return (
+    <View style={styles.summaryRow}>
+      <Text style={[styles.summaryLabel, mutedTextStyle, bold && styles.summaryStrong]}>{label}</Text>
+      <Text style={[styles.summaryValue, textStyle, bold && styles.summaryTotal]}>{value}</Text>
+    </View>
+  );
+};
+
+const BottomButton = ({ label, onPress, disabled }) => {
+  const { accent } = useAppTheme();
+  return (
+    <TouchableOpacity
+      activeOpacity={0.9}
+      onPress={disabled ? undefined : onPress}
+      style={[styles.bottomButton, { backgroundColor: accent }, disabled && { opacity: 0.6 }]}
+    >
+      <Text style={styles.bottomButtonText}>{label}</Text>
     </TouchableOpacity>
-    <Text style={styles.headerTitle}>{title}</Text>
-    <View style={styles.iconButton} />
-  </View>
-);
+  );
+};
 
-const ImageBox = ({ uri, style, iconSize = 22 }) => (
-  <View style={[styles.imageBox, style]}>
-    {uri ? (
-      <Image source={{ uri }} style={styles.coverImage} resizeMode="cover" />
-    ) : (
-      <Ionicons name="shirt-outline" size={iconSize} color="#9b8c7a" />
-    )}
-  </View>
-);
-
-const SummaryRow = ({ label, value, bold }) => (
-  <View style={styles.summaryRow}>
-    <Text style={[styles.summaryLabel, bold && styles.summaryStrong]}>{label}</Text>
-    <Text style={[styles.summaryValue, bold && styles.summaryTotal]}>{value}</Text>
-  </View>
-);
-
-const BottomButton = ({ label, onPress, disabled }) => (
-  <TouchableOpacity
-    activeOpacity={0.9}
-    onPress={disabled ? undefined : onPress}
-    style={[styles.bottomButton, disabled && { opacity: 0.6 }]}
-  >
-    <Text style={styles.bottomButtonText}>{label}</Text>
-  </TouchableOpacity>
-);
-
-// Small horizontal progress tracker: Pending → Processing → Shipped → Delivered
 const StatusTimeline = ({ status }) => {
+  const { accent, mutedTextStyle } = useAppTheme();
   const currentIndex = TIMELINE_STEPS.indexOf(status === 'cancelled' ? 'pending' : status);
+  const connectorColor = withAlpha(accent, 0.25);
+
   return (
     <View style={styles.timelineWrap}>
       {TIMELINE_STEPS.map((step, index) => {
@@ -182,15 +211,21 @@ const StatusTimeline = ({ status }) => {
         return (
           <React.Fragment key={step}>
             <View style={styles.timelineItem}>
-              <View style={[styles.timelineDot, (done || active) && { backgroundColor: ACCENT }]}>
+              <View style={[styles.timelineDot, (done || active) && { backgroundColor: accent }]}>
                 {done ? <Ionicons name="checkmark" size={11} color="#fff" /> : null}
               </View>
-              <Text style={[styles.timelineLabel, active && { color: ACCENT, fontWeight: '900' }]}>
+              <Text style={[styles.timelineLabel, mutedTextStyle, active && { color: accent, fontWeight: '900' }]}>
                 {meta.label}
               </Text>
             </View>
             {index < TIMELINE_STEPS.length - 1 && (
-              <View style={[styles.timelineConnector, index < currentIndex && { backgroundColor: ACCENT }]} />
+              <View
+                style={[
+                  styles.timelineConnector,
+                  { backgroundColor: connectorColor },
+                  index < currentIndex && { backgroundColor: accent },
+                ]}
+              />
             )}
           </React.Fragment>
         );
@@ -203,7 +238,9 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
   const orderId = route?.params?.orderId;
   const toast = useToast();
   const dispatch = useDispatch();
-   const { text, bgStyle } = useAppTheme();
+  const { accent, bgStyle, cardStyle, textStyle, mutedTextStyle, border } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const surface = isDarkMode ? withAlpha(accent, 0.1) : '#fbf8ff';
 
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -263,10 +300,10 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={[styles.safeArea, bgStyle]}>
         <Header onBack={goBack} title="Order Details" />
         <View style={styles.loaderWrap}>
-          <ActivityIndicator color={ACCENT} />
+          <ActivityIndicator color={accent} />
         </View>
       </SafeAreaView>
     );
@@ -274,13 +311,13 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
 
   if (error || !order) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={[styles.safeArea, bgStyle]}>
         <Header onBack={goBack} title="Order Details" />
         <View style={styles.emptyState}>
           <Ionicons name="alert-circle-outline" size={34} color="#dc2626" />
-          <Text style={styles.emptyTitle}>Couldn't load order</Text>
-          <Text style={styles.emptyText}>{error}</Text>
-          <TouchableOpacity activeOpacity={0.85} style={styles.retryButton} onPress={loadOrder}>
+          <Text style={[styles.emptyTitle, textStyle]}>Couldn't load order</Text>
+          <Text style={[styles.emptyText, mutedTextStyle]}>{error}</Text>
+          <TouchableOpacity activeOpacity={0.85} style={[styles.retryButton, { backgroundColor: accent }]} onPress={loadOrder}>
             <Text style={styles.retryText}>Retry</Text>
           </TouchableOpacity>
         </View>
@@ -296,7 +333,7 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
       <Header onBack={goBack} title={`Order #${order.orderNumber}`} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.topRow}>
-          <Text style={styles.orderDate}>{order.createdAt}</Text>
+          <Text style={[styles.orderDate, mutedTextStyle]}>{order.createdAt}</Text>
           <View style={[styles.statusBadge, { backgroundColor: meta.bg }]}>
             <Text style={[styles.statusText, { color: meta.color }]}>{meta.label}</Text>
           </View>
@@ -304,28 +341,28 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
 
         {order.status !== 'cancelled' && <StatusTimeline status={order.status} />}
 
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Buyer</Text>
+        <View style={[styles.card, cardStyle, { borderColor: border, backgroundColor: surface }]}>
+          <Text style={[styles.cardTitle, textStyle]}>Buyer</Text>
           <View style={styles.buyerRow}>
-            <View style={styles.buyerAvatar}>
+            <View style={[styles.buyerAvatar, { backgroundColor: accent }]}>
               <Ionicons name="person" size={18} color="#fff" />
             </View>
-            <Text style={styles.buyerName}>{order.buyerName}</Text>
+            <Text style={[styles.buyerName, textStyle]}>{order.buyerName}</Text>
           </View>
         </View>
 
         {order.address ? (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Shipping Address</Text>
-            <Text style={styles.addressText}>{order.address.fullName}</Text>
+          <View style={[styles.card, cardStyle, { borderColor: border, backgroundColor: surface }]}>
+            <Text style={[styles.cardTitle, textStyle]}>Shipping Address</Text>
+            <Text style={[styles.addressText, textStyle]}>{order.address.fullName}</Text>
             {order.address.phoneNumber ? (
-              <Text style={styles.addressSub}>{order.address.phoneNumber}</Text>
+              <Text style={[styles.addressSub, mutedTextStyle]}>{order.address.phoneNumber}</Text>
             ) : null}
-            <Text style={styles.addressSub}>{order.address.addressLine1}</Text>
+            <Text style={[styles.addressSub, mutedTextStyle]}>{order.address.addressLine1}</Text>
             {order.address.addressLine2 ? (
-              <Text style={styles.addressSub}>{order.address.addressLine2}</Text>
+              <Text style={[styles.addressSub, mutedTextStyle]}>{order.address.addressLine2}</Text>
             ) : null}
-            <Text style={styles.addressSub}>
+            <Text style={[styles.addressSub, mutedTextStyle]}>
               {[order.address.city, order.address.state, order.address.postalCode]
                 .filter(Boolean)
                 .join(', ')}
@@ -333,33 +370,33 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
           </View>
         ) : null}
 
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Items ({order.totalItemCount})</Text>
+        <View style={[styles.card, cardStyle, { borderColor: border, backgroundColor: surface }]}>
+          <Text style={[styles.cardTitle, textStyle]}>Items ({order.totalItemCount})</Text>
           {order.lines.length ? (
             order.lines.map(line => (
               <View key={line.id} style={styles.lineRow}>
                 <ImageBox uri={line.image} style={styles.lineThumb} />
                 <View style={styles.lineCopy}>
-                  <Text style={styles.lineName} numberOfLines={2}>
+                  <Text style={[styles.lineName, textStyle]} numberOfLines={2}>
                     {line.name}
                   </Text>
-                  <Text style={styles.linePrice}>{line.price}</Text>
-                  <Text style={styles.lineQty}>Qty: {line.quantity}</Text>
+                  <Text style={[styles.linePrice, mutedTextStyle]}>{line.price}</Text>
+                  <Text style={[styles.lineQty, mutedTextStyle]}>Qty: {line.quantity}</Text>
                 </View>
-                <Text style={styles.lineTotal}>{line.lineTotal}</Text>
+                <Text style={[styles.lineTotal, textStyle]}>{line.lineTotal}</Text>
               </View>
             ))
           ) : (
-            <Text style={styles.addressSub}>No item details available for this order.</Text>
+            <Text style={[styles.addressSub, mutedTextStyle]}>No item details available for this order.</Text>
           )}
         </View>
 
-        <View style={styles.card}>
+        <View style={[styles.card, cardStyle, { borderColor: border, backgroundColor: surface }]}>
           <SummaryRow label="Order total" value={order.totalAmount} bold />
         </View>
 
       {flowStep ? (
-        <View style={styles.bottomBar}>
+        <View style={[styles.bottomBar, { backgroundColor: bgStyle.backgroundColor, borderTopColor: withAlpha(accent, 0.2) }]}>
           <BottomButton
             label={advancing ? 'Updating…' : flowStep.label}
             onPress={handleAdvance}
@@ -405,7 +442,7 @@ const styles = StyleSheet.create({
   emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 30 },
   emptyTitle: { marginTop: 12, fontSize: 17, fontWeight: '900', color: '#17072d' },
   emptyText: { marginTop: 5, fontSize: 13, color: MUTED, textAlign: 'center' },
-  retryButton: { marginTop: 16, paddingHorizontal: 16, paddingVertical: 9, backgroundColor: ACCENT, borderRadius: 10 },
+  retryButton: { marginTop: 16, paddingHorizontal: 16, paddingVertical: 9, borderRadius: 10 },
   retryText: { color: '#fff', fontSize: 13, fontWeight: '800' },
 
   topRow: {
@@ -439,50 +476,47 @@ const styles = StyleSheet.create({
 
   card: {
     borderWidth: 1,
-    borderColor: BORDER,
     borderRadius: 14,
     padding: 14,
-    backgroundColor: SURFACE,
     marginBottom: 14,
   },
-  cardTitle: { fontSize: 13, fontWeight: '900', color: '#21083f', marginBottom: 10 },
+  cardTitle: { fontSize: 13, fontWeight: '900', marginBottom: 10 },
 
   buyerRow: { flexDirection: 'row', alignItems: 'center' },
   buyerAvatar: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: ACCENT,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
   },
-  buyerName: { fontSize: 13, fontWeight: '800', color: '#17072d' },
+  buyerName: { fontSize: 13, fontWeight: '800' },
 
-  addressText: { fontSize: 13, fontWeight: '900', color: '#17072d', marginBottom: 3 },
-  addressSub: { fontSize: 12, color: '#43324f', lineHeight: 17 },
+  addressText: { fontSize: 13, fontWeight: '900', marginBottom: 3 },
+  addressSub: { fontSize: 12, lineHeight: 17 },
 
   lineRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: BORDER,
+    borderBottomColor: 'rgba(128,128,128,0.15)',
   },
   lineThumb: { width: 52, height: 52, borderRadius: 10, marginRight: 10 },
-  imageBox: { backgroundColor: '#f6f0ee', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  imageBox: { alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   coverImage: { width: '100%', height: '100%' },
   lineCopy: { flex: 1 },
-  lineName: { fontSize: 13, fontWeight: '800', color: '#17072d' },
-  linePrice: { marginTop: 2, fontSize: 12, color: ACCENT, fontWeight: '800' },
-  lineQty: { marginTop: 1, fontSize: 11, color: MUTED, fontWeight: '600' },
-  lineTotal: { fontSize: 13, fontWeight: '900', color: '#17072d' },
+  lineName: { fontSize: 13, fontWeight: '800' },
+  linePrice: { marginTop: 2, fontSize: 12, fontWeight: '800' },
+  lineQty: { marginTop: 1, fontSize: 11, fontWeight: '600' },
+  lineTotal: { fontSize: 13, fontWeight: '900' },
 
   summaryRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  summaryLabel: { fontSize: 13, color: '#43324f' },
-  summaryValue: { fontSize: 13, color: '#17072d', fontWeight: '700' },
-  summaryStrong: { fontSize: 16, fontWeight: '900', color: '#17072d' },
-  summaryTotal: { fontSize: 18, fontWeight: '900', color: ACCENT },
+  summaryLabel: { fontSize: 13 },
+  summaryValue: { fontSize: 13, fontWeight: '700' },
+  summaryStrong: { fontSize: 16, fontWeight: '900' },
+  summaryTotal: { fontSize: 18, fontWeight: '900' },
 
   bottomBar: {
     position: 'absolute',
@@ -492,11 +526,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 12,
     paddingBottom: 60,
+    borderTopWidth: 1,
   },
   bottomButton: {
     minHeight: 50,
     borderRadius: 13,
-    backgroundColor: ACCENT,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -3,12 +3,16 @@ import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useThemeContext } from '../../theme/ThemeContext';
 import { useLanguage } from '../../i18n';
 
 const PRIMARY_GRADIENT = ['#513189bd', '#e54ba0'];
 
 export default function ProfileBattleTab({ isLive = false, battle: battleProp }) {
-  const { text } = useAppTheme();
+  const { accent, card, border, mutedText } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const labelColor = isDarkMode ? '#ffffff' : '#111827';
+  const optionSurface = isDarkMode ? 'rgba(255,255,255,0.06)' : '#fff';
   const { t } = useLanguage();
   const [selectedOption, setSelectedOption] = useState(null);
 
@@ -33,9 +37,9 @@ export default function ProfileBattleTab({ isLive = false, battle: battleProp })
   if (!isLive) {
     return (
       <View style={styles.emptyWrap}>
-        <Ionicons name="radio-outline" size={36} color="#9CA3AF" />
-        <Text style={[styles.emptyTitle, { color: text }]}>{t('battleTab.noLiveTitle')}</Text>
-        <Text style={styles.emptySub}>{t('battleTab.noLiveSub')}</Text>
+        <Ionicons name="radio-outline" size={36} color={mutedText} />
+        <Text style={[styles.emptyTitle, { color: labelColor }]}>{t('battleTab.noLiveTitle')}</Text>
+        <Text style={[styles.emptySub, { color: mutedText }]}>{t('battleTab.noLiveSub')}</Text>
       </View>
     );
   }
@@ -51,13 +55,13 @@ export default function ProfileBattleTab({ isLive = false, battle: battleProp })
         >
           <Text style={styles.livePillText}>{t('battleTab.livePill')}</Text>
         </LinearGradient>
-        <Text style={[styles.typeText, { color: text }]}>
+        <Text style={[styles.typeText, { color: accent }]}>
           {battle.type} {t('battleTab.battleLabel')}
         </Text>
       </View>
 
-      <Text style={[styles.title, { color: text }]}>{battle.title}</Text>
-      {!!battle.subtitle && <Text style={styles.subtitle}>{battle.subtitle}</Text>}
+      <Text style={[styles.title, { color: labelColor }]}>{battle.title}</Text>
+      {!!battle.subtitle && <Text style={[styles.subtitle, { color: mutedText }]}>{battle.subtitle}</Text>}
 
       <View style={styles.options}>
         {battle.options.map((option) => {
@@ -67,10 +71,21 @@ export default function ProfileBattleTab({ isLive = false, battle: battleProp })
               key={option.key}
               activeOpacity={0.9}
               onPress={() => setSelectedOption(option.key)}
-              style={[styles.optionBtn, isSelected && styles.optionBtnSelected]}
+              style={[
+                styles.optionBtn,
+                {
+                  backgroundColor: optionSurface,
+                  borderColor: isSelected ? '#22C55E' : border,
+                },
+                isSelected && styles.optionBtnSelected,
+              ]}
             >
               <Text
-                style={[styles.optionText, isSelected && styles.optionTextSelected]}
+                style={[
+                  styles.optionText,
+                  { color: isSelected ? '#166534' : labelColor },
+                  isSelected && styles.optionTextSelected,
+                ]}
                 numberOfLines={1}
               >
                 {option.label}
@@ -118,7 +133,6 @@ const styles = StyleSheet.create({
   emptySub: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#6B7280',
     textAlign: 'center',
   },
   container: {
@@ -153,7 +167,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontSize: 12,
     fontWeight: '600',
-    color: '#6B7280',
   },
   options: {
     marginTop: 14,
@@ -161,23 +174,19 @@ const styles = StyleSheet.create({
   },
   optionBtn: {
     borderWidth: 1,
-    borderColor: '#E5E7EB',
     borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#fff',
   },
   optionBtnSelected: {
-    borderColor: '#22C55E',
-    backgroundColor: '#F0FDF4',
+    backgroundColor: 'rgba(34,197,94,0.12)',
   },
   optionText: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#111827',
     flex: 1,
     marginRight: 10,
   },

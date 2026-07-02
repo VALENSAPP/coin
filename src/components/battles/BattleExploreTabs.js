@@ -2,6 +2,7 @@ import React, { useMemo, useRef, useEffect } from 'react';
 import { Animated, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useThemeContext } from '../../theme/ThemeContext';
 
 const DEFAULT_GRADIENT = ['#513189bd', '#e54ba0'];
 
@@ -11,7 +12,10 @@ export default function BattleExploreTabs({
   onChange,
   highlightKey,
 }) {
-  const { text } = useAppTheme();
+  const { accent, border, mutedText } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const inactiveTabBg = isDarkMode ? 'rgba(255,255,255,0.06)' : '#F3F4F6';
+  const inactiveTabBorder = isDarkMode ? border : '#E5E7EB';
   const pulse = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -52,10 +56,10 @@ export default function BattleExploreTabs({
               {...wrapperProps}
               style={[
                 styles.tab,
-                !isActive && { backgroundColor: '#F3F4F6', borderColor: '#E5E7EB' },
+                !isActive && { backgroundColor: inactiveTabBg, borderColor: inactiveTabBorder },
               ]}
             >
-              <Text style={[styles.tabText, { color: isActive ? '#fff' : text }]} numberOfLines={1}>
+              <Text style={[styles.tabText, { color: isActive ? '#fff' : mutedText }]} numberOfLines={1}>
                 {tab.label}
               </Text>
               {shouldHighlight && (

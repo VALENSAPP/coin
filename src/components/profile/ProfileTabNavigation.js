@@ -56,7 +56,8 @@ const ProfileTabs = memo(({
   const [closetCheckComplete, setClosetCheckComplete] = useState(false);
 
   const effectiveProfileType = profileType || userData?.profile;
-  const { text } = useAppTheme(effectiveProfileType);
+  const { bg, border, accent, mutedText } = useAppTheme(effectiveProfileType);
+  const inactiveTabColor = mutedText;
   const { t } = useLanguage();
 
   const isOwnProfile = String(loggedInUserId || '') === String(userData?.id || '');
@@ -243,7 +244,7 @@ const ProfileTabs = memo(({
     privateContent: (
       <View style={styles.postsWrap}>
         {/* {userData?.profile !== 'company' && */}
-        <View style={styles.mediaTabsRow}>
+        <View style={[styles.mediaTabsRow, { backgroundColor: bg, borderBottomColor: border }]}>
           {MEDIA_TABS.map((tab) => {
             const focused = mediaTab === tab.key;
             return (
@@ -253,11 +254,11 @@ const ProfileTabs = memo(({
                 onPress={() => setMediaTab(tab.key)}
                 activeOpacity={0.8}
               >
-                <Ionicons name={tab.icon} size={22} color={focused ? text : '#6b7280'} />
-                <Text style={[styles.mediaTabLabel, focused && { color: text }]}>
+                <Ionicons name={tab.icon} size={22} color={focused ? accent : inactiveTabColor} />
+                <Text style={[styles.mediaTabLabel, { color: focused ? accent : inactiveTabColor }]}>
                   {tab.label}
                 </Text>
-                {focused && <View style={[styles.mediaTabIndicator, { backgroundColor: text }]} />}
+                {focused && <View style={[styles.mediaTabIndicator, { backgroundColor: accent }]} />}
               </TouchableOpacity>
             );
           })}
@@ -343,7 +344,10 @@ const ProfileTabs = memo(({
     activeTab,
     mediaTab,
     MEDIA_TABS,
-    text,
+    accent,
+    inactiveTabColor,
+    bg,
+    border,
     closetCheckComplete,
     hasCreatedShop,
     shopDraft,
@@ -357,7 +361,7 @@ const ProfileTabs = memo(({
         key: 'posts',
         label: t('profileTabs.postsTab'),
         icon: (focused) => (
-          <Ionicons name={focused ? 'grid' : 'grid-outline'} size={24} color={focused ? text : '#6b7280'} />
+          <Ionicons name={focused ? 'grid' : 'grid-outline'} size={24} color={focused ? accent : inactiveTabColor} />
         ),
       },
       {
@@ -366,7 +370,7 @@ const ProfileTabs = memo(({
         icon: (focused) => (
           <Image
             source={require('../../assets/icons/pngicons/private.png')}
-            style={{ width: 35, height: 35, tintColor: focused ? text : '#6b7280' }}
+            style={{ width: 35, height: 35, tintColor: focused ? accent : inactiveTabColor }}
           />
         ),
       },
@@ -374,7 +378,7 @@ const ProfileTabs = memo(({
         key: 'reels',
         label: t('profileTabs.reelsTab'),
         icon: (focused) => (
-          <ProfileReelIcon fill={focused ? text : '#6b7280'} height={24} width={24} />
+          <ProfileReelIcon fill={focused ? accent : inactiveTabColor} height={24} width={24} />
         ),
       },
     ];
@@ -386,7 +390,7 @@ const ProfileTabs = memo(({
       label: t('profileTabs.privateContentTab'),
       icon: (focused) => (
         <LockKey
-          fill={focused ? text : '#6b7280'}
+          fill={focused ? accent : inactiveTabColor}
           height={24}
           width={24}
         />
@@ -411,7 +415,7 @@ const ProfileTabs = memo(({
           <MaterialIcons
             name="shopping-bag"
             size={24}
-            color={focused ? text : '#6b7280'}
+            color={focused ? accent : inactiveTabColor}
           />
         ),
       });
@@ -428,7 +432,7 @@ const ProfileTabs = memo(({
             style={{
               width: 35,
               height: 35,
-              tintColor: focused ? text : '#6b7280',
+              tintColor: focused ? accent : inactiveTabColor,
             }}
           />
         ),
@@ -437,7 +441,8 @@ const ProfileTabs = memo(({
 
     return list;
   }, [
-    text,
+    accent,
+    inactiveTabColor,
     t,
     userData,
     isOwnProfile,
@@ -479,7 +484,7 @@ const ProfileTabs = memo(({
   return (
     <View style={styles.tabsRoot}>
       {/* Tab Bar */}
-      <View style={[styles.tabBar, { borderBottomColor: '#e5e7eb' }]}>
+      <View style={[styles.tabBar, { backgroundColor: bg, borderBottomColor: border }]}>
         {tabs.map((tab, index) => {
           const focused = activeTab === index;
           return (
@@ -494,7 +499,7 @@ const ProfileTabs = memo(({
             >
               {tab.icon(focused)}
               {focused && (
-                <View style={[styles.indicator, { backgroundColor: text }]} />
+                <View style={[styles.indicator, { backgroundColor: accent }]} />
               )}
             </TouchableOpacity>
           );
@@ -551,9 +556,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingTop: 8,
     paddingBottom: 6,
-    backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#ececec',
   },
   mediaTabItem: {
     flex: 1,
@@ -565,7 +568,6 @@ const styles = StyleSheet.create({
   mediaTabLabel: {
     marginTop: 4,
     fontSize: 11,
-    color: '#6b7280',
   },
   mediaTabIndicator: {
     position: 'absolute',
@@ -577,7 +579,6 @@ const styles = StyleSheet.create({
   tabBar: {
     flexDirection: 'row',
     height: 52,
-    backgroundColor: '#fff',
     borderBottomWidth: 1,
     elevation: 2,
     shadowOpacity: 0.08,

@@ -23,6 +23,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useThemeContext } from '../../theme/ThemeContext';
 import { exploretBattle } from '../../services/battle';
 import BattleCard from '../../components/search/Battlecard';
 import { mapBattleCard } from '../../utils/battleCardUtils';
@@ -33,6 +34,9 @@ export default function BattleExplore({ onClose, profile }) {
   const toast = useToast();
   const themeProfile = String(profile || '').toLowerCase() === 'company' ? 'company' : undefined;
   const { bgStyle, text, card, border, mutedText, icon, accent } = useAppTheme(themeProfile);
+  const { isDarkMode } = useThemeContext();
+  const labelColor = isDarkMode ? '#ffffff' : '#111827';
+  const inputSurface = isDarkMode ? 'rgba(255,255,255,0.08)' : card;
   const { t } = useLanguage();
 
   const [battles, setBattles] = useState([]);
@@ -195,17 +199,17 @@ export default function BattleExplore({ onClose, profile }) {
         <TouchableOpacity onPress={() => onClose?.()} style={styles.backBtn}>
           <Icon name="arrow-back" size={24} color={icon} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: text }]}>
+        <Text style={[styles.headerTitle, { color: labelColor }]}>
           {t('battleExplore.headerTitle')}
         </Text>
         <View style={styles.backBtn} />
       </View>
 
       {/* Search */}
-      <View style={[styles.searchContainer, { backgroundColor: card, borderColor: border }]}>
+      <View style={[styles.searchContainer, { backgroundColor: inputSurface, borderColor: border }]}>
         <Icon name="search" size={20} color={mutedText} style={styles.searchIcon} />
         <TextInput
-          style={[styles.searchInput, { color: text }]}
+          style={[styles.searchInput, { color: labelColor }]}
           placeholder={t('battleExplore.searchPlaceholder')}
           placeholderTextColor={mutedText}
           value={searchText}
@@ -245,7 +249,7 @@ export default function BattleExplore({ onClose, profile }) {
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Icon name="shield-outline" size={60} color={mutedText} />
-              <Text style={[styles.emptyTitle, { color: text }]}>{t('battleExplore.emptyTitle')}</Text>
+              <Text style={[styles.emptyTitle, { color: labelColor }]}>{t('battleExplore.emptyTitle')}</Text>
               <Text style={[styles.emptySubtitle, { color: mutedText }]}>{t('battleExplore.emptySubtitle')}</Text>
             </View>
           }

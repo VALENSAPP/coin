@@ -30,6 +30,7 @@ import { createBattle, editBattle } from '../../services/battle';
 import { getAllUser } from '../../services/users';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useThemeContext } from '../../theme/ThemeContext';
 
 const PRIMARY_GRADIENT = ['#513189bd', '#e54ba0']; // user
 const COMPANY_GRADIENT = ['#C9A15a', '#C9A15a'];   // company
@@ -176,14 +177,15 @@ export default function OpenBattleScreen() {
   );
   const isEditMode = Boolean(routeParams.editMode && routeParams.battleId);
   const editBattleId = String(routeParams.battleId || '');
-  const { bgStyle, text, card } = useAppTheme(routeParams.profile);
+  const { bgStyle, accent, card, border, mutedText } = useAppTheme(routeParams.profile);
+  const { isDarkMode } = useThemeContext();
+  const labelColor = isDarkMode ? '#ffffff' : '#111827';
+  const inputBackground = isDarkMode ? 'rgba(255,255,255,0.08)' : (card || '#FFFFFF');
+  const themeBorder = border || BORDER;
+  const profile = routeParams.profile;
   const isCompanyProfile =
     routeParams?.isCompanyProfile === true ||
     String(routeParams?.isCompanyProfile).toLowerCase() === 'true';
-
-  const profile = routeParams.profile;
-
-  const inputBackground = card || '#FFFFFF';
   const isPoll = form.format === 'POLL';
   const isHeadToHead = form.format === 'HEAD_TO_HEAD';
   const filledOptions = useMemo(
@@ -705,7 +707,7 @@ export default function OpenBattleScreen() {
         activeOpacity={0.85}
         style={[
           styles.userResultCard,
-          { backgroundColor: inputBackground, borderColor: BORDER },
+          { backgroundColor: inputBackground, borderColor: themeBorder },
         ]}
         onPress={() => handleSelectInviteUser(user)}
       >
@@ -717,7 +719,7 @@ export default function OpenBattleScreen() {
           </View>
         )}
         <View style={styles.userCopy}>
-          <Text style={[styles.userName, { color: text }]} numberOfLines={1}>
+          <Text style={[styles.userName, { color: labelColor }]} numberOfLines={1}>
             {name}
           </Text>
           {!!userName && (
@@ -993,9 +995,9 @@ export default function OpenBattleScreen() {
             }}
             style={styles.headerIconBtn}
           >
-            <Ionicons name="chevron-back" size={24} color={text} />
+            <Ionicons name="chevron-back" size={24} color={accent} />
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: text }]}>
+          <Text style={[styles.headerTitle, { color: labelColor }]}>
             {isEditMode ? t('openBattle.editScreenTitle') : t('openBattle.screenTitle')}
           </Text>
           <TouchableOpacity
@@ -1007,7 +1009,7 @@ export default function OpenBattleScreen() {
             }
             style={styles.headerIconBtn}
           >
-            <Ionicons name="help-circle-outline" size={22} color={text} />
+            <Ionicons name="help-circle-outline" size={22} color={accent} />
           </TouchableOpacity>
         </View>
 
@@ -1017,9 +1019,9 @@ export default function OpenBattleScreen() {
         >
           <View style={styles.hero}>
             <View style={[styles.illustration, bgStyle]}>
-              <Ionicons name="trophy-outline" size={30} color={text} />
+              <Ionicons name="trophy-outline" size={30} color={accent} />
             </View>
-            <Text style={[styles.heroTitle, { color: text }]}>
+            <Text style={[styles.heroTitle, { color: labelColor }]}>
               {isEditMode ? t('openBattle.editHeroTitle') : t('openBattle.heroTitle')}
             </Text>
             <Text style={styles.heroSubtitle}>
@@ -1028,7 +1030,7 @@ export default function OpenBattleScreen() {
           </View>
 
           <View style={[styles.section, isEditMode && styles.readOnlySection]} pointerEvents={isEditMode ? 'none' : 'auto'}>
-            <Text style={[styles.sectionTitle, { color: text }]}>
+            <Text style={[styles.sectionTitle, { color: labelColor }]}>
               {t('openBattle.battleFormatSection')}
             </Text>
             <View style={styles.formatRow}>
@@ -1056,15 +1058,15 @@ export default function OpenBattleScreen() {
                       style={[
                         styles.formatCard,
                         !isSelected && {
-                          backgroundColor: SOFT,
-                          borderColor: BORDER,
+                          backgroundColor: inputBackground,
+                          borderColor: themeBorder,
                         },
                       ]}
                     >
                       <Text
                         style={[
                           styles.formatTitle,
-                          { color: isSelected ? '#fff' : '#111827' },
+                          { color: isSelected ? '#fff' : labelColor },
                         ]}
                       >
                         {option.title}
@@ -1072,7 +1074,7 @@ export default function OpenBattleScreen() {
                       <Text
                         style={[
                           styles.formatSubtitle,
-                          { color: isSelected ? '#F3F4F6' : MUTED },
+                          { color: isSelected ? '#F3F4F6' : mutedText },
                         ]}
                       >
                         {option.subtitle}
@@ -1085,19 +1087,19 @@ export default function OpenBattleScreen() {
           </View>
 
           <View style={styles.section}>
-            <Text style={[styles.label, { color: text }]}>{t('openBattle.questionLabel')}</Text>
+            <Text style={[styles.label, { color: labelColor }]}>{t('openBattle.questionLabel')}</Text>
             <TextInput
               style={[
                 styles.input,
                 styles.questionInput,
                 {
                   backgroundColor: inputBackground,
-                  color: text,
-                  borderColor: errors.question ? ERROR : BORDER,
+                  color: labelColor,
+                  borderColor: errors.question ? ERROR : themeBorder,
                 },
               ]}
               placeholder={t('openBattle.questionPlaceholder')}
-              placeholderTextColor={MUTED}
+              placeholderTextColor={mutedText}
               multiline
               value={form.question}
               onChangeText={value => updateField('question', value)}
@@ -1110,12 +1112,12 @@ export default function OpenBattleScreen() {
           {(isPoll || isHeadToHead) && (
             <View style={styles.section}>
               <View style={styles.rowBetween}>
-                <Text style={[styles.label, { color: text }]}>
+                <Text style={[styles.label, { color: labelColor }]}>
                   {isHeadToHead ? t('openBattle.battleSidesLabel') : t('openBattle.optionsLabel')}
                 </Text>
                 {!isHeadToHead && form.options.length < MAX_POLL_OPTIONS &&
                   <TouchableOpacity onPress={addOption}>
-                    <Text style={[styles.addOptionText, { color: text }]}>{t('openBattle.addOption')}</Text>
+                    <Text style={[styles.addOptionText, { color: labelColor }]}>{t('openBattle.addOption')}</Text>
                   </TouchableOpacity>
                 }
               </View>
@@ -1125,7 +1127,7 @@ export default function OpenBattleScreen() {
                   <View
                     style={[
                       styles.optionEditCard,
-                      { backgroundColor: inputBackground, borderColor: BORDER },
+                      { backgroundColor: inputBackground, borderColor: themeBorder },
                     ]}
                   >
                     <TouchableOpacity
@@ -1140,7 +1142,7 @@ export default function OpenBattleScreen() {
                         />
                       ) : (
                         <View style={styles.optionImagePlaceholder}>
-                          <Ionicons name="image-outline" size={20} color={MUTED} />
+                          <Ionicons name="image-outline" size={20} color={mutedText} />
                         </View>
                       )}
                     </TouchableOpacity>
@@ -1151,7 +1153,7 @@ export default function OpenBattleScreen() {
                         styles.optionEditTextField,
                         {
                           backgroundColor: 'transparent',
-                          color: text,
+                          color: labelColor,
                           borderColor: errors.options ? ERROR : 'transparent',
                           borderWidth: 0,
                         },
@@ -1161,7 +1163,7 @@ export default function OpenBattleScreen() {
                           ? t('openBattle.sidePlaceholder', { number: index + 1 })
                           : t('openBattle.optionPlaceholder', { number: index + 1 })
                       }
-                      placeholderTextColor={MUTED}
+                      placeholderTextColor={mutedText}
                       value={option.text}
                       onChangeText={value => updateOption(index, value)}
                     />
@@ -1194,21 +1196,21 @@ export default function OpenBattleScreen() {
 
           {isHeadToHead && (
             <View style={[styles.section, isEditMode && styles.readOnlySection]} pointerEvents={isEditMode ? 'none' : 'auto'}>
-              <Text style={[styles.label, { color: text }]}>{t('openBattle.inviteUserLabel')}</Text>
+              <Text style={[styles.label, { color: labelColor }]}>{t('openBattle.inviteUserLabel')}</Text>
               <View
                 style={[
                   styles.searchInputWrap,
                   {
                     backgroundColor: inputBackground,
-                    borderColor: errors.invitedUserId ? ERROR : BORDER,
+                    borderColor: errors.invitedUserId ? ERROR : themeBorder,
                   },
                 ]}
               >
-                <Ionicons name="search" size={18} color={MUTED} />
+                <Ionicons name="search" size={18} color={mutedText} />
                 <TextInput
-                  style={[styles.searchInput, { color: text }]}
+                  style={[styles.searchInput, { color: labelColor }]}
                   placeholder={t('openBattle.inviteSearchPlaceholder')}
-                  placeholderTextColor={MUTED}
+                  placeholderTextColor={mutedText}
                   value={inviteSearchText}
                   onChangeText={handleInviteSearchChange}
                 />
@@ -1280,14 +1282,14 @@ export default function OpenBattleScreen() {
           )}
 
           <View style={[styles.section, isEditMode && styles.readOnlySection]} pointerEvents={isEditMode ? 'none' : 'auto'}>
-            <Text style={[styles.label, { color: text }]}>{t('openBattle.endTimeLabel')}</Text>
+            <Text style={[styles.label, { color: labelColor }]}>{t('openBattle.endTimeLabel')}</Text>
             <TouchableOpacity
               style={[
                 styles.input,
                 styles.dateInput,
                 {
                   backgroundColor: inputBackground,
-                  borderColor: errors.endTime ? ERROR : BORDER,
+                  borderColor: errors.endTime ? ERROR : themeBorder,
                 },
               ]}
               onPress={() => {
@@ -1300,14 +1302,14 @@ export default function OpenBattleScreen() {
               <Text
                 style={[
                   styles.dateText,
-                  { color: form.endTime ? text : MUTED },
+                  { color: form.endTime ? labelColor : mutedText },
                 ]}
               >
                 {form.endTime
                   ? formatDisplayDate(form.endTime)
                   : t('openBattle.endTimePlaceholder')}
               </Text>
-              <Ionicons name="calendar-outline" size={20} color={MUTED} />
+              <Ionicons name="calendar-outline" size={20} color={mutedText} />
             </TouchableOpacity>
             {!!errors.endTime && (
               <Text style={[styles.errorText, { marginTop: 8 }]}>{errors.endTime}</Text>
@@ -1315,7 +1317,7 @@ export default function OpenBattleScreen() {
           </View>
 
           <View style={[styles.section, isEditMode && styles.readOnlySection]} pointerEvents={isEditMode ? 'none' : 'auto'}>
-            <Text style={[styles.label, { color: text }]}>
+            <Text style={[styles.label, { color: labelColor }]}>
               {t('openBattle.stakeLabel')}
             </Text>
             <TextInput
@@ -1323,12 +1325,12 @@ export default function OpenBattleScreen() {
                 styles.input,
                 {
                   backgroundColor: inputBackground,
-                  color: text,
-                  borderColor: errors.stake ? ERROR : BORDER,
+                  color: labelColor,
+                  borderColor: errors.stake ? ERROR : themeBorder,
                 },
               ]}
               placeholder={t('openBattle.stakePlaceholder')}
-              placeholderTextColor={MUTED}
+              placeholderTextColor={mutedText}
               keyboardType="numeric"
               value={form.stake}
               onChangeText={value => updateField('stake', value)}
@@ -1343,11 +1345,11 @@ export default function OpenBattleScreen() {
             <View
               style={[
                 styles.publicCard,
-                { backgroundColor: inputBackground, borderColor: BORDER },
+                { backgroundColor: inputBackground, borderColor: themeBorder },
               ]}
             >
               <View style={styles.publicCopy}>
-                <Text style={[styles.label, { color: text, marginBottom: 4 }]}>
+                <Text style={[styles.label, { color: labelColor, marginBottom: 4 }]}>
                   {t('openBattle.publicBattleLabel')}
                 </Text>
                 <Text style={styles.helperText}>
@@ -1358,7 +1360,7 @@ export default function OpenBattleScreen() {
                 value={form.isPublic}
                 onValueChange={value => updateField('isPublic', value)}
                 trackColor={{ false: '#CBD5E1', true: '#CBD5E1' }}
-                thumbColor={form.isPublic ? text : '#F8FAFC'}
+                thumbColor={form.isPublic ? accent : '#F8FAFC'}
                 disabled={isEditMode}
               />
             </View>
@@ -1420,7 +1422,7 @@ export default function OpenBattleScreen() {
           onClose={() => { }}
         >
           <View style={styles.imagePickerHeader}>
-            <Text style={[styles.imagePickerTitle, { color: text }]}>
+            <Text style={[styles.imagePickerTitle, { color: labelColor }]}>
               {t('openBattle.addImageTitle')}
             </Text>
           </View>
@@ -1433,10 +1435,10 @@ export default function OpenBattleScreen() {
             activeOpacity={0.7}
           >
             <View style={[styles.imagePickerOptionIcon, bgStyle]}>
-              <Ionicons name="images-outline" size={28} color={text} />
+              <Ionicons name="images-outline" size={28} color={accent} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.imagePickerOptionTitle, { color: text }]}>
+              <Text style={[styles.imagePickerOptionTitle, { color: labelColor }]}>
                 {t('openBattle.chooseFromGallery')}
               </Text>
               <Text style={styles.imagePickerOptionSubtitle}>
@@ -1451,10 +1453,10 @@ export default function OpenBattleScreen() {
             activeOpacity={0.7}
           >
             <View style={[styles.imagePickerOptionIcon, bgStyle]}>
-              <Ionicons name="camera-outline" size={28} color={text} />
+              <Ionicons name="camera-outline" size={28} color={accent} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.imagePickerOptionTitle, { color: text }]}>
+              <Text style={[styles.imagePickerOptionTitle, { color: labelColor }]}>
                 {t('openBattle.takeAPhoto')}
               </Text>
               <Text style={styles.imagePickerOptionSubtitle}>

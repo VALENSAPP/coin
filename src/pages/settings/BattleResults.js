@@ -17,6 +17,7 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useRoute } from '@react-navigation/native';
 import { getUserCredentials } from '../../services/post';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useThemeContext } from '../../theme/ThemeContext';
 import { normalizeProfileType } from '../../utils/supportEligibility';
 import { battleWinner } from '../../services/battle';
 import HexAvatar from '../../components/home/story.js/HexAvatar';
@@ -66,7 +67,9 @@ export default function BattleResults({ navigation }) {
   const route = useRoute();
   const { t } = useLanguage();
   const resolvedProfileType = normalizeProfileType(route?.params?.profile);
-  const { bgStyle, text, card } = useAppTheme(resolvedProfileType);
+  const { bgStyle, accent, card, border, mutedText } = useAppTheme(resolvedProfileType);
+  const { isDarkMode } = useThemeContext();
+  const labelColor = isDarkMode ? '#ffffff' : '#111827';
   const { battle = {} } = route.params || {};
   const [winnerData, setWinnerData] = useState(null);
   const predictionCounts = useMemo(
@@ -231,22 +234,22 @@ export default function BattleResults({ navigation }) {
   );
 
   const palette = useMemo(() => {
-    const primary = text || '#5a2d82';
+    const primary = accent || '#5a2d82';
     const secondary =
-      primary.toLowerCase() === '#C9A15a' ? '#b8924f' : '#8f54f7';
+      primary.toLowerCase() === '#c9a15a' ? '#b8924f' : '#8f54f7';
 
     return {
       primary,
       secondary,
-      surface: card || '#FFFFFF',
-      muted: withAlpha(primary, 'A6'),
-      soft: withAlpha(primary, '10'),
-      softBorder: withAlpha(primary, '24'),
+      surface: card || (isDarkMode ? '#1E1E1E' : '#FFFFFF'),
+      muted: mutedText || withAlpha(primary, 'A6'),
+      soft: isDarkMode ? withAlpha(primary, '24') : withAlpha(primary, '10'),
+      softBorder: border || withAlpha(primary, '24'),
       whiteSoft: 'rgba(255,255,255,0.14)',
       warm: '#ffd184',
-      track: withAlpha(primary, '18'),
+      track: isDarkMode ? 'rgba(255,255,255,0.08)' : withAlpha(primary, '18'),
     };
-  }, [card, text]);
+  }, [accent, border, card, isDarkMode, mutedText]);
 
   useEffect(() => {
     if (!isLiveStatus) {
@@ -413,9 +416,9 @@ export default function BattleResults({ navigation }) {
             onPress={() => navigation.goBack()}
             style={styles.headerIconBtn}
           >
-            <Icon name="arrow-back-ios-new" size={20} color={text} />
+            <Icon name="arrow-back-ios-new" size={20} color={accent} />
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: text }]}>
+          <Text style={[styles.headerTitle, { color: labelColor }]}>
             {t('battleResults.headerTitle')}
           </Text>
           <View style={styles.headerIconBtn} />
@@ -430,7 +433,7 @@ export default function BattleResults({ navigation }) {
             : t('battleResults.metaNotAvailable')}
         </Text>
 
-        <Text style={[styles.title, { color: text }]}>{title}</Text>
+        <Text style={[styles.title, { color: labelColor }]}>{title}</Text>
         {!!description && (
           <Text style={[styles.desc, { color: palette.muted }]}>
             {description}
@@ -455,10 +458,10 @@ export default function BattleResults({ navigation }) {
               uri={battle.creator?.avatar || battle.creator?.image || ''}
               size={28}
               borderWidth={2}
-              borderColor={text}
+              borderColor={accent}
             />
             <View style={{ marginLeft: 8, flexShrink: 1 }}>
-              <Text style={[styles.creatorName, { color: text }]} numberOfLines={1}>
+              <Text style={[styles.creatorName, { color: labelColor }]} numberOfLines={1}>
                 {battle.creator?.name || battle.creator?.displayName || battle.creator?.userName || ''}
               </Text>
               {!!(battle.creator?.handle || battle.creator?.userName) && (
@@ -498,7 +501,7 @@ export default function BattleResults({ navigation }) {
                     uri={winnerProfile?.image || require('../../assets/icons/pngicons/user.png')}
                     size={60}
                     borderWidth={1.5}
-                    borderColor={text}
+                    borderColor={accent}
                   />
                 )}
 
@@ -508,7 +511,7 @@ export default function BattleResults({ navigation }) {
                   >
                     {t('battleResults.winningUser')}
                   </Text>
-                  <Text style={[styles.winnerProfileName, { color: text }]}>
+                  <Text style={[styles.winnerProfileName, { color: labelColor }]}>
                     {winnerProfile?.name || t('battleResults.winningUser')}
                   </Text>
 
@@ -649,7 +652,7 @@ export default function BattleResults({ navigation }) {
             },
           ]}
         >
-          <Text style={[styles.section, { color: text }]}>
+          <Text style={[styles.section, { color: labelColor }]}>
             {t('battleResults.battleOptions')}
           </Text>
 
@@ -685,10 +688,10 @@ export default function BattleResults({ navigation }) {
                 return (
                   <>
                     <View style={styles.optionRow}>
-                      <Text style={[styles.optionTitle, { color: text }]}>
+                      <Text style={[styles.optionTitle, { color: labelColor }]}>
                         {item.label}
                       </Text>
-                      <Text style={[styles.optionPercent, { color: text }]}>
+                      <Text style={[styles.optionPercent, { color: accent }]}>
                         {percent}%
                       </Text>
                     </View>

@@ -12,6 +12,7 @@ import {
 import Ionicons from 'react-native-vector-icons/Ionicons';
 
 import { useAppTheme } from '../../theme/useApptheme';
+import { useThemeContext } from '../../theme/ThemeContext';
 import { normalizeProfileType } from '../../utils/supportEligibility';
 import HexAvatar from '../../components/home/story.js/HexAvatar';
 import { useLanguage } from '../../i18n';
@@ -91,17 +92,20 @@ export default function BattleVoteDetails() {
     initialSelectedSideLabel,
   );
   const resolvedProfileType = normalizeProfileType(profile);
-  const { bgStyle, cardStyle, text } = useAppTheme(resolvedProfileType);
+  const { bgStyle, cardStyle, accent, card, border, mutedText } = useAppTheme(resolvedProfileType);
+  const { isDarkMode } = useThemeContext();
+  const labelColor = isDarkMode ? '#ffffff' : '#111827';
+  const inputSurface = isDarkMode ? 'rgba(255,255,255,0.08)' : card;
 
   const palette = useMemo(
     () => ({
-      primary: text || '#5A2D82',
-      border: withAlpha(text || '#5A2D82', '22'),
-      surface: withAlpha(text || '#5A2D82', '08'),
-      soft: withAlpha(text || '#5A2D82', '10'),
-      muted: withAlpha(text || '#5A2D82', '99'),
+      primary: accent || '#5A2D82',
+      border: border || withAlpha(accent || '#5A2D82', '22'),
+      surface: isDarkMode ? withAlpha(accent || '#5A2D82', '14') : withAlpha(accent || '#5A2D82', '08'),
+      soft: isDarkMode ? withAlpha(accent || '#5A2D82', '24') : withAlpha(accent || '#5A2D82', '10'),
+      muted: mutedText || withAlpha(accent || '#5A2D82', '99'),
     }),
-    [text],
+    [accent, border, card, isDarkMode, mutedText],
   );
 
   const [loading] = useState(false);
@@ -558,7 +562,7 @@ export default function BattleVoteDetails() {
           <View style={styles.commentAuthorText}>
             <Text
               numberOfLines={1}
-              style={[styles.commentName, { color: text }]}
+              style={[styles.commentName, { color: labelColor }]}
             >
               {authorName}
             </Text>
@@ -581,7 +585,7 @@ export default function BattleVoteDetails() {
         </View>
 
         {!!message && (
-          <Text style={[styles.commentMessage, { color: text }]}>{message}</Text>
+          <Text style={[styles.commentMessage, { color: labelColor }]}>{message}</Text>
         )}
       </View>
     );
@@ -623,7 +627,7 @@ export default function BattleVoteDetails() {
         />
 
         <View style={styles.rowText}>
-          <Text numberOfLines={1} style={[styles.name, { color: text }]}>
+          <Text numberOfLines={1} style={[styles.name, { color: labelColor }]}>
             {item.displayName}
           </Text>
 
@@ -685,7 +689,7 @@ export default function BattleVoteDetails() {
           onPress={() => navigation.goBack()}
           style={styles.backBtn}
         >
-          <Ionicons name="chevron-back" size={22} color={text} />
+          <Ionicons name="chevron-back" size={22} color={accent} />
         </TouchableOpacity>
 
 
@@ -716,7 +720,7 @@ export default function BattleVoteDetails() {
           stickySectionHeadersEnabled={false}
           renderSectionHeader={({ section }) => (
             <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: text }]}>
+              <Text style={[styles.sectionTitle, { color: labelColor }]}>
                 {activeTab === 'comments'
                   ? t('battleVoteDetails.commentsTitle', 'Comments')
                   : section.title}
@@ -776,7 +780,7 @@ export default function BattleVoteDetails() {
                   },
                 ]}
               >
-                <Text numberOfLines={1} style={[styles.headerTitle, { color: text }]}>
+                <Text numberOfLines={1} style={[styles.headerTitle, { color: labelColor }]}>
                   {battle?.question ||
                     battle?.title ||
                     t('battleVoteDetails.untitledBattle', 'Untitled battle')}
@@ -808,7 +812,7 @@ export default function BattleVoteDetails() {
                         >
                           <Text
                             numberOfLines={3}
-                            style={[styles.optionCardText, { color: text }]}
+                            style={[styles.optionCardText, { color: labelColor }]}
                           >
                             {option.label}
                           </Text>
@@ -836,7 +840,7 @@ export default function BattleVoteDetails() {
                     },
                   ]}
                 >
-                  <Text style={[styles.summaryTitle, { color: text }]}>
+                  <Text style={[styles.summaryTitle, { color: labelColor }]}>
                     {titleText}
                   </Text>
                 </View>
@@ -853,7 +857,7 @@ export default function BattleVoteDetails() {
                 },
               ]}
             >
-              <Text style={[styles.emptyTitle, { color: text }]}>
+              <Text style={[styles.emptyTitle, { color: labelColor }]}>
                 {t('battleVoteDetails.emptyTitle', 'No data yet')}
               </Text>
 

@@ -60,6 +60,7 @@ import { useToast } from 'react-native-toast-notifications';
 import { useDispatch } from 'react-redux';
 import CommentSheet from '../../components/home/posts/CommentSheet';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useThemeContext } from '../../theme/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ShareModal from '../../components/modals/ShareModal';
 import ReportFlowScreen from '../../components/modals/Report';
@@ -707,8 +708,20 @@ export default function FlipsScreen() {
   const toast = useToast();
   const dispatch = useDispatch();
   const navigation = useNavigation();
-  const { text } = useAppTheme();
+  const { text, bgStyle, card, border, mutedText, accent } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
   const { t } = useLanguage();
+
+  const sheetTheme = useMemo(() => ({
+    backgroundColor: card,
+    borderColor: border,
+    labelColor: isDarkMode ? '#ffffff' : '#111827',
+    iconColor: isDarkMode ? '#ffffff' : '#111827',
+    mutedColor: mutedText,
+    accentColor: accent,
+    reasonItemBg: isDarkMode ? 'rgba(255,255,255,0.06)' : '#F8F8F8',
+    reasonIconBg: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(90,45,130,0.06)',
+  }), [card, border, mutedText, accent, isDarkMode]);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [reels, setReels] = useState([]);
@@ -770,7 +783,6 @@ export default function FlipsScreen() {
   const [tokenAddress, setTokenAddress] = useState(null);
   const [currentUserProfileType, setCurrentUserProfileType] = useState('user');
 
-  const { bgStyle } = useAppTheme();
   const { startSupportPayment } = useWalletConnectSupport();
 
   const shouldProtectPrivateContent = useMemo(() => {
@@ -2178,18 +2190,20 @@ export default function FlipsScreen() {
             container: {
               borderTopLeftRadius: 20,
               borderTopRightRadius: 20,
-              backgroundColor: '#fff',
+              backgroundColor: sheetTheme.backgroundColor,
             },
           }}
           closeOnDragDown
           closeOnPressMask>
-          <View style={styles.moreOptionsContainer}>
-            <View style={styles.moreOptionsHeader}>
-              <Text style={styles.moreOptionsTitle}>{t('flips.moreOptionsTitle')}</Text>
+          <View style={[styles.moreOptionsContainer, { backgroundColor: sheetTheme.backgroundColor }]}>
+            <View style={[styles.moreOptionsHeader, { borderBottomColor: sheetTheme.borderColor }]}>
+              <Text style={[styles.moreOptionsTitle, { color: sheetTheme.labelColor }]}>
+                {t('flips.moreOptionsTitle')}
+              </Text>
             </View>
             <ScrollView style={styles.moreOptionsList}>
               <TouchableOpacity
-                style={styles.moreOption}
+                style={[styles.moreOption, { borderBottomColor: sheetTheme.borderColor }]}
                 onPress={() => {
                   handleToggleSave(selectedReelId || reels[currentIndex]?.id);
                   moreOptionsSheetRef.current?.close();
@@ -2197,9 +2211,9 @@ export default function FlipsScreen() {
                 <Icon
                   name={saved[selectedReelId || reels[currentIndex]?.id] ? 'bookmark' : 'bookmark-outline'}
                   size={24}
-                  color="#000"
+                  color={sheetTheme.iconColor}
                 />
-                <Text style={styles.moreOptionText}>
+                <Text style={[styles.moreOptionText, { color: sheetTheme.labelColor }]}>
                   {saved[selectedReelId || reels[currentIndex]?.id]
                     ? t('flips.saved')
                     : t('flips.save')}
@@ -2207,43 +2221,51 @@ export default function FlipsScreen() {
               </TouchableOpacity>
               {canDeleteActiveReel && (
                 <TouchableOpacity
-                  style={styles.moreOption}
+                  style={[styles.moreOption, { borderBottomColor: sheetTheme.borderColor }]}
                   onPress={() => {
                     moreOptionsSheetRef.current?.close();
                     confirmDeleteReel(activeReelId);
                   }}>
-                  <Icon name="trash-outline" size={24} color="#000" />
-                  <Text style={styles.moreOptionText}>{t('flips.delete')}</Text>
+                  <Icon name="trash-outline" size={24} color={sheetTheme.iconColor} />
+                  <Text style={[styles.moreOptionText, { color: sheetTheme.labelColor }]}>
+                    {t('flips.delete')}
+                  </Text>
                 </TouchableOpacity>
               )}
               <TouchableOpacity
-                style={styles.moreOption}
+                style={[styles.moreOption, { borderBottomColor: sheetTheme.borderColor }]}
                 onPress={() => {
                   moreOptionsSheetRef.current?.close();
                   setTimeout(() => reportSheetRef.current?.open(), 200);
                 }}>
-                <Icon name="flag-outline" size={24} color="#000" />
-                <Text style={styles.moreOptionText}>{t('flips.report')}</Text>
+                <Icon name="flag-outline" size={24} color={sheetTheme.iconColor} />
+                <Text style={[styles.moreOptionText, { color: sheetTheme.labelColor }]}>
+                  {t('flips.report')}
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.moreOption}
+                style={[styles.moreOption, { borderBottomColor: sheetTheme.borderColor }]}
                 onPress={() => {
                   moreOptionsSheetRef.current?.close();
                   setTimeout(() => notInterestedSheetRef.current?.open?.(), 220);
                 }}>
-                <Icon name="eye-off-outline" size={24} color="#000" />
-                <Text style={styles.moreOptionText}>{t('flips.notInterested')}</Text>
+                <Icon name="eye-off-outline" size={24} color={sheetTheme.iconColor} />
+                <Text style={[styles.moreOptionText, { color: sheetTheme.labelColor }]}>
+                  {t('flips.notInterested')}
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.moreOption}
+                style={[styles.moreOption, { borderBottomColor: sheetTheme.borderColor }]}
                 onPress={() => {
                   const reel =
                     reels.find(r => r.id === selectedReelId) || reels[currentIndex];
                   copyToClipboard(reel?.video || reel?.images?.[0] || reel?.image || '');
                   moreOptionsSheetRef.current?.close();
                 }}>
-                <Icon name="copy-outline" size={24} color="#000" />
-                <Text style={styles.moreOptionText}>{t('flips.copyLink')}</Text>
+                <Icon name="copy-outline" size={24} color={sheetTheme.iconColor} />
+                <Text style={[styles.moreOptionText, { color: sheetTheme.labelColor }]}>
+                  {t('flips.copyLink')}
+                </Text>
               </TouchableOpacity>
             </ScrollView>
           </View>
@@ -2287,17 +2309,24 @@ export default function FlipsScreen() {
           closeOnDragDown
           closeOnPressMask
           customStyles={{
-            container: styles.sheetContainer,
+            container: {
+              ...styles.sheetContainer,
+              backgroundColor: sheetTheme.backgroundColor,
+            },
             overlay: { backgroundColor: 'rgba(0,0,0,0.4)' },
           }}>
-          <View style={styles.dragHandle} />
+          <View style={[styles.dragHandle, { backgroundColor: sheetTheme.borderColor }]} />
           <View style={styles.headerContainer}>
-            <View style={styles.headerIcon}>
-              <Icon name="eye-off" size={22} color="#5a2d82" />
+            <View style={[styles.headerIcon, { backgroundColor: sheetTheme.reasonIconBg }]}>
+              <Icon name="eye-off" size={22} color={sheetTheme.accentColor} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.sheetTitle}>{t('flips.notInterestedTitle')}</Text>
-              <Text style={styles.sheetSubtitle}>{t('flips.notInterestedSubtitle')}</Text>
+              <Text style={[styles.sheetTitle, { color: sheetTheme.labelColor }]}>
+                {t('flips.notInterestedTitle')}
+              </Text>
+              <Text style={[styles.sheetSubtitle, { color: sheetTheme.mutedColor }]}>
+                {t('flips.notInterestedSubtitle')}
+              </Text>
             </View>
           </View>
           <ScrollView
@@ -2306,13 +2335,19 @@ export default function FlipsScreen() {
             {notInterestedOptions.map((option, index) => (
               <TouchableOpacity
                 key={index}
-                style={styles.reasonItem}
+                style={[
+                  styles.reasonItem,
+                  {
+                    backgroundColor: sheetTheme.reasonItemBg,
+                    borderColor: sheetTheme.borderColor,
+                  },
+                ]}
                 onPress={() => handleNotInterestedSelect(option)}>
-                <View style={styles.reasonIconWrapper}>
-                  <Icon name="eye-off" size={18} color="#5a2d82" />
+                <View style={[styles.reasonIconWrapper, { backgroundColor: sheetTheme.reasonIconBg }]}>
+                  <Icon name="eye-off" size={18} color={sheetTheme.accentColor} />
                 </View>
-                <Text style={styles.reasonText}>{option}</Text>
-                <Icon name="chevron-forward" size={20} color="#ccc" />
+                <Text style={[styles.reasonText, { color: sheetTheme.labelColor }]}>{option}</Text>
+                <Icon name="chevron-forward" size={20} color={sheetTheme.mutedColor} />
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -2597,20 +2632,17 @@ const styles = StyleSheet.create({
   },
   moreOptionsContainer: {
     flex: 1,
-    backgroundColor: '#fff',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
   },
   moreOptionsHeader: {
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
     paddingVertical: 16,
     alignItems: 'center',
   },
   moreOptionsTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#000',
   },
   moreOptionsList: { flex: 1, paddingTop: 8 },
   moreOption: {
@@ -2619,12 +2651,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 0.5,
-    borderBottomColor: '#f0f0f0',
     minHeight: 60,
   },
   moreOptionText: {
     fontSize: 16,
-    color: '#000',
     marginLeft: 16,
     flex: 1,
     fontWeight: '400',
@@ -2719,7 +2749,6 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 20,
     paddingHorizontal: 20,
     paddingTop: 8,
-    backgroundColor: '#FFFFFF',
     elevation: 5,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 },
@@ -2735,7 +2764,6 @@ const styles = StyleSheet.create({
     width: 46,
     height: 46,
     borderRadius: 23,
-    backgroundColor: 'rgba(90,45,130,0.06)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -2743,10 +2771,9 @@ const styles = StyleSheet.create({
   sheetTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#000',
     marginBottom: 2,
   },
-  sheetSubtitle: { fontSize: 13, color: '#999' },
+  sheetSubtitle: { fontSize: 13 },
   reasonItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2754,15 +2781,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     borderRadius: 12,
     marginBottom: 10,
-    backgroundColor: '#F8F8F8',
     borderWidth: 1,
-    borderColor: '#F0F0F0',
   },
   reasonIconWrapper: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(90,45,130,0.06)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -2770,7 +2794,6 @@ const styles = StyleSheet.create({
   reasonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#000',
     flex: 1,
   },
   sideActions: {

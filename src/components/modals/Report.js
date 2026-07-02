@@ -1,4 +1,4 @@
-import React, { useRef, useState, forwardRef } from 'react';
+import React, { useRef, useState, forwardRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,8 @@ import RBSheet from 'react-native-raw-bottom-sheet';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { reportPost } from '../../services/post';
 import { useLanguage } from '../../i18n';
+import { useAppTheme } from '../../theme/useApptheme';
+import { useThemeContext } from '../../theme/ThemeContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -19,6 +21,24 @@ const ReportFlowScreen = forwardRef(({ postId = '', onReported }, ref) => {
   const reasonSheet = useRef(null);
   const confirmSheet = useRef(null);
   const { t } = useLanguage();
+  const { card, border, mutedText, accent } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+
+  const sheetTheme = useMemo(() => ({
+    backgroundColor: card,
+    borderColor: border,
+    labelColor: isDarkMode ? '#ffffff' : '#111827',
+    mutedColor: mutedText,
+    accentColor: accent,
+    iconBg: isDarkMode
+      ? 'rgba(255,255,255,0.08)'
+      : accent === '#C9A15A'
+        ? 'rgba(201, 161, 90, 0.12)'
+        : 'rgba(90, 45, 130, 0.12)',
+    reasonItemBg: isDarkMode ? 'rgba(255,255,255,0.06)' : '#F8F8F8',
+    confirmBoxBg: isDarkMode ? 'rgba(255,255,255,0.06)' : '#F8F8F8',
+    cancelBorder: isDarkMode ? border : '#E0E0E0',
+  }), [card, border, mutedText, accent, isDarkMode]);
 
   const [selectedReason, setSelectedReason] = useState(null);
   const [submitting, setSubmitting] = useState(false);
@@ -103,18 +123,25 @@ const ReportFlowScreen = forwardRef(({ postId = '', onReported }, ref) => {
         openDuration={200}
         closeOnDragDown={true}
         customStyles={{
-          container: styles.sheetContainer,
+          container: {
+            ...styles.sheetContainer,
+            backgroundColor: sheetTheme.backgroundColor,
+          },
           overlay: { backgroundColor: 'rgba(0,0,0,0.4)' },
         }}
       >
-        <View style={styles.dragHandle} />
+        <View style={[styles.dragHandle, { backgroundColor: sheetTheme.borderColor }]} />
         <View style={styles.headerContainer}>
-          <View style={styles.headerIcon}>
-            <Icon name="flag" size={28} color="#5a2d82" />
+          <View style={[styles.headerIcon, { backgroundColor: sheetTheme.iconBg }]}>
+            <Icon name="flag" size={28} color={sheetTheme.accentColor} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.sheetTitle}>{t('reportFlow.sheetTitle')}</Text>
-            <Text style={styles.sheetSubtitle}>{t('reportFlow.sheetSubtitle')}</Text>
+            <Text style={[styles.sheetTitle, { color: sheetTheme.labelColor }]}>
+              {t('reportFlow.sheetTitle')}
+            </Text>
+            <Text style={[styles.sheetSubtitle, { color: sheetTheme.mutedColor }]}>
+              {t('reportFlow.sheetSubtitle')}
+            </Text>
           </View>
         </View>
 
@@ -125,14 +152,22 @@ const ReportFlowScreen = forwardRef(({ postId = '', onReported }, ref) => {
           {reportReasons.map((reason) => (
             <TouchableOpacity
               key={reason.id}
-              style={styles.reasonItem}
+              style={[
+                styles.reasonItem,
+                {
+                  backgroundColor: sheetTheme.reasonItemBg,
+                  borderColor: sheetTheme.borderColor,
+                },
+              ]}
               onPress={() => handleSelectReason(reason.title)}
             >
-              <View style={styles.reasonIconWrapper}>
-                <Icon name={reason.icon} size={20} color="#5a2d82" />
+              <View style={[styles.reasonIconWrapper, { backgroundColor: sheetTheme.iconBg }]}>
+                <Icon name={reason.icon} size={20} color={sheetTheme.accentColor} />
               </View>
-              <Text style={styles.reasonText}>{reason.title}</Text>
-              <Icon name="chevron-forward" size={20} color="#ccc" />
+              <Text style={[styles.reasonText, { color: sheetTheme.labelColor }]}>
+                {reason.title}
+              </Text>
+              <Icon name="chevron-forward" size={20} color={sheetTheme.mutedColor} />
             </TouchableOpacity>
           ))}
         </ScrollView>
@@ -145,26 +180,49 @@ const ReportFlowScreen = forwardRef(({ postId = '', onReported }, ref) => {
         openDuration={200}
         closeOnDragDown={true}
         customStyles={{
-          container: styles.sheetContainer,
+          container: {
+            ...styles.sheetContainer,
+            backgroundColor: sheetTheme.backgroundColor,
+          },
           overlay: { backgroundColor: 'rgba(0,0,0,0.4)' },
         }}
       >
-        <View style={styles.dragHandle} />
+        <View style={[styles.dragHandle, { backgroundColor: sheetTheme.borderColor }]} />
         <View style={styles.confirmHeaderContainer}>
           <View style={styles.checkIconWrapper}>
-            <Icon name="checkmark-circle" size={50} color="#5a2d82" />
+            <Icon name="checkmark-circle" size={50} color={sheetTheme.accentColor} />
           </View>
-          <Text style={styles.confirmTitle}>{t('reportFlow.confirmTitle')}</Text>
-          <Text style={styles.confirmSubtitle}>{t('reportFlow.confirmSubtitle')}</Text>
+          <Text style={[styles.confirmTitle, { color: sheetTheme.labelColor }]}>
+            {t('reportFlow.confirmTitle')}
+          </Text>
+          <Text style={[styles.confirmSubtitle, { color: sheetTheme.mutedColor }]}>
+            {t('reportFlow.confirmSubtitle')}
+          </Text>
         </View>
 
-        <View style={styles.confirmContentBox}>
-          <Text style={styles.confirmLabel}>{t('reportFlow.reasonLabel')}</Text>
-          <Text style={styles.selectedReason}>{selectedReason}</Text>
+        <View
+          style={[
+            styles.confirmContentBox,
+            {
+              backgroundColor: sheetTheme.confirmBoxBg,
+              borderLeftColor: sheetTheme.accentColor,
+            },
+          ]}
+        >
+          <Text style={[styles.confirmLabel, { color: sheetTheme.mutedColor }]}>
+            {t('reportFlow.reasonLabel')}
+          </Text>
+          <Text style={[styles.selectedReason, { color: sheetTheme.labelColor }]}>
+            {selectedReason}
+          </Text>
         </View>
 
         <TouchableOpacity
-          style={[styles.submitButton, submitting && styles.submitButtonDisabled]}
+          style={[
+            styles.submitButton,
+            { backgroundColor: sheetTheme.accentColor },
+            submitting && styles.submitButtonDisabled,
+          ]}
           onPress={submitReport}
           disabled={submitting}
         >
@@ -177,11 +235,13 @@ const ReportFlowScreen = forwardRef(({ postId = '', onReported }, ref) => {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.cancelButton}
+          style={[styles.cancelButton, { borderColor: sheetTheme.cancelBorder }]}
           onPress={() => confirmSheet.current?.close()}
           disabled={submitting}
         >
-          <Text style={styles.cancelButtonText}>{t('reportFlow.cancelButton')}</Text>
+          <Text style={[styles.cancelButtonText, { color: sheetTheme.mutedColor }]}>
+            {t('reportFlow.cancelButton')}
+          </Text>
         </TouchableOpacity>
       </RBSheet>
     </>
@@ -198,7 +258,6 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     paddingHorizontal: 20,
     paddingTop: 8,
-    backgroundColor: "#FFFFFF",
     elevation: 5,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -2 },
@@ -209,7 +268,6 @@ const styles = StyleSheet.create({
   dragHandle: {
     width: 40,
     height: 4,
-    backgroundColor: "#DDD",
     borderRadius: 2,
     alignSelf: "center",
     marginBottom: 12,
@@ -225,7 +283,6 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: "rgba(255, 59, 48, 0.1)",
     justifyContent: "center",
     alignItems: "center",
     marginRight: 16,
@@ -234,13 +291,11 @@ const styles = StyleSheet.create({
   sheetTitle: {
     fontSize: 20,
     fontWeight: "700",
-    color: "#000",
     marginBottom: 4,
   },
 
   sheetSubtitle: {
     fontSize: 13,
-    color: "#999",
     marginTop: 2,
   },
 
@@ -255,16 +310,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 12,
     marginBottom: 10,
-    backgroundColor: "#F8F8F8",
     borderWidth: 1,
-    borderColor: "#F0F0F0",
   },
 
   reasonIconWrapper: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "rgba(255, 59, 48, 0.1)",
     justifyContent: "center",
     alignItems: "center",
     marginRight: 12,
@@ -273,7 +325,6 @@ const styles = StyleSheet.create({
   reasonText: {
     fontSize: 14,
     fontWeight: "500",
-    color: "#000",
     flex: 1,
   },
 
@@ -289,29 +340,24 @@ const styles = StyleSheet.create({
   confirmTitle: {
     fontSize: 20,
     fontWeight: "700",
-    color: "#000",
     marginBottom: 4,
   },
 
   confirmSubtitle: {
     fontSize: 13,
-    color: "#999",
   },
 
   confirmContentBox: {
-    backgroundColor: "#F8F8F8",
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     marginBottom: 18,
     borderLeftWidth: 4,
-    borderLeftColor: "#5a2d82",
   },
 
   confirmLabel: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#999",
     marginBottom: 6,
     textTransform: "uppercase",
     letterSpacing: 0.5,
@@ -320,11 +366,9 @@ const styles = StyleSheet.create({
   selectedReason: {
     fontSize: 15,
     fontWeight: "600",
-    color: "#000",
   },
 
   submitButton: {
-    backgroundColor: "#5a2d82",
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: "center",
@@ -352,12 +396,10 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
     borderWidth: 1.5,
-    borderColor: "#E0E0E0",
   },
 
   cancelButtonText: {
     fontSize: 14,
-    color: "#666",
     fontWeight: "600",
   },
 });

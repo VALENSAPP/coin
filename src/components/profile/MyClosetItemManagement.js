@@ -19,6 +19,7 @@ import { useToast } from 'react-native-toast-notifications';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { showToastMessage } from '../displaytoastmessage';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useThemeContext } from '../../theme/ThemeContext';
 import {
   deleteMyClosetItem,
   getMyClosetItems,
@@ -98,6 +99,20 @@ const formatPrice = value => {
 
 const extractItemImage = item => item?.images?.[0] || item?.image || item?.thumbnail || null;
 
+const withAlpha = (hex, alpha = 0.12) => {
+  const normalized = String(hex || '').replace('#', '');
+  if (normalized.length !== 6) return `rgba(124,58,237,${alpha})`;
+  const r = parseInt(normalized.slice(0, 2), 16);
+  const g = parseInt(normalized.slice(2, 4), 16);
+  const b = parseInt(normalized.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+};
+
+const formSurfaces = isDarkMode => ({
+  inputSurface: isDarkMode ? 'rgba(255,255,255,0.08)' : '#ffffff',
+  labelColor: isDarkMode ? '#ffffff' : '#3f3f46',
+});
+
 const Field = ({
   label,
   value,
@@ -105,44 +120,54 @@ const Field = ({
   placeholder,
   multiline = false,
   keyboardType,
-}) => (
-  <View style={styles.fieldBlock}>
-    <Text style={styles.fieldLabel}>{label}</Text>
-    <View style={styles.fieldWrap}>
-      <TextInput
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        placeholderTextColor="#a1a1aa"
-        multiline={multiline}
-        keyboardType={keyboardType}
-        textAlignVertical={multiline ? 'top' : 'center'}
-        style={[styles.fieldInput, multiline && styles.fieldInputMultiline]}
-      />
-    </View>
-  </View>
-);
+  accent,
+}) => {
+  const { isDarkMode } = useThemeContext();
+  const { textStyle } = useAppTheme();
+  const { inputSurface, labelColor } = formSurfaces(isDarkMode);
 
-const DropdownRow = ({ label, value, options, onSelect, placeholder }) => {
+  return (
+    <View style={styles.fieldBlock}>
+      <Text style={[styles.fieldLabel, { color: labelColor }]}>{label}</Text>
+      <View style={[styles.fieldWrap, { backgroundColor: inputSurface, borderColor: withAlpha(accent, 0.16) }]}>
+        <TextInput
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          placeholderTextColor="#a1a1aa"
+          multiline={multiline}
+          keyboardType={keyboardType}
+          textAlignVertical={multiline ? 'top' : 'center'}
+          style={[styles.fieldInput, textStyle, multiline && styles.fieldInputMultiline]}
+        />
+      </View>
+    </View>
+  );
+};
+
+const DropdownRow = ({ label, value, options, onSelect, placeholder, accent }) => {
   const [expanded, setExpanded] = useState(false);
+  const { isDarkMode } = useThemeContext();
+  const { textStyle } = useAppTheme();
+  const { inputSurface, labelColor } = formSurfaces(isDarkMode);
   const selectedOption = options.find(option => getOptionValue(option) === value);
   const displayValue = selectedOption ? getOptionLabel(selectedOption) : value;
 
   return (
     <View style={styles.fieldBlock}>
-      <Text style={styles.fieldLabel}>{label}</Text>
+      <Text style={[styles.fieldLabel, { color: labelColor }]}>{label}</Text>
       <TouchableOpacity
         activeOpacity={0.85}
         onPress={() => setExpanded(prev => !prev)}
-        style={styles.dropdownRow}
+        style={[styles.dropdownRow, { backgroundColor: inputSurface, borderColor: withAlpha(accent, 0.16) }]}
       >
-        <Text style={[styles.dropdownValue, !value && { color: '#a1a1aa' }]}>
+        <Text style={[styles.dropdownValue, textStyle, !value && { color: '#a1a1aa' }]}>
           {displayValue || placeholder}
         </Text>
-        <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={18} color="#111827" />
+        <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={18} color={accent} />
       </TouchableOpacity>
       {expanded ? (
-        <View style={styles.dropdownList}>
+        <View style={[styles.dropdownList, { backgroundColor: inputSurface, borderColor: withAlpha(accent, 0.16) }]}>
           {options.map((option, index) => {
             const optionValue = getOptionValue(option);
             const optionLabel = getOptionLabel(option);
@@ -157,14 +182,15 @@ const DropdownRow = ({ label, value, options, onSelect, placeholder }) => {
                 }}
                 style={[
                   styles.dropdownItem,
+                  { backgroundColor: inputSurface },
                   index !== options.length - 1 && styles.dropdownItemBorder,
-                  selected && styles.dropdownItemSelected,
+                  selected && { backgroundColor: withAlpha(accent, 0.12) },
                 ]}
               >
-                <Text style={[styles.dropdownItemText, selected && styles.dropdownItemTextSelected]}>
+                <Text style={[styles.dropdownItemText, textStyle, selected && { color: accent, fontWeight: '800' }]}>
                   {optionLabel}
                 </Text>
-                {selected ? <Ionicons name="checkmark" size={16} color="#14b8a6" /> : null}
+                {selected ? <Ionicons name="checkmark" size={16} color={accent} /> : null}
               </TouchableOpacity>
             );
           })}
@@ -203,21 +229,30 @@ const buildPayload = draft => ({
   returnPolicy: draft.returnPolicy,
 });
 
-const ClosestHeader = ({ title, subtitle, onBack }) => (
-  <View style={styles.headerRow}>
-    <TouchableOpacity activeOpacity={0.85} onPress={onBack} style={styles.backButton}>
-      <Ionicons name="chevron-back" size={22} color="#111827" />
-    </TouchableOpacity>
-    <View style={styles.headerCopy}>
-      <Text style={styles.headerTitle}>{title}</Text>
-      <Text style={styles.headerSubtitle}>{subtitle}</Text>
+const ClosestHeader = ({ title, subtitle, onBack, accent, textStyle, mutedTextStyle }) => {
+  const { isDarkMode } = useThemeContext();
+  const chipSurface = isDarkMode ? 'rgba(255,255,255,0.08)' : '#ffffff';
+
+  return (
+    <View style={styles.headerRow}>
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={onBack}
+        style={[styles.backButton, { backgroundColor: chipSurface }]}
+      >
+        <Ionicons name="chevron-back" size={22} color={accent} />
+      </TouchableOpacity>
+      <View style={styles.headerCopy}>
+        <Text style={[styles.headerTitle, textStyle]}>{title}</Text>
+        <Text style={[styles.headerSubtitle, mutedTextStyle]}>{subtitle}</Text>
+      </View>
+      <View style={styles.headerSpacer} />
     </View>
-    <View style={styles.headerSpacer} />
-  </View>
-);
+  );
+};
 
 const MyClosetItemsManagementScreen = ({ navigation, route }) => {
-  const { text, bgStyle, cardStyle, textStyle } = useAppTheme();
+  const { accent, bgStyle, cardStyle, textStyle, mutedTextStyle } = useAppTheme();
   const toast = useToast();
   const dispatch = useDispatch();
   const [items, setItems] = useState([]);
@@ -320,6 +355,9 @@ const MyClosetItemsManagementScreen = ({ navigation, route }) => {
           title={section === 'orders' ? 'Recent Orders' : 'Your Items'}
           subtitle={subtitle}
           onBack={() => navigation.goBack()}
+          accent={accent}
+          textStyle={textStyle}
+          mutedTextStyle={mutedTextStyle}
         />
 
         {loading ? (
@@ -335,24 +373,24 @@ const MyClosetItemsManagementScreen = ({ navigation, route }) => {
                     {normalized.image ? (
                       <Image source={{ uri: normalized.image }} style={styles.itemThumbImage} />
                     ) : (
-                      <Ionicons name="shirt-outline" size={24} color={text} />
+                      <Ionicons name="shirt-outline" size={24} color={accent} />
                     )}
                   </View>
                   <View style={styles.itemCopy}>
                     <Text style={[styles.itemTitle, textStyle]} numberOfLines={1}>
                       {normalized.name}
                     </Text>
-                    <Text style={styles.itemMeta}>{formatPrice(normalized.price)}</Text>
-                    <Text style={styles.itemMeta}>{getConditionLabel(normalized.condition)}</Text>
+                    <Text style={[styles.itemMeta, mutedTextStyle]}>{formatPrice(normalized.price)}</Text>
+                    <Text style={[styles.itemMeta, mutedTextStyle]}>{getConditionLabel(normalized.condition)}</Text>
                   </View>
                 </View>
                 <View style={styles.itemButtonRow}>
                   <TouchableOpacity
                     activeOpacity={0.85}
                     onPress={() => navigation.navigate('MyClosetItemEditor', { item: normalized })}
-                    style={[styles.actionButton, { borderColor: text }]}
+                    style={[styles.actionButton, { borderColor: withAlpha(accent, 0.35) }]}
                   >
-                    <Text style={[styles.actionButtonText, { color: text }]}>Edit</Text>
+                    <Text style={[styles.actionButtonText, { color: accent }]}>Edit</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     activeOpacity={0.85}
@@ -367,9 +405,9 @@ const MyClosetItemsManagementScreen = ({ navigation, route }) => {
           })
         ) : (
           <View style={[styles.emptyCard, cardStyle]}>
-            <Ionicons name="shirt-outline" size={28} color={text} />
+            <Ionicons name="shirt-outline" size={28} color={accent} />
             <Text style={[styles.emptyTitle, textStyle]}>No items yet</Text>
-            <Text style={styles.emptyText}>Start by adding your first item.</Text>
+            <Text style={[styles.emptyText, mutedTextStyle]}>Start by adding your first item.</Text>
           </View>
         )}
       </ScrollView>
@@ -378,7 +416,7 @@ const MyClosetItemsManagementScreen = ({ navigation, route }) => {
 };
 
 const MyClosetItemEditorScreen = ({ navigation, route }) => {
-  const { text, bgStyle, cardStyle, textStyle } = useAppTheme();
+  const { accent, bgStyle, cardStyle, textStyle, mutedTextStyle } = useAppTheme();
   const toast = useToast();
   const dispatch = useDispatch();
   const item = route?.params?.item || {};
@@ -468,6 +506,9 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
           title="Edit Item"
           subtitle="/mycloset/items/{itemId}"
           onBack={() => navigation.goBack()}
+          accent={accent}
+          textStyle={textStyle}
+          mutedTextStyle={mutedTextStyle}
         />
 
         <View style={[styles.formCard, cardStyle]}>
@@ -476,6 +517,7 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
             value={draft.name}
             onChangeText={value => setDraft(prev => ({ ...prev, name: value }))}
             placeholder="Vintage Leather Jacket"
+            accent={accent}
           />
           <DropdownRow
             label="Category"
@@ -483,12 +525,14 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
             options={CATEGORY_OPTIONS}
             placeholder="Select category"
             onSelect={value => setDraft(prev => ({ ...prev, category: value }))}
+            accent={accent}
           />
           <Field
             label="Brand"
             value={draft.brand}
             onChangeText={value => setDraft(prev => ({ ...prev, brand: value }))}
             placeholder="Brand"
+            accent={accent}
           />
           <DropdownRow
             label="Condition"
@@ -496,6 +540,7 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
             options={CONDITION_OPTIONS}
             placeholder="Select condition"
             onSelect={value => setDraft(prev => ({ ...prev, condition: value }))}
+            accent={accent}
           />
           <Field
             label="Description"
@@ -503,6 +548,7 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
             onChangeText={value => setDraft(prev => ({ ...prev, description: value }))}
             placeholder="Describe the item"
             multiline
+            accent={accent}
           />
           <Field
             label="Price"
@@ -510,6 +556,7 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
             onChangeText={value => setDraft(prev => ({ ...prev, price: value }))}
             placeholder="0.00"
             keyboardType="numeric"
+            accent={accent}
           />
           <Field
             label="Quantity"
@@ -517,6 +564,7 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
             onChangeText={value => setDraft(prev => ({ ...prev, quantity: value }))}
             placeholder="1"
             keyboardType="numeric"
+            accent={accent}
           />
           <DropdownRow
             label="Shipping option"
@@ -524,12 +572,14 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
             options={SHIPPING_OPTIONS}
             placeholder="Select shipping option"
             onSelect={value => setDraft(prev => ({ ...prev, shippingOption: value }))}
+            accent={accent}
           />
           <Field
             label="Estimated shipping time"
             value={draft.shippingTime}
             onChangeText={value => setDraft(prev => ({ ...prev, shippingTime: value }))}
             placeholder="3 - 5 business days"
+            accent={accent}
           />
           <DropdownRow
             label="Return policy"
@@ -537,6 +587,7 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
             options={RETURN_POLICY_OPTIONS}
             placeholder="Select return policy"
             onSelect={value => setDraft(prev => ({ ...prev, returnPolicy: value }))}
+            accent={accent}
           />
         </View>
 
@@ -545,7 +596,7 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
             activeOpacity={0.9}
             onPress={handleSave}
             disabled={saving}
-            style={[styles.primaryButton, { backgroundColor: text, opacity: saving ? 0.8 : 1 }]}
+            style={[styles.primaryButton, { backgroundColor: accent, opacity: saving ? 0.8 : 1 }]}
           >
            <Text style={styles.primaryButtonText}>Update Item</Text>
           </TouchableOpacity>

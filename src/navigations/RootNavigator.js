@@ -136,7 +136,7 @@ const CustomDrawerContent = (props) => {
         <Text style={{
           fontSize: 15,
           fontWeight: 'bold',
-          color: drawerColors.inactive,
+          color: accent,
           marginVertical: 5,
           marginTop: 8
         }}>

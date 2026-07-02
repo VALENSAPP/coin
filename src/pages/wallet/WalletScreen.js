@@ -32,6 +32,7 @@ import { getCreditsLeft } from "../../services/wallet";
 import TokenSellModal from "../../components/modals/TokenSellModal";
 import CreditPurchaseModal from "../../components/modals/PurchaseCreditsModal";
 import { useBusinessProfileTheme } from "../../theme/useBusinessProfileTheme";
+import { useThemeContext } from "../../theme/ThemeContext";
 import HexAvatar from "../../components/home/story.js/HexAvatar";
 import { Dragonfly } from "../../assets/icons";
 import { useLanguage } from "../../i18n";
@@ -61,6 +62,9 @@ export default function WalletComponent() {
     const sellSheetRef = useRef(null);
     const profileImage = useSelector(state => state.profileImage?.profileImg);
     const { isBusinessProfile, bgStyle, textStyle, bg, text, cardStyle, accent, mutedText, border, card } = useBusinessProfileTheme();
+    const { isDarkMode } = useThemeContext();
+    const labelStyle = isDarkMode ? textStyle : { color: '#111827' };
+    const accentTextStyle = { color: accent };
     const { t } = useLanguage();
 
     const MAX_CREDITS = 5;
@@ -410,29 +414,29 @@ export default function WalletComponent() {
                     <View style={[styles.profileSection, { borderBottomWidth: 1, borderBottomColor: border }]}>
                         <View>
                             <View style={styles.nameRow}>
-                                <Text style={[styles.username, textStyle]}>{userData?.displayName}</Text>
+                                <Text style={[styles.username, labelStyle]}>{userData?.displayName}</Text>
                                 {userVerificationStatus.verified && (
                                  <DragonflyIcon width={22} height={22} style={styles.icon} />
                                  )}
                             </View>
                         </View>
                         <HexAvatar
-                            uri={profileImage || require('../../assets/icons/pngicons/user.png')}
+                            uri={profileImage}
                             size={100}
                             borderWidth={3}
-                            borderColor={text}
+                            borderColor={accent}
                         />
                     </View>
 
                     {/* Credits Section */}
-                    <View style={[styles.creditsBox, cardStyle, { shadowColor: text, borderColor: border, borderWidth: StyleSheet.hairlineWidth }]}>
+                    <View style={[styles.creditsBox, cardStyle, { shadowColor: accent, borderColor: border, borderWidth: StyleSheet.hairlineWidth }]}>
                         <View style={styles.creditsInfo}>
-                            <MaterialCommunityIcons name="credit-card-outline" size={24} color={text} />
+                            <MaterialCommunityIcons name="credit-card-outline" size={24} color={accent} />
                             <View style={{ flex: 1, marginLeft: 10 }}>
-                                <Text style={[styles.creditsTitle, textStyle]}>
+                                <Text style={[styles.creditsTitle, labelStyle]}>
                                     {t('walletScreen.postCredits')}
                                 </Text>
-                                <Text style={[styles.creditsCount, textStyle]}>
+                                <Text style={[styles.creditsCount, accentTextStyle]}>
                                     {t('walletScreen.creditsRemaining', { count: creditsLeft })}
                                 </Text>
                             </View>
@@ -458,12 +462,12 @@ export default function WalletComponent() {
                                 },
                             ]}
                         >
-                            <MaterialCommunityIcons name="gift-outline" size={24} color={text} />
+                            <MaterialCommunityIcons name="gift-outline" size={24} color={accent} />
                             <View style={{ flex: 1, marginLeft: 10 }}>
-                                <Text style={[styles.creditsTitle, textStyle]}>
+                                <Text style={[styles.creditsTitle, labelStyle]}>
                                     {t('walletScreen.referralPoints')}
                                 </Text>
-                                <Text style={[styles.creditsCount, textStyle]}>
+                                <Text style={[styles.creditsCount, accentTextStyle]}>
                                     {t('walletScreen.referralPts', { count: referPoints })}
                                 </Text>
                             </View>
@@ -471,25 +475,25 @@ export default function WalletComponent() {
                     </View>
 
                     <View style={styles.infoBoxesRow}>
-                        <View style={[styles.infoCard, cardStyle, { borderColor: border, borderWidth: StyleSheet.hairlineWidth }]}> 
+                        <View style={[styles.infoCard, cardStyle, { borderColor: accent, borderWidth: StyleSheet.hairlineWidth }]}> 
                             <View style={styles.infoCardHeader}>
-                                <Text style={[styles.infoCardTitle, textStyle]}>
+                                <Text style={[styles.infoCardTitle, labelStyle]}>
                                     {t('walletScreen.missionPostTitle')}
                                 </Text>
-                                {/* <MaterialCommunityIcons name="dots-horizontal" size={16} color={text} /> */}
+                                {/* <MaterialCommunityIcons name="dots-horizontal" size={16} color={accent} /> */}
                             </View>
-                            <Text style={[styles.infoCardText, { color: mutedText }]}>
+                            <Text style={[styles.infoCardText, accentTextStyle]}>
                                 {t('walletScreen.missionPostDescription')}
                             </Text>
                         </View>
-                        <View style={[styles.infoCard, styles.infoCardSpacing, cardStyle, { borderColor: border, borderWidth: StyleSheet.hairlineWidth }]}> 
+                        <View style={[styles.infoCard, styles.infoCardSpacing, cardStyle, { borderColor: accent, borderWidth: StyleSheet.hairlineWidth }]}> 
                             <View style={styles.infoCardHeader}>
-                                <Text style={[styles.infoCardTitle, textStyle]}>
+                                <Text style={[styles.infoCardTitle, labelStyle]}>
                                     {t('walletScreen.missionPriceTitle')}
                                 </Text>
-                                {/* <MaterialCommunityIcons name="dots-horizontal" size={16} color={text} /> */}
+                                {/* <MaterialCommunityIcons name="dots-horizontal" size={16} color={accent} /> */}
                             </View>
-                            <Text style={[styles.infoCardText, { color: mutedText }]}>
+                            <Text style={[styles.infoCardText, accentTextStyle]}>
                                 {t('walletScreen.missionPriceDescription')}
                             </Text>
                         </View>

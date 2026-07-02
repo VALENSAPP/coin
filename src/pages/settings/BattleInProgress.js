@@ -51,6 +51,7 @@ import {
 } from '../../services/battle';
 import { getUserCredentials } from '../../services/post';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useThemeContext } from '../../theme/ThemeContext';
 import { normalizeProfileType } from '../../utils/supportEligibility';
 import HexAvatar from '../../components/home/story.js/HexAvatar';
 import { Vsbanner } from '../../assets/icons';
@@ -644,7 +645,12 @@ export default function BattleInProgress() {
   const { t } = useLanguage();
   const { profile } = route.params || {};
   const resolvedProfileType = normalizeProfileType(profile);
-  const { bgStyle, textStyle, cardStyle, text, card } = useAppTheme(resolvedProfileType);
+  const { bgStyle, textStyle, cardStyle, accent, card, border, mutedText } = useAppTheme(resolvedProfileType);
+  const { isDarkMode } = useThemeContext();
+  const labelColor = isDarkMode ? '#ffffff' : '#111827';
+  const inputSurface = isDarkMode ? 'rgba(255,255,255,0.08)' : card;
+  const optionSurface = isDarkMode ? 'rgba(255,255,255,0.06)' : '#F9FAFB';
+  const optionBorder = isDarkMode ? border : '#E5E7EB';
   const routeBattle = useMemo(() => route?.params?.battle || {}, [route?.params?.battle]);
   const hasInitialBattleData = Object.keys(routeBattle || {}).length > 0;
   const battleId = route?.params?.battleId || routeBattle.id || routeBattle._id || routeBattle.battleId || '';
@@ -719,20 +725,20 @@ export default function BattleInProgress() {
   }, []);
 
   const palette = useMemo(() => {
-    const primary = text || '#bb7ef1';
-    const secondary = primary.toLowerCase() === '#C9A15a' ? '#b8924f' : '#cdb4f8';
+    const primary = accent || '#5a2d82';
+    const secondary = primary.toLowerCase() === '#c9a15a' ? '#b8924f' : '#8f54f7';
     return {
       primary,
       secondary,
-      surface: card || '#FFFFFF',
-      textMuted: withAlpha(primary, '99'),
-      border: withAlpha(primary, '22'),
-      soft: withAlpha(primary, '10'),
-      buttonGradient: primary.toLowerCase() === '#C9A15a'
+      surface: card || (isDarkMode ? '#1E1E1E' : '#FFFFFF'),
+      textMuted: mutedText || withAlpha(primary, '99'),
+      border: border || withAlpha(primary, '22'),
+      soft: isDarkMode ? withAlpha(primary, '24') : withAlpha(primary, '10'),
+      buttonGradient: primary.toLowerCase() === '#c9a15a'
         ? ['#b8924f', '#C9A15a']
         : ['#513189', '#8f54f7'],
     };
-  }, [card, text]);
+  }, [accent, border, card, isDarkMode, mutedText]);
 
   const statusMeta = useMemo(
     () => getStatusTone(battle.status, t),
@@ -2072,7 +2078,7 @@ export default function BattleInProgress() {
   if (loading) {
     return (
       <SafeAreaView style={[styles.loaderWrap, bgStyle]}>
-        <ActivityIndicator size="large" color={text} />
+        <ActivityIndicator size="large" color={accent} />
       </SafeAreaView>
     );
   }
@@ -2116,8 +2122,8 @@ export default function BattleInProgress() {
                       <ActivityIndicator size="small" color={palette.primary} />
                     ) : (
                       <>
-                        <Ionicons name={reply.isLiked ? 'heart' : 'heart-outline'} size={18} color={reply.isLiked ? '#E11D48' : '#6B7280'} />
-                        <Text style={[styles.commentLikeText, { color: reply.isLiked ? '#E11D48' : '#6B7280' }]}>
+                          <Ionicons name={reply.isLiked ? 'heart' : 'heart-outline'} size={18} color={reply.isLiked ? '#E11D48' : mutedText} />
+                        <Text style={[styles.commentLikeText, { color: reply.isLiked ? '#E11D48' : mutedText }]}>
                           {Number.isFinite(Number(reply.likes)) ? Number(reply.likes) : 0}
                         </Text>
                       </>
@@ -2147,7 +2153,14 @@ export default function BattleInProgress() {
             placeholder={t('battleInProgress.replyPlaceholder')}
             placeholderTextColor="#9CA3AF"
             multiline
-            style={[styles.replyInput, textStyle, cardStyle, { borderColor: palette.border }]}
+            style={[
+              styles.replyInput,
+              {
+                color: labelColor,
+                backgroundColor: inputSurface,
+                borderColor: palette.border,
+              },
+            ]}
           />
           <View style={styles.replyActions}>
             <TouchableOpacity
@@ -2231,8 +2244,8 @@ export default function BattleInProgress() {
                         <ActivityIndicator size="small" color={palette.primary} />
                       ) : (
                         <>
-                          <Ionicons name={comment.isLiked ? 'heart' : 'heart-outline'} size={18} color={comment.isLiked ? '#E11D48' : '#6B7280'} />
-                          <Text style={[styles.commentLikeText, { color: comment.isLiked ? '#E11D48' : '#6B7280' }]}>
+                          <Ionicons name={comment.isLiked ? 'heart' : 'heart-outline'} size={18} color={comment.isLiked ? '#E11D48' : mutedText} />
+                          <Text style={[styles.commentLikeText, { color: comment.isLiked ? '#E11D48' : mutedText }]}>
                             {Number.isFinite(Number(comment.likes)) ? Number(comment.likes) : 0}
                           </Text>
                         </>
@@ -2296,13 +2309,20 @@ export default function BattleInProgress() {
               value={replyText}
               onChangeText={setReplyText}
               placeholder={t('battleInProgress.replyPlaceholder')}
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={mutedText}
               multiline
-              style={[styles.replyInput, textStyle, cardStyle, { borderColor: palette.border }]}
+              style={[
+              styles.replyInput,
+              {
+                color: labelColor,
+                backgroundColor: inputSurface,
+                borderColor: palette.border,
+              },
+            ]}
             />
             <View style={styles.replyActions}>
               <TouchableOpacity
-                style={[styles.replySecondaryButton, { borderColor: palette.border }]}
+                style={[styles.replySecondaryButton, { borderColor: palette.border, backgroundColor: inputSurface }]}
                 onPress={() => { setReplyingToComment(null); setReplyText(''); }}
               >
                 <Text style={[styles.replySecondaryButtonText, { color: palette.textMuted }]}>
@@ -2337,8 +2357,8 @@ export default function BattleInProgress() {
           <Animated.View style={[styles.statusDot, { backgroundColor: statusMeta.color, opacity: statusPulseAnim }]} />
           <Text style={[styles.statusPillText, { color: endTimeInfo.relative == 'Ended' ? '#4B5563' : statusMeta.color }]}>{endTimeInfo.relative == 'Ended' ? 'Closed' : statusMeta.label}</Text>
         </View>
-        <View style={styles.timerPill}>
-          <Ionicons name="time-outline" size={12} color="#000" />
+        <View style={[styles.timerPill, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(107,95,166,0.12)' }]}>
+          <Ionicons name="time-outline" size={12} color={mutedText} />
           {endTimeInfo.isEndingSoon && (
             <Animated.View style={[styles.endTimeDot, { opacity: endTimePulseAnim }]} />
           )}
@@ -2346,14 +2366,14 @@ export default function BattleInProgress() {
             <Text
               style={[
                 styles.timerPillText,
-                { color: endTimeInfo.isEndingSoon ? '#EF4444' : text },
+                { color: endTimeInfo.isEndingSoon ? '#EF4444' : labelColor },
               ]}
               numberOfLines={1}
             >
               {endTimeInfo.relative}
             </Text>
             {!!endTimeInfo.absolute && (
-              <Text style={[styles.timerPillSubText, { color: withAlpha(text, '99') }]} numberOfLines={1}>
+              <Text style={[styles.timerPillSubText, { color: mutedText }]} numberOfLines={1}>
                 {endTimeInfo.absolute}
               </Text>
             )}
@@ -2361,32 +2381,38 @@ export default function BattleInProgress() {
         </View>
       </View>
       <View>
-        <Text style={[styles.heroTitle, { color: text }]}>{battle.title}</Text>
+        <Text style={[styles.heroTitle, { color: labelColor }]}>{battle.title}</Text>
       </View>
       <View>
         <View style={styles.heroInfoRow}>
           <View style={styles.heroInfoChip}>
-            <Ionicons name="people-outline" size={12} color="#000" />
-            <Text style={[styles.heroInfoText, { color: text }]}>{battle.primaryCount} {battle.primaryCountLabel}</Text>
+            <Ionicons name="people-outline" size={12} color={mutedText} />
+            <Text style={[styles.heroInfoText, { color: mutedText }]}>{battle.primaryCount} {battle.primaryCountLabel}</Text>
           </View>
           <View style={styles.heroInfoChip}>
-            <Ionicons name="calendar-outline" size={12} color="#000" />
-            <Text style={[styles.heroInfoText, { color: text }]}>{battle.format === 'HEAD_TO_HEAD' ? 'Head-to-Head' : 'Battle Poll'}</Text>
+            <Ionicons name="calendar-outline" size={12} color={mutedText} />
+            <Text style={[styles.heroInfoText, { color: mutedText }]}>{battle.format === 'HEAD_TO_HEAD' ? 'Head-to-Head' : 'Battle Poll'}</Text>
           </View>
           <View style={styles.heroInfoChip}>
-            <Ionicons name="flash" size={12} color="#000" />
-            <Text style={[styles.heroInfoText, { color: text }]}>
+            <Ionicons name="flash" size={12} color={mutedText} />
+            <Text style={[styles.heroInfoText, { color: mutedText }]}>
               Stakes: {formatStakeAmount(battle.stake)}
             </Text>
           </View>
           {canEditBattleQuestion ? (
             <TouchableOpacity
-              style={[styles.editBattleButton, { borderColor: withAlpha(text, '33') }]}
+              style={[
+                styles.editBattleButton,
+                {
+                  borderColor: palette.border,
+                  backgroundColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.85)',
+                },
+              ]}
               onPress={handleEditBattleQuestion}
               activeOpacity={0.85}
             >
-              <Ionicons name="create-outline" size={13} color={text} />
-              <Text style={[styles.editBattleButtonText, { color: text }]}>
+              <Ionicons name="create-outline" size={13} color={accent} />
+              <Text style={[styles.editBattleButtonText, { color: accent }]}>
                 {t('battleInProgress.editQuestion')}
               </Text>
             </TouchableOpacity>
@@ -2700,36 +2726,33 @@ export default function BattleInProgress() {
 
   const renderHowToWinCard = () => (
     <View style={[styles.howToWinCard, cardStyle, { shadowColor: palette.primary }]}>
-      <Text style={[styles.howToWinTitle, { color: text }]}>
+      <Text style={[styles.howToWinTitle, { color: labelColor }]}>
         {t('battleInProgress.howToWinTitle')}
       </Text>
       <View style={styles.howToWinRow}>
         {[
           {
             icon: 'checkmark-circle',
-            color: text,
             label: t('battleInProgress.howToWinVoteLabel'),
             desc: t('battleInProgress.howToWinVoteDesc'),
           },
           {
             icon: 'chatbubble-ellipses',
-            color: text,
             label: t('battleInProgress.howToWinCommentLabel'),
             desc: t('battleInProgress.howToWinCommentDesc'),
           },
           {
             icon: 'star',
-            color: text,
             label: t('battleInProgress.howToWinAccurateLabel'),
             desc: t('battleInProgress.howToWinAccurateDesc'),
           },
         ].map((item, i) => (
-          <View key={i} style={[styles.howToWinItem, bgStyle]}>
-            <View style={[styles.howToWinIconCircle, { backgroundColor: item.color }]}>
+          <View key={i} style={[styles.howToWinItem, cardStyle, { borderColor: palette.border, borderWidth: 1 }]}>
+            <View style={[styles.howToWinIconCircle, { backgroundColor: accent }]}>
               <Ionicons name={item.icon} size={14} color="#fff" />
             </View>
-            <Text style={[styles.howToWinItemLabel, { color: item.color }]}>{item.label}</Text>
-            <Text style={styles.howToWinItemDesc}>{item.desc}</Text>
+            <Text style={[styles.howToWinItemLabel, { color: accent }]}>{item.label}</Text>
+            <Text style={[styles.howToWinItemDesc, { color: mutedText }]}>{item.desc}</Text>
           </View>
         ))}
       </View>
@@ -2763,9 +2786,9 @@ export default function BattleInProgress() {
           {/* Header */}
           <View style={styles.header}>
             <TouchableOpacity onPress={handleBackPress} style={styles.headerIconBtn}>
-              <Icon name="arrow-back-ios-new" size={20} color={text} />
+              <Icon name="arrow-back-ios-new" size={20} color={accent} />
             </TouchableOpacity>
-            <Text style={[styles.headerTitle, { color: text }]}>
+            <Text style={[styles.headerTitle, { color: labelColor }]}>
               {isBattleCancelled
                 ? t('battleInProgress.battleCancelled')
                 : (canViewResults ? t('battleInProgress.battleEnded') : t('battleInProgress.screenTitle'))}
@@ -2775,8 +2798,8 @@ export default function BattleInProgress() {
               style={styles.headerIconBtn}
             >
               {refreshing
-                ? <ActivityIndicator size="small" color={text} />
-                : <Ionicons name="refresh-outline" size={20} color={text} />
+                ? <ActivityIndicator size="small" color={accent} />
+                : <Ionicons name="refresh-outline" size={20} color={accent} />
               }
             </TouchableOpacity>
           </View>
@@ -2786,21 +2809,21 @@ export default function BattleInProgress() {
 
           {/* Winner Logic */}
           <View style={[styles.infoCard, cardStyle, { shadowColor: palette.primary }]}>
-            <Text style={[styles.sectionTitle, { color: text }]}>
+            <Text style={[styles.sectionTitle, { color: labelColor }]}>
               {t('battleInProgress.winnerLogicTitle')}
             </Text>
-            <Text style={[styles.infoText, textStyle]}>
+            <Text style={[styles.infoText, { color: mutedText }]}>
               {isPrediction
                 ? t('battleInProgress.winnerLogicPrediction')
                 : t('battleInProgress.winnerLogicOpinion')}
             </Text>
             {!!battle.resultValue && (
-              <Text style={[styles.resultText, textStyle]}>
+              <Text style={[styles.resultText, { color: mutedText }]}>
                 {t('battleInProgress.currentResultSignal').replace('{{value}}', battle.resultValue)}
               </Text>
             )}
             {!!battle.winnerName && (
-              <Text style={[styles.resultText, textStyle]}>
+              <Text style={[styles.resultText, { color: mutedText }]}>
                 {t('battleInProgress.winner').replace('{{name}}', battle.winnerName)}
               </Text>
             )}
@@ -2810,7 +2833,7 @@ export default function BattleInProgress() {
           {!canViewResults && !hasUserVoted ? (
             <View style={[styles.infoCard, cardStyle, { shadowColor: palette.primary }]}>
               <View style={styles.sectionTitleRow}>
-                <Text style={[styles.sectionTitle, { color: text }]}>
+                <Text style={[styles.sectionTitle, { color: labelColor }]}>
                   {isPrediction ? t('battleInProgress.makePrediction') : t('battleInProgress.chooseYourSide')}
                 </Text>
                 <TouchableOpacity
@@ -2885,10 +2908,10 @@ export default function BattleInProgress() {
                       style={[
                         styles.optionPillCard,
                         {
-                          borderColor: isSelected ? (useVotedGrayStyle ? '#D1D5DB' : headToHeadAccent.accent) : '#E5E7EB',
+                          borderColor: isSelected ? (useVotedGrayStyle ? optionBorder : headToHeadAccent.accent) : optionBorder,
                           backgroundColor: isSelected
-                            ? (useVotedGrayStyle ? '#F3F4F6' : headToHeadAccent.soft)
-                            : '#F9FAFB',
+                            ? (useVotedGrayStyle ? (isDarkMode ? 'rgba(255,255,255,0.04)' : '#F3F4F6') : headToHeadAccent.soft)
+                            : optionSurface,
                           opacity: shouldDisable && !isSelected ? 0.6 : 1,
                           width: '100%',
                         },
@@ -2904,16 +2927,16 @@ export default function BattleInProgress() {
                           uri={optionImage || option.image}
                           size={36}
                           borderWidth={2}
-                          borderColor={isSelected ? headToHeadAccent.accent : '#D1D5DB'}
+                          borderColor={isSelected ? headToHeadAccent.accent : optionBorder}
                           fallback={
                             <View style={[
                               styles.optionPillAvatarFallback,
                               {
-                                borderColor: isSelected ? (useVotedGrayStyle ? '#D1D5DB' : headToHeadAccent.accent) : '#D1D5DB',
-                                backgroundColor: isSelected ? (useVotedGrayStyle ? '#E5E7EB' : headToHeadAccent.soft) : '#EDE9F6',
+                                borderColor: isSelected ? (useVotedGrayStyle ? optionBorder : headToHeadAccent.accent) : optionBorder,
+                                backgroundColor: isSelected ? (useVotedGrayStyle ? (isDarkMode ? 'rgba(255,255,255,0.04)' : '#E5E7EB') : headToHeadAccent.soft) : (isDarkMode ? 'rgba(255,255,255,0.06)' : '#EDE9F6'),
                               },
                             ]}>
-                              <Ionicons name="person" size={18} color={isSelected ? headToHeadAccent.accent : text} />
+                              <Ionicons name="person" size={18} color={isSelected ? headToHeadAccent.accent : mutedText} />
                             </View>
                           }
                         />
@@ -2921,7 +2944,7 @@ export default function BattleInProgress() {
                       <Text
                         style={[
                           styles.optionPillLabel,
-                          { color: isSelected ? (useVotedGrayStyle ? text : headToHeadAccent.accent) : '#374151' },
+                          { color: isSelected ? (useVotedGrayStyle ? labelColor : headToHeadAccent.accent) : labelColor },
                         ]}
                         onPress={() => { if (!shouldDisable) setSelectedOption(optionSelectionKey); }}
                       >
@@ -2930,8 +2953,8 @@ export default function BattleInProgress() {
                       <View style={[
                         styles.optionPillRadio,
                         {
-                          borderColor: isSelected ? (useVotedGrayStyle ? text : headToHeadAccent.accent) : '#D1D5DB',
-                          backgroundColor: isSelected ? (useVotedGrayStyle ? text : headToHeadAccent.accent) : '#FFFFFF',
+                          borderColor: isSelected ? (useVotedGrayStyle ? mutedText : headToHeadAccent.accent) : optionBorder,
+                          backgroundColor: isSelected ? (useVotedGrayStyle ? mutedText : headToHeadAccent.accent) : (isDarkMode ? 'transparent' : '#FFFFFF'),
                           opacity: hasUserSelectionLocked && !isSelected ? 0.3 : 1,
                         },
                       ]} />
@@ -2940,7 +2963,7 @@ export default function BattleInProgress() {
                 })}
               </View>
 
-              <Text style={styles.argumentLabel}>
+              <Text style={[styles.argumentLabel, { color: mutedText }]}>
                 {hasUserVoted ? 'Comment' : 'Your argument'}
               </Text>
               <TextInput
@@ -2955,9 +2978,16 @@ export default function BattleInProgress() {
                       ? t('battleInProgress.predictionReasoningPlaceholder')
                       : t('battleInProgress.argumentPlaceholder')
                 }
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={mutedText}
                 multiline
-                style={[styles.argumentInput, textStyle, cardStyle, { borderColor: palette.border }]}
+                style={[
+                  styles.argumentInput,
+                  {
+                    color: labelColor,
+                    backgroundColor: inputSurface,
+                    borderColor: palette.border,
+                  },
+                ]}
               />
 
               <TouchableOpacity
@@ -3067,7 +3097,7 @@ export default function BattleInProgress() {
               {battle.comments.length > 0
                 ? battle.comments.map(comment => renderCommentItem(comment))
                 : (
-                  <Text style={[styles.emptyCommentText, textStyle]}>
+                  <Text style={[styles.emptyCommentText, { color: mutedText }]}>
                     {t('battleInProgress.noCommentsYet')}
                   </Text>
                 )
@@ -3307,13 +3337,13 @@ const styles = StyleSheet.create({
   howToWinItem: { flex: 1, borderRadius: 12, padding: 10, alignItems: 'center', gap: 5 },
   howToWinIconCircle: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
   howToWinItemLabel: { fontSize: 11, fontWeight: '700', textAlign: 'center' },
-  howToWinItemDesc: { fontSize: 10, color: '#6b7280', textAlign: 'center', lineHeight: 14 },
+  howToWinItemDesc: { fontSize: 10, textAlign: 'center', lineHeight: 14 },
 
   // Info card
   infoCard: { borderRadius: 20, padding: 16, marginBottom: 14, shadowOpacity: 0.08, shadowRadius: 12, shadowOffset: { width: 0, height: 5 }, elevation: 3 },
   sectionTitle: { fontSize: 17, fontWeight: '800', marginBottom: 10 },
-  infoText: { fontSize: 14, lineHeight: 21, color: '#6B7280' },
-  resultText: { fontSize: 13, fontWeight: '700', color: '#4B5563', marginTop: 8 },
+  infoText: { fontSize: 14, lineHeight: 21 },
+  resultText: { fontSize: 13, fontWeight: '700', marginTop: 8 },
 
   // Option pills
   optionGrid: { flexDirection: 'column', gap: 10, marginBottom: 6 },
@@ -3322,10 +3352,10 @@ const styles = StyleSheet.create({
   optionPillAvatarFallback: { width: 36, height: 36, borderRadius: 18, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   optionPillLabel: { flex: 1, fontSize: 13, fontWeight: '700' },
   optionPillRadio: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, flexShrink: 0 },
-  argumentLabel: { fontSize: 12, fontWeight: '800', color: '#4B5563', marginTop: 10, marginBottom: 6 },
+  argumentLabel: { fontSize: 12, fontWeight: '800', marginTop: 10, marginBottom: 6 },
 
   // Argument input + button
-  argumentInput: { minHeight: 90, borderRadius: 16, borderWidth: 1, backgroundColor: '#FFFFFF', paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, color: '#111827', textAlignVertical: 'top', marginTop: 14, marginBottom: 14 },
+  argumentInput: { minHeight: 90, borderRadius: 16, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, textAlignVertical: 'top', marginTop: 14, marginBottom: 14 },
   primaryButton: { minHeight: 46, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   primaryButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '900', letterSpacing: 0.3 },
 
@@ -3388,24 +3418,24 @@ const styles = StyleSheet.create({
   commentInlineActions: { marginLeft: 'auto', flexDirection: 'row', alignItems: 'center', gap: 10 },
   replyComposer: { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#E5E7EB' },
   replyComposerLabel: { fontSize: 12, fontWeight: '700', marginBottom: 8 },
-  replyInput: { minHeight: 88, borderRadius: 14, borderWidth: 1, backgroundColor: '#FFFFFF', paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: '#111827', textAlignVertical: 'top' },
+  replyInput: { minHeight: 88, borderRadius: 14, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, textAlignVertical: 'top' },
   replyActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 10 },
-  replySecondaryButton: { minWidth: 82, height: 40, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF', paddingHorizontal: 14 },
+  replySecondaryButton: { minWidth: 82, height: 40, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 },
   replySecondaryButtonText: { fontSize: 13, fontWeight: '700' },
   replyPrimaryButton: { minWidth: 82, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 },
   replyPrimaryButtonText: { color: '#FFFFFF', fontSize: 13, fontWeight: '800' },
-  emptyCommentText: { fontSize: 13, lineHeight: 19, color: '#6B7280' },
+  emptyCommentText: { fontSize: 13, lineHeight: 19 },
 
   // Bottom
   bottomActions: {
     flexDirection: 'row', gap: 10,
     marginBottom: Platform.OS === 'ios' ? '10%' : '20%'
   },
-  secondaryButton: { flex: 1, minHeight: 46, borderRadius: 16, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF' },
+  secondaryButton: { flex: 1, minHeight: 46, borderRadius: 16, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
   secondaryButtonText: { fontSize: 14, fontWeight: '800' },
-  inviteSecondaryButton: { minHeight: 46, borderRadius: 16, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF' },
+  inviteSecondaryButton: { minHeight: 46, borderRadius: 16, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
   sideCommentActionsRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
-  sideCommentButton: { flex: 1, minHeight: 62, borderRadius: 14, borderWidth: 1.5, alignItems: 'stretch', justifyContent: 'center', backgroundColor: '#FFFFFF', paddingHorizontal: 10, paddingVertical: 8 },
+  sideCommentButton: { flex: 1, minHeight: 62, borderRadius: 14, borderWidth: 1.5, alignItems: 'stretch', justifyContent: 'center', paddingHorizontal: 10, paddingVertical: 8 },
   sideCommentButtonTopRow: { flexDirection: 'row', alignItems: 'center', minWidth: 0 },
   sideCommentButtonText: { flex: 1, minWidth: 0, fontSize: 13, fontWeight: '900' },
   sideCommentLikeButton: { flexDirection: 'row', alignItems: 'center', flexShrink: 0, marginLeft: 6 },
