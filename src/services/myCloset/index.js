@@ -195,8 +195,8 @@ export const addCartItem = async (data) => {
   return axiosInstance.post('cart/items', data);
 }
 
-export const getCart = async () => {
-  return axiosInstance.get('/cart');
+export const getCart = async (data) => {
+  return axiosInstance.get('/cart?sellerId=' + data.sellerId);
 }
 
 export const updateCartItem = async (id, data) => {

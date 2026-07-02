@@ -797,9 +797,11 @@ const MyClosetBuyerOptionsScreen = ({ navigation, route }) => {
       (async () => {
         setSyncingQty(true);
         try {
-          const response = await getCart();
+          const dataToSend = { sellerId: route?.params?.sellerId }
+          const response = await getCart(dataToSend);
           if (cancelled) return;
-          const cartObj = response?.data?.cart;
+          const cartsArr = response?.data?.carts ?? [];
+          const cartObj = cartsArr[0] ?? null;   // sellerId filter means at most one match
           const cartItems = cartObj?.cartItems ?? [];
           const match = Array.isArray(cartItems)
             ? cartItems.find(ci => {
@@ -937,6 +939,8 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
   const { t } = useLanguage();
   const localCart = buildCart(route, t); // fallback data from route params
 
+  console.log('MyClosetBuyerCartScreen route.params:', route?.params);
+
   // ── Server cart state ───────────────────────────────────────────────────
   const [cartItems, setCartItems] = useState([]); // array of items from GET /cart
   const [cartLoading, setCartLoading] = useState(true);
@@ -951,8 +955,10 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
     setCartLoading(true);
     setCartError(null);
     try {
-      const response = await getCart();
-      const cartObj = response?.data?.cart;
+      const dataToSend = { sellerId: route?.params?.sellerId };
+      const response = await getCart(dataToSend);
+      const cartsArr = response?.data?.carts ?? [];
+      const cartObj = cartsArr[0] ?? null;
       const items = cartObj?.cartItems ?? [];
       setCartItems(Array.isArray(items) ? items : []);
     } catch (err) {

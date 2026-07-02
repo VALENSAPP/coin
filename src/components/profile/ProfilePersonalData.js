@@ -271,12 +271,14 @@ const ProfilePersonData = ({
 
   const fetchCartCount = useCallback(async () => {
     try {
-      const response = await getCart();
-      const cartObj = response?.data?.data?.cart ?? response?.data?.cart;
-      const totals = response?.data?.data?.totals ?? response?.data?.totals;
+      const getUserId = targetUserId || userData?.id || userData?._id || userData?.userId || userId || ''
+      const dataToSend = { sellerId: getUserId }
+      const response = await getCart(dataToSend);
+      const cartsArr = response?.data?.data?.carts ?? response?.data?.carts ?? [];
+      const cartObj = cartsArr[0] ?? null; // sellerId filter → at most one cart
       const items = cartObj?.cartItems ?? [];
       const count =
-        totals?.totalItems ??
+        cartObj?.totals?.totalItems ??
         items.reduce((sum, ci) => sum + (Number(ci?.quantity) || 0), 0);
       setCartCount(count || 0);
     } catch (error) {
@@ -1133,7 +1135,7 @@ const ProfilePersonData = ({
             <TouchableOpacity style={styles.iconButton} onPress={() => redirect()}>
               <Ionicons name="share-outline" size={25} color="#111100" />
             </TouchableOpacity>
-            {!fromUsersProfile && (
+            {fromUsersProfile && (
               <>
                 <TouchableOpacity
                   style={styles.iconButton}
@@ -1150,6 +1152,10 @@ const ProfilePersonData = ({
                     )}
                   </View>
                 </TouchableOpacity>
+              </>
+            )}
+            {!fromUsersProfile && (
+              <>
                 <TouchableOpacity style={styles.iconButton} onPress={() => setModalVisible(true)}>
                   <FontAwesome name="plus-square-o" size={25} color="#111100" />
                 </TouchableOpacity>
