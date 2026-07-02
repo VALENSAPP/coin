@@ -16,6 +16,9 @@ import { battleByUserId, battlePoint, filtterBattle } from '../../services/battl
 import { useAppTheme } from '../../theme/useApptheme';
 import { useLanguage } from '../../i18n';
 import { sortBattlesLiveFirst } from '../../utils/battleCardUtils';
+import Svg, { Polygon } from 'react-native-svg';
+import { getUserDashboard } from '../../services/post';
+import { getDragonflyIcon } from './ProfilePersonalData';
 
 const pickFirst = (...values) =>
   values.find((value) => value !== undefined && value !== null && value !== '');
@@ -162,6 +165,7 @@ export default function ProfileBattleHub({
   const [battles, setBattles] = useState([]);
   const [searchText, setSearchText] = useState('');
   const [battlePointSummary, setBattlePointSummary] = useState(emptySummary);
+  const [followerCount, setFollowerCount] = useState(0);
   const [activeTab, setActiveTab] = useState('myBattle');
 
   const PRIMARY_GRADIENT =
@@ -193,29 +197,42 @@ export default function ProfileBattleHub({
   const getBattlePoint = useCallback(async () => {
     if (!viewedUserId) {
       setBattlePointSummary(emptySummary);
+      setFollowerCount(0);
       return;
     }
     try {
-      const response = await battlePoint({ params: { userId: viewedUserId } });
-      const rawData = response?.data?.data || response?.data || response || {};
-      const totals = rawData?.totals || {};
-      const rawItems = Array.isArray(rawData?.items) ? rawData.items : [];
-      setBattlePointSummary({
-        level: String(rawData?.level || 'Rookie'),
-        totals: {
-          totalBattlesJoined: Number(totals?.totalBattlesJoined || 0),
-          totalBattlesWon: Number(totals?.totalBattlesWon || 0),
-          totalPredictionsCorrect: Number(totals?.totalPredictionsCorrect || 0),
-          totalPredictionsWrong: Number(totals?.totalPredictionsWrong || 0),
-          totalArgumentLikes: Number(totals?.totalArgumentLikes || 0),
-        },
-        predictionAccuracyPercent: Number(rawData?.predictionAccuracyPercent || 0),
-        credibilityScore: Number(rawData?.credibilityScore || 0),
-        liveCount: rawItems.filter((item) =>
-          String(item?.status || '').toUpperCase().includes('LIVE'),
-        ).length,
-        points: Number(totals?.totalBattlePoints || 0),
-      });
+      const [dashRes, bpRes] = await Promise.allSettled([
+        getUserDashboard(viewedUserId),
+        battlePoint({ params: { userId: viewedUserId } })
+      ]);
+
+      if (dashRes.status === 'fulfilled') {
+        const dashData = dashRes.value?.data?.dashboardData || dashRes.value?.data || {};
+        setFollowerCount(Number(dashData?.totalFollowers || 0));
+      }
+
+      if (bpRes.status === 'fulfilled') {
+        const response = bpRes.value;
+        const rawData = response?.data?.data || response?.data || response || {};
+        const totals = rawData?.totals || {};
+        const rawItems = Array.isArray(rawData?.items) ? rawData.items : [];
+        setBattlePointSummary({
+          level: String(rawData?.level || 'Rookie'),
+          totals: {
+            totalBattlesJoined: Number(totals?.totalBattlesJoined || 0),
+            totalBattlesWon: Number(totals?.totalBattlesWon || 0),
+            totalPredictionsCorrect: Number(totals?.totalPredictionsCorrect || 0),
+            totalPredictionsWrong: Number(totals?.totalPredictionsWrong || 0),
+            totalArgumentLikes: Number(totals?.totalArgumentLikes || 0),
+          },
+          predictionAccuracyPercent: Number(rawData?.predictionAccuracyPercent || 0),
+          credibilityScore: Number(rawData?.credibilityScore || 0),
+          liveCount: rawItems.filter((item) =>
+            String(item?.status || '').toUpperCase().includes('LIVE'),
+          ).length,
+          points: Number(totals?.totalBattlePoints || 0),
+        });
+      }
     } catch (_err) {
       setBattlePointSummary(emptySummary);
     }
@@ -278,6 +295,35 @@ export default function ProfileBattleHub({
     return sortBattlesLiveFirst(matched);
   }, [battles, searchText]);
 
+  const levelInfo = useMemo(() => {
+    const normalized = String(battlePointSummary.level || 'Rookie').trim();
+    const upper = normalized.toUpperCase();
+    if (normalized.toLowerCase().includes('level')) {
+      return {
+        tier: 'CHALLENGER',
+        levelText: upper
+      };
+    }
+    switch (normalized.toLowerCase()) {
+      case 'rookie':
+        return { tier: 'ROOKIE', levelText: 'LEVEL 1' };
+      case 'challenger':
+        return { tier: 'CHALLENGER', levelText: 'LEVEL 2' };
+      case 'pro':
+        return { tier: 'PRO', levelText: 'LEVEL 3' };
+      case 'expert':
+        return { tier: 'EXPERT', levelText: 'LEVEL 4' };
+      case 'master':
+        return { tier: 'MASTER', levelText: 'LEVEL 5' };
+      case 'legend':
+        return { tier: 'LEGEND', levelText: 'LEVEL 6' };
+      default:
+        return { tier: upper, levelText: 'LEVEL 1' };
+    }
+  }, [battlePointSummary.level]);
+
+  const DragonflyIcon = useMemo(() => getDragonflyIcon(followerCount), [followerCount]);
+
   return (
     <KeyboardAwareScrollView
       showsVerticalScrollIndicator={false}
@@ -291,13 +337,40 @@ export default function ProfileBattleHub({
     >
       {/* Hero card */}
       <View style={[styles.heroCard, bgStyle]}>
-        <Text style={[styles.heroEyebrow, { color: `${text}AA` }]}>
-          {t('battleHub.heroEyebrow')}
-        </Text>
-        <Text style={[styles.heroTitle, { color: profile === 'user' ? '#5a2d82' : '#C9A15a' }]}>
-          {t('battleHub.heroTitle')}
-        </Text>
-        <Text style={styles.heroSubtitle}>{t('battleHub.heroSubtitle')}</Text>
+        <View style={styles.heroTopRow}>
+          <View style={styles.heroTextContainer}>
+            <Text style={[styles.heroEyebrow, { color: `${text}AA` }]}>
+              {t('battleHub.heroEyebrow')}
+            </Text>
+            <Text style={[styles.heroTitle, { color: profile === 'user' ? '#5a2d82' : '#C9A15a' }]}>
+              {t('battleHub.heroTitle')}
+            </Text>
+            <Text style={styles.heroSubtitle}>{t('battleHub.heroSubtitle')}</Text>
+          </View>
+
+          <View style={styles.dragonflyContainer}>
+            <View style={styles.hexagonWrapper}>
+              <Svg width={84} height={84}>
+                <Polygon
+                  points="42,2 82,22 82,62 42,82 2,62 2,22"
+                  stroke={profile === 'user' ? '#5a2d82' : '#C9A15a'}
+                  strokeWidth="2.5"
+                  fill="transparent"
+                  strokeLinejoin="round"
+                />
+              </Svg>
+              <View style={styles.dragonflyIconInner}>
+                <DragonflyIcon width={36} height={36} />
+              </View>
+            </View>
+            <Text style={[styles.dragonflyTierText, { color: profile === 'user' ? '#5a2d82' : '#C9A15a' }]}>
+              {levelInfo.tier}
+            </Text>
+            {/* <Text style={styles.dragonflyLevelText}>
+              {levelInfo.levelText}
+            </Text> */}
+          </View>
+        </View>
 
         <View style={styles.statsGrid}>
           {stats.map((item) => (
@@ -707,5 +780,48 @@ const styles = StyleSheet.create({
 
   activeTabText: {
     color: '#FFF',
+  },
+  heroTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  heroTextContainer: {
+    width: '68%',
+  },
+  dragonflyContainer: {
+    width: '30%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  hexagonWrapper: {
+    width: 84,
+    height: 84,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  dragonflyIconInner: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dragonflyTierText: {
+    fontSize: 13,
+    fontWeight: '800',
+    marginTop: 6,
+    textAlign: 'center',
+  },
+  dragonflyLevelText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#8b8e9f',
+    marginTop: 2,
+    textAlign: 'center',
   },
 });

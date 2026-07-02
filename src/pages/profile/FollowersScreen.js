@@ -397,30 +397,36 @@ export default function FollowersFollowingScreen({ navigation, route }) {
   );
 
   const handleBack = () => {
-  const screenParams = route?.params?.screenParams || {};
-  const returnTo = route?.params?.returnTo;
+    const screenParams = route?.params?.screenParams || {};
+    const returnTo = route?.params?.returnTo;
 
-  if (returnTo === 'UserProfile') {
-    navigation.navigate('ProfileMain', {
-      screen: 'UsersProfile',
-      params: {
-        userId: screenParams?.userId || '',
-        username: screenParams?.username || '',
-      },
-    });
-  } else if (returnTo === 'Home') {
-    navigation.navigate('HomeMain', {
-      screen: 'UsersProfile',
-      params: {
-        userId: screenParams?.userId || '',
-        username: screenParams?.username || '',
-        returnTo: 'Search',
-      },
-    });
-  } else {
-    navigation.goBack();
-  }
-};
+    if (returnTo === 'UserProfile') {
+      if (screenParams?.userId) {
+        navigation.navigate('ProfileMain', {
+          screen: 'CreatorProfile',
+          params: {
+            userId: screenParams?.userId || '',
+            username: screenParams?.username || '',
+          },
+        });
+      } else {
+        navigation.navigate('ProfileMain', {
+          screen: 'Profile',
+        });
+      }
+    } else if (returnTo === 'Home') {
+      navigation.navigate('HomeMain', {
+        screen: 'UsersProfile',
+        params: {
+          userId: screenParams?.userId || '',
+          username: screenParams?.username || '',
+          returnTo: screenParams?.returnTo || 'Home',
+        },
+      });
+    } else {
+      navigation.goBack();
+    }
+  };
   const renderItem =
     tab =>
       ({ item }) => {
