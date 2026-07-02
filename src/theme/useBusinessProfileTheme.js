@@ -32,7 +32,7 @@ export function useBusinessProfileTheme() {
     }
   }, [reduxProfile]);
 
-  const theme = useAppTheme(isBusinessProfile ? 'company' : undefined);
+  const theme = useAppTheme(isBusinessProfile ? 'company' : 'user');
 
   return { isBusinessProfile, ...theme };
 }

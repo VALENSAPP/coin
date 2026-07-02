@@ -30,7 +30,7 @@ const ForgetPassword = () => {
   const dispatch = useDispatch();
   const [isEmailMode, setIsEmailMode] = useState(true);
   const toast = useToast();
-  const { bgStyle, textStyle, text } = useAppTheme();
+  const { bgStyle, textStyle, text, accent } = useAppTheme();
   const { t } = useLanguage();
 
   const handleContinue = async () => {
@@ -127,7 +127,7 @@ const ForgetPassword = () => {
 
             {/* Continue Button */}
             <TouchableOpacity
-              style={[styles.continueButton, { backgroundColor: text, shadowColor: text }]}
+              style={[styles.continueButton, { backgroundColor: accent, shadowColor: accent }]}
               onPress={handleContinue}
             >
               <Text style={styles.continueButtonText}>

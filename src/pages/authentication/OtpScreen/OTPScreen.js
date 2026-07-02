@@ -43,7 +43,7 @@ export default function OTPScreen() {
   const toast = useToast();
   const dispatch = useDispatch();
   const { email, password, type, profile } = route.params || {};
-  const { bgStyle, textStyle, text } = useAppTheme(profile);
+  const { bgStyle, textStyle, text, accent } = useAppTheme(profile);
   const { t } = useLanguage();
 
   useEffect(() => {
@@ -299,7 +299,7 @@ export default function OTPScreen() {
                 style={[
                   styles.confirmButton,
                   (loading || otp.length !== 6) && styles.confirmButtonDisabled,
-                  { backgroundColor: text, shadowColor: text }
+                  { backgroundColor: accent, shadowColor: accent }
                 ]}
                 onPress={() => {
                   if (otp.length !== 6) {

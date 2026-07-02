@@ -20,7 +20,7 @@ export default function BlockedVerification() {
       ? 'company'
       : 'user';
   const verificationType = profileType === 'company' ? 'KYB' : 'KYC';
-  const { bg, text, card } = useAppTheme(profileType);
+  const { bg, text, card, accent } = useAppTheme(profileType);
 
   const handleCompleteVerification = () => {
     if (profileType === 'company') {
@@ -35,7 +35,7 @@ export default function BlockedVerification() {
     <SafeAreaView style={[styles.safeArea, { backgroundColor: bg }]}>
       <View style={styles.container}>
         <View style={[styles.content, { backgroundColor: card }]}>
-          <View style={[styles.iconWrap, { backgroundColor: text }]}>
+          <View style={[styles.iconWrap, { backgroundColor: accent }]}>
             <Text style={styles.icon}>!</Text>
           </View>
 
@@ -56,7 +56,7 @@ export default function BlockedVerification() {
           <TouchableOpacity
             activeOpacity={0.9}
             onPress={handleCompleteVerification}
-            style={[styles.button, { backgroundColor: text }]}
+            style={[styles.button, { backgroundColor: accent }]}
           >
             <Text style={styles.buttonText}>
               {t('blockedVerification.completeButton', {

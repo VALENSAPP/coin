@@ -260,8 +260,17 @@ const FlowShell = ({
   subtitle,
   children,
 }) => {
-  const { bgStyle, textStyle, text, cardStyle } = useAppTheme();
+  const { bgStyle, textStyle, mutedTextStyle, accent, icon, cardStyle, border } = useAppTheme();
   const currentStep = steps.find(step => step.index === activeStep) || steps[0];
+  const themeProps = {
+    accent,
+    text: accent,
+    textStyle,
+    mutedTextStyle,
+    cardStyle,
+    border,
+    icon,
+  };
 
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
@@ -280,9 +289,9 @@ const FlowShell = ({
             onPress={() => navigation.goBack()}
             style={styles.backButton}
           >
-            <Ionicons name="chevron-back" size={24} color={text} />
+            <Ionicons name="chevron-back" size={24} color={icon} />
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: text }]}>{title}</Text>
+          <Text style={[styles.headerTitle, textStyle]}>{title}</Text>
           <View style={styles.headerSpacer} />
         </View>
 
@@ -295,8 +304,9 @@ const FlowShell = ({
                 <View
                   style={[
                     styles.stepCircle,
-                    { borderColor: withAlpha(text, 0.45) },
-                    (active || completed) && { backgroundColor: text },
+                    cardStyle,
+                    { borderColor: withAlpha(accent, 0.45) },
+                    (active || completed) && { backgroundColor: accent, borderColor: accent },
                   ]}
                 >
                   <Text
@@ -309,7 +319,12 @@ const FlowShell = ({
                   </Text>
                 </View>
                 {index < steps.length - 1 ? (
-                  <View style={[styles.stepConnectorLine, { backgroundColor: text }]} />
+                  <View
+                    style={[
+                      styles.stepConnectorLine,
+                      { backgroundColor: withAlpha(accent, completed || active ? 1 : 0.35) },
+                    ]}
+                  />
                 ) : null}
               </React.Fragment>
             );
@@ -318,7 +333,7 @@ const FlowShell = ({
 
         <View style={styles.heroBlock}>
           <Text style={[styles.heroTitle, textStyle]}>{currentStep.title}</Text>
-          <Text style={[styles.heroSubtitle, textStyle]}>
+          <Text style={[styles.heroSubtitle, mutedTextStyle]}>
             {subtitle || currentStep.subtitle}
           </Text>
         </View>
@@ -327,10 +342,10 @@ const FlowShell = ({
           style={[
             styles.card,
             cardStyle,
-            { borderColor: withAlpha(text, 0.14) },
+            { borderColor: border },
           ]}
         >
-          {children({ text })}
+          {children(themeProps)}
         </View>
       </KeyboardAwareScrollView>
     </SafeAreaView>
@@ -338,8 +353,17 @@ const FlowShell = ({
 };
 
 const Shell = ({ navigation, activeStep, children }) => {
-  const { bgStyle, textStyle, text, cardStyle } = useAppTheme();
+  const { bgStyle, textStyle, mutedTextStyle, accent, icon, cardStyle, border } = useAppTheme();
   const currentStep = STEPS.find(step => step.index === activeStep) || STEPS[0];
+  const themeProps = {
+    accent,
+    text: accent,
+    textStyle,
+    mutedTextStyle,
+    cardStyle,
+    border,
+    icon,
+  };
 
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
@@ -358,9 +382,9 @@ const Shell = ({ navigation, activeStep, children }) => {
             onPress={() => navigation.goBack()}
             style={styles.backButton}
           >
-            <Ionicons name="chevron-back" size={24} color={text} />
+            <Ionicons name="chevron-back" size={24} color={icon} />
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: text }]}>My Closet</Text>
+          <Text style={[styles.headerTitle, textStyle]}>My Closet</Text>
           <View style={styles.headerSpacer} />
         </View>
 
@@ -373,8 +397,9 @@ const Shell = ({ navigation, activeStep, children }) => {
                 <View
                   style={[
                     styles.stepCircle,
-                    { borderColor: withAlpha(text, 0.45) },
-                    (active || completed) && { backgroundColor: text },
+                    cardStyle,
+                    { borderColor: withAlpha(accent, 0.45) },
+                    (active || completed) && { backgroundColor: accent, borderColor: accent },
                   ]}
                 >
                   <Text
@@ -387,7 +412,12 @@ const Shell = ({ navigation, activeStep, children }) => {
                   </Text>
                 </View>
                 {index < STEPS.length - 1 ? (
-                  <View style={[styles.stepConnectorLine, { backgroundColor: text }]} />
+                  <View
+                    style={[
+                      styles.stepConnectorLine,
+                      { backgroundColor: withAlpha(accent, completed || active ? 1 : 0.35) },
+                    ]}
+                  />
                 ) : null}
               </React.Fragment>
             );
@@ -396,7 +426,7 @@ const Shell = ({ navigation, activeStep, children }) => {
 
         <View style={styles.heroBlock}>
           <Text style={[styles.heroTitle, textStyle]}>{currentStep.title}</Text>
-          <Text style={[styles.heroSubtitle, textStyle]}>
+          <Text style={[styles.heroSubtitle, mutedTextStyle]}>
             {currentStep.subtitle}
           </Text>
         </View>
@@ -405,24 +435,24 @@ const Shell = ({ navigation, activeStep, children }) => {
           style={[
             styles.card,
             cardStyle,
-            { borderColor: withAlpha(text, 0.14) },
+            { borderColor: border },
           ]}
         >
-          {children({ text })}
+          {children(themeProps)}
         </View>
       </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 };
 
-const PrimaryButton = ({ label, onPress, text, disabled = false }) => (
+const PrimaryButton = ({ label, onPress, accent, disabled = false }) => (
   <TouchableOpacity
     activeOpacity={0.9}
     onPress={disabled ? undefined : onPress}
     disabled={disabled}
     style={[
       styles.primaryButton,
-      { backgroundColor: text },
+      { backgroundColor: accent },
       disabled && styles.buttonDisabled,
     ]}
   >
@@ -430,13 +460,17 @@ const PrimaryButton = ({ label, onPress, text, disabled = false }) => (
   </TouchableOpacity>
 );
 
-const SecondaryButton = ({ label, onPress, text }) => (
+const SecondaryButton = ({ label, onPress, accent, cardStyle, textStyle }) => (
   <TouchableOpacity
     activeOpacity={0.9}
     onPress={onPress}
-    style={[styles.secondaryButton, { borderColor: withAlpha(text, 0.25) }]}
+    style={[
+      styles.secondaryButton,
+      cardStyle,
+      { borderColor: withAlpha(accent, 0.35) },
+    ]}
   >
-    <Text style={[styles.secondaryButtonText, { color: text }]}>{label}</Text>
+    <Text style={[styles.secondaryButtonText, textStyle]}>{label}</Text>
   </TouchableOpacity>
 );
 
@@ -806,7 +840,7 @@ const MyClosetCreateShopScreen = ({ navigation, route }) => {
   const [shopName, setShopName] = useState(draft.shopName || '');
   const [username, setUsername] = useState(draft.username || '');
   const [errors, setErrors] = useState({});
-  const { text } = useAppTheme();
+  const { accent, textStyle, cardStyle, mutedTextStyle } = useAppTheme();
   const nextDraft = useMemo(
     () => ({ ...draft, shopName, username }),
     [draft, shopName, username],
@@ -840,7 +874,7 @@ const MyClosetCreateShopScreen = ({ navigation, route }) => {
                 setErrors(prev => ({ ...prev, shopName: null }));
               }
             }}
-            text={text}
+            text={accent}
             error={errors.shopName}
           />
           <Field
@@ -854,28 +888,28 @@ const MyClosetCreateShopScreen = ({ navigation, route }) => {
               }
             }}
             prefix="valens.app/"
-            text={text}
+            text={accent}
             error={errors.username}
           />
 
           <View style={styles.featureList}>
             <View style={styles.featureRow}>
-              <Ionicons name="bulb-outline" size={18} color={text} />
+              <Ionicons name="bulb-outline" size={18} color={accent} />
               <Text style={styles.featureText}>Easy to find</Text>
             </View>
             <View style={styles.featureRow}>
-              <Ionicons name="pricetag-outline" size={18} color={text} />
+              <Ionicons name="pricetag-outline" size={18} color={accent} />
               <Text style={styles.featureText}>Build your brand</Text>
             </View>
             <View style={styles.featureRow}>
-              <Ionicons name="people-outline" size={18} color={text} />
+              <Ionicons name="people-outline" size={18} color={accent} />
               <Text style={styles.featureText}>Grow your community</Text>
             </View>
           </View>
 
           <PrimaryButton
             label="Continue"
-            text={text}
+            accent={accent}
             onPress={handleContinue}
           />
         </>
@@ -889,7 +923,7 @@ const MyClosetUploadLogoScreen = ({ navigation, route }) => {
   const [logoChosen, setLogoChosen] = useState(Boolean(draft.logo));
   const [logo, setLogo] = useState(draft.logo || null);
   const [error, setError] = useState('');
-  const { text } = useAppTheme();
+  const { accent, textStyle, cardStyle, mutedTextStyle } = useAppTheme();
 
   const nextDraft = useMemo(
     () => ({ ...draft, logoChosen, logo }),
@@ -965,8 +999,8 @@ const MyClosetUploadLogoScreen = ({ navigation, route }) => {
               style={[
                 styles.logoHero,
                 {
-                  borderColor: withAlpha(text, 0.35),
-                  backgroundColor: mixWithWhite(text, 0.94),
+                  borderColor: withAlpha(accent, 0.35),
+                  backgroundColor: mixWithWhite(accent, 0.94),
                 },
               ]}
             >
@@ -978,8 +1012,8 @@ const MyClosetUploadLogoScreen = ({ navigation, route }) => {
                 />
               ) : (
                 <>
-                  <Ionicons name="add" size={42} color={text} />
-                  <Text style={[styles.logoHeroLabel, { color: text }]}>Upload logo</Text>
+                  <Ionicons name="add" size={42} color={accent} />
+                  <Text style={[styles.logoHeroLabel, textStyle]}>Upload logo</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -987,7 +1021,9 @@ const MyClosetUploadLogoScreen = ({ navigation, route }) => {
           </View>
           <SecondaryButton
             label="Choose from library"
-            text={text}
+            accent={accent}
+            cardStyle={cardStyle}
+            textStyle={textStyle}
             onPress={pickFromLibrary}
           />
           <InlineError message={error} />
@@ -997,7 +1033,7 @@ const MyClosetUploadLogoScreen = ({ navigation, route }) => {
 
           <PrimaryButton
             label="Continue"
-            text={text}
+            accent={accent}
             onPress={handleContinue}
           />
         </>
@@ -1014,7 +1050,7 @@ const MyClosetTellUsScreen = ({ navigation, route }) => {
   const [locationModalVisible, setLocationModalVisible] = useState(false);
   const [expandedField, setExpandedField] = useState(null);
   const [errors, setErrors] = useState({});
-  const { text } = useAppTheme();
+  const { accent, textStyle, cardStyle, mutedTextStyle } = useAppTheme();
 
   const nextDraft = useMemo(
     () => ({ ...draft, description, category, location }),
@@ -1055,7 +1091,7 @@ const MyClosetTellUsScreen = ({ navigation, route }) => {
             }}
             multiline
             height={120}
-            text={text}
+            text={accent}
             error={errors.description}
           />
           <DropdownRow
@@ -1076,7 +1112,7 @@ const MyClosetTellUsScreen = ({ navigation, route }) => {
               }
             }}
             options={CATEGORY_OPTIONS}
-            text={text}
+            text={accent}
             error={errors.category}
           />
           <View style={styles.fieldBlock}>
@@ -1086,7 +1122,7 @@ const MyClosetTellUsScreen = ({ navigation, route }) => {
               onPress={() => setLocationModalVisible(true)}
               style={[
                 styles.dropdownRow,
-                { borderColor: withAlpha(text, 0.16) },
+                { borderColor: withAlpha(accent, 0.16) },
               ]}
             >
               <Ionicons
@@ -1104,7 +1140,7 @@ const MyClosetTellUsScreen = ({ navigation, route }) => {
               >
                 {location.trim() || 'Select your location'}
               </Text>
-              <Ionicons name="chevron-forward" size={18} color={text} />
+              <Ionicons name="chevron-forward" size={18} color={accent} />
             </TouchableOpacity>
           </View>
 
@@ -1121,7 +1157,7 @@ const MyClosetTellUsScreen = ({ navigation, route }) => {
 
           <PrimaryButton
             label="Continue"
-            text={text}
+            accent={accent}
             onPress={handleContinue}
           />
         </>
@@ -1141,7 +1177,7 @@ const MyClosetPreferencesScreen = ({ navigation, route }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const dispatch = useDispatch();
   const toast = useToast();
-  const { text } = useAppTheme();
+  const { accent, textStyle, cardStyle, mutedTextStyle } = useAppTheme();
   const userProfile = useSelector(state => state.userProfile.userProfile);
   const nextDraft = useMemo(
     () => ({ ...draft, shipping, returnPolicy, paymentMethod, whoCanBuy }),
@@ -1256,7 +1292,7 @@ const MyClosetPreferencesScreen = ({ navigation, route }) => {
                         : [...prev, choice.value],              // add to selection
                     );
                   }}
-                  text={text}
+                  text={accent}
                   icon={choice.icon}
                 />
               );
@@ -1284,7 +1320,7 @@ const MyClosetPreferencesScreen = ({ navigation, route }) => {
               }
             }}
             options={RETURN_POLICY_OPTIONS}
-            text={text}
+            text={accent}
             error={errors.returnPolicy}
           />
 
@@ -1292,8 +1328,8 @@ const MyClosetPreferencesScreen = ({ navigation, route }) => {
             style={[
               styles.paymentCard,
               {
-                borderColor: withAlpha(text, 0.16),
-                backgroundColor: mixWithWhite(text, 0.95),
+                borderColor: withAlpha(accent, 0.16),
+                backgroundColor: mixWithWhite(accent, 0.95),
               },
             ]}
           >
@@ -1301,7 +1337,7 @@ const MyClosetPreferencesScreen = ({ navigation, route }) => {
               <Ionicons
                 name="shield-checkmark-outline"
                 size={20}
-                color={text}
+                color={accent}
               />
             </View>
             <View style={styles.paymentCopy}>
@@ -1310,7 +1346,7 @@ const MyClosetPreferencesScreen = ({ navigation, route }) => {
                 Get paid securely on Valens
               </Text>
             </View>
-            <Ionicons name="checkmark-circle" size={20} color={text} />
+            <Ionicons name="checkmark-circle" size={20} color={accent} />
           </View>
 
           <DropdownRow
@@ -1328,13 +1364,13 @@ const MyClosetPreferencesScreen = ({ navigation, route }) => {
               setExpandedField(null);
             }}
             options={WHO_CAN_BUY_OPTIONS}
-            text={text}
+            text={accent}
             error={errors.whoCanBuy}
           />
 
           <PrimaryButton
             label="Launch My Closet"
-            text={text}
+            accent={accent}
             onPress={handleContinue}
             disabled={isSubmitting}
           />
@@ -1349,7 +1385,7 @@ const MyClosetLiveScreen = ({ navigation, route }) => {
   const draft = route?.params?.draft || {};
   const isFirstItem = route?.params?.isFirstItem ?? true;
   const itemTitle = isFirstItem ? 'Add My First Item' : 'Add New Item';
-  const { text, bgStyle } = useAppTheme();
+  const { accent, textStyle, cardStyle, mutedTextStyle, bgStyle } = useAppTheme();
   const toast = useToast();
   const shopLink = useMemo(
     () =>
@@ -1397,22 +1433,22 @@ const MyClosetLiveScreen = ({ navigation, route }) => {
           <View
             style={[
               styles.successAvatar,
-              { borderColor: withAlpha(text, 0.18), backgroundColor: '#fff' },
+              { borderColor: withAlpha(accent, 0.18), backgroundColor: '#fff' },
             ]}
           >
-            <Ionicons name="bag-handle-outline" size={28} color={text} />
+            <Ionicons name="bag-handle-outline" size={28} color={accent} />
           </View>
           <View style={styles.successBadge}>
             <Ionicons name="checkmark" size={14} color="#fff" />
           </View>
         </View>
 
-        <Text style={[styles.successTitle, { color: text }]}>{userProfile == 'user' ? 'Your Closet is Live!' : 'Your Shop is Live!'}</Text>
+        <Text style={[styles.successTitle, textStyle]}>{userProfile == 'user' ? 'Your Closet is Live!' : 'Your Shop is Live!'}</Text>
         <Text style={styles.successSubtitle}>
           Your personal shop is ready. Start adding items and share your style.
         </Text>
 
-        <View style={[styles.linkCard, { borderColor: withAlpha(text, 0.16) }]}>
+        <View style={[styles.linkCard, cardStyle, { borderColor: withAlpha(accent, 0.16) }]}>
           <View style={styles.linkCopy}>
             <Text style={styles.linkLabel}>Your shop link</Text>
             <Text style={styles.linkValue}>{shopLink}</Text>
@@ -1422,21 +1458,23 @@ const MyClosetLiveScreen = ({ navigation, route }) => {
             onPress={copyShopLink}
             style={styles.copyButton}
           >
-            <Ionicons name="copy-outline" size={18} color={text} />
+            <Ionicons name="copy-outline" size={18} color={accent} />
           </TouchableOpacity>
         </View>
 
         <View style={styles.successActions}>
           <SecondaryButton
             label={userProfile == 'user' ? "Go to My Closet" : "Go to My Shop"}
-            text={text}
+            accent={accent}
+            cardStyle={cardStyle}
+            textStyle={textStyle}
             onPress={() => {
               navigation.navigate('Profile', { initialTab: 'closet' })
             }}
           />
           <PrimaryButton
             label={itemTitle}
-            text={text}
+            accent={accent}
             onPress={() => {
               navigation.navigate('MyClosetAddItemPhotos', { draft: {}, isFirstItem: isFirstItem });
             }}
@@ -1498,7 +1536,7 @@ const MyClosetAddItemPhotosScreen = ({ navigation, route }) => {
   const itemTitle = isFirstItem ? 'Add My First Item' : 'Add New Item';
   const [photos, setPhotos] = useState(draft.photos || []);
   const [error, setError] = useState('');
-  const { text } = useAppTheme();
+  const { accent, textStyle, cardStyle, mutedTextStyle } = useAppTheme();
   const { t } = useLanguage();
 
   const handleSelectedPhotos = assets => {
@@ -1596,12 +1634,12 @@ const MyClosetAddItemPhotosScreen = ({ navigation, route }) => {
               <TouchableOpacity
                 activeOpacity={0.9}
                 onPress={addPhotos}
-                style={[styles.photoUploadCard, { borderColor: text }]}
+                style={[styles.photoUploadCard, { borderColor: accent }]}
               >
                 <View style={styles.photoHeroIconWrap}>
-                  <Ionicons name="images-outline" size={40} color={text} />
+                  <Ionicons name="images-outline" size={40} color={accent} />
                 </View>
-                <Text style={[styles.photoHeroLabel, { color: text }]}>
+                <Text style={[styles.photoHeroLabel, textStyle]}>
                   {t('myClosetAddItem.addPhotos')}
                 </Text>
                 <Text style={styles.photoHeroSubLabel}>
@@ -1612,19 +1650,19 @@ const MyClosetAddItemPhotosScreen = ({ navigation, route }) => {
 
               <View style={styles.photoTips}>
                 <View style={styles.tipRow}>
-                  <Ionicons name="sunny-outline" size={16} color={text} />
+                  <Ionicons name="sunny-outline" size={16} color={accent} />
                   <Text style={styles.tipText}>
                     {t('myClosetAddItem.tipNaturalLight')}
                   </Text>
                 </View>
                 <View style={styles.tipRow}>
-                  <Ionicons name="camera-outline" size={16} color={text} />
+                  <Ionicons name="camera-outline" size={16} color={accent} />
                   <Text style={styles.tipText}>
                     {t('myClosetAddItem.tipAngles')}
                   </Text>
                 </View>
                 <View style={styles.tipRow}>
-                  <Ionicons name="scan-outline" size={16} color={text} />
+                  <Ionicons name="scan-outline" size={16} color={accent} />
                   <Text style={styles.tipText}>
                     {t('myClosetAddItem.tipCloseUps')}
                   </Text>
@@ -1668,7 +1706,7 @@ const MyClosetAddItemPhotosScreen = ({ navigation, route }) => {
                   onPress={pickFromGallery}
                   style={styles.addMoreMiniButton}
                 >
-                  <Ionicons name="images-outline" size={18} color={text} />
+                  <Ionicons name="images-outline" size={18} color={accent} />
                   <Text style={styles.addMoreMiniText}>
                     {t('myClosetAddItem.addFromGallery')}
                   </Text>
@@ -1678,7 +1716,7 @@ const MyClosetAddItemPhotosScreen = ({ navigation, route }) => {
                   onPress={pickFromCamera}
                   style={styles.addMoreMiniButton}
                 >
-                  <Ionicons name="camera-outline" size={18} color={text} />
+                  <Ionicons name="camera-outline" size={18} color={accent} />
                   <Text style={styles.addMoreMiniText}>
                     {t('myClosetAddItem.addFromCamera')}
                   </Text>
@@ -1689,7 +1727,7 @@ const MyClosetAddItemPhotosScreen = ({ navigation, route }) => {
 
           <PrimaryButton
             label={t('myClosetAddItem.continue')}
-            text={text}
+            accent={accent}
             onPress={handleContinue}
           />
         </>
@@ -1709,7 +1747,7 @@ const MyClosetAddItemDetailsScreen = ({ navigation, route }) => {
   const [description, setDescription] = useState(draft.description || '');
   const [expandedField, setExpandedField] = useState(null);
   const [errors, setErrors] = useState({});
-  const { text } = useAppTheme();
+  const { accent, textStyle, cardStyle, mutedTextStyle } = useAppTheme();
 
   const nextDraft = useMemo(
     () => ({ ...draft, itemName, brand, category, condition, description }),
@@ -1751,7 +1789,7 @@ const MyClosetAddItemDetailsScreen = ({ navigation, route }) => {
               if (errors.itemName)
                 setErrors(prev => ({ ...prev, itemName: null }));
             }}
-            text={text}
+            text={accent}
             error={errors.itemName}
           />
           <DropdownRow
@@ -1771,7 +1809,7 @@ const MyClosetAddItemDetailsScreen = ({ navigation, route }) => {
                 setErrors(prev => ({ ...prev, category: null }));
             }}
             options={ITEM_CATEGORY_OPTIONS}
-            text={text}
+            text={accent}
             error={errors.category}
           />
           <Field
@@ -1779,7 +1817,7 @@ const MyClosetAddItemDetailsScreen = ({ navigation, route }) => {
             placeholder="e.g. Zara"
             value={brand}
             onChangeText={setBrand}
-            text={text}
+            text={accent}
           />
           <DropdownRow
             label="Condition"
@@ -1798,7 +1836,7 @@ const MyClosetAddItemDetailsScreen = ({ navigation, route }) => {
                 setErrors(prev => ({ ...prev, condition: null }));
             }}
             options={ITEM_CONDITION_OPTIONS}
-            text={text}
+            text={accent}
             error={errors.condition}
           />
           <Field
@@ -1812,13 +1850,13 @@ const MyClosetAddItemDetailsScreen = ({ navigation, route }) => {
             }}
             multiline
             height={120}
-            text={text}
+            text={accent}
             error={errors.description}
           />
 
           <PrimaryButton
             label="Continue"
-            text={text}
+            accent={accent}
             onPress={handleContinue}
           />
         </>
@@ -1834,7 +1872,7 @@ const MyClosetAddItemPriceScreen = ({ navigation, route }) => {
   const [price, setPrice] = useState(draft.price || '');
   const [quantity, setQuantity] = useState(Number(draft.quantity || 1));
   const [errors, setErrors] = useState({});
-  const { text, bgStyle } = useAppTheme();
+  const { accent, textStyle, cardStyle, mutedTextStyle, bgStyle } = useAppTheme();
 
   const nextDraft = useMemo(
     () => ({ ...draft, price, quantity }),
@@ -1873,7 +1911,7 @@ const MyClosetAddItemPriceScreen = ({ navigation, route }) => {
               if (errors.price) setErrors(prev => ({ ...prev, price: null }));
             }}
             prefix="USD"
-            text={text}
+            text={accent}
             error={errors.price}
             keyboardType="numeric"
           />
@@ -1883,7 +1921,7 @@ const MyClosetAddItemPriceScreen = ({ navigation, route }) => {
               value={quantity}
               onMinus={() => setQuantity(prev => Math.max(1, prev - 1))}
               onPlus={() => setQuantity(prev => prev + 1)}
-              text={text}
+              text={accent}
               bgStyle={bgStyle}
             />
             <Text style={styles.helperLine}>
@@ -1891,9 +1929,9 @@ const MyClosetAddItemPriceScreen = ({ navigation, route }) => {
             </Text>
           </View>
 
-          <View style={[styles.feeCard, bgStyle, { borderColor: text }]}>
+          <View style={[styles.feeCard, bgStyle, { borderColor: accent }]}>
             <View style={styles.feeHeader}>
-              <Text style={[styles.feeTitle, { color: text }]}>Fees & Payout</Text>
+              <Text style={[styles.feeTitle, textStyle]}>Fees & Payout</Text>
               <Ionicons
                 name="information-circle-outline"
                 size={16}
@@ -1909,7 +1947,7 @@ const MyClosetAddItemPriceScreen = ({ navigation, route }) => {
 
           <PrimaryButton
             label="Continue"
-            text={text}
+            accent={accent}
             onPress={handleContinue}
           />
         </>
@@ -1930,7 +1968,7 @@ const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
   const draft = route?.params?.draft || {};
   const isFirstItem = route?.params?.isFirstItem ?? true;
   const itemTitle = isFirstItem ? 'Add My First Item' : 'Add New Item';
-  const { text } = useAppTheme();
+  const { accent, textStyle, cardStyle, mutedTextStyle } = useAppTheme();
 
   // Delivery methods — both can be selected at once
   const [shippingEnabled, setShippingEnabled] = useState(
@@ -2231,7 +2269,7 @@ const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
     >
       {() => (
         <>
-          <SectionHeader icon="cube-outline" title="Shipping options" text={text} />
+          <SectionHeader icon="cube-outline" title="Shipping options" text={accent} />
           <Text style={styles.helperLineTop}>Choose how buyers will receive this item.</Text>
 
           <View style={styles.deliveryGrid}>
@@ -2241,7 +2279,7 @@ const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
               bullets={['Buyer provides address', 'You handle shipping']}
               selected={shippingEnabled}
               onPress={toggleShipping}
-              text={text}
+              text={accent}
               icon="cube-outline"
             />
             <DeliveryOptionCard
@@ -2250,7 +2288,7 @@ const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
               bullets={['Buyer picks up', 'No shipping cost']}
               selected={pickupEnabled}
               onPress={togglePickup}
-              text={text}
+              text={accent}
               icon="location-outline"
             />
           </View>
@@ -2272,7 +2310,7 @@ const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
 
           {shippingEnabled ? (
             <View style={styles.detailBlock}>
-              <SectionHeader icon="cube-outline" title="Shipping details" text={text} />
+              <SectionHeader icon="cube-outline" title="Shipping details" text={accent} />
               <DropdownRow
                 label="Estimated shipping time"
                 placeholder="Select time"
@@ -2287,7 +2325,7 @@ const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
                   if (errors.shippingTime) setErrors(prev => ({ ...prev, shippingTime: null }));
                 }}
                 options={ITEM_SHIPPING_TIME_OPTIONS}
-                text={text}
+                text={accent}
                 error={errors.shippingTime}
               />
               <DropdownRow
@@ -2304,7 +2342,7 @@ const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
                   if (errors.shippingFee) setErrors(prev => ({ ...prev, shippingFee: null }));
                 }}
                 options={ITEM_SHIPPING_FEE_OPTIONS}
-                text={text}
+                text={accent}
                 error={errors.shippingFee}
               />
             </View>
@@ -2316,7 +2354,7 @@ const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
                 icon="location-outline"
                 title="Local pickup details"
                 badge="Local pickup"
-                text={text}
+                text={accent}
               />
               {hasPlacesApi ? (
                 <>
@@ -2336,7 +2374,7 @@ const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
                       setExpandedField(null);
                       setCityPredictions([]);
                     }}
-                    text={text}
+                    text={accent}
                     error={errors.pickupCity}
                     query={cityQuery}
                     onQueryChange={value => {
@@ -2366,7 +2404,7 @@ const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
                       setExpandedField(null);
                       setPickupPredictions([]);
                     }}
-                    text={text}
+                    text={accent}
                     error={errors.pickupLocation}
                     query={pickupQuery}
                     onQueryChange={value => {
@@ -2398,7 +2436,7 @@ const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
                     onToggle={() => setExpandedField(prev => (prev === 'pickupCity' ? null : 'pickupCity'))}
                     onSelect={handleSelectCityFallback}
                     options={PICKUP_CITY_OPTIONS}
-                    text={text}
+                    text={accent}
                     error={errors.pickupCity}
                   />
                   <DropdownRow
@@ -2412,7 +2450,7 @@ const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
                     }}
                     onSelect={handleSelectPickupLocationFallback}
                     options={pickupLocationOptions}
-                    text={text}
+                    text={accent}
                     error={errors.pickupLocation}
                   />
                 </>
@@ -2423,7 +2461,7 @@ const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
                 onPress={() => setHoursExpanded(prev => !prev)}
                 style={styles.hoursRow}
               >
-                <Ionicons name="time-outline" size={16} color={text} />
+                <Ionicons name="time-outline" size={16} color={accent} />
                 <View style={styles.hoursCopy}>
                   <Text style={styles.hoursLabel}>Available hours</Text>
                   <Text style={styles.hoursValue}>
@@ -2436,7 +2474,7 @@ const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
                 <Ionicons
                   name={hoursExpanded ? 'chevron-up' : 'chevron-down'}
                   size={16}
-                  color={text}
+                  color={accent}
                 />
               </TouchableOpacity>
 
@@ -2458,7 +2496,7 @@ const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
                           setExpandedField(null);
                         }}
                         options={PICKUP_TIME_OPTIONS}
-                        text={text}
+                        text={accent}
                       />
                     </View>
                     <View style={styles.hoursEditorField}>
@@ -2475,7 +2513,7 @@ const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
                           setExpandedField(null);
                         }}
                         options={PICKUP_TIME_OPTIONS}
-                        text={text}
+                        text={accent}
                       />
                     </View>
                   </View>
@@ -2495,7 +2533,7 @@ const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
                           setExpandedField(null);
                         }}
                         options={PICKUP_TIME_OPTIONS}
-                        text={text}
+                        text={accent}
                       />
                     </View>
                     <View style={styles.hoursEditorField}>
@@ -2512,7 +2550,7 @@ const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
                           setExpandedField(null);
                         }}
                         options={PICKUP_TIME_OPTIONS}
-                        text={text}
+                        text={accent}
                       />
                     </View>
                   </View>
@@ -2520,7 +2558,7 @@ const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
               ) : null}
 
               <View style={styles.chatToggleRow}>
-                <Ionicons name="chatbubble-ellipses-outline" size={18} color={text} />
+                <Ionicons name="chatbubble-ellipses-outline" size={18} color={accent} />
                 <View style={styles.chatToggleCopy}>
                   <Text style={styles.chatToggleLabel}>Buyer chat</Text>
                   <Text style={styles.chatToggleSubtext}>
@@ -2530,7 +2568,7 @@ const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
                 <ToggleSwitch
                   value={buyerChatEnabled}
                   onValueChange={setBuyerChatEnabled}
-                  accent={text}
+                  accent={accent}
                 />
               </View>
               {buyerChatEnabled ? (
@@ -2539,8 +2577,8 @@ const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
                   onPress={previewChat}
                   style={styles.previewChatButton}
                 >
-                  <Ionicons name="chatbubble-outline" size={14} color={text} />
-                  <Text style={[styles.previewChatText, { color: text }]}>Preview chat</Text>
+                  <Ionicons name="chatbubble-outline" size={14} color={accent} />
+                  <Text style={[styles.previewChatText, textStyle]}>Preview chat</Text>
                 </TouchableOpacity>
               ) : null}
             </View>
@@ -2561,14 +2599,14 @@ const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
                 if (errors.returnPolicy) setErrors(prev => ({ ...prev, returnPolicy: null }));
               }}
               options={RETURN_POLICY_OPTIONS}
-              text={text}
+              text={accent}
               error={errors.returnPolicy}
             />
           </View>
 
           <PrimaryButton
             label="Continue"
-            text={text}
+            accent={accent}
             onPress={handleContinue}
           />
         </>
@@ -2581,7 +2619,7 @@ const MyClosetAddItemReviewScreen = ({ navigation, route }) => {
   const draft = route?.params?.draft || {};
   const isFirstItem = route?.params?.isFirstItem ?? true;  // add
   const itemTitle = isFirstItem ? 'Add My First Item' : 'Add New Item';
-  const { text } = useAppTheme();
+  const { accent, textStyle, cardStyle, mutedTextStyle } = useAppTheme();
   const dispatch = useDispatch();
   const toast = useToast();
   const [isPublishing, setIsPublishing] = useState(false);
@@ -2762,7 +2800,7 @@ const MyClosetAddItemReviewScreen = ({ navigation, route }) => {
 
           <PrimaryButton
             label={isPublishing ? 'Publishing...' : 'Publish Item'}
-            text={text}
+            accent={accent}
             onPress={publish}
             disabled={isPublishing}
           />
@@ -2775,7 +2813,7 @@ const MyClosetAddItemReviewScreen = ({ navigation, route }) => {
 const MyClosetAddItemPublishedScreen = ({ navigation, route }) => {
   const draft = route?.params?.draft || {};
   const item = route?.params?.item || {};
-  const { text, bgStyle } = useAppTheme();
+  const { accent, textStyle, cardStyle, mutedTextStyle, bgStyle } = useAppTheme();
   const heroPhoto = draft.photos?.[0];
   const publishedName = item?.name || draft.itemName || 'Vintage Leather Jacket';
   const publishedPrice =
@@ -2803,12 +2841,12 @@ const MyClosetAddItemPublishedScreen = ({ navigation, route }) => {
         </View>
 
         <View style={styles.itemLiveIconWrap}>
-          <View style={[styles.itemLiveIcon, { borderColor: text }]}>
-            <Ionicons name="bag-handle-outline" size={36} color={text} />
+          <View style={[styles.itemLiveIcon, { borderColor: accent }]}>
+            <Ionicons name="bag-handle-outline" size={36} color={accent} />
           </View>
         </View>
 
-        <Text style={[styles.successTitle, { color: text }]}>Your item is live! 🎉</Text>
+        <Text style={[styles.successTitle, textStyle]}>Your item is live! 🎉</Text>
         <Text style={styles.successSubtitle}>
           Nice work! Your item is now visible in your closet.
         </Text>
@@ -2842,12 +2880,12 @@ const MyClosetAddItemPublishedScreen = ({ navigation, route }) => {
             onPress={handleShareItem}
             style={styles.nextActionCard}
           >
-            <Ionicons name="share-social-outline" size={18} color={text} />
+            <Ionicons name="share-social-outline" size={18} color={accent} />
             <Text style={styles.nextActionText}>Share your item</Text>
           </TouchableOpacity>
 
           {/* <View style={styles.nextActionCard}>
-            <Ionicons name="bag-outline" size={18} color={text} />
+            <Ionicons name="bag-outline" size={18} color={accent} />
             <Text style={styles.nextActionText}>Manage my closet</Text>
           </View> */}
         </View>
@@ -2855,14 +2893,16 @@ const MyClosetAddItemPublishedScreen = ({ navigation, route }) => {
         <View style={styles.successActions}>
           <SecondaryButton
             label="Go to My Closet"
-            text={text}
+            accent={accent}
+            cardStyle={cardStyle}
+            textStyle={textStyle}
             onPress={() =>
               navigation.navigate('Profile', { initialTab: 'closet' })
             }
           />
           <PrimaryButton
             label="Add Another Item"
-            text={text}
+            accent={accent}
             onPress={() =>
               navigation.navigate('MyClosetAddItemPhotos', { draft: {}, isFirstItem: false })
             }

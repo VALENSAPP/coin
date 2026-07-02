@@ -22,6 +22,15 @@ import {
 } from '../../services/googlePlaces';
 import { useAppTheme } from '../../theme/useApptheme';
 
+const withAlpha = (hex, alpha = 0.12) => {
+  const normalized = String(hex || '').replace('#', '');
+  if (normalized.length !== 6) return `rgba(124,58,237,${alpha})`;
+  const r = parseInt(normalized.slice(0, 2), 16);
+  const g = parseInt(normalized.slice(2, 4), 16);
+  const b = parseInt(normalized.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+};
+
 const requestLocationPermission = async t => {
   if (Platform.OS === 'ios') {
     try {
@@ -99,7 +108,7 @@ const PostLocationModal = ({
   const debounceRef = useRef(null);
   const locationBiasRef = useRef(null);
   const hasPlacesApi = isGooglePlacesConfigured();
-  const { text } = useAppTheme();
+  const { accent, textStyle, cardStyle, mutedText, mutedTextStyle, icon } = useAppTheme();
 
   useEffect(() => {
     if (!visible) return;
@@ -216,16 +225,16 @@ const PostLocationModal = ({
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={styles.backdrop}>
           <TouchableWithoutFeedback>
-            <View style={styles.card}>
-              <Text style={styles.title}>{t('postItem.editLocationTitle')}</Text>
-              <Text style={styles.hint}>{t('postItem.editLocationHint')}</Text>
+            <View style={[styles.card, cardStyle]}>
+              <Text style={[styles.title, textStyle]}>{t('postItem.editLocationTitle')}</Text>
+              <Text style={[styles.hint, mutedTextStyle]}>{t('postItem.editLocationHint')}</Text>
 
               <TextInput
-                style={styles.input}
+                style={[styles.input, cardStyle, textStyle, { borderColor: withAlpha(accent, 0.25) }]}
                 value={draft}
                 onChangeText={setDraft}
                 placeholder={t('postItem.searchLocationPlaceholder')}
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={mutedText}
                 autoFocus
                 maxLength={160}
                 returnKeyType="done"
@@ -238,23 +247,23 @@ const PostLocationModal = ({
                   onPress={handleUseCurrentLocation}
                   disabled={locating || saving}>
                   {locating ? (
-                    <ActivityIndicator size="small" color={text} />
+                    <ActivityIndicator size="small" color={accent} />
                   ) : (
                     <>
-                      <Icon name="navigate" size={16} color={text} />
-                      <Text style={[styles.currentLocationText, { color: text }]}>
+                      <Icon name="navigate" size={16} color={accent} />
+                      <Text style={[styles.currentLocationText, { color: accent }]}>
                         {t('postItem.useCurrentLocation')}
                       </Text>
                     </>
                   )}
                 </TouchableOpacity>
               ) : (
-                <Text style={styles.apiWarning}>{t('postItem.placesApiMissing')}</Text>
+                <Text style={[styles.apiWarning, mutedTextStyle]}>{t('postItem.placesApiMissing')}</Text>
               )}
 
               {searching ? (
                 <View style={styles.searchingRow}>
-                  <ActivityIndicator size="small" color="#5a2d82" />
+                  <ActivityIndicator size="small" color={accent} />
                 </View>
               ) : null}
 
@@ -265,10 +274,10 @@ const PostLocationModal = ({
                   data={predictions}
                   keyExtractor={item => item.id}
                   keyboardShouldPersistTaps="handled"
-                  style={styles.predictionsList}
+                  style={[styles.predictionsList, cardStyle, { borderColor: withAlpha(accent, 0.2) }]}
                   renderItem={({ item }) => (
                     <TouchableOpacity
-                      style={styles.predictionRow}
+                      style={[styles.predictionRow, { borderBottomColor: withAlpha(accent, 0.12) }]}
                       onPress={() => handleSelectPrediction(item.description)}>
                       <Icon
                         name={
@@ -277,9 +286,9 @@ const PostLocationModal = ({
                             : 'location-outline'
                         }
                         size={16}
-                        color="#6B7280"
+                        color={icon}
                       />
-                      <Text style={styles.predictionText} numberOfLines={2}>
+                      <Text style={[styles.predictionText, textStyle]} numberOfLines={2}>
                         {item.description}
                       </Text>
                     </TouchableOpacity>
@@ -288,7 +297,7 @@ const PostLocationModal = ({
               ) : null}
 
               <TouchableOpacity
-                style={[styles.saveBtn, saving && styles.saveBtnDisabled, { backgroundColor: text }]}
+                style={[styles.saveBtn, saving && styles.saveBtnDisabled, { backgroundColor: accent }]}
                 onPress={handleSave}
                 disabled={saving}>
                 {saving ? (
@@ -299,7 +308,7 @@ const PostLocationModal = ({
               </TouchableOpacity>
 
               <TouchableOpacity onPress={onClose} style={styles.cancelBtn}>
-                <Text style={[styles.cancelText, { color: text }]}>{t('postItem.cancelLocation')}</Text>
+                <Text style={[styles.cancelText, { color: accent }]}>{t('postItem.cancelLocation')}</Text>
               </TouchableOpacity>
             </View>
           </TouchableWithoutFeedback>

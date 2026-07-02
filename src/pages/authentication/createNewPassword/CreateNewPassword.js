@@ -35,7 +35,7 @@ const NewPasswordScreen = () => {
   const toast = useToast();
   const navigation = useNavigation();
   const route = useRoute();
-  const { bgStyle, textStyle, text } = useAppTheme();
+  const { bgStyle, textStyle, text, accent } = useAppTheme();
   const { t } = useLanguage(); // i18n
 
   const { email, otp } = route.params || {};
@@ -224,7 +224,7 @@ const NewPasswordScreen = () => {
 
               {/* Reset Password Button */}
               <TouchableOpacity
-                style={[styles.resetButton, { backgroundColor: text, shadowColor: text }]}
+                style={[styles.resetButton, { backgroundColor: accent, shadowColor: accent }]}
                 onPress={onReset}
               >
                 <Text style={styles.resetButtonText}>{t('newPassword.resetButton')}</Text>

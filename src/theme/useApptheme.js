@@ -7,25 +7,31 @@ import {
   normalDarkTheme,
 } from './theme';
 
-export const useAppTheme = (profileTypeOverride) => {
-  const { isDarkMode } = useThemeContext();
+const resolveTheme = (profileType, isDarkMode) => {
+  const normalized =
+    typeof profileType === 'string' ? profileType.toLowerCase() : '';
+
+  if (normalized === 'company') {
+    return isDarkMode ? businessDarkTheme : businessTheme;
+  }
+
+  if (normalized === 'user') {
+    return isDarkMode ? normalDarkTheme : normalTheme;
+  }
+
+  return null;
+};
+
+export const useAppTheme = profileTypeOverride => {
+  const { isDarkMode, theme: contextTheme } = useThemeContext();
 
   const normalizedProfileType =
     typeof profileTypeOverride === 'string'
       ? profileTypeOverride.toLowerCase()
       : undefined;
 
-  let resolvedTheme;
-
-  if (normalizedProfileType === 'company') {
-    resolvedTheme = isDarkMode
-      ? businessDarkTheme
-      : businessTheme;
-  } else {
-    resolvedTheme = isDarkMode
-      ? normalDarkTheme
-      : normalTheme;
-  }
+  const resolvedTheme =
+    resolveTheme(normalizedProfileType, isDarkMode) ?? contextTheme;
 
   return {
     ...resolvedTheme,
@@ -43,6 +49,12 @@ export const useAppTheme = (profileTypeOverride) => {
     },
     mutedTextStyle: {
       color: resolvedTheme.mutedText,
+    },
+    accentStyle: {
+      color: resolvedTheme.accent,
+    },
+    buttonBgStyle: {
+      backgroundColor: resolvedTheme.accent,
     },
   };
 };
