@@ -4127,6 +4127,9 @@
     "useInsightsText": "Cet article est plus apprécié par la communauté. Pensez à le promouvoir ou à créer des articles similaires.",
     "shareResults": "Partager les résultats",
     "viewItem": "Voir l'article",
+    "useInsights": "Utiliser les analyses",
+    "viewBattle": "Voir la bataille",
+    "totalVotesCount": "{{count}} votes au total",
     "stats": {
       "votes": "Votes",
       "views": "Vues",
@@ -4243,5 +4246,85 @@
       "deleteSuccess": "Mon Dressing a été supprimé avec succès.",
       "deleteFailed": "Impossible de supprimer Mon Dressing."
     }
+  },
+  "battleInsights": {
+    "headerTitle": "Analyses et actions",
+    "winner": "Gagnant",
+    "whatNext": "Que souhaitez-vous faire ensuite ?",
+    "boostTitle": "Mettre en avant l'article gagnant",
+    "boostSubtitle": "Obtenez plus de vues et de ventes",
+    "promotionTitle": "Créer une promotion pour le gagnant",
+    "promotionSubtitle": "Lancez une remise ou une offre spéciale",
+    "challengeTitle": "Défier un autre article",
+    "challengeSubtitle": "Commencer une nouvelle bataille",
+    "challengeHeaderTitle": "Article de la bataille",
+    "challengeDefaultQuestion": "Quelles lunettes de soleil préférez-vous ?"
+  },
+  "boost": {
+    "headerTitle": "Mettre en avant l'article gagnant",
+    "headerHint": "Ajoutez un badge, épinglez-le et faites-le découvrir à plus de personnes.",
+    "badgeTitle": "Badge de gagnant de la bataille",
+    "badgeSubtitle": "Afficher le badge sur le produit",
+    "pinTitle": "Épingler en haut de Mon Dressing",
+    "pinSubtitle": "Afficher cet article en haut",
+    "packageTitle": "Promouvoir auprès de plus de personnes",
+    "days": "{{count}} jours",
+    "continue": "Continuer",
+    "reviewTitle": "Vérifier la promotion",
+    "on": "Activé",
+    "off": "Désactivé",
+    "packageLabel": "Pack de promotion",
+    "estimatedViews": "Vues estimées",
+    "starts": "Commence",
+    "immediately": "Immédiatement",
+    "total": "Total",
+    "boostNow": "Promouvoir maintenant",
+    "boostedTitle": "Article promu 🚀",
+    "boostedMessage": "Votre article est épinglé et en cours de promotion.",
+    "done": "Terminé"
+  },
+  "promotion": {
+    "headerTitle": "Créer une promotion",
+    "chooseType": "Choisissez votre promotion",
+    "types": {
+      "discount24": {
+        "title": "10 % de réduction pendant 24 heures",
+        "subtitle": "Réduction à durée limitée"
+      },
+      "freeShipping": {
+        "title": "Livraison gratuite",
+        "subtitle": "Offrir la livraison gratuite"
+      },
+      "exclusiveDrop": {
+        "title": "Lancement exclusif",
+        "subtitle": "Accès anticipé pour les abonnés"
+      },
+      "vipOnly": {
+        "title": "Accès réservé aux VIP",
+        "subtitle": "Accès spécial pour les VIP"
+      },
+      "winnerSale": {
+        "title": "Promotion du gagnant de la bataille",
+        "subtitle": "Mettez en avant et faites la promotion du gagnant"
+      }
+    },
+    "next": "Suivant",
+    "detailsTitle": "Détails de la promotion",
+    "discountLabel": "Réduction %",
+    "durationLabel": "Durée",
+    "messageLabel": "Message (facultatif)",
+    "defaultMessage": "Merci d'avoir voté ! Profitez de 10 % de réduction sur le gagnant de notre bataille pendant seulement 24 heures.",
+    "preview": "Aperçu de la promotion",
+    "previewTitle": "Aperçu de la promotion",
+    "bannerTag": "PROMOTION DU GAGNANT DE LA BATAILLE",
+    "bannerDiscount": "{{discount}} % DE RÉDUCTION",
+    "bannerSub": "Pendant {{duration}} seulement",
+    "starts": "Commence",
+    "ends": "Se termine",
+    "startsValue": "Immédiatement",
+    "endsValue": "Après {{duration}}",
+    "launch": "Lancer la promotion",
+    "liveTitle": "Promotion en ligne 🎉",
+    "liveMessage": "Votre promotion est maintenant active sur le produit."
   }
 }

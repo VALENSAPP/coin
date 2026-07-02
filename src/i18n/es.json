@@ -4127,6 +4127,9 @@
     "useInsightsText": "Este artículo es más popular entre la comunidad. Considera promocionarlo o crear artículos similares.",
     "shareResults": "Compartir resultados",
     "viewItem": "Ver artículo",
+    "useInsights": "Usar estadísticas",
+    "viewBattle": "Ver batalla",
+    "totalVotesCount": "{{count}} votos en total",
     "stats": {
       "votes": "Votos",
       "views": "Visualizaciones",
@@ -4243,5 +4246,85 @@
       "deleteSuccess": "Mi Armario se eliminó correctamente.",
       "deleteFailed": "No se pudo eliminar Mi Armario."
     }
+  },
+  "battleInsights": {
+    "headerTitle": "Estadísticas y acciones",
+    "winner": "Ganador",
+    "whatNext": "¿Qué te gustaría hacer ahora?",
+    "boostTitle": "Impulsar el artículo ganador",
+    "boostSubtitle": "Consigue más visitas y ventas",
+    "promotionTitle": "Crear promoción del ganador",
+    "promotionSubtitle": "Lanza un descuento u oferta especial",
+    "challengeTitle": "Desafiar a otro artículo",
+    "challengeSubtitle": "Inicia una nueva batalla",
+    "challengeHeaderTitle": "Artículo de la batalla",
+    "challengeDefaultQuestion": "¿Qué gafas de sol prefieres?"
+  },
+  "boost": {
+    "headerTitle": "Impulsar el artículo ganador",
+    "headerHint": "Añade una insignia, fíjalo y muéstralo a más personas.",
+    "badgeTitle": "Insignia de ganador de la batalla",
+    "badgeSubtitle": "Mostrar insignia en el producto",
+    "pinTitle": "Fijar en la parte superior de Mi Armario",
+    "pinSubtitle": "Mostrar este artículo en la parte superior",
+    "packageTitle": "Impulsar a más personas",
+    "days": "{{count}} días",
+    "continue": "Continuar",
+    "reviewTitle": "Revisar impulso",
+    "on": "Activado",
+    "off": "Desactivado",
+    "packageLabel": "Paquete de impulso",
+    "estimatedViews": "Visitas estimadas",
+    "starts": "Comienza",
+    "immediately": "Inmediatamente",
+    "total": "Total",
+    "boostNow": "Impulsar ahora",
+    "boostedTitle": "Artículo impulsado 🚀",
+    "boostedMessage": "Tu artículo está fijado y ya se está promocionando.",
+    "done": "Hecho"
+  },
+  "promotion": {
+    "headerTitle": "Crear promoción",
+    "chooseType": "Elige tu promoción",
+    "types": {
+      "discount24": {
+        "title": "10 % de descuento durante 24 horas",
+        "subtitle": "Descuento por tiempo limitado"
+      },
+      "freeShipping": {
+        "title": "Envío gratis",
+        "subtitle": "Ofrece envío gratuito"
+      },
+      "exclusiveDrop": {
+        "title": "Lanzamiento exclusivo",
+        "subtitle": "Acceso anticipado para seguidores"
+      },
+      "vipOnly": {
+        "title": "Acceso exclusivo para VIP",
+        "subtitle": "Acceso especial para VIP"
+      },
+      "winnerSale": {
+        "title": "Oferta del ganador de la batalla",
+        "subtitle": "Destaca y promociona al ganador"
+      }
+    },
+    "next": "Siguiente",
+    "detailsTitle": "Detalles de la promoción",
+    "discountLabel": "Descuento %",
+    "durationLabel": "Duración",
+    "messageLabel": "Mensaje (opcional)",
+    "defaultMessage": "¡Gracias por votar! Disfruta de un 10 % de descuento en nuestro ganador de la batalla durante solo 24 horas.",
+    "preview": "Vista previa de la promoción",
+    "previewTitle": "Vista previa de la promoción",
+    "bannerTag": "OFERTA DEL GANADOR DE LA BATALLA",
+    "bannerDiscount": "{{discount}} % DE DESCUENTO",
+    "bannerSub": "Solo por {{duration}}",
+    "starts": "Comienza",
+    "ends": "Termina",
+    "startsValue": "Inmediatamente",
+    "endsValue": "Después de {{duration}}",
+    "launch": "Lanzar promoción",
+    "liveTitle": "Promoción activa 🎉",
+    "liveMessage": "Tu promoción ya está activa en el producto."
   }
 }

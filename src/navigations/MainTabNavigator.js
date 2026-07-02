@@ -143,6 +143,7 @@ import LanguageSelectionScreen from '../pages/settings/LanguageSelectionScreen';
 import { useLanguage } from '../i18n';
 import MyClosetOrdersScreen from '../components/profile/MyClosetOrdersScreen';
 import MyClosetOrderDetailScreen from '../components/profile/MyClosetOrderDetailScreen';
+import { BattleInsightsActionsScreen } from '../pages/profile/Myclosetbattleinsightsscreens';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -436,6 +437,7 @@ export default function MainTabNavigator() {
           name="MyClosetItemEditor"
           component={MyClosetItemEditorScreen}
         />
+         <Stack.Screen name="BattleInsightsActions" component={BattleInsightsActionsScreen} />
         <Stack.Screen name="MyClosetOrders" component={MyClosetOrdersScreen} />
         <Stack.Screen name="MyClosetOrderDetail" component={MyClosetOrderDetailScreen} />
         <Stack.Screen name="MyClosetBuyerItems" component={MyClosetBuyerItemsScreen} />

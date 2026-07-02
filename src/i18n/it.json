@@ -4046,35 +4046,6 @@
     "addNewItem": "Aggiungi nuovo articolo"
   },
   "myClosetOrderDetail": {
-    "headerTitle": "Dettagli ordine",
-    "orderNumberTitle": "Ordine n. {{orderNumber}}",
-    "missingOrderReference": "Riferimento ordine mancante.",
-    "couldNotLoadOrder": "Impossibile caricare i dettagli dell'ordine.",
-    "couldntLoadOrder": "Impossibile caricare l'ordine.",
-    "retry": "Riprova",
-    "orderStatusUpdated": "Stato dell'ordine aggiornato.",
-    "unableToUpdateStatus": "Impossibile aggiornare lo stato dell'ordine.",
-    "buyer": "Acquirente",
-    "shippingAddress": "Indirizzo di spedizione",
-    "items": "Articoli ({{count}})",
-    "qty": "Qtà: {{count}}",
-    "noItemDetails": "Nessun dettaglio disponibile per questo ordine.",
-    "orderTotal": "Totale ordine",
-    "updating": "Aggiornamento…",
-    "defaultItemName": "Articolo",
-    "markAsProcessing": "Segna come in elaborazione",
-    "markAsShipped": "Segna come spedito",
-    "markAsDelivered": "Segna come consegnato",
-    "status": {
-      "pending": "Da spedire",
-      "confirmed": "Confermato",
-      "processing": "In elaborazione",
-      "shipped": "Spedito",
-      "delivered": "Consegnato",
-      "cancelled": "Annullato"
-    }
-  },
-  "myClosetOrderDetail": {
     "headerTitle": "Détails de la commande",
     "orderNumberTitle": "Commande n° {{orderNumber}}",
     "missingOrderReference": "Référence de commande manquante.",
@@ -4101,6 +4072,77 @@
       "shipped": "Expédiée",
       "delivered": "Livrée",
       "cancelled": "Annulée"
+    }
+  },
+  "battle": {
+    "headerTitle": "Articolo in sfida",
+    "winner": "Vincitore",
+    "vs": "VS",
+    "stepper": {
+      "items": "Articoli",
+      "setup": "Configurazione",
+      "preview": "Anteprima"
+    },
+    "shareTitle": "Condividi",
+    "shareUnavailable": "Impossibile aprire la finestra di condivisione in questo momento.",
+    "sharePreviewMessage": "Guarda l'anteprima della mia sfida del guardaroba su Valens.",
+    "shareSetupMessage": "Configurazione della sfida: {{question}}",
+    "sharePreviewQuestionMessage": "Anteprima di questa sfida: {{question}}",
+    "shareLiveMessage": "Vota nella mia sfida del guardaroba in diretta su Valens.",
+    "shareResultsMessage": "Guarda i risultati della mia sfida del guardaroba su Valens.",
+    "chooseItemsTitle": "Scegli gli articoli per la sfida",
+    "chooseItemsHint": "Seleziona 2 articoli dal tuo guardaroba",
+    "next": "Avanti",
+    "defaultQuestion": "Quale preferisci?",
+    "questionLabel": "Domanda della sfida",
+    "typeLabel": "Tipo di sfida",
+    "opinionBattle": "Sfida di opinione",
+    "opinionBattleSub": "Gli utenti votano il loro preferito",
+    "styleBattle": "Sfida di stile",
+    "styleBattleSub": "Gli utenti votano in base all'abbinamento degli stili",
+    "durationLabel": "Durata della sfida",
+    "duration24h": "24 ore",
+    "duration3d": "3 giorni",
+    "duration7d": "7 giorni",
+    "whoCanVote": "Chi può votare?",
+    "change": "Modifica",
+    "visibilityLabel": "Visibilità",
+    "public": "Pubblico",
+    "private": "Privato",
+    "followersOnly": "Solo follower",
+    "previewBattle": "Anteprima della sfida",
+    "previewTitle": "Anteprima della sfida",
+    "daysLeft": "Restano {{count}} giorni",
+    "everyoneCanVote": "Tutti possono votare",
+    "aboutTitle": "Informazioni su questa sfida",
+    "aboutTextPreview": "Aiuta gli altri a scegliere il loro preferito!",
+    "launchBattle": "Avvia sfida",
+    "liveTitle": "Sfida in diretta",
+    "voteAndSeeResults": "Vota e visualizza i risultati",
+    "voteHelpsOthers": "Il tuo voto aiuta gli altri a decidere!",
+    "voteFor": "Vota per {{name}}",
+    "resultsTitle": "Risultati della sfida",
+    "battleInsights": "Statistiche della sfida",
+    "useInsightsTitle": "Usa queste informazioni",
+    "useInsightsText": "Questo articolo è più popolare nella community. Valuta di promuoverlo o di creare articoli simili.",
+    "shareResults": "Condividi i risultati",
+    "viewItem": "Visualizza articolo",
+    "useInsights": "Usa statistiche",
+    "viewBattle": "Visualizza sfida",
+    "totalVotesCount": "{{count}} voti totali",
+    "stats": {
+      "votes": "Voti",
+      "views": "Visualizzazioni",
+      "comments": "Commenti",
+      "totalVotes": "Totale voti",
+      "totalViews": "Totale visualizzazioni",
+      "shares": "Condivisioni"
+    },
+    "errors": {
+      "questionRequired": "La domanda della sfida è obbligatoria.",
+      "typeRequired": "Seleziona un tipo di sfida.",
+      "durationRequired": "Seleziona una durata per la sfida.",
+      "visibilityRequired": "La visibilità è obbligatoria."
     }
   },
   "shopSettings": {
@@ -4204,5 +4246,85 @@
       "deleteSuccess": "Il Mio Armadio è stato eliminato con successo.",
       "deleteFailed": "Impossibile eliminare Il Mio Armadio."
     }
+  },
+  "battleInsights": {
+    "headerTitle": "Analyses et actions",
+    "winner": "Gagnant",
+    "whatNext": "Que souhaitez-vous faire ensuite ?",
+    "boostTitle": "Mettre en avant l'article gagnant",
+    "boostSubtitle": "Obtenez plus de vues et de ventes",
+    "promotionTitle": "Créer une promotion pour le gagnant",
+    "promotionSubtitle": "Lancez une remise ou une offre spéciale",
+    "challengeTitle": "Défier un autre article",
+    "challengeSubtitle": "Commencer une nouvelle bataille",
+    "challengeHeaderTitle": "Article de la bataille",
+    "challengeDefaultQuestion": "Quelles lunettes de soleil préférez-vous ?"
+  },
+  "boost": {
+    "headerTitle": "Mettre en avant l'article gagnant",
+    "headerHint": "Ajoutez un badge, épinglez-le et faites-le découvrir à plus de personnes.",
+    "badgeTitle": "Badge de gagnant de la bataille",
+    "badgeSubtitle": "Afficher le badge sur le produit",
+    "pinTitle": "Épingler en haut de Mon Dressing",
+    "pinSubtitle": "Afficher cet article en haut",
+    "packageTitle": "Promouvoir auprès de plus de personnes",
+    "days": "{{count}} jours",
+    "continue": "Continuer",
+    "reviewTitle": "Vérifier la promotion",
+    "on": "Activé",
+    "off": "Désactivé",
+    "packageLabel": "Pack de promotion",
+    "estimatedViews": "Vues estimées",
+    "starts": "Commence",
+    "immediately": "Immédiatement",
+    "total": "Total",
+    "boostNow": "Promouvoir maintenant",
+    "boostedTitle": "Article promu 🚀",
+    "boostedMessage": "Votre article est épinglé et en cours de promotion.",
+    "done": "Terminé"
+  },
+  "promotion": {
+    "headerTitle": "Créer une promotion",
+    "chooseType": "Choisissez votre promotion",
+    "types": {
+      "discount24": {
+        "title": "10 % de réduction pendant 24 heures",
+        "subtitle": "Réduction à durée limitée"
+      },
+      "freeShipping": {
+        "title": "Livraison gratuite",
+        "subtitle": "Offrir la livraison gratuite"
+      },
+      "exclusiveDrop": {
+        "title": "Lancement exclusif",
+        "subtitle": "Accès anticipé pour les abonnés"
+      },
+      "vipOnly": {
+        "title": "Accès réservé aux VIP",
+        "subtitle": "Accès spécial pour les VIP"
+      },
+      "winnerSale": {
+        "title": "Promotion du gagnant de la bataille",
+        "subtitle": "Mettez en avant et faites la promotion du gagnant"
+      }
+    },
+    "next": "Suivant",
+    "detailsTitle": "Détails de la promotion",
+    "discountLabel": "Réduction %",
+    "durationLabel": "Durée",
+    "messageLabel": "Message (facultatif)",
+    "defaultMessage": "Merci d'avoir voté ! Profitez de 10 % de réduction sur le gagnant de notre bataille pendant seulement 24 heures.",
+    "preview": "Aperçu de la promotion",
+    "previewTitle": "Aperçu de la promotion",
+    "bannerTag": "PROMOTION DU GAGNANT DE LA BATAILLE",
+    "bannerDiscount": "{{discount}} % DE RÉDUCTION",
+    "bannerSub": "Pendant {{duration}} seulement",
+    "starts": "Commence",
+    "ends": "Se termine",
+    "startsValue": "Immédiatement",
+    "endsValue": "Après {{duration}}",
+    "launch": "Lancer la promotion",
+    "liveTitle": "Promotion en ligne 🎉",
+    "liveMessage": "Votre promotion est maintenant active sur le produit."
   }
 }
