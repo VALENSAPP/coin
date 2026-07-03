@@ -16,7 +16,6 @@ import PostItem from './PostItem';
 import Suggestion from './suggestion';
 
 import {
-  getPostlikes,
   likePost,
   savePost,
   unSavePost,
@@ -72,7 +71,6 @@ const Posts = forwardRef(function Posts(
   const [postLikesCount, setPostLikesCount] = useState({});
   const [postCommentsCount, setPostCommentsCount] = useState({});
   const [likingIds, setLikingIds] = useState(new Set());
-  const [postLikes, setPostLikes] = useState({});
   const [commentPostId, setCommentPostId] = useState(null);
   const [commentPostOwnerId, setCommentPostOwnerId] = useState(null);
   const [currentUserId, setCurrentUserId] = useState(null);

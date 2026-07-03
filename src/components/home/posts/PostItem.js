@@ -46,6 +46,7 @@ import {
   unVote,
   voteTrust,
   editPost,
+  getPostlikes,
 } from '../../../services/post';
 import {
   formatMintedDateTime,
@@ -582,6 +583,9 @@ function PostItem({
   const [userId, setUserId] = useState(null);
   const [isMuted, setIsMuted] = useState(true);
   const [showBuyersModal, setShowBuyersModal] = useState(false);
+  const [showLikesModal, setShowLikesModal] = useState(false);
+  const [likesUsers, setLikesUsers] = useState([]);
+  const [likesLoading, setLikesLoading] = useState(false);
   const [showTaggedPeopleModal, setShowTaggedPeopleModal] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [videoLoaded, setVideoLoaded] = useState({});
@@ -1215,6 +1219,62 @@ function PostItem({
     onToggleLike?.(item.id);
     animateHeart();
   }, [localLiked, onToggleLike, item.id, animateHeart]);
+
+  const parseLikeListUsers = useCallback(response => {
+    const payload = response?.data ?? response;
+    const list = Array.isArray(payload?.data)
+      ? payload.data
+      : Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.likes)
+          ? payload.likes
+          : [];
+    return list.map((entry, index) => ({
+      id: entry?.userId ?? entry?.user?.id ?? entry?.likedBy ?? entry?.id ?? `like-${index}`,
+      username:
+        entry?.userName ??
+        entry?.username ??
+        entry?.displayName ??
+        entry?.user?.userName ??
+        entry?.user?.username ??
+        '',
+      fullName:
+        entry?.fullName ??
+        entry?.name ??
+        entry?.displayName ??
+        entry?.user?.fullName ??
+        entry?.user?.name ??
+        '',
+      avatar:
+        entry?.image ??
+        entry?.avatar ??
+        entry?.userImage ??
+        entry?.profilePicture ??
+        entry?.user?.image ??
+        entry?.user?.avatar ??
+        null,
+      profile: entry?.profile ?? entry?.user?.profile ?? 'user',
+    }));
+  }, []);
+
+  const handleViewLikes = useCallback(async () => {
+    if (!item?.id || localLikesCount <= 0 || likesLoading) return;
+
+    setLikesLoading(true);
+    try {
+      const res = await getPostlikes(String(item.id));
+      setLikesUsers(parseLikeListUsers(res));
+      setShowLikesModal(true);
+    } catch (error) {
+      showToastMessage(
+        toast,
+        'danger',
+        error?.response?.data?.message || t('postItem.loadLikesError'),
+      );
+    } finally {
+      setLikesLoading(false);
+    }
+  }, [item?.id, localLikesCount, likesLoading, parseLikeListUsers, toast, t]);
 
   const unwrapTrustPayload = useCallback(response => {
     const payload = response?.data ?? response;
@@ -1954,19 +2014,43 @@ function PostItem({
         {/* Actions */}
         <View style={styles.actionsSection}>
           <View style={styles.leftActions}>
-            <TouchableOpacity onPress={handleLike} style={styles.actionButton}>
-              <Animated.View style={{ transform: [{ scale: heartScale }] }}>
-                <Thumbup
-                  width={24}
-                  height={24}
-                  style={[
-                    styles.actionSvgIcon,
-                    !localLiked && styles.actionSvgIconInactive,  
-                  ]}
-                />
-              </Animated.View>
-              <Text style={styles.actionCount}>{localLikesCount}</Text>  
-            </TouchableOpacity>
+            <View style={[styles.actionButton, styles.likeActionGroup]}>
+              <TouchableOpacity
+                onPress={handleLike}
+                style={styles.likeIconButton}
+                accessibilityLabel={localLiked ? t('postItem.unlikePost') : t('postItem.likePost')}
+                accessibilityRole="button">
+                <Animated.View style={{ transform: [{ scale: heartScale }] }}>
+                  <Thumbup
+                    width={24}
+                    height={24}
+                    style={[
+                      styles.actionSvgIcon,
+                      !localLiked && styles.actionSvgIconInactive,
+                    ]}
+                  />
+                </Animated.View>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleViewLikes}
+                disabled={localLikesCount <= 0 || likesLoading}
+                style={styles.likeCountButton}
+                accessibilityLabel={t('postItem.viewLikes')}
+                accessibilityRole="button"
+                accessibilityState={{ disabled: localLikesCount <= 0 }}>
+                {likesLoading ? (
+                  <ActivityIndicator size="small" color="#6B7280" style={styles.likeCountLoader} />
+                ) : (
+                  <Text
+                    style={[
+                      styles.actionCount,
+                      localLikesCount > 0 && styles.actionCountClickable,
+                    ]}>
+                    {localLikesCount}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
 
             <TouchableOpacity
               onPress={() => onComment?.(item.id, item.UserId)}
@@ -2415,6 +2499,24 @@ function PostItem({
           handleUserProfile(resolvedId);
         }}
       />
+      <BuyersListModal
+        visible={showLikesModal}
+        onClose={() => setShowLikesModal(false)}
+        users={likesUsers}
+        title={t('postItem.likedBy')}
+        searchPlaceholder={t('postItem.searchLikes')}
+        emptyTitle={t('postItem.noLikesYet')}
+        emptyText={t('postItem.noLikesYetText')}
+        onUserPress={(id, likeItem) => {
+          setShowLikesModal(false);
+          const resolvedId =
+            likeItem?.id ||
+            likeItem?.userId ||
+            likeItem?._id ||
+            id;
+          handleUserProfile(resolvedId);
+        }}
+      />
       <SupportCreatorModal
         visible={modalVisible}
         creatorName={item?.username || t('postItem.defaultCreatorName')}
@@ -2771,13 +2873,33 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  likeActionGroup: {
+    minWidth: 36,
+  },
+  likeIconButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  likeCountButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 18,
+    minWidth: 24,
+    marginTop: 2,
+  },
+  likeCountLoader: {
+    marginTop: 0,
+  },
   actionSvgIcon: { opacity: 1 },
   actionSvgIconInactive: { opacity: 0.7 },
   actionCount: {
     fontSize: 12,
     color: '#6B7280',
     fontWeight: '600',
-    marginTop: 2,
+  },
+  actionCountClickable: {
+    color: '#374151',
+    textDecorationLine: 'underline',
   },
   mintedSection: {
     flexDirection: 'row',
