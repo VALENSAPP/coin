@@ -3727,7 +3727,9 @@
     "shippingFee": "Costo de envío",
     "taxAmount": "Impuesto",
     "platformFee": "Cargo por servicio",
-    "discountAmount": "Descuento"
+    "discountAmount": "Descuento",
+    "confirmingPayment": "Confirmando el pago…",
+    "paymentNotConfirmedError": "Aún no hemos podido confirmar tu pago. Revisa Mis pedidos dentro de unos momentos."
   },
   "myClosetShared": {
     "headerTitle": "Mi Armario",

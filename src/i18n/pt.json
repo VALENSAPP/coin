@@ -3727,7 +3727,9 @@
     "shippingFee": "Custo de envio",
     "taxAmount": "Imposto",
     "platformFee": "Taxa de serviço",
-    "discountAmount": "Desconto"
+    "discountAmount": "Desconto",
+    "confirmingPayment": "Confirmando o pagamento…",
+    "paymentNotConfirmedError": "Ainda não foi possível confirmar o seu pagamento. Verifique Meus Pedidos em alguns instantes."
   },
   "myClosetShared": {
     "headerTitle": "Meu Closet",

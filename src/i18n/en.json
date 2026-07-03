@@ -3730,7 +3730,9 @@
     "shippingFee": "Shipping fee",
     "taxAmount": "Tax",
     "platformFee": "Service fee",
-    "discountAmount": "Discount"
+    "discountAmount": "Discount",
+    "confirmingPayment": "Confirming payment…",
+    "paymentNotConfirmedError": "We couldn't confirm your payment yet. Please check My Orders in a few moments."
   },
   "myClosetShared": {
     "headerTitle": "My Closet",

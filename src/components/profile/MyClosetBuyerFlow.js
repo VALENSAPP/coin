@@ -32,6 +32,7 @@ import {
   getClosetItemsByClosetId,
   setCartItemShippingChoice,
   createPaymentSession,
+  getPaymentDetails,
 } from '../../services/myCloset';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useLanguage } from '../../i18n';
@@ -2112,6 +2113,61 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
   const addr = route?.params?.shippingAddress ?? null;
   const requiresShipping = route?.params?.requiresShipping ?? true;
 
+  const pollForPaidPayment = useCallback(async (cartId, { attempts = 8, delayMs = 1500 } = {}) => {
+    for (let i = 0; i < attempts; i += 1) {
+      try {
+        const response = await getPaymentDetails();
+        const list = response?.data?.data ?? response?.data ?? [];
+        const match = Array.isArray(list)
+          ? list.find(p => p?.cartId === cartId && p?.status === 'PAID')
+          : null;
+        if (match) return match;
+      } catch {
+        // ignore and retry
+      }
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+    }
+    return null;
+  }, []);
+
+  const finalizeOrder = useCallback(async cartId => {
+    setChecking(true);
+    const payment = await pollForPaidPayment(cartId);
+    setChecking(false);
+
+    if (!payment) {
+      Alert.alert(
+        t('myClosetBuyer.errorTitle'),
+        t('myClosetBuyer.paymentNotConfirmedError'),
+      );
+      return;
+    }
+
+    navigation.navigate('MyClosetBuyerOrderReceived', {
+      ...route.params,
+      payment,               // full payment record: orderId, transactionId, amount, metadata.items, etc.
+      orderId: payment.orderId,
+    });
+  }, [navigation, pollForPaidPayment, route.params, t]);
+
+  // Listen for the app being reopened via the Stripe success/cancel deep link
+  useEffect(() => {
+    const cartId = route?.params?.cartId;
+    if (!cartId) return undefined;
+
+    const handleUrl = ({ url }) => {
+      if (!url) return;
+      // Adjust this check to match your actual return-URL scheme,
+      // e.g. 'valens://payment-success' or a query param check.
+      if (url.includes('payment-success') || url.includes('payment-return')) {
+        finalizeOrder(cartId);
+      }
+    };
+
+    const subscription = Linking.addEventListener('url', handleUrl);
+    return () => subscription.remove();
+  }, [route?.params?.cartId, finalizeOrder]);
+
   const handleContinue = async () => {
     const cartId = route?.params?.cartId;
     const addressId = addr?.id ?? null;
@@ -2248,9 +2304,9 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
       </ScrollView>
       <View style={styles.bottomBar}>
         <BottomButton
-          label={t('myClosetBuyer.placeOrder')}
+          label={checking ? t('myClosetBuyer.confirmingPayment') : t('myClosetBuyer.placeOrder')}
           icon="lock-closed-outline"
-          onPress={() => handleContinue()}
+          onPress={checking ? undefined : handleContinue}
         />
       </View>
     </SafeAreaView>
@@ -2260,16 +2316,17 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
 const MyClosetBuyerOrderReceivedScreen = ({ navigation, route }) => {
   const { text } = useAppTheme();
   const { t } = useLanguage();
+  const payment = route?.params?.payment ?? null;
   const cart = buildCart(route, t);
-  const today = new Date();
-  const orderId = useMemo(() => `V${String(Date.now()).slice(-7)}`, []);
+
+  const orderId = payment?.orderId || route?.params?.orderId;
+  const amount = payment?.amount != null ? payment.amount / 100 : cart.total; // amount is in cents per your sample
+  const orderDate = payment?.createdAt ? new Date(payment.createdAt) : new Date();
+  const items = payment?.metadata?.items ?? [];
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView
-        contentContainerStyle={styles.receivedContent}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView contentContainerStyle={styles.receivedContent} showsVerticalScrollIndicator={false}>
         <View style={styles.confettiArea}>
           {[...Array(18)].map((_, index) => (
             <View
@@ -2289,33 +2346,36 @@ const MyClosetBuyerOrderReceivedScreen = ({ navigation, route }) => {
           </View>
         </View>
         <Text style={[styles.receivedTitle, { color: text }]}>{t('myClosetBuyer.orderReceivedTitle')}</Text>
-        <Text style={styles.receivedSubtitle}>
-          {t('myClosetBuyer.orderReceivedSubtitle')}
-        </Text>
+        <Text style={styles.receivedSubtitle}>{t('myClosetBuyer.orderReceivedSubtitle')}</Text>
         <View style={styles.orderCard}>
           <View style={styles.orderCardHeader}>
             <View>
-              <Text style={styles.orderId}>{t('myClosetBuyer.orderIdLabel', { id: orderId })}</Text>
+              <Text style={styles.orderId}>
+                {t('myClosetBuyer.orderIdLabel', { id: orderId ? String(orderId).slice(-7).toUpperCase() : '—' })}
+              </Text>
               <Text style={styles.orderDate}>
-                {today.toLocaleDateString()} at{' '}
-                {today.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                {orderDate.toLocaleDateString()} at{' '}
+                {orderDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </Text>
             </View>
             <Text style={[styles.editText, { color: text }]}>{t('myClosetBuyer.viewDetails')}</Text>
           </View>
           <View style={styles.divider} />
-          <Text style={styles.sectionLabel}>{t('myClosetBuyer.estimatedDelivery')}</Text>
-          <Text style={styles.addressText}>May 13 - May 15, 2026</Text>
-          <Text style={[styles.receivedTotal, { color: text }]}>{t('myClosetBuyer.totalLabel', { amount: currency(cart.total) })}</Text>
+          {items.length > 0 ? (
+            items.map((it, idx) => (
+              <Text key={idx} style={styles.addressText}>
+                {it.name} × {it.quantity}
+              </Text>
+            ))
+          ) : null}
+          <Text style={[styles.receivedTotal, { color: text, marginTop: 10 }]}>
+            {t('myClosetBuyer.totalLabel', { amount: currency(amount) })}
+          </Text>
         </View>
       </ScrollView>
       <View style={styles.bottomBar}>
         <BottomButton label={t('myClosetBuyer.continueShopping')} onPress={() => navigation.popToTop?.()} />
-        <TouchableOpacity
-          activeOpacity={0.85}
-          style={styles.secondaryButton}
-          onPress={() => navigation.popToTop?.()}
-        >
+        <TouchableOpacity activeOpacity={0.85} style={styles.secondaryButton} onPress={() => navigation.popToTop?.()}>
           <Text style={[styles.secondaryButtonText, { color: text }]}>{t('myClosetBuyer.goToMyOrders')}</Text>
         </TouchableOpacity>
       </View>
