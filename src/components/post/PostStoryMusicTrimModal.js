@@ -95,6 +95,7 @@ function formatTimeMmSs(seconds) {
 
 export default function PostStoryMusicTrimModal({
   visible,
+  embedded = false,
   audioSel,
   initialTrim,
   lyricsBundle = null,
@@ -399,14 +400,7 @@ export default function PostStoryMusicTrimModal({
 
   if (!visible || !useLibraryMusic || !hasLibraryMusicPlayback) return null;
 
-  return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      presentationStyle="fullScreen"
-      statusBarTranslucent
-      onRequestClose={handleCancel}
-    >
+  const content = (
       <SafeAreaView style={styles.igMusicEditorRoot} edges={['top', 'bottom']}>
         <View style={styles.igMusicHeader}>
           <Pressable onPress={handleCancel} hitSlop={12} style={styles.igHeaderSideBtn}>
@@ -807,11 +801,32 @@ export default function PostStoryMusicTrimModal({
           ) : null}
         </View>
       </SafeAreaView>
+  );
+
+  if (embedded) {
+    return <View style={styles.embeddedHost}>{content}</View>;
+  }
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="fullScreen"
+      statusBarTranslucent
+      onRequestClose={handleCancel}
+    >
+      {content}
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  embeddedHost: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 2100,
+    elevation: 2100,
+    backgroundColor: '#0a0a0d',
+  },
   igMusicEditorRoot: {
     flex: 1,
     backgroundColor: '#0a0a0d',
