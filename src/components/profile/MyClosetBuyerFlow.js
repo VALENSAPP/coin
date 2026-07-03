@@ -29,9 +29,13 @@ import {
   deleteCartItem,
   clearCart,
   checkoutCart,
+  getClosetItemsByClosetId,
+  setCartItemShippingChoice,
+  createPaymentSession,
 } from '../../services/myCloset';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useLanguage } from '../../i18n';
+import InAppBrowser from 'react-native-inappbrowser-reborn';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const GRID_GAP = 12;
@@ -42,6 +46,17 @@ const BORDER = '#ebe4f3';
 const SURFACE = '#fbf8ff';
 const ERROR_COLOR = '#dc2626';
 const ERROR_BG = '#fff5f5';
+const SHIP_OPTION_SHIP = 'ship_items';
+const SHIP_OPTION_LOCAL = 'local_pick';
+const SHIP_OPTION_BOTH = 'both';
+
+const allowedShippingChoices = shippingOption => {
+  if (shippingOption === SHIP_OPTION_BOTH) return [SHIP_OPTION_SHIP, SHIP_OPTION_LOCAL];
+  if (shippingOption === SHIP_OPTION_LOCAL) return [SHIP_OPTION_LOCAL];
+  return [SHIP_OPTION_SHIP];
+};
+
+const cartItemProductId = ci => ci?.product?.id || ci?.product?._id || ci?.productId;
 
 const currency = value => {
   if (value == null || value === '') return '$0.00';
@@ -107,19 +122,30 @@ const getRouteItems = (route, t) =>
 const buildCart = (route, t, overrides = {}) => {
   const item = normalizeItem(route?.params?.item || {}, 0, t);
   const quantity = Number(route?.params?.quantity || 1) || 1;
-  const shipping = Number(route?.params?.shipping ?? 10);
-  const serviceFee = Number(route?.params?.serviceFee ?? 5);
-  const itemTotal = item.priceValue * quantity;
+  const cartItemsSnapshot = route?.params?.cartItemsSnapshot || null;
+  const breakdown = route?.params?.checkoutData?.breakdown ?? null;
+
+  const fallbackItemTotal = item.priceValue * quantity;
+  const itemTotal = breakdown?.itemsSubtotal ?? route?.params?.itemTotal ?? fallbackItemTotal;
+  const shipping = breakdown?.shippingAmount ?? Number(route?.params?.shippingAmount ?? route?.params?.shipping ?? 0);
+  const taxAmount = breakdown?.taxAmount ?? 0;
+  const platformFee = breakdown?.platformFee ?? 0;
+  const discountAmount = breakdown?.discountAmount ?? 0;
+  const total = breakdown?.totalAmountDue ?? route?.params?.total ?? itemTotal;
+
   return {
     item,
     quantity,
     note: route?.params?.note || '',
     seller: route?.params?.seller || {},
     items: route?.params?.items || [],
-    shipping,
-    serviceFee,
+    cartItemsSnapshot,
     itemTotal,
-    total: itemTotal /*+ shipping + serviceFee*/,
+    shipping,
+    taxAmount,
+    platformFee,
+    discountAmount,
+    total,
     ...overrides,
   };
 };
@@ -292,15 +318,21 @@ const SummaryRow = ({ label, value, bold }) => {
   );
 };
 
-const CheckoutSteps = ({ current }) => {
+const CheckoutSteps = ({ current, includeShipping = true }) => {
   const { text } = useAppTheme();
   const { t } = useLanguage();
-  const steps = [
-    t('myClosetBuyer.steps.cart'),
-    t('myClosetBuyer.steps.shipping'),
-    t('myClosetBuyer.steps.payment'),
-    t('myClosetBuyer.steps.review'),
-  ];
+  const steps = includeShipping
+    ? [
+      t('myClosetBuyer.steps.cart'),
+      t('myClosetBuyer.steps.shipping'),
+      t('myClosetBuyer.steps.payment'),
+      t('myClosetBuyer.steps.review'),
+    ]
+    : [
+      t('myClosetBuyer.steps.cart'),
+      t('myClosetBuyer.steps.payment'),
+      t('myClosetBuyer.steps.review'),
+    ];
   return (
     <View style={styles.stepsWrap}>
       {steps.map((step, index) => {
@@ -309,29 +341,17 @@ const CheckoutSteps = ({ current }) => {
         return (
           <React.Fragment key={step}>
             <View style={styles.stepItem}>
-              <View
-                style={[
-                  styles.stepCircle,
-                  (done || active) && { backgroundColor: text, borderColor: text },
-                ]}
-              >
+              <View style={[styles.stepCircle, (done || active) && { backgroundColor: text, borderColor: text }]}>
                 {done ? (
                   <Ionicons name="checkmark" size={12} color="#fff" />
                 ) : (
-                  <Text style={[styles.stepNumber, (done || active) && styles.stepNumberActive]}>
-                    {index + 1}
-                  </Text>
+                  <Text style={[styles.stepNumber, (done || active) && styles.stepNumberActive]}>{index + 1}</Text>
                 )}
               </View>
               <Text style={[styles.stepLabel, active && { color: text }]}>{step}</Text>
             </View>
             {index < steps.length - 1 && (
-              <View
-                style={[
-                  styles.stepConnector,
-                  index < current && { backgroundColor: text },
-                ]}
-              />
+              <View style={[styles.stepConnector, index < current && { backgroundColor: text }]} />
             )}
           </React.Fragment>
         );
@@ -370,6 +390,10 @@ const SellerCard = ({ seller }) => {
 const OrderSummary = ({ cart, editable, compact, onEditCart }) => {
   const { text } = useAppTheme();
   const { t } = useLanguage();
+  const lines = Array.isArray(cart.cartItemsSnapshot) && cart.cartItemsSnapshot.length
+    ? cart.cartItemsSnapshot
+    : null;
+
   return (
     <View style={[styles.card, compact && styles.compactCard]}>
       <View style={styles.cardHeaderRow}>
@@ -380,21 +404,73 @@ const OrderSummary = ({ cart, editable, compact, onEditCart }) => {
           </TouchableOpacity>
         ) : null}
       </View>
-      <View style={styles.summaryItemRow}>
-        <ImageBox uri={cart.item.image} style={styles.summaryThumb} iconSize={22} />
-        <View style={styles.summaryItemCopy}>
-          <Text style={styles.summaryItemName} numberOfLines={2}>
-            {cart.item.name}
-          </Text>
-          <Text style={[styles.summaryItemPrice, { color: text }]}>{cart.item.price}</Text>
-          <Text style={styles.summaryItemQty}>{t('myClosetBuyer.qtyLabel', { qty: cart.quantity })}</Text>
+
+      {lines ? (
+        lines.map((ci, idx) => {
+          const image =
+            imageUri(ci?.product?.images?.[0]) || imageUri(ci?.product?.image) || null;
+          const name = ci?.product?.name || ci?.product?.title || t('myClosetBuyer.itemFallback');
+          const price = currency(ci?.product?.price ?? ci?.price ?? 0);
+          const qty = ci.quantity || 1;
+          return (
+            <View key={ci.id || idx}>
+              <View style={styles.summaryItemRow}>
+                <ImageBox uri={image} style={styles.summaryThumb} iconSize={22} />
+                <View style={styles.summaryItemCopy}>
+                  <Text style={styles.summaryItemName} numberOfLines={2}>{name}</Text>
+                  <Text style={[styles.summaryItemPrice, { color: text }]}>{price}</Text>
+                  <Text style={styles.summaryItemQty}>{t('myClosetBuyer.qtyLabel', { qty })}</Text>
+                </View>
+              </View>
+              {idx < lines.length - 1 ? <View style={styles.divider} /> : null}
+            </View>
+          );
+        })
+      ) : (
+        <View style={styles.summaryItemRow}>
+          <ImageBox uri={cart.item.image} style={styles.summaryThumb} iconSize={22} />
+          <View style={styles.summaryItemCopy}>
+            <Text style={styles.summaryItemName} numberOfLines={2}>{cart.item.name}</Text>
+            <Text style={[styles.summaryItemPrice, { color: text }]}>{cart.item.price}</Text>
+            <Text style={styles.summaryItemQty}>{t('myClosetBuyer.qtyLabel', { qty: cart.quantity })}</Text>
+          </View>
         </View>
-      </View>
+      )}
+
       <View style={styles.divider} />
       <SummaryRow label={t('myClosetBuyer.itemTotal')} value={currency(cart.itemTotal)} />
-      {/* <SummaryRow label="Shipping" value={currency(cart.shipping)} />
-      <SummaryRow label="Service fee" value={currency(cart.serviceFee)} /> */}
+      {cart.shipping > 0 ? (
+        <SummaryRow label={t('myClosetBuyer.shippingFee')} value={currency(cart.shipping)} />
+      ) : null}
+      {cart.taxAmount > 0 ? (
+        <SummaryRow label={t('myClosetBuyer.taxAmount')} value={currency(cart.taxAmount)} />
+      ) : null}
+      {cart.platformFee > 0 ? (
+        <SummaryRow label={t('myClosetBuyer.platformFee')} value={currency(cart.platformFee)} />
+      ) : null}
+      {cart.discountAmount > 0 ? (
+        <SummaryRow label={t('myClosetBuyer.discountAmount')} value={`-${currency(cart.discountAmount)}`} />
+      ) : null}
       <SummaryRow label={t('myClosetBuyer.total')} value={currency(cart.total)} bold />
+    </View>
+  );
+};
+
+const FixedShippingBadge = ({ choice }) => {
+  const { text } = useAppTheme();
+  const { t } = useLanguage();
+  const meta = SHIPPING_CHOICE_META[choice];
+  return (
+    <View style={styles.fixedShipCard}>
+      <Ionicons name={meta.icon} size={16} color={text} />
+      <View style={{ flex: 1, marginLeft: 8 }}>
+        <Text style={styles.fixedShipTitle}>{t(meta.titleKey)}</Text>
+        <Text style={styles.fixedShipSub}>
+          {choice === SHIP_OPTION_SHIP
+            ? t('myClosetBuyer.fixedShipNote')
+            : t('myClosetBuyer.fixedLocalNote')}
+        </Text>
+      </View>
     </View>
   );
 };
@@ -931,15 +1007,93 @@ const MyClosetBuyerOptionsScreen = ({ navigation, route }) => {
   );
 };
 
+const SHIPPING_CHOICE_META = {
+  [SHIP_OPTION_SHIP]: {
+    icon: 'cube-outline',
+    titleKey: 'myClosetBuyer.shipChoiceTitle',
+    rows: [
+      { icon: 'location-outline', textKey: 'myClosetBuyer.shipChoiceRow1' },
+      { icon: 'car-outline', textKey: 'myClosetBuyer.shipChoiceRow2' },
+    ],
+  },
+  [SHIP_OPTION_LOCAL]: {
+    icon: 'storefront-outline',
+    titleKey: 'myClosetBuyer.localChoiceTitle',
+    rows: [
+      { icon: 'walk-outline', textKey: 'myClosetBuyer.localChoiceRow1' },
+      { icon: 'cash-outline', textKey: 'myClosetBuyer.localChoiceRow2' },
+    ],
+  },
+};
+
+const ShippingChoiceCard = ({ choice, selected, onPress, disabled }) => {
+  const { text } = useAppTheme();
+  const { t } = useLanguage();
+  const meta = SHIPPING_CHOICE_META[choice];
+  return (
+    <TouchableOpacity
+      activeOpacity={0.85}
+      onPress={onPress}
+      disabled={disabled}
+      style={[
+        styles.shipChoiceCard,
+        selected && { borderColor: text, backgroundColor: SURFACE },
+      ]}
+    >
+      <View style={styles.shipChoiceHeaderRow}>
+        <Ionicons name={meta.icon} size={18} color={text} />
+        <Text style={styles.shipChoiceTitle}>{t(meta.titleKey)}</Text>
+        <View style={[styles.shipChoiceCheck, selected && { backgroundColor: text, borderColor: text }]}>
+          {selected ? <Ionicons name="checkmark" size={12} color="#fff" /> : null}
+        </View>
+      </View>
+      {meta.rows.map(row => (
+        <View key={row.textKey} style={styles.shipChoiceDetailRow}>
+          <Ionicons name={row.icon} size={12} color={MUTED} />
+          <Text style={styles.shipChoiceDetailText}>{t(row.textKey)}</Text>
+        </View>
+      ))}
+    </TouchableOpacity>
+  );
+};
+
+// One row per cart item that needs an explicit choice (shippingOption === 'both')
+const ItemShippingChoicePicker = ({ item, selectedChoice, onSelect, loading, text }) => {
+  const { t } = useLanguage();
+  return (
+    <View style={styles.shipChoiceItemBlock}>
+      <Text style={styles.shipChoiceItemName} numberOfLines={1}>
+        Item -
+        <Text style={{ color: text }}> {item?.product?.name || item?.product?.title || t('myClosetBuyer.itemFallback')}</Text>
+      </Text>
+      <View style={styles.shipChoiceCardsRow}>
+        {[SHIP_OPTION_SHIP, SHIP_OPTION_LOCAL].map(choice => (
+          <ShippingChoiceCard
+            key={choice}
+            choice={choice}
+            selected={selectedChoice === choice}
+            disabled={loading}
+            onPress={() => onSelect(item.id, choice)}
+          />
+        ))}
+      </View>
+      {loading ? <ActivityIndicator size="small" style={{ marginTop: 6 }} /> : null}
+    </View>
+  );
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Cart screen — GET /cart on mount, PATCH quantity, DELETE item, DELETE /cart
 // ─────────────────────────────────────────────────────────────────────────────
 const MyClosetBuyerCartScreen = ({ navigation, route }) => {
+  const [closetId, setClosetId] = useState(null);
+  const [shippingOptionsMap, setShippingOptionsMap] = useState({});
+  const [shippingChoiceLoading, setShippingChoiceLoading] = useState(null);
+  const [cartId, setCartId] = useState(null);
+  const [checkingOut, setCheckingOut] = useState(false);
   const { text } = useAppTheme();
   const { t } = useLanguage();
   const localCart = buildCart(route, t); // fallback data from route params
-
-  console.log('MyClosetBuyerCartScreen route.params:', route?.params);
 
   // ── Server cart state ───────────────────────────────────────────────────
   const [cartItems, setCartItems] = useState([]); // array of items from GET /cart
@@ -961,12 +1115,36 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
       const cartObj = cartsArr[0] ?? null;
       const items = cartObj?.cartItems ?? [];
       setCartItems(Array.isArray(items) ? items : []);
+      setClosetId(cartObj?.closetId ?? null);
+      setCartId(cartObj?.id ?? null);
+
+      // Pull the seller's items so we know each product's shipping option.
+      if (cartObj?.closetId) {
+        try {
+          const closetRes = await getClosetItemsByClosetId(cartObj.closetId);
+          const closetItems = closetRes?.data?.data ?? closetRes?.data ?? [];
+          console.log('[DEBUG] raw closet item sample:', JSON.stringify(closetItems[0], null, 2));
+
+          const map = {};
+          (Array.isArray(closetItems) ? closetItems : []).forEach(ci => {
+            const pid = ci?.id || ci?._id;
+            if (pid) map[pid] = ci?.shippingOption ?? ci?.shippingOptions ?? SHIP_OPTION_SHIP;
+          });
+          console.log('[DEBUG] shippingOptionsMap:', map);
+          console.log('[DEBUG] cartItems productIds:', cartItems.map(ci => ({ id: ci.id, productId: cartItemProductId(ci) })));
+          setShippingOptionsMap(map);
+        } catch {
+          setShippingOptionsMap({}); // non-fatal, falls back to ship-only per item
+        }
+      } else {
+        setShippingOptionsMap({});
+      }
     } catch (err) {
       setCartError(t('myClosetBuyer.cartLoadError'));
     } finally {
       setCartLoading(false);
     }
-  }, [t]);
+  }, [t, route?.params?.sellerId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -1030,6 +1208,34 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
     }
   };
 
+  const handleShippingChoiceChange = async (cartItemId, choice) => {
+    const target = cartItems.find(ci => ci.id === cartItemId);
+    if (!target || target.selectedShippingChoice === choice) return;
+    const previous = target.selectedShippingChoice;
+
+    setCartItems(prev =>
+      prev.map(ci => (ci.id === cartItemId ? { ...ci, selectedShippingChoice: choice } : ci)),
+    );
+    setShippingChoiceLoading(cartItemId);
+    try {
+      await setCartItemShippingChoice(cartItemId, choice);
+    } catch (err) {
+      setCartItems(prev =>
+        prev.map(ci => (ci.id === cartItemId ? { ...ci, selectedShippingChoice: previous } : ci)),
+      );
+      Alert.alert(
+        t('myClosetBuyer.errorTitle'),
+        err?.response?.data?.message || t('myClosetBuyer.updateShippingChoiceError'),
+      );
+    } finally {
+      setShippingChoiceLoading(null);
+    }
+  };
+
+  const requiresShipping = cartItems.some(
+    ci => (ci.selectedShippingChoice || SHIP_OPTION_SHIP) === SHIP_OPTION_SHIP,
+  );
+
   // ── DELETE /cart/items/{cartItemId} — remove single item ─────────────
   const handleRemoveItem = cartItem => {
     const name = cartItem?.product?.name || cartItem?.name || t('myClosetBuyer.thisItemFallback');
@@ -1092,12 +1298,46 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
   const serviceFee = localCart.serviceFee;
   const total = computedItemTotal /* + shipping + serviceFee*/;
 
-  const handleProceed = () => {
-    navigation.navigate('MyClosetBuyerCheckout', {
-      ...route.params,
-      itemTotal: computedItemTotal,
-      total,
-    });
+  const handleProceed = async () => {
+    if (!cartId) {
+      Alert.alert(t('myClosetBuyer.errorTitle'), t('myClosetBuyer.cartLoadError'));
+      return;
+    }
+    setCheckingOut(true);
+    try {
+      const response = await checkoutCart(cartId);
+      console.log('[DEBUG] checkout breakdown:', response);
+      const checkout = response?.data?.checkout ?? null;
+
+      if (checkout && checkout.isValid === false) {
+        // Backend flagged an issue (e.g. quantity no longer available, item removed by seller)
+        const message =
+          checkout?.issues?.[0]?.message ||
+          t('myClosetBuyer.checkoutError');
+        Alert.alert(t('myClosetBuyer.errorTitle'), message);
+        return;
+      }
+
+      const breakdown = checkout?.breakdown ?? null;
+      console.log('[DEBUG] checkout breakdown:', JSON.stringify(breakdown, null, 2));
+      navigation.navigate('MyClosetBuyerCheckout', {
+        ...route.params,
+        cartId,
+        checkoutData: checkout,
+        itemTotal: breakdown?.itemsSubtotal ?? computedItemTotal,
+        shippingAmount: breakdown?.shippingAmount ?? 0,
+        total: breakdown?.totalAmountDue ?? total,
+        cartItemsSnapshot: cartItems,
+        shippingOptionsMap,
+      });
+    } catch (err) {
+      Alert.alert(
+        t('myClosetBuyer.errorTitle'),
+        err?.response?.data?.message || t('myClosetBuyer.checkoutError'),
+      );
+    } finally {
+      setCheckingOut(false);
+    }
   };
 
   const isEmpty = !cartLoading && cartItems.length === 0;
@@ -1154,15 +1394,32 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
                 const isActing = itemActionLoading === ci.id;
                 const qty = ci.quantity || 1;
                 const maxQty = cartItemMax(ci);
+                const opt = shippingOptionsMap[cartItemProductId(ci)] ?? SHIP_OPTION_SHIP;
+                const shippingLabel =
+                  opt === SHIP_OPTION_BOTH
+                    ? t('myClosetBuyer.shippingChoosePending')
+                    : opt === SHIP_OPTION_LOCAL
+                      ? t('myClosetBuyer.localPickup')
+                      : t('myClosetBuyer.shipToMe');
+
                 return (
                   <View key={ci.id} style={styles.cartLineCard}>
+                    {/* Top-right shipping badge */}
+                    <View style={styles.shippingBadge}>
+                      <Ionicons
+                        name={opt === SHIP_OPTION_LOCAL ? 'storefront-outline' : 'cube-outline'}
+                        size={11}
+                        color={MUTED}
+                      />
+                      <Text style={styles.shippingBadgeText}>{shippingLabel}</Text>
+                    </View>
+
                     <ImageBox uri={cartItemImage(ci)} style={styles.cartThumb} iconSize={22} />
                     <View style={styles.cartCopy}>
                       <Text style={styles.cartItemName} numberOfLines={2}>
                         {cartItemName(ci)}
                       </Text>
                       <Text style={[styles.cartPrice, { color: text }]}>{cartItemPrice(ci)}</Text>
-                      {/* Inline quantity editor → PATCH /cart/items/{cartItemId} */}
                       <View style={styles.cartQtyRow}>
                         <TouchableOpacity
                           style={[styles.cartQtyBtn, isActing && styles.cartQtyBtnDisabled]}
@@ -1223,7 +1480,10 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
 
       {!isEmpty && !cartLoading && !cartError && (
         <View style={styles.bottomBar}>
-          <BottomButton label={t('myClosetBuyer.proceedToCheckout')} onPress={handleProceed} />
+          <BottomButton
+            label={checkingOut ? t('myClosetBuyer.loading') : t('myClosetBuyer.proceedToCheckout')}
+            onPress={checkingOut ? undefined : handleProceed}
+          />
         </View>
       )}
     </SafeAreaView>
@@ -1233,25 +1493,72 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
 const MyClosetBuyerCheckoutScreen = ({ navigation, route }) => {
   const { t } = useLanguage();
   const cart = buildCart(route, t);
+  const requiresShipping = route?.params?.requiresShipping ?? true;
+  const [continuing, setContinuing] = useState(false);
 
-  const handleEditCart = () => {
-    navigation.navigate('MyClosetBuyerCart', route.params);
+  const handleEditCart = () => navigation.navigate('MyClosetBuyerCart', route.params);
+
+  const handleContinue = async () => {
+    const cartId = route?.params?.cartId;
+    if (!cartId) {
+      // No cartId available (e.g. legacy single-item flow) — just proceed as before
+      navigation.navigate(
+        requiresShipping ? 'MyClosetBuyerShipping' : 'MyClosetBuyerPayment',
+        route.params,
+      );
+      return;
+    }
+
+    setContinuing(true);
+    try {
+      const response = await checkoutCart(cartId);
+      const checkout = response?.data?.data?.checkout ?? null;
+
+      if (checkout && checkout.isValid === false) {
+        const message = checkout?.issues?.[0]?.message || t('myClosetBuyer.checkoutError');
+        Alert.alert(t('myClosetBuyer.errorTitle'), message);
+        return;
+      }
+
+      const breakdown = checkout?.breakdown ?? null;
+
+      navigation.navigate(
+        requiresShipping ? 'MyClosetBuyerShipping' : 'MyClosetBuyerPayment',
+        {
+          ...route.params,
+          checkoutData: checkout,
+          itemTotal: breakdown?.itemsSubtotal ?? route?.params?.itemTotal,
+          shippingAmount: breakdown?.shippingAmount ?? 0,
+          total: breakdown?.totalAmountDue ?? route?.params?.total,
+        },
+      );
+    } catch (err) {
+      Alert.alert(
+        t('myClosetBuyer.errorTitle'),
+        err?.response?.data?.message || t('myClosetBuyer.checkoutError'),
+      );
+    } finally {
+      setContinuing(false);
+    }
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <Header navigation={navigation} title={t('myClosetBuyer.checkoutTitle')} />
-      <ScrollView
-        contentContainerStyle={styles.checkoutContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <CheckoutSteps current={0} />
+      <ScrollView contentContainerStyle={styles.checkoutContent} showsVerticalScrollIndicator={false}>
+        <CheckoutSteps current={0} includeShipping={requiresShipping} />
         <OrderSummary cart={cart} editable onEditCart={handleEditCart} />
       </ScrollView>
       <View style={styles.bottomBar}>
         <BottomButton
-          label={t('myClosetBuyer.continueToShipping')}
-          onPress={() => navigation.navigate('MyClosetBuyerShipping', route.params)}
+          label={
+            continuing
+              ? t('myClosetBuyer.loading')
+              : requiresShipping
+                ? t('myClosetBuyer.continueToShipping')
+                : t('myClosetBuyer.continueToPayment')
+          }
+          onPress={continuing ? undefined : handleContinue}
         />
       </View>
     </SafeAreaView>
@@ -1267,7 +1574,8 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
   const cart = buildCart(route, t);
   const [method, setMethod] = useState('standard');
   const [showAddressModal, setShowAddressModal] = useState(false);
-  const [editingAddress, setEditingAddress] = useState(null); // address being edited
+  const [editingAddress, setEditingAddress] = useState(null);
+  const [continuing, setContinuing] = useState(false);
 
   // Real address list from API
   const [addresses, setAddresses] = useState([]);
@@ -1275,6 +1583,51 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
   const [addressError, setAddressError] = useState(null);
   const [selectedAddressIndex, setSelectedAddressIndex] = useState(0);
   const [actionLoading, setActionLoading] = useState(null); // addressId being acted upon
+
+  const cartItemsSnapshot = route?.params?.cartItemsSnapshot || [];
+  const shippingOptionsMap = route?.params?.shippingOptionsMap || {};
+
+  const [shippingChoices, setShippingChoices] = useState(() => {
+    const initial = {};
+    cartItemsSnapshot.forEach(ci => {
+      initial[ci.id] = ci.selectedShippingChoice || null;
+    });
+    return initial;
+  });
+  const [choiceLoading, setChoiceLoading] = useState(null);
+
+  // Items where the seller allows both, so the buyer must pick
+  const itemsNeedingChoice = cartItemsSnapshot.filter(
+    ci => (shippingOptionsMap[cartItemProductId(ci)] ?? SHIP_OPTION_SHIP) === SHIP_OPTION_BOTH,
+  );
+
+  const fixedChoiceItems = cartItemsSnapshot.filter(
+    ci => (shippingOptionsMap[cartItemProductId(ci)] ?? SHIP_OPTION_SHIP) !== SHIP_OPTION_BOTH,
+  );
+  // Effective choice per item: explicit pick, or the only option the seller allows
+  const effectiveChoice = ci => {
+    const opt = shippingOptionsMap[cartItemProductId(ci)] ?? SHIP_OPTION_SHIP;
+    if (opt === SHIP_OPTION_BOTH) return shippingChoices[ci.id] || null;
+    return opt === SHIP_OPTION_LOCAL ? SHIP_OPTION_LOCAL : SHIP_OPTION_SHIP;
+  };
+
+  const allChoicesMade = itemsNeedingChoice.every(ci => !!shippingChoices[ci.id]);
+  const requiresShipping = cartItemsSnapshot.some(ci => effectiveChoice(ci) === SHIP_OPTION_SHIP);
+
+  const handleSelectChoice = async (cartItemId, choice) => {
+    const previous = shippingChoices[cartItemId];
+    if (previous === choice) return;
+    setShippingChoices(prev => ({ ...prev, [cartItemId]: choice }));
+    setChoiceLoading(cartItemId);
+    try {
+      await setCartItemShippingChoice(cartItemId, choice);
+    } catch (err) {
+      setShippingChoices(prev => ({ ...prev, [cartItemId]: previous }));
+      Alert.alert(t('myClosetBuyer.errorTitle'), err?.response?.data?.message || t('myClosetBuyer.updateShippingChoiceError'));
+    } finally {
+      setChoiceLoading(null);
+    }
+  };
 
   // ── Fetch addresses from GET /address/getAddress ────────────────────────
   const fetchAddresses = useCallback(async () => {
@@ -1395,141 +1748,177 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
       >
         <CheckoutSteps current={1} />
 
-        <Text style={styles.sectionLabel}>{t('myClosetBuyer.shippingAddress')}</Text>
+        {(itemsNeedingChoice.length > 0 || fixedChoiceItems.length > 0) && (
+          <>
+            <Text style={styles.sectionLabel}>{t('myClosetBuyer.chooseShippingTitle')}</Text>
 
-        {/* ── Address list states ── */}
-        {addressLoading ? (
-          <View style={styles.addressLoader}>
-            <ActivityIndicator size="small" color={text} />
-            <Text style={styles.addressLoaderText}>{t('myClosetBuyer.loadingAddresses')}</Text>
-          </View>
-        ) : addressError ? (
-          <View style={styles.addressErrorBox}>
-            <Ionicons name="alert-circle-outline" size={18} color={ERROR_COLOR} />
-            <Text style={styles.addressErrorText}>{addressError}</Text>
-            <TouchableOpacity onPress={fetchAddresses} style={styles.retryButton}>
-              <Text style={styles.retryText}>{t('myClosetBuyer.retry')}</Text>
-            </TouchableOpacity>
-          </View>
-        ) : addresses.length === 0 ? (
-          <View style={styles.noAddressBox}>
-            <Ionicons name="location-outline" size={32} color="#c4b5d4" />
-            <Text style={styles.noAddressTitle}>{t('myClosetBuyer.noSavedAddresses')}</Text>
-            <Text style={styles.noAddressText}>{t('myClosetBuyer.addAddressToContinue')}</Text>
-          </View>
-        ) : (
-          addresses.map((addr, idx) => {
-            const isSelected = selectedAddressIndex === idx;
-            const isActing = actionLoading === addr.id;
-            return (
-              <View
-                key={addr.id || idx}
-                style={[
-                  styles.addressCard,
-                  isSelected && styles.addressCardSelected,
-                  isSelected && { borderColor: text },
-                ]}
-              >
-                {/* Tap row selects address */}
-                <TouchableOpacity
-                  activeOpacity={0.85}
-                  onPress={() => setSelectedAddressIndex(idx)}
-                  style={styles.addressCardContent}
-                >
-                  <View style={{ flex: 1 }}>
-                    <View style={styles.addressNameRow}>
-                      <Text style={styles.addressName}>{addr.fullName}</Text>
-                      {addr.isDefault ? (
-                        <View style={styles.defaultBadge}>
-                          <Text style={[styles.defaultBadgeText, { color: text }]}>{t('myClosetBuyer.defaultBadge')}</Text>
-                        </View>
-                      ) : null}
-                    </View>
-                    {addr.phoneNumber ? (
-                      <Text style={styles.addressPhone}>{addr.phoneNumber}</Text>
-                    ) : null}
-                    <Text style={styles.addressText}>{addr.addressLine1}</Text>
-                    {addr.addressLine2 ? (
-                      <Text style={styles.addressText}>{addr.addressLine2}</Text>
-                    ) : null}
-                    <Text style={styles.addressText}>
-                      {[addr.city, addr.state, addr.postalCode].filter(Boolean).join(', ')}
-                    </Text>
-                    {addr.country ? (
-                      <Text style={styles.addressText}>{addr.country}</Text>
-                    ) : null}
-                  </View>
-                  {isActing ? (
-                    <ActivityIndicator size="small" color={text} style={{ marginLeft: 8 }} />
-                  ) : (
-                    <Ionicons
-                      name={isSelected ? 'radio-button-on' : 'radio-button-off'}
-                      size={20}
-                      color={text}
-                    />
-                  )}
+            {/* Items where buyer must actively choose */}
+            {itemsNeedingChoice.map(ci => (
+              <ItemShippingChoicePicker
+                text={text}
+                key={ci.id}
+                item={ci}
+                selectedChoice={shippingChoices[ci.id]}
+                onSelect={handleSelectChoice}
+                loading={choiceLoading === ci.id}
+              />
+            ))}
+
+            {/* Items where the seller already fixed the option — show it read-only so it's clear */}
+            {fixedChoiceItems.map(ci => {
+              const opt = shippingOptionsMap[cartItemProductId(ci)] ?? SHIP_OPTION_SHIP;
+              const name = ci?.product?.name || ci?.product?.title || t('myClosetBuyer.itemFallback');
+              return (
+                <View key={ci.id} style={{ marginBottom: 12 }}>
+                  <Text style={styles.shipChoiceItemName} numberOfLines={1}>Item -
+                    <Text style={{ color: text }}> {name}</Text></Text>
+                  <FixedShippingBadge choice={opt === SHIP_OPTION_LOCAL ? SHIP_OPTION_LOCAL : SHIP_OPTION_SHIP} />
+                </View>
+              );
+            })}
+          </>
+        )}
+
+        {requiresShipping && (
+          <>
+            <Text style={styles.sectionLabel}>{t('myClosetBuyer.shippingAddress')}</Text>
+
+            {/* ── Address list states ── */}
+            {addressLoading ? (
+              <View style={styles.addressLoader}>
+                <ActivityIndicator size="small" color={text} />
+                <Text style={styles.addressLoaderText}>{t('myClosetBuyer.loadingAddresses')}</Text>
+              </View>
+            ) : addressError ? (
+              <View style={styles.addressErrorBox}>
+                <Ionicons name="alert-circle-outline" size={18} color={ERROR_COLOR} />
+                <Text style={styles.addressErrorText}>{addressError}</Text>
+                <TouchableOpacity onPress={fetchAddresses} style={styles.retryButton}>
+                  <Text style={styles.retryText}>{t('myClosetBuyer.retry')}</Text>
                 </TouchableOpacity>
-
-                {/* Action row: Edit · Delete · Set Default */}
-                <View style={styles.addressActionsRow}>
-                  {/* Edit */}
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    style={styles.addressActionBtn}
-                    onPress={() => handleEdit(addr)}
-                    disabled={isActing}
+              </View>
+            ) : addresses.length === 0 ? (
+              <View style={styles.noAddressBox}>
+                <Ionicons name="location-outline" size={32} color="#c4b5d4" />
+                <Text style={styles.noAddressTitle}>{t('myClosetBuyer.noSavedAddresses')}</Text>
+                <Text style={styles.noAddressText}>{t('myClosetBuyer.addAddressToContinue')}</Text>
+              </View>
+            ) : (
+              addresses.map((addr, idx) => {
+                const isSelected = selectedAddressIndex === idx;
+                const isActing = actionLoading === addr.id;
+                return (
+                  <View
+                    key={addr.id || idx}
+                    style={[
+                      styles.addressCard,
+                      isSelected && styles.addressCardSelected,
+                      isSelected && { borderColor: text },
+                    ]}
                   >
-                    <Ionicons name="create-outline" size={14} color={text} />
-                    <Text style={[styles.addressActionText, { color: text }]}>{t('myClosetBuyer.edit')}</Text>
-                  </TouchableOpacity>
+                    {/* Tap row selects address */}
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      onPress={() => setSelectedAddressIndex(idx)}
+                      style={styles.addressCardContent}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <View style={styles.addressNameRow}>
+                          <Text style={styles.addressName}>{addr.fullName}</Text>
+                          {addr.isDefault ? (
+                            <View style={styles.defaultBadge}>
+                              <Text style={[styles.defaultBadgeText, { color: text }]}>{t('myClosetBuyer.defaultBadge')}</Text>
+                            </View>
+                          ) : null}
+                        </View>
+                        {addr.phoneNumber ? (
+                          <Text style={styles.addressPhone}>{addr.phoneNumber}</Text>
+                        ) : null}
+                        <Text style={styles.addressText}>{addr.addressLine1}</Text>
+                        {addr.addressLine2 ? (
+                          <Text style={styles.addressText}>{addr.addressLine2}</Text>
+                        ) : null}
+                        <Text style={styles.addressText}>
+                          {[addr.city, addr.state, addr.postalCode].filter(Boolean).join(', ')}
+                        </Text>
+                        {addr.country ? (
+                          <Text style={styles.addressText}>{addr.country}</Text>
+                        ) : null}
+                      </View>
+                      {isActing ? (
+                        <ActivityIndicator size="small" color={text} style={{ marginLeft: 8 }} />
+                      ) : (
+                        <Ionicons
+                          name={isSelected ? 'radio-button-on' : 'radio-button-off'}
+                          size={20}
+                          color={text}
+                        />
+                      )}
+                    </TouchableOpacity>
 
-                  <View style={styles.addressActionDivider} />
-
-                  {/* Delete */}
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    style={styles.addressActionBtn}
-                    onPress={() => handleDelete(addr)}
-                    disabled={isActing}
-                  >
-                    <Ionicons name="trash-outline" size={14} color={ERROR_COLOR} />
-                    <Text style={[styles.addressActionText, { color: ERROR_COLOR }]}>{t('myClosetBuyer.delete')}</Text>
-                  </TouchableOpacity>
-
-                  {/* Set as Default (hidden if already default) */}
-                  {!addr.isDefault ? (
-                    <>
-                      <View style={styles.addressActionDivider} />
+                    {/* Action row: Edit · Delete · Set Default */}
+                    <View style={styles.addressActionsRow}>
+                      {/* Edit */}
                       <TouchableOpacity
                         activeOpacity={0.8}
                         style={styles.addressActionBtn}
-                        onPress={() => handleMakeDefault(addr)}
+                        onPress={() => handleEdit(addr)}
                         disabled={isActing}
                       >
-                        <Ionicons name="star-outline" size={14} color="#f59e0b" />
-                        <Text style={[styles.addressActionText, { color: '#b45309' }]}>
-                          {t('myClosetBuyer.setDefault')}
-                        </Text>
+                        <Ionicons name="create-outline" size={14} color={text} />
+                        <Text style={[styles.addressActionText, { color: text }]}>{t('myClosetBuyer.edit')}</Text>
                       </TouchableOpacity>
-                    </>
-                  ) : null}
-                </View>
-              </View>
-            );
-          })
+
+                      <View style={styles.addressActionDivider} />
+
+                      {/* Delete */}
+                      <TouchableOpacity
+                        activeOpacity={0.8}
+                        style={styles.addressActionBtn}
+                        onPress={() => handleDelete(addr)}
+                        disabled={isActing}
+                      >
+                        <Ionicons name="trash-outline" size={14} color={ERROR_COLOR} />
+                        <Text style={[styles.addressActionText, { color: ERROR_COLOR }]}>{t('myClosetBuyer.delete')}</Text>
+                      </TouchableOpacity>
+
+                      {/* Set as Default (hidden if already default) */}
+                      {!addr.isDefault ? (
+                        <>
+                          <View style={styles.addressActionDivider} />
+                          <TouchableOpacity
+                            activeOpacity={0.8}
+                            style={styles.addressActionBtn}
+                            onPress={() => handleMakeDefault(addr)}
+                            disabled={isActing}
+                          >
+                            <Ionicons name="star-outline" size={14} color="#f59e0b" />
+                            <Text style={[styles.addressActionText, { color: '#b45309' }]}>
+                              {t('myClosetBuyer.setDefault')}
+                            </Text>
+                          </TouchableOpacity>
+                        </>
+                      ) : null}
+                    </View>
+                  </View>
+                );
+              })
+            )}
+
+            {/* Add new address */}
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={styles.addAddressButton}
+              onPress={() => setShowAddressModal(true)}
+            >
+              <Ionicons name="add-circle-outline" size={18} color={text} />
+              <Text style={[styles.addAddressText, { color: text }]}>{t('myClosetBuyer.addNewAddress')}</Text>
+            </TouchableOpacity>
+
+          </>
         )}
 
-        {/* Add new address */}
-        <TouchableOpacity
-          activeOpacity={0.85}
-          style={styles.addAddressButton}
-          onPress={() => setShowAddressModal(true)}
-        >
-          <Ionicons name="add-circle-outline" size={18} color={text} />
-          <Text style={[styles.addAddressText, { color: text }]}>{t('myClosetBuyer.addNewAddress')}</Text>
-        </TouchableOpacity>
-
-        <Text style={styles.sectionLabel}>{t('myClosetBuyer.shippingMethod')}</Text>
+        {/* <Text style={styles.sectionLabel}>{t('myClosetBuyer.shippingMethod')}</Text>
         {[
           { key: 'standard', label: t('myClosetBuyer.standardShipping'), price: 10 },
           { key: 'express', label: t('myClosetBuyer.expressShipping'), price: 20 },
@@ -1552,18 +1941,57 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
             <Text style={styles.radioLabel}>{option.label}</Text>
             <Text style={styles.radioPrice}>{currency(option.price)}</Text>
           </TouchableOpacity>
-        ))}
+        ))} */}
       </ScrollView>
 
       <View style={styles.bottomBar}>
         <BottomButton
-          label={t('myClosetBuyer.continueToPayment')}
-          onPress={() => {
-            if (!selectedAddress && addresses.length > 0) {
+          label={continuing ? t('myClosetBuyer.loading') : t('myClosetBuyer.continueToPayment')}
+          onPress={continuing ? undefined : async () => {
+            if (!allChoicesMade) {
+              Alert.alert(t('myClosetBuyer.selectShippingTitle'), t('myClosetBuyer.selectShippingMessage'));
+              return;
+            }
+            if (requiresShipping && !selectedAddress && addresses.length > 0) {
               Alert.alert(t('myClosetBuyer.selectAddressTitle'), t('myClosetBuyer.selectAddressMessage'));
               return;
             }
-            navigation.navigate('MyClosetBuyerPayment', nextCart);
+
+            const cartId = route?.params?.cartId;
+            if (!cartId) {
+              navigation.navigate('MyClosetBuyerPayment', { ...nextCart, requiresShipping });
+              return;
+            }
+
+            setContinuing(true);
+            try {
+              const response = await checkoutCart(cartId);
+              const checkout = response?.data?.data?.checkout ?? null;
+
+              if (checkout && checkout.isValid === false) {
+                const message = checkout?.issues?.[0]?.message || t('myClosetBuyer.checkoutError');
+                Alert.alert(t('myClosetBuyer.errorTitle'), message);
+                return;
+              }
+
+              const breakdown = checkout?.breakdown ?? null;
+
+              navigation.navigate('MyClosetBuyerPayment', {
+                ...nextCart,
+                requiresShipping,
+                checkoutData: checkout,
+                itemTotal: breakdown?.itemsSubtotal ?? nextCart?.itemTotal,
+                shippingAmount: breakdown?.shippingAmount ?? 0,
+                total: breakdown?.totalAmountDue ?? nextCart?.total,
+              });
+            } catch (err) {
+              Alert.alert(
+                t('myClosetBuyer.errorTitle'),
+                err?.response?.data?.message || t('myClosetBuyer.checkoutError'),
+              );
+            } finally {
+              setContinuing(false);
+            }
           }}
         />
       </View>
@@ -1581,8 +2009,36 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
 const MyClosetBuyerPaymentScreen = ({ navigation, route }) => {
   const { text } = useAppTheme();
   const { t } = useLanguage();
-  const cart = buildCart(route, t);
   const [paymentMethod, setPaymentMethod] = useState('secure');
+  const requiresShipping = route?.params?.requiresShipping ?? true;
+  const cartId = route?.params?.cartId;
+
+  // If we already have fresh checkout data (breakdown), use it as-is.
+  // Otherwise, fetch it ourselves so the fee/tax/total are never stale or missing.
+  const [checkoutData, setCheckoutData] = useState(route?.params?.checkoutData ?? null);
+  const [loadingBreakdown, setLoadingBreakdown] = useState(!route?.params?.checkoutData && !!cartId);
+  const [breakdownError, setBreakdownError] = useState(null);
+
+  useEffect(() => {
+    if (route?.params?.checkoutData || !cartId) return;
+    let cancelled = false;
+    (async () => {
+      setLoadingBreakdown(true);
+      setBreakdownError(null);
+      try {
+        const response = await checkoutCart(cartId);
+        const checkout = response?.data?.checkout ?? null;
+        if (!cancelled) setCheckoutData(checkout);
+      } catch (err) {
+        if (!cancelled) setBreakdownError(t('myClosetBuyer.checkoutError'));
+      } finally {
+        if (!cancelled) setLoadingBreakdown(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [cartId, route?.params?.checkoutData, t]);
+
+  const cart = buildCart({ params: { ...route.params, checkoutData } }, t);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -1591,12 +2047,10 @@ const MyClosetBuyerPaymentScreen = ({ navigation, route }) => {
         contentContainerStyle={styles.checkoutContent}
         showsVerticalScrollIndicator={false}
       >
-        <CheckoutSteps current={2} />
+        <CheckoutSteps current={requiresShipping ? 2 : 1} includeShipping={requiresShipping} />
         <Text style={styles.sectionLabel}>{t('myClosetBuyer.paymentMethod')}</Text>
         {[
           { key: 'secure', label: t('myClosetBuyer.secureCheckout'), sub: t('myClosetBuyer.secureCheckoutSub'), icon: 'shield-checkmark-outline' },
-          // { key: 'card', label: 'Credit / Debit Card', sub: 'VISA  Mastercard  AMEX', icon: 'card-outline' },
-          // { key: 'apple', label: 'Apple Pay', sub: '', icon: 'logo-apple' },
         ].map(option => (
           <TouchableOpacity
             key={option.key}
@@ -1620,13 +2074,25 @@ const MyClosetBuyerPaymentScreen = ({ navigation, route }) => {
             <Ionicons name={option.icon} size={18} color={text} />
           </TouchableOpacity>
         ))}
-        <OrderSummary cart={cart} compact />
+
+        {loadingBreakdown ? (
+          <View style={styles.loaderWrap}>
+            <ActivityIndicator color={text} />
+          </View>
+        ) : breakdownError ? (
+          <View style={styles.addressErrorBox}>
+            <Ionicons name="alert-circle-outline" size={18} color={ERROR_COLOR} />
+            <Text style={styles.addressErrorText}>{breakdownError}</Text>
+          </View>
+        ) : (
+          <OrderSummary cart={cart} compact />
+        )}
       </ScrollView>
       <View style={styles.bottomBar}>
         <BottomButton
           label={t('myClosetBuyer.continueToReview')}
           onPress={() =>
-            navigation.navigate('MyClosetBuyerReview', { ...route.params, paymentMethod })
+            navigation.navigate('MyClosetBuyerReview', { ...route.params, checkoutData, paymentMethod })
           }
         />
       </View>
@@ -1644,16 +2110,67 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
   const [checking, setChecking] = useState(false);
   // shippingAddress passed from Shipping screen via nextCart
   const addr = route?.params?.shippingAddress ?? null;
+  const requiresShipping = route?.params?.requiresShipping ?? true;
 
   const handleContinue = async () => {
+    const cartId = route?.params?.cartId;
+    const addressId = addr?.id ?? null;
+
+    if (!cartId) {
+      Alert.alert(t('myClosetBuyer.errorTitle'), t('myClosetBuyer.checkoutError'));
+      return;
+    }
+    // addressId is required only when this order actually needs shipping
+    if (requiresShipping && !addressId) {
+      Alert.alert(t('myClosetBuyer.selectAddressTitle'), t('myClosetBuyer.selectAddressMessage'));
+      return;
+    }
+
     setChecking(true);
     try {
-      const response = await checkoutCart();
-      const checkoutData = response?.data?.data?.checkout ?? null;
-      navigation.navigate('MyClosetBuyerOrderReceived', {
-        ...route.params,
-        checkoutData,
+      const response = await createPaymentSession({
+        cartId,
+        addressId,
+        currency: 'usd',
       });
+
+      console.log('createPaymentSession response:', response);
+      const session = response?.data?.data ?? response?.data ?? null;
+      const checkoutUrl = session?.url ?? session?.checkoutUrl ?? session?.session?.url ?? null;
+
+      if (!checkoutUrl) {
+        Alert.alert(t('myClosetBuyer.errorTitle'), t('myClosetBuyer.checkoutError'));
+        return;
+      }
+
+      const canOpen = await Linking.canOpenURL(checkoutUrl);
+      if (canOpen) {
+        if (await InAppBrowser.isAvailable()) {
+          const result = await InAppBrowser.open(checkoutUrl, {
+            dismissButtonStyle: 'close',
+            preferredBarTintColor: '#ffffff',
+            preferredControlTintColor: '#000000',
+            readerMode: false,
+            animated: true,
+            modalPresentationStyle: 'fullScreen',
+            modalTransitionStyle: 'coverVertical',
+            enableBarCollapsing: false,
+            showTitle: true,
+            toolbarColor: '#ffffff',
+            secondaryToolbarColor: '#f0f0f0',
+            forceCloseOnRedirection: true,
+          });
+          // if (result.type === 'dismiss' || result.type === 'cancel') {
+          //   startProgressBarAndFetch();
+          // }
+        } else {
+          await Linking.openURL(checkoutUrl);
+        }
+      } else {
+        Alert.alert(t('myClosetBuyer.errorTitle'), t('myClosetBuyer.checkoutError'));
+      }
+      // Note: actual order confirmation should happen after Stripe redirects back
+      // (via deep link / webhook), not immediately here — see note below.
     } catch (err) {
       Alert.alert(t('myClosetBuyer.errorTitle'), err?.response?.data?.message || t('myClosetBuyer.checkoutError'));
     } finally {
@@ -1668,43 +2185,52 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
         contentContainerStyle={styles.checkoutContent}
         showsVerticalScrollIndicator={false}
       >
-        <CheckoutSteps current={3} />
-        <View style={styles.reviewSectionHeader}>
-          <Text style={styles.sectionLabel}>{t('myClosetBuyer.shippingAddress')}</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('MyClosetBuyerShipping', route.params)}>
-            <Text style={[styles.editText, { color: text }]}>{t('myClosetBuyer.edit')}</Text>
-          </TouchableOpacity>
-        </View>
-        <View style={styles.reviewCard}>
-          {addr ? (
-            <>
-              <Text style={styles.addressName}>{addr.fullName}</Text>
-              {addr.phoneNumber ? <Text style={styles.addressPhone}>{addr.phoneNumber}</Text> : null}
-              <Text style={styles.addressText}>{addr.addressLine1}</Text>
-              {addr.addressLine2 ? <Text style={styles.addressText}>{addr.addressLine2}</Text> : null}
-              <Text style={styles.addressText}>
-                {[addr.city, addr.state, addr.postalCode].filter(Boolean).join(', ')}
-              </Text>
-              {addr.country ? <Text style={styles.addressText}>{addr.country}</Text> : null}
-            </>
-          ) : (
-            <Text style={styles.addressText}>{t('myClosetBuyer.noAddressSelected')}</Text>
-          )}
-        </View>
-        <View style={styles.reviewSectionHeader}>
+        <CheckoutSteps current={requiresShipping ? 3 : 2} includeShipping={requiresShipping} />
+        {requiresShipping ? (
+          <>
+            <View style={styles.reviewSectionHeader}>
+              <Text style={styles.sectionLabel}>{t('myClosetBuyer.shippingAddress')}</Text>
+              <TouchableOpacity onPress={() => navigation.navigate('MyClosetBuyerShipping', route.params)}>
+                <Text style={[styles.editText, { color: text }]}>{t('myClosetBuyer.edit')}</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.reviewCard}>
+              {addr ? (
+                <>
+                  <Text style={styles.addressName}>{addr.fullName}</Text>
+                  {addr.phoneNumber ? <Text style={styles.addressPhone}>{addr.phoneNumber}</Text> : null}
+                  <Text style={styles.addressText}>{addr.addressLine1}</Text>
+                  {addr.addressLine2 ? <Text style={styles.addressText}>{addr.addressLine2}</Text> : null}
+                  <Text style={styles.addressText}>
+                    {[addr.city, addr.state, addr.postalCode].filter(Boolean).join(', ')}
+                  </Text>
+                  {addr.country ? <Text style={styles.addressText}>{addr.country}</Text> : null}
+                </>
+              ) : (
+                <Text style={styles.addressText}>{t('myClosetBuyer.noAddressSelected')}</Text>
+              )}
+            </View>
+          </>
+        ) : (
+          <View style={styles.reviewLineCard}>
+            <Ionicons name="storefront-outline" size={18} color={text} />
+            <Text style={styles.radioLabel}>{t('myClosetBuyer.localPickupSelected')}</Text>
+          </View>
+        )}
+        {/* <View style={styles.reviewSectionHeader}>
           <Text style={styles.sectionLabel}>{t('myClosetBuyer.shippingMethod')}</Text>
           <TouchableOpacity onPress={() => navigation.navigate('MyClosetBuyerShipping', route.params)}>
             <Text style={[styles.editText, { color: text }]}>{t('myClosetBuyer.edit')}</Text>
           </TouchableOpacity>
-        </View>
-        <View style={styles.reviewLineCard}>
+        </View> */}
+        {/* <View style={styles.reviewLineCard}>
           <Text style={styles.radioLabel}>
             {route?.params?.shippingMethod === 'express'
               ? t('myClosetBuyer.expressShipping')
               : t('myClosetBuyer.standardShipping')}
           </Text>
           <Text style={styles.radioPrice}>{currency(cart.shipping)}</Text>
-        </View>
+        </View> */}
         <View style={styles.reviewSectionHeader}>
           <Text style={styles.sectionLabel}>{t('myClosetBuyer.paymentMethod')}</Text>
           <TouchableOpacity onPress={() => navigation.navigate('MyClosetBuyerPayment', route.params)}>
@@ -1939,6 +2465,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center',
     borderWidth: 1, borderColor: BORDER, borderRadius: 14,
     padding: 10, marginBottom: 20, backgroundColor: '#fff',
+    position: 'relative',           // ← add this
   },
   cartThumb: { width: 72, height: 58, borderRadius: 10 },
   cartCopy: { flex: 1, paddingHorizontal: 12 },
@@ -2123,4 +2650,50 @@ const styles = StyleSheet.create({
   },
   defaultRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 10 },
   defaultLabel: { fontSize: 13, fontWeight: '700', color: '#17072d' },
+  shippingChoiceRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 6 },
+  shippingChoicePill: {
+    borderWidth: 1, borderColor: BORDER, borderRadius: 20,
+    paddingHorizontal: 10, paddingVertical: 5, backgroundColor: '#fff',
+  },
+  shippingChoicePillActive: { backgroundColor: SURFACE },
+  shippingChoiceText: { fontSize: 11, fontWeight: '700', color: MUTED },
+  shippingChoiceTextActive: { fontWeight: '900' },
+  shippingBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: SURFACE,
+    borderWidth: 1,
+    borderColor: BORDER,
+    borderRadius: 10,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    zIndex: 1,
+  },
+  shippingBadgeText: { fontSize: 10, color: MUTED, fontWeight: '700' },
+  shipChoiceItemBlock: { marginBottom: 20 },
+  shipChoiceItemName: { fontSize: 12, color: '#000', fontWeight: '700', marginBottom: 8 },
+  shipChoiceCardsRow: { flexDirection: 'row', gap: 10 },
+  shipChoiceCard: {
+    flex: 1, borderWidth: 1, borderColor: BORDER, borderRadius: 14,
+    padding: 12, backgroundColor: '#fff',
+  },
+  shipChoiceHeaderRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 6 },
+  shipChoiceTitle: { flex: 1, fontSize: 13, fontWeight: '900', color: '#17072d' },
+  shipChoiceCheck: {
+    width: 18, height: 18, borderRadius: 9, borderWidth: 1.5, borderColor: '#d7cce3',
+    alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff',
+  },
+  shipChoiceDetailRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
+  shipChoiceDetailText: { fontSize: 11, color: MUTED, fontWeight: '600' },
+  fixedShipCard: {
+    flexDirection: 'row', alignItems: 'center',
+    borderWidth: 1, borderColor: BORDER, borderRadius: 12,
+    padding: 10, backgroundColor: SURFACE, marginBottom: 8,
+  },
+  fixedShipTitle: { fontSize: 12, fontWeight: '900', color: '#17072d' },
+  fixedShipSub: { fontSize: 11, color: MUTED, marginTop: 2 },
 });
