@@ -1778,6 +1778,7 @@
     "sectionAccount": "Conta",
     "sectionSecurity": "SeguranÃ§a",
     "profileSettings": "ConfiguraÃ§Ãµes do perfil",
+    "shopSettings": "Configurações da loja",
     "verificationStatus": "Status da verificaÃ§Ã£o",
     "verifiedStatus": "Dragonfly verificado",
     "notifications": "NotificaÃ§Ãµes",
@@ -3580,6 +3581,7 @@
       "all": "Todos",
       "pending": "Aguardando envio",
       "processing": "Em processamento",
+      "shipped": "Aguardando envio",
       "delivered": "Entregues"
     }
   },
@@ -4009,6 +4011,7 @@
     "liveBannerSubtitle": "Sigue agregando artículos y haz crecer tu armario.",
     "overviewTitle": "Resumen",
     "thisWeek": "Esta semana",
+    "thisMonth": "Este mês",
     "battlePerformanceTitle": "Rendimiento en batallas",
     "viewAllBattles": "Ver todas las batallas",
     "sellerOrdersTitle": "Pedidos — Como vendedor",

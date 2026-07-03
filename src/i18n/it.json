@@ -1778,6 +1778,7 @@
     "sectionAccount": "Account",
     "sectionSecurity": "Sicurezza",
     "profileSettings": "Impostazioni profilo",
+    "shopSettings": "Impostazioni del negozio",
     "verificationStatus": "Stato verifica",
     "verifiedStatus": "Dragonfly verificato",
     "notifications": "Notifiche",
@@ -3580,6 +3581,7 @@
       "all": "Tutti",
       "pending": "Da spedire",
       "processing": "In elaborazione",
+      "shipped": "Da spedire",
       "delivered": "Consegnati"
     }
   },
@@ -4009,6 +4011,7 @@
     "liveBannerSubtitle": "Continua ad aggiungere articoli e fai crescere il tuo armadio.",
     "overviewTitle": "Panoramica",
     "thisWeek": "Questa settimana",
+    "thisMonth": "Questo mese",
     "battlePerformanceTitle": "Prestazioni nelle sfide",
     "viewAllBattles": "Visualizza tutte le sfide",
     "sellerOrdersTitle": "Ordini — Come venditore",

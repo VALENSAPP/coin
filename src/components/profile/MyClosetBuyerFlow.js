@@ -2,9 +2,11 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  DeviceEventEmitter,
   Dimensions,
   FlatList,
   Image,
+  Linking,
   Modal,
   SafeAreaView,
   ScrollView,
@@ -32,7 +34,8 @@ import {
   getClosetItemsByClosetId,
   setCartItemShippingChoice,
   createPaymentSession,
-  getPaymentDetails,
+  getRecentPaymentDetails,
+  getPaymentDetailsByPaymentId,
 } from '../../services/myCloset';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useLanguage } from '../../i18n';
@@ -1304,41 +1307,41 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
       Alert.alert(t('myClosetBuyer.errorTitle'), t('myClosetBuyer.cartLoadError'));
       return;
     }
-    setCheckingOut(true);
-    try {
-      const response = await checkoutCart(cartId);
-      console.log('[DEBUG] checkout breakdown:', response);
-      const checkout = response?.data?.checkout ?? null;
+    // setCheckingOut(true);
+    // try {
+    //   const response = await checkoutCart(cartId);
+    //   console.log('[DEBUG] checkout breakdown:', response);
+    //   const checkout = response?.data?.checkout ?? null;
 
-      if (checkout && checkout.isValid === false) {
-        // Backend flagged an issue (e.g. quantity no longer available, item removed by seller)
-        const message =
-          checkout?.issues?.[0]?.message ||
-          t('myClosetBuyer.checkoutError');
-        Alert.alert(t('myClosetBuyer.errorTitle'), message);
-        return;
-      }
+    //   if (checkout && checkout.isValid === false) {
+    //     // Backend flagged an issue (e.g. quantity no longer available, item removed by seller)
+    //     const message =
+    //       checkout?.issues?.[0]?.message ||
+    //       t('myClosetBuyer.checkoutError');
+    //     Alert.alert(t('myClosetBuyer.errorTitle'), message);
+    //     return;
+    //   }
 
-      const breakdown = checkout?.breakdown ?? null;
-      console.log('[DEBUG] checkout breakdown:', JSON.stringify(breakdown, null, 2));
-      navigation.navigate('MyClosetBuyerCheckout', {
-        ...route.params,
-        cartId,
-        checkoutData: checkout,
-        itemTotal: breakdown?.itemsSubtotal ?? computedItemTotal,
-        shippingAmount: breakdown?.shippingAmount ?? 0,
-        total: breakdown?.totalAmountDue ?? total,
-        cartItemsSnapshot: cartItems,
-        shippingOptionsMap,
-      });
-    } catch (err) {
-      Alert.alert(
-        t('myClosetBuyer.errorTitle'),
-        err?.response?.data?.message || t('myClosetBuyer.checkoutError'),
-      );
-    } finally {
-      setCheckingOut(false);
-    }
+    //   const breakdown = checkout?.breakdown ?? null;
+    //   console.log('[DEBUG] checkout breakdown:', JSON.stringify(breakdown, null, 2));
+    navigation.navigate('MyClosetBuyerCheckout', {
+      ...route.params,
+      cartId,
+      // checkoutData: checkout,
+      // itemTotal: breakdown?.itemsSubtotal ?? computedItemTotal,
+      // shippingAmount: breakdown?.shippingAmount ?? 0,
+      // total: breakdown?.totalAmountDue ?? total,
+      cartItemsSnapshot: cartItems,
+      shippingOptionsMap,
+    });
+    // } catch (err) {
+    //   Alert.alert(
+    //     t('myClosetBuyer.errorTitle'),
+    //     err?.response?.data?.message || t('myClosetBuyer.checkoutError'),
+    //   );
+    // } finally {
+    //   setCheckingOut(false);
+    // }
   };
 
   const isEmpty = !cartLoading && cartItems.length === 0;
@@ -2113,15 +2116,31 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
   const addr = route?.params?.shippingAddress ?? null;
   const requiresShipping = route?.params?.requiresShipping ?? true;
 
-  const pollForPaidPayment = useCallback(async (cartId, { attempts = 8, delayMs = 1500 } = {}) => {
+  const findPaymentId = useCallback(async (cartId) => {
+  try {
+    const response = await getRecentPaymentDetails();
+    const list = response?.data?.data ?? response?.data ?? [];
+    const payments = Array.isArray(list) ? list : list ? [list] : [];
+
+    // The endpoint only ever returns the single most recent payment, so try to
+    // match on cartId (top-level or nested in metadata) but fall back to that
+    // one record if no match is found rather than returning null.
+    const match =
+      payments.find(p => p?.cartId === cartId || p?.metadata?.cartId === cartId) ??
+      payments[0] ??
+      null;
+    return match?.id ?? null;
+  } catch {
+    return null;
+  }
+}, []);
+
+  const pollForPaidPayment = useCallback(async (paymentId, { attempts = 8, delayMs = 1500 } = {}) => {
     for (let i = 0; i < attempts; i += 1) {
       try {
-        const response = await getPaymentDetails();
-        const list = response?.data?.data ?? response?.data ?? [];
-        const match = Array.isArray(list)
-          ? list.find(p => p?.cartId === cartId && p?.status === 'PAID')
-          : null;
-        if (match) return match;
+        const response = await getPaymentDetailsByPaymentId(paymentId);
+        const payment = response?.data ?? null;
+        if (payment?.status === 'PAID') return payment;
       } catch {
         // ignore and retry
       }
@@ -2130,42 +2149,41 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
     return null;
   }, []);
 
-  const finalizeOrder = useCallback(async cartId => {
+  const finalizeOrder = useCallback(async (cartId) => {
     setChecking(true);
-    const payment = await pollForPaidPayment(cartId);
-    setChecking(false);
+    try {
+      const paymentId = await findPaymentId(cartId);
+      if (!paymentId) {
+        Alert.alert(t('myClosetBuyer.errorTitle'), t('myClosetBuyer.paymentNotConfirmedError'));
+        return;
+      }
 
-    if (!payment) {
-      Alert.alert(
-        t('myClosetBuyer.errorTitle'),
-        t('myClosetBuyer.paymentNotConfirmedError'),
-      );
-      return;
+      const payment = await pollForPaidPayment(paymentId);
+      if (!payment) {
+        Alert.alert(t('myClosetBuyer.errorTitle'), t('myClosetBuyer.paymentNotConfirmedError'));
+        return;
+      }
+
+      navigation.navigate('MyClosetBuyerOrderReceived', {
+        ...route.params,
+        payment,
+        orderId: payment.orderId,
+      });
+    } finally {
+      setChecking(false);
     }
+  }, [findPaymentId, pollForPaidPayment, navigation, route.params, t]);
 
-    navigation.navigate('MyClosetBuyerOrderReceived', {
-      ...route.params,
-      payment,               // full payment record: orderId, transactionId, amount, metadata.items, etc.
-      orderId: payment.orderId,
-    });
-  }, [navigation, pollForPaidPayment, route.params, t]);
-
-  // Listen for the app being reopened via the Stripe success/cancel deep link
   useEffect(() => {
     const cartId = route?.params?.cartId;
     if (!cartId) return undefined;
 
-    const handleUrl = ({ url }) => {
-      if (!url) return;
-      // Adjust this check to match your actual return-URL scheme,
-      // e.g. 'valens://payment-success' or a query param check.
-      if (url.includes('payment-success') || url.includes('payment-return')) {
+    const sub = DeviceEventEmitter.addListener('PAYMENT_COMPLETED', (payload) => {
+      if (payload?.status === 'success') {
         finalizeOrder(cartId);
       }
-    };
-
-    const subscription = Linking.addEventListener('url', handleUrl);
-    return () => subscription.remove();
+    });
+    return () => sub.remove();
   }, [route?.params?.cartId, finalizeOrder]);
 
   const handleContinue = async () => {
@@ -2319,6 +2337,8 @@ const MyClosetBuyerOrderReceivedScreen = ({ navigation, route }) => {
   const payment = route?.params?.payment ?? null;
   const cart = buildCart(route, t);
 
+  console.log("MyClosetBuyerOrderReceivedScreen--------response ", route?.params)
+
   const orderId = payment?.orderId || route?.params?.orderId;
   const amount = payment?.amount != null ? payment.amount / 100 : cart.total; // amount is in cents per your sample
   const orderDate = payment?.createdAt ? new Date(payment.createdAt) : new Date();
@@ -2358,7 +2378,7 @@ const MyClosetBuyerOrderReceivedScreen = ({ navigation, route }) => {
                 {orderDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </Text>
             </View>
-            <Text style={[styles.editText, { color: text }]}>{t('myClosetBuyer.viewDetails')}</Text>
+            {/* <Text style={[styles.editText, { color: text }]}>{t('myClosetBuyer.viewDetails')}</Text> */}
           </View>
           <View style={styles.divider} />
           {items.length > 0 ? (

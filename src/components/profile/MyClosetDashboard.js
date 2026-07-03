@@ -13,7 +13,13 @@ import { useFocusEffect } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useLanguage } from '../../i18n';
-import { getMyClosetItems, getSellerOrders, getBuyerOrders, getSellerDashboard } from '../../services/myCloset';
+import {
+  getMyClosetItems,
+  getSellerOrders,
+  getBuyerOrders,
+  getSellerDashboard,
+  getMarketplaceOverview,
+} from '../../services/myCloset';
 
 const mixWithWhite = (hex, amount = 0.88) => {
   const normalized = String(hex || '').replace('#', '');
@@ -35,18 +41,55 @@ const withAlpha = (hex, alpha = 0.12) => {
   return `rgba(${r},${g},${b},${alpha})`;
 };
 
+// Formats a raw percent number (e.g. -100, 18, 0) into a signed display string ("+18%", "-100%", "0%").
+// Returns null when there is no meaningful value yet, so the UI can hide the delta pill.
+const formatDelta = percent => {
+  if (percent == null || Number.isNaN(Number(percent))) return null;
+  const value = Number(percent);
+  if (value === 0) return '0%';
+  return `${value > 0 ? '+' : ''}${value}%`;
+};
+
+// data here is the /dashboard/marketPlaceOverview payload:
+// { viewsCount, likesCount, ordersCount, revenue, previousPeriod, changes }
 const buildStatCards = (data, t) => ([
-  { key: 'views', label: t('myClosetDashboard.stats.views'), value: String(data?.views ?? 0), delta: '+18%', icon: 'eye-outline' },
-  { key: 'likes', label: t('myClosetDashboard.stats.likes'), value: String(data?.likes ?? 0), delta: '+12%', icon: 'heart-outline' },
-  { key: 'orders', label: t('myClosetDashboard.stats.orders'), value: String(data?.orders ?? 0), delta: '+50%', icon: 'bag-outline' },
-  { key: 'revenue', label: t('myClosetDashboard.stats.revenue'), value: `$${Number(data?.revenue ?? 0).toFixed(0)}`, delta: '+22%', icon: 'cash-outline' },
+  {
+    key: 'views',
+    label: t('myClosetDashboard.stats.views'),
+    value: String(data?.viewsCount ?? 0),
+    delta: formatDelta(data?.changes?.viewsPercent),
+    icon: 'eye-outline',
+  },
+  {
+    key: 'likes',
+    label: t('myClosetDashboard.stats.likes'),
+    value: String(data?.likesCount ?? 0),
+    delta: formatDelta(data?.changes?.likesPercent),
+    icon: 'heart-outline',
+  },
+  {
+    key: 'orders',
+    label: t('myClosetDashboard.stats.orders'),
+    value: String(data?.ordersCount ?? 0),
+    delta: formatDelta(data?.changes?.ordersPercent),
+    icon: 'bag-outline',
+  },
+  {
+    key: 'revenue',
+    label: t('myClosetDashboard.stats.revenue'),
+    value: `$${Number(data?.revenue ?? 0).toFixed(0)}`,
+    delta: formatDelta(data?.changes?.revenuePercent),
+    icon: 'cash-outline',
+  },
 ]);
 
+// This still comes from the general /dashboard endpoint (totalItems/sold/rating aren't
+// part of the marketplace overview by-range payload).
 const buildOverviewCards = (data, t) => ([
   { key: 'items', label: t('myClosetDashboard.overview.items'), value: String(data?.totalItems ?? 0) },
   { key: 'sold', label: t('myClosetDashboard.overview.sold'), value: String(data?.sold ?? 0) },
   { key: 'earnings', label: t('myClosetDashboard.overview.earnings'), value: `$${Number(data?.revenue ?? 0).toFixed(0)}` },
-  { key: 'rating', label: t('myClosetDashboard.overview.rating'), value: data?.rating != null ? String(data.rating) : '—' },
+  // { key: 'rating', label: t('myClosetDashboard.overview.rating'), value: data?.rating != null ? String(data.rating) : '—' },
 ]);
 
 const buildBattleStats = t => ([
@@ -138,6 +181,12 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
   const [dashboardData, setDashboardData] = useState(null);
   const [dashboardLoading, setDashboardLoading] = useState(false);
   const [buyerOrdersLoading, setBuyerOrdersLoading] = useState(false);
+
+  // Marketplace overview (views/likes/orders/revenue by range) — GET /dashboard/marketPlaceOverview
+  const [overviewRange, setOverviewRange] = useState('weekly'); // 'weekly' | 'monthly'
+  const [marketplaceOverview, setMarketplaceOverview] = useState(null);
+  const [marketplaceLoading, setMarketplaceLoading] = useState(false);
+
   const { bgStyle, textStyle, text, cardStyle } = useAppTheme(userData?.profile);
   const battleStats = useMemo(() => buildBattleStats(t), [t]);
 
@@ -186,6 +235,7 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
     setBuyerOrdersLoading(true);
     try {
       const response = await getBuyerOrders();
+      console.log("getBuyerOrders----------------",response)
       const payload =
         response?.data?.data ??
         response?.data?.orders ??
@@ -223,6 +273,22 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
     }
   }, []);
 
+  // Fetches GET /dashboard/marketPlaceOverview?range=weekly|monthly
+  const loadMarketplaceOverview = useCallback(async range => {
+    setMarketplaceLoading(true);
+    try {
+      const response = await getMarketplaceOverview(range);
+       console.log("getMarketplaceOverviewgetMarketplaceOverviewgetMarketplaceOverview",response)
+      const data = response?.data?.data ?? response?.data ?? response;
+      setMarketplaceOverview(data);
+    } catch (error) {
+      console.warn('Unable to load marketplace overview:', error);
+      setMarketplaceOverview(null);
+    } finally {
+      setMarketplaceLoading(false);
+    }
+  }, []);
+
   const loadClosetItems = useCallback(async () => {
     setItemsLoading(true);
     try {
@@ -256,11 +322,16 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
       loadRecentOrders();
       loadBuyerOrders();
       loadDashboard();
-    }, [loadClosetItems, loadRecentOrders, loadBuyerOrders, loadDashboard]),
+      loadMarketplaceOverview(overviewRange);
+    }, [loadClosetItems, loadRecentOrders, loadBuyerOrders, loadDashboard, loadMarketplaceOverview, overviewRange]),
   );
 
-  const statCards = useMemo(() => buildStatCards(dashboardData, t), [dashboardData, t]);
+  const statCards = useMemo(() => buildStatCards(marketplaceOverview, t), [marketplaceOverview, t]);
   const overviewCards = useMemo(() => buildOverviewCards(dashboardData, t), [dashboardData, t]);
+
+  const handleToggleRange = () => {
+    setOverviewRange(prev => (prev === 'weekly' ? 'monthly' : 'weekly'));
+  };
 
   const shopName = useMemo(
     () =>
@@ -402,7 +473,7 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
             </View>
             <View style={styles.heroMeta}>
               <Text style={[styles.heroTitle, textStyle]}>{shopName}</Text>
-              <Text style={styles.heroHandle}>valens.app/{String(shopHandle).toLowerCase()}</Text>
+              <Text style={styles.heroHandle}>valens.app/{String(shopHandle).toLowerCase().replace(/\s+/g, '')}</Text>
             </View>
           </View>
           <TouchableOpacity
@@ -439,15 +510,19 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
         </View>
       </View>
 
-      {/* ── Overview (this week) ── */}
+      {/* ── Overview (by range) ── */}
       <View style={[styles.sectionCard, cardStyle, { borderColor: withAlpha(text, 0.12) }]}>
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, textStyle]}>{t('myClosetDashboard.overviewTitle')}</Text>
-          <Text style={styles.sectionMeta}>{t('myClosetDashboard.thisWeek')} ▾</Text>
+          <TouchableOpacity activeOpacity={0.8} onPress={handleToggleRange}>
+            <Text style={styles.sectionMeta}>
+              {overviewRange === 'weekly' ? t('myClosetDashboard.thisWeek') : t('myClosetDashboard.thisMonth')} ▾
+            </Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.quickGrid}>
-          {dashboardLoading ? (
+          {marketplaceLoading ? (
             <View style={styles.itemsLoadingWrap}>
               <ActivityIndicator color={text} />
             </View>
@@ -458,6 +533,16 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
                   <Ionicons name={card.icon} size={18} color={text} />
                   <Text style={[styles.quickValue, textStyle]}>{card.value}</Text>
                   <Text style={styles.quickLabel}>{card.label}</Text>
+                  {card.delta != null && (
+                    <Text
+                      style={[
+                        styles.quickDelta,
+                        { color: card.delta.startsWith('-') ? '#dc2626' : '#16a34a' },
+                      ]}
+                    >
+                      {card.delta}
+                    </Text>
+                  )}
                 </View>
               ))}
             </View>
@@ -892,6 +977,11 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
   },
   battleCtaButtonText: { color: '#fff', fontWeight: '800', fontSize: 13 },
+  quickDelta: {
+    marginTop: 2,
+    fontSize: 11,
+    fontWeight: '600',
+  },
 });
 
 export default MyClosetDashboard;

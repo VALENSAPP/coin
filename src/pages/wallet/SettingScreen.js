@@ -191,7 +191,7 @@ export const SettingsScreen = ({ navigation }) => {
           },
         },
         {
-          label: 'Shop Settings',
+          label: t('walletSettings.shopSettings'),
           icon: 'storefront-outline',
           action: () => navigation.navigate('ShopSettings'),
         },

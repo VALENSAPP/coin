@@ -3583,6 +3583,7 @@
       "all": "All",
       "pending": "To ship",
       "processing": "Processing",
+      "shipped": "To Ship",
       "delivered": "Delivered"
     }
   },
@@ -4012,6 +4013,7 @@
     "liveBannerSubtitle": "Keep adding items and grow your closet.",
     "overviewTitle": "Overview",
     "thisWeek": "This week",
+    "thisMonth": "This month",
     "battlePerformanceTitle": "Battle Performance",
     "viewAllBattles": "View all battles",
     "sellerOrdersTitle": "Orders — As a Seller",

@@ -1778,6 +1778,7 @@
     "sectionAccount": "Cuenta",
     "sectionSecurity": "Seguridad",
     "profileSettings": "Configuración del perfil",
+    "shopSettings": "Configuración de la tienda",
     "verificationStatus": "Estado de verificación",
     "verifiedStatus": "Dragonfly Verificado",
     "notifications": "Notificaciones",
@@ -3580,7 +3581,8 @@
       "all": "Todos",
       "pending": "Pendiente de envío",
       "processing": "En proceso",
-      "delivered": "Entregado"
+      "delivered": "Entregado",
+      "shipped": "Pendiente de envío"
     }
   },
   "myClosetBuyer": {
@@ -4009,6 +4011,7 @@
     "liveBannerSubtitle": "Sigue agregando artículos y haz crecer tu armario.",
     "overviewTitle": "Resumen",
     "thisWeek": "Esta semana",
+    "thisMonth": "Este mes",
     "battlePerformanceTitle": "Rendimiento en batallas",
     "viewAllBattles": "Ver todas las batallas",
     "sellerOrdersTitle": "Pedidos — Como vendedor",

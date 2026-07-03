@@ -1778,6 +1778,7 @@
     "sectionAccount": "Compte",
     "sectionSecurity": "SÃ©curitÃ©",
     "profileSettings": "ParamÃ¨tres du profil",
+    "shopSettings": "Paramètres de la boutique",
     "verificationStatus": "Statut de vÃ©rification",
     "verifiedStatus": "Dragonfly VÃ©rifiÃ©",
     "notifications": "Notifications",
@@ -3580,6 +3581,7 @@
       "all": "Toutes",
       "pending": "À expédier",
       "processing": "En cours de traitement",
+      "shipped": "À expédier",
       "delivered": "Livrées"
     }
   },
@@ -4009,6 +4011,7 @@
   "liveBannerSubtitle": "Continuez à ajouter des articles et développez votre dressing.",
   "overviewTitle": "Aperçu",
   "thisWeek": "Cette semaine",
+  "thisMonth": "Ce mois-ci",
   "battlePerformanceTitle": "Performance des battles",
   "viewAllBattles": "Voir toutes les battles",
   "sellerOrdersTitle": "Commandes — En tant que vendeur",
