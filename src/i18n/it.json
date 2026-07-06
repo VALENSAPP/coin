@@ -3456,7 +3456,8 @@
     "subscriptionSetup": "Configurazione Programma Abbonamento",
     "viewMissionPost": "Visualizza Post Missione",
     "revenueFromSubscriptions": "Entrate dagli Abbonamenti",
-    "selectLanguage": "Seleziona Lingua"
+    "selectLanguage": "Seleziona Lingua",
+    "marketplaceAnalytics": "Analisi del Marketplace"
   },
   "tabNav": {
     "editProfile": "Modifica Profilo"
@@ -4063,6 +4064,19 @@
       "delivered": "Consegnato",
       "cancelled": "Annullato"
     }
+  },
+  "marketplaceAnalytics": {
+    "title": "Analisi",
+    "performance": "Prestazioni",
+    "totalViews": "Visualizzazioni totali",
+    "totalLikes": "Mi piace totali",
+    "orders": "Ordini",
+    "revenue": "Ricavi",
+    "topPerformingItem": "Articolo con le migliori prestazioni",
+    "viewsLikesOrders": "Visualizzazioni: {{views}} · Mi piace: {{likes}} · Ordini: {{orders}}",
+    "noTopItem": "Nessun articolo con prestazioni migliori al momento",
+    "thisWeek": "Questa settimana",
+    "thisMonth": "Questo mese"
   },
   "myClosetShopFront": {
     "vs": "VS",

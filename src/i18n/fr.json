@@ -3456,7 +3456,8 @@
     "subscriptionSetup": "Configuration du Programme dâ€™Abonnement",
     "viewMissionPost": "Voir la Publication de Mission",
     "revenueFromSubscriptions": "Revenus des Abonnements",
-    "selectLanguage": "Choisir la Langue"
+    "selectLanguage": "Choisir la Langue",
+    "marketplaceAnalytics": "Analyses de la Marketplace"
   },
   "tabNav": {
     "editProfile": "Modifier le Profil"
@@ -3740,624 +3741,637 @@
     "discountAmount": "Remise",
     "confirmingPayment": "Confirmation du paiement…",
     "paymentNotConfirmedError": "Nous n'avons pas encore pu confirmer votre paiement. Veuillez consulter Mes commandes dans quelques instants."
-},
-"myClosetShared": {
-  "headerTitle": "Mon Dressing",
-  "continue": "Continuer",
-  "or": "ou",
-  "cancel": "Annuler",
-  "ok": "OK",
-  "askMeLater": "Me le rappeler plus tard",
-  "cameraPermissionTitle": "Autorisation de la caméra",
-  "searchPlaceholder": "Rechercher {{label}}...",
-  "noMatchesFound": "Aucun résultat trouvé",
-  "enabled": "Activé",
-  "disabled": "Désactivé"
-},
-"myClosetSteps": {
-  "createShop": {
-    "title": "Créez votre boutique",
-    "subtitle": "Configurons votre boutique personnelle et personnalisons-la."
   },
-  "uploadLogo": {
-    "title": "Ajoutez le logo de votre boutique",
-    "subtitle": "Il représentera votre dressing sur Valens."
+  "myClosetShared": {
+    "headerTitle": "Mon Dressing",
+    "continue": "Continuer",
+    "or": "ou",
+    "cancel": "Annuler",
+    "ok": "OK",
+    "askMeLater": "Me le rappeler plus tard",
+    "cameraPermissionTitle": "Autorisation de la caméra",
+    "searchPlaceholder": "Rechercher {{label}}...",
+    "noMatchesFound": "Aucun résultat trouvé",
+    "enabled": "Activé",
+    "disabled": "Désactivé"
   },
-  "tellUs": {
-    "title": "Parlez-nous de votre dressing",
-    "subtitle": "Partagez une courte description pour permettre aux autres de découvrir votre style."
+  "myClosetSteps": {
+    "createShop": {
+      "title": "Créez votre boutique",
+      "subtitle": "Configurons votre boutique personnelle et personnalisons-la."
+    },
+    "uploadLogo": {
+      "title": "Ajoutez le logo de votre boutique",
+      "subtitle": "Il représentera votre dressing sur Valens."
+    },
+    "tellUs": {
+      "title": "Parlez-nous de votre dressing",
+      "subtitle": "Partagez une courte description pour permettre aux autres de découvrir votre style."
+    },
+    "preferences": {
+      "title": "Définissez les préférences de votre boutique",
+      "subtitle": "Vous pourrez les modifier à tout moment."
+    }
   },
-  "preferences": {
-    "title": "Définissez les préférences de votre boutique",
-    "subtitle": "Vous pourrez les modifier à tout moment."
-  }
-},
-"myClosetItemSteps": {
-  "photos": {
-    "title": "Ajouter des photos",
-    "subtitle": "Montrez clairement votre article. De belles photos permettent de vendre plus rapidement."
+  "myClosetItemSteps": {
+    "photos": {
+      "title": "Ajouter des photos",
+      "subtitle": "Montrez clairement votre article. De belles photos permettent de vendre plus rapidement."
+    },
+    "details": {
+      "title": "Détails de l'article",
+      "subtitle": "Décrivez votre article aux acheteurs."
+    },
+    "price": {
+      "title": "Prix et quantité",
+      "subtitle": "Fixez un prix juste et gérez votre stock."
+    },
+    "shipping": {
+      "title": "Livraison et retours",
+      "subtitle": "Définissez votre politique de livraison et de retour."
+    },
+    "review": {
+      "title": "Vérifiez votre article",
+      "subtitle": "Assurez-vous que tout est correct."
+    }
   },
-  "details": {
-    "title": "Détails de l'article",
-    "subtitle": "Décrivez votre article aux acheteurs."
+  "myClosetOptions": {
+    "category": {
+      "clothing": "Vêtements",
+      "accessories": "Accessoires",
+      "shoes": "Chaussures",
+      "bags": "Sacs",
+      "vintage": "Vintage",
+      "beauty": "Beauté",
+      "homeDecor": "Décoration intérieure",
+      "others": "Autres"
+    },
+    "returnPolicy": {
+      "noReturns": "Aucun retour",
+      "sevenDay": "Retours sous 7 jours",
+      "fourteenDay": "Retours sous 14 jours",
+      "exchangeOnly": "Échange uniquement"
+    },
+    "whoCanBuy": {
+      "everyone": "Tout le monde",
+      "followers": "Abonnés"
+    },
+    "itemCategory": {
+      "womenJackets": "Femmes > Vestes",
+      "womenDresses": "Femmes > Robes",
+      "menShirts": "Hommes > Chemises",
+      "accessoriesBags": "Accessoires > Sacs",
+      "shoesSneakers": "Chaussures > Baskets",
+      "homeDecor": "Maison > Décoration",
+      "vintagePieces": "Vintage > Pièces",
+      "others": "Autres"
+    },
+    "condition": {
+      "new": "Neuf",
+      "used": "D'occasion",
+      "goodCondition": "Bon état",
+      "needAttention": "Nécessite une attention"
+    },
+    "shippingMethod": {
+      "shipItems": "Expédier les articles",
+      "localPickup": "Retrait sur place"
+    },
+    "shippingTime": {
+      "oneToThree": "1 à 3 jours ouvrables",
+      "threeToFive": "3 à 5 jours ouvrables",
+      "fiveToSeven": "5 à 7 jours ouvrables"
+    },
+    "shippingFee": {
+      "free": "Livraison gratuite"
+    }
   },
-  "price": {
-    "title": "Prix et quantité",
-    "subtitle": "Fixez un prix juste et gérez votre stock."
+  "myClosetCreateShop": {
+    "shopNameLabel": "Nom de votre boutique",
+    "shopNamePlaceholder": "Ex. : Le Dressing de Sophie",
+    "usernameLabel": "Nom d'utilisateur de la boutique",
+    "usernamePlaceholder": "votrenom",
+    "featureEasyToFind": "Facile à trouver",
+    "featureBuildBrand": "Développez votre marque",
+    "featureGrowCommunity": "Faites grandir votre communauté",
+    "errors": {
+      "shopNameRequired": "Le nom de la boutique est obligatoire.",
+      "usernameRequired": "Le nom d'utilisateur de la boutique est obligatoire."
+    }
   },
-  "shipping": {
-    "title": "Livraison et retours",
-    "subtitle": "Définissez votre politique de livraison et de retour."
+  "myClosetUploadLogo": {
+    "uploadLogo": "Télécharger le logo",
+    "chooseFromLibrary": "Choisir depuis la galerie",
+    "recommendationHint": "Nous recommandons une image carrée ou hexagonale d'au moins 500 × 500 px.",
+    "unableToOpenLibrary": "Impossible d'ouvrir la galerie de photos.",
+    "unableToOpenCamera": "Impossible d'ouvrir l'appareil photo.",
+    "uploadRequired": "Veuillez télécharger un logo pour continuer.",
+    "cameraPermissionMessage": "L'accès à l'appareil photo est requis pour prendre une photo du logo."
   },
-  "review": {
-    "title": "Vérifiez votre article",
-    "subtitle": "Assurez-vous que tout est correct."
-  }
-},
-"myClosetOptions": {
-  "category": {
-    "clothing": "Vêtements",
-    "accessories": "Accessoires",
-    "shoes": "Chaussures",
-    "bags": "Sacs",
-    "vintage": "Vintage",
-    "beauty": "Beauté",
-    "homeDecor": "Décoration intérieure",
-    "others": "Autres"
+  "myClosetTellUs": {
+    "descriptionLabel": "Description de la boutique",
+    "descriptionPlaceholder": "Ex. : J'adore les pièces intemporelles, le style minimaliste et les trouvailles uniques...",
+    "categoryLabel": "Catégorie de la boutique",
+    "categoryPlaceholder": "Sélectionnez une catégorie",
+    "locationLabel": "Localisation (facultatif)",
+    "locationPlaceholder": "Sélectionnez votre localisation",
+    "errors": {
+      "descriptionRequired": "La description est obligatoire.",
+      "categoryRequired": "La catégorie est obligatoire."
+    }
   },
-  "returnPolicy": {
-    "noReturns": "Aucun retour",
-    "sevenDay": "Retours sous 7 jours",
-    "fourteenDay": "Retours sous 14 jours",
-    "exchangeOnly": "Échange uniquement"
+  "myClosetPreferences": {
+    "shippingOptionsLabel": "Options de livraison",
+    "shipItemsDescription": "J'expédierai les articles aux acheteurs",
+    "localPickupDescription": "Les acheteurs récupèrent les articles sur place",
+    "returnPolicyLabel": "Politique de retour",
+    "returnPolicyPlaceholder": "Sélectionnez une politique de retour",
+    "paymentTitle": "Paiement sécurisé Valens",
+    "paymentSubtitle": "Recevez vos paiements en toute sécurité avec Valens",
+    "whoCanBuyLabel": "Qui peut acheter ?",
+    "whoCanBuyPlaceholder": "Sélectionnez qui peut acheter",
+    "launchButton": "Lancer Mon Dressing",
+    "createSuccess": "Mon Dressing a été créé avec succès.",
+    "createFailure": "Échec de la création de Mon Dressing.",
+    "errors": {
+      "shippingRequired": "Veuillez sélectionner au moins une option de livraison.",
+      "returnPolicyRequired": "La politique de retour est obligatoire.",
+      "whoCanBuyRequired": "Veuillez choisir qui peut acheter."
+    }
   },
-  "whoCanBuy": {
-    "everyone": "Tout le monde",
-    "followers": "Abonnés"
+  "myClosetLive": {
+    "addFirstItem": "Ajouter mon premier article",
+    "addNewItem": "Ajouter un nouvel article",
+    "closetLiveTitle": "Votre dressing est en ligne !",
+    "shopLiveTitle": "Votre boutique est en ligne !",
+    "subtitle": "Votre boutique personnelle est prête. Commencez à ajouter des articles et partagez votre style.",
+    "shopLinkLabel": "Lien de votre boutique",
+    "linkCopied": "Lien de la boutique copié dans le presse-papiers",
+    "goToCloset": "Aller à Mon Dressing",
+    "goToShop": "Aller à Ma Boutique"
   },
-  "itemCategory": {
-    "womenJackets": "Femmes > Vestes",
-    "womenDresses": "Femmes > Robes",
-    "menShirts": "Hommes > Chemises",
-    "accessoriesBags": "Accessoires > Sacs",
-    "shoesSneakers": "Chaussures > Baskets",
-    "homeDecor": "Maison > Décoration",
-    "vintagePieces": "Vintage > Pièces",
-    "others": "Autres"
+  "myClosetAddItemDetails": {
+    "subtitle": "Parlez aux acheteurs de votre article.",
+    "itemNameLabel": "Nom de l'article",
+    "itemNamePlaceholder": "Ex. : Veste en cuir vintage",
+    "categoryLabel": "Catégorie",
+    "categoryPlaceholder": "Sélectionnez une catégorie",
+    "brandLabel": "Marque (facultatif)",
+    "brandPlaceholder": "Ex. : Zara",
+    "conditionLabel": "État",
+    "conditionPlaceholder": "Sélectionnez l'état",
+    "descriptionLabel": "Description",
+    "descriptionPlaceholder": "Décrivez votre article, sa taille, sa couleur, sa matière...",
+    "errors": {
+      "itemNameRequired": "Le nom de l'article est obligatoire.",
+      "categoryRequired": "La catégorie est obligatoire.",
+      "conditionRequired": "L'état est obligatoire.",
+      "descriptionRequired": "La description est obligatoire."
+    }
   },
-  "condition": {
-    "new": "Neuf",
-    "used": "D'occasion",
-    "goodCondition": "Bon état",
-    "needAttention": "Nécessite une attention"
+  "myClosetAddItemPrice": {
+    "subtitle": "Fixez un prix juste et gérez votre stock.",
+    "priceLabel": "Prix",
+    "quantityLabel": "Quantité",
+    "quantityHelper": "Combien d'unités de cet article possédez-vous ?",
+    "feesTitle": "Frais et versement",
+    "feeKeepPercent": "Vous conservez {{percent}} %",
+    "feeExplainerPersonal": "Profils personnels : Valens conserve {{fee}} % lors de la vente de votre article.",
+    "feeExplainerBusiness": "Profils professionnels : Valens conserve {{fee}} % lors de la vente de votre article.",
+    "feeSecure": "Paiements sécurisés. Versements rapides.",
+    "errors": {
+      "priceRequired": "Le prix est requis.",
+      "quantityRequired": "La quantité est requise."
+    }
   },
-  "shippingMethod": {
-    "shipItems": "Expédier les articles",
-    "localPickup": "Retrait sur place"
+  "myClosetAddItemShipping": {
+    "subtitle": "Configurez votre politique de livraison et de retour.",
+    "shippingOptionsTitle": "Options de livraison",
+    "shippingOptionsHelper": "Choisissez comment les acheteurs recevront cet article.",
+    "iWillShipLabel": "J'expédierai l'article",
+    "iWillShipDescription": "Expédier aux acheteurs",
+    "shipBulletAddress": "L'acheteur fournit l'adresse",
+    "shipBulletHandle": "Vous gérez l'expédition",
+    "pickupDescription": "Les acheteurs récupèrent l'article sur place",
+    "pickupBulletBuyer": "L'acheteur récupère l'article",
+    "pickupBulletNoCost": "Aucun frais de livraison",
+    "bothSelectedTitle": "Les deux options sont sélectionnées",
+    "bothSelectedSubtitle": "Les acheteurs pourront choisir leur mode de livraison préféré lors du paiement.",
+    "shippingDetailsTitle": "Détails de la livraison",
+    "estimatedTimeLabel": "Délai de livraison estimé",
+    "selectTimePlaceholder": "Sélectionnez un délai",
+    "shippingFeeLabel": "Frais de livraison",
+    "selectFeePlaceholder": "Sélectionnez les frais",
+    "localPickupDetailsTitle": "Détails du retrait sur place",
+    "cityLabel": "Ville",
+    "cityPlaceholder": "Sélectionnez votre ville",
+    "pickupLocationLabel": "Lieu de retrait",
+    "selectPickupSpot": "Sélectionnez un point de retrait",
+    "selectCityFirst": "Sélectionnez d'abord une ville",
+    "viewOnMap": "Voir sur la carte",
+    "availableHoursLabel": "Horaires disponibles",
+    "weekdaysAbbrev": "Lun - Ven",
+    "weekendsAbbrev": "Sam - Dim",
+    "weekdaysLabel": "Jours ouvrables (Lun - Ven)",
+    "weekendsLabel": "Week-end (Sam - Dim)",
+    "opensLabel": "Ouverture",
+    "closesLabel": "Fermeture",
+    "startTimePlaceholder": "Heure de début",
+    "endTimePlaceholder": "Heure de fin",
+    "buyerChatTitle": "Discussion avec l'acheteur",
+    "buyerChatSubtitle": "Autorisez les acheteurs à vous envoyer des messages concernant les détails du retrait",
+    "buyerChatPreviewFallback": "Les acheteurs vous contacteront ici pour organiser le retrait.",
+    "previewChat": "Aperçu de la discussion",
+    "returnPolicyLabel": "Politique de retour",
+    "selectReturnPolicyPlaceholder": "Sélectionnez une politique de retour",
+    "errors": {
+      "deliveryRequired": "Sélectionnez au moins un mode de livraison.",
+      "shippingTimeRequired": "Le délai de livraison estimé est obligatoire.",
+      "shippingFeeRequired": "Les frais de livraison sont obligatoires.",
+      "cityRequired": "La ville est obligatoire.",
+      "pickupLocationRequired": "Le lieu de retrait est obligatoire.",
+      "returnPolicyRequired": "La politique de retour est obligatoire."
+    }
   },
-  "shippingTime": {
-    "oneToThree": "1 à 3 jours ouvrables",
-    "threeToFive": "3 à 5 jours ouvrables",
-    "fiveToSeven": "5 à 7 jours ouvrables"
+  "myClosetAddItemReview": {
+    "subtitle": "Vérifiez que tout est correct.",
+    "placeholderItemName": "Veste en cuir vintage",
+    "placeholderDescription": "Veste classique en cuir vintage en excellent état.",
+    "quantityLabel": "Quantité",
+    "categoryLabel": "Catégorie",
+    "descriptionLabel": "Description",
+    "deliveryLabel": "Livraison",
+    "returnPolicyLabel": "Politique de retour",
+    "paymentMethodLabel": "Mode de paiement",
+    "publishButton": "Publier l'article",
+    "publishing": "Publication en cours...",
+    "publishFailure": "Impossible de publier l'article."
   },
-  "shippingFee": {
-    "free": "Livraison gratuite"
-  }
-},
-"myClosetCreateShop": {
-  "shopNameLabel": "Nom de votre boutique",
-  "shopNamePlaceholder": "Ex. : Le Dressing de Sophie",
-  "usernameLabel": "Nom d'utilisateur de la boutique",
-  "usernamePlaceholder": "votrenom",
-  "featureEasyToFind": "Facile à trouver",
-  "featureBuildBrand": "Développez votre marque",
-  "featureGrowCommunity": "Faites grandir votre communauté",
-  "errors": {
-    "shopNameRequired": "Le nom de la boutique est obligatoire.",
-    "usernameRequired": "Le nom d'utilisateur de la boutique est obligatoire."
-  }
-},
-"myClosetUploadLogo": {
-  "uploadLogo": "Télécharger le logo",
-  "chooseFromLibrary": "Choisir depuis la galerie",
-  "recommendationHint": "Nous recommandons une image carrée ou hexagonale d'au moins 500 × 500 px.",
-  "unableToOpenLibrary": "Impossible d'ouvrir la galerie de photos.",
-  "unableToOpenCamera": "Impossible d'ouvrir l'appareil photo.",
-  "uploadRequired": "Veuillez télécharger un logo pour continuer.",
-  "cameraPermissionMessage": "L'accès à l'appareil photo est requis pour prendre une photo du logo."
-},
-"myClosetTellUs": {
-  "descriptionLabel": "Description de la boutique",
-  "descriptionPlaceholder": "Ex. : J'adore les pièces intemporelles, le style minimaliste et les trouvailles uniques...",
-  "categoryLabel": "Catégorie de la boutique",
-  "categoryPlaceholder": "Sélectionnez une catégorie",
-  "locationLabel": "Localisation (facultatif)",
-  "locationPlaceholder": "Sélectionnez votre localisation",
-  "errors": {
-    "descriptionRequired": "La description est obligatoire.",
-    "categoryRequired": "La catégorie est obligatoire."
-  }
-},
-"myClosetPreferences": {
-  "shippingOptionsLabel": "Options de livraison",
-  "shipItemsDescription": "J'expédierai les articles aux acheteurs",
-  "localPickupDescription": "Les acheteurs récupèrent les articles sur place",
-  "returnPolicyLabel": "Politique de retour",
-  "returnPolicyPlaceholder": "Sélectionnez une politique de retour",
-  "paymentTitle": "Paiement sécurisé Valens",
-  "paymentSubtitle": "Recevez vos paiements en toute sécurité avec Valens",
-  "whoCanBuyLabel": "Qui peut acheter ?",
-  "whoCanBuyPlaceholder": "Sélectionnez qui peut acheter",
-  "launchButton": "Lancer Mon Dressing",
-  "createSuccess": "Mon Dressing a été créé avec succès.",
-  "createFailure": "Échec de la création de Mon Dressing.",
-  "errors": {
-    "shippingRequired": "Veuillez sélectionner au moins une option de livraison.",
-    "returnPolicyRequired": "La politique de retour est obligatoire.",
-    "whoCanBuyRequired": "Veuillez choisir qui peut acheter."
-  }
-},
-"myClosetLive": {
-  "addFirstItem": "Ajouter mon premier article",
-  "addNewItem": "Ajouter un nouvel article",
-  "closetLiveTitle": "Votre dressing est en ligne !",
-  "shopLiveTitle": "Votre boutique est en ligne !",
-  "subtitle": "Votre boutique personnelle est prête. Commencez à ajouter des articles et partagez votre style.",
-  "shopLinkLabel": "Lien de votre boutique",
-  "linkCopied": "Lien de la boutique copié dans le presse-papiers",
-  "goToCloset": "Aller à Mon Dressing",
-  "goToShop": "Aller à Ma Boutique"
-},
-"myClosetAddItemDetails": {
-  "subtitle": "Parlez aux acheteurs de votre article.",
-  "itemNameLabel": "Nom de l'article",
-  "itemNamePlaceholder": "Ex. : Veste en cuir vintage",
-  "categoryLabel": "Catégorie",
-  "categoryPlaceholder": "Sélectionnez une catégorie",
-  "brandLabel": "Marque (facultatif)",
-  "brandPlaceholder": "Ex. : Zara",
-  "conditionLabel": "État",
-  "conditionPlaceholder": "Sélectionnez l'état",
-  "descriptionLabel": "Description",
-  "descriptionPlaceholder": "Décrivez votre article, sa taille, sa couleur, sa matière...",
-  "errors": {
-    "itemNameRequired": "Le nom de l'article est obligatoire.",
-    "categoryRequired": "La catégorie est obligatoire.",
-    "conditionRequired": "L'état est obligatoire.",
-    "descriptionRequired": "La description est obligatoire."
-  }
-},
-"myClosetAddItemPrice": {
-  "subtitle": "Fixez un prix juste et gérez votre stock.",
-  "priceLabel": "Prix",
-  "quantityLabel": "Quantité",
-  "quantityHelper": "Combien d'unités de cet article possédez-vous ?",
-  "feesTitle": "Frais et versement",
-  "feeKeepPercent": "Vous conservez {{percent}} %",
-  "feeExplainerPersonal": "Profils personnels : Valens conserve {{fee}} % lors de la vente de votre article.",
-  "feeExplainerBusiness": "Profils professionnels : Valens conserve {{fee}} % lors de la vente de votre article.",
-  "feeSecure": "Paiements sécurisés. Versements rapides.",
-  "errors": {
-    "priceRequired": "Le prix est requis.",
-    "quantityRequired": "La quantité est requise."
-  }
-},
-"myClosetAddItemShipping": {
-  "subtitle": "Configurez votre politique de livraison et de retour.",
-  "shippingOptionsTitle": "Options de livraison",
-  "shippingOptionsHelper": "Choisissez comment les acheteurs recevront cet article.",
-  "iWillShipLabel": "J'expédierai l'article",
-  "iWillShipDescription": "Expédier aux acheteurs",
-  "shipBulletAddress": "L'acheteur fournit l'adresse",
-  "shipBulletHandle": "Vous gérez l'expédition",
-  "pickupDescription": "Les acheteurs récupèrent l'article sur place",
-  "pickupBulletBuyer": "L'acheteur récupère l'article",
-  "pickupBulletNoCost": "Aucun frais de livraison",
-  "bothSelectedTitle": "Les deux options sont sélectionnées",
-  "bothSelectedSubtitle": "Les acheteurs pourront choisir leur mode de livraison préféré lors du paiement.",
-  "shippingDetailsTitle": "Détails de la livraison",
-  "estimatedTimeLabel": "Délai de livraison estimé",
-  "selectTimePlaceholder": "Sélectionnez un délai",
-  "shippingFeeLabel": "Frais de livraison",
-  "selectFeePlaceholder": "Sélectionnez les frais",
-  "localPickupDetailsTitle": "Détails du retrait sur place",
-  "cityLabel": "Ville",
-  "cityPlaceholder": "Sélectionnez votre ville",
-  "pickupLocationLabel": "Lieu de retrait",
-  "selectPickupSpot": "Sélectionnez un point de retrait",
-  "selectCityFirst": "Sélectionnez d'abord une ville",
-  "viewOnMap": "Voir sur la carte",
-  "availableHoursLabel": "Horaires disponibles",
-  "weekdaysAbbrev": "Lun - Ven",
-  "weekendsAbbrev": "Sam - Dim",
-  "weekdaysLabel": "Jours ouvrables (Lun - Ven)",
-  "weekendsLabel": "Week-end (Sam - Dim)",
-  "opensLabel": "Ouverture",
-  "closesLabel": "Fermeture",
-  "startTimePlaceholder": "Heure de début",
-  "endTimePlaceholder": "Heure de fin",
-  "buyerChatTitle": "Discussion avec l'acheteur",
-  "buyerChatSubtitle": "Autorisez les acheteurs à vous envoyer des messages concernant les détails du retrait",
-  "buyerChatPreviewFallback": "Les acheteurs vous contacteront ici pour organiser le retrait.",
-  "previewChat": "Aperçu de la discussion",
-  "returnPolicyLabel": "Politique de retour",
-  "selectReturnPolicyPlaceholder": "Sélectionnez une politique de retour",
-  "errors": {
-    "deliveryRequired": "Sélectionnez au moins un mode de livraison.",
-    "shippingTimeRequired": "Le délai de livraison estimé est obligatoire.",
-    "shippingFeeRequired": "Les frais de livraison sont obligatoires.",
-    "cityRequired": "La ville est obligatoire.",
-    "pickupLocationRequired": "Le lieu de retrait est obligatoire.",
-    "returnPolicyRequired": "La politique de retour est obligatoire."
-  }
-},
-"myClosetAddItemReview": {
-  "subtitle": "Vérifiez que tout est correct.",
-  "placeholderItemName": "Veste en cuir vintage",
-  "placeholderDescription": "Veste classique en cuir vintage en excellent état.",
-  "quantityLabel": "Quantité",
-  "categoryLabel": "Catégorie",
-  "descriptionLabel": "Description",
-  "deliveryLabel": "Livraison",
-  "returnPolicyLabel": "Politique de retour",
-  "paymentMethodLabel": "Mode de paiement",
-  "publishButton": "Publier l'article",
-  "publishing": "Publication en cours...",
-  "publishFailure": "Impossible de publier l'article."
-},
-"myClosetAddItemPublished": {
-  "title": "Votre article est en ligne ! 🎉",
-  "subtitle": "Excellent travail ! Votre article est désormais visible dans votre dressing.",
-  "shareItem": "Partager l'article",
-  "addAnotherItem": "Ajouter un autre article"
-},
-"myClosetDashboard": {
-  "defaultShopName": "Mon Dressing",
-  "untitledItem": "Article sans titre",
-  "shareShop": "Partager la boutique",
-  "liveBannerTitle": "Votre boutique est en ligne ! 🎉",
-  "liveBannerSubtitle": "Continuez à ajouter des articles et développez votre dressing.",
-  "overviewTitle": "Aperçu",
-  "thisWeek": "Cette semaine",
-  "thisMonth": "Ce mois-ci",
-  "battlePerformanceTitle": "Performance des battles",
-  "viewAllBattles": "Voir toutes les battles",
-  "sellerOrdersTitle": "Commandes — En tant que vendeur",
-  "buyerOrdersTitle": "Commandes — En tant qu'acheteur",
-  "viewAll": "Voir tout",
-  "noOrdersYet": "Aucune commande pour le moment",
-  "noPurchasesYet": "Aucun achat pour le moment",
-  "yourItemsTitle": "Vos articles",
-  "noItemsYet": "Aucun article pour le moment",
-  "addNewItem": "Ajouter un nouvel article",
-  "battleCtaTitle": "Battle d'articles",
-  "battleCtaSubtitle": "Faites participer vos articles à des battles et obtenez des votes !",
-  "createBattleButton": "Créer une battle",
-  "orderItemFallback": "Article de la commande",
-  "orderItemsCount": "{{count}} article(s)",
-  "orderNumber": "Commande n°{{number}}",
-  "stats": {
-    "views": "Vues",
-    "likes": "Mentions J'aime",
+  "myClosetAddItemPublished": {
+    "title": "Votre article est en ligne ! 🎉",
+    "subtitle": "Excellent travail ! Votre article est désormais visible dans votre dressing.",
+    "shareItem": "Partager l'article",
+    "addAnotherItem": "Ajouter un autre article"
+  },
+  "myClosetDashboard": {
+    "defaultShopName": "Mon Dressing",
+    "untitledItem": "Article sans titre",
+    "shareShop": "Partager la boutique",
+    "liveBannerTitle": "Votre boutique est en ligne ! 🎉",
+    "liveBannerSubtitle": "Continuez à ajouter des articles et développez votre dressing.",
+    "overviewTitle": "Aperçu",
+    "thisWeek": "Cette semaine",
+    "thisMonth": "Ce mois-ci",
+    "battlePerformanceTitle": "Performance des battles",
+    "viewAllBattles": "Voir toutes les battles",
+    "sellerOrdersTitle": "Commandes — En tant que vendeur",
+    "buyerOrdersTitle": "Commandes — En tant qu'acheteur",
+    "viewAll": "Voir tout",
+    "noOrdersYet": "Aucune commande pour le moment",
+    "noPurchasesYet": "Aucun achat pour le moment",
+    "yourItemsTitle": "Vos articles",
+    "noItemsYet": "Aucun article pour le moment",
+    "addNewItem": "Ajouter un nouvel article",
+    "battleCtaTitle": "Battle d'articles",
+    "battleCtaSubtitle": "Faites participer vos articles à des battles et obtenez des votes !",
+    "createBattleButton": "Créer une battle",
+    "orderItemFallback": "Article de la commande",
+    "orderItemsCount": "{{count}} article(s)",
+    "orderNumber": "Commande n°{{number}}",
+    "stats": {
+      "views": "Vues",
+      "likes": "Mentions J'aime",
+      "orders": "Commandes",
+      "revenue": "Revenus"
+    },
+    "overview": {
+      "items": "Articles",
+      "sold": "Vendus",
+      "earnings": "Gains",
+      "rating": "Évaluation"
+    },
+    "battle": {
+      "entered": "Battles participées",
+      "votes": "Total des votes",
+      "winRate": "Taux de victoire",
+      "topRanked": "Meilleur classement",
+      "battleViews": "Vues des battles"
+    },
+    "orderStatus": {
+      "pending": "À expédier",
+      "confirmed": "Confirmée",
+      "processing": "En cours de traitement",
+      "shipped": "Expédiée",
+      "delivered": "Livrée",
+      "cancelled": "Annulée"
+    }
+  },
+  "marketplaceAnalytics": {
+    "title": "Analyses",
+    "performance": "Performance",
+    "totalViews": "Nombre total de vues",
+    "totalLikes": "Nombre total de mentions J’aime",
     "orders": "Commandes",
-    "revenue": "Revenus"
+    "revenue": "Revenus",
+    "topPerformingItem": "Article le plus performant",
+    "viewsLikesOrders": "Vues : {{views}} · Mentions J’aime : {{likes}} · Commandes : {{orders}}",
+    "noTopItem": "Aucun article le plus performant pour le moment",
+    "thisWeek": "Cette semaine",
+    "thisMonth": "Ce mois-ci"
   },
-  "overview": {
-    "items": "Articles",
-    "sold": "Vendus",
-    "earnings": "Gains",
-    "rating": "Évaluation"
+  "myClosetShopFront": {
+    "vs": "VS",
+    "defaultShopName": "Mon Dressing",
+    "untitled": "Sans titre",
+    "shopOwnerBannerSubtitle": "Bienvenue dans cette boutique.\nDécouvrez la collection, explorez de nouvelles pièces et faites connaissance avec la marque. Achetez dès maintenant.",
+    "userBannerSubtitle": "Vous trouverez ici les articles dont j'ai décidé de me séparer.\nAchetez-les maintenant et profitez-en autant que moi.\nVoici mon dressing : les choses que j'ai créées et laissées partir.",
+    "battlePicksTitle": "Sélections des battles",
+    "seeAll": "Voir tout",
+    "myItemsTitle": "Mes articles",
+    "noItemsYet": "Aucun article pour le moment",
+    "addFirstItem": "Ajoutez votre premier article",
+    "noItemsAvailable": "Aucun article disponible",
+    "addNewItem": "Ajouter un nouvel article"
+  },
+  "myClosetOrderDetail": {
+    "headerTitle": "Détails de la commande",
+    "orderNumberTitle": "Commande n° {{orderNumber}}",
+    "missingOrderReference": "Référence de commande manquante.",
+    "couldNotLoadOrder": "Impossible de charger les détails de la commande.",
+    "couldntLoadOrder": "Impossible de charger la commande.",
+    "retry": "Réessayer",
+    "orderStatusUpdated": "Statut de la commande mis à jour.",
+    "unableToUpdateStatus": "Impossible de mettre à jour le statut de la commande.",
+    "buyer": "Acheteur",
+    "shippingAddress": "Adresse de livraison",
+    "items": "Articles ({{count}})",
+    "qty": "Qté : {{count}}",
+    "noItemDetails": "Aucun détail disponible pour cette commande.",
+    "orderTotal": "Total de la commande",
+    "updating": "Mise à jour…",
+    "defaultItemName": "Article",
+    "markAsProcessing": "Marquer comme en cours de traitement",
+    "markAsShipped": "Marquer comme expédiée",
+    "markAsDelivered": "Marquer comme livrée",
+    "status": {
+      "pending": "À expédier",
+      "confirmed": "Confirmée",
+      "processing": "En cours de traitement",
+      "shipped": "Expédiée",
+      "delivered": "Livrée",
+      "cancelled": "Annulée"
+    }
   },
   "battle": {
-    "entered": "Battles participées",
-    "votes": "Total des votes",
-    "winRate": "Taux de victoire",
-    "topRanked": "Meilleur classement",
-    "battleViews": "Vues des battles"
+    "headerTitle": "Article en duel",
+    "winner": "Gagnant",
+    "vs": "VS",
+    "stepper": {
+      "items": "Articles",
+      "setup": "Configuration",
+      "preview": "Aperçu"
+    },
+    "shareTitle": "Partager",
+    "shareUnavailable": "Impossible d'ouvrir la feuille de partage pour le moment.",
+    "sharePreviewMessage": "Découvrez l'aperçu de mon duel de dressing sur Valens.",
+    "shareSetupMessage": "Configuration du duel : {{question}}",
+    "sharePreviewQuestionMessage": "Aperçu de ce duel : {{question}}",
+    "shareLiveMessage": "Votez à mon duel de dressing en direct sur Valens.",
+    "shareResultsMessage": "Découvrez les résultats de mon duel de dressing sur Valens.",
+    "chooseItemsTitle": "Choisissez les articles pour le duel",
+    "chooseItemsHint": "Sélectionnez 2 articles de votre dressing",
+    "next": "Suivant",
+    "defaultQuestion": "Lequel préférez-vous ?",
+    "questionLabel": "Question du duel",
+    "typeLabel": "Type de duel",
+    "opinionBattle": "Duel d'opinion",
+    "opinionBattleSub": "Les utilisateurs votent pour leur favori",
+    "styleBattle": "Duel de style",
+    "styleBattleSub": "Les utilisateurs votent selon le style",
+    "durationLabel": "Durée du duel",
+    "duration24h": "24 heures",
+    "duration3d": "3 jours",
+    "duration7d": "7 jours",
+    "whoCanVote": "Qui peut voter ?",
+    "change": "Modifier",
+    "visibilityLabel": "Visibilité",
+    "public": "Public",
+    "private": "Privé",
+    "followersOnly": "Abonnés uniquement",
+    "previewBattle": "Aperçu du duel",
+    "previewTitle": "Aperçu du duel",
+    "daysLeft": "Il reste {{count}} jours",
+    "everyoneCanVote": "Tout le monde peut voter",
+    "aboutTitle": "À propos de ce duel",
+    "aboutTextPreview": "Aidez les autres à choisir leur favori !",
+    "launchBattle": "Lancer le duel",
+    "liveTitle": "Duel en direct",
+    "voteAndSeeResults": "Votez et voyez les résultats",
+    "voteHelpsOthers": "Votre vote aide les autres à décider !",
+    "voteFor": "Voter pour {{name}}",
+    "resultsTitle": "Résultats du duel",
+    "battleInsights": "Statistiques du duel",
+    "useInsightsTitle": "Utilisez ces informations",
+    "useInsightsText": "Cet article est plus apprécié par la communauté. Pensez à le promouvoir ou à créer des articles similaires.",
+    "shareResults": "Partager les résultats",
+    "viewItem": "Voir l'article",
+    "useInsights": "Utiliser les analyses",
+    "viewBattle": "Voir la bataille",
+    "totalVotesCount": "{{count}} votes au total",
+    "stats": {
+      "votes": "Votes",
+      "views": "Vues",
+      "comments": "Commentaires",
+      "totalVotes": "Total des votes",
+      "totalViews": "Total des vues",
+      "shares": "Partages"
+    },
+    "errors": {
+      "questionRequired": "La question du duel est obligatoire.",
+      "typeRequired": "Veuillez choisir un type de duel.",
+      "durationRequired": "Veuillez choisir une durée.",
+      "visibilityRequired": "La visibilité est obligatoire."
+    }
   },
-  "orderStatus": {
-    "pending": "À expédier",
-    "confirmed": "Confirmée",
-    "processing": "En cours de traitement",
-    "shipped": "Expédiée",
-    "delivered": "Livrée",
-    "cancelled": "Annulée"
-  }
-},
-"myClosetShopFront": {
-  "vs": "VS",
-  "defaultShopName": "Mon Dressing",
-  "untitled": "Sans titre",
-  "shopOwnerBannerSubtitle": "Bienvenue dans cette boutique.\nDécouvrez la collection, explorez de nouvelles pièces et faites connaissance avec la marque. Achetez dès maintenant.",
-  "userBannerSubtitle": "Vous trouverez ici les articles dont j'ai décidé de me séparer.\nAchetez-les maintenant et profitez-en autant que moi.\nVoici mon dressing : les choses que j'ai créées et laissées partir.",
-  "battlePicksTitle": "Sélections des battles",
-  "seeAll": "Voir tout",
-  "myItemsTitle": "Mes articles",
-  "noItemsYet": "Aucun article pour le moment",
-  "addFirstItem": "Ajoutez votre premier article",
-  "noItemsAvailable": "Aucun article disponible",
-  "addNewItem": "Ajouter un nouvel article"
-},
-"myClosetOrderDetail": {
-  "headerTitle": "Détails de la commande",
-  "orderNumberTitle": "Commande n° {{orderNumber}}",
-  "missingOrderReference": "Référence de commande manquante.",
-  "couldNotLoadOrder": "Impossible de charger les détails de la commande.",
-  "couldntLoadOrder": "Impossible de charger la commande.",
-  "retry": "Réessayer",
-  "orderStatusUpdated": "Statut de la commande mis à jour.",
-  "unableToUpdateStatus": "Impossible de mettre à jour le statut de la commande.",
-  "buyer": "Acheteur",
-  "shippingAddress": "Adresse de livraison",
-  "items": "Articles ({{count}})",
-  "qty": "Qté : {{count}}",
-  "noItemDetails": "Aucun détail disponible pour cette commande.",
-  "orderTotal": "Total de la commande",
-  "updating": "Mise à jour…",
-  "defaultItemName": "Article",
-  "markAsProcessing": "Marquer comme en cours de traitement",
-  "markAsShipped": "Marquer comme expédiée",
-  "markAsDelivered": "Marquer comme livrée",
-  "status": {
-    "pending": "À expédier",
-    "confirmed": "Confirmée",
-    "processing": "En cours de traitement",
-    "shipped": "Expédiée",
-    "delivered": "Livrée",
-    "cancelled": "Annulée"
-  }
-},
-"battle": {
-  "headerTitle": "Article en duel",
-  "winner": "Gagnant",
-  "vs": "VS",
-  "stepper": {
-    "items": "Articles",
-    "setup": "Configuration",
-    "preview": "Aperçu"
-  },
-  "shareTitle": "Partager",
-  "shareUnavailable": "Impossible d'ouvrir la feuille de partage pour le moment.",
-  "sharePreviewMessage": "Découvrez l'aperçu de mon duel de dressing sur Valens.",
-  "shareSetupMessage": "Configuration du duel : {{question}}",
-  "sharePreviewQuestionMessage": "Aperçu de ce duel : {{question}}",
-  "shareLiveMessage": "Votez à mon duel de dressing en direct sur Valens.",
-  "shareResultsMessage": "Découvrez les résultats de mon duel de dressing sur Valens.",
-  "chooseItemsTitle": "Choisissez les articles pour le duel",
-  "chooseItemsHint": "Sélectionnez 2 articles de votre dressing",
-  "next": "Suivant",
-  "defaultQuestion": "Lequel préférez-vous ?",
-  "questionLabel": "Question du duel",
-  "typeLabel": "Type de duel",
-  "opinionBattle": "Duel d'opinion",
-  "opinionBattleSub": "Les utilisateurs votent pour leur favori",
-  "styleBattle": "Duel de style",
-  "styleBattleSub": "Les utilisateurs votent selon le style",
-  "durationLabel": "Durée du duel",
-  "duration24h": "24 heures",
-  "duration3d": "3 jours",
-  "duration7d": "7 jours",
-  "whoCanVote": "Qui peut voter ?",
-  "change": "Modifier",
-  "visibilityLabel": "Visibilité",
-  "public": "Public",
-  "private": "Privé",
-  "followersOnly": "Abonnés uniquement",
-  "previewBattle": "Aperçu du duel",
-  "previewTitle": "Aperçu du duel",
-  "daysLeft": "Il reste {{count}} jours",
-  "everyoneCanVote": "Tout le monde peut voter",
-  "aboutTitle": "À propos de ce duel",
-  "aboutTextPreview": "Aidez les autres à choisir leur favori !",
-  "launchBattle": "Lancer le duel",
-  "liveTitle": "Duel en direct",
-  "voteAndSeeResults": "Votez et voyez les résultats",
-  "voteHelpsOthers": "Votre vote aide les autres à décider !",
-  "voteFor": "Voter pour {{name}}",
-  "resultsTitle": "Résultats du duel",
-  "battleInsights": "Statistiques du duel",
-  "useInsightsTitle": "Utilisez ces informations",
-  "useInsightsText": "Cet article est plus apprécié par la communauté. Pensez à le promouvoir ou à créer des articles similaires.",
-  "shareResults": "Partager les résultats",
-  "viewItem": "Voir l'article",
-  "useInsights": "Utiliser les analyses",
-  "viewBattle": "Voir la bataille",
-  "totalVotesCount": "{{count}} votes au total",
-  "stats": {
-    "votes": "Votes",
-    "views": "Vues",
-    "comments": "Commentaires",
-    "totalVotes": "Total des votes",
-    "totalViews": "Total des vues",
-    "shares": "Partages"
-  },
-  "errors": {
-    "questionRequired": "La question du duel est obligatoire.",
-    "typeRequired": "Veuillez choisir un type de duel.",
-    "durationRequired": "Veuillez choisir une durée.",
-    "visibilityRequired": "La visibilité est obligatoire."
-  }
-},
-"shopSettings": {
-  "title": "Shop Settings",
-  "loading": "Loading shop settings...",
-  "shopInformation": "Shop information",
-  "shopInfoSubtitle": "Update the details customers see when they visit your shop.",
-  "moreSettings": "More settings",
-  "shopName": "Shop name",
-  "shopNamePlaceholder": "e.g. John's Closet",
-  "username": "Username",
-  "usernameSubtitle": "This is your public shop link",
-  "usernamePlaceholder": "grazielascloset",
-  "shopDescription": "Shop description",
-  "descriptionPlaceholder": "Curated pieces with timeless style.",
-  "shopLogo": "Shop logo",
-  "logoSubtitle": "Use a square image for best results.",
-  "logoUploaded": "Logo uploaded",
-  "addLogo": "Add a logo",
-  "shippingReturn": "Shipping & return policy",
-  "shippingReturnSubtitle": "Set how you ship and handle returns.",
-  "shippingReturnPlaceholder": "Tell buyers how shipping and returns work.",
-  "paymentMethods": "Payment methods",
-  "paymentMethodsSubtitle": "Tell buyers how they can pay.",
-  "paymentMethodsPlaceholder": "Stripe, cash, card, etc.",
-  "preferences": "Shop preferences",
-  "preferencesSubtitle": "Audience, style, and ordering preferences.",
-  "preferencesPlaceholder": "Preferred style, audience, order rules...",
-  "notifications": "Notifications",
-  "notificationsSubtitle": "Receive updates for shop activity.",
-  "cancel": "Annuler",
-  "save": "Enregistrer",
-  "delete": "Supprimer",
-  "saveChanges": "Enregistrer les modifications",
-  "deleteMyCloset": "Supprimer Mon Dressing",
-  "shopInformationSubtitle": "Mettez à jour les informations que les clients voient lorsqu'ils visitent votre boutique.",
-  "yourShopFallback": "Votre boutique",
-  "yourShopSlug": "votre-boutique",
-  "addDescriptionFallback": "Ajoutez une courte description pour votre boutique.",
-  "tapToAdd": "Appuyez pour ajouter",
-  "rows": {
-    "shopName": "Nom de la boutique",
-    "username": "Nom d'utilisateur",
-    "usernameSubtitle": "Ceci est le lien public de votre boutique",
-    "description": "Description de la boutique",
-    "descriptionFallback": "Appuyez pour décrire votre boutique",
-    "logo": "Logo de la boutique",
-    "logoUploaded": "Logo téléchargé",
-    "addLogo": "Ajouter un logo",
-    "logoSubtitle": "Utilisez une image carrée pour un meilleur résultat.",
-    "location": "Emplacement",
-    "locationFallback": "Appuyez pour ajouter votre emplacement",
-    "locationSubtitle": "Affiché sur la page publique de votre boutique.",
-    "shippingPolicy": "Politique d'expédition et de retour",
-    "shippingPolicyFallback": "Configurer les règles d'expédition",
-    "shippingPolicySubtitle": "Définissez vos modalités d'expédition et de gestion des retours.",
-    "paymentMethods": "Méthodes de paiement",
-    "paymentMethodsFallback": "Choisissez les méthodes de paiement",
-    "paymentMethodsSubtitle": "Indiquez aux acheteurs comment ils peuvent payer.",
-    "shopPreferences": "Préférences de la boutique",
-    "shopPreferencesFallback": "Définissez les préférences par défaut de votre boutique",
-    "shopPreferencesSubtitle": "Audience, style et préférences d'organisation.",
+  "shopSettings": {
+    "title": "Shop Settings",
+    "loading": "Loading shop settings...",
+    "shopInformation": "Shop information",
+    "shopInfoSubtitle": "Update the details customers see when they visit your shop.",
+    "moreSettings": "More settings",
+    "shopName": "Shop name",
+    "shopNamePlaceholder": "e.g. John's Closet",
+    "username": "Username",
+    "usernameSubtitle": "This is your public shop link",
+    "usernamePlaceholder": "grazielascloset",
+    "shopDescription": "Shop description",
+    "descriptionPlaceholder": "Curated pieces with timeless style.",
+    "shopLogo": "Shop logo",
+    "logoSubtitle": "Use a square image for best results.",
+    "logoUploaded": "Logo uploaded",
+    "addLogo": "Add a logo",
+    "shippingReturn": "Shipping & return policy",
+    "shippingReturnSubtitle": "Set how you ship and handle returns.",
+    "shippingReturnPlaceholder": "Tell buyers how shipping and returns work.",
+    "paymentMethods": "Payment methods",
+    "paymentMethodsSubtitle": "Tell buyers how they can pay.",
+    "paymentMethodsPlaceholder": "Stripe, cash, card, etc.",
+    "preferences": "Shop preferences",
+    "preferencesSubtitle": "Audience, style, and ordering preferences.",
+    "preferencesPlaceholder": "Preferred style, audience, order rules...",
     "notifications": "Notifications",
-    "notificationsSubtitle": "Recevez des mises à jour sur l'activité de la boutique."
-  },
-  "modals": {
-    "shopName": {
-      "title": "Modifier le nom de la boutique",
-      "placeholder": "Ex. : Le Dressing de Sophie"
+    "notificationsSubtitle": "Receive updates for shop activity.",
+    "cancel": "Annuler",
+    "save": "Enregistrer",
+    "delete": "Supprimer",
+    "saveChanges": "Enregistrer les modifications",
+    "deleteMyCloset": "Supprimer Mon Dressing",
+    "shopInformationSubtitle": "Mettez à jour les informations que les clients voient lorsqu'ils visitent votre boutique.",
+    "yourShopFallback": "Votre boutique",
+    "yourShopSlug": "votre-boutique",
+    "addDescriptionFallback": "Ajoutez une courte description pour votre boutique.",
+    "tapToAdd": "Appuyez pour ajouter",
+    "rows": {
+      "shopName": "Nom de la boutique",
+      "username": "Nom d'utilisateur",
+      "usernameSubtitle": "Ceci est le lien public de votre boutique",
+      "description": "Description de la boutique",
+      "descriptionFallback": "Appuyez pour décrire votre boutique",
+      "logo": "Logo de la boutique",
+      "logoUploaded": "Logo téléchargé",
+      "addLogo": "Ajouter un logo",
+      "logoSubtitle": "Utilisez une image carrée pour un meilleur résultat.",
+      "location": "Emplacement",
+      "locationFallback": "Appuyez pour ajouter votre emplacement",
+      "locationSubtitle": "Affiché sur la page publique de votre boutique.",
+      "shippingPolicy": "Politique d'expédition et de retour",
+      "shippingPolicyFallback": "Configurer les règles d'expédition",
+      "shippingPolicySubtitle": "Définissez vos modalités d'expédition et de gestion des retours.",
+      "paymentMethods": "Méthodes de paiement",
+      "paymentMethodsFallback": "Choisissez les méthodes de paiement",
+      "paymentMethodsSubtitle": "Indiquez aux acheteurs comment ils peuvent payer.",
+      "shopPreferences": "Préférences de la boutique",
+      "shopPreferencesFallback": "Définissez les préférences par défaut de votre boutique",
+      "shopPreferencesSubtitle": "Audience, style et préférences d'organisation.",
+      "notifications": "Notifications",
+      "notificationsSubtitle": "Recevez des mises à jour sur l'activité de la boutique."
     },
-    "shopUsername": {
-      "title": "Modifier le nom d'utilisateur",
-      "placeholder": "ledressingdesophie"
+    "modals": {
+      "shopName": {
+        "title": "Modifier le nom de la boutique",
+        "placeholder": "Ex. : Le Dressing de Sophie"
+      },
+      "shopUsername": {
+        "title": "Modifier le nom d'utilisateur",
+        "placeholder": "ledressingdesophie"
+      },
+      "description": {
+        "title": "Modifier la description",
+        "placeholder": "Des pièces soigneusement sélectionnées avec un style intemporel."
+      },
+      "shippingOptions": {
+        "title": "Politique d'expédition et de retour",
+        "placeholder": "Expliquez le fonctionnement des expéditions et des retours."
+      },
+      "paymentMethod": {
+        "title": "Méthodes de paiement",
+        "placeholder": "Stripe, espèces, carte bancaire, etc."
+      },
+      "shopPreferences": {
+        "title": "Préférences de la boutique",
+        "placeholder": "Style préféré, audience, règles de commande..."
+      }
     },
-    "description": {
-      "title": "Modifier la description",
-      "placeholder": "Des pièces soigneusement sélectionnées avec un style intemporel."
+    "deleteAlert": {
+      "title": "Supprimer Mon Dressing",
+      "message": "Cette action supprimera définitivement votre dressing et tous ses paramètres. Cette action est irréversible."
     },
-    "shippingOptions": {
-      "title": "Politique d'expédition et de retour",
-      "placeholder": "Expliquez le fonctionnement des expéditions et des retours."
-    },
-    "paymentMethod": {
-      "title": "Méthodes de paiement",
-      "placeholder": "Stripe, espèces, carte bancaire, etc."
-    },
-    "shopPreferences": {
-      "title": "Préférences de la boutique",
-      "placeholder": "Style préféré, audience, règles de commande..."
+    "toasts": {
+      "loadFailed": "Impossible de charger les paramètres de la boutique.",
+      "photoLibraryUnavailable": "Impossible d'ouvrir la photothèque.",
+      "saveSuccess": "Les paramètres de la boutique ont été enregistrés avec succès.",
+      "saveFailed": "Impossible d'enregistrer les paramètres de la boutique.",
+      "deleteSuccess": "Mon Dressing a été supprimé avec succès.",
+      "deleteFailed": "Impossible de supprimer Mon Dressing."
     }
   },
-  "deleteAlert": {
-    "title": "Supprimer Mon Dressing",
-    "message": "Cette action supprimera définitivement votre dressing et tous ses paramètres. Cette action est irréversible."
+  "battleInsights": {
+    "headerTitle": "Analyses et actions",
+    "winner": "Gagnant",
+    "whatNext": "Que souhaitez-vous faire ensuite ?",
+    "boostTitle": "Mettre en avant l'article gagnant",
+    "boostSubtitle": "Obtenez plus de vues et de ventes",
+    "promotionTitle": "Créer une promotion pour le gagnant",
+    "promotionSubtitle": "Lancez une remise ou une offre spéciale",
+    "challengeTitle": "Défier un autre article",
+    "challengeSubtitle": "Commencer une nouvelle bataille",
+    "challengeHeaderTitle": "Article de la bataille",
+    "challengeDefaultQuestion": "Quelles lunettes de soleil préférez-vous ?"
   },
-  "toasts": {
-    "loadFailed": "Impossible de charger les paramètres de la boutique.",
-    "photoLibraryUnavailable": "Impossible d'ouvrir la photothèque.",
-    "saveSuccess": "Les paramètres de la boutique ont été enregistrés avec succès.",
-    "saveFailed": "Impossible d'enregistrer les paramètres de la boutique.",
-    "deleteSuccess": "Mon Dressing a été supprimé avec succès.",
-    "deleteFailed": "Impossible de supprimer Mon Dressing."
+  "boost": {
+    "headerTitle": "Mettre en avant l'article gagnant",
+    "headerHint": "Ajoutez un badge, épinglez-le et faites-le découvrir à plus de personnes.",
+    "badgeTitle": "Badge de gagnant de la bataille",
+    "badgeSubtitle": "Afficher le badge sur le produit",
+    "pinTitle": "Épingler en haut de Mon Dressing",
+    "pinSubtitle": "Afficher cet article en haut",
+    "packageTitle": "Promouvoir auprès de plus de personnes",
+    "days": "{{count}} jours",
+    "continue": "Continuer",
+    "reviewTitle": "Vérifier la promotion",
+    "on": "Activé",
+    "off": "Désactivé",
+    "packageLabel": "Pack de promotion",
+    "estimatedViews": "Vues estimées",
+    "starts": "Commence",
+    "immediately": "Immédiatement",
+    "total": "Total",
+    "boostNow": "Promouvoir maintenant",
+    "boostedTitle": "Article promu 🚀",
+    "boostedMessage": "Votre article est épinglé et en cours de promotion.",
+    "done": "Terminé"
+  },
+  "promotion": {
+    "headerTitle": "Créer une promotion",
+    "chooseType": "Choisissez votre promotion",
+    "types": {
+      "discount24": {
+        "title": "10 % de réduction pendant 24 heures",
+        "subtitle": "Réduction à durée limitée"
+      },
+      "freeShipping": {
+        "title": "Livraison gratuite",
+        "subtitle": "Offrir la livraison gratuite"
+      },
+      "exclusiveDrop": {
+        "title": "Lancement exclusif",
+        "subtitle": "Accès anticipé pour les abonnés"
+      },
+      "vipOnly": {
+        "title": "Accès réservé aux VIP",
+        "subtitle": "Accès spécial pour les VIP"
+      },
+      "winnerSale": {
+        "title": "Promotion du gagnant de la bataille",
+        "subtitle": "Mettez en avant et faites la promotion du gagnant"
+      }
+    },
+    "next": "Suivant",
+    "detailsTitle": "Détails de la promotion",
+    "discountLabel": "Réduction %",
+    "durationLabel": "Durée",
+    "messageLabel": "Message (facultatif)",
+    "defaultMessage": "Merci d'avoir voté ! Profitez de 10 % de réduction sur le gagnant de notre bataille pendant seulement 24 heures.",
+    "preview": "Aperçu de la promotion",
+    "previewTitle": "Aperçu de la promotion",
+    "bannerTag": "PROMOTION DU GAGNANT DE LA BATAILLE",
+    "bannerDiscount": "{{discount}} % DE RÉDUCTION",
+    "bannerSub": "Pendant {{duration}} seulement",
+    "starts": "Commence",
+    "ends": "Se termine",
+    "startsValue": "Immédiatement",
+    "endsValue": "Après {{duration}}",
+    "launch": "Lancer la promotion",
+    "liveTitle": "Promotion en ligne 🎉",
+    "liveMessage": "Votre promotion est maintenant active sur le produit."
   }
-},
-"battleInsights": {
-  "headerTitle": "Analyses et actions",
-  "winner": "Gagnant",
-  "whatNext": "Que souhaitez-vous faire ensuite ?",
-  "boostTitle": "Mettre en avant l'article gagnant",
-  "boostSubtitle": "Obtenez plus de vues et de ventes",
-  "promotionTitle": "Créer une promotion pour le gagnant",
-  "promotionSubtitle": "Lancez une remise ou une offre spéciale",
-  "challengeTitle": "Défier un autre article",
-  "challengeSubtitle": "Commencer une nouvelle bataille",
-  "challengeHeaderTitle": "Article de la bataille",
-  "challengeDefaultQuestion": "Quelles lunettes de soleil préférez-vous ?"
-},
-"boost": {
-  "headerTitle": "Mettre en avant l'article gagnant",
-  "headerHint": "Ajoutez un badge, épinglez-le et faites-le découvrir à plus de personnes.",
-  "badgeTitle": "Badge de gagnant de la bataille",
-  "badgeSubtitle": "Afficher le badge sur le produit",
-  "pinTitle": "Épingler en haut de Mon Dressing",
-  "pinSubtitle": "Afficher cet article en haut",
-  "packageTitle": "Promouvoir auprès de plus de personnes",
-  "days": "{{count}} jours",
-  "continue": "Continuer",
-  "reviewTitle": "Vérifier la promotion",
-  "on": "Activé",
-  "off": "Désactivé",
-  "packageLabel": "Pack de promotion",
-  "estimatedViews": "Vues estimées",
-  "starts": "Commence",
-  "immediately": "Immédiatement",
-  "total": "Total",
-  "boostNow": "Promouvoir maintenant",
-  "boostedTitle": "Article promu 🚀",
-  "boostedMessage": "Votre article est épinglé et en cours de promotion.",
-  "done": "Terminé"
-},
-"promotion": {
-  "headerTitle": "Créer une promotion",
-  "chooseType": "Choisissez votre promotion",
-  "types": {
-    "discount24": {
-      "title": "10 % de réduction pendant 24 heures",
-      "subtitle": "Réduction à durée limitée"
-    },
-    "freeShipping": {
-      "title": "Livraison gratuite",
-      "subtitle": "Offrir la livraison gratuite"
-    },
-    "exclusiveDrop": {
-      "title": "Lancement exclusif",
-      "subtitle": "Accès anticipé pour les abonnés"
-    },
-    "vipOnly": {
-      "title": "Accès réservé aux VIP",
-      "subtitle": "Accès spécial pour les VIP"
-    },
-    "winnerSale": {
-      "title": "Promotion du gagnant de la bataille",
-      "subtitle": "Mettez en avant et faites la promotion du gagnant"
-    }
-  },
-  "next": "Suivant",
-  "detailsTitle": "Détails de la promotion",
-  "discountLabel": "Réduction %",
-  "durationLabel": "Durée",
-  "messageLabel": "Message (facultatif)",
-  "defaultMessage": "Merci d'avoir voté ! Profitez de 10 % de réduction sur le gagnant de notre bataille pendant seulement 24 heures.",
-  "preview": "Aperçu de la promotion",
-  "previewTitle": "Aperçu de la promotion",
-  "bannerTag": "PROMOTION DU GAGNANT DE LA BATAILLE",
-  "bannerDiscount": "{{discount}} % DE RÉDUCTION",
-  "bannerSub": "Pendant {{duration}} seulement",
-  "starts": "Commence",
-  "ends": "Se termine",
-  "startsValue": "Immédiatement",
-  "endsValue": "Après {{duration}}",
-  "launch": "Lancer la promotion",
-  "liveTitle": "Promotion en ligne 🎉",
-  "liveMessage": "Votre promotion est maintenant active sur le produit."
-}
 }

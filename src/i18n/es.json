@@ -3456,7 +3456,8 @@
     "subscriptionSetup": "Configuración del Programa de Suscripción",
     "viewMissionPost": "Ver Publicación de Misión",
     "revenueFromSubscriptions": "Ingresos por Suscripciones",
-    "selectLanguage": "Seleccionar Idioma"
+    "selectLanguage": "Seleccionar Idioma",
+    "marketplaceAnalytics": "Análisis del Marketplace"
   },
   "tabNav": {
     "editProfile": "Editar Perfil"
@@ -4063,6 +4064,19 @@
       "delivered": "Entregado",
       "cancelled": "Cancelado"
     }
+  },
+  "marketplaceAnalytics": {
+    "title": "Estadísticas",
+    "performance": "Rendimiento",
+    "totalViews": "Total de visualizaciones",
+    "totalLikes": "Total de Me gusta",
+    "orders": "Pedidos",
+    "revenue": "Ingresos",
+    "topPerformingItem": "Artículo con mejor rendimiento",
+    "viewsLikesOrders": "Visualizaciones: {{views}} · Me gusta: {{likes}} · Pedidos: {{orders}}",
+    "noTopItem": "Aún no hay un artículo con mejor rendimiento",
+    "thisWeek": "Esta semana",
+    "thisMonth": "Este mes"
   },
   "myClosetShopFront": {
     "vs": "VS",

@@ -3458,7 +3458,8 @@
     "subscriptionSetup": "Subscription Program Setup",
     "viewMissionPost": "View Mission Post",
     "revenueFromSubscriptions": "Revenue From Subscriptions",
-    "selectLanguage": "Select Language"
+    "selectLanguage": "Select Language",
+    "marketplaceAnalytics": "Marketplace Analytics"
   },
   "tabNav": {
     "editProfile": "Edit Profile"
@@ -4065,6 +4066,19 @@
       "delivered": "Delivered",
       "cancelled": "Cancelled"
     }
+  },
+  "marketplaceAnalytics": {
+    "title": "Analytics",
+    "performance": "Performance",
+    "totalViews": "Total views",
+    "totalLikes": "Total likes",
+    "orders": "Orders",
+    "revenue": "Revenue",
+    "topPerformingItem": "Top performing item",
+    "viewsLikesOrders": "Views: {{views}} · Likes: {{likes}} · Orders: {{orders}}",
+    "noTopItem": "No top performing item yet",
+    "thisWeek": "This week",
+    "thisMonth": "This month"
   },
   "myClosetShopFront": {
     "vs": "VS",

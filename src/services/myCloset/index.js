@@ -264,6 +264,10 @@ export const getMarketplaceOverview = async (range) => {
   return axiosInstance.get('/dashboard/marketPlaceOverview', { params: { range } });
 };
 
+export const getMarketplaceAnalytics = async (range) => {
+  return axiosInstance.get('/dashboard/marketPlaceAnalytics', { params: { range } });
+};
+
 //Payment APIs
 
 export const createPaymentSession = async (data) => {

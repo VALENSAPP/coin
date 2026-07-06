@@ -404,6 +404,12 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
     });
   };
 
+  const handleOpenAnalytics = () => {
+    navigation?.navigate?.('wallet', {
+      screen: 'MarketplaceAnalytics',
+    });
+  };
+
   const handleOpenOrder = order => {
     navigation?.navigate?.('ProfileMain', {
       screen: 'MyClosetOrderDetail',
@@ -514,12 +520,16 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
       <View style={[styles.sectionCard, cardStyle, { borderColor: withAlpha(text, 0.12) }]}>
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, textStyle]}>{t('myClosetDashboard.overviewTitle')}</Text>
-          <TouchableOpacity activeOpacity={0.8} onPress={handleToggleRange}>
-            <Text style={styles.sectionMeta}>
-              {overviewRange === 'weekly' ? t('myClosetDashboard.thisWeek') : t('myClosetDashboard.thisMonth')} ▾
-            </Text>
+          <TouchableOpacity activeOpacity={0.8} onPress={handleOpenAnalytics}>
+            <Text style={styles.sectionMeta}>{t('myClosetDashboard.viewAll')} ›</Text>
           </TouchableOpacity>
         </View>
+
+        <TouchableOpacity activeOpacity={0.8} onPress={handleToggleRange} style={{ marginBottom: 12 }}>
+          <Text style={styles.sectionMeta}>
+            {overviewRange === 'weekly' ? t('myClosetDashboard.thisWeek') : t('myClosetDashboard.thisMonth')} ▾
+          </Text>
+        </TouchableOpacity>
 
         <View style={styles.quickGrid}>
           {marketplaceLoading ? (
@@ -744,7 +754,7 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, marginBottom: 75 },
+  container: { flex: 1, marginBottom: 50 },
   content: { paddingHorizontal: 12, paddingTop: 8 },
 
   // Hero

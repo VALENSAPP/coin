@@ -17,6 +17,7 @@ import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { showToastMessage } from '../displaytoastmessage';
 import {
   getSellerOrderDetails,
+  getBuyerOrderDetail,
   markOrderProcessing,
   markOrderShipped,
   markOrderDelivered,
@@ -217,6 +218,8 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
   const [advancing, setAdvancing] = useState(false);
   const [shippingModalVisible, setShippingModalVisible] = useState(false);
 
+  const viewType = route?.params?.viewType;
+
   const loadOrder = useCallback(async () => {
     if (!orderId) {
       setError(t('myClosetOrderDetail.missingOrderReference'));
@@ -226,7 +229,9 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await getSellerOrderDetails(orderId);
+      const response = viewType === 'buyer'
+        ? await getBuyerOrderDetail(orderId)
+        : await getSellerOrderDetails(orderId);
       const payload = response?.data?.data ?? response?.data ?? response;
       setOrder(normalizeOrderDetail(payload, t));
     } catch (err) {

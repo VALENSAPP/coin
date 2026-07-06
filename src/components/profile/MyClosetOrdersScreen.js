@@ -530,7 +530,7 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
 export default MyClosetOrdersScreen;
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, paddingTop: 25 },
+  safeArea: { flex: 1, paddingTop: 30 },
 
   headerRow: {
     flexDirection: 'row',
@@ -538,7 +538,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingTop: 10,
-    paddingBottom: 6,
+    paddingBottom: 20,
   },
   headerIconButton: {
     width: 36,
@@ -568,7 +568,7 @@ const styles = StyleSheet.create({
 
   listContent: {
     paddingHorizontal: 16,
-    paddingBottom: 30,
+    paddingBottom: 50,
   },
   loadingWrap: {
     minHeight: 180,
