@@ -166,8 +166,12 @@ export const getClosetItemsByClosetId = async (closetId) => {
   return axiosInstance.get(`/mycloset/${closetId}/items`);
 };
 
-export const checkoutCart = async () => {
-  return axiosInstance.post(`/cart/checkout`);
+export const trackClosetView = async (closetId) => {
+  return axiosInstance.post(`/mycloset/${closetId}/view`);
+}
+
+export const checkoutCart = async (cartId) => {
+  return axiosInstance.post('/cart/checkout?cartId='+ cartId);
 };
 
 export const postAddress = async (address) => {
@@ -191,7 +195,6 @@ export const makeAddressDefault = async (id) => {
 }
 
 export const addCartItem = async (data) => {
-  console.log('addCartItem------------------', data)
   return axiosInstance.post('cart/items', data);
 }
 
@@ -207,6 +210,10 @@ export const deleteCartItem = async (id) => {
   return axiosInstance.delete(`/cart/items/${id}`);
 }
 
+export const setCartItemShippingChoice = async (cartItemId, shippingChoice) => {
+  return axiosInstance.patch(`/cart/items/${cartItemId}/shipping-choice`, { shippingChoice });
+}
+
 export const clearCart = async () => {
   return axiosInstance.delete('/cart');
 }
@@ -219,7 +226,7 @@ export const getSellerOrders = async (params = {}) => {
   const queryString = query.toString();
   return axiosInstance.get(`seller/orders${queryString ? `?${queryString}` : ''}`);
 };
- 
+
 export const getSellerOrderDetails = async orderId => {
   return axiosInstance.get(`seller/orders/${orderId}`);
 };
@@ -228,10 +235,10 @@ export const markOrderProcessing = async orderId => {
   return axiosInstance.patch(`seller/orders/${orderId}/processing`);
 };
 
-export const markOrderShipped = async orderId => {
-  return axiosInstance.patch(`seller/orders/${orderId}/ship`);
+export const markOrderShipped = async (orderId, { carrier, trackingNumber } = {}) => {
+  return axiosInstance.patch(`seller/orders/${orderId}/ship`, { carrier, trackingNumber });
 };
- 
+
 export const markOrderDelivered = async orderId => {
   return axiosInstance.patch(`seller/orders/${orderId}/deliver`);
 };
@@ -251,4 +258,26 @@ export const cancelBuyerOrder = async orderId => {
 
 export const getSellerDashboard = async () => {
   return axiosInstance.get('/dashboard');
+};
+
+export const getMarketplaceOverview = async (range) => {
+  return axiosInstance.get('/dashboard/marketPlaceOverview', { params: { range } });
+};
+
+//Payment APIs
+
+export const createPaymentSession = async (data) => {
+  return axiosInstance.post('/payment/create', data);
+};
+
+export const getPaymentDetails = async () => {
+  return axiosInstance.get('/payment/me/list');
+};
+
+export const getRecentPaymentDetails = async () => {
+  return axiosInstance.get('/payment/me/list/recent');
+};
+
+export const getPaymentDetailsByPaymentId = async (paymentId) => {
+  return axiosInstance.get(`/payment/${paymentId}`);
 };

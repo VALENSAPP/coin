@@ -23,6 +23,7 @@ import {
 } from '../../services/myCloset';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useLanguage } from '../../i18n';
+import ShippingDetailsModal from '../modals/ShippingDetailsModal';
 
 // ── Same design tokens as the buyer checkout flow ──────────────────────────
 const ACCENT = '#5A2386';
@@ -52,9 +53,9 @@ const STATUS_FLOW = {
 };
 
 const ACTION_BY_KEY = {
-  processing: markOrderProcessing,
-  shipped: markOrderShipped,
-  delivered: markOrderDelivered,
+  processing: (id) => markOrderProcessing(id),
+  shipped: (id, extra) => markOrderShipped(id, extra),
+  delivered: (id) => markOrderDelivered(id),
 };
 
 const TIMELINE_STEPS = ['pending', 'processing', 'shipped', 'delivered'];
@@ -214,6 +215,7 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [advancing, setAdvancing] = useState(false);
+  const [shippingModalVisible, setShippingModalVisible] = useState(false);
 
   const loadOrder = useCallback(async () => {
     if (!orderId) {
@@ -240,31 +242,45 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
     }, [loadOrder]),
   );
 
-  const handleAdvance = useCallback(async () => {
+  const handleAdvance = useCallback(async (extra) => {
     if (!order) return;
     const flowStep = STATUS_FLOW[order.status];
     const action = flowStep ? ACTION_BY_KEY[flowStep.actionKey] : null;
     if (!action) return;
 
+    if (flowStep.actionKey === 'shipped' && !extra) {
+      setShippingModalVisible(true);
+      return;
+    }
+
     setAdvancing(true);
     dispatch(showLoader());
     try {
-      await action(order.id);
+      await action(order.id, extra);
       showToastMessage(toast, 'success', t('myClosetOrderDetail.orderStatusUpdated'));
       await loadOrder();
     } catch (err) {
-      showToastMessage(
-        toast,
-        'danger',
-        err?.response?.data?.message || err?.message || t('myClosetOrderDetail.unableToUpdateStatus'),
-      );
+      showToastMessage(toast, 'danger', err?.response?.data?.message || err?.message || t('myClosetOrderDetail.unableToUpdateStatus'));
     } finally {
       setAdvancing(false);
       dispatch(hideLoader());
+      setShippingModalVisible(false);
     }
   }, [dispatch, loadOrder, order, t, toast]);
 
-  const goBack = () => (navigation.canGoBack?.() ? navigation.goBack() : null);
+  const goBack = useCallback(() => {
+    if (navigation?.canGoBack?.()) {
+      navigation.goBack();
+      return;
+    }
+
+    if (navigation?.popToTop) {
+      navigation.popToTop();
+      return;
+    }
+
+    navigation?.navigate?.('MyCloset');
+  }, [navigation]);
 
   if (loading) {
     return (
@@ -363,16 +379,22 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
           <SummaryRow label={t('myClosetOrderDetail.orderTotal')} value={order.totalAmount} bold />
         </View>
 
-      {flowStep ? (
-        <View style={styles.bottomBar}>
-          <BottomButton
-            label={advancing ? t('myClosetOrderDetail.updating') : t(flowStep.labelKey)}
-            onPress={handleAdvance}
-            disabled={advancing}
-          />
-        </View>
-      ) : null}
+        {flowStep ? (
+          <View style={styles.bottomBar}>
+            <BottomButton
+              label={advancing ? t('myClosetOrderDetail.updating') : t(flowStep.labelKey)}
+              onPress={() => handleAdvance()}
+              disabled={advancing}
+            />
+          </View>
+        ) : null}
       </ScrollView>
+      <ShippingDetailsModal
+        visible={shippingModalVisible}
+        text={ACCENT}
+        onCancel={() => setShippingModalVisible(false)}
+        onSubmit={(payload) => handleAdvance(payload)}
+      />
     </SafeAreaView>
   );
 };

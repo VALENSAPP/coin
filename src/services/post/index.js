@@ -439,4 +439,6 @@ export async function unVote(data) {
   return axiosInstance.post('post/removePostTrustVote', data);
 }
 
-
+export async function getvotesDetail(data) {
+  return axiosInstance.post('post/getTrustVoteBypostId', data);
+}

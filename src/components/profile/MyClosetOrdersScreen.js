@@ -26,6 +26,7 @@ import {
   getBuyerOrders,
   cancelBuyerOrder,
 } from '../../services/myCloset';
+import ShippingDetailsModal from '../../components/modals/ShippingDetailsModal'
 
 // ── Status helpers ──────────────────────────────────────────────────────
 // Colors stay fixed; the display label is resolved via t('myClosetOrders.status.<key>') at render time.
@@ -114,8 +115,9 @@ const normalizeOrder = (order, index, mode, t) => ({
 
 const TABS = [
   { key: 'all', status: null },
-  { key: 'pending', status: 'PENDING' },
+  // { key: 'pending', status: 'PENDING' },
   { key: 'processing', status: 'PROCESSING' },
+  { key: 'shipped', status: 'SHIPPED' },
   { key: 'delivered', status: 'DELIVERED' },
 ];
 
@@ -240,8 +242,9 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [activeTab, setActiveTab] = useState('all');
   const [advancingId, setAdvancingId] = useState(null);
+  const [shippingModalOrder, setShippingModalOrder] = useState(null);
   const [pageInfo, setPageInfo] = useState({ page: 1, limit: 10, total: 0, totalPages: 1 });
-  const [counts, setCounts] = useState({ all: 0, pending: 0, processing: 0, delivered: 0 });
+  const [counts, setCounts] = useState({ all: 0, pending: 0, processing: 0, shipped: 0, delivered: 0 });
 
   const extractList = payload => {
     const data = payload?.data?.data ?? payload?.data?.orders ?? payload?.data ?? payload;
@@ -346,15 +349,21 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
   const visibleOrders = orders;
 
   const handleAdvance = useCallback(
-    async order => {
+    async (order, extra) => {
       const ACTION_BY_KEY = {
-        processing: markOrderProcessing,
-        shipped: markOrderShipped,
-        delivered: markOrderDelivered,
+        processing: (id) => markOrderProcessing(id),
+        shipped: (id) => markOrderShipped(id, extra),
+        delivered: (id) => markOrderDelivered(id),
       };
       const flowStep = STATUS_FLOW[order.status];
       const action = flowStep ? ACTION_BY_KEY[flowStep.actionKey] : null;
       if (!action) return;
+
+      // shipped needs carrier/trackingNumber first — open the modal instead of calling immediately
+      if (flowStep.actionKey === 'shipped' && !extra) {
+        setShippingModalOrder(order);
+        return;
+      }
 
       setAdvancingId(order.id);
       dispatch(showLoader());
@@ -363,14 +372,11 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
         showToastMessage(toast, 'success', t('myClosetOrders.statusUpdateSuccess'));
         await Promise.all([loadOrders(1, false), loadCounts()]);
       } catch (error) {
-        showToastMessage(
-          toast,
-          'danger',
-          error?.response?.data?.message || error?.message || t('myClosetOrders.statusUpdateError'),
-        );
+        showToastMessage(toast, 'danger', error?.response?.data?.message || error?.message || t('myClosetOrders.statusUpdateError'));
       } finally {
         setAdvancingId(null);
         dispatch(hideLoader());
+        setShippingModalOrder(null);
       }
     },
     [dispatch, loadCounts, loadOrders, toast, t],
@@ -417,10 +423,23 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
     mode === 'seller'
       ? t('myClosetOrders.emptyTextSeller')
       : t('myClosetOrders.emptyTextBuyer');
+  const handleBack = useCallback(() => {
+    if (navigation?.canGoBack?.()) {
+      navigation.goBack();
+      return;
+    }
+
+    if (navigation?.popToTop) {
+      navigation.popToTop();
+      return;
+    }
+
+    navigation?.navigate?.('MyCloset');
+  }, [navigation]);
 
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
-      <OrdersHeader onBack={() => navigation.goBack()} title={headerTitle} />
+      <OrdersHeader onBack={handleBack} title={headerTitle} />
 
       <View style={styles.tabsRow}>
         {TABS.map(tab => {
@@ -498,6 +517,12 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
           </View>
         ) : null}
       </ScrollView>
+      <ShippingDetailsModal
+        visible={!!shippingModalOrder}
+        text={text}
+        onCancel={() => setShippingModalOrder(null)}
+        onSubmit={(payload) => handleAdvance(shippingModalOrder, payload)}
+      />
     </SafeAreaView>
   );
 };
