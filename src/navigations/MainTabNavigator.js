@@ -1068,7 +1068,7 @@ export default function MainTabNavigator() {
 
       return baseOptions;
     },
-    [profileImage, defaultTabBarStyle, reelsTabBarStyle],
+    [profileImage, defaultTabBarStyle, reelsTabBarStyle,userProfile],
   );
 
   // Memoize HomeMain options function
