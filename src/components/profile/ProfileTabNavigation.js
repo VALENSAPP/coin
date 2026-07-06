@@ -344,6 +344,7 @@ const ProfileTabs = memo(({
             isActiveTab={activeTab === PRIVATE_CONTENT_TAB_INDEX}
             activeMediaFilter={mediaTab}
             closetData={closetData}
+            dashboard={dashboard}
           />
     ),
     closet: (

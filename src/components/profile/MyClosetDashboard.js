@@ -19,7 +19,10 @@ import {
   getBuyerOrders,
   getSellerDashboard,
   getMarketplaceOverview,
+  getMyClosetMe,
 } from '../../services/myCloset';
+import { useDispatch } from 'react-redux';
+import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 
 const mixWithWhite = (hex, amount = 0.88) => {
   const normalized = String(hex || '').replace('#', '');
@@ -174,6 +177,8 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
   const { t } = useLanguage();
   const [storedUsername, setStoredUsername] = useState('');
   const [closetItems, setClosetItems] = useState([]);
+  const [shopName, setShopName] = useState('');
+  const [shopHandle, setShopHandle] = useState('');
   const [itemsLoading, setItemsLoading] = useState(false);
   const [recentOrders, setRecentOrders] = useState([]);            // Seller: orders received
   const [ordersLoading, setOrdersLoading] = useState(false);
@@ -189,6 +194,8 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
 
   const { bgStyle, textStyle, text, cardStyle } = useAppTheme(userData?.profile);
   const battleStats = useMemo(() => buildBattleStats(t), [t]);
+
+  const dispatch = useDispatch();
 
   useEffect(() => {
     let isMounted = true;
@@ -235,7 +242,7 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
     setBuyerOrdersLoading(true);
     try {
       const response = await getBuyerOrders();
-      console.log("getBuyerOrders----------------",response)
+      console.log("getBuyerOrders----------------", response)
       const payload =
         response?.data?.data ??
         response?.data?.orders ??
@@ -278,7 +285,7 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
     setMarketplaceLoading(true);
     try {
       const response = await getMarketplaceOverview(range);
-       console.log("getMarketplaceOverviewgetMarketplaceOverviewgetMarketplaceOverview",response)
+      console.log("getMarketplaceOverviewgetMarketplaceOverviewgetMarketplaceOverview", response)
       const data = response?.data?.data ?? response?.data ?? response;
       setMarketplaceOverview(data);
     } catch (error) {
@@ -316,8 +323,22 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
     }
   }, []);
 
+  const checkShopState = async () => {
+    dispatch(showLoader()); 
+    try {
+      const response = await getMyClosetMe();
+      setShopName(response?.data?.shopName);
+      setShopHandle(response?.data?.shopUsername);
+    } catch (error) {
+       console.warn('Unable to load closet items:', error);
+    } finally {
+      dispatch(hideLoader());
+    }
+  };
+
   useFocusEffect(
     useCallback(() => {
+      checkShopState();
       loadClosetItems();
       loadRecentOrders();
       loadBuyerOrders();
@@ -332,27 +353,6 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
   const handleToggleRange = () => {
     setOverviewRange(prev => (prev === 'weekly' ? 'monthly' : 'weekly'));
   };
-
-  const shopName = useMemo(
-    () =>
-      shopDraft?.shopName ||
-      userData?.businessName ||
-      userData?.companyProfile?.businessName ||
-      storedUsername ||
-      userData?.displayName ||
-      t('myClosetDashboard.defaultShopName'),
-    [shopDraft?.shopName, storedUsername, userData?.businessName, userData?.companyProfile?.businessName, userData?.displayName, t],
-  );
-
-  const shopHandle = useMemo(
-    () =>
-      shopDraft?.username ||
-      userData?.userName ||
-      userData?.username ||
-      storedUsername ||
-      'grazielascloset',
-    [shopDraft?.username, storedUsername, userData?.userName, userData?.username],
-  );
 
   const avatarUri =
     shopDraft?.logo?.uri ||
