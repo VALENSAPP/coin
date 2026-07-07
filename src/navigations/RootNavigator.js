@@ -22,6 +22,7 @@ import MainTabNavigator from './MainTabNavigator';
 import Splash from '../pages/splashSceen/Splash';
 import PaymentScreen from '../pages/Stripe/PaymentScreen';
 import TermsCondition from '../pages/terms&condition/TermsCondition';
+import CallbackScreen from '../pages/callbackScreen';
 
 // Import Wallet Screens
 import PortfolioScreen from '../pages/wallet/PortfolioScreen';
@@ -442,6 +443,7 @@ export default function MainStack({ isFirstLaunch }) {
         <Stack.Screen name="Splash" component={Splash} />
         <Stack.Screen name="TermsCondition" component={TermsCondition} />
         <Stack.Screen name="ManageSubscription" component={PaymentScreen} />
+        <Stack.Screen name="CallbackScreen" component={CallbackScreen} />
       </Stack.Navigator>
     );
   }
@@ -451,6 +453,7 @@ export default function MainStack({ isFirstLaunch }) {
       <Stack.Screen name="AppDrawer" component={GlobalDrawerNavigator} />
       <Stack.Screen name="BusinessSetup" component={BusinessSetup} />
       <Stack.Screen name="kycverify" component={KYCVerification} />
+      <Stack.Screen name="CallbackScreen" component={CallbackScreen} />
     </Stack.Navigator>
   );
 }

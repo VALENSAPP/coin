@@ -776,10 +776,11 @@ const styles = StyleSheet.create({
   heroCard: {
     borderRadius: 20,
     borderWidth: 1,
-    padding: 16,
+    padding: 10,
+    minHeight:240,
     overflow: 'hidden',
   },
-  heroContent: { flexDirection: 'row', alignItems: 'center' },
+  heroContent: { flexDirection: 'row', alignItems: 'center',paddingRight:15 },
   heroCopy: { flex: 1, paddingRight: 8 },
   premiumBadge: {
     alignSelf: 'flex-start',

@@ -89,7 +89,8 @@ export default function TipSupportModal({
       setIsButtonLoading(false);
       dispatch(hideLoader());
       onTipSuccess?.();
-      resetForm();
+      setCustomAmount('');
+      setSelectedAmount(null);
       onClose?.();
       showToastMessage(toast, 'success', t('tipSupportScreen.tipSuccess'));
     });
@@ -103,13 +104,13 @@ export default function TipSupportModal({
       if (await InAppBrowser.isAvailable()) {
         await InAppBrowser.open(url, { ...STRIPE_BROWSER_OPTIONS, forceCloseOnRedirection: true });
         if (!paymentCompletedRef.current) {
-          showToastMessage(toast, 'danger', stripeErrorMessages.PAYMENT_CANCELLED);
+          // showToastMessage(toast, 'danger', stripeErrorMessages.PAYMENT_CANCELLED);
         }
       } else {
         await Linking.openURL(url);
       }
     } catch (err) {
-      showToastMessage(toast, 'danger', err?.message || stripeErrorMessages.SESSION_FAILED);
+      // showToastMessage(toast, 'danger', err?.message || stripeErrorMessages.SESSION_FAILED);
     } finally {
       setIsButtonLoading(false);
       dispatch(hideLoader());
@@ -145,11 +146,11 @@ export default function TipSupportModal({
       const url = getPaymentSessionUrl(response);
 
       if (!url) {
-        showToastMessage(
-          toast,
-          'danger',
-          response?.message || response?.data?.message || stripeErrorMessages.SESSION_FAILED,
-        );
+        // showToastMessage(
+        //   toast,
+        //   'danger',
+        //   response?.message || response?.data?.message || stripeErrorMessages.SESSION_FAILED,
+        // );
         setIsButtonLoading(false);
         dispatch(hideLoader());
         return;
@@ -157,11 +158,11 @@ export default function TipSupportModal({
 
       await openCheckoutSession(url);
     } catch (error) {
-      showToastMessage(
-        toast,
-        'danger',
-        error?.response?.data?.message || error?.message || stripeErrorMessages.NETWORK_ERROR,
-      );
+      // showToastMessage(
+      //   toast,
+      //   'danger',
+      //   error?.response?.data?.message || error?.message || stripeErrorMessages.NETWORK_ERROR,
+      // );
       setIsButtonLoading(false);
       dispatch(hideLoader());
     }
@@ -297,7 +298,7 @@ export default function TipSupportModal({
           try {
             await openPaymentConnectionAndRefresh();
           } catch (e) {
-            showToastMessage(toast, 'danger', e?.message || stripeErrorMessages.ONBOARDING_FAILED);
+            // showToastMessage(toast, 'danger', e?.message || stripeErrorMessages.ONBOARDING_FAILED);
           }
         }}
       />

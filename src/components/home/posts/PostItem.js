@@ -2997,8 +2997,8 @@ const styles = StyleSheet.create({
     fontFamily: 'Nunito-SemiBold',
     color: '#6B7280',
     marginRight: 2,
-    flexShrink: 1,
-    maxWidth: 100,
+    // flexShrink: 1,
+    // maxWidth: 100,
 
   },
   trustScoreActionTitleVoted: {
