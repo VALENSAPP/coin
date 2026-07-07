@@ -50,7 +50,7 @@ export default function FollowersFollowingScreen({ navigation, route }) {
     route?.params?.username ||
     route?.params?.user?.Username ||
     'Unknown User';
-  const profileUserIdFromRoute = route?.params.userId || null;
+  const profileUserIdFromRoute = route?.params?.userId || route?.params?.params?.userId || null;
 
   const [selfUserId, setSelfUserId] = useState(null);
   const [activeTab, setActiveTab] = useState(initialTab == 'following' ? 'following' : 'followers');
@@ -397,8 +397,8 @@ export default function FollowersFollowingScreen({ navigation, route }) {
   );
 
   const handleBack = () => {
-    const screenParams = route?.params?.screenParams || {};
-    const returnTo = route?.params?.returnTo;
+    const screenParams = route?.params?.screenParams || route?.params?.params?.screenParams || route?.params?.params || {};
+    const returnTo = route?.params?.returnTo || route?.params?.params?.returnTo;
 
     if (returnTo === 'UserProfile') {
       if (screenParams?.userId) {
@@ -423,6 +423,8 @@ export default function FollowersFollowingScreen({ navigation, route }) {
           returnTo: screenParams?.returnTo || 'Home',
         },
       });
+    } else if (returnTo === 'Dashboard') {
+      navigation.navigate('wallet', { screen: 'Dashboard' });
     } else {
       navigation.goBack();
     }

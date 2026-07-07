@@ -592,6 +592,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
     image: FALLBACK_AVATAR,
   });
   const [followersCount, setFollowersCount] = useState(0);
+  const [userId, setUserId] = useState(null);
   const [connectedWalletType, setConnectedWalletType] = useState(null);
 
   const activityChartW = width - 64;
@@ -729,6 +730,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
         console.log('User ID not found');
         return;
       }
+      setUserId(id);
 
       const response = await getUserCredentials(id);
 
@@ -875,6 +877,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
       return () => {
         // Cleanup if needed
       };
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [dispatch])
   );
 
@@ -1446,6 +1449,30 @@ export const WalletDashboardScreen = ({ navigation }) => {
             style={styles.kpiCardTouchable}
             activeOpacity={0.86}
             onPress={() => navigation.navigate('RevenueFromSubscriptions')}
+          >
+            {cardContent}
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    if (item.id === 'followers') {
+      return (
+        <View key={item.id} style={cellStyle}>
+          <TouchableOpacity
+            style={styles.kpiCardTouchable}
+            activeOpacity={0.86}
+            onPress={() => {
+              navigation.navigate('ProfileMain', {
+                screen: 'FollowersFollowingScreen',
+                params: {
+                  tab: 'followers',
+                  userName: userProfile.name,
+                  userId: userId,
+                  returnTo: 'Dashboard',
+                },
+              });
+            }}
           >
             {cardContent}
           </TouchableOpacity>
