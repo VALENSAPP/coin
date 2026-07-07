@@ -36,6 +36,7 @@ import {
   createPaymentSession,
   getRecentPaymentDetails,
   getPaymentDetailsByPaymentId,
+  getClosetBattlesPriority,
 } from '../../services/myCloset';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useLanguage } from '../../i18n';
@@ -792,6 +793,87 @@ const MyClosetBuyerItemsScreen = ({ navigation, route }) => {
               <Text style={styles.emptyText}>
                 {t('myClosetBuyer.noItemsAvailableText')}
               </Text>
+            </View>
+          )}
+        />
+      )}
+    </SafeAreaView>
+  );
+};
+
+const MyClosetBattlesScreen = ({ navigation, route }) => {
+  const { bgStyle, text: accent } = useAppTheme();
+  const { t } = useLanguage();
+  const closetId = route?.params?.closetId;
+
+  const [battles, setBattles] = useState([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const LIMIT = 10;
+
+  const loadPage = useCallback(async (pageToLoad, replace = false) => {
+    if (!closetId) return;
+    try {
+      const res = await getClosetBattlesPriority(closetId, { page: pageToLoad, limit: LIMIT });
+      console.log('loadPage res:', res);
+      const raw = res?.data?.battles ?? res?.battles ?? [];
+      const mapped = raw.map(mapBattle);
+      setBattles(prev => (replace ? mapped : [...prev, ...mapped]));
+      setHasMore(mapped.length === LIMIT);
+    } catch {
+      if (replace) setBattles([]);
+      setHasMore(false);
+    }
+  }, [closetId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      setLoading(true);
+      setPage(1);
+      loadPage(1, true).finally(() => setLoading(false));
+    }, [loadPage]),
+  );
+
+  const loadMore = async () => {
+    if (loadingMore || !hasMore || loading) return;
+    setLoadingMore(true);
+    const nextPage = page + 1;
+    await loadPage(nextPage, false);
+    setPage(nextPage);
+    setLoadingMore(false);
+  };
+
+  return (
+    <SafeAreaView style={[styles.safeArea, bgStyle]}>
+      <Header navigation={navigation} title={t('myClosetShopFront.battlePicksTitle')} />
+      {loading ? (
+        <View style={styles.loaderWrap}>
+          <ActivityIndicator color={accent} />
+        </View>
+      ) : (
+        <FlatList
+          data={battles}
+          keyExtractor={b => b.id}
+          renderItem={({ item }) => (
+            <View style={{ marginBottom: 16 }}>
+              <BattleSlide battle={item} accent={accent} t={t} />
+            </View>
+          )}
+          contentContainerStyle={{ padding: 16 }}
+          showsVerticalScrollIndicator={false}
+          onEndReachedThreshold={0.4}
+          onEndReached={loadMore}
+          ListFooterComponent={loadingMore ? (
+            <View style={{ paddingVertical: 16 }}>
+              <ActivityIndicator color={accent} />
+            </View>
+          ) : null}
+          ListEmptyComponent={(
+            <View style={styles.emptyState}>
+              <Ionicons name="flash-outline" size={34} color="#c4b5d4" />
+              <Text style={styles.emptyTitle}>{t('battleHub.noBattlesYet') || 'No battles yet'}</Text>
             </View>
           )}
         />
@@ -2408,6 +2490,7 @@ export {
   MyClosetBuyerCheckoutScreen,
   MyClosetBuyerItemDetailScreen,
   MyClosetBuyerItemsScreen,
+  MyClosetBattlesScreen,
   MyClosetBuyerOptionsScreen,
   MyClosetBuyerOrderReceivedScreen,
   MyClosetBuyerPaymentScreen,

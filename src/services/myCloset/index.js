@@ -171,7 +171,7 @@ export const trackClosetView = async (closetId) => {
 }
 
 export const checkoutCart = async (cartId) => {
-  return axiosInstance.post('/cart/checkout?cartId='+ cartId);
+  return axiosInstance.post('/cart/checkout?cartId=' + cartId);
 };
 
 export const postAddress = async (address) => {
@@ -285,3 +285,47 @@ export const getRecentPaymentDetails = async () => {
 export const getPaymentDetailsByPaymentId = async (paymentId) => {
   return axiosInstance.get(`/payment/${paymentId}`);
 };
+
+// Marketplace Battle APIs
+
+export const createMarketplaceBattle = async ({
+  title,
+  description,
+  category = 'Fashion',
+  visibility = 'Everyone',
+  whoCanVote = 'Everyone',
+  shareToFeed = false,
+  productIds,
+  startAt,
+  endAt,
+}) => {
+  return axiosInstance.post('marketplace-battles', {
+    title,
+    description,
+    category,
+    visibility,
+    whoCanVote,
+    shareToFeed,
+    productIds,
+    startAt,
+    endAt,
+  });
+};
+
+export const getMarketplaceBattleDetails = async (battleId) => {
+  return axiosInstance.get(`marketplace-battles/me/${battleId}`);
+};
+
+export const voteOnBattle = async (battleId, participantId) => {
+  return axiosInstance.post(`marketplace-battles/${battleId}/vote`, { participantId });
+};
+
+export const getBattleVoters = async (battleId, page = 1, limit = 20) => {
+  return axiosInstance.get(`marketplace-battles/${battleId}/voters`, { params: { page, limit } });
+}
+
+export const getClosetBattlesPriority = (closetId, { page = 1, limit = 10 } = {}) => {
+  return axiosInstance.get(`mycloset/${closetId}/marketplace-battles-priority`, {
+    params: { page, limit },
+  });
+}

@@ -15,11 +15,16 @@ import { useFocusEffect } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useLanguage } from '../../i18n';
-import { getClosetItemsByClosetId, getMyClosetById, getMyClosetItems } from '../../services/myCloset';
+import {
+  getClosetItemsByClosetId,
+  getMyClosetById,
+  getMyClosetItems,
+  getClosetBattlesPriority,
+} from '../../services/myCloset';
 import { useSelector } from 'react-redux';
 
 const { width: SCREEN_W } = Dimensions.get('window');
-const CARD_W = (SCREEN_W - 48) / 3; // 3-col grid
+const CARD_W = (SCREEN_W - 48) / 3;
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -44,9 +49,38 @@ const unwrapMyClosetResponse = (source) => {
   return {};
 };
 
-// ── placeholder battle data (swap with real API when ready) ──────────────────
+const unwrapBattlesResponse = (source) => {
+  const battles = source?.data?.battles ?? source?.battles ?? [];
+  return Array.isArray(battles) ? battles : [];
+};
 
-const BATTLES = [
+const mapParticipant = (p = {}, closet) => {
+  const product = p.product ?? {};
+  return {
+    participantId: p.id,
+    name: product.name || '',
+    price: fmt(product.price),
+    image: thumb(product), // product.images[0]
+    user: closet?.shopName || closet?.shopUsername || '',
+    pct: Number(p.votePercentage ?? 0),
+    isWinner: !!p.isWinner,
+  };
+};
+
+const mapBattle = (b, i) => {
+  const sorted = [...(b.participants ?? [])].sort((a, c) => (a.position ?? 0) - (c.position ?? 0));
+  const [p1, p2] = sorted;
+  return {
+    id: String(b.id ?? i),
+    title: b.title,
+    left: mapParticipant(p1, b.closet),
+    right: mapParticipant(p2, b.closet),
+  };
+};
+
+// ── placeholder battle data (fallback while loading / on error) ──────────────
+
+const BATTLES_FALLBACK = [
   {
     id: 'b1',
     left: { name: 'Gucci Ophidia Bag', price: '$850', user: 'Priya', pct: 68 },
@@ -61,12 +95,15 @@ const BATTLES = [
 
 // ── BattleSlide ───────────────────────────────────────────────────────────────
 
+// BattleSlide — now actually renders the product image instead of a fixed icon
 const BattleSlide = ({ battle, accent, t }) => (
   <View style={s.slide}>
     {/* left */}
     <View style={s.fighter}>
       <View style={s.fighterThumb}>
-        <Ionicons name="bag-outline" size={34} color="#9b8c7a" />
+        {battle.left.image
+          ? <Image source={{ uri: battle.left.image }} style={s.fighterImg} resizeMode="cover" />
+          : <Ionicons name="bag-outline" size={34} color="#9b8c7a" />}
       </View>
       <Text style={s.fighterName} numberOfLines={2}>{battle.left.name}</Text>
       <Text style={s.fighterPrice}>{battle.left.price}</Text>
@@ -85,7 +122,9 @@ const BattleSlide = ({ battle, accent, t }) => (
     {/* right */}
     <View style={s.fighter}>
       <View style={[s.fighterThumb, { backgroundColor: '#f0eeec' }]}>
-        <Ionicons name="bag-handle-outline" size={34} color="#9b8c7a" />
+        {battle.right.image
+          ? <Image source={{ uri: battle.right.image }} style={s.fighterImg} resizeMode="cover" />
+          : <Ionicons name="bag-handle-outline" size={34} color="#9b8c7a" />}
       </View>
       <Text style={s.fighterName} numberOfLines={2}>{battle.right.name}</Text>
       <Text style={s.fighterPrice}>{battle.right.price}</Text>
@@ -97,7 +136,6 @@ const BattleSlide = ({ battle, accent, t }) => (
     </View>
   </View>
 );
-
 // ── ItemTile ──────────────────────────────────────────────────────────────────
 
 const ItemTile = ({ item, accent, onPress }) => {
@@ -137,12 +175,16 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
   const [dotIdx, setDotIdx] = useState(0);
   const [closetDetails, setClosetDetails] = useState(null);
   const [closetId, setClosetId] = useState(null);
+
+  // ── battles state ──
+  const [battles, setBattles] = useState([]);
+  const [battlesLoading, setBattlesLoading] = useState(false);
+
   const targetUserId = userData?.id;
 
   const { text, bgStyle } = useAppTheme(userData?.profile);
   const accent = text || '#6d28d9';
 
-  // stored username
   useEffect(() => {
     let ok = true;
     AsyncStorage.getItem('currentUsername')
@@ -151,14 +193,38 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
     return () => { ok = false; };
   }, []);
 
-  // closet items — reload every time tab becomes active
+  const loadBattles = useCallback(async (id) => {
+    if (!id) {
+      setBattles([]);
+      return;
+    }
+    setBattlesLoading(true);
+    try {
+      const res = await getClosetBattlesPriority(id, { page: 1, limit: 10 });
+      console.log('getClosetBattlesPriority response:', JSON.stringify(res, null, 2));
+      const raw = unwrapBattlesResponse(res);
+      setBattles(raw.map(mapBattle));
+    } catch (err) {
+      console.log('getClosetBattlesPriority error:', err);
+      setBattles([]);
+    } finally {
+      setBattlesLoading(false);
+    }
+  }, []);
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
+      let resolvedClosetId = null;
+
       if (isOwnProfile) {
         const closetRes = await getMyClosetById({ userId: targetUserId }).catch(() => null);
         const apiCloset = unwrapMyClosetResponse(closetRes);
-        setClosetDetails(apiCloset?.closetDetails || apiCloset || null);
+        const closetRecord = apiCloset?.closetDetails || apiCloset || null;
+        setClosetDetails(closetRecord);
+
+        resolvedClosetId = apiCloset?.closetId ?? closetRecord?.id ?? closetRecord?._id ?? null;
+        setClosetId(resolvedClosetId);
 
         const res = await getMyClosetItems();
         const raw = res?.data?.data ?? res?.data?.items ?? res?.data ?? res;
@@ -172,17 +238,20 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
         const byUserRes = await getMyClosetById({ userId: targetUserId });
         const closetData = unwrapMyClosetResponse(byUserRes);
         const closetRecord = closetData?.closetDetails || closetData;
-        const closetId = closetData?.closetId ?? closetRecord?.id ?? null;
-        if (!closetId) {
+        resolvedClosetId = closetData?.closetId ?? closetRecord?.id ?? null;
+
+        if (!resolvedClosetId) {
           setItems([]);
           setClosetDetails(null);
+          setClosetId(null);
+          setBattles([]);
           return;
         }
-        setClosetId(closetId);
+        setClosetId(resolvedClosetId);
         setClosetDetails(closetRecord);
 
         // Step 2: fetch items using closetId
-        const itemsRes = await getClosetItemsByClosetId(closetId);
+        const itemsRes = await getClosetItemsByClosetId(resolvedClosetId);
         const raw = itemsRes?.data?.data ?? itemsRes?.data ?? [];
         const list = Array.isArray(raw) ? raw
           : Array.isArray(raw?.items) ? raw.items
@@ -190,13 +259,17 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
               : [];
         setItems(list);
       }
+
+      // ── fetch battle picks once we know the closetId, for either profile type ──
+      await loadBattles(resolvedClosetId);
     } catch {
       setItems([]);
       setClosetDetails(null);
+      setBattles([]);
     } finally {
       setLoading(false);
     }
-  }, [isOwnProfile, targetUserId]);
+  }, [isOwnProfile, targetUserId, loadBattles]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
@@ -205,6 +278,7 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
     setClosetDetails(null);
     setClosetId(null);
     setDotIdx(0);
+    setBattles([]);
   }, [targetUserId, isOwnProfile]);
 
   const shopName = useMemo(() =>
@@ -223,6 +297,12 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
     })),
     [items, t],
   );
+
+  // Use real battles once loaded; fall back to placeholder only while loading
+  // and nothing has come back yet, so the section never looks empty on first paint.
+  const displayBattles = battles.length > 0
+    ? battles
+    : (battlesLoading ? BATTLES_FALLBACK : battles);
 
   const onScroll = (e) => {
     setDotIdx(Math.round(e.nativeEvent.contentOffset.x / (SCREEN_W - 24)));
@@ -253,7 +333,10 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
     isOwnProfile,
   });
 
-  const goBattles = () => navigation?.navigate?.('ProfileMain', { screen: 'MyBattles' });
+  const goBattles = () => navigation?.navigate?.('ProfileMain', {
+    screen: 'MyClosetBattles', // or whatever route name you register MyClosetBattlesScreen under
+    params: { closetId },
+  });
   const goStorefront = () => navigation?.navigate?.('ProfileMain', { screen: 'MyClosetStorefront' });
   const goAddFirst = (isFirstItem = true) => navigation?.navigate?.('ProfileMain', {
     screen: 'MyClosetAddItemPhotos', params: { draft: {}, isFirstItem },
@@ -264,79 +347,71 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
 
       {/* ── Banner ── */}
       {userData?.profile !== 'user' ? (
-        // Shop owner banner
-        <TouchableOpacity
-          activeOpacity={0.9}
-          style={s.banner}
-          onPress={goStorefront}
-        >
+        <TouchableOpacity activeOpacity={0.9} style={s.banner} onPress={goStorefront}>
           <View style={[s.bannerIcon, { backgroundColor: `${accent}18` }]}>
             <Ionicons name="storefront-outline" size={26} color={accent} />
           </View>
           <View style={s.bannerBody}>
             <Text style={[s.bannerTitle, { color: accent }]}>{shopName}</Text>
-            <Text style={s.bannerSub}>
-              {t('myClosetShopFront.shopOwnerBannerSubtitle')}
-            </Text>
+            <Text style={s.bannerSub}>{t('myClosetShopFront.shopOwnerBannerSubtitle')}</Text>
           </View>
         </TouchableOpacity>
       ) : (
-        // Regular user (My Closet) banner
-        <TouchableOpacity
-          activeOpacity={0.9}
-          style={s.banner}
-          onPress={goStorefront}
-        >
+        <TouchableOpacity activeOpacity={0.9} style={s.banner} onPress={goStorefront}>
           <View style={[s.bannerIcon, { backgroundColor: `${accent}18` }]}>
             <Ionicons name="bag-handle" size={26} color={accent} />
           </View>
           <View style={s.bannerBody}>
             <Text style={[s.bannerTitle, { color: accent }]}>{shopName}</Text>
-            <Text style={s.bannerSub}>
-              {t('myClosetShopFront.userBannerSubtitle')}
-            </Text>
+            <Text style={s.bannerSub}>{t('myClosetShopFront.userBannerSubtitle')}</Text>
           </View>
         </TouchableOpacity>
       )}
 
       {/* ── Battle Picks ── */}
-      <View style={s.section}>
-        <View style={s.sectionHead}>
-          <View style={s.sectionLeft}>
-            <Text style={s.sectionEmoji}>⚔️</Text>
-            <Text style={s.sectionTitle}>{t('myClosetShopFront.battlePicksTitle')}</Text>
+      {(battlesLoading || displayBattles.length > 0) && (
+        <View style={s.section}>
+          <View style={s.sectionHead}>
+            <View style={s.sectionLeft}>
+              <Text style={s.sectionEmoji}>⚔️</Text>
+              <Text style={s.sectionTitle}>{t('myClosetShopFront.battlePicksTitle')}</Text>
+            </View>
+            <TouchableOpacity onPress={goBattles} activeOpacity={0.7}>
+              <Text style={[s.seeAll, { color: accent }]}>{t('myClosetShopFront.seeAll')} ›</Text>
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity onPress={goBattles} activeOpacity={0.7}>
-            <Text style={[s.seeAll, { color: accent }]}>{t('myClosetShopFront.seeAll')} ›</Text>
-          </TouchableOpacity>
-        </View>
 
-        <FlatList
-          data={BATTLES}
-          keyExtractor={b => b.id}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          onScroll={onScroll}
-          scrollEventThrottle={16}
-          renderItem={({ item }) => <BattleSlide battle={item} accent={accent} t={t} />}
-        />
-
-        {/* dots */}
-        <View style={s.dots}>
-          {BATTLES.map((_, i) => (
-            <View
-              key={i}
-              style={[
-                s.dot,
-                i === dotIdx
-                  ? { backgroundColor: accent, width: 16 }
-                  : { backgroundColor: '#d1d5db' },
-              ]}
-            />
-          ))}
+          {battlesLoading && battles.length === 0 ? (
+            <View style={s.center}><ActivityIndicator color={accent} /></View>
+          ) : (
+            <>
+              <FlatList
+                data={displayBattles}
+                keyExtractor={b => b.id}
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                onScroll={onScroll}
+                scrollEventThrottle={16}
+                renderItem={({ item }) => <BattleSlide battle={item} accent={accent} t={t} />}
+              />
+              <View style={s.dots}>
+                {displayBattles.map((_, i) => (
+                  <View
+                    key={i}
+                    style={[
+                      s.dot,
+                      i === dotIdx
+                        ? { backgroundColor: accent, width: 16 }
+                        : { backgroundColor: '#d1d5db' },
+                    ]}
+                  />
+                ))}
+              </View>
+            </>
+          )}
         </View>
-      </View>
+      )}
 
       {/* ── My Items ── */}
       <View style={s.section}>
@@ -352,7 +427,7 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
         {loading ? (
           <View style={s.center}><ActivityIndicator color={accent} /></View>
         ) : tiles.length === 0 ? (
-          isOwnProfile ? (  // ← non-own profile sees nothing when empty
+          isOwnProfile ? (
             <View style={s.center}>
               <Ionicons name="shirt-outline" size={32} color="#d1d5db" />
               <Text style={s.emptyTxt}>{t('myClosetShopFront.noItemsYet')}</Text>
@@ -368,19 +443,10 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
         ) : (
           <View style={s.grid}>
             {tiles.map(it => (
-              <ItemTile
-                key={it.key}
-                item={it}
-                accent={accent}
-                onPress={() => { openItem(it) }}
-              />
+              <ItemTile key={it.key} item={it} accent={accent} onPress={() => { openItem(it) }} />
             ))}
             {isOwnProfile && (
-              <TouchableOpacity
-                activeOpacity={0.85}
-                style={s.tile}
-                onPress={() => goAddFirst(false)}
-              >
+              <TouchableOpacity activeOpacity={0.85} style={s.tile} onPress={() => goAddFirst(false)}>
                 <View style={[s.tileThumb, s.addTile]}>
                   <Ionicons name="add" size={28} color={accent} />
                 </View>
@@ -440,6 +506,7 @@ const s = StyleSheet.create({
   },
   fighter: { flex: 1, alignItems: 'center' },
   fighterThumb: { width: 100, height: 100, borderRadius: 14, backgroundColor: '#f5f3ee', alignItems: 'center', justifyContent: 'center', marginBottom: 8, overflow: 'hidden' },
+  fighterImg: { width: '100%', height: '100%', borderRadius: 12 },
   fighterName: { fontSize: 12, fontWeight: '700', color: '#111827', textAlign: 'center', marginBottom: 2 },
   fighterPrice: { fontSize: 14, fontWeight: '800', color: '#111827', marginBottom: 6 },
   userRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },

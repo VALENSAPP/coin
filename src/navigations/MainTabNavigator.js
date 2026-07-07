@@ -127,6 +127,7 @@ import {
   MyClosetItemsManagementScreen,
 } from '../components/profile/MyClosetItemManagement';
 import {
+  MyClosetBattlesScreen,
   MyClosetBuyerCartScreen,
   MyClosetBuyerCheckoutScreen,
   MyClosetBuyerItemDetailScreen,
@@ -447,6 +448,7 @@ export default function MainTabNavigator() {
         <Stack.Screen name="MyClosetOrders" component={MyClosetOrdersScreen} />
         <Stack.Screen name="MyClosetOrderDetail" component={MyClosetOrderDetailScreen} />
         <Stack.Screen name="MyClosetBuyerItems" component={MyClosetBuyerItemsScreen} />
+        <Stack.Screen name="MyClosetBattles" component={MyClosetBattlesScreen} />
         <Stack.Screen name="MyClosetBuyerItemDetail" component={MyClosetBuyerItemDetailScreen} />
         <Stack.Screen name="MyClosetBuyerOptions" component={MyClosetBuyerOptionsScreen} />
         <Stack.Screen name="MyClosetBuyerCart" component={MyClosetBuyerCartScreen} />

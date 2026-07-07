@@ -242,7 +242,6 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
     setBuyerOrdersLoading(true);
     try {
       const response = await getBuyerOrders();
-      console.log("getBuyerOrders----------------", response)
       const payload =
         response?.data?.data ??
         response?.data?.orders ??
@@ -285,7 +284,6 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
     setMarketplaceLoading(true);
     try {
       const response = await getMarketplaceOverview(range);
-      console.log("getMarketplaceOverviewgetMarketplaceOverviewgetMarketplaceOverview", response)
       const data = response?.data?.data ?? response?.data ?? response;
       setMarketplaceOverview(data);
     } catch (error) {
@@ -324,13 +322,13 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
   }, []);
 
   const checkShopState = async () => {
-    dispatch(showLoader()); 
+    dispatch(showLoader());
     try {
       const response = await getMyClosetMe();
       setShopName(response?.data?.shopName);
       setShopHandle(response?.data?.shopUsername);
     } catch (error) {
-       console.warn('Unable to load closet items:', error);
+      console.warn('Unable to load closet items:', error);
     } finally {
       dispatch(hideLoader());
     }
@@ -378,9 +376,14 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
     });
   };
 
+  // sellerId is threaded through to CreateBattleScreen so it can call
+  // GET /mycloset/items?userId=... for the right seller's closet.
   const handleCreateBattlePress = () => {
     navigation?.navigate?.('ProfileMain', {
       screen: 'CreateBattle', // same — must exist in ProfileStack
+      params: {
+        sellerId: userData?.id || userData?._id,
+      },
     });
   };
 

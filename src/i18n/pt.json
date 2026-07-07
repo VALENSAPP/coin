@@ -4090,7 +4090,9 @@
     "noItemsYet": "Aún no hay artículos",
     "addFirstItem": "Agrega tu primer artículo",
     "noItemsAvailable": "No hay artículos disponibles",
-    "addNewItem": "Agregar nuevo artículo"
+    "addNewItem": "Agregar nuevo artículo",
+    "noBattlesTitle": "Ainda não há batalhas",
+    "noBattlesText": "Volte em breve para votar nas novas batalhas do marketplace"
   },
   "myClosetOrderDetail": {
     "headerTitle": "Dettagli ordine",
@@ -4189,8 +4191,12 @@
       "questionRequired": "A pergunta da batalha é obrigatória.",
       "typeRequired": "Escolha um tipo de batalha.",
       "durationRequired": "Escolha a duração da batalha.",
-      "visibilityRequired": "A visibilidade é obrigatória."
-    }
+      "visibilityRequired": "A visibilidade é obrigatória.",
+      "itemsLoadFailed": "Não foi possível carregar os itens do seu guarda-roupa."
+    },
+    "noItems": "Ainda não há itens no seu guarda-roupa.",
+    "retry": "Tentar novamente",
+    "done": "Concluído"
   },
   "shopSettings": {
     "title": "Shop Settings",

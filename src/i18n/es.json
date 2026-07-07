@@ -4090,7 +4090,9 @@
     "noItemsYet": "Aún no hay artículos",
     "addFirstItem": "Agrega tu primer artículo",
     "noItemsAvailable": "No hay artículos disponibles",
-    "addNewItem": "Agregar nuevo artículo"
+    "addNewItem": "Agregar nuevo artículo",
+    "noBattlesTitle": "Aún no hay batallas",
+    "noBattlesText": "Vuelve pronto para votar en las nuevas batallas del mercado"
   },
   "myClosetOrderDetail": {
     "headerTitle": "Detalles del pedido",
@@ -4189,8 +4191,12 @@
       "questionRequired": "La pregunta de la batalla es obligatoria.",
       "typeRequired": "Elige un tipo de batalla.",
       "durationRequired": "Elige una duración para la batalla.",
-      "visibilityRequired": "La visibilidad es obligatoria."
-    }
+      "visibilityRequired": "La visibilidad es obligatoria.",
+      "itemsLoadFailed": "No se pudieron cargar los artículos de tu armario."
+    },
+    "noItems": "Aún no se encontraron artículos en tu armario.",
+    "retry": "Reintentar",
+    "done": "Listo"
   },
   "shopSettings": {
     "title": "Configuración de la tienda",

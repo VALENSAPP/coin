@@ -4090,7 +4090,9 @@
     "noItemsYet": "Nessun articolo disponibile",
     "addFirstItem": "Aggiungi il tuo primo articolo",
     "noItemsAvailable": "Nessun articolo disponibile",
-    "addNewItem": "Aggiungi nuovo articolo"
+    "addNewItem": "Aggiungi nuovo articolo",
+    "noBattlesTitle": "Ancora nessuna battaglia",
+    "noBattlesText": "Torna presto per votare nelle nuove battaglie del marketplace"
   },
   "myClosetOrderDetail": {
     "headerTitle": "Détails de la commande",
@@ -4189,8 +4191,12 @@
       "questionRequired": "La domanda della sfida è obbligatoria.",
       "typeRequired": "Seleziona un tipo di sfida.",
       "durationRequired": "Seleziona una durata per la sfida.",
-      "visibilityRequired": "La visibilità è obbligatoria."
-    }
+      "visibilityRequired": "La visibilità è obbligatoria.",
+      "itemsLoadFailed": "Impossibile caricare gli articoli del tuo armadio."
+    },
+    "noItems": "Non sono ancora presenti articoli nel tuo armadio.",
+    "retry": "Riprova",
+    "done": "Fatto"
   },
   "shopSettings": {
     "title": "Shop Settings",

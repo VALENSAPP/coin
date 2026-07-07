@@ -4090,7 +4090,9 @@
     "noItemsYet": "Aucun article pour le moment",
     "addFirstItem": "Ajoutez votre premier article",
     "noItemsAvailable": "Aucun article disponible",
-    "addNewItem": "Ajouter un nouvel article"
+    "addNewItem": "Ajouter un nouvel article",
+    "noBattlesTitle": "Aucun battle pour le moment",
+    "noBattlesText": "Revenez bientôt pour voter dans les nouveaux battles du marketplace"
   },
   "myClosetOrderDetail": {
     "headerTitle": "Détails de la commande",
@@ -4189,8 +4191,12 @@
       "questionRequired": "La question du duel est obligatoire.",
       "typeRequired": "Veuillez choisir un type de duel.",
       "durationRequired": "Veuillez choisir une durée.",
-      "visibilityRequired": "La visibilité est obligatoire."
-    }
+      "visibilityRequired": "La visibilité est obligatoire.",
+      "itemsLoadFailed": "Impossible de charger les articles de votre dressing."
+    },
+    "noItems": "Aucun article trouvé dans votre dressing pour le moment.",
+    "retry": "Réessayer",
+    "done": "Terminé"
   },
   "shopSettings": {
     "title": "Shop Settings",

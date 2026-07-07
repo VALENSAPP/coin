@@ -4092,7 +4092,9 @@
     "noItemsYet": "No items yet",
     "addFirstItem": "Add your first item",
     "noItemsAvailable": "No items available",
-    "addNewItem": "Add new item"
+    "addNewItem": "Add new item",
+    "noBattlesTitle": "No battles yet",
+    "noBattlesText": "Check back soon to vote on new marketplace battles"
   },
   "myClosetOrderDetail": {
     "headerTitle": "Order Details",
@@ -4191,8 +4193,12 @@
       "questionRequired": "Battle question is required.",
       "typeRequired": "Please choose a battle type.",
       "durationRequired": "Please choose a battle duration.",
-      "visibilityRequired": "Visibility is required."
-    }
+      "visibilityRequired": "Visibility is required.",
+      "itemsLoadFailed": "Could not load your closet items."
+    },
+    "noItems": "No closet items found yet.",
+    "retry": "Retry",
+    "done": "Done"
   },
   "shopSettings": {
     "title": "Shop Settings",

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Image,
   Alert,
@@ -9,12 +9,22 @@ import {
   TouchableOpacity,
   View,
   Share,
+  ActivityIndicator,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useLanguage } from '../../i18n';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+import { useFocusEffect } from '@react-navigation/native';
+import {
+  getMyClosetItems,
+  createMarketplaceBattle,
+  getMarketplaceBattleDetails,
+  voteOnBattle,
+  getBattleVoters,
+} from '../../services/myCloset';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Fallback palette — used only when the theme doesn't provide a value,
 // so screens still look right before useAppTheme() resolves.
@@ -39,21 +49,106 @@ const phoneBorder = {
   backgroundColor: '#fff',
 };
 
-export const SAMPLE_ITEMS = [
-  { id: 'jacket', name: 'Vintage Leather Jacket', price: '$120', color: '#CBBCA7', image: 'https://images.unsplash.com/photo-1523398002811-999ca8dec234?w=600&q=80' },
-  { id: 'bag', name: 'Mini Shoulder Bag', price: '$85', color: '#9B7B58', image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600&q=80' },
-  { id: 'sunglasses', name: 'Prada Sunglasses', price: '$220', color: '#101010', image: 'https://images.unsplash.com/photo-1511499767150-a48a237f0083?w=600&q=80' },
-  { id: 'coat', name: 'Burberry Trench Coat', price: '$860', color: '#D7B98A', image: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=600&q=80' },
-];
+// Duration pill value -> ms, used to compute startAt/endAt for the create-battle payload
+const DURATION_MS = {
+  '24 HOURS': 24 * 60 * 60 * 1000,
+  '3 DAYS': 3 * 24 * 60 * 60 * 1000,
+  '7 DAYS': 7 * 24 * 60 * 60 * 1000,
+};
 
-// Second-round item pool, used by the "Challenge Another Item" flow so it
-// doesn't just repeat the first battle's items.
-export const CHALLENGE_ITEMS = [
-  { id: 'prada-sun', name: 'Prada Sunglasses', price: '$220', image: 'https://images.unsplash.com/photo-1511499767150-a48a237f0083?w=600&q=80' },
-  { id: 'gucci-sun', name: 'Gucci Sunglasses', price: '$230', image: 'https://images.unsplash.com/photo-1509281373149-e957c6296406?w=600&q=80' },
-  { id: 'black-bag', name: 'Black Handbag', price: '$85', image: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=600&q=80' },
-  { id: 'white-bag', name: 'White Handbag', price: '$85', image: 'https://images.unsplash.com/photo-1591561954557-26941169b49e?w=600&q=80' },
-];
+// --- Closet item normalization helpers ---------------------------------
+// These were missing before (normalizeItem referenced them but they were
+// never defined/imported), which caused every normalize call to throw.
+
+const numberFromPrice = value => {
+  if (value == null || value === '') return 0;
+  const numeric = Number(String(value).replace(/[^0-9.-]/g, ''));
+  return Number.isNaN(numeric) ? 0 : numeric;
+};
+
+const currency = value => `$${numberFromPrice(value).toFixed(2)}`;
+
+// Images from the API can arrive as plain strings or as { uri } objects — normalize either to a string.
+const imageUri = img => (typeof img === 'string' ? img : img?.uri || null);
+
+const itemImages = item =>
+  (Array.isArray(item?.images) ? item.images : item?.image ? [item.image] : [])
+    .map(imageUri)
+    .filter(Boolean);
+
+const itemImage = item => itemImages(item)[0] || null;
+
+const normalizeItem = (item = {}, index = 0, t) => ({
+  id: String(item?.id || item?._id || `item-${index}`),
+  raw: item,
+  name: item?.name || item?.title || item?.itemName || t('myClosetBuyer.untitledItem'),
+  price: currency(item?.price ?? item?.amount ?? item?.salePrice),
+  priceValue: numberFromPrice(item?.price ?? item?.amount ?? item?.salePrice),
+  image: itemImage(item),
+  images: itemImages(item),
+  brand: item?.brand || t('myClosetBuyer.defaultBrand'),
+  category: item?.category || t('myClosetBuyer.defaultCategory'),
+  condition: item?.condition || t('myClosetBuyer.defaultCondition'),
+  description: item?.description || t('myClosetBuyer.defaultDescription'),
+  quantityAvailable: Number(item?.quantity || item?.availableQuantity || 1) || 1,
+  sellerName: item?.sellerName || item?.userName || item?.ownerName || '',
+});
+
+const normalizeItems = (items, t) =>
+  (Array.isArray(items) ? items : []).map((item, index) => normalizeItem(item, index, t));
+
+const prefetchImageUrls = async items => {
+  const urls = (Array.isArray(items) ? items : [])
+    .flatMap(item => item?.images || (item?.image ? [item.image] : []))
+    .map(imageUri)
+    .filter(Boolean);
+  if (!urls.length) return;
+  await Promise.allSettled([...new Set(urls)].map(url => Image.prefetch(url)));
+};
+
+// --- Battle response normalization --------------------------------------
+// Shapes the real GET /marketplace-battles/me response (battle.participants[].product)
+// into the { items, leftVotePercent, daysLeft, ... } fields the battle screens render.
+
+const daysLeftFromEndAt = endAt => {
+  if (!endAt) return null;
+  const diffMs = new Date(endAt).getTime() - Date.now();
+  return Math.max(0, Math.ceil(diffMs / (24 * 60 * 60 * 1000)));
+};
+
+const participantToItem = participant => ({
+  id: participant?.productId || participant?.product?.id,
+  participantId: participant?.id,
+  name: participant?.product?.name || '',
+  price: currency(participant?.product?.price),
+  image: itemImage(participant?.product) || participant?.product?.images?.[0] || null,
+  voteCount: participant?.voteCount ?? 0,
+  isWinner: !!participant?.isWinner,
+});
+
+const normalizeBattle = raw => {
+  if (!raw) return null;
+  const participants = [...(raw?.participants || [])].sort((a, b) => (a?.position ?? 0) - (b?.position ?? 0));
+  const items = participants.map(participantToItem);
+  const totalVotes = raw?.totalVotes ?? participants.reduce((sum, p) => sum + (p?.voteCount ?? 0), 0);
+  const leftVotes = items[0]?.voteCount ?? 0;
+  const leftVotePercent = totalVotes > 0 ? Math.round((leftVotes / totalVotes) * 100) : 50;
+  return {
+    id: raw?.id,
+    title: raw?.title,
+    category: raw?.category,
+    status: raw?.status,
+    outcome: raw?.outcome,
+    whoCanVote: raw?.whoCanVote,
+    visibility: raw?.visibility,
+    totalVotes,
+    totalComments: raw?.totalComments ?? 0,
+    daysLeft: daysLeftFromEndAt(raw?.endAt),
+    items,
+    leftVotePercent,
+    createdBy: raw?.sellerId || raw?.createdBy || raw?.userId || null, // NEW — adjust field name if API differs
+  };
+};
 
 export const Header = ({ title, onBack, rightIcon, subtitle, onShare, accentColor, titleColor }) => (
   <View style={styles.headerRow}>
@@ -84,7 +179,7 @@ export const PhoneFrame = ({ children }) => (
   </View>
 );
 
-export const BattleCard = ({ left, right, showWinner = false, accent = PURPLE, textColor = TEXT }) => {
+export const BattleCard = ({ left, right, showWinner = false, winnerPercent, accent = PURPLE, textColor = TEXT }) => {
   const { t } = useLanguage();
   return (
     <View style={styles.cardBlock}>
@@ -99,7 +194,9 @@ export const BattleCard = ({ left, right, showWinner = false, accent = PURPLE, t
               <Text style={[styles.winnerTitle, { color: textColor }]}>{left.name}</Text>
               <Text style={styles.winnerPrice}>{left.price}</Text>
             </View>
-            <View style={[styles.percentPill, { backgroundColor: '#22C55E' }]}><Text style={styles.percentText}>62%</Text></View>
+            <View style={[styles.percentPill, { backgroundColor: '#22C55E' }]}>
+              <Text style={styles.percentText}>{winnerPercent != null ? `${winnerPercent}%` : '—'}</Text>
+            </View>
           </View>
         </View>
       ) : null}
@@ -120,8 +217,6 @@ export const BattleCard = ({ left, right, showWinner = false, accent = PURPLE, t
   );
 };
 
-// Optional results bar, used when a battle screen needs to show live
-// vote share (e.g. the "Challenge Another Item" battle-in-progress view).
 export const VoteSplitBar = ({ leftPercent = 50, accent = PURPLE, totalVotes, leftLabel, rightLabel }) => {
   const { t } = useLanguage();
   const rightPercent = 100 - leftPercent;
@@ -174,6 +269,7 @@ export const StatRow = ({ items }) => (
   <View style={styles.statsRow}>
     {items.map(item => (
       <View key={item.label} style={styles.statCard}>
+        {item.icon ? <Ionicons name={item.icon} size={18} color={MUTED} style={{ marginBottom: 4 }} /> : null}
         <Text style={styles.statValue}>{item.value}</Text>
         <Text style={styles.statLabel}>{item.label}</Text>
       </View>
@@ -181,23 +277,68 @@ export const StatRow = ({ items }) => (
   </View>
 );
 
+// ---------------------------------------------------------------------
+// CreateBattleScreen — now loads real closet items from GET /mycloset/items
+// ---------------------------------------------------------------------
 export function CreateBattleScreen({ navigation, route }) {
   const { bgStyle, text, card, bg } = useAppTheme();
   const { t } = useLanguage();
   const accent = text || PURPLE;
   const primaryText = text || TEXT;
 
-  // Lets this screen be reused for other rounds (e.g. "Challenge Another
-  // Item") by passing a different pool of items through route params.
-  const pool = route?.params?.items || SAMPLE_ITEMS;
+  // Passed from MyClosetDashboard's "Create Battle" CTA — falls back to
+  // undefined, in which case getMyClosetItems() just omits the userId query param.
+  const sellerId = route?.params?.sellerId;
   const headerTitle = route?.params?.headerTitle || t('battle.headerTitle');
   const nextRoute = route?.params?.nextRoute || 'BattleSetup';
 
-  const [selectedIds, setSelectedIds] = useState(pool.slice(0, 2).map(i => i.id));
-  const selectedItems = useMemo(
-    () => pool.filter(item => selectedIds.includes(item.id)).slice(0, 2),
-    [selectedIds, pool],
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState(null);
+  const [selectedIds, setSelectedIds] = useState([]);
+
+  const loadItems = useCallback(async () => {
+    if (items.length) return;
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const response = await getMyClosetItems(sellerId);
+      const payload =
+        response?.data?.data ?? response?.data?.items ?? response?.data ?? response;
+      const nextItems = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.items)
+          ? payload.items
+          : Array.isArray(payload?.data)
+            ? payload.data
+            : [];
+      const availableItems = nextItems.filter(
+        item => Number(item.quantity) > 0
+      );
+      const normalized = normalizeItems(availableItems, t);
+      prefetchImageUrls(availableItems);
+      setItems(normalized);
+      setSelectedIds(normalized.slice(0, 2).map(i => i.id));
+    } catch (err) {
+      console.log('CreateBattleScreen loadItems error:', err, err?.message, err?.stack);
+      setItems([]);
+      setLoadError(t('battle.errors.itemsLoadFailed') || 'Could not load your closet items.');
+    } finally {
+      setLoading(false);
+    }
+  }, [items.length, sellerId, t]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadItems();
+    }, [loadItems])
   );
+
+  const selectedItems = useMemo(
+    () => items.filter(item => selectedIds.includes(item.id)).slice(0, 2),
+    [selectedIds, items],
+  );
+
   const handleShare = async () => {
     try {
       await Share.share({ message: t('battle.sharePreviewMessage') });
@@ -205,44 +346,60 @@ export function CreateBattleScreen({ navigation, route }) {
       Alert.alert(t('battle.shareTitle'), t('battle.shareUnavailable'));
     }
   };
+
   return (
     <View style={[styles.screen, bgStyle]}>
       <Header title={headerTitle} onBack={() => navigation.goBack()} onShare={handleShare} accentColor={accent} titleColor={primaryText} />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <Text style={[styles.sectionTitle, { color: primaryText }]}>{t('battle.chooseItemsTitle')}</Text>
         <Text style={styles.sectionHint}>{t('battle.chooseItemsHint')}</Text>
-        <View style={styles.grid}>
-          {pool.map(item => (
-            <TouchableOpacity
-              key={item.id}
-              activeOpacity={0.9}
-              onPress={() => {
-                setSelectedIds(prev => {
-                  const isSelected = prev.includes(item.id);
-                  if (isSelected) return prev.filter(id => id !== item.id);
-                  if (prev.length >= 2) return [prev[1], item.id];
-                  return [...prev, item.id];
-                });
-              }}
-              style={[
-                styles.gridCard,
-                { backgroundColor: card || '#fff', borderColor: BORDER },
-                selectedIds.includes(item.id) && [styles.gridCardSelected, { borderColor: accent }],
-              ]}
-            >
-              {selectedIds.includes(item.id) ? (
-                <View style={[styles.selectionDot, { backgroundColor: accent }]}>
-                  <Ionicons name="checkmark" size={12} color="#fff" />
-                </View>
-              ) : (
-                <View style={styles.selectionDotGhost} />
-              )}
-              <Image source={{ uri: item.image }} style={styles.gridImage} />
-              <Text style={[styles.gridName, { color: primaryText }]}>{item.name}</Text>
-              <Text style={[styles.gridPrice, { color: accent }]}>{item.price}</Text>
+
+        {loading ? (
+          <ActivityIndicator style={{ marginTop: 24 }} color={accent} />
+        ) : loadError ? (
+          <View style={styles.centeredNotice}>
+            <Text style={styles.errorText}>{loadError}</Text>
+            <TouchableOpacity onPress={loadItems} style={[styles.retryBtn, { borderColor: accent }]}>
+              <Text style={{ color: accent, fontWeight: '700' }}>{t('battle.retry') || 'Retry'}</Text>
             </TouchableOpacity>
-          ))}
-        </View>
+          </View>
+        ) : items.length === 0 ? (
+          <Text style={styles.sectionHint}>{t('battle.noItems') || 'No closet items found yet.'}</Text>
+        ) : (
+          <View style={styles.grid}>
+            {items.map(item => (
+              <TouchableOpacity
+                key={item.id}
+                activeOpacity={0.9}
+                onPress={() => {
+                  setSelectedIds(prev => {
+                    const isSelected = prev.includes(item.id);
+                    if (isSelected) return prev.filter(id => id !== item.id);
+                    if (prev.length >= 2) return [prev[1], item.id];
+                    return [...prev, item.id];
+                  });
+                }}
+                style={[
+                  styles.gridCard,
+                  { backgroundColor: card || '#fff', borderColor: BORDER },
+                  selectedIds.includes(item.id) && [styles.gridCardSelected, { borderColor: accent }],
+                ]}
+              >
+                {selectedIds.includes(item.id) ? (
+                  <View style={[styles.selectionDot, { backgroundColor: accent }]}>
+                    <Ionicons name="checkmark" size={12} color="#fff" />
+                  </View>
+                ) : (
+                  <View style={styles.selectionDotGhost} />
+                )}
+                <Image source={{ uri: item.image }} style={styles.gridImage} />
+                <Text style={[styles.gridName, { color: primaryText }]}>{item.name}</Text>
+                <Text style={[styles.gridPrice, { color: accent }]}>{item.price}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
         <TouchableOpacity
           activeOpacity={0.9}
           disabled={selectedItems.length < 2}
@@ -412,13 +569,88 @@ export function BattleSetupScreen({ navigation, route }) {
   );
 }
 
+// ---------------------------------------------------------------------
+// BattlePreviewScreen — "Launch Battle" now calls POST /marketplace-battles
+// ---------------------------------------------------------------------
 export function BattlePreviewScreen({ navigation, route }) {
   const { bgStyle, text, card, bg } = useAppTheme();
   const { t } = useLanguage();
   const accent = text || PURPLE;
   const primaryText = text || TEXT;
   const previewQuestion = route?.params?.question || t('battle.defaultQuestion');
-  const selectedItems = route?.params?.selectedItems || [SAMPLE_ITEMS[0], SAMPLE_ITEMS[1]];
+  const selectedItems = route?.params?.selectedItems;
+  const { duration, whoCanVote } = route?.params || {};
+
+  // Maps the duration pill chosen in BattleSetupScreen to a days count for display.
+  const DURATION_DAYS = { '24 HOURS': 1, '3 DAYS': 3, '7 DAYS': 7 };
+  const daysLeft = DURATION_DAYS[duration] ?? 3;
+  const voteAudienceText =
+    whoCanVote === t('battle.followersOnly') ? whoCanVote : t('battle.everyoneCanVote');
+  const [launching, setLaunching] = useState(false);
+
+  if (!selectedItems || selectedItems.length < 2) {
+    // Defensive guard: this screen requires two real closet items with ids.
+    return (
+      <View style={[styles.screen, bgStyle, { backgroundColor: bg || SOFT_BG }]}>
+        <Header title={t('battle.previewTitle')} onBack={() => navigation.goBack()} titleColor={primaryText} />
+        <View style={styles.centeredNotice}>
+          <Text style={styles.errorText}>{t('battle.errors.missingItems') || 'Missing selected items.'}</Text>
+        </View>
+      </View>
+    );
+  }
+
+  const buildBattlePayload = () => {
+    const { battleType, duration, whoCanVote, visibility } = route?.params || {};
+    const durationMs = DURATION_MS[duration] || DURATION_MS['3 DAYS'];
+    const startAt = new Date();
+    const endAt = new Date(startAt.getTime() + durationMs);
+    return {
+      title: previewQuestion,
+      description: previewQuestion,
+      category: 'Fashion',
+      visibility: visibility === t('battle.private') ? 'Private' : 'Everyone',
+      whoCanVote: whoCanVote === t('battle.followersOnly') ? 'Followers' : 'Everyone',
+      shareToFeed: false,
+      productIds: selectedItems.map(item => item.id),
+      startAt: startAt.toISOString(),
+      endAt: endAt.toISOString(),
+    };
+  };
+
+  const handleLaunch = async () => {
+    setLaunching(true);
+    try {
+      const payload = buildBattlePayload();
+      const response = await createMarketplaceBattle(payload);
+      const data = response?.data?.data ?? response?.data ?? response;
+      const battle = data?.battle ?? data;
+      const battleId = battle?.id;
+
+      console.log('BattlePreviewScreen handleLaunch battleId:', battleId, 'raw response:', JSON.stringify(response?.data));
+
+      const liveRoute = route?.params?.liveRoute || 'BattleLive';
+      navigation.navigate(liveRoute, { battleId, question: previewQuestion, selectedItems });
+    } catch (err) {
+      const status = err?.response?.status;
+      const message = err?.response?.data?.message;
+      if (status === 400 && message === 'One or more products were not found') {
+        Alert.alert(
+          t('battle.errors.launchFailedTitle') || 'Could not launch battle',
+          t('battle.errors.productsNotFound') ||
+          'One or both items could not be found. They may have been removed — please go back and pick again.',
+        );
+      } else {
+        Alert.alert(
+          t('battle.errors.launchFailedTitle') || 'Could not launch battle',
+          message || t('battle.errors.launchFailedGeneric') || 'Something went wrong. Please try again.',
+        );
+      }
+    } finally {
+      setLaunching(false);
+    }
+  };
+
   return (
     <View style={[styles.screen, bgStyle, { backgroundColor: bg || SOFT_BG }]}>
       <Header
@@ -439,21 +671,25 @@ export function BattlePreviewScreen({ navigation, route }) {
         <Text style={[styles.sectionTitle, { color: primaryText }]}>{previewQuestion}</Text>
         <BattleCard left={selectedItems[0]} right={selectedItems[1]} accent={accent} textColor={primaryText} />
         <View style={styles.infoRow}>
-          <Text style={styles.infoText}>{t('battle.daysLeft', { count: 3 })}</Text>
-          <Text style={styles.infoText}>{t('battle.everyoneCanVote')}</Text>
+          <Text style={styles.infoText}>{t('battle.daysLeft', { count: daysLeft })}</Text>
+          <Text style={styles.infoText}>{voteAudienceText}</Text>
         </View>
         <View style={[styles.aboutCard, { backgroundColor: card || '#fff' }]}>
           <Text style={[styles.aboutTitle, { color: primaryText }]}>{t('battle.aboutTitle')}</Text>
           <Text style={styles.aboutText}>{t('battle.aboutTextPreview')}</Text>
         </View>
         <StatRow items={[
-          { label: t('battle.stats.votes'), value: '0' },
-          { label: t('battle.stats.views'), value: '0' },
-          { label: t('battle.stats.comments'), value: '0' },
+          { label: t('battle.stats.votes'), value: '0', icon: 'checkmark-done-outline' },
+          { label: t('battle.stats.views'), value: '0', icon: 'eye-outline' },
+          { label: t('battle.stats.comments'), value: '0', icon: 'chatbubble-outline' },
         ]} />
-        <TouchableOpacity activeOpacity={0.9} onPress={() => navigation.navigate(route?.params?.liveRoute || 'BattleLive', { question: previewQuestion, selectedItems })}>
-          <LinearGradient colors={[accent, PURPLE_2]} style={styles.primaryButton}>
-            <Text style={styles.primaryButtonText}>{t('battle.launchBattle')}</Text>
+        <TouchableOpacity activeOpacity={0.9} disabled={launching} onPress={handleLaunch}>
+          <LinearGradient colors={[accent, PURPLE_2]} style={[styles.primaryButton, launching && { opacity: 0.6 }]}>
+            {launching ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.primaryButtonText}>{t('battle.launchBattle')}</Text>
+            )}
           </LinearGradient>
         </TouchableOpacity>
       </ScrollView>
@@ -466,9 +702,121 @@ export function BattleLiveScreen({ navigation, route }) {
   const { t } = useLanguage();
   const accent = text || PURPLE;
   const primaryText = text || TEXT;
-  const question = route?.params?.question || t('battle.defaultQuestion');
-  const selectedItems = route?.params?.selectedItems || [SAMPLE_ITEMS[0], SAMPLE_ITEMS[1]];
-  const showResultsBar = !!route?.params?.showResultsBar;
+  const battleId = route?.params?.battleId;
+
+  const [battle, setBattle] = useState(null);
+  const [loading, setLoading] = useState(!!battleId);
+  const [loadError, setLoadError] = useState(null);
+  const [hasVoted, setHasVoted] = useState(false);
+  const [votedParticipantId, setVotedParticipantId] = useState(null);
+  const [votingParticipantId, setVotingParticipantId] = useState(null);
+  const [currentUserId, setCurrentUserId] = useState(null);
+
+  const question = battle?.title || route?.params?.question || t('battle.defaultQuestion');
+  const selectedItems = battle?.items?.length ? battle.items : route?.params?.selectedItems || [];
+  const showResultsBar =
+    hasVoted ||
+    !!route?.params?.showResultsBar ||
+    (battle && (battle.status !== 'LIVE' || battle.outcome !== 'PENDING'));
+  const voteAudienceText = battle?.whoCanVote === 'Followers' ? t('battle.followersOnly') : t('battle.everyoneCanVote');
+  const isCreator = !!currentUserId && !!battle?.createdBy && currentUserId === battle.createdBy;
+
+  const checkExistingVote = useCallback(async () => {
+    if (!battleId) return;
+    try {
+      const userId = await AsyncStorage.getItem('userId');
+      if (!userId) return;
+
+      const response = await getBattleVoters(battleId, 1, 100);
+      const data = response?.data?.data ?? response?.data ?? response;
+      const voters = data?.voters || [];
+      const myVote = voters.find(v => v?.user?.id === userId);
+      if (myVote) {
+        setHasVoted(true);
+        setVotedParticipantId(myVote?.participant?.id ?? null);
+      }
+    } catch {
+      // Non-fatal — if this fails, the user just sees the vote buttons again.
+    }
+  }, [battleId]);
+
+  const loadBattle = useCallback(async () => {
+    if (!battleId) return;
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const response = await getMarketplaceBattleDetails(battleId);
+      const data = response?.data?.data ?? response?.data ?? response;
+      const raw = data?.battle ?? data?.battles?.[0] ?? data;
+      setBattle(normalizeBattle(raw));
+    } catch {
+      setLoadError(t('battle.errors.battleLoadFailed') || 'Could not load this battle.');
+    } finally {
+      setLoading(false);
+    }
+  }, [battleId, t]);
+
+  const handleVote = async (item) => {
+    console.log('BattleLiveScreen handleVote', { battleId, participantId: item?.participantId });
+    if (!battleId || !item?.participantId) {
+      Alert.alert(
+        t('battle.errors.voteFailedTitle') || 'Could not submit vote',
+        t('battle.errors.voteFailedGeneric') || 'Something went wrong. Please try again.',
+      );
+      return;
+    }
+    setVotingParticipantId(item.participantId);
+    try {
+      await voteOnBattle(battleId, item.participantId);
+      setHasVoted(true);
+      setVotedParticipantId(item.participantId);
+      await loadBattle();
+    } catch (err) {
+      const message = err?.response?.data?.message;
+      Alert.alert(
+        t('battle.errors.voteFailedTitle') || 'Could not submit vote',
+        message || t('battle.errors.voteFailedGeneric') || 'Something went wrong. Please try again.',
+      );
+    } finally {
+      setVotingParticipantId(null);
+    }
+  };
+
+  // All useEffects together, still before any early return
+  useEffect(() => {
+    AsyncStorage.getItem('userId').then(setCurrentUserId).catch(() => { });
+  }, []);
+
+  useEffect(() => {
+    loadBattle();
+    checkExistingVote();
+  }, [loadBattle, checkExistingVote]);
+
+  // Early returns come AFTER every hook above — nothing hook-related below this point
+  if (loading) {
+    return (
+      <View style={[styles.screen, bgStyle, { backgroundColor: bg || SOFT_BG, justifyContent: 'center' }]}>
+        <ActivityIndicator color={accent} />
+      </View>
+    );
+  }
+
+  if (loadError || selectedItems.length < 2) {
+    return (
+      <View style={[styles.screen, bgStyle, { backgroundColor: bg || SOFT_BG }]}>
+        <Header title={t('battle.liveTitle')} onBack={() => navigation.goBack()} titleColor={primaryText} />
+        <View style={styles.centeredNotice}>
+          <Text style={styles.errorText}>{loadError || t('battle.errors.missingItems')}</Text>
+          {battleId ? (
+            <TouchableOpacity onPress={loadBattle} style={[styles.retryBtn, { borderColor: accent }]}>
+              <Text style={{ color: accent, fontWeight: '700' }}>{t('battle.retry') || 'Retry'}</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.screen, bgStyle, { backgroundColor: bg || SOFT_BG }]}>
       <Header
@@ -487,46 +835,37 @@ export function BattleLiveScreen({ navigation, route }) {
       />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.liveTopRow}>
-          <View style={[styles.pillOutline, { borderColor: accent }]}><Text style={[styles.pillOutlineText, { color: primaryText }]}>{t('battle.opinionBattle')}</Text></View>
-          <Text style={styles.liveMuted}>{t('battle.daysLeft', { count: 3 })}</Text>
+          <View style={[styles.pillOutline, { borderColor: accent }]}>
+            <Text style={[styles.pillOutlineText, { color: primaryText }]}>{battle?.category || t('battle.opinionBattle')}</Text>
+          </View>
+          <Text style={styles.liveMuted}>{t('battle.daysLeft', { count: battle?.daysLeft ?? 0 })}</Text>
         </View>
         <Text style={[styles.sectionTitle, { color: primaryText }]}>{question}</Text>
         <BattleCard left={selectedItems[0]} right={selectedItems[1]} accent={accent} textColor={primaryText} />
-        {showResultsBar ? (
-          <VoteSplitBar
-            leftPercent={42}
-            accent={accent}
-            totalVotes={245}
-            leftLabel={selectedItems[0].name}
-            rightLabel={selectedItems[1].name}
-          />
-        ) : (
-          <>
-            <View style={styles.voteCopy}>
-              <Text style={[styles.voteTitle, { color: primaryText }]}>{t('battle.voteAndSeeResults')}</Text>
-              <Text style={styles.voteSub}>{t('battle.voteHelpsOthers')}</Text>
-            </View>
-            <TouchableOpacity activeOpacity={0.9} onPress={() => navigation.navigate('BattleResultsScreen')}>
-              <LinearGradient colors={[accent, PURPLE_2]} style={styles.primaryButton}>
-                <Text style={styles.primaryButtonText}>{t('battle.voteFor', { name: selectedItems[0].name })}</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-            <View style={[styles.secondaryButton, { borderColor: accent }]}>
-              <Text style={[styles.secondaryButtonText, { color: accent }]}>{t('battle.voteFor', { name: selectedItems[1].name })}</Text>
-            </View>
-          </>
-        )}
         <StatRow items={[
-          { label: t('battle.stats.votes'), value: '125' },
-          { label: t('battle.stats.views'), value: '860' },
-          { label: t('battle.stats.comments'), value: '24' },
+          { label: t('battle.stats.votes'), value: String(battle?.totalVotes ?? 0), icon: 'checkmark-done-outline' },
+          { label: t('battle.stats.comments'), value: String(battle?.totalComments ?? 0), icon: 'chatbubble-outline' },
         ]} />
         {showResultsBar ? (
-          <TouchableOpacity activeOpacity={0.9} onPress={() => navigation.navigate('MyClosetDashboard')}>
-            <LinearGradient colors={[accent, PURPLE_2]} style={styles.primaryButton}>
-              <Text style={styles.primaryButtonText}>{t('battle.viewBattle')}</Text>
-            </LinearGradient>
-          </TouchableOpacity>
+          isCreator ? (
+            <TouchableOpacity activeOpacity={0.9} onPress={() => navigation.navigate('MainApp', {
+              screen: 'wallet',
+              params: { screen: 'MyCloset' }
+            })}>
+              <LinearGradient colors={[accent, PURPLE_2]} style={styles.primaryButton}>
+                <Text style={styles.primaryButtonText}>{t('battle.done') || 'Done'}</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onPress={() => navigation.navigate('BattleResults', { battleId })}
+            >
+              <LinearGradient colors={[accent, PURPLE_2]} style={styles.primaryButton}>
+                <Text style={styles.primaryButtonText}>{t('battle.viewResults') || 'View Results'}</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          )
         ) : null}
       </ScrollView>
     </View>
@@ -538,8 +877,59 @@ export function BattleResultsScreen({ navigation, route }) {
   const { t } = useLanguage();
   const accent = text || PURPLE;
   const primaryText = text || TEXT;
-  const winnerItem = route?.params?.selectedItems?.[1] || SAMPLE_ITEMS[1];
-  const runnerUpItem = route?.params?.selectedItems?.[0] || SAMPLE_ITEMS[0];
+  const battleId = route?.params?.battleId;
+
+  const [battle, setBattle] = useState(null);
+  const [loading, setLoading] = useState(!!battleId);
+  const [loadError, setLoadError] = useState(null);
+
+  const fallbackItems = route?.params?.selectedItems;
+  const winnerItem = battle?.winnerProduct || fallbackItems?.[1];
+  const runnerUpItem = battle?.runnerUpProduct || fallbackItems?.[0];
+
+  const loadBattle = useCallback(async () => {
+    if (!battleId) return;
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const response = await getMarketplaceBattleDetails(battleId);
+      const data = response?.data?.data ?? response?.data ?? response;
+      setBattle(data);
+    } catch {
+      setLoadError(t('battle.errors.battleLoadFailed') || 'Could not load results.');
+    } finally {
+      setLoading(false);
+    }
+  }, [battleId, t]);
+
+  useEffect(() => {
+    loadBattle();
+  }, [loadBattle]);
+
+  if (loading) {
+    return (
+      <View style={[styles.screen, bgStyle, { backgroundColor: bg || SOFT_BG, justifyContent: 'center' }]}>
+        <ActivityIndicator color={accent} />
+      </View>
+    );
+  }
+
+  if (loadError || !winnerItem || !runnerUpItem) {
+    return (
+      <View style={[styles.screen, bgStyle, { backgroundColor: bg || SOFT_BG }]}>
+        <Header title={t('battle.resultsTitle')} onBack={() => navigation.goBack()} titleColor={primaryText} />
+        <View style={styles.centeredNotice}>
+          <Text style={styles.errorText}>{loadError || t('battle.errors.missingItems')}</Text>
+          {battleId ? (
+            <TouchableOpacity onPress={loadBattle} style={[styles.retryBtn, { borderColor: accent }]}>
+              <Text style={{ color: accent, fontWeight: '700' }}>{t('battle.retry') || 'Retry'}</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.screen, bgStyle, { backgroundColor: bg || SOFT_BG }]}>
       <Header
@@ -556,13 +946,20 @@ export function BattleResultsScreen({ navigation, route }) {
         }}
       />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <BattleCard left={winnerItem} right={runnerUpItem} showWinner accent={accent} textColor={primaryText} />
+        <BattleCard
+          left={winnerItem}
+          right={runnerUpItem}
+          showWinner
+          winnerPercent={battle?.winnerVotePercent}
+          accent={accent}
+          textColor={primaryText}
+        />
         <View style={[styles.resultsBlock, { backgroundColor: card || '#fff' }]}>
           <Text style={[styles.sectionTitle, { color: primaryText }]}>{t('battle.battleInsights')}</Text>
-          <View style={styles.resultsRow}><Text style={styles.resultsLabel}>{t('battle.stats.totalVotes')}</Text><Text style={[styles.resultsValue, { color: primaryText }]}>125</Text></View>
-          <View style={styles.resultsRow}><Text style={styles.resultsLabel}>{t('battle.stats.totalViews')}</Text><Text style={[styles.resultsValue, { color: primaryText }]}>860</Text></View>
-          <View style={styles.resultsRow}><Text style={styles.resultsLabel}>{t('battle.stats.comments')}</Text><Text style={[styles.resultsValue, { color: primaryText }]}>24</Text></View>
-          <View style={styles.resultsRow}><Text style={styles.resultsLabel}>{t('battle.stats.shares')}</Text><Text style={[styles.resultsValue, { color: primaryText }]}>12</Text></View>
+          <View style={styles.resultsRow}><Text style={styles.resultsLabel}>{t('battle.stats.totalVotes')}</Text><Text style={[styles.resultsValue, { color: primaryText }]}>{battle?.totalVotes ?? 125}</Text></View>
+          <View style={styles.resultsRow}><Text style={styles.resultsLabel}>{t('battle.stats.totalViews')}</Text><Text style={[styles.resultsValue, { color: primaryText }]}>{battle?.totalViews ?? 860}</Text></View>
+          <View style={styles.resultsRow}><Text style={styles.resultsLabel}>{t('battle.stats.comments')}</Text><Text style={[styles.resultsValue, { color: primaryText }]}>{battle?.totalComments ?? 24}</Text></View>
+          <View style={styles.resultsRow}><Text style={styles.resultsLabel}>{t('battle.stats.shares')}</Text><Text style={[styles.resultsValue, { color: primaryText }]}>{battle?.totalShares ?? 12}</Text></View>
         </View>
         <View style={[styles.aboutCard, { backgroundColor: card || '#fff' }]}>
           <Text style={[styles.aboutTitle, { color: primaryText }]}>{t('battle.useInsightsTitle')}</Text>
