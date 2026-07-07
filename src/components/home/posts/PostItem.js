@@ -2073,23 +2073,25 @@ function PostItem({
 
             {showTrustControls && (
               <>
-                <TouchableOpacity
-                  onPress={handleTrustIconPress}
-                  disabled={hasSubmittedTrustVote || trustVoteStatusLoading}
-                  style={[
-                    styles.actionButton,
-                    (hasSubmittedTrustVote || trustVoteStatusLoading) && styles.trustActionDisabled,
-                  ]}
-                  activeOpacity={hasSubmittedTrustVote || trustVoteStatusLoading ? 1 : 0.85}
-                  accessibilityLabel="Open trust vote"
-                  accessibilityState={{ disabled: hasSubmittedTrustVote || trustVoteStatusLoading }}>
-                  <View style={styles.trustActionIcon}>
-                    <Icon name="shield-checkmark" size={18} color="#FFFFFF" />
-                  </View>
-                  <Text style={styles.actionCount}>
-                    {t('postItem.trust')}
-                  </Text>
-                </TouchableOpacity>
+                {!hasSubmittedTrustVote && !trustVote && (
+                  <TouchableOpacity
+                    onPress={handleTrustIconPress}
+                    disabled={trustVoteStatusLoading}
+                    style={[
+                      styles.actionButton,
+                      trustVoteStatusLoading && styles.trustActionDisabled,
+                    ]}
+                    activeOpacity={trustVoteStatusLoading ? 1 : 0.85}
+                    accessibilityLabel="Open trust vote"
+                    accessibilityState={{ disabled: trustVoteStatusLoading }}>
+                    <View style={styles.trustActionIcon}>
+                      <Icon name="shield-checkmark" size={18} color="#FFFFFF" />
+                    </View>
+                    <Text style={styles.actionCount}>
+                      {t('postItem.trust')}
+                    </Text>
+                  </TouchableOpacity>
+                )}
 
                 {/*
                   Trust SCORE summary — an additional button, shown only once
@@ -2097,7 +2099,7 @@ function PostItem({
                 */}
                 {trustScore && (
                   <>
-                    <View style={styles.trustHeaderDivider} />
+                    {/* <View style={styles.trustHeaderDivider} /> */}
                     <TouchableOpacity
                       onPress={handleTrustScorePress}
                       style={styles.trustScoreActionButton}
@@ -2108,7 +2110,9 @@ function PostItem({
                             style={[
                               styles.trustScoreActionTitle,
                               (hasSubmittedTrustVote || trustVote) && styles.trustScoreActionTitleVoted,
-                            ]}>
+                            ]}
+                            numberOfLines={1}
+                            ellipsizeMode="clip">
                             {t('postItem.trustScore')}
                           </Text>
                           <Icon name="information-circle-outline" size={10} color="#6B7280" />
@@ -2116,7 +2120,8 @@ function PostItem({
                             style={[
                               styles.trustScoreValue,
                               (hasSubmittedTrustVote || trustVote) && styles.trustScoreValueVoted,
-                            ]}>
+                            ]}
+                            numberOfLines={1}>
                             {Math.round(normalizedTrustScore.overall)}%
                           </Text>
                         </View>
@@ -2125,7 +2130,8 @@ function PostItem({
                             styles.trustScoreActionSub,
                             (hasSubmittedTrustVote || trustVote) && styles.trustScoreActionSubVoted,
                           ]}
-                          numberOfLines={1}>
+                          numberOfLines={1}
+                          ellipsizeMode="tail">
                           {t('postItem.communityTrustScore')}
                         </Text>
                       </View>
@@ -2539,13 +2545,13 @@ function PostItem({
       />
 
       {supportsLocation ? (
-      <PostLocationModal
-        visible={locationModalVisible}
-        initialValue={locationValue}
-        saving={locationSaving}
-        onClose={() => setLocationModalVisible(false)}
-        onSave={handleSaveLocation}
-      />
+        <PostLocationModal
+          visible={locationModalVisible}
+          initialValue={locationValue}
+          saving={locationSaving}
+          onClose={() => setLocationModalVisible(false)}
+          onSave={handleSaveLocation}
+        />
       ) : null}
     </View>
   );
@@ -2868,7 +2874,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   actionButton: {
-    marginRight: 14,
+    marginRight: 10,
     flexDirection: 'column',
     justifyContent: 'center',
     alignItems: 'center',
@@ -2899,7 +2905,6 @@ const styles = StyleSheet.create({
   },
   actionCountClickable: {
     color: '#374151',
-    textDecorationLine: 'underline',
   },
   mintedSection: {
     flexDirection: 'row',
@@ -2920,7 +2925,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flexShrink: 1,
-    maxWidth: 170,
+    minWidth: 100,
+    maxWidth: 200,
+    paddingHorizontal: 6,
   },
   trustHeaderDivider: {
     width: 1,
@@ -2952,6 +2959,7 @@ const styles = StyleSheet.create({
   },
   trustScoreActionTitleRow: {
     flexDirection: 'row',
+    flexWrap: 'nowrap',
     alignItems: 'center',
   },
   trustScoreActionTitle: {
@@ -2961,6 +2969,8 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     marginRight: 2,
     flexShrink: 1,
+    maxWidth: 100,
+
   },
   trustScoreActionTitleVoted: {
     fontSize: 13,
@@ -3012,12 +3022,12 @@ const styles = StyleSheet.create({
   },
   trustProgressValue: {
     position: 'absolute',
-    top: 8,
+    top: 7,
     right: 8,
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '900',
     color: '#10B981',
-    marginLeft: 5
+    marginLeft: 10
   },
   trustMetricRow: {
     flexDirection: 'row',
@@ -3036,7 +3046,7 @@ const styles = StyleSheet.create({
     color: '#374151',
   },
   trustMetricPercent: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '900',
   },
   trustMetricVotes: {
