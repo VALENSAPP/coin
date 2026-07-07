@@ -8,6 +8,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -19,6 +20,7 @@ import {
 } from '../../services/profile';
 import { follow, unfollow, getUserCredentials } from '../../services/post';
 import SupportCreatorModal from '../../components/modals/SupportCreatorModal';
+import TipSupportModal from '../../components/modals/TipSupportModal';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
 import { useAppTheme } from '../../theme/useApptheme';
@@ -64,6 +66,7 @@ export default function FollowersFollowingScreen({ navigation, route }) {
   const [walletAddress, setWalletAddress] = useState('');
   const [supportModalVisible, setSupportModalVisible] = useState(false);
   const [supportDisclaimerVisible, setSupportDisclaimerVisible] = useState(false);
+  const [tipPurchaseVisible, setTipPurchaseVisible] = useState(false);
   const [selectedSupportUser, setSelectedSupportUser] = useState(null);
   const [selfProfileType, setSelfProfileType] = useState('user');
 
@@ -340,6 +343,11 @@ export default function FollowersFollowingScreen({ navigation, route }) {
     t,
   ]);
 
+  const handleSendTip = useCallback(() => {
+    setSupportDisclaimerVisible(false);
+    setTipPurchaseVisible(true);
+  }, []);
+
   const filteredFollowers = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return followersList;
@@ -583,6 +591,14 @@ export default function FollowersFollowingScreen({ navigation, route }) {
         variant="disclaimer"
         onClose={() => setSupportDisclaimerVisible(false)}
         onSupport={handleSupportNow}
+        onTipSupport={handleSendTip}
+        canSupport={canSupport}
+      />
+      <TipSupportModal
+        visible={tipPurchaseVisible}
+        creatorName={selectedSupportUser?.username || t('followersFollowing.creatorFallback')}
+        vendorId={selectedSupportUser?.id}
+        onClose={() => setTipPurchaseVisible(false)}
       />
     </SafeAreaView>
   );
@@ -698,4 +714,16 @@ export default function FollowersFollowingScreen({ navigation, route }) {
     },
 
     separator: { height: 12 },
+    tipModalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(12, 8, 20, 0.45)',
+      justifyContent: 'flex-end',
+    },
+    tipModalSheet: {
+      backgroundColor: '#FFFFFF',
+      borderTopLeftRadius: 24,
+      borderTopRightRadius: 24,
+      minHeight: 500,
+      paddingBottom: 20,
+    },
   });

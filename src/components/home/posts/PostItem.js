@@ -58,6 +58,7 @@ import { getTotalDonationAmount } from '../../../services/tokens';
 import BuyersListModal from '../../modals/BuyerList';
 import FastImage from 'react-native-fast-image';
 import SupportCreatorModal from '../../modals/SupportCreatorModal';
+import TipSupportModal from '../../modals/TipSupportModal';
 import { getSupportRecipientWalletAddress } from '../../../utils/walletPaymentSupport';
 import { useWalletConnectSupport } from '../../../context/WalletConnectSupportContext';
 import MissionSupportScreen from '../../modals/DonationModal';
@@ -77,6 +78,7 @@ import { useLanguage } from '../../../i18n';
 import { navigateToUserProfile } from '../../../utils/navigateToUserProfile';
 import TrustCommentModal from '../../modals/TrustCommentModal';
 import PostLocationModal from '../../modals/PostLocationModal';
+import { resolveIsTrustPost } from '../../../utils/trustPost';
 
 const { width } = Dimensions.get('window');
 const AnimatedFastImage = Animated.createAnimatedComponent(FastImage);
@@ -563,6 +565,7 @@ function PostItem({
   isTrustPost = false,
   onLocationUpdate,
 }) {
+  // console.log('Calculating',item);    
   const { width: windowWidth } = useWindowDimensions();
   const heartScale = useRef(new Animated.Value(1)).current;
   const doubleTapHeartScale = useRef(new Animated.Value(0)).current;
@@ -616,7 +619,7 @@ function PostItem({
   useEffect(() => { setLocalLiked(liked); }, [liked]);
   useEffect(() => { setLocalLikesCount(likesCount || 0); }, [likesCount]);
   const { t } = useLanguage();
-  const showTrustControls = isTruthyTrustPost(isTrustPost) || isTruthyTrustPost(item?.isTrustPost);
+  const showTrustControls = isTruthyTrustPost(isTrustPost) || resolveIsTrustPost(item);
 
   const currentUserIdStr = useMemo(() => (userId != null ? String(userId) : ''), [userId]);
   const itemUserIdStr = useMemo(() => {
@@ -638,10 +641,12 @@ function PostItem({
     }
   };
 
+
   const [daysLeft, setDaysLeft] = useState(() => getDaysLeftFromEndTime(item?.end_time));
   const [walletAddress, setWalletAddress] = useState('');
   const [targetWalletAddress, setTargetWalletAddress] = useState('');
   const [supportDisclaimerVisible, setSupportDisclaimerVisible] = useState(false);
+  const [tipPurchaseVisible, setTipPurchaseVisible] = useState(false);
   const [isKycVerified, setIsKycVerified] = useState(false);
   const [isSubscriptionActive, setIsSubscriptionActive] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -1062,6 +1067,11 @@ function PostItem({
       chain: 'POLYGON',
     });
   }, [canSupport, recipientWalletAddress, startSupportPayment, userId, item, t]);
+
+  const handleSendTip = useCallback(() => {
+    setSupportDisclaimerVisible(false);
+    setTipPurchaseVisible(true);
+  }, []);
 
   const handleOpenSupportDisclaimer = useCallback(() => {
     if (!isSupportAllowed({ supporterProfile, recipientProfile })) {
@@ -2529,7 +2539,14 @@ function PostItem({
         variant="disclaimer"
         onClose={() => setSupportDisclaimerVisible(false)}
         onSupport={handleSupportNow}
+        onTipSupport={handleSendTip}
         canSupport={canSupport}
+      />
+      <TipSupportModal
+        visible={tipPurchaseVisible}
+        creatorName={item?.username || t('postItem.defaultCreatorName')}
+        vendorId={item?.UserId ?? item?.userId}
+        onClose={() => setTipPurchaseVisible(false)}
       />
       <TrustCommentModal
         visible={trustCommentModalVisible && !hasSubmittedTrustVote}
@@ -2574,6 +2591,18 @@ const styles = StyleSheet.create({
   wrapper: {
     paddingBottom: 18,
     position: 'relative',
+  },
+  tipModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(12, 8, 20, 0.45)',
+    justifyContent: 'flex-end',
+  },
+  tipModalSheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    minHeight: 500,
+    paddingBottom: 20,
   },
   postCard: {
     backgroundColor: '#FFFFFF',

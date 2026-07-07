@@ -13,6 +13,7 @@ import Svg, { Defs, ClipPath, Polygon } from 'react-native-svg';
 import HexAvatar from '../story.js/HexAvatar';
 import { useAppTheme } from '../../../theme/useApptheme';
 import SupportCreatorModal from '../../modals/SupportCreatorModal';
+import TipSupportModal from '../../modals/TipSupportModal';
 import { getSupportRecipientWalletAddress } from '../../../utils/walletPaymentSupport';
 import { useWalletConnectSupport } from '../../../context/WalletConnectSupportContext';
 import { getUserCredentials } from '../../../services/post';
@@ -38,6 +39,7 @@ export default function FollowCard({
   const [targetProfileType, setTargetProfileType] = useState(item?.profile || type || 'user');
   const [modalVisible, setModalVisible] = useState(false);
   const [supportDisclaimerVisible, setSupportDisclaimerVisible] = useState(false);
+  const [tipPurchaseVisible, setTipPurchaseVisible] = useState(false);
   const navigation = useNavigation();
   const { startSupportPayment } = useWalletConnectSupport();
   const { textStyle, text } = useAppTheme();
@@ -111,6 +113,11 @@ export default function FollowCard({
       receiverId: receiverId !== '' ? String(receiverId) : '',
       chain: 'POLYGON',
     });
+  };
+
+  const handleSendTip = () => {
+    setSupportDisclaimerVisible(false);
+    setTipPurchaseVisible(true);
   };
 
   const handleOpenSupportDisclaimer = () => {
@@ -245,7 +252,14 @@ export default function FollowCard({
         variant="disclaimer"
         onClose={() => setSupportDisclaimerVisible(false)}
         onSupport={handleSupportNow}
+        onTipSupport={handleSendTip}
         canSupport={canSupport}
+      />
+      <TipSupportModal
+        visible={tipPurchaseVisible}
+        creatorName={username || t('followCard.defaultCreatorName')}
+        vendorId={userId ?? item?.id}
+        onClose={() => setTipPurchaseVisible(false)}
       />
     </View>
   );
@@ -329,5 +343,17 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 0.5,
     flexShrink: 1,
+  },
+  tipModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(12, 8, 20, 0.45)',
+    justifyContent: 'flex-end',
+  },
+  tipModalSheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    minHeight: 500,
+    paddingBottom: 20,
   },
 });

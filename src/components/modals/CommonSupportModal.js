@@ -18,7 +18,7 @@ const CommonSupportModal = ({
   variant,
   creatorName,
 }) => {
-  const { text, card } = useAppTheme();
+  const { text, card, cardStyle } = useAppTheme();
   const { t } = useLanguage();
 
   const resolvedPrimaryLabel = primaryLabel || t('commonSupportModal.defaultPrimaryLabel');
@@ -32,9 +32,9 @@ const CommonSupportModal = ({
       onRequestClose={onClose}
     >
       <View style={styles.overlay}>
-        <View style={[styles.modalContainer, { backgroundColor: card }]}>
+        <View style={[styles.modalContainer, cardStyle]}>
           {!!title && (
-            <Text style={[styles.title, { color: text }]}>{title}</Text>
+            <Text style={[styles.title, { color: '#111827' }]}>{title}</Text>
           )}
 
           {!!description && (
@@ -96,7 +96,7 @@ const CommonSupportModal = ({
               style={styles.secondaryButton}
               onPress={onSecondary || onClose}
             >
-              <Text style={styles.secondaryButtonText}>{resolvedSecondaryLabel}</Text>
+              <Text style={[styles.secondaryButtonText, { color: text }]}>{resolvedSecondaryLabel}</Text>
             </TouchableOpacity>
           </View>
         </View>

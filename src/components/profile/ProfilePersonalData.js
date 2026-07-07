@@ -37,6 +37,7 @@ import ProfileModal from '../modals/ProfileModal';
 import UsernameModal from '../modals/UsernameModal';
 import TradeModal from '../modals/TradeModal';
 import SupportCreatorModal from '../modals/SupportCreatorModal';
+import TipSupportModal from '../modals/TipSupportModal';
 import WelcomeValensModal from '../modals/WelcomeValensModal';
 import { showLoader, hideLoader } from '../../redux/actions/LoaderAction';
 import { useDispatch } from 'react-redux';
@@ -188,6 +189,7 @@ const ProfilePersonData = ({
   const [userProfile, setUserProfile] = useState('');
   const [supportModalVisible, setSupportModalVisible] = useState(false);
   const [supportDisclaimerVisible, setSupportDisclaimerVisible] = useState(false);
+  const [tipSupportVisible, setTipSupportVisible] = useState(false);
   const [followActionsOpen, setFollowActionsOpen] = useState(false);
   const [welcomeModalVisible, setWelcomeModalVisible] = useState(false);
   const [totalSupportOpen, setTotalSupportOpen] = useState(false);
@@ -538,6 +540,11 @@ const ProfilePersonData = ({
       chain: 'POLYGON',
     });
   }, [canSupport, recipientWalletAddress, startSupportPayment, userId, targetUserId, userData, t]);
+
+  const handleSendTip = useCallback(() => {
+    setSupportDisclaimerVisible(false);
+    setTipSupportVisible(true);
+  }, []);
 
   const handleOpenSupportDisclaimer = useCallback(() => {
     const supporterProfile = isBusinessProfile ? 'company' : 'user';
@@ -1568,6 +1575,13 @@ const ProfilePersonData = ({
         variant="disclaimer"
         onClose={() => setSupportDisclaimerVisible(false)}
         onSupport={handleSupportNow}
+        onTipSupport={handleSendTip}
+      />
+      <TipSupportModal
+        visible={tipSupportVisible}
+        creatorName={username || userData?.userName || t('profilePersonData.creatorFallback')}
+        vendorId={targetUserId ?? userData?.userId ?? userData?.UserId ?? userData?.id}
+        onClose={() => setTipSupportVisible(false)}
       />
 
       {/* Profile Image Viewer */}

@@ -56,6 +56,14 @@ import {
   resolveStoryMediaUri,
   resolveStoryMediaType,
 } from '../../../utils/storyAudioResolve';
+import {
+  appendTrustPostShareFields,
+  normalizeTrustPostFromMessage,
+  resolveIsTrustPost,
+  resolveTrustPostFromSources,
+  resolveSharedPostImages,
+  withTrustPostFields,
+} from '../../../utils/trustPost';
 
 // const DEFAULT_AVATAR = require('../../../assets/icons/pngicons/user.png');
 const CHAT_LINK_REGEX =
@@ -193,7 +201,11 @@ const UserChat = ({ route, navigation }) => {
   const [isSending, setIsSending] = useState(false);
 
   const initialShared = post
-    ? { type: 'post', post, postId: postId || post?.id }
+    ? {
+      type: 'post',
+      post: withTrustPostFields(post?.post || post),
+      postId: postId || post?.id || post?.post?.id,
+    }
     : reel
       ? { type: 'reel', reel, reelId: reelId || reel?.id }
       : story
@@ -318,7 +330,7 @@ const UserChat = ({ route, navigation }) => {
           isTemp: true,
           senderInfo: { id: currentUserId, displayName: 'You', image: null },
           receiverInfo: { id: targetUserId, displayName: user?.displayName || user?.username, image: user?.image },
-          post: initialShared.type === 'post' ? initialShared.post : null,
+          post: initialShared.type === 'post' ? withTrustPostFields(initialShared.post) : null,
           reel: initialShared.type === 'reel' ? initialShared.reel : null,
           story: initialShared.type === 'story' ? initialShared.story : null,
         };
@@ -367,6 +379,13 @@ const UserChat = ({ route, navigation }) => {
         if (initialShared.type === 'post') messageData.postId = initialShared.postId;
         else if (initialShared.type === 'reel') messageData.reelId = initialShared.reelId;
         else if (initialShared.type === 'story') messageData.storyId = cleanMediaId;
+
+        if (initialShared.type === 'post' && initialShared.post) {
+          Object.assign(
+            messageData,
+            appendTrustPostShareFields(messageData, initialShared.post),
+          );
+        }
 
         const socket = getSocket();
         if (socket?.connected) {
@@ -553,7 +572,7 @@ const UserChat = ({ route, navigation }) => {
       images: Array.isArray(message.images) ? message.images : undefined,
       uri: message.video || message.content || undefined,
       thumbnail: message.thumbnail || undefined,
-      post: message.post,
+      post: normalizeTrustPostFromMessage(message),
       story: message.story,
       reel: message.reel,
     };
@@ -601,7 +620,7 @@ const UserChat = ({ route, navigation }) => {
       images: Array.isArray(message.images) ? message.images : undefined,
       uri: message.video || message.content || undefined,
       thumbnail: message.thumbnail || undefined,
-      post: message.post,
+      post: normalizeTrustPostFromMessage(message),
       story: message.story,
       reel: message.reel,
     };
@@ -672,7 +691,7 @@ const UserChat = ({ route, navigation }) => {
             formattedMsg.content = msg.content;
           } else {
             formattedMsg.type = 'post_share';
-            formattedMsg.post = msg.post;
+            formattedMsg.post = normalizeTrustPostFromMessage(msg);
           }
         } else {
           formattedMsg.type = 'text';
@@ -864,6 +883,10 @@ const UserChat = ({ route, navigation }) => {
       // Add shared content if present
       if (sharedItem?.type === 'post') {
         messageData.postId = sharedItem.postId;
+        Object.assign(
+          messageData,
+          appendTrustPostShareFields(messageData, sharedItem.post),
+        );
       } else if (sharedItem?.type === 'reel') {
         messageData.reelId = sharedItem.reelId;
       } else if (sharedItem?.type === 'story') {
@@ -1198,7 +1221,14 @@ const UserChat = ({ route, navigation }) => {
                 {item.shared && (
                   <TouchableOpacity style={styles.messageSharedContainer}>
                     {item.shared.type === 'post' && (
-                      <Image source={{ uri: item.shared.post?.media?.[0]?.url || item.shared.post?.images?.[0]?.url || item.shared.post?.image }} style={styles.messageSharedImage} resizeMode="cover" />
+                      <View style={{ position: 'relative' }}>
+                        <Image source={{ uri: resolveSharedPostImages(item.shared.post)[0]?.url || item.shared.post?.media?.[0]?.url || item.shared.post?.images?.[0]?.url || item.shared.post?.image }} style={styles.messageSharedImage} resizeMode="cover" />
+                        {resolveIsTrustPost(item.shared.post) && (
+                          <View style={styles.messageSharedTrustBadge}>
+                            <Icon name="shield-checkmark" size={10} color="#fff" />
+                          </View>
+                        )}
+                      </View>
                     )}
                     {item.shared.type === 'reel' && (
                       <View style={{ position: 'relative' }}>
@@ -1215,7 +1245,9 @@ const UserChat = ({ route, navigation }) => {
                     )}
                     <Text style={styles.messageSharedText} numberOfLines={2}>
                       {item.shared.type === 'post'
-                        ? (item.shared.post?.text || item.shared.post?.caption || t('userChat.sharedPost'))
+                        ? (resolveIsTrustPost(item.shared.post)
+                          ? `${t('postItem.trust')}: ${item.shared.post?.text || item.shared.post?.caption || t('userChat.sharedPost')}`
+                          : (item.shared.post?.text || item.shared.post?.caption || t('userChat.sharedPost')))
                         : item.shared.type === 'reel'
                           ? (item.shared.reel?.caption || t('userChat.sharedReel'))
                           : (item.shared.story?.caption || item.shared.story?.text || t('userChat.sharedStory'))}
@@ -1275,14 +1307,22 @@ const UserChat = ({ route, navigation }) => {
 
             {/* POST SHARE */}
             {(item.type === 'post_share' || item.type === 'post') && (() => {
-              const postData = item.post || item.rawData?.post || item.rawData || {};
+              const postData = withTrustPostFields(item.post || item.rawData?.post || item.rawData || {});
+              const isTrustPost = resolveTrustPostFromSources(postData, item.rawData, item);
+              const trustPostPayload = withTrustPostFields({
+                ...postData,
+                isTrustPost,
+                communityTrustPost: isTrustPost,
+              });
               const postUser = {
                 displayName: postData.userName || postData.user?.displayName || postData.user?.name || item.senderInfo?.displayName || 'Unknown User',
                 image: postData.userImage || postData.user?.image || item.senderInfo?.image || '',
               };
-              const images = postData.images || [];
+              const images = resolveSharedPostImages(postData);
               const hasVideo = images.length > 0 && isVideoUrl(images[0]?.url || images[0]);
-              const postExists = postData && (postData.id || postData.text || postData.caption || images.length > 0);
+              const postExists = postData && (
+                postData.id || postData.text || postData.caption || images.length > 0 || isTrustPost
+              );
 
               if (!postExists) {
                 const subscribeUserId = item.subscribeTargetUserId || (isUser ? targetUserId : item.senderInfo?.id);
@@ -1315,10 +1355,22 @@ const UserChat = ({ route, navigation }) => {
 
               return (
                 <TouchableOpacity
-                  style={[styles.sharedPostContainer, isUser && styles.userSharedPost]}
+                  style={[styles.sharedPostContainer, isUser && styles.userSharedPost, isTrustPost && styles.sharedTrustPostContainer]}
                   onPress={() => {
                     if (postData.id) {
-                      navigation.navigate('ProfileMain', { screen: 'PostView', params: { postData: [postData], startIndex: 0, userChat: true, fromScreen: 'UserChat', userId: targetUserId, key: `post_${postData.id}_${Date.now()}`, } });
+                      navigation.navigate('ProfileMain', {
+                        screen: 'PostView',
+                        params: {
+                          postData: [trustPostPayload],
+                          startIndex: 0,
+                          userChat: true,
+                          fromScreen: 'UserChat',
+                          userId: targetUserId,
+                          isTrustPost,
+                          communityTrustPost: isTrustPost,
+                          key: `post_${postData.id}_${Date.now()}`,
+                        },
+                      });
                     } else {
                       Alert.alert(t('userChat.errorTitle'), t('userChat.postNotFound'));
                     }
@@ -1328,9 +1380,15 @@ const UserChat = ({ route, navigation }) => {
                   <View style={styles.sharedPostHeader}>
                     <View style={styles.sharedPostUserInfo}>
                       <HexAvatar uri={getAvatarSource(postUser.image)} size={35} borderWidth={2} borderColor={text} />
-
-                      {/* <Image source={getAvatarSource(postUser.image)} style={styles.sharedPostAvatar} /> */}
-                      <Text style={styles.sharedPostUserName}>{postUser.displayName}</Text>
+                      <View style={styles.sharedPostUserTextWrap}>
+                        <Text style={styles.sharedPostUserName}>{postUser.displayName}</Text>
+                        {isTrustPost && (
+                          <View style={styles.sharedTrustBadge}>
+                            <Icon name="shield-checkmark" size={12} color="#059669" />
+                            <Text style={styles.sharedTrustBadgeText}>{t('postItem.trust')}</Text>
+                          </View>
+                        )}
+                      </View>
                     </View>
                   </View>
                   {postData.text && <Text style={[styles.sharedPostText, isUser && styles.userSharedPostText]} numberOfLines={3}>{postData.text}</Text>}
@@ -1729,7 +1787,14 @@ const UserChat = ({ route, navigation }) => {
                     {sharedItem && (
                       <View style={styles.shareInline}>
                         {sharedItem.type === 'post' && (
-                          <Image source={{ uri: sharedItem.post?.media?.[0]?.url || sharedItem.post?.images?.[0]?.url || sharedItem.post?.image }} style={styles.shareInlineImage} resizeMode="cover" />
+                          <View style={styles.shareInlineImageWrap}>
+                            <Image source={{ uri: resolveSharedPostImages(sharedItem.post)[0]?.url || sharedItem.post?.media?.[0]?.url || sharedItem.post?.images?.[0]?.url || sharedItem.post?.image }} style={styles.shareInlineImage} resizeMode="cover" />
+                            {resolveIsTrustPost(sharedItem.post) && (
+                              <View style={styles.shareInlineTrustBadge}>
+                                <Icon name="shield-checkmark" size={10} color="#fff" />
+                              </View>
+                            )}
+                          </View>
                         )}
                         {sharedItem.type === 'reel' && (
                           <View style={styles.shareInlineImageWrap}>
@@ -2498,6 +2563,43 @@ const createStyles = () => ({
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+  },
+  sharedPostUserTextWrap: {
+    flex: 1,
+  },
+  sharedTrustPostContainer: {
+    borderColor: '#A7F3D0',
+    backgroundColor: '#F0FDF4',
+  },
+  sharedTrustBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+    gap: 4,
+  },
+  sharedTrustBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#059669',
+  },
+  messageSharedTrustBadge: {
+    position: 'absolute',
+    top: 6,
+    left: 6,
+    backgroundColor: 'rgba(5, 150, 105, 0.9)',
+    borderRadius: 10,
+    padding: 4,
+  },
+  shareInlineImageWrap: {
+    position: 'relative',
+  },
+  shareInlineTrustBadge: {
+    position: 'absolute',
+    top: 4,
+    left: 4,
+    backgroundColor: 'rgba(5, 150, 105, 0.9)',
+    borderRadius: 8,
+    padding: 3,
   },
   sharedPostAvatar: {
     width: 36,
