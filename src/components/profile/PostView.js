@@ -383,6 +383,14 @@ export default function PostView({ postData = [], userData = {} }) {
     [list, hiddenById],
   );
 
+  const isOnlyVisiblePost = useCallback(
+    postId => {
+      if (!postId || visiblePosts.length !== 1) return false;
+      return String(visiblePosts[0]?.id) === String(postId);
+    },
+    [visiblePosts],
+  );
+
   const shouldProtectPrivateContent = useMemo(
     () =>
       shouldProtectScreenshot({
@@ -971,8 +979,14 @@ export default function PostView({ postData = [], userData = {} }) {
       }
 
       if (action === 'hidePost') {
+        const isLastVisible =
+          visiblePosts.length === 1 &&
+          String(visiblePosts[0]?.id) === String(modalPostId);
         await handleToggleHide(modalPostId);
         closeOptions();
+        if (isLastVisible) {
+          handleBackPress();
+        }
         return;
       }
 
@@ -1282,7 +1296,15 @@ export default function PostView({ postData = [], userData = {} }) {
         isHidden={!!(modalPostId && hiddenById[modalPostId])}
         hideBusy={modalPostId ? hidingIds.has(modalPostId) : false}
         onHiddenChange={(id, nextHidden) => {
+          const isLastVisible =
+            visiblePosts.length === 1 &&
+            String(visiblePosts[0]?.id) === String(id);
+
           setHiddenById(prev => ({ ...prev, [id]: nextHidden }));
+
+          if (nextHidden && isLastVisible) {
+            handleBackPress();
+          }
         }}
       />
 
