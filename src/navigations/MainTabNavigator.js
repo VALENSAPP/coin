@@ -117,6 +117,7 @@ import HexAvatar from '../components/home/story.js/HexAvatar';
 import { getUserCredentials } from '../services/post';
 import { getMyClosetMe } from '../services/myCloset';
 import RevenueFromSubscriptions from '../pages/wallet/MyRevenue';
+import MarketplaceAnalytics from '../pages/wallet/MarketplaceAnalytics';
 import ValensWallet from '../pages/wallet/ValensWallet';
 import TransactionActivityScreen from '../pages/wallet/TransactionActivityScreen';
 import ProfileShop from '../components/profile/Shop';
@@ -143,7 +144,7 @@ import LanguageSelectionScreen from '../pages/settings/LanguageSelectionScreen';
 import { useLanguage } from '../i18n';
 import MyClosetOrdersScreen from '../components/profile/MyClosetOrdersScreen';
 import MyClosetOrderDetailScreen from '../components/profile/MyClosetOrderDetailScreen';
-import { BattleInsightsActionsScreen } from '../pages/profile/Myclosetbattleinsightsscreens';
+import { BattleInsightsActionsScreen, BoostWinningItemScreen, CreateWinnerPromotionScreen, PreviewPromotionScreen, PromotionDetailsScreen, ReviewBoostScreen } from '../pages/profile/Myclosetbattleinsightsscreens';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -177,7 +178,7 @@ const MyClosetScreen = props => {
         const closetExists =
           hasApiSignal && !apiReportedNetworkError
             ? closetValue?.statusCode === 200 &&
-              Boolean(closetData?.shopName || closetData?.id || closetData?.data)
+            Boolean(closetData?.shopName || closetData?.id || closetData?.data)
             : null;
 
         setHasCreatedShop(
@@ -252,7 +253,7 @@ const ShopScreenWrapper = props => {
         const closetExists =
           hasApiSignal && !apiReportedNetworkError
             ? closetValue?.statusCode === 200 &&
-              Boolean(closetData?.shopName || closetData?.id || closetData?.data)
+            Boolean(closetData?.shopName || closetData?.id || closetData?.data)
             : null;
 
         setHasCreatedShop(
@@ -437,7 +438,12 @@ export default function MainTabNavigator() {
           name="MyClosetItemEditor"
           component={MyClosetItemEditorScreen}
         />
-         <Stack.Screen name="BattleInsightsActions" component={BattleInsightsActionsScreen} />
+        <Stack.Screen name="BattleInsightsActions" component={BattleInsightsActionsScreen} />
+        <Stack.Screen name="BoostWinningItem" component={BoostWinningItemScreen} />
+        <Stack.Screen name="ReviewBoost" component={ReviewBoostScreen} />
+        <Stack.Screen name="CreateWinnerPromotion" component={CreateWinnerPromotionScreen} />
+        <Stack.Screen name="PromotionDetails" component={PromotionDetailsScreen} />
+        <Stack.Screen name="PreviewPromotion" component={PreviewPromotionScreen} />
         <Stack.Screen name="MyClosetOrders" component={MyClosetOrdersScreen} />
         <Stack.Screen name="MyClosetOrderDetail" component={MyClosetOrderDetailScreen} />
         <Stack.Screen name="MyClosetBuyerItems" component={MyClosetBuyerItemsScreen} />
@@ -861,6 +867,11 @@ export default function MainTabNavigator() {
             options={{ headerTitle: t('walletStack.revenueFromSubscriptions') }}
           />
           <Stack.Screen
+            name="MarketplaceAnalytics"
+            component={MarketplaceAnalytics}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
             name="LanguageSelectionScreen"
             component={LanguageSelectionScreen}
             // ── TRANSLATION CHANGE ───────────────────────────────────────────
@@ -1068,7 +1079,7 @@ export default function MainTabNavigator() {
 
       return baseOptions;
     },
-    [profileImage, defaultTabBarStyle, reelsTabBarStyle],
+    [profileImage, defaultTabBarStyle, reelsTabBarStyle,userProfile],
   );
 
   // Memoize HomeMain options function
@@ -1125,6 +1136,20 @@ export default function MainTabNavigator() {
         'MyClosetBuyerReview',
         'MyClosetBuyerOrderReceived',
         'BattleVoteDetails',
+        'CreateBattle',
+        'BattleSetup',
+        'BattlePreview',
+        'BattleLive',
+        'BattleResultsScreen',
+        'ProfileBattleScreen',
+        'ArchiveScreen',
+        'HighlightsScreen',
+        'BoostWinningItem',
+        'ReviewBoost',
+        'CreateWinnerPromotion',
+        'PromotionDetails',
+        'PreviewPromotion',
+        'BattleInsightsActions'
       ];
 
       let currentRouteName = routeName;

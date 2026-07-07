@@ -1778,6 +1778,7 @@
     "sectionAccount": "Conta",
     "sectionSecurity": "SeguranÃ§a",
     "profileSettings": "ConfiguraÃ§Ãµes do perfil",
+    "shopSettings": "Configurações da loja",
     "verificationStatus": "Status da verificaÃ§Ã£o",
     "verifiedStatus": "Dragonfly verificado",
     "notifications": "NotificaÃ§Ãµes",
@@ -3455,7 +3456,8 @@
     "subscriptionSetup": "ConfiguraÃ§Ã£o do Programa de Assinatura",
     "viewMissionPost": "Ver PublicaÃ§Ã£o da MissÃ£o",
     "revenueFromSubscriptions": "Receita de Assinaturas",
-    "selectLanguage": "Selecionar Idioma"
+    "selectLanguage": "Selecionar Idioma",
+    "marketplaceAnalytics": "Análises do Marketplace"
   },
   "tabNav": {
     "editProfile": "Editar Perfil"
@@ -3588,6 +3590,7 @@
       "all": "Todos",
       "pending": "Aguardando envio",
       "processing": "Em processamento",
+      "shipped": "Aguardando envio",
       "delivered": "Entregues"
     }
   },
@@ -4017,6 +4020,7 @@
     "liveBannerSubtitle": "Sigue agregando artículos y haz crecer tu armario.",
     "overviewTitle": "Resumen",
     "thisWeek": "Esta semana",
+    "thisMonth": "Este mês",
     "battlePerformanceTitle": "Rendimiento en batallas",
     "viewAllBattles": "Ver todas las batallas",
     "sellerOrdersTitle": "Pedidos — Como vendedor",
@@ -4060,6 +4064,19 @@
       "delivered": "Entregado",
       "cancelled": "Cancelado"
     }
+  },
+  "marketplaceAnalytics": {
+    "title": "Análises",
+    "performance": "Desempenho",
+    "totalViews": "Total de visualizações",
+    "totalLikes": "Total de curtidas",
+    "orders": "Pedidos",
+    "revenue": "Receita",
+    "topPerformingItem": "Item com melhor desempenho",
+    "viewsLikesOrders": "Visualizações: {{views}} · Curtidas: {{likes}} · Pedidos: {{orders}}",
+    "noTopItem": "Ainda não há um item com melhor desempenho",
+    "thisWeek": "Esta semana",
+    "thisMonth": "Este mês"
   },
   "myClosetShopFront": {
     "vs": "VS",

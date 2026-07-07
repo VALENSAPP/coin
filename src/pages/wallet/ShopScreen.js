@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -11,6 +11,11 @@ import LinearGradient from 'react-native-linear-gradient';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useLanguage } from '../../i18n';
+import { getUserCredentials } from '../../services/post';
+import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
+import { showToastMessage } from '../../components/displaytoastmessage';
+import { useToast } from 'react-native-toast-notifications';
+import { useDispatch } from 'react-redux';
 
 const mixWithWhite = (hex, amount = 0.85) => {
   const normalized = String(hex || '').replace('#', '');
@@ -37,19 +42,52 @@ const ShopScreen = ({ navigation }) => {
   const [displayName, setDisplayName] = useState('');
   const { bgStyle, textStyle, text, cardStyle } = useAppTheme(profileType);
   const { t } = useLanguage();
+  const toast = useToast();
+  const dispatch = useDispatch();
 
   useEffect(() => {
     const loadProfileData = async () => {
-      const [storedProfile, storedName] = await Promise.all([
+      const [storedProfile] = await Promise.all([
         AsyncStorage.getItem('profile'),
-        AsyncStorage.getItem('currentUsername'),
       ]);
       if (storedProfile) setProfileType(storedProfile);
-      if (storedName) setDisplayName(storedName);
     };
 
     loadProfileData();
+    fetchAllData();
   }, []);
+
+    const fetchAllData = useCallback(async () => {
+      const id = await AsyncStorage.getItem('userId');
+      if (!id) {
+        showToastMessage(toast, 'danger', t('profile.noUserIdError'));
+        return;
+      }
+      dispatch(showLoader());
+      try {
+        const [ userRes] = await Promise.all([
+          getUserCredentials(id),
+        ]);
+        if (userRes.statusCode === 200) {
+          let userDataToSet;
+          if (userRes.data && userRes.data.user) {
+            userDataToSet = userRes.data.user;
+          } else if (userRes.data) {
+            userDataToSet = userRes.data;
+          } else {
+            userDataToSet = userRes;
+          } 
+          setDisplayName(userDataToSet.displayName || userDataToSet.username || '');
+        } else {
+          showToastMessage(toast, 'danger', t('profile.fetchProfileError'));
+        }
+      } catch (error) {
+        console.error('Error fetching profile screen data:', error);
+        showToastMessage(toast, 'danger', t('profile.networkError'));
+      } finally {
+        dispatch(hideLoader());
+      }
+    }, []);
 
   return (
     <ScrollView
@@ -83,7 +121,7 @@ const ShopScreen = ({ navigation }) => {
         <View style={styles.marketingBody}>
           <Text style={[styles.marketingTitle, textStyle]}>
             {displayName
-              ? `${displayName} ${t('shop.title')}`
+              ? `${displayName}'s ${t('privateContent.shopTitle')}`
               : t('shop.title')}
           </Text>
           <Text style={[styles.marketingText, textStyle]}>

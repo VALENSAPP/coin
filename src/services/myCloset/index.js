@@ -166,6 +166,10 @@ export const getClosetItemsByClosetId = async (closetId) => {
   return axiosInstance.get(`/mycloset/${closetId}/items`);
 };
 
+export const trackClosetView = async (closetId) => {
+  return axiosInstance.post(`/mycloset/${closetId}/view`);
+}
+
 export const checkoutCart = async (cartId) => {
   return axiosInstance.post('/cart/checkout?cartId='+ cartId);
 };
@@ -231,8 +235,8 @@ export const markOrderProcessing = async orderId => {
   return axiosInstance.patch(`seller/orders/${orderId}/processing`);
 };
 
-export const markOrderShipped = async orderId => {
-  return axiosInstance.patch(`seller/orders/${orderId}/ship`);
+export const markOrderShipped = async (orderId, { carrier, trackingNumber } = {}) => {
+  return axiosInstance.patch(`seller/orders/${orderId}/ship`, { carrier, trackingNumber });
 };
 
 export const markOrderDelivered = async orderId => {
@@ -256,6 +260,14 @@ export const getSellerDashboard = async () => {
   return axiosInstance.get('/dashboard');
 };
 
+export const getMarketplaceOverview = async (range) => {
+  return axiosInstance.get('/dashboard/marketPlaceOverview', { params: { range } });
+};
+
+export const getMarketplaceAnalytics = async (range) => {
+  return axiosInstance.get('/dashboard/marketPlaceAnalytics', { params: { range } });
+};
+
 //Payment APIs
 
 export const createPaymentSession = async (data) => {
@@ -266,6 +278,10 @@ export const getPaymentDetails = async () => {
   return axiosInstance.get('/payment/me/list');
 };
 
+export const getRecentPaymentDetails = async () => {
+  return axiosInstance.get('/payment/me/list/recent');
+};
+
 export const getPaymentDetailsByPaymentId = async (paymentId) => {
-  return axiosInstance.get('/payment/paymentId'+ paymentId);
+  return axiosInstance.get(`/payment/${paymentId}`);
 };

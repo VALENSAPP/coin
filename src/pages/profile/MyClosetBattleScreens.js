@@ -14,6 +14,7 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useLanguage } from '../../i18n';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 
 // Fallback palette — used only when the theme doesn't provide a value,
 // so screens still look right before useAppTheme() resolves.
@@ -265,6 +266,7 @@ export function BattleSetupScreen({ navigation, route }) {
   const [question, setQuestion] = useState(initialQuestion);
   const [battleType, setBattleType] = useState('OPINION');
   const [duration, setDuration] = useState('3 DAYS');
+  const [whoCanVote, setWhoCanVote] = useState(t('battle.public'));
   const [visibility, setVisibility] = useState(t('battle.public'));
   const [errors, setErrors] = useState({});
 
@@ -273,7 +275,7 @@ export function BattleSetupScreen({ navigation, route }) {
     if (!question.trim()) nextErrors.question = t('battle.errors.questionRequired');
     if (!battleType) nextErrors.battleType = t('battle.errors.typeRequired');
     if (!duration) nextErrors.duration = t('battle.errors.durationRequired');
-    if (!visibility) nextErrors.visibility = t('battle.errors.visibilityRequired');
+    if (!whoCanVote) nextErrors.whoCanVote = t('battle.errors.visibilityRequired');
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   };
@@ -281,7 +283,14 @@ export function BattleSetupScreen({ navigation, route }) {
   const handlePreview = () => {
     if (!validate()) return;
     const nextRoute = route?.params?.previewRoute || 'BattlePreview';
-    navigation.navigate(nextRoute, { question, battleType, duration, visibility, selectedItems: route?.params?.selectedItems });
+    navigation.navigate(nextRoute, {
+      question,
+      battleType,
+      duration,
+      whoCanVote,
+      visibility,
+      selectedItems: route?.params?.selectedItems,
+    });
   };
 
   return (
@@ -299,7 +308,13 @@ export function BattleSetupScreen({ navigation, route }) {
           }
         }}
       />
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <KeyboardAwareScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        enableOnAndroid
+        extraScrollHeight={20}
+        keyboardShouldPersistTaps="handled"
+      >
         <Stepper active={2} accent={accent} />
         <View style={styles.field}>
           <Text style={[styles.fieldLabel, { color: primaryText }]}>{t('battle.questionLabel')}</Text>
@@ -311,7 +326,7 @@ export function BattleSetupScreen({ navigation, route }) {
                 if (errors.question) setErrors(prev => ({ ...prev, question: '' }));
               }}
               placeholder={t('battle.defaultQuestion')}
-              placeholderTextColor="#a78bfa"
+              placeholderTextColor="#ccc"
               style={[styles.inputText, { color: primaryText }]}
             />
           </View>
@@ -319,14 +334,35 @@ export function BattleSetupScreen({ navigation, route }) {
         </View>
         <View style={styles.field}>
           <Text style={[styles.fieldLabel, { color: primaryText }]}>{t('battle.typeLabel')}</Text>
-          <TouchableOpacity onPress={() => setBattleType('OPINION')} activeOpacity={0.9} style={[styles.optionCard, battleType === 'OPINION' && { borderColor: accent, backgroundColor: card || '#F7F2FF' }]}>
-            <Text style={[styles.optionTitle, { color: primaryText }]}>{t('battle.opinionBattle')}</Text>
-            <Text style={styles.optionSub}>{t('battle.opinionBattleSub')}</Text>
+
+          <TouchableOpacity
+            onPress={() => setBattleType('OPINION')}
+            activeOpacity={0.9}
+            style={[styles.optionCard, battleType === 'OPINION' && { borderColor: accent, backgroundColor: card || '#F7F2FF' }]}
+          >
+            <View style={[styles.radioOuter, { borderColor: battleType === 'OPINION' ? accent : '#D6C8EF' }]}>
+              {battleType === 'OPINION' ? <View style={[styles.radioInner, { backgroundColor: accent }]} /> : null}
+            </View>
+            <View style={styles.optionTextWrap}>
+              <Text style={[styles.optionTitle, { color: primaryText }]}>{t('battle.opinionBattle')}</Text>
+              <Text style={styles.optionSub}>{t('battle.opinionBattleSub')}</Text>
+            </View>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => setBattleType('STYLE')} activeOpacity={0.9} style={[styles.optionCard, battleType === 'STYLE' && { borderColor: accent, backgroundColor: card || '#F7F2FF' }]}>
-            <Text style={[styles.optionTitle, { color: primaryText }]}>{t('battle.styleBattle')}</Text>
-            <Text style={styles.optionSub}>{t('battle.styleBattleSub')}</Text>
+
+          <TouchableOpacity
+            onPress={() => setBattleType('STYLE')}
+            activeOpacity={0.9}
+            style={[styles.optionCard, battleType === 'STYLE' && { borderColor: accent, backgroundColor: card || '#F7F2FF' }]}
+          >
+            <View style={[styles.radioOuter, { borderColor: battleType === 'STYLE' ? accent : '#D6C8EF' }]}>
+              {battleType === 'STYLE' ? <View style={[styles.radioInner, { backgroundColor: accent }]} /> : null}
+            </View>
+            <View style={styles.optionTextWrap}>
+              <Text style={[styles.optionTitle, { color: primaryText }]}>{t('battle.styleBattle')}</Text>
+              <Text style={styles.optionSub}>{t('battle.styleBattleSub')}</Text>
+            </View>
           </TouchableOpacity>
+
           {errors.battleType ? <Text style={styles.errorText}>{errors.battleType}</Text> : null}
         </View>
         <View style={styles.field}>
@@ -346,15 +382,22 @@ export function BattleSetupScreen({ navigation, route }) {
         </View>
         <View style={styles.field}>
           <Text style={[styles.fieldLabel, { color: primaryText }]}>{t('battle.whoCanVote')}</Text>
-          <TouchableOpacity onPress={() => setVisibility(prev => (prev === t('battle.public') ? t('battle.followersOnly') : t('battle.public')))} style={styles.inlineRow}>
-            <Text style={[styles.inlineValue, { color: primaryText }]}>{visibility}</Text>
+          <TouchableOpacity
+            onPress={() => setWhoCanVote(prev => (prev === t('battle.public') ? t('battle.followersOnly') : t('battle.public')))}
+            style={styles.inlineRow}
+          >
+            <Text style={[styles.inlineValue, { color: primaryText }]}>{whoCanVote}</Text>
             <Text style={[styles.inlineLink, { color: accent }]}>{t('battle.change')}</Text>
           </TouchableOpacity>
-          {errors.visibility ? <Text style={styles.errorText}>{errors.visibility}</Text> : null}
+          {errors.whoCanVote ? <Text style={styles.errorText}>{errors.whoCanVote}</Text> : null}
         </View>
+
         <View style={styles.field}>
           <Text style={[styles.fieldLabel, { color: primaryText }]}>{t('battle.visibilityLabel')}</Text>
-          <TouchableOpacity onPress={() => setVisibility(prev => (prev === t('battle.public') ? t('battle.private') : t('battle.public')))} style={styles.inlineRow}>
+          <TouchableOpacity
+            onPress={() => setVisibility(prev => (prev === t('battle.public') ? t('battle.private') : t('battle.public')))}
+            style={styles.inlineRow}
+          >
             <Text style={[styles.inlineValue, { color: primaryText }]}>{visibility}</Text>
             <Text style={[styles.inlineLink, { color: accent }]}>{t('battle.change')}</Text>
           </TouchableOpacity>
@@ -364,7 +407,7 @@ export function BattleSetupScreen({ navigation, route }) {
             <Text style={styles.primaryButtonText}>{t('battle.previewBattle')}</Text>
           </LinearGradient>
         </TouchableOpacity>
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </View>
   );
 }
@@ -526,7 +569,7 @@ export function BattleResultsScreen({ navigation, route }) {
           <Text style={styles.aboutText}>{t('battle.useInsightsText')}</Text>
         </View>
         <View style={styles.actionRow}>
-          <TouchableOpacity activeOpacity={0.9} style={[styles.outlineBtn, { borderColor: accent }]} onPress={() => Share.share({ message: t('battle.shareResultsMessage') }).catch(() => {})}>
+          <TouchableOpacity activeOpacity={0.9} style={[styles.outlineBtn, { borderColor: accent }]} onPress={() => Share.share({ message: t('battle.shareResultsMessage') }).catch(() => { })}>
             <Text style={[styles.outlineBtnText, { color: accent }]}>{t('battle.shareResults')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -549,7 +592,7 @@ const styles = StyleSheet.create({
   headerCenter: { flex: 1, alignItems: 'center' },
   screenTitle: { fontSize: 18, fontWeight: '800' },
   screenSubtitle: { marginTop: 2, fontSize: 12, color: MUTED, fontWeight: '600' },
-  scrollContent: { paddingHorizontal: 16, paddingBottom: 28, gap: 12 },
+  scrollContent: { paddingHorizontal: 16, paddingBottom: 30, gap: 12 },
   phone: { padding: 14, marginTop: 2 },
   statusRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
   statusText: { fontSize: 12, fontWeight: '800', color: '#111' },
@@ -580,8 +623,11 @@ const styles = StyleSheet.create({
   inputCard: { borderWidth: 1, borderColor: BORDER, borderRadius: 14, padding: 14 },
   inputCardError: { borderColor: '#ef4444' },
   inputText: { fontWeight: '600' },
-  optionCard: { borderWidth: 1, borderColor: BORDER, borderRadius: 16, padding: 14, backgroundColor: '#fff', marginTop: 10 },
+  optionCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, borderWidth: 1, borderColor: BORDER, borderRadius: 16, padding: 14, backgroundColor: '#fff', marginTop: 10 },
   optionTitle: { fontWeight: '800' },
+  optionTextWrap: { flex: 1 },
+  radioOuter: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
+  radioInner: { width: 10, height: 10, borderRadius: 5 },
   optionSub: { color: MUTED, fontSize: 12, marginTop: 3 },
   pillRow: { flexDirection: 'row', gap: 10, flexWrap: 'wrap' },
   pill: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14, borderWidth: 1, borderColor: BORDER, backgroundColor: '#fff' },

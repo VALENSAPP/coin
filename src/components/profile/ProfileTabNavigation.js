@@ -16,7 +16,11 @@ import { useAppTheme } from '../../theme/useApptheme';
 import { useLanguage } from '../../i18n';
 import SubscribeModal from '../modals/SubscriptionModal';
 import { getFansubscriptionStatus } from '../../services/stirpe';
-import { getMyClosetMe, getMyClosetById } from '../../services/myCloset';
+import {
+  getMyClosetMe,
+  getMyClosetById,
+  trackClosetView, 
+} from '../../services/myCloset';
 import {
   privateSetup,
   parsePrivateCircleSetup,
@@ -54,6 +58,9 @@ const ProfileTabs = memo(({
   const [hasCreatedShop, setHasCreatedShop] = useState(false);
   const [shopDraft, setShopDraft] = useState(null);
   const [closetCheckComplete, setClosetCheckComplete] = useState(false);
+  // Full closet object returned by getMyClosetMe/getMyClosetById, e.g.
+  // { id, userId, shopName, shopUsername, shopLogo, description, ... }
+  const [closetData, setClosetData] = useState(null);
 
   const effectiveProfileType = profileType || userData?.profile;
   const { text } = useAppTheme(effectiveProfileType);
@@ -87,16 +94,17 @@ const ProfileTabs = memo(({
         ]);
 
         if (!isMounted) return;
-        const closetData = unwrapMyClosetResponse(apiResponse);
+        const unwrappedClosetData = unwrapMyClosetResponse(apiResponse);
         const apiHasCloset = Boolean(
-          closetData?.closetDetails?.id ||
-          closetData?.closetDetails?.shopName ||
-          closetData?.shopName ||
-          closetData?.id ||
-          closetData?.data,
+          unwrappedClosetData?.closetDetails?.id ||
+          unwrappedClosetData?.closetDetails?.shopName ||
+          unwrappedClosetData?.shopName ||
+          unwrappedClosetData?.id ||
+          unwrappedClosetData?.data,
         );
 
         setHasCreatedShop(apiHasCloset || createdValue === 'true');
+        setClosetData(apiHasCloset ? unwrappedClosetData : null);
 
         if (draftValue) {
           try {
@@ -108,6 +116,7 @@ const ProfileTabs = memo(({
       } catch (error) {
         if (isMounted) {
           setHasCreatedShop(false);
+          setClosetData(null);
         }
       } finally {
         if (isMounted) {
@@ -208,6 +217,28 @@ const ProfileTabs = memo(({
     { key: 'video', label: 'Videos', icon: 'videocam-outline' },
     { key: 'ebook', label: 'E-books', icon: 'book-outline' },
   ]), []);
+
+  // closetId can come from the closet object we already fetched, or directly
+  // off userData if the profile payload includes it. Adjust the userData
+  // field name below to match your actual API contract.
+  const closetId =
+    closetData?.id ||
+    closetData?.closetDetails?.id ||
+    userData?.closetId ||
+    userData?.myCloset?.id ||
+    null;
+
+  // Fire-and-forget view tracking for the shop/closet tabs. The API already
+  // ignores self-views server-side (SELF_VIEW_IGNORED), so no isOwnProfile
+  // check is needed here.
+  const trackShopView = useCallback(async () => {
+    if (!closetId) return;
+    try {
+      await trackClosetView(closetId);
+    } catch (error) {
+      // Non-critical — don't block tab navigation or surface an error toast.
+    }
+  }, [closetId]);
 
   // ── Tab screens — stable identity, only remount when data deps change ────────
   const tabScreens = useMemo(() => ({
@@ -312,6 +343,8 @@ const ProfileTabs = memo(({
             scrollEnabled={false}
             isActiveTab={activeTab === PRIVATE_CONTENT_TAB_INDEX}
             activeMediaFilter={mediaTab}
+            closetData={closetData}
+            dashboard={dashboard}
           />
     ),
     closet: (
@@ -321,12 +354,14 @@ const ProfileTabs = memo(({
           userData={userData}
           shopDraft={shopDraft}
           isOwnProfile={isOwnProfile}
+          closetData={closetData}
         />
       ) : (
         <Shop
           isOwnProfile={isOwnProfile}
           userData={userData}
           onStartPress={() => navigation.navigate('MyClosetCreateShop')}
+          closetData={closetData}
         />
       )
     ),
@@ -348,6 +383,7 @@ const ProfileTabs = memo(({
     hasCreatedShop,
     shopDraft,
     navigation,
+    closetData,
   ]);
 
   // ── Tab metadata — icons/labels/onPress only, NO screen elements ─────────────
@@ -414,6 +450,7 @@ const ProfileTabs = memo(({
             color={focused ? text : '#6b7280'}
           />
         ),
+        onPress: trackShopView,
       });
     }
 
@@ -432,6 +469,7 @@ const ProfileTabs = memo(({
             }}
           />
         ),
+        onPress: trackShopView,
       });
     }
 
@@ -445,6 +483,7 @@ const ProfileTabs = memo(({
     loggedInUserId,
     targetProfileId,
     getSubscriptionStatus,
+    trackShopView,
   ]);
 
   useEffect(() => {

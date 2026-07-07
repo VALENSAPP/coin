@@ -1778,6 +1778,7 @@
     "sectionAccount": "Account",
     "sectionSecurity": "Sicurezza",
     "profileSettings": "Impostazioni profilo",
+    "shopSettings": "Impostazioni del negozio",
     "verificationStatus": "Stato verifica",
     "verifiedStatus": "Dragonfly verificato",
     "notifications": "Notifiche",
@@ -3455,7 +3456,8 @@
     "subscriptionSetup": "Configurazione Programma Abbonamento",
     "viewMissionPost": "Visualizza Post Missione",
     "revenueFromSubscriptions": "Entrate dagli Abbonamenti",
-    "selectLanguage": "Seleziona Lingua"
+    "selectLanguage": "Seleziona Lingua",
+    "marketplaceAnalytics": "Analisi del Marketplace"
   },
   "tabNav": {
     "editProfile": "Modifica Profilo"
@@ -3588,6 +3590,7 @@
       "all": "Tutti",
       "pending": "Da spedire",
       "processing": "In elaborazione",
+      "shipped": "Da spedire",
       "delivered": "Consegnati"
     }
   },
@@ -4017,6 +4020,7 @@
     "liveBannerSubtitle": "Continua ad aggiungere articoli e fai crescere il tuo armadio.",
     "overviewTitle": "Panoramica",
     "thisWeek": "Questa settimana",
+    "thisMonth": "Questo mese",
     "battlePerformanceTitle": "Prestazioni nelle sfide",
     "viewAllBattles": "Visualizza tutte le sfide",
     "sellerOrdersTitle": "Ordini — Come venditore",
@@ -4060,6 +4064,19 @@
       "delivered": "Consegnato",
       "cancelled": "Annullato"
     }
+  },
+  "marketplaceAnalytics": {
+    "title": "Analisi",
+    "performance": "Prestazioni",
+    "totalViews": "Visualizzazioni totali",
+    "totalLikes": "Mi piace totali",
+    "orders": "Ordini",
+    "revenue": "Ricavi",
+    "topPerformingItem": "Articolo con le migliori prestazioni",
+    "viewsLikesOrders": "Visualizzazioni: {{views}} · Mi piace: {{likes}} · Ordini: {{orders}}",
+    "noTopItem": "Nessun articolo con prestazioni migliori al momento",
+    "thisWeek": "Questa settimana",
+    "thisMonth": "Questo mese"
   },
   "myClosetShopFront": {
     "vs": "VS",

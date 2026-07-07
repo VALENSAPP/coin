@@ -203,7 +203,7 @@ export function ReviewBoostScreen({ navigation, route }) {
 
   const handleBoostNow = () => {
     Alert.alert(t('boost.boostedTitle'), t('boost.boostedMessage'), [
-      { text: t('boost.done'), onPress: () => navigation.navigate('MyClosetDashboard', { boostedItemId: winnerItem?.id }) },
+      { text: t('boost.done'), onPress: () => navigation.navigate('wallet', { screen: 'MyCloset', params: { boostedItemId: winnerItem?.id } }) },
     ]);
   };
 
@@ -396,7 +396,7 @@ export function PreviewPromotionScreen({ navigation, route }) {
 
   const handleLaunch = () => {
     Alert.alert(t('promotion.liveTitle'), t('promotion.liveMessage'), [
-      { text: t('boost.done'), onPress: () => navigation.navigate('MyClosetDashboard', { promotedItemId: winnerItem?.id }) },
+      { text: t('boost.done'), onPress: () => navigation.navigate('wallet', { screen: 'MyCloset', params: { promotedItemId: winnerItem?.id } }) },
     ]);
   };
 
