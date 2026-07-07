@@ -26,6 +26,7 @@ import { showToastMessage } from '../../../components/displaytoastmessage';
 import { getHideChatConversation, chatStatusUpdate, sharePost } from '../../../services/post';
 import HexAvatar from '../../../components/home/story.js/HexAvatar';
 import { useLanguage } from '../../../i18n';
+import { appendTrustPostShareFields } from '../../../utils/trustPost';
 
 // Fallback icon component
 const FallbackIcon = ({ name, size = 24, color = '#000', style }) => {
@@ -342,6 +343,13 @@ export default function ChatMessages() {
             if (sharedContent.storyId) {
               let storyId = String(sharedContent.storyId).replace(/_\d+$/, '');
               messageData.storyId = storyId;
+            }
+
+            if (sharedContent.post) {
+              Object.assign(
+                messageData,
+                appendTrustPostShareFields(messageData, sharedContent.post),
+              );
             }
 
             console.log('📤 Sending message data to user', userId, ':', messageData);

@@ -47,7 +47,7 @@ import { extractPostMusicPayloadFromApi, applyClientPostOverlayCache } from '../
 import { isPostVideoUrl } from '../../../utils/postMediaFormat';
 import { useLanguage } from '../../../i18n';
 
-const isTruthyTrustPost = value => value === true || value === 1 || String(value).toLowerCase() === 'true';
+import { resolveIsTrustPost } from '../../../utils/trustPost';
 
 const isVideoMediaUrl = (url, postType) => {
   if (String(postType || '').toLowerCase() === 'reel') return true;
@@ -323,7 +323,7 @@ const Posts = forwardRef(function Posts(
           end_time: item.end_time || null,
           tokenBalance: item.tokenBalance || 0,
           shareCount: item.shareCount || 0,
-          isTrustPost: isTruthyTrustPost(item.isTrustPost),
+          isTrustPost: resolveIsTrustPost(item),
           taggedPeople: Array.isArray(item.taggedPeople) ? item.taggedPeople : [],
           location: item.location || item.Location || '',
           createdAt: item.createdAt || item.created_at || null,

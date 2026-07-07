@@ -77,6 +77,7 @@ import { useLanguage } from '../../../i18n';
 import { navigateToUserProfile } from '../../../utils/navigateToUserProfile';
 import TrustCommentModal from '../../modals/TrustCommentModal';
 import PostLocationModal from '../../modals/PostLocationModal';
+import { resolveIsTrustPost } from '../../../utils/trustPost';
 
 const { width } = Dimensions.get('window');
 const AnimatedFastImage = Animated.createAnimatedComponent(FastImage);
@@ -563,6 +564,7 @@ function PostItem({
   isTrustPost = false,
   onLocationUpdate,
 }) {
+  // console.log('Calculating',item);    
   const { width: windowWidth } = useWindowDimensions();
   const heartScale = useRef(new Animated.Value(1)).current;
   const doubleTapHeartScale = useRef(new Animated.Value(0)).current;
@@ -616,7 +618,7 @@ function PostItem({
   useEffect(() => { setLocalLiked(liked); }, [liked]);
   useEffect(() => { setLocalLikesCount(likesCount || 0); }, [likesCount]);
   const { t } = useLanguage();
-  const showTrustControls = isTruthyTrustPost(isTrustPost) || isTruthyTrustPost(item?.isTrustPost);
+  const showTrustControls = isTruthyTrustPost(isTrustPost) || resolveIsTrustPost(item);
 
   const currentUserIdStr = useMemo(() => (userId != null ? String(userId) : ''), [userId]);
   const itemUserIdStr = useMemo(() => {
@@ -637,6 +639,7 @@ function PostItem({
       return 0;
     }
   };
+
 
   const [daysLeft, setDaysLeft] = useState(() => getDaysLeftFromEndTime(item?.end_time));
   const [walletAddress, setWalletAddress] = useState('');

@@ -365,7 +365,6 @@ const InstagramPostCreator = () => {
   const toast = useToast();
   const insets = useSafeAreaInsets();
   const [keyboardOffset, setKeyboardOffset] = useState(0);
-  const selectedFontKey = normalizeOverlayFontFamily(selectedFont?.fontFamily) || 'system';
   const textEditorPreviewMaxHeight = useMemo(() => {
     if (!modalVisible2) return undefined;
     const headerSpace = insets.top + 52;
@@ -2145,13 +2144,12 @@ const InstagramPostCreator = () => {
                                 >
                                   <TextInput
                                     ref={textInputRef}
-                                    key={`draft-text-${selectedFontKey}-${currentImageIndex}`}
+                                    key={`draft-text-${currentImageIndex}`}
                                     value={text}
                                     onChangeText={setText}
                                     placeholder={t('selectedPost.typeText')}
                                     placeholderTextColor="rgba(255,255,255,0.65)"
                                     multiline
-                                    autoFocus
                                     scrollEnabled={false}
                                     textAlign={textAlign}
                                     style={[
@@ -2368,6 +2366,7 @@ const InstagramPostCreator = () => {
           renderItem={({ item }) => (
             <TouchableOpacity
               onPress={() => setSelectedFont(item.style)}
+              activeOpacity={0.85}
               style={[
                 styles.fontBtn,
                 { backgroundColor: `${accent}14` },
