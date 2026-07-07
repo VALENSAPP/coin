@@ -4221,6 +4221,9 @@
     "liveTitle": "Sfida in diretta",
     "voteAndSeeResults": "Vota e visualizza i risultati",
     "voteHelpsOthers": "Il tuo voto aiuta gli altri a decidere!",
+    "voteHelpsDecide": "Il tuo voto aiuta gli altri a decidere!",
+    "voting": "Votando...",
+    "voteOnlyLiveBattles": "Il voto è consentito solo per le sfide in diretta.",
     "voteFor": "Vota per {{name}}",
     "resultsTitle": "Risultati della sfida",
     "battleInsights": "Statistiche della sfida",
@@ -4230,6 +4233,7 @@
     "viewItem": "Visualizza articolo",
     "useInsights": "Usa statistiche",
     "viewBattle": "Visualizza sfida",
+    "viewResults": "Visualizza Risultati",
     "totalVotesCount": "{{count}} voti totali",
     "stats": {
       "votes": "Voti",

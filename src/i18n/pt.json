@@ -4221,6 +4221,9 @@
     "liveTitle": "Batalha ao vivo",
     "voteAndSeeResults": "Vote e veja os resultados",
     "voteHelpsOthers": "Seu voto ajuda outras pessoas a decidir!",
+    "voteHelpsDecide": "Seu voto ajuda outras pessoas a decidir!",
+    "voting": "Votando...",
+    "voteOnlyLiveBattles": "A votação só é permitida em batalhas ao vivo.",
     "voteFor": "Votar em {{name}}",
     "resultsTitle": "Resultados da batalha",
     "battleInsights": "Insights da batalha",
@@ -4230,6 +4233,7 @@
     "viewItem": "Ver item",
     "useInsights": "Usar informações",
     "viewBattle": "Ver batalha",
+    "viewResults": "Ver Resultados",
     "totalVotesCount": "{{count}} votos no total",
     "stats": {
       "votes": "Votos",

@@ -101,6 +101,119 @@ const prefetchImageUrls = async items => {
   await Promise.allSettled([...new Set(urls)].map(url => Image.prefetch(url)));
 };
 
+const unwrapBattlesResponse = source => {
+  const battles = source?.data?.battles ?? source?.data?.data?.battles ?? source?.battles ?? [];
+  return Array.isArray(battles) ? battles : [];
+};
+
+const fmt = value => {
+  if (value == null || value === '') return '$0.00';
+  const text = String(value).trim();
+  if (text.startsWith('$')) return text;
+  const numeric = Number(text);
+  return Number.isNaN(numeric) ? text : `$${numeric.toFixed(2)}`;
+};
+
+const thumb = item => {
+  if (!item) return null;
+  if (Array.isArray(item.images) && item.images.length) return item.images[0];
+  return item.image || item.thumbnail || null;
+};
+
+const navigateToBattleLive = (navigation, params) => {
+  if (navigation?.navigate) {
+    try {
+      navigation.navigate('ProfileMain', {
+        screen: 'BattleLive',
+        params,
+      });
+      return true;
+    } catch (_error) {}
+    try {
+      navigation.navigate('BattleLive', params);
+      return true;
+    } catch (_error) {}
+  }
+
+  const parent = navigation?.getParent?.();
+  if (parent?.navigate) {
+    try {
+      parent.navigate('ProfileMain', {
+        screen: 'BattleLive',
+        params,
+      });
+      return true;
+    } catch (_error) {}
+  }
+  return false;
+};
+
+const mapParticipant = (participant = {}, closet) => {
+  const product = participant.product ?? {};
+  return {
+    participantId: participant.id,
+    name: product.name || '',
+    price: fmt(product.price),
+    image: thumb(product),
+    user: closet?.shopName || closet?.shopUsername || '',
+    pct: Number(participant.votePercentage ?? 0),
+    isWinner: !!participant.isWinner,
+  };
+};
+
+const mapBattle = (battle, index) => {
+  const sorted = [...(battle?.participants ?? [])].sort(
+    (left, right) => (left.position ?? 0) - (right.position ?? 0),
+  );
+  const [p1, p2] = sorted;
+
+  return {
+    id: String(battle?.id ?? index),
+    title: battle?.title,
+    left: mapParticipant(p1, battle?.closet),
+    right: mapParticipant(p2, battle?.closet),
+  };
+};
+
+const BattleSlide = ({ battle, accent, t, onPress }) => (
+  <TouchableOpacity activeOpacity={0.9} onPress={onPress} style={styles.battleCard}>
+    <Text style={styles.battleTitle} numberOfLines={1}>
+      {battle.title || t('myClosetShopFront.battlePicksTitle')}
+    </Text>
+    <View style={styles.slide}>
+      <View style={styles.fighter}>
+        <View style={styles.fighterThumb}>
+          {battle.left.image ? (
+            <Image source={{ uri: battle.left.image }} style={styles.fighterImg} resizeMode="cover" />
+          ) : (
+            <Ionicons name="bag-outline" size={26} color="#9b8c7a" />
+          )}
+        </View>
+        <Text style={styles.fighterName} numberOfLines={2}>{battle.left.name}</Text>
+        <Text style={styles.fighterPrice}>{battle.left.price}</Text>
+        <Text style={[styles.pct, { color: accent }]}>{battle.left.pct}%</Text>
+      </View>
+
+      <View style={styles.vsBubble}>
+        <Text style={styles.vsText}>{t('myClosetShopFront.vs')}</Text>
+      </View>
+
+      <View style={styles.fighter}>
+        <View style={styles.fighterThumb}>
+          {battle.right.image ? (
+            <Image source={{ uri: battle.right.image }} style={styles.fighterImg} resizeMode="cover" />
+          ) : (
+            <Ionicons name="bag-handle-outline" size={26} color="#9b8c7a" />
+          )}
+        </View>
+        <Text style={styles.fighterName} numberOfLines={2}>{battle.right.name}</Text>
+        <Text style={styles.fighterPrice}>{battle.right.price}</Text>
+        <Text style={styles.pctRed}>{battle.right.pct}%</Text>
+      </View>
+    </View>
+  </TouchableOpacity>
+);
+
 // `description`/`brand`/`condition` fall back to translated defaults when the API omits them.
 const normalizeItem = (item = {}, index = 0, t) => ({
   id: String(item?.id || item?._id || `item-${index}`),
@@ -818,7 +931,7 @@ const MyClosetBattlesScreen = ({ navigation, route }) => {
     try {
       const res = await getClosetBattlesPriority(closetId, { page: pageToLoad, limit: LIMIT });
       console.log('loadPage res:', res);
-      const raw = res?.data?.battles ?? res?.battles ?? [];
+      const raw = unwrapBattlesResponse(res);
       const mapped = raw.map(mapBattle);
       setBattles(prev => (replace ? mapped : [...prev, ...mapped]));
       setHasMore(mapped.length === LIMIT);
@@ -827,6 +940,14 @@ const MyClosetBattlesScreen = ({ navigation, route }) => {
       setHasMore(false);
     }
   }, [closetId]);
+
+  const openBattle = useCallback((battle) => {
+    navigateToBattleLive(navigation, {
+      battleId: battle?.id,
+      initialBattle: battle,
+      selectedItems: [battle?.left, battle?.right].filter(Boolean),
+    });
+  }, [navigation]);
 
   useFocusEffect(
     useCallback(() => {
@@ -853,12 +974,12 @@ const MyClosetBattlesScreen = ({ navigation, route }) => {
           <ActivityIndicator color={accent} />
         </View>
       ) : (
-        <FlatList
+          <FlatList
           data={battles}
           keyExtractor={b => b.id}
           renderItem={({ item }) => (
             <View style={{ marginBottom: 16 }}>
-              <BattleSlide battle={item} accent={accent} t={t} />
+              <BattleSlide battle={item} accent={accent} t={t} onPress={() => openBattle(item)} />
             </View>
           )}
           contentContainerStyle={{ padding: 16 }}
@@ -2547,6 +2668,99 @@ const styles = StyleSheet.create({
   gridTitle: { marginTop: 8, minHeight: 36, fontSize: 14, lineHeight: 18, color: '#17072d', fontWeight: '800' },
   gridPrice: { marginTop: 4, fontSize: 15, fontWeight: '900' },
   gridMeta: { marginTop: 3, fontSize: 12, color: MUTED },
+
+  battleCard: {
+    borderWidth: 1,
+    borderColor: BORDER,
+    borderRadius: 20,
+    backgroundColor: '#fff',
+    padding: 14,
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 2,
+  },
+  battleTitle: {
+    marginBottom: 10,
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#17072d',
+  },
+  slide: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    flexWrap: 'nowrap',
+  },
+  fighter: {
+    flex: 1,
+    alignItems: 'center',
+    minWidth: 0,
+  },
+  fighterThumb: {
+    width: 72,
+    height: 72,
+    borderRadius: 14,
+    backgroundColor: '#f6f0ee',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  fighterImg: {
+    width: '100%',
+    height: '100%',
+  },
+  fighterName: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '900',
+    color: '#17072d',
+    textAlign: 'center',
+    minHeight: 36,
+  },
+  fighterPrice: {
+    marginTop: -10,
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#17072d',
+  },
+  userRow: {
+    marginTop: 8,
+  },
+  username: {
+    fontSize: 11,
+    color: MUTED,
+    fontWeight: '700',
+  },
+  pct: {
+    fontSize: 11,
+    fontWeight: '900',
+  },
+  pctRed: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#dc2626',
+  },
+  vsBubble: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f4ecfb',
+    borderWidth: 1,
+    borderColor: BORDER,
+    alignSelf: 'center',
+    marginHorizontal: 4,
+  },
+  vsText: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#21083f',
+  },
 
   imageBox: { backgroundColor: '#f6f0ee', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   coverImage: { width: '100%', height: '100%' },

@@ -21,6 +21,7 @@ import {
   getMyClosetItems,
   createMarketplaceBattle,
   getMarketplaceBattleDetails,
+  getMarketplaceBattleInsights,
   voteOnBattle,
   getBattleVoters,
 } from '../../services/myCloset';
@@ -124,6 +125,14 @@ const participantToItem = participant => ({
   image: itemImage(participant?.product) || participant?.product?.images?.[0] || null,
   voteCount: participant?.voteCount ?? 0,
   isWinner: !!participant?.isWinner,
+});
+
+const productToBattleItem = (product, fallback = {}) => ({
+  id: product?.id || fallback?.id,
+  participantId: fallback?.participantId || product?.participantId || product?.id,
+  name: product?.name || fallback?.name || '',
+  price: product?.price != null ? currency(product.price) : (fallback?.price || ''),
+  image: itemImage(product) || fallback?.image || null,
 });
 
 const normalizeBattle = raw => {
@@ -320,7 +329,6 @@ export function CreateBattleScreen({ navigation, route }) {
       setItems(normalized);
       setSelectedIds(normalized.slice(0, 2).map(i => i.id));
     } catch (err) {
-      console.log('CreateBattleScreen loadItems error:', err, err?.message, err?.stack);
       setItems([]);
       setLoadError(t('battle.errors.itemsLoadFailed') || 'Could not load your closet items.');
     } finally {
@@ -627,8 +635,6 @@ export function BattlePreviewScreen({ navigation, route }) {
       const battle = data?.battle ?? data;
       const battleId = battle?.id;
 
-      console.log('BattlePreviewScreen handleLaunch battleId:', battleId, 'raw response:', JSON.stringify(response?.data));
-
       const liveRoute = route?.params?.liveRoute || 'BattleLive';
       navigation.navigate(liveRoute, { battleId, question: previewQuestion, selectedItems });
     } catch (err) {
@@ -703,28 +709,42 @@ export function BattleLiveScreen({ navigation, route }) {
   const accent = text || PURPLE;
   const primaryText = text || TEXT;
   const battleId = route?.params?.battleId;
+  const initialBattle = route?.params?.initialBattle || null;
+  const cameFromCard = !!initialBattle;
+  const handleDonePress = useCallback(() => {
+    navigation.navigate('MainApp', {
+      screen: 'wallet',
+      params: { screen: 'MyCloset' },
+    });
+  }, [navigation]);
 
-  const [battle, setBattle] = useState(null);
-  const [loading, setLoading] = useState(!!battleId);
+  const [battle, setBattle] = useState(() => (initialBattle ? normalizeBattle(initialBattle) : null));
+  const [loading, setLoading] = useState(() => !!battleId && !initialBattle);
   const [loadError, setLoadError] = useState(null);
   const [hasVoted, setHasVoted] = useState(false);
   const [votedParticipantId, setVotedParticipantId] = useState(null);
   const [votingParticipantId, setVotingParticipantId] = useState(null);
   const [currentUserId, setCurrentUserId] = useState(null);
+  const [checkingVote, setCheckingVote] = useState(false);
 
   const question = battle?.title || route?.params?.question || t('battle.defaultQuestion');
   const selectedItems = battle?.items?.length ? battle.items : route?.params?.selectedItems || [];
   const showResultsBar =
     hasVoted ||
     !!route?.params?.showResultsBar ||
+    cameFromCard ||
     (battle && (battle.status !== 'LIVE' || battle.outcome !== 'PENDING'));
   const voteAudienceText = battle?.whoCanVote === 'Followers' ? t('battle.followersOnly') : t('battle.everyoneCanVote');
   const isCreator = !!currentUserId && !!battle?.createdBy && currentUserId === battle.createdBy;
+  const isBattleLive = battle?.status === 'LIVE' && battle?.outcome === 'PENDING';
+  const canVote = isBattleLive && !isCreator && !hasVoted && !checkingVote;
+  const votedLabel = t('battle.voting') || 'Voting...';
 
   const checkExistingVote = useCallback(async () => {
     if (!battleId) return;
+    setCheckingVote(true);
     try {
-      const userId = await AsyncStorage.getItem('userId');
+      const userId = currentUserId || await AsyncStorage.getItem('userId');
       if (!userId) return;
 
       const response = await getBattleVoters(battleId, 1, 100);
@@ -737,12 +757,14 @@ export function BattleLiveScreen({ navigation, route }) {
       }
     } catch {
       // Non-fatal — if this fails, the user just sees the vote buttons again.
+    } finally {
+      setCheckingVote(false);
     }
-  }, [battleId]);
+  }, [battleId, currentUserId]);
 
   const loadBattle = useCallback(async () => {
     if (!battleId) return;
-    setLoading(true);
+    setLoading(!initialBattle);
     setLoadError(null);
     try {
       const response = await getMarketplaceBattleDetails(battleId);
@@ -754,10 +776,16 @@ export function BattleLiveScreen({ navigation, route }) {
     } finally {
       setLoading(false);
     }
-  }, [battleId, t]);
+  }, [battleId, initialBattle, t]);
 
   const handleVote = async (item) => {
-    console.log('BattleLiveScreen handleVote', { battleId, participantId: item?.participantId });
+    if (checkingVote || hasVoted || votedParticipantId) {
+      Alert.alert(
+        t('battle.errors.voteFailedTitle') || 'Could not submit vote',
+        t('battle.alreadyVoted') || 'You have already voted in this battle.',
+      );
+      return;
+    }
     if (!battleId || !item?.participantId) {
       Alert.alert(
         t('battle.errors.voteFailedTitle') || 'Could not submit vote',
@@ -767,15 +795,20 @@ export function BattleLiveScreen({ navigation, route }) {
     }
     setVotingParticipantId(item.participantId);
     try {
-      await voteOnBattle(battleId, item.participantId);
+      const response = await voteOnBattle(battleId, item.participantId);
       setHasVoted(true);
       setVotedParticipantId(item.participantId);
       await loadBattle();
     } catch (err) {
+      const statusCode = err?.response?.data?.statusCode || err?.response?.status;
       const message = err?.response?.data?.message;
+      const friendlyMessage =
+        statusCode === 400 && /live marketplace battles/i.test(message || '')
+          ? (t('battle.voteOnlyLiveBattles') || 'Voting is only allowed for live battles.')
+          : (message || t('battle.errors.voteFailedGeneric') || 'Something went wrong. Please try again.');
       Alert.alert(
         t('battle.errors.voteFailedTitle') || 'Could not submit vote',
-        message || t('battle.errors.voteFailedGeneric') || 'Something went wrong. Please try again.',
+        friendlyMessage,
       );
     } finally {
       setVotingParticipantId(null);
@@ -788,9 +821,16 @@ export function BattleLiveScreen({ navigation, route }) {
   }, []);
 
   useEffect(() => {
+    if (initialBattle) {
+      setBattle(normalizeBattle(initialBattle));
+      setLoadError(null);
+    }
     loadBattle();
+  }, [initialBattle, loadBattle]);
+
+  useEffect(() => {
     checkExistingVote();
-  }, [loadBattle, checkExistingVote]);
+  }, [checkExistingVote]);
 
   // Early returns come AFTER every hook above — nothing hook-related below this point
   if (loading) {
@@ -840,33 +880,68 @@ export function BattleLiveScreen({ navigation, route }) {
           </View>
           <Text style={styles.liveMuted}>{t('battle.daysLeft', { count: battle?.daysLeft ?? 0 })}</Text>
         </View>
-        <Text style={[styles.sectionTitle, { color: primaryText }]}>{question}</Text>
+        <Text style={[styles.battleQuestion, { color: primaryText }]}>{question}</Text>
         <BattleCard left={selectedItems[0]} right={selectedItems[1]} accent={accent} textColor={primaryText} />
-        <StatRow items={[
-          { label: t('battle.stats.votes'), value: String(battle?.totalVotes ?? 0), icon: 'checkmark-done-outline' },
-          { label: t('battle.stats.comments'), value: String(battle?.totalComments ?? 0), icon: 'chatbubble-outline' },
-        ]} />
-        {showResultsBar ? (
-          isCreator ? (
-            <TouchableOpacity activeOpacity={0.9} onPress={() => navigation.navigate('MainApp', {
-              screen: 'wallet',
-              params: { screen: 'MyCloset' }
-            })}>
-              <LinearGradient colors={[accent, PURPLE_2]} style={styles.primaryButton}>
-                <Text style={styles.primaryButtonText}>{t('battle.done') || 'Done'}</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              activeOpacity={0.9}
-              onPress={() => navigation.navigate('BattleResults', { battleId })}
-            >
-              <LinearGradient colors={[accent, PURPLE_2]} style={styles.primaryButton}>
-                <Text style={styles.primaryButtonText}>{t('battle.viewResults') || 'View Results'}</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          )
+        {canVote ? (
+          <View style={[styles.voteChoicesWrap, { backgroundColor: card || '#fff' }]}>
+            <Text style={styles.voteHeadline}>{t('battle.voteAndSeeResults') || 'Vote and see results'}</Text>
+            <Text style={styles.voteSub}>{t('battle.voteHelpsDecide') || 'Your vote helps others decide!'}</Text>
+            {[selectedItems[0], selectedItems[1]].map((item, index) => (
+              <TouchableOpacity
+                key={item?.participantId || item?.id || index}
+                activeOpacity={0.9}
+                disabled={votingParticipantId === item?.participantId}
+                onPress={() => handleVote(item)}
+                style={[
+                  styles.voteActionWrap,
+                  index === 0 ? styles.voteActionPrimaryWrap : styles.voteActionSecondaryWrap,
+                  votingParticipantId === item?.participantId && { opacity: 0.6 },
+                ]}
+              >
+                {index === 0 ? (
+                  <LinearGradient colors={[accent, PURPLE_2]} style={styles.voteActionInner}>
+                    <Text style={styles.voteActionPrimaryText} numberOfLines={1}>
+                      {votingParticipantId === item?.participantId
+                        ? votedLabel
+                        : (item?.name || item?.title || (t('battle.voteLeft') || 'Vote Jacket'))}
+                    </Text>
+                  </LinearGradient>
+                ) : (
+                  <View style={styles.voteActionInner}>
+                    <Text style={[styles.voteActionSecondaryText, { color: accent }]} numberOfLines={1}>
+                      {votingParticipantId === item?.participantId
+                        ? votedLabel
+                        : (item?.name || item?.title || (t('battle.voteRight') || 'Vote Bag'))}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
         ) : null}
+        <View style={styles.statsWrap}>
+          <StatRow items={[
+            { label: t('battle.stats.votes') || 'Votes', value: String(battle?.totalVotes ?? 0), icon: 'checkmark-done-outline' },
+            { label: t('battle.stats.views') || 'Views', value: String(battle?.totalViews ?? 0), icon: 'eye-outline' },
+            { label: t('battle.stats.comments') || 'Comments', value: String(battle?.totalComments ?? 0), icon: 'chatbubble-outline' },
+          ]} />
+        </View>
+        <View style={styles.footerActions}>
+          <TouchableOpacity activeOpacity={0.9} onPress={handleDonePress} style={styles.footerActionFlex}>
+            <LinearGradient colors={[accent, PURPLE_2]} style={styles.primaryButton}>
+              <Text style={styles.primaryButtonText}>{t('battle.done') || 'Done'}</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+          <TouchableOpacity
+            activeOpacity={0.9}
+            onPress={() => navigation.navigate('BattleResultsScreen', { battleId })}
+            style={styles.footerActionFlex}
+          >
+            <LinearGradient colors={[accent, PURPLE_2]} style={styles.primaryButton}>
+              <Text style={styles.primaryButtonText}>{t('battle.viewResults') || 'View Results'}</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </View>
   );
@@ -880,21 +955,56 @@ export function BattleResultsScreen({ navigation, route }) {
   const battleId = route?.params?.battleId;
 
   const [battle, setBattle] = useState(null);
+  const [insights, setInsights] = useState(null);
   const [loading, setLoading] = useState(!!battleId);
   const [loadError, setLoadError] = useState(null);
 
   const fallbackItems = route?.params?.selectedItems;
-  const winnerItem = battle?.winnerProduct || fallbackItems?.[1];
-  const runnerUpItem = battle?.runnerUpProduct || fallbackItems?.[0];
+  const winnerItem = productToBattleItem(
+    insights?.winner?.product,
+    battle?.winnerProduct || fallbackItems?.[1],
+  );
+  const runnerUpItem = productToBattleItem(
+    insights?.loser?.product,
+    battle?.runnerUpProduct || fallbackItems?.[0],
+  );
+  const winnerVotePercent = insights?.winner?.votePercentage ?? battle?.winnerVotePercent;
+  const totalVotes = insights?.totalVotes ?? battle?.totalVotes ?? 0;
+  const totalViews = insights?.viewCount ?? battle?.totalViews ?? 0;
+  const totalComments = insights?.commentCount ?? battle?.totalComments ?? 0;
+  const engagementCount = insights?.engagementCount ?? (totalVotes + totalComments);
+  const voteDifference = insights?.voteDifference ?? null;
+  const winningMarginPercentagePoints = insights?.winningMarginPercentagePoints ?? null;
+  const battleStatus = insights?.status || battle?.status;
+  const battleOutcome = insights?.outcome || battle?.outcome;
+  const winnerDeclared = battleOutcome === 'WINNER' && !!insights?.winner?.product;
 
   const loadBattle = useCallback(async () => {
     if (!battleId) return;
     setLoading(true);
     setLoadError(null);
     try {
-      const response = await getMarketplaceBattleDetails(battleId);
-      const data = response?.data?.data ?? response?.data ?? response;
-      setBattle(data);
+      const [detailsResponse, insightsResponse] = await Promise.allSettled([
+        getMarketplaceBattleDetails(battleId),
+        getMarketplaceBattleInsights(battleId),
+      ]);
+
+      console.log("detailsResponse-------------------",detailsResponse)
+      console.log("insightsResponse-------------------",insightsResponse)
+
+      if (detailsResponse.status === 'fulfilled') {
+        const data = detailsResponse.value?.data?.data ?? detailsResponse.value?.data ?? detailsResponse.value;
+        setBattle(data);
+      }
+
+      if (insightsResponse.status === 'fulfilled') {
+        const data = insightsResponse.value?.data?.data ?? insightsResponse.value?.data ?? insightsResponse.value;
+        setInsights(data);
+      }
+
+      if (detailsResponse.status !== 'fulfilled' && insightsResponse.status !== 'fulfilled') {
+        throw new Error('Unable to load battle results');
+      }
     } catch {
       setLoadError(t('battle.errors.battleLoadFailed') || 'Could not load results.');
     } finally {
@@ -902,9 +1012,11 @@ export function BattleResultsScreen({ navigation, route }) {
     }
   }, [battleId, t]);
 
-  useEffect(() => {
-    loadBattle();
-  }, [loadBattle]);
+   useFocusEffect(
+    useCallback(() => {
+      loadBattle();
+    }, [loadBattle])
+  );
 
   if (loading) {
     return (
@@ -946,37 +1058,51 @@ export function BattleResultsScreen({ navigation, route }) {
         }}
       />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <BattleCard
-          left={winnerItem}
-          right={runnerUpItem}
-          showWinner
-          winnerPercent={battle?.winnerVotePercent}
-          accent={accent}
-          textColor={primaryText}
-        />
         <View style={[styles.resultsBlock, { backgroundColor: card || '#fff' }]}>
-          <Text style={[styles.sectionTitle, { color: primaryText }]}>{t('battle.battleInsights')}</Text>
-          <View style={styles.resultsRow}><Text style={styles.resultsLabel}>{t('battle.stats.totalVotes')}</Text><Text style={[styles.resultsValue, { color: primaryText }]}>{battle?.totalVotes ?? 125}</Text></View>
-          <View style={styles.resultsRow}><Text style={styles.resultsLabel}>{t('battle.stats.totalViews')}</Text><Text style={[styles.resultsValue, { color: primaryText }]}>{battle?.totalViews ?? 860}</Text></View>
-          <View style={styles.resultsRow}><Text style={styles.resultsLabel}>{t('battle.stats.comments')}</Text><Text style={[styles.resultsValue, { color: primaryText }]}>{battle?.totalComments ?? 24}</Text></View>
-          <View style={styles.resultsRow}><Text style={styles.resultsLabel}>{t('battle.stats.shares')}</Text><Text style={[styles.resultsValue, { color: primaryText }]}>{battle?.totalShares ?? 12}</Text></View>
+          <Text style={[styles.sectionTitle, { color: primaryText }]}>{t('battle.battleInsights') || 'Battle Insights'}</Text>
+          <View style={styles.resultsRow}><Text style={styles.resultsLabel}>{t('battle.stats.totalVotes') || 'Votes'}</Text><Text style={[styles.resultsValue, { color: primaryText }]}>{totalVotes}</Text></View>
+          <View style={styles.resultsRow}><Text style={styles.resultsLabel}>{t('battle.stats.totalViews') || 'Views'}</Text><Text style={[styles.resultsValue, { color: primaryText }]}>{totalViews}</Text></View>
+          <View style={styles.resultsRow}><Text style={styles.resultsLabel}>{t('battle.stats.comments') || 'Comments'}</Text><Text style={[styles.resultsValue, { color: primaryText }]}>{totalComments}</Text></View>
+          <View style={styles.resultsRow}><Text style={styles.resultsLabel}>{t('battle.stats.engagement') || 'Engagement'}</Text><Text style={[styles.resultsValue, { color: primaryText }]}>{engagementCount}</Text></View>
+          {voteDifference != null ? (
+            <View style={styles.resultsRow}><Text style={styles.resultsLabel}>{t('battle.stats.voteDifference') || 'Vote Difference'}</Text><Text style={[styles.resultsValue, { color: primaryText }]}>{voteDifference}</Text></View>
+          ) : null}
+          {winningMarginPercentagePoints != null ? (
+            <View style={styles.resultsRow}><Text style={styles.resultsLabel}>{t('battle.stats.winningMargin') || 'Winning Margin'}</Text><Text style={[styles.resultsValue, { color: primaryText }]}>{winningMarginPercentagePoints}%</Text></View>
+          ) : null}
         </View>
-        <View style={[styles.aboutCard, { backgroundColor: card || '#fff' }]}>
-          <Text style={[styles.aboutTitle, { color: primaryText }]}>{t('battle.useInsightsTitle')}</Text>
-          <Text style={styles.aboutText}>{t('battle.useInsightsText')}</Text>
-        </View>
-        <View style={styles.actionRow}>
-          <TouchableOpacity activeOpacity={0.9} style={[styles.outlineBtn, { borderColor: accent }]} onPress={() => Share.share({ message: t('battle.shareResultsMessage') }).catch(() => { })}>
-            <Text style={[styles.outlineBtnText, { color: accent }]}>{t('battle.shareResults')}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            activeOpacity={0.9}
-            style={[styles.actionBtn, { backgroundColor: accent }]}
-            onPress={() => navigation.navigate('BattleInsightsActions', { winnerItem, runnerUpItem })}
-          >
-            <Text style={styles.actionBtnText}>{t('battle.useInsights')}</Text>
-          </TouchableOpacity>
-        </View>
+        {winnerDeclared ? (
+          <>
+            <BattleCard
+              left={winnerItem}
+              right={runnerUpItem}
+              showWinner
+              winnerPercent={winnerVotePercent}
+              accent={accent}
+              textColor={primaryText}
+            />
+            <View style={[styles.aboutCard, { backgroundColor: card || '#fff' }]}>
+              <Text style={[styles.aboutTitle, { color: primaryText }]}>{t('battle.useInsightsTitle')}</Text>
+              <Text style={styles.aboutText}>
+                {battleStatus === 'COMPLETED' && battleOutcome === 'WINNER'
+                  ? (t('battle.useInsightsText') || 'Use these insights to understand what won and why.')
+                  : (t('battle.useInsightsText') || 'Use these insights to understand performance.')}
+              </Text>
+            </View>
+            <View style={styles.actionRow}>
+              <TouchableOpacity activeOpacity={0.9} style={[styles.outlineBtn, { borderColor: accent }]} onPress={() => Share.share({ message: t('battle.shareResultsMessage') }).catch(() => { })}>
+                <Text style={[styles.outlineBtnText, { color: accent }]}>{t('battle.shareResults')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                activeOpacity={0.9}
+                style={[styles.actionBtn, { backgroundColor: accent }]}
+                onPress={() => navigation.navigate('BattleInsightsActions', { winnerItem, runnerUpItem })}
+              >
+                <Text style={styles.actionBtnText}>{t('battle.useInsights')}</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        ) : null}
       </ScrollView>
     </View>
   );
@@ -1008,6 +1134,8 @@ const styles = StyleSheet.create({
   gridPrice: { fontSize: 12, fontWeight: '800', marginTop: 4 },
   primaryButton: { height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
   primaryButtonText: { color: '#fff', fontSize: 15, fontWeight: '900' },
+  footerActions: { flexDirection: 'row', gap: 10 },
+  footerActionFlex: { flex: 1 },
   stepper: { flexDirection: 'row', alignItems: 'center', marginVertical: 2 },
   stepItem: { alignItems: 'center', gap: 6 },
   stepCircle: { width: 28, height: 28, borderRadius: 14, borderWidth: 1, borderColor: '#D6C8EF', alignItems: 'center', justifyContent: 'center' },
@@ -1034,12 +1162,32 @@ const styles = StyleSheet.create({
   inlineValue: { fontWeight: '700' },
   inlineLink: { fontWeight: '800' },
   errorText: { color: '#ef4444', fontSize: 12, fontWeight: '700', marginTop: 4 },
-  vsGrid: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  itemTile: { flex: 1, alignItems: 'flex-start' },
-  itemThumb: { width: '100%', height: 130, borderRadius: 16, marginBottom: 8 },
-  itemName: { fontSize: 12, fontWeight: '700' },
-  itemPrice: { fontSize: 12, fontWeight: '800', marginTop: 4 },
-  vsBubble: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', marginTop: 50 },
+  vsGrid: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  itemTile: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    minWidth: 0,
+  },
+  itemThumb: {
+    width: 88,
+    height: 88,
+    borderRadius: 14,
+    marginBottom: 8,
+    alignSelf: 'center',
+  },
+  itemName: {
+    fontSize: 12,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  itemPrice: {
+    fontSize: 12,
+    fontWeight: '800',
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  vsBubble: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', marginTop: 0 },
   vsText: { color: '#fff', fontWeight: '900', fontSize: 12 },
   cardBlock: { gap: 12 },
   infoRow: { flexDirection: 'row', justifyContent: 'space-between' },
@@ -1056,8 +1204,17 @@ const styles = StyleSheet.create({
   pillOutlineText: { fontSize: 11, fontWeight: '800' },
   liveMuted: { color: MUTED, fontWeight: '700', fontSize: 12 },
   voteCopy: { gap: 4 },
-  voteTitle: { fontSize: 14, fontWeight: '900' },
-  voteSub: { fontSize: 12, fontWeight: '600', color: MUTED },
+  battleQuestion: { fontSize: 23, lineHeight: 28, fontWeight: '900', textAlign: 'center', marginTop: 8, marginBottom: 6 },
+  voteHeadline: { fontSize: 14, fontWeight: '900', color: TEXT, marginTop: 8 },
+  voteSub: { fontSize: 12, fontWeight: '600', color: MUTED, marginBottom: 8 },
+  voteChoicesWrap: { gap: 10, marginTop: 8, borderWidth: 1, borderColor: BORDER, borderRadius: 18, padding: 16 },
+  voteActionWrap: { borderRadius: 14, overflow: 'hidden' },
+  voteActionPrimaryWrap: { borderWidth: 0 },
+  voteActionSecondaryWrap: { borderWidth: 2, borderColor: '#C8B6E9', backgroundColor: '#fff' },
+  voteActionInner: { minHeight: 50, alignItems: 'center', justifyContent: 'center', borderRadius: 14},
+  voteActionPrimaryText: { color: '#fff', fontSize: 16, fontWeight: '900', textAlign: 'center' },
+  voteActionSecondaryText: { fontSize: 16, fontWeight: '900', textAlign: 'center' },
+  statsWrap: { marginTop: 6 },
   secondaryButton: { height: 46, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' },
   secondaryButtonText: { fontWeight: '900' },
   splitBarWrap: { gap: 6 },

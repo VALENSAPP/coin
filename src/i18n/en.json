@@ -4313,6 +4313,9 @@
     "liveTitle": "Battle Live",
     "voteAndSeeResults": "Vote and see results",
     "voteHelpsOthers": "Your vote helps others decide!",
+    "voteHelpsDecide": "Your vote helps others decide!",
+    "voting": "Voting...",
+    "voteOnlyLiveBattles": "Voting is only allowed for live battles.",
     "voteFor": "Vote {{name}}",
     "resultsTitle": "Battle Results",
     "battleInsights": "Battle Insights",
@@ -4322,6 +4325,7 @@
     "viewItem": "View Item",
     "useInsights": "Use Insights",
     "viewBattle": "View Battle",
+    "viewResults": "View Results",
     "totalVotesCount": "{{count}} total votes",
     "stats": {
       "votes": "Votes",

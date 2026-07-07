@@ -78,6 +78,34 @@ const mapBattle = (b, i) => {
   };
 };
 
+const navigateToBattleLive = (navigation, params) => {
+  if (navigation?.navigate) {
+    try {
+      navigation.navigate('ProfileMain', {
+        screen: 'BattleLive',
+        params,
+      });
+      return true;
+    } catch (_error) {}
+    try {
+      navigation.navigate('BattleLive', params);
+      return true;
+    } catch (_error) {}
+  }
+
+  const parent = navigation?.getParent?.();
+  if (parent?.navigate) {
+    try {
+      parent.navigate('ProfileMain', {
+        screen: 'BattleLive',
+        params,
+      });
+      return true;
+    } catch (_error) {}
+  }
+  return false;
+};
+
 // ── placeholder battle data (fallback while loading / on error) ──────────────
 
 const BATTLES_FALLBACK = [
@@ -93,48 +121,53 @@ const BATTLES_FALLBACK = [
   },
 ];
 
-// ── BattleSlide ───────────────────────────────────────────────────────────────
-
-// BattleSlide — now actually renders the product image instead of a fixed icon
-const BattleSlide = ({ battle, accent, t }) => (
-  <View style={s.slide}>
-    {/* left */}
-    <View style={s.fighter}>
-      <View style={s.fighterThumb}>
-        {battle.left.image
-          ? <Image source={{ uri: battle.left.image }} style={s.fighterImg} resizeMode="cover" />
-          : <Ionicons name="bag-outline" size={34} color="#9b8c7a" />}
-      </View>
-      <Text style={s.fighterName} numberOfLines={2}>{battle.left.name}</Text>
-      <Text style={s.fighterPrice}>{battle.left.price}</Text>
-      <View style={s.userRow}>
-        <View style={s.avatar} />
-        <Text style={s.username}>{battle.left.user}</Text>
-        <Text style={[s.pct, { color: accent }]}>{battle.left.pct}%</Text>
-      </View>
+const BattleSlide = ({ battle, accent, t, onPress }) => (
+  <TouchableOpacity activeOpacity={0.9} style={s.slide} onPress={onPress}>
+    <View style={s.battleHeader}>
+      <Text style={s.battleTitle} numberOfLines={1}>
+        {battle.title || t('myClosetShopFront.battlePicksTitle')}
+      </Text>
     </View>
 
-    {/* VS */}
-    <View style={s.vsBubble}>
-      <Text style={s.vsText}>{t('myClosetShopFront.vs')}</Text>
-    </View>
+    <View style={s.battleBody}>
+      {/* left */}
+      <View style={s.fighter}>
+        <View style={s.fighterThumb}>
+          {battle.left.image
+            ? <Image source={{ uri: battle.left.image }} style={s.fighterImg} resizeMode="cover" />
+            : <Ionicons name="bag-outline" size={34} color="#9b8c7a" />}
+        </View>
+        <Text style={s.fighterName} numberOfLines={2}>{battle.left.name}</Text>
+        <Text style={s.fighterPrice}>{battle.left.price}</Text>
+        <View style={s.userRow}>
+          {/* <View style={s.avatar} />
+          <Text style={s.username}>{battle.left.user}</Text> */}
+          <Text style={[s.pct, { color: accent }]}>{battle.left.pct}%</Text>
+        </View>
+      </View>
 
-    {/* right */}
-    <View style={s.fighter}>
-      <View style={[s.fighterThumb, { backgroundColor: '#f0eeec' }]}>
-        {battle.right.image
-          ? <Image source={{ uri: battle.right.image }} style={s.fighterImg} resizeMode="cover" />
-          : <Ionicons name="bag-handle-outline" size={34} color="#9b8c7a" />}
+      {/* VS */}
+      <View style={s.vsBubble}>
+        <Text style={s.vsText}>{t('myClosetShopFront.vs')}</Text>
       </View>
-      <Text style={s.fighterName} numberOfLines={2}>{battle.right.name}</Text>
-      <Text style={s.fighterPrice}>{battle.right.price}</Text>
-      <View style={s.userRow}>
-        <View style={s.avatar} />
-        <Text style={s.username}>{battle.right.user}</Text>
-        <Text style={s.pctRed}>{battle.right.pct}%</Text>
+
+      {/* right */}
+      <View style={s.fighter}>
+        <View style={[s.fighterThumb, { backgroundColor: '#f0eeec' }]}>
+          {battle.right.image
+            ? <Image source={{ uri: battle.right.image }} style={s.fighterImg} resizeMode="cover" />
+            : <Ionicons name="bag-handle-outline" size={34} color="#9b8c7a" />}
+        </View>
+        <Text style={s.fighterName} numberOfLines={2}>{battle.right.name}</Text>
+        <Text style={s.fighterPrice}>{battle.right.price}</Text>
+        <View style={s.userRow}>
+          {/* <View style={s.avatar} />
+          <Text style={s.username}>{battle.right.user}</Text> */}
+          <Text style={s.pctRed}>{battle.right.pct}%</Text>
+        </View>
       </View>
     </View>
-  </View>
+  </TouchableOpacity>
 );
 // ── ItemTile ──────────────────────────────────────────────────────────────────
 
@@ -337,6 +370,11 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
     screen: 'MyClosetBattles', // or whatever route name you register MyClosetBattlesScreen under
     params: { closetId },
   });
+  const openBattle = battle => navigateToBattleLive(navigation, {
+    battleId: battle?.id,
+    initialBattle: battle,
+    selectedItems: [battle?.left, battle?.right].filter(Boolean),
+  });
   const goStorefront = () => navigation?.navigate?.('ProfileMain', { screen: 'MyClosetStorefront' });
   const goAddFirst = (isFirstItem = true) => navigation?.navigate?.('ProfileMain', {
     screen: 'MyClosetAddItemPhotos', params: { draft: {}, isFirstItem },
@@ -393,7 +431,7 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
                 showsHorizontalScrollIndicator={false}
                 onScroll={onScroll}
                 scrollEventThrottle={16}
-                renderItem={({ item }) => <BattleSlide battle={item} accent={accent} t={t} />}
+                renderItem={({ item }) => <BattleSlide battle={item} accent={accent} t={t} onPress={() => openBattle(item)} />}
               />
               <View style={s.dots}>
                 {displayBattles.map((_, i) => (
@@ -495,8 +533,7 @@ const s = StyleSheet.create({
   slide: {
     width: SCREEN_W - 24,
     marginLeft: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'column',
     backgroundColor: '#fff',
     borderRadius: 18,
     borderWidth: 1,
@@ -504,6 +541,9 @@ const s = StyleSheet.create({
     padding: 14,
     shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8, elevation: 2,
   },
+  battleHeader: { width: '100%', marginBottom: 12, alignItems: 'center' },
+  battleTitle: { fontSize: 14, fontWeight: '800', color: '#111827', textAlign: 'center' },
+  battleBody: { flexDirection: 'row', alignItems: 'center' },
   fighter: { flex: 1, alignItems: 'center' },
   fighterThumb: { width: 100, height: 100, borderRadius: 14, backgroundColor: '#f5f3ee', alignItems: 'center', justifyContent: 'center', marginBottom: 8, overflow: 'hidden' },
   fighterImg: { width: '100%', height: '100%', borderRadius: 12 },

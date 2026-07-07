@@ -4221,6 +4221,9 @@
     "liveTitle": "Duel en direct",
     "voteAndSeeResults": "Votez et voyez les résultats",
     "voteHelpsOthers": "Votre vote aide les autres à décider !",
+    "voteHelpsDecide": "Votre vote aide les autres à décider !",
+    "voting": "Vote en cours...",
+    "voteOnlyLiveBattles": "Le vote n'est autorisé que pour les duels en direct.",
     "voteFor": "Voter pour {{name}}",
     "resultsTitle": "Résultats du duel",
     "battleInsights": "Statistiques du duel",
@@ -4230,6 +4233,7 @@
     "viewItem": "Voir l'article",
     "useInsights": "Utiliser les analyses",
     "viewBattle": "Voir la bataille",
+    "viewResults": "Voir les résultats",
     "totalVotesCount": "{{count}} votes au total",
     "stats": {
       "votes": "Votes",
