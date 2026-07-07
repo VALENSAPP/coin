@@ -25,13 +25,36 @@ export default function CallbackScreen({ route }) {
         
         // Navigate away immediately after processing
         if (isMounted.current) {
-          // Use replace to remove CallbackScreen from stack
-          navigation.replace('Home');
+          if (navigation.canGoBack()) {
+            navigation.goBack();
+          } else {
+            try {
+              navigation.replace('AppDrawer');
+            } catch {
+              try {
+                navigation.replace('Login');
+              } catch (e) {
+                console.log('CallbackScreen navigation fallback failed:', e);
+              }
+            }
+          }
         }
       } catch (error) {
         console.error('Callback processing error:', error);
         if (isMounted.current) {
-          navigation.replace('Home');
+          if (navigation.canGoBack()) {
+            navigation.goBack();
+          } else {
+            try {
+              navigation.replace('AppDrawer');
+            } catch {
+              try {
+                navigation.replace('Login');
+              } catch (e) {
+                console.log('CallbackScreen navigation error fallback failed:', e);
+              }
+            }
+          }
         }
       }
     };

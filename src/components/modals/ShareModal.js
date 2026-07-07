@@ -25,6 +25,7 @@ import Clipboard from '@react-native-clipboard/clipboard';
 import { useAppTheme } from '../../theme/useApptheme';
 import { getSocket, initializeSocket } from '../../services/socket';
 import { useLanguage } from '../../i18n';
+import { appendTrustPostShareFields } from '../../utils/trustPost';
 
 const { width, height: screenHeight } = Dimensions.get('window');
 const COLS = 3;
@@ -200,6 +201,13 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
         if (sharedContent.reelId) messageData.reelId = sharedContent.reelId;
         if (sharedContent.storyId) {
           messageData.storyId = String(sharedContent.storyId).replace(/_\d+$/, '');
+        }
+
+        if (sharedContent.post) {
+          Object.assign(
+            messageData,
+            appendTrustPostShareFields(messageData, sharedContent.post),
+          );
         }
 
         if (socket?.connected) socket.emit('sendMessage', messageData);
