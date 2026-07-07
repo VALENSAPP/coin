@@ -58,6 +58,7 @@ import { getTotalDonationAmount } from '../../../services/tokens';
 import BuyersListModal from '../../modals/BuyerList';
 import FastImage from 'react-native-fast-image';
 import SupportCreatorModal from '../../modals/SupportCreatorModal';
+import TipSupportModal from '../../modals/TipSupportModal';
 import { getSupportRecipientWalletAddress } from '../../../utils/walletPaymentSupport';
 import { useWalletConnectSupport } from '../../../context/WalletConnectSupportContext';
 import MissionSupportScreen from '../../modals/DonationModal';
@@ -645,6 +646,7 @@ function PostItem({
   const [walletAddress, setWalletAddress] = useState('');
   const [targetWalletAddress, setTargetWalletAddress] = useState('');
   const [supportDisclaimerVisible, setSupportDisclaimerVisible] = useState(false);
+  const [tipPurchaseVisible, setTipPurchaseVisible] = useState(false);
   const [isKycVerified, setIsKycVerified] = useState(false);
   const [isSubscriptionActive, setIsSubscriptionActive] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -1065,6 +1067,11 @@ function PostItem({
       chain: 'POLYGON',
     });
   }, [canSupport, recipientWalletAddress, startSupportPayment, userId, item, t]);
+
+  const handleSendTip = useCallback(() => {
+    setSupportDisclaimerVisible(false);
+    setTipPurchaseVisible(true);
+  }, []);
 
   const handleOpenSupportDisclaimer = useCallback(() => {
     if (!isSupportAllowed({ supporterProfile, recipientProfile })) {
@@ -2532,7 +2539,14 @@ function PostItem({
         variant="disclaimer"
         onClose={() => setSupportDisclaimerVisible(false)}
         onSupport={handleSupportNow}
+        onTipSupport={handleSendTip}
         canSupport={canSupport}
+      />
+      <TipSupportModal
+        visible={tipPurchaseVisible}
+        creatorName={item?.username || t('postItem.defaultCreatorName')}
+        vendorId={item?.UserId ?? item?.userId}
+        onClose={() => setTipPurchaseVisible(false)}
       />
       <TrustCommentModal
         visible={trustCommentModalVisible && !hasSubmittedTrustVote}
@@ -2577,6 +2591,18 @@ const styles = StyleSheet.create({
   wrapper: {
     paddingBottom: 18,
     position: 'relative',
+  },
+  tipModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(12, 8, 20, 0.45)',
+    justifyContent: 'flex-end',
+  },
+  tipModalSheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    minHeight: 500,
+    paddingBottom: 20,
   },
   postCard: {
     backgroundColor: '#FFFFFF',

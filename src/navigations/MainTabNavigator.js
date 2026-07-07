@@ -61,7 +61,7 @@ import Notification from '../pages/settings/Notification';
 import Favourites from '../pages/home/Favourites';
 import Following from '../pages/home/Following';
 import HidePosts from '../pages/settings/HidePosts';
-import subscription from '../pages/settings/Subscription';
+import SubscriptionDetails from '../pages/settings/SubscriptionDetails';
 import TextGradient from '../assets/textgradient/TextGradient';
 import CreateMission from '../pages/post/uploadPost/CreateMission';
 import EditPostScreen from '../pages/post/uploadPost/EditPostScreen';
@@ -90,6 +90,7 @@ import TwoFactorAuthScreen from '../pages/wallet/Two-FactorAuth';
 import LoginHistoryScreen from '../pages/wallet/LoginHistory';
 import SubventionSetupScreen from '../pages/wallet/Subscriptions';
 import EbookPublisherScreen from '../pages/wallet/EbookPublisher';
+import TipPayoutSetupScreen from '../pages/wallet/TipPayoutSetup';
 import KYCVerification from '../pages/authentication/kycVerification';
 import FlipsScreen from '../pages/reels';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -563,7 +564,7 @@ export default function MainTabNavigator() {
         />
         <Stack.Screen
           name="subscription"
-          component={subscription}
+          component={SubscriptionDetails}
           options={{ headerShown: false }}
         />
         <Stack.Screen
@@ -853,6 +854,11 @@ export default function MainTabNavigator() {
             name="EbookPublisher"
             component={EbookPublisherScreen}
             options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="TipPayoutSetup"
+            component={TipPayoutSetupScreen}
+            options={{ headerTitle: t('drawerNav.dashboard') }}
           />
           <Stack.Screen
             name="ViewMissionPost"
