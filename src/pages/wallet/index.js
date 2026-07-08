@@ -25,7 +25,7 @@ import { getLatestTransactions, getRecentActivities, getTokenHistory, getTopCrea
 import { useFocusEffect } from '@react-navigation/native';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
-import { getCreditsLeft, totalMission, totalSupport, totalamount, referPoints, metaMaskRecived, totalPoints, getTotalFollowers, subscriptionEarningGraph } from '../../services/wallet';
+import { getCreditsLeft, totalMission, totalSupport, totalamount, referPoints, metaMaskRecived, totalPoints, getTotalFollowers, subscriptionEarningGraph, totalTransactions } from '../../services/wallet';
 import { getUserCredentials, getUserDashboard } from '../../services/post';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import RBSheet from 'react-native-raw-bottom-sheet';
@@ -873,6 +873,24 @@ export const WalletDashboardScreen = ({ navigation }) => {
     navigation.navigate('EbookPublisher', { type: 'private', format: 'ebook' });
   };
 
+  const handleViewTotalTransactions = async () => {
+    try {
+      dispatch(showLoader());
+      const response = await totalTransactions({ page: 1, limit: 10 });
+      console.log(response,'dyta all trnsationn')
+      const raw = response?.data?.data?.transactions || response?.data?.transactions || response?.data?.data || response?.data || [];
+      navigation.navigate('TransactionActivity', {
+        transactionsRaw: raw,
+        returnTo: { tab: 'wallet', screen: 'WalletDashboard' },
+      });
+    } catch (e) {
+      console.error('Error loading total transactions', e);
+      showToastMessage(toast, 'danger', e?.response?.data?.message || e?.message || 'Failed to load transactions');
+    } finally {
+      dispatch(hideLoader());
+    }
+  };
+
   useFocusEffect(
     useCallback(() => {
       const fetchData = async () => {
@@ -1605,6 +1623,20 @@ export const WalletDashboardScreen = ({ navigation }) => {
                 },
               });
             }}
+          >
+            {cardContent}
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    if (item.id === 'Total Earning') {
+      return (
+        <View key={item.id} style={cellStyle}>
+          <TouchableOpacity
+            style={styles.kpiCardTouchable}
+            activeOpacity={0.86}
+            onPress={handleViewTotalTransactions}
           >
             {cardContent}
           </TouchableOpacity>
