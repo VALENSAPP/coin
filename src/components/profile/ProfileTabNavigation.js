@@ -69,6 +69,24 @@ const ProfileTabs = memo(({
   const isOwnProfile = String(loggedInUserId || '') === String(userData?.id || '');
   const targetProfileId = targetUserId || userData?.id;
 
+  const closetTabKey = effectiveProfileType === 'company' ? 'shop' : 'closet';
+  const closetNavContext = useMemo(
+    () => ({
+      isOwnProfile,
+      sellerProfile: effectiveProfileType,
+      sellerId: userData?.id,
+      closetId: closetData?.id || closetData?.closetDetails?.id,
+      returnTo: isOwnProfile
+        ? { tab: 'Profile', screen: 'Profile', params: { initialTab: closetTabKey } }
+        : {
+          tab: 'HomeMain',
+          screen: 'UsersProfile',
+          params: { userId: userData?.id, initialTab: closetTabKey },
+        },
+    }),
+    [closetData, closetTabKey, effectiveProfileType, isOwnProfile, userData?.id],
+  );
+
   const unwrapMyClosetResponse = useCallback((source) => {
     const level1 = source?.data ?? source;
     if (level1 && typeof level1 === 'object' && !Array.isArray(level1)) {
@@ -345,6 +363,7 @@ const ProfileTabs = memo(({
             activeMediaFilter={mediaTab}
             closetData={closetData}
             dashboard={dashboard}
+            closetNavContext={closetNavContext}
           />
     ),
     closet: (
@@ -355,6 +374,7 @@ const ProfileTabs = memo(({
           shopDraft={shopDraft}
           isOwnProfile={isOwnProfile}
           closetData={closetData}
+          closetNavContext={closetNavContext}
         />
       ) : (
         <Shop
@@ -384,6 +404,7 @@ const ProfileTabs = memo(({
     shopDraft,
     navigation,
     closetData,
+    closetNavContext,
   ]);
 
   // ── Tab metadata — icons/labels/onPress only, NO screen elements ─────────────

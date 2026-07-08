@@ -22,6 +22,11 @@ import {
   getClosetBattlesPriority,
 } from '../../services/myCloset';
 import { useSelector } from 'react-redux';
+import {
+  buildClosetNavContext,
+  navigateToBattleLive,
+  withClosetNavParams,
+} from '../../utils/closetNavigation';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const CARD_W = (SCREEN_W - 48) / 3;
@@ -76,34 +81,6 @@ const mapBattle = (b, i) => {
     left: mapParticipant(p1, b.closet),
     right: mapParticipant(p2, b.closet),
   };
-};
-
-const navigateToBattleLive = (navigation, params) => {
-  if (navigation?.navigate) {
-    try {
-      navigation.navigate('ProfileMain', {
-        screen: 'BattleLive',
-        params,
-      });
-      return true;
-    } catch (_error) {}
-    try {
-      navigation.navigate('BattleLive', params);
-      return true;
-    } catch (_error) {}
-  }
-
-  const parent = navigation?.getParent?.();
-  if (parent?.navigate) {
-    try {
-      parent.navigate('ProfileMain', {
-        screen: 'BattleLive',
-        params,
-      });
-      return true;
-    } catch (_error) {}
-  }
-  return false;
 };
 
 // ── placeholder battle data (fallback while loading / on error) ──────────────
@@ -200,7 +177,7 @@ const ItemTile = ({ item, accent, onPress }) => {
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
-const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = true }) => {
+const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = true, closetNavContext }) => {
   const { t } = useLanguage();
   const [storedUsername, setStoredUsername] = useState('');
   const [items, setItems] = useState([]);
@@ -349,22 +326,35 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
     profile: userData?.profile,
   };
 
-  const goItems = () => navigation?.navigate?.('MyClosetBuyerItems', {
-    items,
-    seller,
-    sellerId: userData?.id,
-    closetId,
-    isOwnProfile,
-  });
+  const navContext = useMemo(
+    () =>
+      closetNavContext ||
+      buildClosetNavContext({
+        isOwnProfile,
+        sellerProfile: userData?.profile,
+        sellerId: userData?.id,
+        closetId,
+        seller,
+      }),
+    [closetId, closetNavContext, isOwnProfile, seller, userData?.id, userData?.profile],
+  );
 
-  const openItem = item => navigation?.navigate?.('MyClosetBuyerItemDetail', {
-    item: item?.raw || item,
-    items,
-    seller,
-    sellerId: userData?.id,
-    closetId,
-    isOwnProfile,
-  });
+  const goItems = () => navigation?.navigate?.('MyClosetBuyerItems', withClosetNavParams(
+    { params: navContext },
+    { items, seller, sellerId: userData?.id, closetId, isOwnProfile },
+  ));
+
+  const openItem = item => navigation?.navigate?.('MyClosetBuyerItemDetail', withClosetNavParams(
+    { params: navContext },
+    {
+      item: item?.raw || item,
+      items,
+      seller,
+      sellerId: userData?.id,
+      closetId,
+      isOwnProfile,
+    },
+  ));
 
   const goBattles = () => navigation?.navigate?.('ProfileMain', {
     screen: 'MyClosetBattles', // or whatever route name you register MyClosetBattlesScreen under
@@ -377,10 +367,10 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
     returnToProfile: isOwnProfile
       ? { screen: 'Profile' }
       : {
-          tab: 'HomeMain',
-          screen: 'UsersProfile',
-          params: { userId: userData?.id },
-        },
+        tab: 'HomeMain',
+        screen: 'UsersProfile',
+        params: { userId: userData?.id },
+      },
   });
   const goStorefront = () => navigation?.navigate?.('ProfileMain', { screen: 'MyClosetStorefront' });
   const goAddFirst = (isFirstItem = true) => navigation?.navigate?.('ProfileMain', {

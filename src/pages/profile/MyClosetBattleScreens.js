@@ -16,6 +16,12 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useLanguage } from '../../i18n';
+import {
+  navigateClosetReturn,
+  useClosetTheme,
+  withClosetNavParams,
+  themeGradient,
+} from '../../utils/closetNavigation';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { useFocusEffect } from '@react-navigation/native';
 import {
@@ -799,20 +805,40 @@ export function BattlePreviewScreen({ navigation, route }) {
 }
 
 export function BattleLiveScreen({ navigation, route }) {
-  const { bgStyle, text, card, bg } = useAppTheme();
+  const { bgStyle, text, card, bg } = useClosetTheme(route);
   const { t } = useLanguage();
   const accent = text || PURPLE;
   const primaryText = text || TEXT;
   const battleId = route?.params?.battleId;
   const initialBattle = route?.params?.initialBattle || null;
+  const returnTo = route?.params?.returnTo;
+  const isOwnProfile = route?.params?.isOwnProfile ?? false;
   const cameFromCard = !!initialBattle;
   const handleBack = useBattleBackHandler(navigation, route);
   const handleDonePress = useCallback(() => {
-    navigation.navigate('MainApp', {
-      screen: 'wallet',
-      params: { screen: 'MyCloset' },
-    });
-  }, [navigation]);
+    if (returnTo) {
+      navigateClosetReturn(navigation, returnTo);
+      return;
+    }
+    if (isOwnProfile) {
+      navigation.navigate('MainApp', {
+        screen: 'wallet',
+        params: { screen: 'MyCloset' },
+      });
+      return;
+    }
+    if (navigation.canGoBack?.()) {
+      navigation.goBack();
+    }
+  }, [navigation, returnTo, isOwnProfile]);
+
+  const handleBackPress = useCallback(() => {
+    if (navigation.canGoBack?.()) {
+      navigation.goBack();
+      return;
+    }
+    navigateClosetReturn(navigation, returnTo);
+  }, [navigation, returnTo]);
 
   const [battle, setBattle] = useState(() => (initialBattle ? normalizeBattle(initialBattle) : null));
   const [loading, setLoading] = useState(() => !!battleId && !initialBattle);
@@ -1390,7 +1416,7 @@ const liveStyles = StyleSheet.create({
 });
 
 export function BattleResultsScreen({ navigation, route }) {
-  const { bgStyle, text, card, bg } = useAppTheme();
+  const { bgStyle, text, card, bg } = useClosetTheme(route);
   const { t } = useLanguage();
   const accent = text || PURPLE;
   const primaryText = text || TEXT;

@@ -7,10 +7,12 @@ export const useAppTheme = (profileTypeOverride) => {
     typeof profileTypeOverride === 'string'
       ? profileTypeOverride.toLowerCase()
       : undefined;
+  const resolvedProfileType =
+    normalizedProfileType === 'normal' ? 'user' : normalizedProfileType;
   const resolvedTheme =
-    normalizedProfileType === 'company'
+    resolvedProfileType === 'company'
       ? businessTheme
-      : normalizedProfileType === 'user'
+      : resolvedProfileType === 'user'
         ? normalTheme
         : theme;
 

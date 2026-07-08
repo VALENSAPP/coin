@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Modal,
   View,
@@ -47,6 +47,17 @@ const SupportMethodModal = ({
   );
   const [selectedMethod, setSelectedMethod] = useState('wallet');
 
+  const isWalletMethodDisabled = !canSupport;
+  const isWalletSelected = selectedMethod === 'wallet';
+  const isTipSelected = selectedMethod === 'tip';
+  const isConnectWalletEnabled = isWalletSelected && canSupport;
+  const isSendTipEnabled = isTipSelected;
+
+  useEffect(() => {
+    if (!visible) return;
+    setSelectedMethod(canSupport ? 'wallet' : 'tip');
+  }, [visible, canSupport]);
+
   const walletBullets = [
     t('supportCreator.walletBullet1'),
     t('supportCreator.walletBullet2'),
@@ -58,18 +69,61 @@ const SupportMethodModal = ({
     t('supportCreator.tipBullet2'),
   ];
 
+  const handleWalletCardPress = () => {
+    if (isWalletMethodDisabled) return;
+    setSelectedMethod('wallet');
+  };
+
+  const handleTipCardPress = () => {
+    setSelectedMethod('tip');
+  };
+
   const handleWalletPress = () => {
-    if (!canSupport) return;
+    if (!isConnectWalletEnabled) return;
     onWalletSupport?.();
   };
 
   const handleTipPress = () => {
+    if (!isSendTipEnabled) return;
     if (onTipSupport) {
       onTipSupport();
       return;
     }
     onClose?.();
   };
+
+  const walletCardStyle = useMemo(() => {
+    if (isWalletMethodDisabled) {
+      return {
+        borderColor: '#E5E7EB',
+        backgroundColor: '#F3F4F6',
+        opacity: 0.65,
+      };
+    }
+    if (isWalletSelected) {
+      return {
+        borderColor: text,
+        backgroundColor: withAlpha(text, 0.06),
+      };
+    }
+    return {
+      borderColor: '#E5E7EB',
+      backgroundColor: card,
+    };
+  }, [isWalletMethodDisabled, isWalletSelected, text, card]);
+
+  const tipCardStyle = useMemo(() => {
+    if (isTipSelected) {
+      return {
+        borderColor: text,
+        backgroundColor: withAlpha(text, 0.06),
+      };
+    }
+    return {
+      borderColor: '#E5E7EB',
+      backgroundColor: card,
+    };
+  }, [isTipSelected, text, card]);
 
   return (
     <Modal
@@ -102,16 +156,10 @@ const SupportMethodModal = ({
             </Text>
 
             <TouchableOpacity
-              activeOpacity={0.9}
-              style={[
-                styles.methodCard,
-                { borderColor: '#E5E7EB', backgroundColor: card },
-                selectedMethod === 'wallet' && {
-                  borderColor: text,
-                  backgroundColor: withAlpha(text, 0.06),
-                },
-              ]}
-              onPress={() => setSelectedMethod('wallet')}
+              activeOpacity={isWalletMethodDisabled ? 1 : 0.9}
+              style={[styles.methodCard, walletCardStyle]}
+              onPress={handleWalletCardPress}
+              disabled={isWalletMethodDisabled}
             >
               <View style={[styles.methodIconWrap, { backgroundColor: withAlpha(text, 0.08) }]}>
                 <Image
@@ -133,15 +181,8 @@ const SupportMethodModal = ({
 
             <TouchableOpacity
               activeOpacity={0.9}
-              style={[
-                styles.methodCard,
-                { borderColor: '#E5E7EB', backgroundColor: card },
-                selectedMethod === 'tip' && {
-                  borderColor: text,
-                  backgroundColor: withAlpha(text, 0.06),
-                },
-              ]}
-              onPress={() => setSelectedMethod('tip')}
+              style={[styles.methodCard, tipCardStyle]}
+              onPress={handleTipCardPress}
             >
               <View style={[styles.methodIconWrap, { backgroundColor: withAlpha(text, 0.12) }]}>
                 <Ionicons name="heart-outline" size={28} color={text} />
@@ -168,18 +209,18 @@ const SupportMethodModal = ({
             <TouchableOpacity
               style={[
                 styles.actionButton,
-                { backgroundColor: canSupport ? text : '#9CA3AF' },
+                { backgroundColor: isConnectWalletEnabled ? text : '#9CA3AF' },
               ]}
               onPress={handleWalletPress}
-              disabled={!canSupport}
-              activeOpacity={0.9}
+              disabled={!isConnectWalletEnabled}
+              activeOpacity={isConnectWalletEnabled ? 0.9 : 1}
             >
               <Ionicons name="wallet-outline" size={20} color="#FFFFFF" />
               <Text style={styles.actionButtonText}>{t('supportCreator.connectWalletButton')}</Text>
               <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
             </TouchableOpacity>
 
-            {!canSupport && (
+            {isWalletSelected && !canSupport && (
               <Text style={styles.walletErrorText}>
                 {t('commonSupportModal.walletNotConnected')}{' '}
                 <Text style={styles.walletErrorName}>{creatorName}</Text>
@@ -188,9 +229,13 @@ const SupportMethodModal = ({
             )}
 
             <TouchableOpacity
-              style={[styles.actionButton, { backgroundColor: text }]}
+              style={[
+                styles.actionButton,
+                { backgroundColor: isSendTipEnabled ? text : '#9CA3AF' },
+              ]}
               onPress={handleTipPress}
-              activeOpacity={0.9}
+              disabled={!isSendTipEnabled}
+              activeOpacity={isSendTipEnabled ? 0.9 : 1}
             >
               <Ionicons name="heart" size={20} color="#FFFFFF" />
               <Text style={styles.actionButtonText}>{t('supportCreator.sendTipButton')}</Text>

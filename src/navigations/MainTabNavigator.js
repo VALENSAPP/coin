@@ -146,7 +146,15 @@ import LanguageSelectionScreen from '../pages/settings/LanguageSelectionScreen';
 import { useLanguage } from '../i18n';
 import MyClosetOrdersScreen from '../components/profile/MyClosetOrdersScreen';
 import MyClosetOrderDetailScreen from '../components/profile/MyClosetOrderDetailScreen';
-import { BattleInsightsActionsScreen, BoostWinningItemScreen, CreateWinnerPromotionScreen, PreviewPromotionScreen, PromotionDetailsScreen, ReviewBoostScreen } from '../pages/profile/Myclosetbattleinsightsscreens';
+import {
+  BattleInsightsActionsScreen,
+  BoostWinningItemScreen,
+  CreateWinnerPromotionScreen,
+  PreviewPromotionScreen,
+  PromotionDetailsScreen,
+  ReviewBoostScreen,
+} from '../pages/profile/Myclosetbattleinsightsscreens';
+import { normalizeProfileType } from '../utils/closetNavigation';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -169,7 +177,7 @@ const MyClosetScreen = props => {
 
         if (!isMounted) return;
 
-        if (profileValue) setStoredProfile(profileValue);
+        if (profileValue) setStoredProfile(normalizeProfileType(profileValue) || 'user');
 
         const closetData = closetValue?.data || closetValue;
         const hasApiSignal =
@@ -244,7 +252,7 @@ const ShopScreenWrapper = props => {
 
         if (!isMounted) return;
 
-        if (profileValue) setStoredProfile(profileValue);
+        if (profileValue) setStoredProfile(normalizeProfileType(profileValue) || 'user');
 
         const closetData = closetValue?.data || closetValue;
         const hasApiSignal =
@@ -355,6 +363,16 @@ export default function MainTabNavigator() {
         <Stack.Screen name="MyClosetBuyerPayment" component={MyClosetBuyerPaymentScreen} />
         <Stack.Screen name="MyClosetBuyerReview" component={MyClosetBuyerReviewScreen} />
         <Stack.Screen name="MyClosetBuyerOrderReceived" component={MyClosetBuyerOrderReceivedScreen} />
+        <Stack.Screen name="MyClosetBattles" component={MyClosetBattlesScreen} />
+        <Stack.Screen name="BattleLive" component={BattleLiveScreen} />
+        <Stack.Screen name="BattleResultsScreen" component={BattleResultsScreen} />
+        <Stack.Screen name="BattleInsightsActions" component={BattleInsightsActionsScreen} />
+        <Stack.Screen name="BoostWinningItem" component={BoostWinningItemScreen} />
+        <Stack.Screen name="ReviewBoost" component={ReviewBoostScreen} />
+        <Stack.Screen name="CreateWinnerPromotion" component={CreateWinnerPromotionScreen} />
+        <Stack.Screen name="PromotionDetails" component={PromotionDetailsScreen} />
+        <Stack.Screen name="PreviewPromotion" component={PreviewPromotionScreen} />
+        <Stack.Screen name="CreateBattle" component={CreateBattleScreen} />
         <Stack.Screen
           name="ShareProfile"
           component={ShareProfile}

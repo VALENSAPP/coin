@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -17,6 +17,7 @@ import {
   View,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import FastImage from 'react-native-fast-image';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   getMyClosetItems,
@@ -41,11 +42,20 @@ import {
 import { useAppTheme } from '../../theme/useApptheme';
 import { useLanguage } from '../../i18n';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
+import { FlatList as GestureFlatList } from 'react-native-gesture-handler';
+import InstagramZoomableImage from '../shared/InstagramZoomableImage';
+import {
+  navigateToBattleLive,
+  navigateClosetReturn,
+  useClosetTheme,
+  withClosetNavParams,
+} from '../../utils/closetNavigation';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const GRID_GAP = 12;
 const GRID_ITEM_WIDTH = (SCREEN_WIDTH - 48) / 2;
 const HERO_IMAGE_WIDTH = SCREEN_WIDTH - 40;
+const HERO_IMAGE_HEIGHT = 220;
 const MUTED = '#6b7280';
 const BORDER = '#ebe4f3';
 const SURFACE = '#fbf8ff';
@@ -118,34 +128,6 @@ const thumb = item => {
   if (!item) return null;
   if (Array.isArray(item.images) && item.images.length) return item.images[0];
   return item.image || item.thumbnail || null;
-};
-
-const navigateToBattleLive = (navigation, params) => {
-  if (navigation?.navigate) {
-    try {
-      navigation.navigate('ProfileMain', {
-        screen: 'BattleLive',
-        params,
-      });
-      return true;
-    } catch (_error) {}
-    try {
-      navigation.navigate('BattleLive', params);
-      return true;
-    } catch (_error) {}
-  }
-
-  const parent = navigation?.getParent?.();
-  if (parent?.navigate) {
-    try {
-      parent.navigate('ProfileMain', {
-        screen: 'BattleLive',
-        params,
-      });
-      return true;
-    } catch (_error) {}
-  }
-  return false;
 };
 
 const mapParticipant = (participant = {}, closet) => {
@@ -268,8 +250,12 @@ const buildCart = (route, t, overrides = {}) => {
   };
 };
 
-const goBack = navigation => {
-  if (navigation.canGoBack?.()) navigation.goBack();
+const goBack = (navigation, returnTo) => {
+  if (navigation.canGoBack?.()) {
+    navigation.goBack();
+    return;
+  }
+  navigateClosetReturn(navigation, returnTo);
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -325,10 +311,10 @@ const validateForm = (form, fieldRules, t) => {
 // Shared UI atoms
 // ─────────────────────────────────────────────────────────────────────────────
 
-const Header = ({ navigation, title, rightIcon, onRightPress }) => (
+const Header = ({ navigation, title, rightIcon, onRightPress, returnTo }) => (
   <View style={styles.header}>
     <TouchableOpacity
-      onPress={() => goBack(navigation)}
+      onPress={() => goBack(navigation, returnTo)}
       style={styles.iconButton}
       activeOpacity={0.8}
     >
@@ -345,13 +331,14 @@ const Header = ({ navigation, title, rightIcon, onRightPress }) => (
   </View>
 );
 
-const BottomButton = ({ label, onPress, icon }) => {
-  const { text } = useAppTheme();
+const BottomButton = ({ label, onPress, icon, accentColor }) => {
+  const { text: fallbackAccent } = useAppTheme();
+  const buttonColor = accentColor || fallbackAccent;
   return (
     <TouchableOpacity
       activeOpacity={0.9}
       onPress={onPress}
-      style={[styles.bottomButton, { backgroundColor: text }]}
+      style={[styles.bottomButton, { backgroundColor: buttonColor }]}
     >
       {icon ? <Ionicons name={icon} size={16} color="#fff" style={styles.buttonIcon} /> : null}
       <Text style={styles.bottomButtonText}>{label}</Text>
@@ -374,34 +361,82 @@ const ImageBox = ({ uri, style, iconSize = 34 }) => (
   </View>
 );
 
-const DetailImageCarousel = ({ images }) => {
-  const { text } = useAppTheme();
+const DetailImageCarousel = ({ images, onZoomChange, accentColor }) => {
+  const { text: fallbackAccent } = useAppTheme();
+  const text = accentColor || fallbackAccent;
   const [activeIndex, setActiveIndex] = useState(0);
+  const [scrollEnabled, setScrollEnabled] = useState(true);
+  const listRef = useRef(null);
   const galleryImages = images.length ? images : [null];
 
-  const onScrollEnd = event => {
+  useEffect(() => {
+    const urls = galleryImages.filter(Boolean);
+    if (!urls.length) return;
+    FastImage.preload(urls.map(uri => ({ uri, priority: FastImage.priority.high })));
+  }, [galleryImages]);
+
+  const onScroll = useCallback(event => {
     const nextIndex = Math.round(
       event.nativeEvent.contentOffset.x / HERO_IMAGE_WIDTH,
     );
-    setActiveIndex(Math.max(0, Math.min(nextIndex, galleryImages.length - 1)));
-  };
+    const clampedIndex = Math.max(0, Math.min(nextIndex, galleryImages.length - 1));
+    if (clampedIndex !== activeIndex) {
+      setActiveIndex(clampedIndex);
+    }
+  }, [activeIndex, galleryImages.length]);
+
+  const handleZoomChange = useCallback(zoomed => {
+    setScrollEnabled(!zoomed);
+    onZoomChange?.(zoomed);
+  }, [onZoomChange]);
+
+  const renderItem = useCallback(({ item }) => {
+    if (!item) {
+      return (
+        <View style={styles.heroSlide}>
+          <ImageBox uri={null} style={styles.heroImage} iconSize={64} />
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.heroSlide}>
+        <InstagramZoomableImage
+          uri={item}
+          height={HERO_IMAGE_HEIGHT}
+          width={HERO_IMAGE_WIDTH}
+          resizeMode={FastImage.resizeMode.cover}
+          onZoomChange={handleZoomChange}
+          simultaneousHandlers={listRef}
+        />
+      </View>
+    );
+  }, [handleZoomChange]);
 
   return (
     <View>
-      <FlatList
+      <GestureFlatList
+        ref={listRef}
         data={galleryImages}
         keyExtractor={(uri, index) => `${uri || 'placeholder'}-${index}`}
-        renderItem={({ item }) => (
-          <ImageBox uri={item} style={styles.heroImage} iconSize={64} />
-        )}
+        renderItem={renderItem}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
-        bounces={galleryImages.length > 1}
-        onMomentumScrollEnd={onScrollEnd}
-        initialNumToRender={1}
-        windowSize={3}
+        scrollEnabled={scrollEnabled && galleryImages.length > 1}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
+        decelerationRate="fast"
+        snapToInterval={HERO_IMAGE_WIDTH}
+        snapToAlignment="start"
+        disableIntervalMomentum
+        directionalLockEnabled
+        nestedScrollEnabled
         removeClippedSubviews={false}
+        initialNumToRender={galleryImages.length > 1 ? 2 : 1}
+        maxToRenderPerBatch={2}
+        windowSize={3}
+        extraData={activeIndex}
         getItemLayout={(_, index) => ({
           length: HERO_IMAGE_WIDTH,
           offset: HERO_IMAGE_WIDTH * index,
@@ -424,8 +459,9 @@ const DetailImageCarousel = ({ images }) => {
   );
 };
 
-const SummaryRow = ({ label, value, bold }) => {
-  const { text } = useAppTheme();
+const SummaryRow = ({ label, value, bold, accentColor }) => {
+  const { text: fallbackAccent } = useAppTheme();
+  const text = accentColor || fallbackAccent;
   return (
     <View style={styles.summaryRow}>
       <Text style={[styles.summaryLabel, bold && styles.summaryStrong]}>{label}</Text>
@@ -436,8 +472,9 @@ const SummaryRow = ({ label, value, bold }) => {
   );
 };
 
-const CheckoutSteps = ({ current, includeShipping = true }) => {
-  const { text } = useAppTheme();
+const CheckoutSteps = ({ current, includeShipping = true, accentColor }) => {
+  const { text: fallbackAccent } = useAppTheme();
+  const text = accentColor || fallbackAccent;
   const { t } = useLanguage();
   const steps = includeShipping
     ? [
@@ -478,8 +515,9 @@ const CheckoutSteps = ({ current, includeShipping = true }) => {
   );
 };
 
-const SellerCard = ({ seller }) => {
-  const { text } = useAppTheme();
+const SellerCard = ({ seller, accentColor }) => {
+  const { text: fallbackAccent } = useAppTheme();
+  const text = accentColor || fallbackAccent;
   const { t } = useLanguage();
   return (
     <View style={styles.sellerCard}>
@@ -505,8 +543,9 @@ const SellerCard = ({ seller }) => {
   );
 };
 
-const OrderSummary = ({ cart, editable, compact, onEditCart }) => {
-  const { text } = useAppTheme();
+const OrderSummary = ({ cart, editable, compact, onEditCart, accentColor }) => {
+  const { text: fallbackAccent } = useAppTheme();
+  const text = accentColor || fallbackAccent;
   const { t } = useLanguage();
   const lines = Array.isArray(cart.cartItemsSnapshot) && cart.cartItemsSnapshot.length
     ? cart.cartItemsSnapshot
@@ -556,26 +595,27 @@ const OrderSummary = ({ cart, editable, compact, onEditCart }) => {
       )}
 
       <View style={styles.divider} />
-      <SummaryRow label={t('myClosetBuyer.itemTotal')} value={currency(cart.itemTotal)} />
+      <SummaryRow label={t('myClosetBuyer.itemTotal')} value={currency(cart.itemTotal)} accentColor={text} />
       {cart.shipping > 0 ? (
-        <SummaryRow label={t('myClosetBuyer.shippingFee')} value={currency(cart.shipping)} />
+        <SummaryRow label={t('myClosetBuyer.shippingFee')} value={currency(cart.shipping)} accentColor={text} />
       ) : null}
       {cart.taxAmount > 0 ? (
-        <SummaryRow label={t('myClosetBuyer.taxAmount')} value={currency(cart.taxAmount)} />
+        <SummaryRow label={t('myClosetBuyer.taxAmount')} value={currency(cart.taxAmount)} accentColor={text} />
       ) : null}
       {cart.platformFee > 0 ? (
-        <SummaryRow label={t('myClosetBuyer.platformFee')} value={currency(cart.platformFee)} />
+        <SummaryRow label={t('myClosetBuyer.platformFee')} value={currency(cart.platformFee)} accentColor={text} />
       ) : null}
       {cart.discountAmount > 0 ? (
-        <SummaryRow label={t('myClosetBuyer.discountAmount')} value={`-${currency(cart.discountAmount)}`} />
+        <SummaryRow label={t('myClosetBuyer.discountAmount')} value={`-${currency(cart.discountAmount)}`} accentColor={text} />
       ) : null}
-      <SummaryRow label={t('myClosetBuyer.total')} value={currency(cart.total)} bold />
+      <SummaryRow label={t('myClosetBuyer.total')} value={currency(cart.total)} bold accentColor={text} />
     </View>
   );
 };
 
-const FixedShippingBadge = ({ choice }) => {
-  const { text } = useAppTheme();
+const FixedShippingBadge = ({ choice, accentColor }) => {
+  const { text: fallbackAccent } = useAppTheme();
+  const text = accentColor || fallbackAccent;
   const { t } = useLanguage();
   const meta = SHIPPING_CHOICE_META[choice];
   return (
@@ -635,8 +675,9 @@ const EMPTY_ADDRESS = {
 };
 
 // editAddress prop: if passed, modal opens in edit mode pre-filled with that address
-const AddAddressModal = ({ visible, onClose, onSaved, editAddress }) => {
-  const { text } = useAppTheme();
+const AddAddressModal = ({ visible, onClose, onSaved, editAddress, accentColor }) => {
+  const { text: fallbackAccent } = useAppTheme();
+  const accent = accentColor || fallbackAccent;
   const { t } = useLanguage();
   const isEdit = !!editAddress;
   const fieldRules = useMemo(() => getFieldRules(t), [t]);
@@ -778,7 +819,7 @@ const AddAddressModal = ({ visible, onClose, onSaved, editAddress }) => {
             <Ionicons
               name={form.isDefault ? 'checkbox' : 'square-outline'}
               size={20}
-              color={text}
+              color={accent}
             />
             <Text style={styles.defaultLabel}>{t('myClosetBuyer.setAsDefaultAddress')}</Text>
           </TouchableOpacity>
@@ -787,6 +828,7 @@ const AddAddressModal = ({ visible, onClose, onSaved, editAddress }) => {
           <BottomButton
             label={saving ? t('myClosetBuyer.saving') : isEdit ? t('myClosetBuyer.updateAddressButton') : t('myClosetBuyer.saveAddressButton')}
             onPress={saving ? undefined : handleSave}
+            accentColor={accent}
           />
         </View>
       </SafeAreaView>
@@ -799,13 +841,14 @@ const AddAddressModal = ({ visible, onClose, onSaved, editAddress }) => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const MyClosetBuyerItemsScreen = ({ navigation, route }) => {
-  const { bgStyle, text } = useAppTheme(route?.params?.seller?.profile);
+  const { bgStyle, text } = useClosetTheme(route);
   const { t } = useLanguage();
   const [items, setItems] = useState(() => getRouteItems(route, t));
   const [loading, setLoading] = useState(false);
   const seller = useMemo(() => route?.params?.seller || {}, [route?.params?.seller]);
   const sellerId = route?.params?.sellerId || seller?.id;
   const accent = text;
+  const returnTo = route?.params?.returnTo;
 
   const loadItems = useCallback(async () => {
     if (items.length) return;
@@ -839,15 +882,15 @@ const MyClosetBuyerItemsScreen = ({ navigation, route }) => {
 
   const openItem = useCallback(
     item => {
-      navigation.navigate('MyClosetBuyerItemDetail', {
+      navigation.navigate('MyClosetBuyerItemDetail', withClosetNavParams(route, {
         item: item.raw || item,
         seller,
         sellerId,
         items: route?.params?.items || items.map(row => row.raw || row),
         isOwnProfile: route?.params?.isOwnProfile,
-      });
+      }));
     },
-    [items, navigation, route?.params?.items, seller, sellerId],
+    [items, navigation, route, seller, sellerId],
   );
 
   const renderItem = ({ item }) => (
@@ -869,7 +912,7 @@ const MyClosetBuyerItemsScreen = ({ navigation, route }) => {
 
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
-      <Header navigation={navigation} title={t('myClosetBuyer.myClosetTitle')} />
+      <Header navigation={navigation} title={t('myClosetBuyer.myClosetTitle')} returnTo={returnTo} />
       {loading ? (
         <View style={styles.loaderWrap}>
           <ActivityIndicator color={accent} />
@@ -915,9 +958,11 @@ const MyClosetBuyerItemsScreen = ({ navigation, route }) => {
 };
 
 const MyClosetBattlesScreen = ({ navigation, route }) => {
-  const { bgStyle, text: accent } = useAppTheme();
+  const { bgStyle, text: accent } = useClosetTheme(route);
   const { t } = useLanguage();
   const closetId = route?.params?.closetId;
+  const isOwnProfile = route?.params?.isOwnProfile ?? false;
+  const returnTo = route?.params?.returnTo;
 
   const [battles, setBattles] = useState([]);
   const [page, setPage] = useState(1);
@@ -942,7 +987,7 @@ const MyClosetBattlesScreen = ({ navigation, route }) => {
   }, [closetId]);
 
   const openBattle = useCallback((battle) => {
-    navigateToBattleLive(navigation, {
+    navigateToBattleLive(navigation, withClosetNavParams(route, {
       battleId: battle?.id,
       initialBattle: battle,
       selectedItems: [battle?.left, battle?.right].filter(Boolean),
@@ -953,8 +998,8 @@ const MyClosetBattlesScreen = ({ navigation, route }) => {
             screen: 'UsersProfile',
             params: { userId: route?.params?.seller?.id || route?.params?.sellerId },
           },
-    });
-  }, [navigation, isOwnProfile, route?.params?.seller?.id, route?.params?.sellerId]);
+    }));
+  }, [navigation, isOwnProfile, route, route?.params?.seller?.id, route?.params?.sellerId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -975,7 +1020,7 @@ const MyClosetBattlesScreen = ({ navigation, route }) => {
 
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
-      <Header navigation={navigation} title={t('myClosetShopFront.battlePicksTitle')} />
+      <Header navigation={navigation} title={t('myClosetShopFront.battlePicksTitle')} returnTo={returnTo} />
       {loading ? (
         <View style={styles.loaderWrap}>
           <ActivityIndicator color={accent} />
@@ -1011,20 +1056,22 @@ const MyClosetBattlesScreen = ({ navigation, route }) => {
 };
 
 const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
-  const { text, bgStyle } = useAppTheme();
+  const { text, bgStyle } = useClosetTheme(route);
   const { t } = useLanguage();
   const item = normalizeItem(route?.params?.item || {}, 0, t);
   const seller = route?.params?.seller || {};
   const isOwnProfile = route?.params?.isOwnProfile ?? false;
+  const returnTo = route?.params?.returnTo;
   const [liked, setLiked] = useState(false);
+  const [detailScrollEnabled, setDetailScrollEnabled] = useState(true);
 
   const goOptions = () => {
-    navigation.navigate('MyClosetBuyerOptions', {
+    navigation.navigate('MyClosetBuyerOptions', withClosetNavParams(route, {
       item: item.raw,
       seller,
       sellerId: route?.params?.sellerId,
       items: route?.params?.items || [],
-    });
+    }));
   };
 
   return (
@@ -1034,15 +1081,21 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
         title={t('myClosetBuyer.myClosetTitle')}
         rightIcon={liked ? 'heart' : 'heart-outline'}
         onRightPress={() => setLiked(prev => !prev)}
+        returnTo={returnTo}
       />
       <ScrollView
         contentContainerStyle={styles.detailContent}
         showsVerticalScrollIndicator={false}
+        scrollEnabled={detailScrollEnabled}
       >
-        <DetailImageCarousel images={item.images} />
+        <DetailImageCarousel
+          images={item.images}
+          accentColor={text}
+          onZoomChange={zoomed => setDetailScrollEnabled(!zoomed)}
+        />
         <Text style={styles.detailName}>{item.name}</Text>
         <Text style={[styles.detailPrice, { color: text }]}>{item.price}</Text>
-        <SellerCard seller={seller} />
+        <SellerCard seller={seller} accentColor={text} />
         <Text style={styles.sectionLabel}>{t('myClosetBuyer.description')}</Text>
         <Text style={styles.description}>{item.description}</Text>
         <View style={styles.attributeList}>
@@ -1061,7 +1114,7 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
       </ScrollView>
       {!isOwnProfile && (
         <View style={styles.bottomBar}>
-          <BottomButton label={t('myClosetBuyer.buyNow')} onPress={goOptions} />
+          <BottomButton label={t('myClosetBuyer.buyNow')} onPress={goOptions} accentColor={text} />
         </View>
       )}
     </SafeAreaView>
@@ -1069,8 +1122,9 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
 };
 
 const MyClosetBuyerOptionsScreen = ({ navigation, route }) => {
-  const { text } = useAppTheme();
+  const { text, bgStyle } = useClosetTheme(route);
   const { t } = useLanguage();
+  const returnTo = route?.params?.returnTo;
   const item = normalizeItem(route?.params?.item || {}, 0, t);
   const [quantity, setQuantity] = useState(1);
   const [note, setNote] = useState('');
@@ -1119,14 +1173,14 @@ const MyClosetBuyerOptionsScreen = ({ navigation, route }) => {
   // ── POST /cart/items — add item to server cart ───────────────────────────
   const goCart = async () => {
     if (!productId) {
-      navigation.navigate('MyClosetBuyerCart', {
+      navigation.navigate('MyClosetBuyerCart', withClosetNavParams(route, {
         item: item.raw,
         seller: route?.params?.seller || {},
         sellerId: route?.params?.sellerId,
         items: route?.params?.items || [],
         quantity,
         note,
-      });
+      }));
       return;
     }
     setAdding(true);
@@ -1139,23 +1193,24 @@ const MyClosetBuyerOptionsScreen = ({ navigation, route }) => {
     } finally {
       setAdding(false);
     }
-    navigation.navigate('MyClosetBuyerCart', {
+    navigation.navigate('MyClosetBuyerCart', withClosetNavParams(route, {
       item: item.raw,
       seller: route?.params?.seller || {},
       sellerId: route?.params?.sellerId,
       items: route?.params?.items || [],
       quantity,
       note,
-    });
+    }));
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, bgStyle]}>
       <Header
         navigation={navigation}
         title={t('myClosetBuyer.selectOptions')}
         rightIcon="close"
-        onRightPress={() => goBack(navigation)}
+        onRightPress={() => goBack(navigation, returnTo)}
+        returnTo={returnTo}
       />
       <ScrollView
         contentContainerStyle={styles.formContent}
@@ -1215,6 +1270,7 @@ const MyClosetBuyerOptionsScreen = ({ navigation, route }) => {
         <BottomButton
           label={adding ? t('myClosetBuyer.adding') : syncingQty ? t('myClosetBuyer.loading') : t('myClosetBuyer.addToCart')}
           onPress={(adding || syncingQty) ? undefined : goCart}
+          accentColor={text}
         />
       </View>
     </SafeAreaView>
@@ -1240,8 +1296,9 @@ const SHIPPING_CHOICE_META = {
   },
 };
 
-const ShippingChoiceCard = ({ choice, selected, onPress, disabled }) => {
-  const { text } = useAppTheme();
+const ShippingChoiceCard = ({ choice, selected, onPress, disabled, accentColor }) => {
+  const { text: fallbackAccent } = useAppTheme();
+  const text = accentColor || fallbackAccent;
   const { t } = useLanguage();
   const meta = SHIPPING_CHOICE_META[choice];
   return (
@@ -1288,6 +1345,7 @@ const ItemShippingChoicePicker = ({ item, selectedChoice, onSelect, loading, tex
             selected={selectedChoice === choice}
             disabled={loading}
             onPress={() => onSelect(item.id, choice)}
+            accentColor={text}
           />
         ))}
       </View>
@@ -1305,8 +1363,9 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
   const [shippingChoiceLoading, setShippingChoiceLoading] = useState(null);
   const [cartId, setCartId] = useState(null);
   const [checkingOut, setCheckingOut] = useState(false);
-  const { text } = useAppTheme();
+  const { text, bgStyle } = useClosetTheme(route);
   const { t } = useLanguage();
+  const returnTo = route?.params?.returnTo;
   const localCart = buildCart(route, t); // fallback data from route params
 
   // ── Server cart state ───────────────────────────────────────────────────
@@ -1387,7 +1446,7 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
                 const remaining = cartItems.filter(ci => ci.id !== cartItemId);
                 setCartItems(remaining);
                 if (remaining.length === 0) {
-                  goBack(navigation);
+                  goBack(navigation, returnTo);
                 }
               } catch (err) {
                 Alert.alert(t('myClosetBuyer.errorTitle'), err?.response?.data?.message || t('myClosetBuyer.removeItemError'));
@@ -1534,16 +1593,12 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
 
     //   const breakdown = checkout?.breakdown ?? null;
     //   console.log('[DEBUG] checkout breakdown:', JSON.stringify(breakdown, null, 2));
-    navigation.navigate('MyClosetBuyerCheckout', {
-      ...route.params,
+    navigation.navigate('MyClosetBuyerCheckout', withClosetNavParams(route, {
       cartId,
-      // checkoutData: checkout,
-      // itemTotal: breakdown?.itemsSubtotal ?? computedItemTotal,
-      // shippingAmount: breakdown?.shippingAmount ?? 0,
-      // total: breakdown?.totalAmountDue ?? total,
       cartItemsSnapshot: cartItems,
       shippingOptionsMap,
-    });
+      requiresShipping,
+    }));
     // } catch (err) {
     //   Alert.alert(
     //     t('myClosetBuyer.errorTitle'),
@@ -1563,12 +1618,13 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
   const cartItemMax = ci => Number(ci?.product?.quantity || ci?.product?.availableQuantity || 99) || 99;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, bgStyle]}>
       <Header
         navigation={navigation}
         title={cartLoading ? t('myClosetBuyer.cartTitle') : t('myClosetBuyer.cartTitleWithCount', { count: cartItems.length })}
         rightIcon={cartItems.length > 0 ? 'trash-outline' : undefined}
         onRightPress={handleClearCart}
+        returnTo={returnTo}
       />
 
       {cartLoading ? (
@@ -1672,10 +1728,17 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
               })}
 
               <View style={styles.summaryBlock}>
-                <SummaryRow label={t('myClosetBuyer.itemTotal')} value={currency(computedItemTotal)} />
-                {/* <SummaryRow label="Shipping" value={currency(shipping)} />
-                <SummaryRow label="Service fee" value={currency(serviceFee)} /> */}
-                <SummaryRow label={t('myClosetBuyer.total')} value={currency(total)} bold />
+                <SummaryRow
+                  label={t('myClosetBuyer.itemTotal')}
+                  value={currency(computedItemTotal)}
+                  accentColor={text}
+                />
+                <SummaryRow
+                  label={t('myClosetBuyer.total')}
+                  value={currency(total)}
+                  bold
+                  accentColor={text}
+                />
               </View>
 
               <View style={styles.protectionCard}>
@@ -1697,6 +1760,7 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
           <BottomButton
             label={checkingOut ? t('myClosetBuyer.loading') : t('myClosetBuyer.proceedToCheckout')}
             onPress={checkingOut ? undefined : handleProceed}
+            accentColor={text}
           />
         </View>
       )}
@@ -1706,19 +1770,20 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
 
 const MyClosetBuyerCheckoutScreen = ({ navigation, route }) => {
   const { t } = useLanguage();
+  const { bgStyle, text } = useClosetTheme(route);
+  const returnTo = route?.params?.returnTo;
   const cart = buildCart(route, t);
   const requiresShipping = route?.params?.requiresShipping ?? true;
   const [continuing, setContinuing] = useState(false);
 
-  const handleEditCart = () => navigation.navigate('MyClosetBuyerCart', route.params);
+  const handleEditCart = () => navigation.navigate('MyClosetBuyerCart', withClosetNavParams(route));
 
   const handleContinue = async () => {
     const cartId = route?.params?.cartId;
     if (!cartId) {
-      // No cartId available (e.g. legacy single-item flow) — just proceed as before
       navigation.navigate(
         requiresShipping ? 'MyClosetBuyerShipping' : 'MyClosetBuyerPayment',
-        route.params,
+        withClosetNavParams(route),
       );
       return;
     }
@@ -1738,13 +1803,12 @@ const MyClosetBuyerCheckoutScreen = ({ navigation, route }) => {
 
       navigation.navigate(
         requiresShipping ? 'MyClosetBuyerShipping' : 'MyClosetBuyerPayment',
-        {
-          ...route.params,
+        withClosetNavParams(route, {
           checkoutData: checkout,
           itemTotal: breakdown?.itemsSubtotal ?? route?.params?.itemTotal,
           shippingAmount: breakdown?.shippingAmount ?? 0,
           total: breakdown?.totalAmountDue ?? route?.params?.total,
-        },
+        }),
       );
     } catch (err) {
       Alert.alert(
@@ -1757,11 +1821,11 @@ const MyClosetBuyerCheckoutScreen = ({ navigation, route }) => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <Header navigation={navigation} title={t('myClosetBuyer.checkoutTitle')} />
+    <SafeAreaView style={[styles.safeArea, bgStyle]}>
+      <Header navigation={navigation} title={t('myClosetBuyer.checkoutTitle')} returnTo={returnTo} />
       <ScrollView contentContainerStyle={styles.checkoutContent} showsVerticalScrollIndicator={false}>
-        <CheckoutSteps current={0} includeShipping={requiresShipping} />
-        <OrderSummary cart={cart} editable onEditCart={handleEditCart} />
+        <CheckoutSteps current={0} includeShipping={requiresShipping} accentColor={text} />
+        <OrderSummary cart={cart} editable onEditCart={handleEditCart} accentColor={text} />
       </ScrollView>
       <View style={styles.bottomBar}>
         <BottomButton
@@ -1773,6 +1837,7 @@ const MyClosetBuyerCheckoutScreen = ({ navigation, route }) => {
                 : t('myClosetBuyer.continueToPayment')
           }
           onPress={continuing ? undefined : handleContinue}
+          accentColor={text}
         />
       </View>
     </SafeAreaView>
@@ -1783,8 +1848,9 @@ const MyClosetBuyerCheckoutScreen = ({ navigation, route }) => {
 // Shipping screen — fetches real addresses from GET /address/getAddress
 // ─────────────────────────────────────────────────────────────────────────────
 const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
-  const { text } = useAppTheme();
+  const { text, bgStyle } = useClosetTheme(route);
   const { t } = useLanguage();
+  const returnTo = route?.params?.returnTo;
   const cart = buildCart(route, t);
   const [method, setMethod] = useState('standard');
   const [showAddressModal, setShowAddressModal] = useState(false);
@@ -1954,13 +2020,13 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <Header navigation={navigation} title={t('myClosetBuyer.shippingInformationTitle')} />
+    <SafeAreaView style={[styles.safeArea, bgStyle]}>
+      <Header navigation={navigation} title={t('myClosetBuyer.shippingInformationTitle')} returnTo={returnTo} />
       <ScrollView
         contentContainerStyle={styles.checkoutContent}
         showsVerticalScrollIndicator={false}
       >
-        <CheckoutSteps current={1} />
+        <CheckoutSteps current={1} accentColor={text} />
 
         {(itemsNeedingChoice.length > 0 || fixedChoiceItems.length > 0) && (
           <>
@@ -1986,7 +2052,10 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
                 <View key={ci.id} style={{ marginBottom: 12 }}>
                   <Text style={styles.shipChoiceItemName} numberOfLines={1}>Item -
                     <Text style={{ color: text }}> {name}</Text></Text>
-                  <FixedShippingBadge choice={opt === SHIP_OPTION_LOCAL ? SHIP_OPTION_LOCAL : SHIP_OPTION_SHIP} />
+                  <FixedShippingBadge
+                    choice={opt === SHIP_OPTION_LOCAL ? SHIP_OPTION_LOCAL : SHIP_OPTION_SHIP}
+                    accentColor={text}
+                  />
                 </View>
               );
             })}
@@ -2161,6 +2230,7 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
       <View style={styles.bottomBar}>
         <BottomButton
           label={continuing ? t('myClosetBuyer.loading') : t('myClosetBuyer.continueToPayment')}
+          accentColor={text}
           onPress={continuing ? undefined : async () => {
             if (!allChoicesMade) {
               Alert.alert(t('myClosetBuyer.selectShippingTitle'), t('myClosetBuyer.selectShippingMessage'));
@@ -2173,7 +2243,7 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
 
             const cartId = route?.params?.cartId;
             if (!cartId) {
-              navigation.navigate('MyClosetBuyerPayment', { ...nextCart, requiresShipping });
+              navigation.navigate('MyClosetBuyerPayment', withClosetNavParams(route, { ...nextCart, requiresShipping }));
               return;
             }
 
@@ -2190,14 +2260,14 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
 
               const breakdown = checkout?.breakdown ?? null;
 
-              navigation.navigate('MyClosetBuyerPayment', {
+              navigation.navigate('MyClosetBuyerPayment', withClosetNavParams(route, {
                 ...nextCart,
                 requiresShipping,
                 checkoutData: checkout,
                 itemTotal: breakdown?.itemsSubtotal ?? nextCart?.itemTotal,
                 shippingAmount: breakdown?.shippingAmount ?? 0,
                 total: breakdown?.totalAmountDue ?? nextCart?.total,
-              });
+              }));
             } catch (err) {
               Alert.alert(
                 t('myClosetBuyer.errorTitle'),
@@ -2215,14 +2285,16 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
         onClose={() => { setShowAddressModal(false); setEditingAddress(null); }}
         onSaved={editingAddress ? handleAddressUpdated : handleAddressSaved}
         editAddress={editingAddress}
+        accentColor={text}
       />
     </SafeAreaView>
   );
 };
 
 const MyClosetBuyerPaymentScreen = ({ navigation, route }) => {
-  const { text } = useAppTheme();
+  const { text, bgStyle } = useClosetTheme(route);
   const { t } = useLanguage();
+  const returnTo = route?.params?.returnTo;
   const [paymentMethod, setPaymentMethod] = useState('secure');
   const requiresShipping = route?.params?.requiresShipping ?? true;
   const cartId = route?.params?.cartId;
@@ -2255,13 +2327,13 @@ const MyClosetBuyerPaymentScreen = ({ navigation, route }) => {
   const cart = buildCart({ params: { ...route.params, checkoutData } }, t);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <Header navigation={navigation} title={t('myClosetBuyer.paymentTitle')} />
+    <SafeAreaView style={[styles.safeArea, bgStyle]}>
+      <Header navigation={navigation} title={t('myClosetBuyer.paymentTitle')} returnTo={returnTo} />
       <ScrollView
         contentContainerStyle={styles.checkoutContent}
         showsVerticalScrollIndicator={false}
       >
-        <CheckoutSteps current={requiresShipping ? 2 : 1} includeShipping={requiresShipping} />
+        <CheckoutSteps current={requiresShipping ? 2 : 1} includeShipping={requiresShipping} accentColor={text} />
         <Text style={styles.sectionLabel}>{t('myClosetBuyer.paymentMethod')}</Text>
         {[
           { key: 'secure', label: t('myClosetBuyer.secureCheckout'), sub: t('myClosetBuyer.secureCheckoutSub'), icon: 'shield-checkmark-outline' },
@@ -2299,14 +2371,15 @@ const MyClosetBuyerPaymentScreen = ({ navigation, route }) => {
             <Text style={styles.addressErrorText}>{breakdownError}</Text>
           </View>
         ) : (
-          <OrderSummary cart={cart} compact />
+          <OrderSummary cart={cart} compact accentColor={text} />
         )}
       </ScrollView>
       <View style={styles.bottomBar}>
         <BottomButton
           label={t('myClosetBuyer.continueToReview')}
+          accentColor={text}
           onPress={() =>
-            navigation.navigate('MyClosetBuyerReview', { ...route.params, checkoutData, paymentMethod })
+            navigation.navigate('MyClosetBuyerReview', withClosetNavParams(route, { checkoutData, paymentMethod }))
           }
         />
       </View>
@@ -2318,8 +2391,9 @@ const MyClosetBuyerPaymentScreen = ({ navigation, route }) => {
 // Review screen — shows dynamically selected address instead of hardcoded one
 // ─────────────────────────────────────────────────────────────────────────────
 const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
-  const { text } = useAppTheme();
+  const { text, bgStyle } = useClosetTheme(route);
   const { t } = useLanguage();
+  const returnTo = route?.params?.returnTo;
   const cart = buildCart(route, t);
   const [checking, setChecking] = useState(false);
   // shippingAddress passed from Shipping screen via nextCart
@@ -2374,11 +2448,10 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
         return;
       }
 
-      navigation.navigate('MyClosetBuyerOrderReceived', {
-        ...route.params,
+      navigation.navigate('MyClosetBuyerOrderReceived', withClosetNavParams(route, {
         payment,
         orderId: payment.orderId,
-      });
+      }));
     } finally {
       setChecking(false);
     }
@@ -2463,18 +2536,18 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <Header navigation={navigation} title={t('myClosetBuyer.reviewOrderTitle')} />
+    <SafeAreaView style={[styles.safeArea, bgStyle]}>
+      <Header navigation={navigation} title={t('myClosetBuyer.reviewOrderTitle')} returnTo={returnTo} />
       <ScrollView
         contentContainerStyle={styles.checkoutContent}
         showsVerticalScrollIndicator={false}
       >
-        <CheckoutSteps current={requiresShipping ? 3 : 2} includeShipping={requiresShipping} />
+        <CheckoutSteps current={requiresShipping ? 3 : 2} includeShipping={requiresShipping} accentColor={text} />
         {requiresShipping ? (
           <>
             <View style={styles.reviewSectionHeader}>
               <Text style={styles.sectionLabel}>{t('myClosetBuyer.shippingAddress')}</Text>
-              <TouchableOpacity onPress={() => navigation.navigate('MyClosetBuyerShipping', route.params)}>
+              <TouchableOpacity onPress={() => navigation.navigate('MyClosetBuyerShipping', withClosetNavParams(route))}>
                 <Text style={[styles.editText, { color: text }]}>{t('myClosetBuyer.edit')}</Text>
               </TouchableOpacity>
             </View>
@@ -2503,7 +2576,7 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
         )}
         {/* <View style={styles.reviewSectionHeader}>
           <Text style={styles.sectionLabel}>{t('myClosetBuyer.shippingMethod')}</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('MyClosetBuyerShipping', route.params)}>
+          <TouchableOpacity onPress={() => navigation.navigate('MyClosetBuyerShipping', withClosetNavParams(route))}>
             <Text style={[styles.editText, { color: text }]}>{t('myClosetBuyer.edit')}</Text>
           </TouchableOpacity>
         </View> */}
@@ -2517,7 +2590,7 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
         </View> */}
         <View style={styles.reviewSectionHeader}>
           <Text style={styles.sectionLabel}>{t('myClosetBuyer.paymentMethod')}</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('MyClosetBuyerPayment', route.params)}>
+          <TouchableOpacity onPress={() => navigation.navigate('MyClosetBuyerPayment', withClosetNavParams(route))}>
             <Text style={[styles.editText, { color: text }]}>{t('myClosetBuyer.edit')}</Text>
           </TouchableOpacity>
         </View>
@@ -2525,7 +2598,7 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
           <Ionicons name="shield-checkmark-outline" size={18} color={text} />
           <Text style={styles.radioLabel}>{t('myClosetBuyer.secureCheckout')}</Text>
         </View>
-        <OrderSummary cart={cart} compact />
+        <OrderSummary cart={cart} compact accentColor={text} />
         <Text style={styles.termsText}>
           {t('myClosetBuyer.termsText')}
         </Text>
@@ -2535,6 +2608,7 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
           label={checking ? t('myClosetBuyer.confirmingPayment') : t('myClosetBuyer.placeOrder')}
           icon="lock-closed-outline"
           onPress={checking ? undefined : handleContinue}
+          accentColor={text}
         />
       </View>
     </SafeAreaView>
@@ -2542,8 +2616,9 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
 };
 
 const MyClosetBuyerOrderReceivedScreen = ({ navigation, route }) => {
-  const { text } = useAppTheme();
+  const { text, bgStyle } = useClosetTheme(route);
   const { t } = useLanguage();
+  const returnTo = route?.params?.returnTo;
   const payment = route?.params?.payment ?? null;
   const cart = buildCart(route, t);
 
@@ -2555,7 +2630,7 @@ const MyClosetBuyerOrderReceivedScreen = ({ navigation, route }) => {
   const items = payment?.metadata?.items ?? [];
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, bgStyle]}>
       <ScrollView contentContainerStyle={styles.receivedContent} showsVerticalScrollIndicator={false}>
         <View style={styles.confettiArea}>
           {[...Array(18)].map((_, index) => (
@@ -2604,8 +2679,16 @@ const MyClosetBuyerOrderReceivedScreen = ({ navigation, route }) => {
         </View>
       </ScrollView>
       <View style={styles.bottomBar}>
-        <BottomButton label={t('myClosetBuyer.continueShopping')} onPress={() => navigation.popToTop?.()} />
-        <TouchableOpacity activeOpacity={0.85} style={styles.secondaryButton} onPress={() => navigation.popToTop?.()}>
+        <BottomButton
+          label={t('myClosetBuyer.continueShopping')}
+          onPress={() => navigateClosetReturn(navigation, returnTo)}
+          accentColor={text}
+        />
+        <TouchableOpacity
+          activeOpacity={0.85}
+          style={styles.secondaryButton}
+          onPress={() => navigateClosetReturn(navigation, returnTo)}
+        >
           <Text style={[styles.secondaryButtonText, { color: text }]}>{t('myClosetBuyer.goToMyOrders')}</Text>
         </TouchableOpacity>
       </View>
@@ -2779,7 +2862,14 @@ const styles = StyleSheet.create({
 
   // detail
   detailContent: { paddingHorizontal: 20, paddingBottom: 110 },
-  heroImage: { width: HERO_IMAGE_WIDTH, height: 220, borderRadius: 18 },
+  heroImage: { width: HERO_IMAGE_WIDTH, height: HERO_IMAGE_HEIGHT, borderRadius: 18 },
+  heroSlide: {
+    width: HERO_IMAGE_WIDTH,
+    height: HERO_IMAGE_HEIGHT,
+    borderRadius: 18,
+    overflow: 'hidden',
+    backgroundColor: '#f3ede4',
+  },
   photoDots: { flexDirection: 'row', justifyContent: 'center', gap: 7, marginTop: 18, marginBottom: 16 },
   photoDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#d7cce3' },
   photoDotsSpacer: { height: 42 },

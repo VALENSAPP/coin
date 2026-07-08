@@ -3625,6 +3625,11 @@
     "pagination": "Pagina {{page}} di {{totalPages}} · {{total}} ordini totali",
     "itemCount": "{{count}} articolo/i",
     "orderItemFallback": "Articolo dell'ordine",
+    "orderCreatedAt": "Effettuato il {{date}}",
+    "orderTotalLabel": "Totale ordine",
+    "orderNumberLabel": "Numero ordine",
+    "buyerNameLabel": "Acquirente",
+    "sellerNameLabel": "Venditore",
     "status": {
       "pending": "Da spedire",
       "confirmed": "Confermato",
@@ -4073,6 +4078,8 @@
     "overviewTitle": "Panoramica",
     "thisWeek": "Questa settimana",
     "thisMonth": "Questo mese",
+    "pinnedItemTitle": "Articolo fissato",
+    "viewAllPinned": "Visualizza tutti gli articoli fissati",
     "battlePerformanceTitle": "Prestazioni nelle sfide",
     "viewAllBattles": "Visualizza tutte le sfide",
     "sellerOrdersTitle": "Ordini — Come venditore",
@@ -4158,6 +4165,10 @@
     "buyer": "Acheteur",
     "shippingAddress": "Adresse de livraison",
     "items": "Articles ({{count}})",
+    "itemsCount": "{{count}} article(s)",
+    "itemsLabel": "Articles",
+    "orderNumberLabel": "Numéro de commande",
+    "totalLabel": "Total",
     "qty": "Qté : {{count}}",
     "noItemDetails": "Aucun détail disponible pour cette commande.",
     "orderTotal": "Total de la commande",
@@ -4223,6 +4234,9 @@
     "voteHelpsOthers": "Il tuo voto aiuta gli altri a decidere!",
     "voteHelpsDecide": "Il tuo voto aiuta gli altri a decidere!",
     "voting": "Votando...",
+    "voteFailedTitle": "Impossibile votare",
+    "voteFailedGeneric": "Qualcosa è andato storto. Riprova.",
+    "alreadyVoted": "Hai già votato in questa sfida.",
     "voteOnlyLiveBattles": "Il voto è consentito solo per le sfide in diretta.",
     "voteFor": "Vota per {{name}}",
     "resultsTitle": "Risultati della sfida",
@@ -4241,18 +4255,32 @@
       "comments": "Commenti",
       "totalVotes": "Totale voti",
       "totalViews": "Totale visualizzazioni",
-      "shares": "Condivisioni"
+      "shares": "Condivisioni",
+      "likes": "Mi piace"
     },
     "errors": {
       "questionRequired": "La domanda della sfida è obbligatoria.",
       "typeRequired": "Seleziona un tipo di sfida.",
       "durationRequired": "Seleziona una durata per la sfida.",
       "visibilityRequired": "La visibilità è obbligatoria.",
-      "itemsLoadFailed": "Impossibile caricare gli articoli del tuo armadio."
+      "itemsLoadFailed": "Impossibile caricare gli articoli del tuo armadio.",
+      "commentsLoadFailed": "Impossibile caricare i commenti.",
+      "commentNotPosted": "Impossibile pubblicare il commento.",
+      "commentNotDeleted": "Impossibile eliminare il commento."
     },
     "noItems": "Non sono ancora presenti articoli nel tuo armadio.",
     "retry": "Riprova",
-    "done": "Fatto"
+    "done": "Fatto",
+    "vote": "Vota",
+    "voteSwipeHint": "Il tuo voto aiuta gli altri a decidere.",
+    "totalVotes": "voti totali",
+    "commentsTitle": "Commenti",
+    "noCommentsYet": "Sii il primo a condividere la tua opinione.",
+    "shareYourThoughts": "Condividi la tua opinione...",
+    "deleteCommentTitle": "Eliminare il commento?",
+    "deleteCommentMessage": "Questo commento verrà eliminato definitivamente.",
+    "delete": "Elimina",
+    "cancel": "Annulla"
   },
   "shopSettings": {
     "title": "Shop Settings",
@@ -4390,7 +4418,9 @@
     "boostNow": "Promouvoir maintenant",
     "boostedTitle": "Article promu 🚀",
     "boostedMessage": "Votre article est épinglé et en cours de promotion.",
-    "done": "Terminé"
+    "done": "Terminé",
+    "loading": "Caricamento",
+    "tryAgain": "Impossibile caricare i pacchetti di promozione. Riprova."
   },
   "promotion": {
     "headerTitle": "Créer une promotion",
