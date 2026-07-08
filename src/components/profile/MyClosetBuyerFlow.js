@@ -946,8 +946,15 @@ const MyClosetBattlesScreen = ({ navigation, route }) => {
       battleId: battle?.id,
       initialBattle: battle,
       selectedItems: [battle?.left, battle?.right].filter(Boolean),
+      returnToProfile: isOwnProfile
+        ? { screen: 'Profile' }
+        : {
+            tab: 'HomeMain',
+            screen: 'UsersProfile',
+            params: { userId: route?.params?.seller?.id || route?.params?.sellerId },
+          },
     });
-  }, [navigation]);
+  }, [navigation, isOwnProfile, route?.params?.seller?.id, route?.params?.sellerId]);
 
   useFocusEffect(
     useCallback(() => {

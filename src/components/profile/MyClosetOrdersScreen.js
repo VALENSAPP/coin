@@ -64,15 +64,41 @@ const formatDate = value => {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 };
 
+const imageUri = image => {
+  if (!image) return null;
+  if (typeof image === 'string') return image;
+  return image?.uri || image?.url || image?.path || null;
+};
+
+const firstImage = value => {
+  if (Array.isArray(value)) return imageUri(value[0]);
+  return imageUri(value);
+};
+
 const getOrderImage = order =>
-  order?.item?.images?.[0] ||
-  order?.item?.image ||
-  order?.product?.images?.[0] ||
+  firstImage(order?.productImage) ||
+  firstImage(order?.item?.productImage) ||
+  firstImage(order?.item?.images) ||
+  firstImage(order?.item?.image) ||
+  firstImage(order?.item?.thumbnail) ||
+  firstImage(order?.items?.[0]?.productImage) ||
+  firstImage(order?.items?.[0]?.product?.images) ||
+  firstImage(order?.items?.[0]?.product?.image) ||
+  firstImage(order?.items?.[0]?.images) ||
+  firstImage(order?.items?.[0]?.image) ||
+  firstImage(order?.product?.images) ||
+  firstImage(order?.product?.image) ||
   order?.image ||
   null;
 
+const getItemCountLabel = (count, t) => t('myClosetOrders.itemCount', { count });
+
 const getOrderItemName = (order, t) => {
   if (order?.item?.name || order?.item?.title) return order.item.name || order.item.title;
+  if (order?.items?.[0]?.product?.name || order?.items?.[0]?.product?.title) {
+    return order.items[0].product.name || order.items[0].product.title;
+  }
+  if (order?.items?.[0]?.name || order?.items?.[0]?.title) return order.items[0].name || order.items[0].title;
   if (order?.product?.name) return order.product.name;
   if (order?.itemName) return order.itemName;
   const count = order?.totalItemCount;
@@ -106,9 +132,12 @@ const normalizeOrder = (order, index, mode, t) => ({
   itemName: getOrderItemName(order, t),
   itemCount: order?.totalItemCount ?? null,
   price: formatPrice(getOrderPrice(order)),
+  totalAmount: formatPrice(order?.totalAmount ?? order?.amount ?? order?.total),
   counterpart: mode === 'seller' ? getBuyerHandle(order) : getSellerHandle(order),
   date: formatDate(order?.createdAt || order?.orderDate || order?.date),
   status: normalizeStatus(order?.orderStatus ?? order?.status),
+  buyerName: getBuyerHandle(order),
+  sellerName: getSellerHandle(order),
   image: getOrderImage(order),
   raw: order,
 });
@@ -188,7 +217,8 @@ const OrderCard = ({
             <Text style={[styles.orderItemName, textStyle]} numberOfLines={1}>
               {order.itemName}
             </Text>
-            <Text style={styles.orderPrice}>{order.price}</Text>
+            <Text style={styles.orderPrice}>{order.totalAmount}</Text>
+            {!!order.itemCount && <Text style={styles.orderMeta}>{getItemCountLabel(order.itemCount, t)}</Text>}
             {!!order.counterpart && (
               <Text style={styles.orderBuyer}>
                 {mode === 'seller' ? t('myClosetOrders.buyerLabel') : t('myClosetOrders.sellerLabel')}: @{order.counterpart}
@@ -615,6 +645,7 @@ const styles = StyleSheet.create({
   orderCopy: { flex: 1 },
   orderItemName: { fontSize: 14, fontWeight: '800', color: '#111827' },
   orderPrice: { marginTop: 2, fontSize: 13, fontWeight: '700', color: '#7c3aed' },
+  orderMeta: { marginTop: 2, fontSize: 11, color: '#8b5cf6', fontWeight: '600' },
   orderBuyer: { marginTop: 3, fontSize: 12, color: '#6b7280', fontWeight: '600' },
   orderDate: { marginTop: 1, fontSize: 11, color: '#9ca3af' },
 

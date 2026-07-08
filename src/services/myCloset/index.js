@@ -320,6 +320,10 @@ export const getMarketplaceBattleDetails = async (battleId) => {
   return axiosInstance.get(`marketplace-battles/me/${battleId}`);
 };
 
+export const trackMarketplaceBattleView = async battleId => {
+  return axiosInstance.post(`/marketplace-battles/${battleId}/view`);
+};
+
 export const voteOnBattle = async (battleId, participantId) => {
   return axiosInstance.post(`marketplace-battles/${battleId}/vote`, { participantId });
 };
@@ -333,3 +337,39 @@ export const getClosetBattlesPriority = (closetId, { page = 1, limit = 10 } = {}
     params: { page, limit },
   });
 }
+
+// Marketplace Battle Comments APIs 
+
+export const getMarketplaceBattleComments = async (battleId, page = 1, limit = 20, sortOrder = 'desc') => {
+  return axiosInstance.get(`marketplace-battles/${battleId}/comments`, {
+    params: { page, limit, sortOrder },
+  });
+}
+
+export const addMarketplaceBattleComment = async (battleId, comment) => {
+  return axiosInstance.post(`marketplace-battles/${battleId}/comments`, { comment });
+}
+
+export const deleteMarketplaceBattleComment = async (battleId, commentId) => {
+  return axiosInstance.delete(`marketplace-battles/${battleId}/comments/${commentId}`);
+}
+
+export const getMarketplaceBattleBoostPackages = async () => {
+  return axiosInstance.get('/marketplace-battle-boosts/packages');
+};
+
+export const getMarketplaceBattleBoostByBattle = async battleId => {
+  return axiosInstance.post('/marketplace-battle-boosts/by-battle', { battleId });
+};
+
+export const createMarketplaceBattleBoostIntent = async (battleId, data) => {
+  return axiosInstance.post(`/marketplace-battles/${battleId}/boosts`, data);
+};
+
+export const createMarketplaceBattleBoostPaymentSession = async boostId => {
+  return axiosInstance.post(`/marketplace-battle-boosts/${boostId}/payment`);
+};
+
+export const createMarketplaceBattleWinnerPromotion = async (battleId, data) => {
+  return axiosInstance.post(`/marketplace-battles/${battleId}/winner-promotion`, data);
+};

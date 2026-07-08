@@ -374,6 +374,13 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
     battleId: battle?.id,
     initialBattle: battle,
     selectedItems: [battle?.left, battle?.right].filter(Boolean),
+    returnToProfile: isOwnProfile
+      ? { screen: 'Profile' }
+      : {
+          tab: 'HomeMain',
+          screen: 'UsersProfile',
+          params: { userId: userData?.id },
+        },
   });
   const goStorefront = () => navigation?.navigate?.('ProfileMain', { screen: 'MyClosetStorefront' });
   const goAddFirst = (isFirstItem = true) => navigation?.navigate?.('ProfileMain', {

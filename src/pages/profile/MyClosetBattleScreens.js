@@ -11,6 +11,7 @@ import {
   Share,
   ActivityIndicator,
 } from 'react-native';
+import FastImage from 'react-native-fast-image';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
 import { useAppTheme } from '../../theme/useApptheme';
@@ -22,8 +23,12 @@ import {
   createMarketplaceBattle,
   getMarketplaceBattleDetails,
   getMarketplaceBattleInsights,
+  trackMarketplaceBattleView,
   voteOnBattle,
   getBattleVoters,
+  getMarketplaceBattleComments,
+  addMarketplaceBattleComment,
+  deleteMarketplaceBattleComment,
 } from '../../services/myCloset';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -70,7 +75,11 @@ const numberFromPrice = value => {
 const currency = value => `$${numberFromPrice(value).toFixed(2)}`;
 
 // Images from the API can arrive as plain strings or as { uri } objects — normalize either to a string.
-const imageUri = img => (typeof img === 'string' ? img : img?.uri || null);
+const imageUri = img => {
+  const uri = typeof img === 'string' ? img : img?.uri || null;
+  if (!uri) return null;
+  return String(uri).replace(/["'\s]+$/, '');
+};
 
 const itemImages = item =>
   (Array.isArray(item?.images) ? item.images : item?.image ? [item.image] : [])
@@ -107,6 +116,15 @@ const prefetchImageUrls = async items => {
   await Promise.allSettled([...new Set(urls)].map(url => Image.prefetch(url)));
 };
 
+const fastImageSource = uri =>
+  uri
+    ? {
+        uri,
+        priority: FastImage.priority.high,
+        cache: FastImage.cacheControl.immutable,
+      }
+    : null;
+
 // --- Battle response normalization --------------------------------------
 // Shapes the real GET /marketplace-battles/me response (battle.participants[].product)
 // into the { items, leftVotePercent, daysLeft, ... } fields the battle screens render.
@@ -139,11 +157,16 @@ const normalizeBattle = raw => {
   if (!raw) return null;
   const participants = [...(raw?.participants || [])].sort((a, b) => (a?.position ?? 0) - (b?.position ?? 0));
   const items = participants.map(participantToItem);
+  const winnerParticipant = raw?.winner || participants.find(p => p?.isWinner) || participants[0] || null;
+  const loserParticipant = raw?.loser || participants.find(p => !p?.isWinner) || participants[1] || null;
+  const winnerProduct = winnerParticipant?.product || null;
+  const runnerUpProduct = loserParticipant?.product || null;
   const totalVotes = raw?.totalVotes ?? participants.reduce((sum, p) => sum + (p?.voteCount ?? 0), 0);
   const leftVotes = items[0]?.voteCount ?? 0;
   const leftVotePercent = totalVotes > 0 ? Math.round((leftVotes / totalVotes) * 100) : 50;
   return {
     id: raw?.id,
+    battleId: raw?.battleId || raw?.id,
     title: raw?.title,
     category: raw?.category,
     status: raw?.status,
@@ -152,12 +175,46 @@ const normalizeBattle = raw => {
     visibility: raw?.visibility,
     totalVotes,
     totalComments: raw?.totalComments ?? 0,
+    totalViews: raw?.totalViews ?? raw?.viewCount ?? 0,
+    totalLikes: raw?.totalLikes ?? raw?.likeCount ?? 0,
     daysLeft: daysLeftFromEndAt(raw?.endAt),
     items,
     leftVotePercent,
+    winnerProduct,
+    runnerUpProduct,
+    winnerVotePercent: raw?.winner?.votePercentage ?? participants.find(p => p?.isWinner)?.votePercentage ?? null,
     createdBy: raw?.sellerId || raw?.createdBy || raw?.userId || null, // NEW — adjust field name if API differs
   };
 };
+
+// --- Marketplace battle comment normalization ---------------------------
+// Shapes GET /marketplace-battles/{battleId}/comments rows into what the
+// BattleLiveScreen comment list renders (author, message, relative time).
+
+const relativeTimeFromNow = value => {
+  if (!value) return '';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return '';
+  const diffMs = Date.now() - parsed.getTime();
+  const diffMinutes = Math.max(0, Math.round(diffMs / (60 * 1000)));
+  if (diffMinutes < 1) return 'now';
+  if (diffMinutes < 60) return `${diffMinutes}m ago`;
+  const diffHours = Math.round(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  const diffDays = Math.round(diffHours / 24);
+  return `${diffDays}d ago`;
+};
+
+const normalizeMarketplaceComment = (comment = {}, index = 0) => ({
+  id: String(comment?.id || comment?._id || comment?.commentId || `comment-${index}`),
+  message: comment?.comment || comment?.message || comment?.text || '',
+  userId: String(comment?.userId || comment?.user?.id || comment?.user?._id || ''),
+  authorName: comment?.user?.name || comment?.user?.displayName || comment?.user?.userName || comment?.authorName || 'Valens User',
+  avatar: comment?.user?.avatar || comment?.user?.image || comment?.user?.profilePicture || null,
+  likes: Number(comment?.likeCount ?? comment?.likesCount ?? 0) || 0,
+  createdAt: comment?.createdAt || comment?.created_at || '',
+  timeAgo: relativeTimeFromNow(comment?.createdAt || comment?.created_at),
+});
 
 export const Header = ({ title, onBack, rightIcon, subtitle, onShare, accentColor, titleColor }) => (
   <View style={styles.headerRow}>
@@ -173,6 +230,41 @@ export const Header = ({ title, onBack, rightIcon, subtitle, onShare, accentColo
     </TouchableOpacity>
   </View>
 );
+
+const navigateBackToProfile = (navigation, returnToProfile) => {
+  if (!returnToProfile || !navigation?.navigate) return false;
+
+  if (typeof returnToProfile === 'string') {
+    navigation.navigate('ProfileMain', { screen: returnToProfile });
+    return true;
+  }
+
+  const tab = returnToProfile?.tab;
+  const screen = returnToProfile?.screen;
+  const params = returnToProfile?.params;
+  if (tab) {
+    navigation.navigate(tab, screen ? { screen, params } : undefined);
+    return true;
+  }
+  if (screen) {
+    if (screen === 'UsersProfile') {
+      navigation.navigate('HomeMain', { screen, params });
+      return true;
+    }
+    navigation.navigate('ProfileMain', { screen, params });
+    return true;
+  }
+
+  return false;
+};
+
+const useBattleBackHandler = (navigation, route) =>
+  useCallback(() => {
+    if (navigateBackToProfile(navigation, route?.params?.returnToProfile)) {
+      return;
+    }
+    navigation.goBack();
+  }, [navigation, route?.params?.returnToProfile]);
 
 export const PhoneFrame = ({ children }) => (
   <View style={[styles.phone, phoneBorder]}>
@@ -300,6 +392,7 @@ export function CreateBattleScreen({ navigation, route }) {
   const sellerId = route?.params?.sellerId;
   const headerTitle = route?.params?.headerTitle || t('battle.headerTitle');
   const nextRoute = route?.params?.nextRoute || 'BattleSetup';
+  const handleBack = useBattleBackHandler(navigation, route);
 
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -357,7 +450,7 @@ export function CreateBattleScreen({ navigation, route }) {
 
   return (
     <View style={[styles.screen, bgStyle]}>
-      <Header title={headerTitle} onBack={() => navigation.goBack()} onShare={handleShare} accentColor={accent} titleColor={primaryText} />
+      <Header title={headerTitle} onBack={handleBack} onShare={handleShare} accentColor={accent} titleColor={primaryText} />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <Text style={[styles.sectionTitle, { color: primaryText }]}>{t('battle.chooseItemsTitle')}</Text>
         <Text style={styles.sectionHint}>{t('battle.chooseItemsHint')}</Text>
@@ -400,7 +493,7 @@ export function CreateBattleScreen({ navigation, route }) {
                 ) : (
                   <View style={styles.selectionDotGhost} />
                 )}
-                <Image source={{ uri: item.image }} style={styles.gridImage} />
+                <FastImage source={fastImageSource(item.image)} style={styles.gridImage} resizeMode={FastImage.resizeMode.cover} />
                 <Text style={[styles.gridName, { color: primaryText }]}>{item.name}</Text>
                 <Text style={[styles.gridPrice, { color: accent }]}>{item.price}</Text>
               </TouchableOpacity>
@@ -428,6 +521,7 @@ export function BattleSetupScreen({ navigation, route }) {
   const accent = text || PURPLE;
   const primaryText = text || TEXT;
   const initialQuestion = route?.params?.defaultQuestion || t('battle.defaultQuestion');
+  const handleBack = useBattleBackHandler(navigation, route);
   const [question, setQuestion] = useState(initialQuestion);
   const [battleType, setBattleType] = useState('OPINION');
   const [duration, setDuration] = useState('3 DAYS');
@@ -462,7 +556,7 @@ export function BattleSetupScreen({ navigation, route }) {
     <View style={[styles.screen, bgStyle, { backgroundColor: bg || SOFT_BG }]}>
       <Header
         title={t('battle.headerTitle')}
-        onBack={() => navigation.goBack()}
+        onBack={handleBack}
         accentColor={accent}
         titleColor={primaryText}
         onShare={async () => {
@@ -588,6 +682,7 @@ export function BattlePreviewScreen({ navigation, route }) {
   const previewQuestion = route?.params?.question || t('battle.defaultQuestion');
   const selectedItems = route?.params?.selectedItems;
   const { duration, whoCanVote } = route?.params || {};
+  const handleBack = useBattleBackHandler(navigation, route);
 
   // Maps the duration pill chosen in BattleSetupScreen to a days count for display.
   const DURATION_DAYS = { '24 HOURS': 1, '3 DAYS': 3, '7 DAYS': 7 };
@@ -600,7 +695,7 @@ export function BattlePreviewScreen({ navigation, route }) {
     // Defensive guard: this screen requires two real closet items with ids.
     return (
       <View style={[styles.screen, bgStyle, { backgroundColor: bg || SOFT_BG }]}>
-        <Header title={t('battle.previewTitle')} onBack={() => navigation.goBack()} titleColor={primaryText} />
+        <Header title={t('battle.previewTitle')} onBack={handleBack} titleColor={primaryText} />
         <View style={styles.centeredNotice}>
           <Text style={styles.errorText}>{t('battle.errors.missingItems') || 'Missing selected items.'}</Text>
         </View>
@@ -661,7 +756,7 @@ export function BattlePreviewScreen({ navigation, route }) {
     <View style={[styles.screen, bgStyle, { backgroundColor: bg || SOFT_BG }]}>
       <Header
         title={t('battle.previewTitle')}
-        onBack={() => navigation.goBack()}
+        onBack={handleBack}
         accentColor={accent}
         titleColor={primaryText}
         onShare={async () => {
@@ -711,6 +806,7 @@ export function BattleLiveScreen({ navigation, route }) {
   const battleId = route?.params?.battleId;
   const initialBattle = route?.params?.initialBattle || null;
   const cameFromCard = !!initialBattle;
+  const handleBack = useBattleBackHandler(navigation, route);
   const handleDonePress = useCallback(() => {
     navigation.navigate('MainApp', {
       screen: 'wallet',
@@ -727,6 +823,14 @@ export function BattleLiveScreen({ navigation, route }) {
   const [currentUserId, setCurrentUserId] = useState(null);
   const [checkingVote, setCheckingVote] = useState(false);
 
+  // --- comments state ---------------------------------------------------
+  const [comments, setComments] = useState([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [commentsError, setCommentsError] = useState(null);
+  const [commentText, setCommentText] = useState('');
+  const [postingComment, setPostingComment] = useState(false);
+  const [deletingCommentId, setDeletingCommentId] = useState('');
+
   const question = battle?.title || route?.params?.question || t('battle.defaultQuestion');
   const selectedItems = battle?.items?.length ? battle.items : route?.params?.selectedItems || [];
   const showResultsBar =
@@ -737,8 +841,24 @@ export function BattleLiveScreen({ navigation, route }) {
   const voteAudienceText = battle?.whoCanVote === 'Followers' ? t('battle.followersOnly') : t('battle.everyoneCanVote');
   const isCreator = !!currentUserId && !!battle?.createdBy && currentUserId === battle.createdBy;
   const isBattleLive = battle?.status === 'LIVE' && battle?.outcome === 'PENDING';
-  const canVote = isBattleLive && !isCreator && !hasVoted && !checkingVote;
+  const isBattleExpired =
+    battle?.status === 'EXPIRED' ||
+    battle?.outcome === 'EXPIRED' ||
+    (!isBattleLive && battle?.daysLeft === 0);
+  const isBattleVotingOpen = !isBattleExpired && battle?.outcome !== 'CANCELLED';
+  const canVote = isBattleVotingOpen && !hasVoted && !checkingVote;
+  const liveScreenTitle = isBattleExpired ? (t('battleInProgress.battleEnded') || 'Battle Ended') : t('battle.liveTitle');
   const votedLabel = t('battle.voting') || 'Voting...';
+
+  const leftItem = selectedItems[0] || {};
+  const rightItem = selectedItems[1] || {};
+  const leftVoteCount = Number(leftItem?.voteCount ?? 0);
+  const rightVoteCount = Number(rightItem?.voteCount ?? 0);
+  const totalItemVotes = leftVoteCount + rightVoteCount;
+  const leftVotePercent = totalItemVotes > 0
+    ? Math.round((leftVoteCount / totalItemVotes) * 100)
+    : (battle?.leftVotePercent ?? 50);
+  const rightVotePercent = 100 - leftVotePercent;
 
   const checkExistingVote = useCallback(async () => {
     if (!battleId) return;
@@ -778,6 +898,40 @@ export function BattleLiveScreen({ navigation, route }) {
     }
   }, [battleId, initialBattle, t]);
 
+  // GET /marketplace-battles/{battleId}/comments
+  const loadComments = useCallback(async (isSilent = false) => {
+    if (!battleId) return;
+    if (!isSilent) setCommentsLoading(true);
+    setCommentsError(null);
+    try {
+      const response = await getMarketplaceBattleComments(battleId, 1, 20, 'desc');
+      const data = response?.data?.data ?? response?.data ?? response;
+      const rawComments = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.comments)
+          ? data.comments
+          : Array.isArray(data?.items)
+            ? data.items
+            : [];
+      setComments(rawComments.map((comment, index) => normalizeMarketplaceComment(comment, index)));
+    } catch (err) {
+      setCommentsError(t('battle.errors.commentsLoadFailed') || 'Could not load comments.');
+    } finally {
+      setCommentsLoading(false);
+    }
+  }, [battleId, t]);
+
+  const trackBattleView = useCallback(async () => {
+    if (!battleId || !currentUserId) return;
+    if (String(currentUserId) === String(battle?.createdBy)) return;
+    try {
+      await trackMarketplaceBattleView(battleId);
+      await loadBattle();
+    } catch {
+      // View tracking is best-effort and should never block the screen.
+    }
+  }, [battle?.createdBy, battleId, currentUserId, loadBattle]);
+
   const handleVote = async (item) => {
     if (checkingVote || hasVoted || votedParticipantId) {
       Alert.alert(
@@ -815,6 +969,83 @@ export function BattleLiveScreen({ navigation, route }) {
     }
   };
 
+  // POST /marketplace-battles/{battleId}/comments — { comment: string }
+  const handlePostComment = async () => {
+    const message = commentText.trim();
+    if (!message || !battleId || postingComment || isBattleExpired) return;
+    setPostingComment(true);
+    try {
+      const response = await addMarketplaceBattleComment(battleId, message);
+      const isOk =
+        (typeof response?.status === 'number' && response.status >= 200 && response.status < 300) ||
+        (typeof response?.statusCode === 'number' && response.statusCode >= 200 && response.statusCode < 300) ||
+        response?.success === true ||
+        response;
+      if (!isOk) {
+        Alert.alert(
+          t('battle.errors.commentNotPosted') || 'Could not post comment',
+          response?.message || t('battleInProgress.tryAgain') || 'Please try again.',
+        );
+        return;
+      }
+      setCommentText('');
+      await loadComments(true);
+      setBattle(prev => (prev ? { ...prev, totalComments: (prev.totalComments || 0) + 1 } : prev));
+    } catch (err) {
+      Alert.alert(
+        t('battle.errors.commentNotPosted') || 'Could not post comment',
+        err?.response?.data?.message || err?.message || t('battleInProgress.tryAgain') || 'Please try again.',
+      );
+    } finally {
+      setPostingComment(false);
+    }
+  };
+
+  const confirmDeleteComment = (comment) => {
+    if (!comment?.id || deletingCommentId) return;
+    Alert.alert(
+      t('battle.deleteCommentTitle') || 'Delete comment?',
+      t('battle.deleteCommentMessage') || 'This comment will be removed permanently.',
+      [
+        {
+          text: t('battle.cancel') || 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: t('battle.delete') || 'Delete',
+          style: 'destructive',
+          onPress: () => handleDeleteComment(comment),
+        },
+      ],
+    );
+  };
+
+  // DELETE /marketplace-battles/{battleId}/comments/{commentId} — own comment only
+  const handleDeleteComment = async (comment) => {
+    if (!battleId || !comment?.id || deletingCommentId) return;
+    setDeletingCommentId(comment.id);
+    const previousComments = comments;
+    setComments(prev => prev.filter(c => c.id !== comment.id));
+    try {
+      const response = await deleteMarketplaceBattleComment(battleId, comment.id);
+      const isOk =
+        (typeof response?.status === 'number' && response.status >= 200 && response.status < 300) ||
+        (typeof response?.statusCode === 'number' && response.statusCode >= 200 && response.statusCode < 300) ||
+        response?.success === true ||
+        response;
+      if (!isOk) throw new Error(response?.message || 'Unable to delete comment.');
+      setBattle(prev => (prev ? { ...prev, totalComments: Math.max((prev.totalComments || 1) - 1, 0) } : prev));
+    } catch (err) {
+      setComments(previousComments);
+      Alert.alert(
+        t('battle.errors.commentNotDeleted') || 'Could not delete comment',
+        err?.response?.data?.message || err?.message || t('battleInProgress.tryAgain') || 'Please try again.',
+      );
+    } finally {
+      setDeletingCommentId('');
+    }
+  };
+
   // All useEffects together, still before any early return
   useEffect(() => {
     AsyncStorage.getItem('userId').then(setCurrentUserId).catch(() => { });
@@ -832,6 +1063,16 @@ export function BattleLiveScreen({ navigation, route }) {
     checkExistingVote();
   }, [checkExistingVote]);
 
+  useEffect(() => {
+    loadComments();
+  }, [loadComments]);
+
+  useFocusEffect(
+    useCallback(() => {
+      trackBattleView();
+    }, [trackBattleView])
+  );
+
   // Early returns come AFTER every hook above — nothing hook-related below this point
   if (loading) {
     return (
@@ -844,7 +1085,7 @@ export function BattleLiveScreen({ navigation, route }) {
   if (loadError || selectedItems.length < 2) {
     return (
       <View style={[styles.screen, bgStyle, { backgroundColor: bg || SOFT_BG }]}>
-        <Header title={t('battle.liveTitle')} onBack={() => navigation.goBack()} titleColor={primaryText} />
+        <Header title={liveScreenTitle} onBack={handleBack} titleColor={primaryText} />
         <View style={styles.centeredNotice}>
           <Text style={styles.errorText}>{loadError || t('battle.errors.missingItems')}</Text>
           {battleId ? (
@@ -858,10 +1099,17 @@ export function BattleLiveScreen({ navigation, route }) {
   }
 
   return (
-    <View style={[styles.screen, bgStyle, { backgroundColor: bg || SOFT_BG }]}>
+    <KeyboardAwareScrollView
+      style={[styles.screen, bgStyle, { backgroundColor: bg || SOFT_BG }]}
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
+      enableOnAndroid
+      extraScrollHeight={20}
+      keyboardShouldPersistTaps="handled"
+    >
       <Header
-        title={t('battle.liveTitle')}
-        onBack={() => navigation.goBack()}
+        title={liveScreenTitle}
+        onBack={handleBack}
         rightIcon="share-outline"
         accentColor={accent}
         titleColor={primaryText}
@@ -873,79 +1121,273 @@ export function BattleLiveScreen({ navigation, route }) {
           }
         }}
       />
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.liveTopRow}>
-          <View style={[styles.pillOutline, { borderColor: accent }]}>
-            <Text style={[styles.pillOutlineText, { color: primaryText }]}>{battle?.category || t('battle.opinionBattle')}</Text>
-          </View>
-          <Text style={styles.liveMuted}>{t('battle.daysLeft', { count: battle?.daysLeft ?? 0 })}</Text>
+
+      <View style={liveStyles.topRow}>
+        <View style={[liveStyles.categoryPill, { borderColor: accent }]}>
+          <Text style={[liveStyles.categoryPillText, { color: accent }]}>{battle?.category || t('battle.opinionBattle')}</Text>
         </View>
-        <Text style={[styles.battleQuestion, { color: primaryText }]}>{question}</Text>
-        <BattleCard left={selectedItems[0]} right={selectedItems[1]} accent={accent} textColor={primaryText} />
-        {canVote ? (
-          <View style={[styles.voteChoicesWrap, { backgroundColor: card || '#fff' }]}>
-            <Text style={styles.voteHeadline}>{t('battle.voteAndSeeResults') || 'Vote and see results'}</Text>
-            <Text style={styles.voteSub}>{t('battle.voteHelpsDecide') || 'Your vote helps others decide!'}</Text>
-            {[selectedItems[0], selectedItems[1]].map((item, index) => (
-              <TouchableOpacity
-                key={item?.participantId || item?.id || index}
-                activeOpacity={0.9}
-                disabled={votingParticipantId === item?.participantId}
-                onPress={() => handleVote(item)}
-                style={[
-                  styles.voteActionWrap,
-                  index === 0 ? styles.voteActionPrimaryWrap : styles.voteActionSecondaryWrap,
-                  votingParticipantId === item?.participantId && { opacity: 0.6 },
-                ]}
+        <View style={liveStyles.daysLeftRow}>
+          <Ionicons name="time-outline" size={13} color={MUTED} />
+          <Text style={liveStyles.daysLeftText}>{t('battle.daysLeft', { count: battle?.daysLeft ?? 0 })}</Text>
+        </View>
+      </View>
+
+      <Text style={[liveStyles.question, { color: primaryText }]}>{question}</Text>
+      <Text style={liveStyles.questionSub}>{t('battle.voteSwipeHint') || 'Your vote swipe others decide'}</Text>
+
+      <BattleCard left={leftItem} right={rightItem} accent={accent} textColor={primaryText} />
+
+      {/* Vote pill buttons with live counts — mirrors the "Vote 128 / Vote 96" buttons in the design */}
+      <View style={liveStyles.voteButtonsRow}>
+        {[leftItem, rightItem].map((item, index) => {
+          const isThisVoting = votingParticipantId === item?.participantId;
+          const isThisVoted = votedParticipantId === item?.participantId;
+          const voteCount = index === 0 ? leftVoteCount : rightVoteCount;
+          return (
+            <TouchableOpacity
+              key={item?.participantId || item?.id || index}
+              activeOpacity={0.9}
+              disabled={!canVote || isThisVoting}
+              onPress={() => handleVote(item)}
+              style={[liveStyles.voteButtonWrap, (!canVote || isThisVoting) && { opacity: 0.7 }]}
+            >
+              <LinearGradient
+                colors={isThisVoted ? ['#22C55E', '#16A34A'] : [accent, PURPLE_2]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={liveStyles.voteButtonInner}
               >
-                {index === 0 ? (
-                  <LinearGradient colors={[accent, PURPLE_2]} style={styles.voteActionInner}>
-                    <Text style={styles.voteActionPrimaryText} numberOfLines={1}>
-                      {votingParticipantId === item?.participantId
-                        ? votedLabel
-                        : (item?.name || item?.title || (t('battle.voteLeft') || 'Vote Jacket'))}
-                    </Text>
-                  </LinearGradient>
+                {isThisVoting ? (
+                  <ActivityIndicator size="small" color="#fff" />
                 ) : (
-                  <View style={styles.voteActionInner}>
-                    <Text style={[styles.voteActionSecondaryText, { color: accent }]} numberOfLines={1}>
-                      {votingParticipantId === item?.participantId
-                        ? votedLabel
-                        : (item?.name || item?.title || (t('battle.voteRight') || 'Vote Bag'))}
-                    </Text>
+                  <>
+                    <Ionicons name={isThisVoted ? 'checkmark-circle' : 'thumbs-up'} size={16} color="#fff" />
+                    <Text style={liveStyles.voteButtonText}>{t('battle.vote') || 'Vote'}</Text>
+                    <Text style={liveStyles.voteButtonCount}>{voteCount}</Text>
+                  </>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      {/* Percentage split bar */}
+      <View style={liveStyles.splitWrap}>
+        <View style={liveStyles.splitTrack}>
+          <View style={[liveStyles.splitFillLeft, { flex: leftVotePercent || 1, backgroundColor: accent }]} />
+          <View style={[liveStyles.splitFillRight, { flex: rightVotePercent || 1, backgroundColor: '#D9CBEF' }]} />
+        </View>
+        <View style={liveStyles.splitLabelsRow}>
+          <Text style={[liveStyles.splitPercentText, { color: accent }]}>{leftVotePercent}%</Text>
+          <Text style={liveStyles.splitVotesText}>{totalItemVotes} {t('battle.totalVotes') || 'total votes'}</Text>
+          <Text style={liveStyles.splitPercentText}>{rightVotePercent}%</Text>
+        </View>
+      </View>
+
+      {/* Stats row: views / comments / likes */}
+      <View style={liveStyles.statsRow}>
+        <View style={liveStyles.statItem}>
+          <Ionicons name="eye-outline" size={16} color={MUTED} />
+          <Text style={liveStyles.statValue}>{battle?.totalViews ?? 0}</Text>
+          <Text style={liveStyles.statLabel}>{t('battle.stats.views') || 'Views'}</Text>
+        </View>
+        <View style={liveStyles.statDivider} />
+        <View style={liveStyles.statItem}>
+          <Ionicons name="chatbubble-outline" size={16} color={MUTED} />
+          <Text style={liveStyles.statValue}>{battle?.totalComments ?? comments.length}</Text>
+          <Text style={liveStyles.statLabel}>{t('battle.stats.comments') || 'Comments'}</Text>
+        </View>
+        <View style={liveStyles.statDivider} />
+        <View style={liveStyles.statItem}>
+          <Ionicons name="heart-outline" size={16} color={MUTED} />
+          <Text style={liveStyles.statValue}>{battle?.totalLikes ?? 0}</Text>
+          <Text style={liveStyles.statLabel}>{t('battle.stats.likes') || 'Likes'}</Text>
+        </View>
+      </View>
+
+      {/* Comments section — GET/POST/DELETE /marketplace-battles/{battleId}/comments */}
+      <View style={liveStyles.commentsCard}>
+        <View style={liveStyles.commentsHeaderRow}>
+          <Text style={[liveStyles.commentsTitle, { color: primaryText }]}>
+            {t('battle.commentsTitle') || 'Comments'} ({battle?.totalComments ?? comments.length})
+          </Text>
+        </View>
+
+        {commentsLoading ? (
+          <ActivityIndicator style={{ marginVertical: 16 }} color={accent} />
+        ) : commentsError ? (
+          <View style={liveStyles.commentsNotice}>
+            <Text style={styles.errorText}>{commentsError}</Text>
+            <TouchableOpacity onPress={() => loadComments()} style={[styles.retryBtn, { borderColor: accent }]}>
+              <Text style={{ color: accent, fontWeight: '700' }}>{t('battle.retry') || 'Retry'}</Text>
+            </TouchableOpacity>
+          </View>
+        ) : comments.length === 0 ? (
+          <Text style={liveStyles.emptyCommentsText}>
+            {t('battle.noCommentsYet') || 'Be the first to share your thoughts.'}
+          </Text>
+        ) : (
+          comments.map(comment => {
+            const isOwnComment = currentUserId && comment.userId === String(currentUserId);
+            return (
+              <View key={comment.id} style={liveStyles.commentRow}>
+                {comment.avatar ? (
+                  <Image source={{ uri: comment.avatar }} style={liveStyles.commentAvatar} />
+                ) : (
+                  <View style={[liveStyles.commentAvatar, liveStyles.commentAvatarFallback]}>
+                    <Ionicons name="person-outline" size={14} color="#fff" />
                   </View>
                 )}
-              </TouchableOpacity>
-            ))}
-          </View>
-        ) : null}
-        <View style={styles.statsWrap}>
-          <StatRow items={[
-            { label: t('battle.stats.votes') || 'Votes', value: String(battle?.totalVotes ?? 0), icon: 'checkmark-done-outline' },
-            { label: t('battle.stats.views') || 'Views', value: String(battle?.totalViews ?? 0), icon: 'eye-outline' },
-            { label: t('battle.stats.comments') || 'Comments', value: String(battle?.totalComments ?? 0), icon: 'chatbubble-outline' },
-          ]} />
-        </View>
-        <View style={styles.footerActions}>
-          <TouchableOpacity activeOpacity={0.9} onPress={handleDonePress} style={styles.footerActionFlex}>
-            <LinearGradient colors={[accent, PURPLE_2]} style={styles.primaryButton}>
-              <Text style={styles.primaryButtonText}>{t('battle.done') || 'Done'}</Text>
-            </LinearGradient>
-          </TouchableOpacity>
+                <View style={liveStyles.commentBody}>
+                  <View style={liveStyles.commentTopRow}>
+                    <Text style={[liveStyles.commentAuthor, { color: primaryText }]} numberOfLines={1}>
+                      {comment.authorName}
+                    </Text>
+                    <Text style={liveStyles.commentTime}>{comment.timeAgo}</Text>
+                  </View>
+                  <Text style={liveStyles.commentMessage}>{comment.message}</Text>
+                  <View style={liveStyles.commentActionsRow}>
+                    {comment.likes > 0 ? (
+                      <View style={liveStyles.commentLikeChip}>
+                        <Ionicons name="heart" size={12} color="#E11D48" />
+                        <Text style={liveStyles.commentLikeText}>{comment.likes}</Text>
+                      </View>
+                    ) : null}
+                    {isOwnComment ? (
+                      <TouchableOpacity
+                        onPress={() => confirmDeleteComment(comment)}
+                        disabled={deletingCommentId === comment.id}
+                        style={liveStyles.commentDeleteBtn}
+                      >
+                        {deletingCommentId === comment.id ? (
+                          <ActivityIndicator size="small" color="#DC2626" />
+                        ) : (
+                          <Text style={liveStyles.commentDeleteText}>{t('battle.delete') || 'Delete'}</Text>
+                        )}
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+                </View>
+              </View>
+            );
+          })
+        )}
+
+        {/* Comment composer */}
+        <View style={[liveStyles.composerRow, { borderColor: BORDER }]}>
+          <TextInput
+            value={commentText}
+            onChangeText={setCommentText}
+            placeholder={t('battle.shareYourThoughts') || 'Share your thoughts...'}
+            placeholderTextColor={isBattleExpired ? '#9CA3AF' : '#B6ABCF'}
+            style={[
+              liveStyles.composerInput,
+              {
+                color: isBattleExpired ? '#9CA3AF' : primaryText,
+                backgroundColor: isBattleExpired ? '#F3F4F6' : '#F7F2FF',
+              },
+            ]}
+            multiline
+            editable={!isBattleExpired}
+          />
           <TouchableOpacity
-            activeOpacity={0.9}
-            onPress={() => navigation.navigate('BattleResultsScreen', { battleId })}
-            style={styles.footerActionFlex}
+            activeOpacity={0.85}
+            disabled={!commentText.trim() || postingComment || isBattleExpired}
+            onPress={handlePostComment}
+            style={[
+              liveStyles.composerSendBtn,
+              {
+                backgroundColor: accent,
+                opacity: (!commentText.trim() || postingComment || isBattleExpired) ? 0.5 : 1,
+                backgroundColor: isBattleExpired ? '#D1D5DB' : accent,
+              },
+            ]}
           >
-            <LinearGradient colors={[accent, PURPLE_2]} style={styles.primaryButton}>
-              <Text style={styles.primaryButtonText}>{t('battle.viewResults') || 'View Results'}</Text>
-            </LinearGradient>
+            {postingComment ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Ionicons name="send" size={16} color="#fff" />
+            )}
           </TouchableOpacity>
         </View>
-      </ScrollView>
-    </View>
+      </View>
+
+      <View style={styles.footerActions}>
+        <TouchableOpacity activeOpacity={0.9} onPress={handleDonePress} style={styles.footerActionFlex}>
+          <LinearGradient colors={[accent, PURPLE_2]} style={styles.primaryButton}>
+            <Text style={styles.primaryButtonText}>{t('battle.done') || 'Done'}</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={() => navigation.navigate('BattleResultsScreen', { battleId })}
+          style={styles.footerActionFlex}
+        >
+          <LinearGradient colors={[accent, PURPLE_2]} style={styles.primaryButton}>
+            <Text style={styles.primaryButtonText}>{t('battle.viewResults') || 'View Results'}</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+      </View>
+    </KeyboardAwareScrollView>
   );
 }
+
+// Styles specific to the redesigned BattleLiveScreen (kept separate from the
+// legacy `styles` StyleSheet used by the other screens in this file).
+const liveStyles = StyleSheet.create({
+  topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4, marginBottom: 10 },
+  categoryPill: { borderWidth: 1.5, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5 },
+  categoryPillText: { fontSize: 12, fontWeight: '800' },
+  daysLeftRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  daysLeftText: { fontSize: 12, fontWeight: '600', color: MUTED },
+  question: { fontSize: 19, fontWeight: '800', textAlign: 'center', marginBottom: 4 },
+  questionSub: { fontSize: 12, fontWeight: '600', color: MUTED, textAlign: 'center', marginBottom: 14 },
+
+  voteButtonsRow: { flexDirection: 'row', gap: 12, marginTop: 14, marginBottom: 4 },
+  voteButtonWrap: { flex: 1, borderRadius: 16, overflow: 'hidden' },
+  voteButtonInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 46, paddingHorizontal: 10 },
+  voteButtonText: { color: '#fff', fontSize: 14, fontWeight: '800' },
+  voteButtonCount: { color: '#fff', fontSize: 14, fontWeight: '900', marginLeft: 2 },
+
+  splitWrap: { marginTop: 18, marginBottom: 6 },
+  splitTrack: { height: 8, borderRadius: 99, overflow: 'hidden', flexDirection: 'row' },
+  splitFillLeft: { borderTopLeftRadius: 99, borderBottomLeftRadius: 99 },
+  splitFillRight: { borderTopRightRadius: 99, borderBottomRightRadius: 99 },
+  splitLabelsRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 },
+  splitPercentText: { fontSize: 13, fontWeight: '800', color: MUTED },
+  splitVotesText: { fontSize: 11, fontWeight: '600', color: MUTED },
+
+  statsRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F7F2FF', borderRadius: 16, paddingVertical: 12, marginTop: 18, marginBottom: 14 },
+  statItem: { flex: 1, alignItems: 'center', gap: 3 },
+  statDivider: { width: 1, height: 28, backgroundColor: BORDER },
+  statValue: { fontSize: 14, fontWeight: '800', color: TEXT },
+  statLabel: { fontSize: 10, fontWeight: '600', color: MUTED },
+
+  commentsCard: { backgroundColor: '#fff', borderRadius: 18, borderWidth: 1, borderColor: BORDER, padding: 14, marginBottom: 16 },
+  commentsHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  commentsTitle: { fontSize: 15, fontWeight: '800' },
+  commentsNotice: { alignItems: 'center', paddingVertical: 12, gap: 8 },
+  emptyCommentsText: { fontSize: 12, fontWeight: '600', color: MUTED, textAlign: 'center', paddingVertical: 14 },
+
+  commentRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
+  commentAvatar: { width: 32, height: 32, borderRadius: 16 },
+  commentAvatarFallback: { backgroundColor: '#B6ABCF', alignItems: 'center', justifyContent: 'center' },
+  commentBody: { flex: 1, minWidth: 0 },
+  commentTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  commentAuthor: { fontSize: 12.5, fontWeight: '800', flexShrink: 1, marginRight: 8 },
+  commentTime: { fontSize: 10, fontWeight: '600', color: MUTED },
+  commentMessage: { fontSize: 12.5, color: TEXT, marginTop: 2, lineHeight: 17 },
+  commentActionsRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 },
+  commentLikeChip: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  commentLikeText: { fontSize: 11, fontWeight: '700', color: '#E11D48' },
+  commentDeleteBtn: { paddingVertical: 2 },
+  commentDeleteText: { fontSize: 11, fontWeight: '700', color: '#DC2626' },
+
+  composerRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, borderTopWidth: 1, paddingTop: 12, marginTop: 4 },
+  composerInput: { flex: 1, minHeight: 36, maxHeight: 90, fontSize: 13, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 18 },
+  composerSendBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+});
 
 export function BattleResultsScreen({ navigation, route }) {
   const { bgStyle, text, card, bg } = useAppTheme();
@@ -953,11 +1395,13 @@ export function BattleResultsScreen({ navigation, route }) {
   const accent = text || PURPLE;
   const primaryText = text || TEXT;
   const battleId = route?.params?.battleId;
+  const handleBack = useBattleBackHandler(navigation, route);
 
   const [battle, setBattle] = useState(null);
   const [insights, setInsights] = useState(null);
   const [loading, setLoading] = useState(!!battleId);
   const [loadError, setLoadError] = useState(null);
+  const [currentUserId, setCurrentUserId] = useState(null);
 
   const fallbackItems = route?.params?.selectedItems;
   const winnerItem = productToBattleItem(
@@ -978,6 +1422,10 @@ export function BattleResultsScreen({ navigation, route }) {
   const battleStatus = insights?.status || battle?.status;
   const battleOutcome = insights?.outcome || battle?.outcome;
   const winnerDeclared = battleOutcome === 'WINNER' && !!insights?.winner?.product;
+  const isCreator = !!currentUserId && !!battle?.createdBy && String(currentUserId) === String(battle.createdBy);
+  const useInsightsCopy = battleStatus === 'COMPLETED' && battleOutcome === 'WINNER'
+    ? (t('battle.useInsightsText') || 'This item is more desired by the community. Consider promoting it or creating similar items.')
+    : (t('battle.useInsightsText') || 'Use these insights to understand performance.');
 
   const loadBattle = useCallback(async () => {
     if (!battleId) return;
@@ -989,12 +1437,10 @@ export function BattleResultsScreen({ navigation, route }) {
         getMarketplaceBattleInsights(battleId),
       ]);
 
-      console.log("detailsResponse-------------------",detailsResponse)
-      console.log("insightsResponse-------------------",insightsResponse)
-
       if (detailsResponse.status === 'fulfilled') {
         const data = detailsResponse.value?.data?.data ?? detailsResponse.value?.data ?? detailsResponse.value;
-        setBattle(data);
+        const rawBattle = data?.battle ?? data?.battles?.[0] ?? data;
+        setBattle(normalizeBattle(rawBattle));
       }
 
       if (insightsResponse.status === 'fulfilled') {
@@ -1012,7 +1458,19 @@ export function BattleResultsScreen({ navigation, route }) {
     }
   }, [battleId, t]);
 
-   useFocusEffect(
+  useEffect(() => {
+    let mounted = true;
+    AsyncStorage.getItem('userId')
+      .then(userId => {
+        if (mounted) setCurrentUserId(userId);
+      })
+      .catch(() => { });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useFocusEffect(
     useCallback(() => {
       loadBattle();
     }, [loadBattle])
@@ -1029,7 +1487,7 @@ export function BattleResultsScreen({ navigation, route }) {
   if (loadError || !winnerItem || !runnerUpItem) {
     return (
       <View style={[styles.screen, bgStyle, { backgroundColor: bg || SOFT_BG }]}>
-        <Header title={t('battle.resultsTitle')} onBack={() => navigation.goBack()} titleColor={primaryText} />
+        <Header title={t('battle.resultsTitle')} onBack={handleBack} titleColor={primaryText} />
         <View style={styles.centeredNotice}>
           <Text style={styles.errorText}>{loadError || t('battle.errors.missingItems')}</Text>
           {battleId ? (
@@ -1046,7 +1504,7 @@ export function BattleResultsScreen({ navigation, route }) {
     <View style={[styles.screen, bgStyle, { backgroundColor: bg || SOFT_BG }]}>
       <Header
         title={t('battle.resultsTitle')}
-        onBack={() => navigation.goBack()}
+        onBack={handleBack}
         accentColor={accent}
         titleColor={primaryText}
         onShare={async () => {
@@ -1058,47 +1516,58 @@ export function BattleResultsScreen({ navigation, route }) {
         }}
       />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {winnerDeclared ? (
+          <View style={[styles.resultsHero, { backgroundColor: card || '#fff' }]}>
+            <View style={styles.confettiDotA} />
+            <View style={styles.confettiDotB} />
+            <View style={styles.confettiDotC} />
+            <View style={styles.confettiDotD} />
+            <Text style={[styles.winnerBadge, { color: primaryText }]}>🏆 {t('battle.winner')}</Text>
+            <View style={styles.resultsWinnerCard}>
+              <FastImage source={fastImageSource(winnerItem.image)} style={styles.resultsThumb} resizeMode={FastImage.resizeMode.cover} />
+              <View style={styles.resultsCopy}>
+                <Text style={[styles.resultsName, { color: primaryText }]} numberOfLines={2}>{winnerItem.name}</Text>
+                <Text style={[styles.resultsPrice, { color: primaryText }]}>{winnerItem.price}</Text>
+              </View>
+              <View style={styles.resultsPercentPill}>
+                <Text style={styles.resultsPercentText}>{winnerVotePercent != null ? `${winnerVotePercent}%` : '—'}</Text>
+              </View>
+            </View>
+            <View style={styles.resultsLoserCard}>
+              <FastImage source={fastImageSource(runnerUpItem.image)} style={styles.resultsThumbSmall} resizeMode={FastImage.resizeMode.cover} />
+              <View style={styles.resultsCopy}>
+                <Text style={[styles.resultsNameSmall, { color: primaryText }]} numberOfLines={2}>{runnerUpItem.name}</Text>
+                <Text style={[styles.resultsPriceSmall, { color: primaryText }]}>{runnerUpItem.price}</Text>
+              </View>
+              <View style={styles.resultsPercentPillMuted}>
+                <Text style={styles.resultsPercentTextMuted}>{Math.max(0, 100 - (winnerVotePercent ?? 0))}%</Text>
+              </View>
+            </View>
+          </View>
+        ) : null}
         <View style={[styles.resultsBlock, { backgroundColor: card || '#fff' }]}>
           <Text style={[styles.sectionTitle, { color: primaryText }]}>{t('battle.battleInsights') || 'Battle Insights'}</Text>
-          <View style={styles.resultsRow}><Text style={styles.resultsLabel}>{t('battle.stats.totalVotes') || 'Votes'}</Text><Text style={[styles.resultsValue, { color: primaryText }]}>{totalVotes}</Text></View>
-          <View style={styles.resultsRow}><Text style={styles.resultsLabel}>{t('battle.stats.totalViews') || 'Views'}</Text><Text style={[styles.resultsValue, { color: primaryText }]}>{totalViews}</Text></View>
-          <View style={styles.resultsRow}><Text style={styles.resultsLabel}>{t('battle.stats.comments') || 'Comments'}</Text><Text style={[styles.resultsValue, { color: primaryText }]}>{totalComments}</Text></View>
-          <View style={styles.resultsRow}><Text style={styles.resultsLabel}>{t('battle.stats.engagement') || 'Engagement'}</Text><Text style={[styles.resultsValue, { color: primaryText }]}>{engagementCount}</Text></View>
-          {voteDifference != null ? (
-            <View style={styles.resultsRow}><Text style={styles.resultsLabel}>{t('battle.stats.voteDifference') || 'Vote Difference'}</Text><Text style={[styles.resultsValue, { color: primaryText }]}>{voteDifference}</Text></View>
-          ) : null}
-          {winningMarginPercentagePoints != null ? (
-            <View style={styles.resultsRow}><Text style={styles.resultsLabel}>{t('battle.stats.winningMargin') || 'Winning Margin'}</Text><Text style={[styles.resultsValue, { color: primaryText }]}>{winningMarginPercentagePoints}%</Text></View>
-          ) : null}
+          <View style={styles.resultsRow}><Text style={styles.resultsLabel}>{t('battle.stats.totalVotes') || 'Total Votes'}</Text><Text style={[styles.resultsValue, { color: primaryText }]}>{totalVotes}</Text></View>
+          <View style={styles.resultsRow}><Text style={styles.resultsLabel}>{t('battle.stats.totalViews') || 'Total Views'}</Text><Text style={[styles.resultsValue, { color: primaryText }]}>{totalViews}</Text></View>
+          <View style={[styles.resultsRow, styles.resultsRowLast]}><Text style={styles.resultsLabel}>{t('battle.stats.comments') || 'Comments'}</Text><Text style={[styles.resultsValue, { color: primaryText }]}>{totalComments}</Text></View>
+          {/* <View style={[styles.resultsRow, styles.resultsRowLast]}><Text style={styles.resultsLabel}>{t('battle.stats.shares') || 'Shares'}</Text><Text style={[styles.resultsValue, { color: primaryText }]}>{insights?.shareCount ?? 12}</Text></View> */}
         </View>
-        {winnerDeclared ? (
+        {isCreator ? (
           <>
-            <BattleCard
-              left={winnerItem}
-              right={runnerUpItem}
-              showWinner
-              winnerPercent={winnerVotePercent}
-              accent={accent}
-              textColor={primaryText}
-            />
             <View style={[styles.aboutCard, { backgroundColor: card || '#fff' }]}>
               <Text style={[styles.aboutTitle, { color: primaryText }]}>{t('battle.useInsightsTitle')}</Text>
-              <Text style={styles.aboutText}>
-                {battleStatus === 'COMPLETED' && battleOutcome === 'WINNER'
-                  ? (t('battle.useInsightsText') || 'Use these insights to understand what won and why.')
-                  : (t('battle.useInsightsText') || 'Use these insights to understand performance.')}
-              </Text>
+              <Text style={styles.aboutText}>{useInsightsCopy}</Text>
             </View>
             <View style={styles.actionRow}>
-              <TouchableOpacity activeOpacity={0.9} style={[styles.outlineBtn, { borderColor: accent }]} onPress={() => Share.share({ message: t('battle.shareResultsMessage') }).catch(() => { })}>
-                <Text style={[styles.outlineBtnText, { color: accent }]}>{t('battle.shareResults')}</Text>
-              </TouchableOpacity>
+              {/* <TouchableOpacity activeOpacity={0.9} style={[styles.outlineBtn, { borderColor: accent }]} onPress={() => Share.share({ message: t('battle.shareResultsMessage') }).catch(() => { })}>
+            <Text style={[styles.outlineBtnText, { color: accent }]}>{t('battle.shareResults')}</Text>
+          </TouchableOpacity> */}
               <TouchableOpacity
                 activeOpacity={0.9}
                 style={[styles.actionBtn, { backgroundColor: accent }]}
-                onPress={() => navigation.navigate('BattleInsightsActions', { winnerItem, runnerUpItem })}
+                onPress={() => navigation.navigate('BattleInsightsActions', { battleId, winnerItem, runnerUpItem })}
               >
-                <Text style={styles.actionBtnText}>{t('battle.useInsights')}</Text>
+                <Text style={styles.actionBtnText}>{t('battle.useInsights') || 'Use Insights'}</Text>
               </TouchableOpacity>
             </View>
           </>
@@ -1110,19 +1579,19 @@ export function BattleResultsScreen({ navigation, route }) {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, paddingTop: 40 },
-  headerRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingTop: 8, paddingBottom: 12 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingTop: 8, paddingBottom: 12 },
   iconBtn: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
   headerCenter: { flex: 1, alignItems: 'center' },
   screenTitle: { fontSize: 18, fontWeight: '800' },
   screenSubtitle: { marginTop: 2, fontSize: 12, color: MUTED, fontWeight: '600' },
-  scrollContent: { paddingHorizontal: 16, paddingBottom: 30, gap: 12 },
+  scrollContent: { paddingHorizontal: 16, paddingBottom: 30, gap: 14 },
   phone: { padding: 14, marginTop: 2 },
   statusRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
   statusText: { fontSize: 12, fontWeight: '800', color: '#111' },
   statusIcons: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   batteryPill: { borderWidth: 1, borderColor: '#111', borderRadius: 4, paddingHorizontal: 4, paddingVertical: 1 },
   batteryText: { fontSize: 8, fontWeight: '800' },
-  sectionTitle: { fontSize: 20, fontWeight: '800', marginTop: 4 },
+  sectionTitle: { fontSize: 18, fontWeight: '800', marginTop: 4, marginBottom: 4 },
   sectionHint: { fontSize: 12, color: MUTED, fontWeight: '600' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   gridCard: { width: '48%', borderRadius: 18, borderWidth: 1, padding: 10 },
@@ -1211,7 +1680,7 @@ const styles = StyleSheet.create({
   voteActionWrap: { borderRadius: 14, overflow: 'hidden' },
   voteActionPrimaryWrap: { borderWidth: 0 },
   voteActionSecondaryWrap: { borderWidth: 2, borderColor: '#C8B6E9', backgroundColor: '#fff' },
-  voteActionInner: { minHeight: 50, alignItems: 'center', justifyContent: 'center', borderRadius: 14},
+  voteActionInner: { minHeight: 50, alignItems: 'center', justifyContent: 'center', borderRadius: 14 },
   voteActionPrimaryText: { color: '#fff', fontSize: 16, fontWeight: '900', textAlign: 'center' },
   voteActionSecondaryText: { fontSize: 16, fontWeight: '900', textAlign: 'center' },
   statsWrap: { marginTop: 6 },
@@ -1232,12 +1701,31 @@ const styles = StyleSheet.create({
   winnerPrice: { marginTop: 4, fontSize: 12, color: TEXT, fontWeight: '700' },
   percentPill: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
   percentText: { color: '#fff', fontWeight: '900', fontSize: 12 },
-  resultsBlock: { gap: 10, backgroundColor: '#fff', borderRadius: 18, borderWidth: 1, borderColor: BORDER, padding: 14 },
-  resultsRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#F1E8FB' },
+  resultsHero: { borderRadius: 18, borderWidth: 1, borderColor: BORDER, padding: 14, gap: 10, position: 'relative', overflow: 'hidden' },
+  confettiDotA: { position: 'absolute', top: 18, left: 18, width: 8, height: 8, borderRadius: 4, backgroundColor: '#D9C6FF', opacity: 0.55 },
+  confettiDotB: { position: 'absolute', top: 28, right: 26, width: 6, height: 6, borderRadius: 3, backgroundColor: '#FFD7A8', opacity: 0.7 },
+  confettiDotC: { position: 'absolute', top: 60, right: 68, width: 7, height: 7, borderRadius: 3.5, backgroundColor: '#F7A9D6', opacity: 0.6 },
+  confettiDotD: { position: 'absolute', top: 86, left: 74, width: 6, height: 6, borderRadius: 3, backgroundColor: '#B9E3FF', opacity: 0.6 },
+  resultsWinnerCard: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 16, padding: 10, backgroundColor: 'rgba(255,255,255,0.55)' },
+  resultsLoserCard: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 16, padding: 10, backgroundColor: '#fff', borderWidth: 1, borderColor: '#EEE7FB' },
+  resultsThumb: { width: 78, height: 92, borderRadius: 12, backgroundColor: '#F3F0FA' },
+  resultsThumbSmall: { width: 56, height: 68, borderRadius: 10, backgroundColor: '#F3F0FA' },
+  resultsCopy: { flex: 1, gap: 4 },
+  resultsName: { fontSize: 15, fontWeight: '800' },
+  resultsNameSmall: { fontSize: 13, fontWeight: '800' },
+  resultsPrice: { fontSize: 17, fontWeight: '900' },
+  resultsPriceSmall: { fontSize: 14, fontWeight: '900' },
+  resultsPercentPill: { minWidth: 46, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: '#37B26C', paddingHorizontal: 10 },
+  resultsPercentPillMuted: { minWidth: 46, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F2EEF8', paddingHorizontal: 10 },
+  resultsPercentText: { color: '#fff', fontWeight: '900', fontSize: 12 },
+  resultsPercentTextMuted: { color: '#8B7AAE', fontWeight: '900', fontSize: 12 },
+  resultsBlock: { gap: 2, backgroundColor: '#fff', borderRadius: 18, borderWidth: 1, borderColor: BORDER, padding: 14 },
+  resultsRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F1E8FB' },
+  resultsRowLast: { borderBottomWidth: 0, paddingBottom: 0 },
   resultsLabel: { color: MUTED, fontWeight: '700' },
   resultsValue: { fontWeight: '900' },
-  actionRow: { flexDirection: 'row', gap: 10 },
-  outlineBtn: { flex: 1, height: 46, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' },
+  actionRow: { flexDirection: 'row', gap: 10, marginTop: 2 },
+  outlineBtn: { flex: 1, height: 46, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', shadowColor: '#A788E6', shadowOpacity: 0.08, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 1 },
   outlineBtnText: { fontWeight: '900' },
   actionBtn: { flex: 1, height: 46, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   actionBtnText: { color: '#fff', fontWeight: '900' },
