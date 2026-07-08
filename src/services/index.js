@@ -7,6 +7,7 @@ const baseUrl = BASE_URL;
 const axiosInstance = axios.create({
     // baseURL: 'https://valenscorp.com/',
     baseURL: 'https://api.valens.app/',
+    // baseURL: 'https://prod-api.valens.app/',
 
     maxBodyLength: Infinity
 });
@@ -30,7 +31,7 @@ export const authInterceptor = axiosInstance.interceptors.request.use(
             config.url == "user/editProfile" ||
             config.url == "story/upload" ||
             config.url == "company-profile/upload-documents" ||
-            isMyClosetCreateOrUpdate  ||
+            isMyClosetCreateOrUpdate ||
             config.url == "mycloset/items"
         ) {
             config.headers['Content-Type'] = 'multipart/form-data';

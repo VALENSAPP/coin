@@ -76,6 +76,7 @@ import { isSupportAllowed, normalizeProfileType } from '../../utils/supportEligi
 import HexAvatar from '../home/story.js/HexAvatar';
 import { useLanguage } from '../../i18n';
 import { getCart } from '../../services/myCloset';
+import { buildClosetNavContext, withClosetNavParams } from '../../utils/closetNavigation';
 
 const KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShownEver';
 const LEGACY_KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShown';
@@ -1140,9 +1141,27 @@ const ProfilePersonData = ({
               <>
                 <TouchableOpacity
                   style={styles.iconButton}
-                  onPress={() => navigation.navigate('MyClosetBuyerCart', {
-                    sellerId: targetUserId || userData?.id || userData?._id || userData?.userId || userId || '',
-                  })}
+                  onPress={() => {
+                    const sellerId = targetUserId || userData?.id || userData?._id || userData?.userId || userId || '';
+                    const sellerProfile = effectiveProfileType || userData?.profile;
+                    navigation.navigate('MyClosetBuyerCart', withClosetNavParams(
+                      {
+                        params: buildClosetNavContext({
+                          isOwnProfile: false,
+                          sellerProfile,
+                          sellerId,
+                          seller: {
+                            id: sellerId,
+                            displayName: userData?.displayName,
+                            userName: userData?.userName,
+                            image: userData?.image,
+                            profile: sellerProfile,
+                          },
+                        }),
+                      },
+                      { sellerId },
+                    ));
+                  }}
                 >
                   <View>
                     <Ionicons name="cart-outline" size={25} color="#111100" />

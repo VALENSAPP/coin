@@ -15,6 +15,12 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useLanguage } from '../../i18n';
+import {
+  navigateClosetReturn,
+  useClosetTheme,
+  withClosetNavParams,
+  themeGradient,
+} from '../../utils/closetNavigation';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { useFocusEffect } from '@react-navigation/native';
 import {
@@ -704,19 +710,40 @@ export function BattlePreviewScreen({ navigation, route }) {
 }
 
 export function BattleLiveScreen({ navigation, route }) {
-  const { bgStyle, text, card, bg } = useAppTheme();
+  const { bgStyle, text, card, bg } = useClosetTheme(route);
   const { t } = useLanguage();
   const accent = text || PURPLE;
   const primaryText = text || TEXT;
   const battleId = route?.params?.battleId;
   const initialBattle = route?.params?.initialBattle || null;
   const cameFromCard = !!initialBattle;
+  const returnTo = route?.params?.returnTo;
+  const isOwnProfile = route?.params?.isOwnProfile;
+
   const handleDonePress = useCallback(() => {
-    navigation.navigate('MainApp', {
-      screen: 'wallet',
-      params: { screen: 'MyCloset' },
-    });
-  }, [navigation]);
+    if (returnTo) {
+      navigateClosetReturn(navigation, returnTo);
+      return;
+    }
+    if (isOwnProfile) {
+      navigation.navigate('MainApp', {
+        screen: 'wallet',
+        params: { screen: 'MyCloset' },
+      });
+      return;
+    }
+    if (navigation.canGoBack?.()) {
+      navigation.goBack();
+    }
+  }, [navigation, returnTo, isOwnProfile]);
+
+  const handleBackPress = useCallback(() => {
+    if (navigation.canGoBack?.()) {
+      navigation.goBack();
+      return;
+    }
+    navigateClosetReturn(navigation, returnTo);
+  }, [navigation, returnTo]);
 
   const [battle, setBattle] = useState(() => (initialBattle ? normalizeBattle(initialBattle) : null));
   const [loading, setLoading] = useState(() => !!battleId && !initialBattle);
@@ -844,7 +871,7 @@ export function BattleLiveScreen({ navigation, route }) {
   if (loadError || selectedItems.length < 2) {
     return (
       <View style={[styles.screen, bgStyle, { backgroundColor: bg || SOFT_BG }]}>
-        <Header title={t('battle.liveTitle')} onBack={() => navigation.goBack()} titleColor={primaryText} />
+        <Header title={t('battle.liveTitle')} onBack={handleBackPress} titleColor={primaryText} />
         <View style={styles.centeredNotice}>
           <Text style={styles.errorText}>{loadError || t('battle.errors.missingItems')}</Text>
           {battleId ? (
@@ -861,7 +888,7 @@ export function BattleLiveScreen({ navigation, route }) {
     <View style={[styles.screen, bgStyle, { backgroundColor: bg || SOFT_BG }]}>
       <Header
         title={t('battle.liveTitle')}
-        onBack={() => navigation.goBack()}
+        onBack={handleBackPress}
         rightIcon="share-outline"
         accentColor={accent}
         titleColor={primaryText}
@@ -884,7 +911,7 @@ export function BattleLiveScreen({ navigation, route }) {
         <BattleCard left={selectedItems[0]} right={selectedItems[1]} accent={accent} textColor={primaryText} />
         {canVote ? (
           <View style={[styles.voteChoicesWrap, { backgroundColor: card || '#fff' }]}>
-            <Text style={styles.voteHeadline}>{t('battle.voteAndSeeResults') || 'Vote and see results'}</Text>
+            <Text style={[styles.voteHeadline, { color: primaryText }]}>{t('battle.voteAndSeeResults') || 'Vote and see results'}</Text>
             <Text style={styles.voteSub}>{t('battle.voteHelpsDecide') || 'Your vote helps others decide!'}</Text>
             {[selectedItems[0], selectedItems[1]].map((item, index) => (
               <TouchableOpacity
@@ -894,12 +921,12 @@ export function BattleLiveScreen({ navigation, route }) {
                 onPress={() => handleVote(item)}
                 style={[
                   styles.voteActionWrap,
-                  index === 0 ? styles.voteActionPrimaryWrap : styles.voteActionSecondaryWrap,
+                  index === 0 ? styles.voteActionPrimaryWrap : [styles.voteActionSecondaryWrap, { borderColor: accent }],
                   votingParticipantId === item?.participantId && { opacity: 0.6 },
                 ]}
               >
                 {index === 0 ? (
-                  <LinearGradient colors={[accent, PURPLE_2]} style={styles.voteActionInner}>
+                  <LinearGradient colors={themeGradient(accent)} style={styles.voteActionInner}>
                     <Text style={styles.voteActionPrimaryText} numberOfLines={1}>
                       {votingParticipantId === item?.participantId
                         ? votedLabel
@@ -928,16 +955,16 @@ export function BattleLiveScreen({ navigation, route }) {
         </View>
         <View style={styles.footerActions}>
           <TouchableOpacity activeOpacity={0.9} onPress={handleDonePress} style={styles.footerActionFlex}>
-            <LinearGradient colors={[accent, PURPLE_2]} style={styles.primaryButton}>
+            <LinearGradient colors={themeGradient(accent)} style={styles.primaryButton}>
               <Text style={styles.primaryButtonText}>{t('battle.done') || 'Done'}</Text>
             </LinearGradient>
           </TouchableOpacity>
           <TouchableOpacity
             activeOpacity={0.9}
-            onPress={() => navigation.navigate('BattleResultsScreen', { battleId })}
+            onPress={() => navigation.navigate('BattleResultsScreen', withClosetNavParams(route, { battleId }))}
             style={styles.footerActionFlex}
           >
-            <LinearGradient colors={[accent, PURPLE_2]} style={styles.primaryButton}>
+            <LinearGradient colors={themeGradient(accent)} style={styles.primaryButton}>
               <Text style={styles.primaryButtonText}>{t('battle.viewResults') || 'View Results'}</Text>
             </LinearGradient>
           </TouchableOpacity>
@@ -948,11 +975,20 @@ export function BattleLiveScreen({ navigation, route }) {
 }
 
 export function BattleResultsScreen({ navigation, route }) {
-  const { bgStyle, text, card, bg } = useAppTheme();
+  const { bgStyle, text, card, bg } = useClosetTheme(route);
   const { t } = useLanguage();
   const accent = text || PURPLE;
   const primaryText = text || TEXT;
   const battleId = route?.params?.battleId;
+  const returnTo = route?.params?.returnTo;
+
+  const handleBackPress = useCallback(() => {
+    if (navigation.canGoBack?.()) {
+      navigation.goBack();
+      return;
+    }
+    navigateClosetReturn(navigation, returnTo);
+  }, [navigation, returnTo]);
 
   const [battle, setBattle] = useState(null);
   const [insights, setInsights] = useState(null);
@@ -1029,7 +1065,7 @@ export function BattleResultsScreen({ navigation, route }) {
   if (loadError || !winnerItem || !runnerUpItem) {
     return (
       <View style={[styles.screen, bgStyle, { backgroundColor: bg || SOFT_BG }]}>
-        <Header title={t('battle.resultsTitle')} onBack={() => navigation.goBack()} titleColor={primaryText} />
+        <Header title={t('battle.resultsTitle')} onBack={handleBackPress} titleColor={primaryText} />
         <View style={styles.centeredNotice}>
           <Text style={styles.errorText}>{loadError || t('battle.errors.missingItems')}</Text>
           {battleId ? (
@@ -1046,7 +1082,7 @@ export function BattleResultsScreen({ navigation, route }) {
     <View style={[styles.screen, bgStyle, { backgroundColor: bg || SOFT_BG }]}>
       <Header
         title={t('battle.resultsTitle')}
-        onBack={() => navigation.goBack()}
+        onBack={handleBackPress}
         accentColor={accent}
         titleColor={primaryText}
         onShare={async () => {
@@ -1096,7 +1132,7 @@ export function BattleResultsScreen({ navigation, route }) {
               <TouchableOpacity
                 activeOpacity={0.9}
                 style={[styles.actionBtn, { backgroundColor: accent }]}
-                onPress={() => navigation.navigate('BattleInsightsActions', { winnerItem, runnerUpItem })}
+                onPress={() => navigation.navigate('BattleInsightsActions', withClosetNavParams(route, { winnerItem, runnerUpItem }))}
               >
                 <Text style={styles.actionBtnText}>{t('battle.useInsights')}</Text>
               </TouchableOpacity>

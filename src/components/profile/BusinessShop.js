@@ -164,6 +164,7 @@ const BusinessShopScreen = ({
   isActiveTab = false,
   activeMediaFilter = 'photo',
   dashboard,
+  closetNavContext,
 }) => {
   console.log(userData, '---------------------userData-------------------------')
   const [posts, setPosts] = useState([]);
@@ -611,6 +612,7 @@ const BusinessShopScreen = ({
           userData={userData}
           shopDraft={null}
           isOwnProfile={isOwnProfile}
+          closetNavContext={closetNavContext}
         />
       );
     }

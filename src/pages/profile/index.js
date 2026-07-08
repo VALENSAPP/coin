@@ -7,7 +7,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useRoute } from '@react-navigation/native';
 import { useToast } from 'react-native-toast-notifications';
 import { useDispatch } from 'react-redux';
 
@@ -27,6 +27,8 @@ const KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShownEver';
 const LEGACY_KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShown';
 
 const ProfileScreen = () => {
+  const route = useRoute();
+  const initialTab = route?.params?.initialTab || route?.params?.params?.initialTab;
   const [posts, setPosts] = useState([]);
   const [userId, setUserId] = useState();
   const [userDashboard, setUserDashboard] = useState();
@@ -193,7 +195,8 @@ const profileTabsProps = useMemo(() => ({
   refreshKey: refreshKey,
   onPostPinChanged: handlePostPinChanged,
   scrollEnabled: false,
-}), [posts, userData, userDashboard, userId, refreshKey, handlePostPinChanged]);
+  initialTab,
+}), [posts, userData, userDashboard, userId, refreshKey, handlePostPinChanged, initialTab]);
 
   return (
     <SafeAreaView style={[styles.container, bgStyle]}>
