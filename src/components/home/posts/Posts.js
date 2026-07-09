@@ -38,6 +38,7 @@ import { getAllUser } from '../../../services/users';
 import TokenPurchaseModal from '../../modals/TokenPurchaseModal';
 import { following as apiFollowing, followers as apiFollowers } from '../../../services/profile';
 import { useFocusEffect } from '@react-navigation/native';
+import { BASE_URL } from '../../../config/urls';
 import TokenSellModal from '../../modals/TokenSellModal';
 import { getUserTokenInfoByBlockChain } from '../../../services/tokens';
 import { getSuggestedUsers } from '../../../services/home';
@@ -676,7 +677,7 @@ const Posts = forwardRef(function Posts(
         }
 
         const post = mappedPosts.find(p => String(p.id) === String(modalPostId));
-        const deepLink = `https://api.valens.app/postshare/${encodeURIComponent(String(modalPostId))}`;
+        const deepLink = `${BASE_URL}/postshare/${encodeURIComponent(String(modalPostId))}`;
 
         const parsedGoal = Number(post?.raiseAmount);
         const isMissionPost = Number.isFinite(parsedGoal) && parsedGoal > 0;

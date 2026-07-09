@@ -1,8 +1,8 @@
 // services/socket.js
 import io from 'socket.io-client';
+import { API_URL } from '../config/urls';
 
-const SOCKET_URL = 'https://api.valens.app/';
-// const SOCKET_URL = 'http://192.168.29.211:3002/';
+const SOCKET_URL = API_URL;
 
 
 let socket = null;

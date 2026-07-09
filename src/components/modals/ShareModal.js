@@ -17,6 +17,7 @@ import RBSheet from 'react-native-raw-bottom-sheet';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BASE_URL } from '../../config/urls';
 
 import { following as apiFollowing } from '../../services/profile';
 import { sharePost } from '../../services/post';
@@ -268,12 +269,12 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
     if (!id) return null;
 
     if (story) {
-      return `https://api.valens.app/storyshare/${encodeURIComponent(String(id))}`;
+      return `${BASE_URL}/storyshare/${encodeURIComponent(String(id))}`;
     }
     if (reel || reelId) {
-      return `https://api.valens.app/reelshare/${encodeURIComponent(String(id))}`;
+      return `${BASE_URL}/reelshare/${encodeURIComponent(String(id))}`;
     }
-    return `https://api.valens.app/postshare/${encodeURIComponent(String(id))}`;
+    return `${BASE_URL}/postshare/${encodeURIComponent(String(id))}`;
   };
 
   const generateShareText = () => {

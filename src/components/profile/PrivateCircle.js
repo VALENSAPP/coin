@@ -17,6 +17,7 @@ import FastImage from 'react-native-fast-image';
 import Svg, { ClipPath, Polygon, Image as SvgImage, Defs } from 'react-native-svg';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useLanguage } from '../../i18n';
+import { BASE_URL } from '../../config/urls';
 import useScreenshotProtection, {
   SCREENSHOT_PROTECTED_SOURCES,
 } from '../../hooks/useScreenshotProtection';
@@ -69,8 +70,8 @@ const normalizeImageUrl = (url) => {
   ) {
     return trimmed;
   }
-  if (trimmed.startsWith('/')) return `https://api.valens.app${trimmed}`;
-  return `https://api.valens.app/${trimmed}`;
+  if (trimmed.startsWith('/')) return `${BASE_URL}${trimmed}`;
+  return `${BASE_URL}/${trimmed}`;
 };
 
 const isVideoUrl = (url) => {

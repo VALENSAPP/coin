@@ -7,6 +7,8 @@
  * more reliably on iPhone.
  */
  
+import { BASE_URL } from '../config/urls';
+
 /** Replace with your Reown Cloud project ID (https://cloud.reown.com). */
 export const ENV_PROJECT_ID = 'ccae686f2e085a23a5923901f21af1a1';
  
@@ -14,7 +16,7 @@ export const providerMetadata = {
   name: 'Valens',
   description: 'Valens — connect wallet for creator support',
   url: 'https://valens.app',
-  icons: ['https://api.valens.app/favicon.ico'],
+  icons: [`${BASE_URL}/favicon.ico`],
   redirect: {
     native: 'com.valens.app://',
   },

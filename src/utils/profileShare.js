@@ -1,8 +1,9 @@
 import { Platform } from 'react-native';
+import { BASE_URL } from '../config/urls';
 
 const ANDROID_CALLBACK_URL = 'com.valens://callback';
 const IOS_CALLBACK_URL = 'com.valens://';
-const WEB_BASE_URL = 'https://api.valens.app';
+const WEB_BASE_URL = BASE_URL;
 const APP_BASE_URL = 'com.valens.app://';
 
 export const getProfileShareCallbackUrl = () => (

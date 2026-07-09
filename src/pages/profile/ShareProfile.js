@@ -28,6 +28,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLanguage } from '../../i18n';
 import HexAvatar from '../../components/home/story.js/HexAvatar';
 import { useAppTheme } from '../../theme/useApptheme';
+import { BASE_URL } from '../../config/urls';
 import { normalizeProfileType } from '../../utils/supportEligibility';
 
 const ShareProfile = ({ navigation }) => {
@@ -188,7 +189,7 @@ const ShareProfile = ({ navigation }) => {
     'https://cdn-icons-png.flaticon.com/512/149/149071.png'
   ), [isOwnProfile, ownProfileImage, profile?.image, profile?.profileImage]);
 
-  const qrShareUrl = `https://api.valens.app/profile/${resolvedUserId}?username=${encodeURIComponent(resolvedUsername)}&callbackUrl=${encodeURIComponent('com.valens://')}`;
+  const qrShareUrl = `${BASE_URL}/profile/${resolvedUserId}?username=${encodeURIComponent(resolvedUsername)}&callbackUrl=${encodeURIComponent('com.valens://')}`;
   useFocusEffect(
     useCallback(() => {
       const nextUsername = String(

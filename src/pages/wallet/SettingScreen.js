@@ -22,6 +22,7 @@ import { getProfile } from '../../services/createProfile';
 import { useAppTheme } from '../../theme/useApptheme';
 import HexAvatar from '../../components/home/story.js/HexAvatar';
 import { useLanguage } from '../../i18n';
+import { BASE_URL } from '../../config/urls';
 import {
   disableNotifications,
   enableNotifications,
@@ -133,9 +134,9 @@ export const SettingsScreen = ({ navigation }) => {
             if (formattedImageUrl.startsWith('http://') || formattedImageUrl.startsWith('https://')) {
               console.log('Image URL is already absolute:', formattedImageUrl);
             } else if (formattedImageUrl.startsWith('/')) {
-              formattedImageUrl = `https://api.valens.app${formattedImageUrl}`;
+              formattedImageUrl = `${BASE_URL}${formattedImageUrl}`;
             } else {
-              formattedImageUrl = `https://api.valens.app/${formattedImageUrl}`;
+              formattedImageUrl = `${BASE_URL}/${formattedImageUrl}`;
             }
 
             userDataToSet.image = formattedImageUrl;
