@@ -37,6 +37,7 @@ import heartNotification from '../pages/home/HeartNotification';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import Settings from '../pages/settings';
 import UserChat from '../pages/home/chatMessages/UserChat';
+import UserClosetChat from '../pages/home/chatMessages/UserClosetChat';
 import ChatMessages from '../pages/home/chatMessages/ChatMessages';
 import PostScreen from '../pages/post';
 import FollowersFollowingScreen from '../pages/profile/FollowersScreen';
@@ -353,6 +354,7 @@ export default function MainTabNavigator() {
         <Stack.Screen name="Favourites" component={Favourites} />
         <Stack.Screen name="Following" component={Following} />
         <Stack.Screen name="UserChat" component={UserChat} />
+        <Stack.Screen name="UserClosetChat" component={UserClosetChat} />
         <Stack.Screen name="UsersProfile" component={Usersprofile} />
         <Stack.Screen name="MyClosetBuyerItems" component={MyClosetBuyerItemsScreen} />
         <Stack.Screen name="MyClosetBuyerItemDetail" component={MyClosetBuyerItemDetailScreen} />
@@ -1125,6 +1127,7 @@ export default function MainTabNavigator() {
         'HeartNotification',
         'Following',
         'UserChat',
+        'UserClosetChat',
         'PostUpload',
         'PostEditor',
         'EditPost',

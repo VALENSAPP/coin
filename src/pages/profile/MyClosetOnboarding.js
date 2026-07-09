@@ -2582,7 +2582,7 @@ const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
                   accent={text}
                 />
               </View>
-              {buyerChatEnabled ? (
+              {/* {buyerChatEnabled ? (
                 <TouchableOpacity
                   activeOpacity={0.85}
                   onPress={previewChat}
@@ -2591,7 +2591,7 @@ const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
                   <Ionicons name="chatbubble-outline" size={14} color={text} />
                   <Text style={[styles.previewChatText, { color: text }]}>{t('myClosetAddItemShipping.previewChat')}</Text>
                 </TouchableOpacity>
-              ) : null}
+              ) : null} */}
             </View>
           ) : null}
 

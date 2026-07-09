@@ -3517,6 +3517,7 @@
   "chatMessages": {
     "title": "Messages",
     "myClosetChatLabel": "My closet chat",
+    "shopChatLabel": "Shop chat",
     "messagesLabel": "Messages",
     "noClosetChatsYet": "No closet chats yet",
     "closetChatHint": "Chats you keep here stay separate from your main inbox",
@@ -3829,7 +3830,7 @@
     "termsText": "By placing this order, you agree to Valens Terms of Service and Privacy Policy.",
     "placeOrder": "Place Order",
     "checkoutError": "Could not proceed to checkout. Please try again.",
-    "orderReceivedTitle": "Order Received!",
+    "orderReceivedTitle": "Order Placed Successfully!",
     "orderReceivedSubtitle": "Thank you for your purchase. Your order has been placed successfully.",
     "orderIdLabel": "Order #{{id}}",
     "viewDetails": "View Details",

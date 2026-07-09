@@ -3425,6 +3425,7 @@
   "chatMessages": {
     "title": "Messages",
     "myClosetChatLabel": "Chat de mon dressing",
+    "shopChatLabel": "Chat de la boutique",
     "messagesLabel": "Messages",
     "noClosetChatsYet": "Aucun chat privé pour le moment",
     "closetChatHint": "Les discussions conservées ici restent séparées de votre boîte de réception principale",
@@ -3737,7 +3738,7 @@
     "termsText": "En passant cette commande, vous acceptez les Conditions d'utilisation et la Politique de confidentialité de Valens.",
     "placeOrder": "Passer la commande",
     "checkoutError": "Impossible de poursuivre le paiement. Veuillez réessayer.",
-    "orderReceivedTitle": "Commande reçue !",
+    "orderReceivedTitle": "Commande passée avec succès !",
     "orderReceivedSubtitle": "Merci pour votre achat. Votre commande a été passée avec succès.",
     "orderIdLabel": "Commande n° {{id}}",
     "viewDetails": "Voir les détails",

@@ -131,6 +131,45 @@ const fastImageSource = uri =>
       }
     : null;
 
+const CachedImageBox = ({ uri, style, placeholderStyle, iconName, iconSize = 26 }) => {
+  const [loaded, setLoaded] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setLoaded(false);
+    setFailed(false);
+  }, [uri]);
+
+  if (!uri || failed) {
+    return (
+      <View style={[style, placeholderStyle]}>
+        <Ionicons name={iconName} size={iconSize} color="#9b8c7a" />
+      </View>
+    );
+  }
+
+  return (
+    <View style={style}>
+      {!loaded && (
+        <View style={styles.imageLoadingOverlay}>
+          <ActivityIndicator size="small" color="#9b8c7a" />
+        </View>
+      )}
+      <FastImage
+        source={fastImageSource(uri)}
+        style={StyleSheet.absoluteFill}
+        resizeMode={FastImage.resizeMode.cover}
+        fadeDuration={0}
+        onLoad={() => setLoaded(true)}
+        onError={() => {
+          setFailed(true);
+          setLoaded(true);
+        }}
+      />
+    </View>
+  );
+};
+
 // --- Battle response normalization --------------------------------------
 // Shapes the real GET /marketplace-battles/me response (battle.participants[].product)
 // into the { items, leftVotePercent, daysLeft, ... } fields the battle screens render.
@@ -295,7 +334,12 @@ export const BattleCard = ({ left, right, showWinner = false, winnerPercent, acc
           <Text style={[styles.winnerBadge, { color: textColor }]}>🏆 {t('battle.winner')}</Text>
           <View style={styles.winnerRow}>
             <View style={styles.heroThumb}>
-              <Image source={{ uri: left.image }} style={styles.itemThumb} />
+              <CachedImageBox
+                uri={left.image}
+                style={styles.itemThumb}
+                placeholderStyle={styles.itemThumbPlaceholder}
+                iconName="bag-outline"
+              />
             </View>
             <View style={styles.winnerCopy}>
               <Text style={[styles.winnerTitle, { color: textColor }]}>{left.name}</Text>
@@ -309,13 +353,23 @@ export const BattleCard = ({ left, right, showWinner = false, winnerPercent, acc
       ) : null}
       <View style={styles.vsGrid}>
         <View style={styles.itemTile}>
-          <Image source={{ uri: left.image }} style={styles.itemThumb} />
+          <CachedImageBox
+            uri={left.image}
+            style={styles.itemThumb}
+            placeholderStyle={styles.itemThumbPlaceholder}
+            iconName="bag-outline"
+          />
           <Text style={[styles.itemName, { color: textColor }]}>{left.name}</Text>
           <Text style={[styles.itemPrice, { color: accent }]}>{left.price}</Text>
         </View>
         <View style={[styles.vsBubble, { backgroundColor: accent }]}><Text style={styles.vsText}>{t('battle.vs')}</Text></View>
         <View style={styles.itemTile}>
-          <Image source={{ uri: right.image }} style={styles.itemThumb} />
+          <CachedImageBox
+            uri={right.image}
+            style={styles.itemThumb}
+            placeholderStyle={styles.itemThumbPlaceholder}
+            iconName="bag-handle-outline"
+          />
           <Text style={[styles.itemName, { color: textColor }]}>{right.name}</Text>
           <Text style={[styles.itemPrice, { color: accent }]}>{right.price}</Text>
         </View>
@@ -1671,6 +1725,12 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     alignSelf: 'center',
   },
+  itemThumbPlaceholder: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   itemName: {
     fontSize: 12,
     fontWeight: '700',
@@ -1685,6 +1745,13 @@ const styles = StyleSheet.create({
   vsBubble: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', marginTop: 0 },
   vsText: { color: '#fff', fontWeight: '900', fontSize: 12 },
   cardBlock: { gap: 12 },
+  imageLoadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(246,240,238,0.72)',
+    zIndex: 2,
+  },
   infoRow: { flexDirection: 'row', justifyContent: 'space-between' },
   infoText: { color: MUTED, fontSize: 12, fontWeight: '700' },
   aboutCard: { backgroundColor: '#fff', borderRadius: 18, borderWidth: 1, borderColor: BORDER, padding: 14, gap: 4 },

@@ -1,7 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -9,6 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import FastImage from 'react-native-fast-image';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useDispatch } from 'react-redux';
@@ -90,6 +90,15 @@ const imageUri = image => {
   return image?.uri || image?.url || image?.path || null;
 };
 
+const fastImageSource = uri =>
+  uri
+    ? {
+        uri,
+        priority: FastImage.priority.high,
+        cache: FastImage.cacheControl.immutable,
+      }
+    : null;
+
 const firstImage = value => {
   if (Array.isArray(value)) return imageUri(value[0]);
   return imageUri(value);
@@ -168,15 +177,34 @@ const Header = ({ onBack, title }) => (
   </View>
 );
 
-const ImageBox = ({ uri, style, iconSize = 22 }) => (
-  <View style={[styles.imageBox, style]}>
-    {uri ? (
-      <Image source={{ uri }} style={styles.coverImage} resizeMode="cover" />
-    ) : (
-      <Ionicons name="shirt-outline" size={iconSize} color="#9b8c7a" />
-    )}
-  </View>
-);
+const ImageBox = ({ uri, style, iconSize = 22, resizeMode = FastImage.resizeMode.cover }) => {
+  const [loading, setLoading] = useState(Boolean(uri));
+  const source = fastImageSource(uri);
+
+  return (
+    <View style={[styles.imageBox, style]}>
+      {source ? (
+        <>
+          <FastImage
+            source={source}
+            style={styles.coverImage}
+            resizeMode={resizeMode}
+            onLoadStart={() => setLoading(true)}
+            onLoadEnd={() => setLoading(false)}
+            onError={() => setLoading(false)}
+          />
+          {loading ? (
+            <View style={styles.imageLoaderOverlay}>
+              <ActivityIndicator size="small" color={ACCENT} />
+            </View>
+          ) : null}
+        </>
+      ) : (
+        <Ionicons name="shirt-outline" size={iconSize} color="#9b8c7a" />
+      )}
+    </View>
+  );
+};
 
 const SummaryRow = ({ label, value, bold }) => (
   <View style={styles.summaryRow}>
@@ -227,6 +255,7 @@ const StatusTimeline = ({ status }) => {
 
 const MyClosetOrderDetailScreen = ({ navigation, route }) => {
   const orderId = route?.params?.orderId;
+  const returnTo = route?.params?.returnTo;
   const toast = useToast();
   const dispatch = useDispatch();
   const { text, bgStyle } = useAppTheme();
@@ -239,6 +268,7 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
   const [shippingModalVisible, setShippingModalVisible] = useState(false);
 
   const viewType = route?.params?.viewType;
+  const canUpdateStatus = viewType !== 'buyer';
 
   const loadOrder = useCallback(async () => {
     if (!orderId) {
@@ -268,6 +298,7 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
   );
 
   const handleAdvance = useCallback(async (extra) => {
+    if (!canUpdateStatus) return;
     if (!order) return;
     const flowStep = STATUS_FLOW[order.status];
     const action = flowStep ? ACTION_BY_KEY[flowStep.actionKey] : null;
@@ -291,9 +322,27 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
       dispatch(hideLoader());
       setShippingModalVisible(false);
     }
-  }, [dispatch, loadOrder, order, t, toast]);
+  }, [canUpdateStatus, dispatch, loadOrder, order, t, toast]);
 
   const goBack = useCallback(() => {
+    console.log("return to -----------------",returnTo)
+
+    if (returnTo == 'MyClosetDashboard') {
+      navigation.reset({
+        index: 0,
+        routes: [
+          {
+            name: 'MainApp',
+            params: {
+              screen: 'wallet',
+              params: { screen: 'MyCloset' },
+            },
+          },
+        ],
+      })
+      return;
+    }
+
     if (navigation?.canGoBack?.()) {
       navigation.goBack();
       return;
@@ -398,7 +447,12 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
           <Text style={styles.cardTitle}>{t('myClosetOrderDetail.items', { count: order.totalItemCount })}</Text>
           {order.coverImage ? (
             <View style={styles.coverWrap}>
-              <ImageBox uri={order.coverImage} style={styles.coverThumb} iconSize={28} />
+              <ImageBox
+                uri={order.coverImage}
+                style={styles.coverThumb}
+                iconSize={28}
+                resizeMode={FastImage.resizeMode.contain}
+              />
             </View>
           ) : null}
           {order.lines.length ? (
@@ -424,7 +478,7 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
           <SummaryRow label={t('myClosetOrderDetail.orderTotal')} value={order.totalAmount} bold />
         </View>
 
-        {flowStep ? (
+        {canUpdateStatus && flowStep ? (
           <View style={styles.bottomBar}>
             <BottomButton
               label={advancing ? t('myClosetOrderDetail.updating') : t(flowStep.labelKey)}
@@ -434,12 +488,14 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
           </View>
         ) : null}
       </ScrollView>
-      <ShippingDetailsModal
-        visible={shippingModalVisible}
-        text={ACCENT}
-        onCancel={() => setShippingModalVisible(false)}
-        onSubmit={(payload) => handleAdvance(payload)}
-      />
+      {canUpdateStatus ? (
+        <ShippingDetailsModal
+          visible={shippingModalVisible}
+          text={ACCENT}
+          onCancel={() => setShippingModalVisible(false)}
+          onSubmit={(payload) => handleAdvance(payload)}
+        />
+      ) : null}
     </SafeAreaView>
   );
 };
@@ -522,8 +578,8 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   cardTitle: { fontSize: 13, fontWeight: '900', color: '#21083f', marginBottom: 10 },
-  coverWrap: { marginBottom: 12 },
-  coverThumb: { width: '100%', height: 180, borderRadius: 14 },
+  coverWrap: { marginBottom: 12, width: '100%' },
+  coverThumb: { width: '100%', height: 220, borderRadius: 14, alignSelf: 'stretch' },
 
   buyerRow: { flexDirection: 'row', alignItems: 'center' },
   buyerAvatar: {
@@ -548,8 +604,21 @@ const styles = StyleSheet.create({
     borderBottomColor: BORDER,
   },
   lineThumb: { width: 52, height: 52, borderRadius: 10, marginRight: 10 },
-  imageBox: { backgroundColor: '#f6f0ee', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  imageBox: {
+    backgroundColor: '#f6f0ee',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    width: '100%',
+    alignSelf: 'stretch',
+  },
   coverImage: { width: '100%', height: '100%' },
+  imageLoaderOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(251,248,255,0.35)',
+  },
   lineCopy: { flex: 1 },
   lineName: { fontSize: 13, fontWeight: '800', color: '#17072d' },
   linePrice: { marginTop: 2, fontSize: 12, color: ACCENT, fontWeight: '800' },

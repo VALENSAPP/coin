@@ -3425,6 +3425,7 @@
   "chatMessages": {
     "title": "Mensagens",
     "myClosetChatLabel": "Chat do meu guarda-roupa",
+    "shopChatLabel": "Chat da loja",
     "messagesLabel": "Mensagens",
     "noClosetChatsYet": "Ainda não há chats privados",
     "closetChatHint": "As conversas que você mantém aqui ficam separadas da sua caixa de entrada principal",
@@ -3737,7 +3738,7 @@
     "termsText": "Ao realizar este pedido, você concorda com os Termos de Serviço e a Política de Privacidade da Valens.",
     "placeOrder": "Fazer pedido",
     "checkoutError": "Não foi possível prosseguir com o checkout. Tente novamente.",
-    "orderReceivedTitle": "Pedido recebido!",
+    "orderReceivedTitle": "Pedido realizado com sucesso!",
     "orderReceivedSubtitle": "Obrigado pela sua compra. Seu pedido foi realizado com sucesso.",
     "orderIdLabel": "Pedido nº {{id}}",
     "viewDetails": "Ver detalhes",

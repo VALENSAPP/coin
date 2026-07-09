@@ -2,7 +2,6 @@ import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Image,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -10,6 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import FastImage from 'react-native-fast-image';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useDispatch } from 'react-redux';
@@ -69,6 +69,15 @@ const imageUri = image => {
   if (typeof image === 'string') return image;
   return image?.uri || image?.url || image?.path || null;
 };
+
+const fastImageSource = uri =>
+  uri
+    ? {
+        uri,
+        priority: FastImage.priority.high,
+        cache: FastImage.cacheControl.immutable,
+      }
+    : null;
 
 const firstImage = value => {
   if (Array.isArray(value)) return imageUri(value[0]);
@@ -166,6 +175,35 @@ const OrdersHeader = ({ onBack, title }) => (
   </View>
 );
 
+const OrderThumb = ({ uri }) => {
+  const [loading, setLoading] = useState(Boolean(uri));
+  const source = fastImageSource(uri);
+
+  return (
+    <View style={styles.orderThumb}>
+      {source ? (
+        <>
+          <FastImage
+            source={source}
+            style={styles.orderThumbImage}
+            resizeMode={FastImage.resizeMode.contain}
+            onLoadStart={() => setLoading(true)}
+            onLoadEnd={() => setLoading(false)}
+            onError={() => setLoading(false)}
+          />
+          {loading ? (
+            <View style={styles.orderThumbLoader}>
+              <ActivityIndicator size="small" color="#7c3aed" />
+            </View>
+          ) : null}
+        </>
+      ) : (
+        <Ionicons name="shirt-outline" size={22} color="#9ca3af" />
+      )}
+    </View>
+  );
+};
+
 // Seller-side status progression — what happens when the seller taps the action button.
 // `label` is resolved via t('myClosetOrders.action.<actionKey>') at render time.
 const STATUS_FLOW = {
@@ -206,13 +244,7 @@ const OrderCard = ({
         </View>
 
         <View style={styles.orderCardBody}>
-          <View style={styles.orderThumb}>
-            {order.image ? (
-              <Image source={{ uri: order.image }} style={styles.orderThumbImage} />
-            ) : (
-              <Ionicons name="shirt-outline" size={22} color={text} />
-            )}
-          </View>
+          <OrderThumb uri={order.image} />
           <View style={styles.orderCopy}>
             <Text style={[styles.orderItemName, textStyle]} numberOfLines={1}>
               {order.itemName}
@@ -453,18 +485,20 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
     mode === 'seller'
       ? t('myClosetOrders.emptyTextSeller')
       : t('myClosetOrders.emptyTextBuyer');
+
   const handleBack = useCallback(() => {
-    if (navigation?.canGoBack?.()) {
-      navigation.goBack();
-      return;
-    }
-
-    if (navigation?.popToTop) {
-      navigation.popToTop();
-      return;
-    }
-
-    navigation?.navigate?.('MyCloset');
+    navigation.reset({
+      index: 0,
+      routes: [
+        {
+          name: 'MainApp',
+          params: {
+            screen: 'wallet',
+            params: { screen: 'MyCloset' },
+          },
+        },
+      ],
+    })
   }, [navigation]);
 
   return (
@@ -640,8 +674,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     overflow: 'hidden',
     marginRight: 12,
+    flexShrink: 0,
   },
   orderThumbImage: { width: '100%', height: '100%' },
+  orderThumbLoader: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(245,243,255,0.35)',
+  },
   orderCopy: { flex: 1 },
   orderItemName: { fontSize: 14, fontWeight: '800', color: '#111827' },
   orderPrice: { marginTop: 2, fontSize: 13, fontWeight: '700', color: '#7c3aed' },
