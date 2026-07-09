@@ -585,14 +585,6 @@ const InstagramPostCreator = () => {
 
   const openPostMusicPicker = () => {
     setPostStorySoundTrimVisible(false);
-    const slideEdits = getCurrentImageEdits();
-    if (!slideHasLibraryMusic(slideEdits)) {
-      if (isFlipPost) {
-        setFlipVolumeByIndex(prev => ({ ...prev, [currentImageIndex]: prev[currentImageIndex] ?? 1 }));
-      } else {
-        setVideoMuted(false);
-      }
-    }
     setFlipAudioModal(true);
   };
 
@@ -1909,6 +1901,9 @@ const InstagramPostCreator = () => {
                 {selectedImages.map((image, index) => {
                   const slideEditsForMute = imageEdits[index] || {};
                   const hasLibMusicOnSlide = slideHasLibraryMusic(slideEditsForMute);
+                  const isVideoEffectivelyMuted = isFlipPost
+                    ? (flipVolumeByIndex[index] ?? 1) === 0 || (hasLibMusicOnSlide && index === currentImageIndex)
+                    : videoMuted || (hasLibMusicOnSlide && index === currentImageIndex);
                   const slideCanvasHeight = getSlideCanvasHeight();
                   const contentLayout = getContentLayoutForMedia(image);
                   return (
@@ -1936,7 +1931,7 @@ const InstagramPostCreator = () => {
                       >
                         {isMediaVideo(image) ? (
                           <View style={styles.videoContainer}>
-                            <Video ref={ref => { if (ref) videoRefs.current[index] = ref; }} source={{ uri: getMediaDisplayUri(image) }} style={styles.mainImage} resizeMode='cover' paused={videoPaused[index] !== false} muted={isFlipPost ? (flipVolumeByIndex[index] ?? 1) === 0 || (hasLibMusicOnSlide && index === currentImageIndex) : videoMuted || (hasLibMusicOnSlide && index === currentImageIndex)} volume={isFlipPost ? (flipVolumeByIndex[index] ?? 1) : 1} repeat={true} ignoreSilentSwitch="ignore" playWhenInactive={false} onError={(error) => console.log('Video error:', error)} poster={image.thumbnail || undefined} />
+                            <Video ref={ref => { if (ref) videoRefs.current[index] = ref; }} source={{ uri: getMediaDisplayUri(image) }} style={styles.mainImage} resizeMode='cover' paused={videoPaused[index] !== false} muted={isVideoEffectivelyMuted} volume={isFlipPost ? (flipVolumeByIndex[index] ?? 1) : 1} repeat={true} ignoreSilentSwitch="ignore" playWhenInactive={false} onError={(error) => console.log('Video error:', error)} poster={image.thumbnail || undefined} />
                             <TouchableOpacity style={styles.videoPlayButton} onPress={() => handleVideoPress(index)} activeOpacity={0.8}>
                               <View style={styles.playButtonBackground}><Icon name={videoPaused[index] !== false ? 'play' : 'pause'} size={40} color="white" /></View>
                             </TouchableOpacity>
@@ -1946,7 +1941,7 @@ const InstagramPostCreator = () => {
                             </View>
                             <View style={styles.videoControls}>
                               <TouchableOpacity style={styles.muteButton} onPress={() => { if (isFlipPost) { const v = flipVolumeByIndex[index] ?? 1; setFlipVolumeByIndex(prev => ({ ...prev, [index]: v === 0 ? 1 : 0 })); } else { setVideoMuted(!videoMuted); } }}>
-                                <Icon name={isFlipPost ? (flipVolumeByIndex[index] ?? 1) === 0 ? 'volume-mute' : 'volume-high' : videoMuted ? 'volume-mute' : 'volume-high'} size={20} color="white" />
+                                <Icon name={isVideoEffectivelyMuted ? 'volume-mute' : 'volume-high'} size={20} color="white" />
                               </TouchableOpacity>
                             </View>
                             {selectedFilter !== 'none' && index === currentImageIndex && <View pointerEvents="none" style={[StyleSheet.absoluteFillObject, { backgroundColor: selectedFilter === 'grayscale' ? 'rgba(0,0,0,0.6)' : selectedFilter === 'sepia' ? 'rgba(140, 171, 225, 0.4)' : selectedFilter === 'saturate' ? 'rgba(255,100,255,0.15)' : selectedFilter === 'contrast' ? 'rgba(0,0,0,0.35)' : selectedFilter === 'brightness' ? 'rgba(255,255,255,0.35)' : 'transparent' }]} />}

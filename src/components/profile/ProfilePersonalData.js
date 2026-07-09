@@ -49,6 +49,10 @@ import {
   prepareStoryClipsAudioForUpload,
 } from '../../utils/storyAudioUpload';
 import {
+  appendStoryThumbnailFiles,
+  prepareStoryClipThumbnails,
+} from '../../utils/storyThumbnail';
+import {
   WhiteDragonfly,
   Thread,
   BlueDragonfly,
@@ -399,7 +403,8 @@ const ProfilePersonData = ({
 
   const handleComposerDone = async processedArray => {
     try {
-      const clips = await prepareStoryClipsAudioForUpload(processedArray);
+      const withAudio = await prepareStoryClipsAudioForUpload(processedArray);
+      const clips = await prepareStoryClipThumbnails(withAudio);
       setComposerVisible(false);
 
       const formData = new FormData();
@@ -412,6 +417,7 @@ const ProfilePersonData = ({
       });
       formData.append('storyMeta', JSON.stringify(buildStoryMetaPayload(clips)));
       await appendStoryAudioFiles(formData, clips);
+      appendStoryThumbnailFiles(formData, clips);
 
       const response = await PostStory(formData);
       if (response?.success) {

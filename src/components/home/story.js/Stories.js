@@ -54,10 +54,15 @@ import {
   prepareStoryClipsAudioForUpload,
 } from '../../../utils/storyAudioUpload';
 import {
-  parseStoryMeta,
+  appendStoryThumbnailFiles,
+  prepareStoryClipThumbnails,
+  resolveClipThumbnailUri,
+  resolveStoryVideoThumbnailSource,
+} from '../../../utils/storyThumbnail';
+import {
   resolveStoryAudioPayload,
   resolveStoryDurationMs,
-  looksLikeUrl,
+  mapApiStoryRowToClips,
 } from '../../../utils/storyAudioResolve';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { showToastMessage } from '../../displaytoastmessage';
@@ -160,7 +165,7 @@ const storyVideoPlayerCustomStyles = {
 
 const storyVideoThumbnailOverlayStyle = [
   StyleSheet.absoluteFillObject,
-  { zIndex: 5 },
+  { zIndex: 10, elevation: 10 },
 ];
 
 const storyVideoLoadModalStyles = StyleSheet.create({
@@ -240,50 +245,6 @@ const storyVideoLoadModalStyles = StyleSheet.create({
     fontWeight: '600',
   },
 });
-
-function resolveStoryClipThumbnailUrl(storyLike, idx, clipMeta) {
-  const candidate =
-    clipMeta?.thumbnail ||
-    clipMeta?.thumbnailUrl ||
-    clipMeta?.thumb ||
-    clipMeta?.thumbUrl ||
-    clipMeta?.poster ||
-    clipMeta?.posterUrl ||
-    clipMeta?.cover ||
-    clipMeta?.coverUrl ||
-    (Array.isArray(storyLike?.thumbnails) ? storyLike.thumbnails[idx] : null) ||
-    storyLike?.thumbnail ||
-    storyLike?.thumbnailUrl ||
-    storyLike?.thumb ||
-    storyLike?.thumbUrl ||
-    storyLike?.poster ||
-    storyLike?.posterUrl ||
-    storyLike?.cover ||
-    storyLike?.coverUrl ||
-    null;
-
-  if (!looksLikeUrl(candidate)) return null;
-  return String(candidate).trim();
-}
-
-function resolveStoryVideoThumbnailSource(storyLike) {
-  const candidate =
-    storyLike?.thumbnail ||
-    storyLike?.thumbnailUrl ||
-    storyLike?.thumb ||
-    storyLike?.thumbUrl ||
-    storyLike?.poster ||
-    storyLike?.posterUrl ||
-    storyLike?.cover ||
-    storyLike?.coverUrl ||
-    (Array.isArray(storyLike?.thumbnails) ? storyLike.thumbnails[0] : null) ||
-    storyLike?.videoThumbnail ||
-    storyLike?.videoThumb ||
-    null;
-  if (!looksLikeUrl(candidate)) return null;
-  return { uri: String(candidate).trim() };
-}
-
 
 // ─────────────────────────────────────────────────────────────────────────────
 // StoryAnalytics Modal
@@ -513,6 +474,7 @@ const StoryViewer = ({
   // ── Media state ──────────────────────────────────────────────────────────
   const [isMediaReady, setIsMediaReady] = useState(false);
   const [isFirstFrameReady, setIsFirstFrameReady] = useState(false);
+  const [isImageLoaded, setIsImageLoaded] = useState(false);
   const [isBuffering, setIsBuffering] = useState(false);
   const [videoLoadModalVisible, setVideoLoadModalVisible] = useState(false);
   const [videoRetryNonce, setVideoRetryNonce] = useState(0);
@@ -750,6 +712,7 @@ const StoryViewer = ({
     setIsBuffering(false);
     setVideoLoadModalVisible(false);
     setIsFirstFrameReady(false);
+    setIsImageLoaded(false);
     dispatch(hideLoader());
 
     if (currentStory.type === 'video' && videoRef.current?.seek) {
@@ -1009,6 +972,7 @@ console.log('VIEWER currentUser:', currentUser?.id, currentUser?.username, 'isUs
 
   const onImageLoaded = () => {
     dispatch(hideLoader());
+    setIsImageLoaded(true);
     mediaFullyLoadedRef.current = true;
     setIsMediaReady(true);
     if (!progressStartedRef.current) {
@@ -1142,11 +1106,24 @@ console.log('VIEWER currentUser:', currentUser?.id, currentUser?.username, 'isUs
         {/* ── IMAGE story (black placeholder always present) ──────────────── */}
         {currentStory?.type === 'image' ? (
           <View style={modalStyles.storyMediaFullscreen} pointerEvents="none">
+            {currentStoryThumbnail && !isImageLoaded ? (
+              <Image
+                source={currentStoryThumbnail}
+                style={modalStyles.storyMediaFill}
+                resizeMode="cover"
+                pointerEvents="none"
+              />
+            ) : null}
             {currentStory?.uri ? (
               <Image
                 key={`story_img_${storyKey}`}
                 source={{ uri: currentStory.uri }}
-                style={modalStyles.storyMediaFill}
+                style={[
+                  modalStyles.storyMediaFill,
+                  currentStoryThumbnail && !isImageLoaded
+                    ? { opacity: 0, position: 'absolute' }
+                    : null,
+                ]}
                 resizeMode="cover"
                 onLoadEnd={onImageLoaded}
                 onError={onMediaError}
@@ -1236,6 +1213,13 @@ console.log('VIEWER currentUser:', currentUser?.id, currentUser?.username, 'isUs
           {/* VIDEO story ──────────────────────────────────────────────────── */}
           {currentStory.type !== 'image' && (
             <View style={modalStyles.storyVideoWrap} pointerEvents="box-none">
+              <View
+                style={[
+                  StyleSheet.absoluteFillObject,
+                  { opacity: isFirstFrameReady ? 1 : 0, zIndex: 1, elevation: 1 },
+                ]}
+                pointerEvents="none"
+              >
               <VideoPlayer
                 key={`${storyKey}:${videoRetryNonce}`}
                 ref={videoRef}
@@ -1287,6 +1271,7 @@ console.log('VIEWER currentUser:', currentUser?.id, currentUser?.username, 'isUs
                 customStyles={storyVideoPlayerCustomStyles}
                 pointerEvents="none"
               />
+              </View>
 
               {!isFirstFrameReady && currentStoryThumbnail && (
                 <Image
@@ -1305,7 +1290,10 @@ console.log('VIEWER currentUser:', currentUser?.id, currentUser?.username, 'isUs
 
               {!isMediaReady && !!currentStoryThumbnail && (
                 <View
-                  style={{ position: 'absolute', bottom: 80, alignSelf: 'center', zIndex: 10 }}
+                  style={[
+                    modalStyles.storyVideoLoadingOverlay,
+                    modalStyles.storyVideoLoadingOverlayWithPoster,
+                  ]}
                   pointerEvents="none"
                 >
                   <ActivityIndicator size="small" color="rgba(255,255,255,0.75)" />
@@ -1765,32 +1753,7 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
         isUser: true,
         hasUnseenStory: false,
         muted: false,
-        stories: userStoriesRaw.flatMap((story) => {
-          const ts = new Date(story.createdAt || story.updatedAt || Date.now()).getTime();
-          const meta = parseStoryMeta(story.storyMeta);
-          return (story.media || []).map((url, idx) => {
-            const clipMeta = meta?.clips?.[idx] || {};
-            const mediaType = resolveStoryClipType(String(url), clipMeta);
-            const thumbnailUrl = resolveStoryClipThumbnailUrl(story, idx, clipMeta);
-            const fallbackAudio =
-              clipMeta.audio ?? meta?.audio ?? story?.audio ?? story?.song ?? story?.music ?? null;
-            return {
-              ...clipMeta,
-              audio: fallbackAudio,
-              duration: resolveStoryDurationMs({ ...clipMeta, type: mediaType }),
-              thumbnail: thumbnailUrl,
-              id: `${story.id}_${idx}`,
-              storyId: story.id,
-              type: mediaType,
-              uri: String(url).trim(),
-              timestamp: ts,
-              seen: false,
-              views: [],
-              likes: [],
-              comments: [],
-            };
-          });
-        }),
+        stories: userStoriesRaw.flatMap(story => mapApiStoryRowToClips(story)),
       };
 
       const userStoriesMap = new Map();
@@ -1802,31 +1765,7 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
           userStory.user?.username ||
           t('stories.unknownUser');
         const userImage = userStory.user?.image || '';
-        const ts = new Date(userStory.createdAt || userStory.updatedAt || Date.now()).getTime();
-        const followingMeta = parseStoryMeta(userStory.storyMeta);
-
-        const storyObjects = (userStory.media || []).map((url, idx) => {
-          const clipMeta = followingMeta?.clips?.[idx] || {};
-          const mediaType = resolveStoryClipType(String(url), clipMeta);
-          const thumbnailUrl = resolveStoryClipThumbnailUrl(userStory, idx, clipMeta);
-          const fallbackAudio =
-            clipMeta.audio ?? followingMeta?.audio ?? userStory?.audio ?? userStory?.song ?? userStory?.music ?? null;
-          return {
-            ...clipMeta,
-            audio: fallbackAudio,
-            duration: resolveStoryDurationMs({ ...clipMeta, type: mediaType }),
-            thumbnail: thumbnailUrl,
-            id: `${userStory.id}_${idx}`,
-            storyId: userStory.id,
-            type: mediaType,
-            uri: String(url).trim(),
-            timestamp: ts,
-            seen: false,
-            views: [],
-            likes: [],
-            comments: [],
-          };
-        });
+        const storyObjects = mapApiStoryRowToClips(userStory);
 
         if (userStoriesMap.has(userId)) {
           userStoriesMap.get(userId).stories.push(...storyObjects);
@@ -2115,6 +2054,7 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
     });
     formData.append('storyMeta', JSON.stringify(buildStoryMetaPayload(clips)));
     await appendStoryAudioFiles(formData, clips);
+    appendStoryThumbnailFiles(formData, clips);
 
     const response = await retryWithBackoff(() =>
       Promise.race([
@@ -2135,6 +2075,7 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
               id: `story_${Date.now()}_${Math.random()}`,
               type: item.isVideo ? 'video' : 'image',
               uri: item.processedUri || item.original.uri,
+              thumbnail: resolveClipThumbnailUri(item),
               audio: item.audio || { mode: 'original' },
               audioTrim: item.audioTrim || { start: 0, end: null },
               trim: item.trim || { start: 0, end: null },
@@ -2166,7 +2107,8 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
 
   const handleComposerDone = async (processedArray) => {
     try {
-      const clips = await prepareStoryClipsAudioForUpload(processedArray);
+      const withAudio = await prepareStoryClipsAudioForUpload(processedArray);
+      const clips = await prepareStoryClipThumbnails(withAudio);
       await saveUploadState(clips);
       uploadStoryInBackground(clips);
       setComposerVisible(false);

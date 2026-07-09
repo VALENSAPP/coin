@@ -1,4 +1,8 @@
 import { getStoryBuiltinLibraryUrl } from './storyAudioUpload';
+import {
+  resolveApiStoryClipThumbnail,
+  unwrapStoryMediaEntry,
+} from './storyThumbnail';
 
 export function parseStoryMeta(raw) {
   if (raw == null) return null;
@@ -236,11 +240,17 @@ export function normalizeStoryForViewer(storyLike) {
 
   const mediaUri = resolveStoryMediaUri(storyLike, clipIndex);
   const mediaType = resolveStoryMediaType(storyLike, mediaUri);
+  const thumbnail =
+    storyLike.thumbnail ||
+    resolveApiStoryClipThumbnail(storyLike, clipIndex, clipMeta, null) ||
+    null;
 
   return {
     ...clipMeta,
     ...storyLike,
     uri: mediaUri || storyLike.uri,
+    thumbnail,
+    hasThumbnail: Boolean(thumbnail || clipMeta?.hasThumbnail || storyLike?.hasThumbnail),
     type: storyLike.type || mediaType,
     audio: fallbackAudio,
     audioTrim: clipMeta.audioTrim ?? storyLike.audioTrim ?? { start: 0, end: null },
@@ -278,6 +288,66 @@ export function inferClipIndex(storyLike, apiStory, fallbackIndex = 0) {
   return Number.isFinite(fallbackIndex) ? fallbackIndex : 0;
 }
 
+function resolveStoryClipMediaType(uri, clipMeta) {
+  if (clipMeta?.isVideo === true) return 'video';
+  if (clipMeta?.isVideo === false) return 'image';
+  if (uri && isStoryVideoUrl(uri)) return 'video';
+  return 'image';
+}
+
+/** Map one API story row (`media` + `thumbnails` + `storyMeta`) into viewer-ready clips. */
+export function mapApiStoryRowToClips(apiStory, extras = {}) {
+  if (!apiStory || typeof apiStory !== 'object') return [];
+
+  const ts = new Date(
+    apiStory.createdAt || apiStory.updatedAt || Date.now(),
+  ).getTime();
+  const meta = parseStoryMeta(apiStory.storyMeta);
+  const media = Array.isArray(apiStory.media) ? apiStory.media : [];
+  const storyBaseId = String(
+    apiStory.id || apiStory._id || apiStory.storyId || '',
+  ).trim();
+
+  return media.map((mediaEntry, idx) => {
+    const clipMeta = meta?.clips?.[idx] || {};
+    const { uri: mediaUri } = unwrapStoryMediaEntry(mediaEntry);
+    const uri = mediaUri ? String(mediaUri).trim() : '';
+    const mediaType = resolveStoryClipMediaType(uri, clipMeta);
+    const thumbnail = resolveApiStoryClipThumbnail(
+      apiStory,
+      idx,
+      clipMeta,
+      mediaEntry,
+    );
+    const fallbackAudio =
+      clipMeta.audio ??
+      meta?.audio ??
+      apiStory?.audio ??
+      apiStory?.song ??
+      apiStory?.music ??
+      null;
+
+    return {
+      ...clipMeta,
+      ...extras,
+      audio: fallbackAudio,
+      duration: resolveStoryDurationMs({ ...clipMeta, type: mediaType }),
+      thumbnail,
+      hasThumbnail: Boolean(thumbnail || clipMeta?.hasThumbnail),
+      id: storyBaseId ? `${storyBaseId}_${idx}` : `story_${idx}`,
+      storyId: storyBaseId || extras.storyId || null,
+      type: mediaType,
+      uri,
+      clipIndex: idx,
+      timestamp: ts,
+      seen: false,
+      views: [],
+      likes: [],
+      comments: [],
+    };
+  });
+}
+
 export function storyHasPlayableAudio(storyLike) {
   const normalized = normalizeStoryForViewer(storyLike);
   const { directUrl, youtubeVideoId } = resolveStoryAudioPayload(normalized);
@@ -292,12 +362,18 @@ export function buildStoryClipFromApiRow(apiStory, clipIndex = 0, extras = {}) {
   const clipMeta = meta?.clips?.[clipIndex] || meta?.clips?.[0] || {};
   const media = Array.isArray(apiStory.media) ? apiStory.media : [];
   const mediaEntry = media[clipIndex] || media[0];
-  const uri = resolveStoryMediaUri({
-    ...apiStory,
-    uri: typeof mediaEntry === 'string' ? mediaEntry : mediaEntry?.url || mediaEntry?.uri,
-    clipIndex,
-  });
+  const { uri: mediaUri, thumbnail: embeddedThumb } = unwrapStoryMediaEntry(mediaEntry);
+  const uri =
+    resolveStoryMediaUri({
+      ...apiStory,
+      uri: mediaUri,
+      clipIndex,
+    }) || mediaUri;
   const mediaType = resolveStoryMediaType({ ...clipMeta, ...apiStory, uri }, uri);
+  const thumbnail =
+    resolveApiStoryClipThumbnail(apiStory, clipIndex, clipMeta, mediaEntry) ||
+    embeddedThumb ||
+    null;
   const fallbackAudio =
     clipMeta.audio ??
     meta?.audio ??
@@ -314,6 +390,8 @@ export function buildStoryClipFromApiRow(apiStory, clipIndex = 0, extras = {}) {
     clipIndex,
     storyMeta: apiStory.storyMeta,
     uri,
+    thumbnail,
+    hasThumbnail: Boolean(thumbnail || clipMeta?.hasThumbnail),
     type: mediaType,
     audio: fallbackAudio,
     id: storyBaseId ? `${storyBaseId}_${clipIndex}` : extras.id,

@@ -3042,7 +3042,7 @@ export default function BattleInProgress() {
                   })}
                 >
                   <View style={styles.sideCommentButtonTopRow}>
-                    <Text style={[styles.sideCommentButtonText, { color: palette.primary }]} numberOfLines={1}>
+                    <Text style={[styles.sideCommentButtonText, { color: palette.primary }]}>
                       {action.label}
                     </Text>
                     <View style={styles.sideCommentLikeButton}>
@@ -3404,11 +3404,11 @@ const styles = StyleSheet.create({
   secondaryButton: { flex: 1, minHeight: 46, borderRadius: 16, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF' },
   secondaryButtonText: { fontSize: 14, fontWeight: '800' },
   inviteSecondaryButton: { minHeight: 46, borderRadius: 16, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF' },
-  sideCommentActionsRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
-  sideCommentButton: { flex: 1, minHeight: 62, borderRadius: 14, borderWidth: 1.5, alignItems: 'stretch', justifyContent: 'center', backgroundColor: '#FFFFFF', paddingHorizontal: 10, paddingVertical: 8 },
-  sideCommentButtonTopRow: { flexDirection: 'row', alignItems: 'center', minWidth: 0 },
-  sideCommentButtonText: { flex: 1, minWidth: 0, fontSize: 13, fontWeight: '900' },
-  sideCommentLikeButton: { flexDirection: 'row', alignItems: 'center', flexShrink: 0, marginLeft: 6 },
+  sideCommentActionsRow: { flexDirection: 'row', alignItems: 'stretch', gap: 10, marginBottom: 14 },
+  sideCommentButton: { flex: 1, minHeight: 72, borderRadius: 14, borderWidth: 1.5, alignItems: 'stretch', justifyContent: 'center', backgroundColor: '#FFFFFF', paddingHorizontal: 10, paddingVertical: 10 },
+  sideCommentButtonTopRow: { flexDirection: 'row', alignItems: 'flex-start', minWidth: 0 },
+  sideCommentButtonText: { flex: 1, minWidth: 0, fontSize: 13, fontWeight: '900', lineHeight: 18 },
+  sideCommentLikeButton: { flexDirection: 'row', alignItems: 'center', flexShrink: 0, marginLeft: 6, paddingTop: 1 },
   sideCommentLikeText: { color: '#E11D48', fontSize: 12, fontWeight: '700', marginLeft: 4, lineHeight: 16 },
   sideCommentPreviewText: { fontSize: 11, fontWeight: '700', lineHeight: 15, marginTop: 3 },
 

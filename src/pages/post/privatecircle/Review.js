@@ -23,7 +23,7 @@ import { addPrivateCircleMembers, isPrivateCircleApiSuccess } from '../../../ser
 import { continuePrivateMint } from './privateCircleFlow';
 
 const PREVIEW_HEX_SIZE = 34;
-const PREVIEW_HEX_LIMIT = 5;
+const PREVIEW_HEX_LIMIT = 4;
 
 export default function PrivateCircleReview() {
   const navigation = useNavigation();
@@ -305,7 +305,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flexShrink: 1,
-    maxWidth: 130,
+    maxWidth: 105,
   },
   hexPreviewSlot: {
     zIndex: 1,

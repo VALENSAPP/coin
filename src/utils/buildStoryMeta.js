@@ -108,6 +108,7 @@ export function buildStoryMetaPayload(processedArray) {
     texts: sanitizeSerializable(item.texts),
     lyrics: sanitizeSerializable(item.lyrics),
     musicBadge: sanitizeSerializable(item.musicBadge),
+    hasThumbnail: Boolean(item._thumbnailUri || item.thumbnail || item.thumbnailUrl),
   }));
 
   return {

@@ -32,6 +32,7 @@ import {
   splitStoryClipId,
 } from '../../utils/storyAudioResolve';
 import { hydrateStoryForViewer } from '../../utils/hydrateStoryForViewer';
+import { resolveStoryVideoThumbnailSource } from '../../utils/storyThumbnail';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const FALLBACK_AVATAR = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
@@ -71,6 +72,7 @@ const unwrapUserProfileResponse = (response) => {
 const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
   const [isPaused, setIsPaused] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isVideoReady, setIsVideoReady] = useState(false);
   const [mediaError, setMediaError] = useState(false);
   const [duration, setDuration] = useState(5);
   const [, setCurrentTime] = useState(0);
@@ -232,6 +234,10 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
     (normalizedStory?.uri && isStoryVideoUrl(normalizedStory.uri));
 
   const mediaUri = normalizedStory?.uri || null;
+  const storyThumbnailSource = useMemo(
+    () => resolveStoryVideoThumbnailSource(normalizedStory),
+    [normalizedStory],
+  );
 
   const storyCaption = normalizedStory?.caption || normalizedStory?.text || '';
 
@@ -377,6 +383,7 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
     mediaLoadedRef.current = false;
     progressStartedRef.current = false;
     setIsLoading(true);
+    setIsVideoReady(false);
     setMediaError(false);
     setIsPaused(false);
     setCurrentTime(0);
@@ -558,31 +565,50 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
                 </Text>
               </View>
             ) : isVideo && mediaUri ? (
-              <Video
-                source={{ uri: mediaUri }}
-                style={styles.media}
-                resizeMode="contain"
-                paused={isPaused || !visible}
-                repeat={false}
-                muted={hasOverlayAudio}
-                volume={1}
-                ignoreSilentSwitch="ignore"
-                playWhenInactive={false}
-                onLoad={handleVideoLoad}
-                onProgress={handleVideoProgress}
-                onError={handleMediaError}
-                controls={false}
-              />
+              <>
+                <Video
+                  source={{ uri: mediaUri }}
+                  style={[styles.media, { opacity: isVideoReady ? 1 : 0 }]}
+                  resizeMode="contain"
+                  paused={isPaused || !visible}
+                  repeat={false}
+                  muted={hasOverlayAudio}
+                  volume={1}
+                  ignoreSilentSwitch="ignore"
+                  playWhenInactive={false}
+                  onLoad={handleVideoLoad}
+                  onProgress={handleVideoProgress}
+                  onReadyForDisplay={() => setIsVideoReady(true)}
+                  onError={handleMediaError}
+                  controls={false}
+                />
+                {!isVideoReady && storyThumbnailSource ? (
+                  <Image
+                    source={storyThumbnailSource}
+                    style={[styles.media, styles.videoPosterOverlay]}
+                    resizeMode="contain"
+                  />
+                ) : null}
+              </>
             ) : mediaUri ? (
-              <Image
-                key={`story_image_${storySessionKey}_${mediaUri}`}
-                source={{ uri: mediaUri }}
-                style={styles.media}
-                resizeMode="contain"
-                onLoad={handleImageLoad}
-                onLoadEnd={handleImageLoad}
-                onError={handleMediaError}
-              />
+              <>
+                {storyThumbnailSource && isLoading ? (
+                  <Image
+                    source={storyThumbnailSource}
+                    style={[styles.media, styles.videoPosterOverlay]}
+                    resizeMode="contain"
+                  />
+                ) : null}
+                <Image
+                  key={`story_image_${storySessionKey}_${mediaUri}`}
+                  source={{ uri: mediaUri }}
+                  style={styles.media}
+                  resizeMode="contain"
+                  onLoad={handleImageLoad}
+                  onLoadEnd={handleImageLoad}
+                  onError={handleMediaError}
+                />
+              </>
             ) : null}
 
             {isYoutubeAudio && shouldPlayStoryAudio ? (
@@ -864,6 +890,13 @@ const styles = StyleSheet.create({
   media: {
     width: SCREEN_WIDTH,
     height: SCREEN_HEIGHT,
+  },
+  videoPosterOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    zIndex: 5,
+    elevation: 5,
   },
   loadingContainer: {
     position: 'absolute',
