@@ -1,7 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -9,6 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import FastImage from 'react-native-fast-image';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useDispatch } from 'react-redux';
@@ -90,11 +90,29 @@ const imageUri = image => {
   return image?.uri || image?.url || image?.path || null;
 };
 
+const fastImageSource = uri =>
+  uri
+    ? {
+        uri,
+        priority: FastImage.priority.high,
+        cache: FastImage.cacheControl.immutable,
+      }
+    : null;
+
+const firstImage = value => {
+  if (Array.isArray(value)) return imageUri(value[0]);
+  return imageUri(value);
+};
+
 const getLineItemImage = line =>
-  imageUri(line?.product?.images?.[0]) ||
-  imageUri(line?.product?.image) ||
-  imageUri(line?.item?.images?.[0]) ||
-  imageUri(line?.image) ||
+  firstImage(line?.productImage) ||
+  firstImage(line?.product?.images) ||
+  firstImage(line?.product?.image) ||
+  firstImage(line?.item?.productImage) ||
+  firstImage(line?.item?.images) ||
+  firstImage(line?.item?.image) ||
+  firstImage(line?.images) ||
+  firstImage(line?.image) ||
   null;
 
 const getLineItemName = (line, t) =>
@@ -131,6 +149,17 @@ const normalizeOrderDetail = (order, t) => {
     buyerId: order?.buyerId || order?.buyer?.id,
     totalAmount: currency(order?.totalAmount ?? order?.amount ?? order?.total),
     totalItemCount: order?.totalItemCount ?? normalizedLines.length,
+    orderStatusLabel: t(`myClosetOrderDetail.status.${normalizeStatus(order?.orderStatus ?? order?.status)}`),
+    coverImage:
+      firstImage(order?.productImage) ||
+      firstImage(order?.item?.productImage) ||
+      firstImage(order?.items?.[0]?.productImage) ||
+      firstImage(order?.items?.[0]?.product?.images) ||
+      firstImage(order?.items?.[0]?.product?.image) ||
+      firstImage(order?.items?.[0]?.images) ||
+      firstImage(order?.items?.[0]?.image) ||
+      firstImage(order?.image) ||
+      null,
     lines: normalizedLines,
     address,
     raw: order,
@@ -148,15 +177,34 @@ const Header = ({ onBack, title }) => (
   </View>
 );
 
-const ImageBox = ({ uri, style, iconSize = 22 }) => (
-  <View style={[styles.imageBox, style]}>
-    {uri ? (
-      <Image source={{ uri }} style={styles.coverImage} resizeMode="cover" />
-    ) : (
-      <Ionicons name="shirt-outline" size={iconSize} color="#9b8c7a" />
-    )}
-  </View>
-);
+const ImageBox = ({ uri, style, iconSize = 22, resizeMode = FastImage.resizeMode.cover }) => {
+  const [loading, setLoading] = useState(Boolean(uri));
+  const source = fastImageSource(uri);
+
+  return (
+    <View style={[styles.imageBox, style]}>
+      {source ? (
+        <>
+          <FastImage
+            source={source}
+            style={styles.coverImage}
+            resizeMode={resizeMode}
+            onLoadStart={() => setLoading(true)}
+            onLoadEnd={() => setLoading(false)}
+            onError={() => setLoading(false)}
+          />
+          {loading ? (
+            <View style={styles.imageLoaderOverlay}>
+              <ActivityIndicator size="small" color={ACCENT} />
+            </View>
+          ) : null}
+        </>
+      ) : (
+        <Ionicons name="shirt-outline" size={iconSize} color="#9b8c7a" />
+      )}
+    </View>
+  );
+};
 
 const SummaryRow = ({ label, value, bold }) => (
   <View style={styles.summaryRow}>
@@ -207,6 +255,7 @@ const StatusTimeline = ({ status }) => {
 
 const MyClosetOrderDetailScreen = ({ navigation, route }) => {
   const orderId = route?.params?.orderId;
+  const returnTo = route?.params?.returnTo;
   const toast = useToast();
   const dispatch = useDispatch();
   const { text, bgStyle } = useAppTheme();
@@ -219,6 +268,7 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
   const [shippingModalVisible, setShippingModalVisible] = useState(false);
 
   const viewType = route?.params?.viewType;
+  const canUpdateStatus = viewType !== 'buyer';
 
   const loadOrder = useCallback(async () => {
     if (!orderId) {
@@ -248,6 +298,7 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
   );
 
   const handleAdvance = useCallback(async (extra) => {
+    if (!canUpdateStatus) return;
     if (!order) return;
     const flowStep = STATUS_FLOW[order.status];
     const action = flowStep ? ACTION_BY_KEY[flowStep.actionKey] : null;
@@ -271,9 +322,27 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
       dispatch(hideLoader());
       setShippingModalVisible(false);
     }
-  }, [dispatch, loadOrder, order, t, toast]);
+  }, [canUpdateStatus, dispatch, loadOrder, order, t, toast]);
 
   const goBack = useCallback(() => {
+    console.log("return to -----------------",returnTo)
+
+    if (returnTo == 'MyClosetDashboard') {
+      navigation.reset({
+        index: 0,
+        routes: [
+          {
+            name: 'MainApp',
+            params: {
+              screen: 'wallet',
+              params: { screen: 'MyCloset' },
+            },
+          },
+        ],
+      })
+      return;
+    }
+
     if (navigation?.canGoBack?.()) {
       navigation.goBack();
       return;
@@ -328,6 +397,21 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
           </View>
         </View>
 
+        <View style={styles.metaRow}>
+          <View style={styles.metaPill}>
+            <Text style={styles.metaLabel}>{t('myClosetOrderDetail.orderNumberLabel')}</Text>
+            <Text style={styles.metaValue}>#{order.orderNumber}</Text>
+          </View>
+          <View style={styles.metaPill}>
+            <Text style={styles.metaLabel}>{t('myClosetOrderDetail.itemsLabel')}</Text>
+            <Text style={styles.metaValue}>{t('myClosetOrderDetail.itemsCount', { count: order.totalItemCount })}</Text>
+          </View>
+          <View style={styles.metaPill}>
+            <Text style={styles.metaLabel}>{t('myClosetOrderDetail.totalLabel')}</Text>
+            <Text style={styles.metaValue}>{order.totalAmount}</Text>
+          </View>
+        </View>
+
         {order.status !== 'cancelled' && <StatusTimeline status={order.status} />}
 
         <View style={styles.card}>
@@ -361,6 +445,16 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
 
         <View style={styles.card}>
           <Text style={styles.cardTitle}>{t('myClosetOrderDetail.items', { count: order.totalItemCount })}</Text>
+          {order.coverImage ? (
+            <View style={styles.coverWrap}>
+              <ImageBox
+                uri={order.coverImage}
+                style={styles.coverThumb}
+                iconSize={28}
+                resizeMode={FastImage.resizeMode.contain}
+              />
+            </View>
+          ) : null}
           {order.lines.length ? (
             order.lines.map(line => (
               <View key={line.id} style={styles.lineRow}>
@@ -384,7 +478,7 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
           <SummaryRow label={t('myClosetOrderDetail.orderTotal')} value={order.totalAmount} bold />
         </View>
 
-        {flowStep ? (
+        {canUpdateStatus && flowStep ? (
           <View style={styles.bottomBar}>
             <BottomButton
               label={advancing ? t('myClosetOrderDetail.updating') : t(flowStep.labelKey)}
@@ -394,12 +488,14 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
           </View>
         ) : null}
       </ScrollView>
-      <ShippingDetailsModal
-        visible={shippingModalVisible}
-        text={ACCENT}
-        onCancel={() => setShippingModalVisible(false)}
-        onSubmit={(payload) => handleAdvance(payload)}
-      />
+      {canUpdateStatus ? (
+        <ShippingDetailsModal
+          visible={shippingModalVisible}
+          text={ACCENT}
+          onCancel={() => setShippingModalVisible(false)}
+          onSubmit={(payload) => handleAdvance(payload)}
+        />
+      ) : null}
     </SafeAreaView>
   );
 };
@@ -450,6 +546,10 @@ const styles = StyleSheet.create({
   orderDate: { fontSize: 12, color: MUTED, fontWeight: '700' },
   statusBadge: { borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
   statusText: { fontSize: 11, fontWeight: '800' },
+  metaRow: { flexDirection: 'row', gap: 8, marginBottom: 16, flexWrap: 'wrap' },
+  metaPill: { flexGrow: 1, minWidth: '31%', borderRadius: 12, padding: 10, backgroundColor: '#f6f0ff' },
+  metaLabel: { fontSize: 10, color: MUTED, fontWeight: '700', textTransform: 'uppercase', marginBottom: 2 },
+  metaValue: { fontSize: 13, color: '#17072d', fontWeight: '800' },
 
   timelineWrap: {
     flexDirection: 'row',
@@ -478,6 +578,8 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   cardTitle: { fontSize: 13, fontWeight: '900', color: '#21083f', marginBottom: 10 },
+  coverWrap: { marginBottom: 12, width: '100%' },
+  coverThumb: { width: '100%', height: 220, borderRadius: 14, alignSelf: 'stretch' },
 
   buyerRow: { flexDirection: 'row', alignItems: 'center' },
   buyerAvatar: {
@@ -502,8 +604,21 @@ const styles = StyleSheet.create({
     borderBottomColor: BORDER,
   },
   lineThumb: { width: 52, height: 52, borderRadius: 10, marginRight: 10 },
-  imageBox: { backgroundColor: '#f6f0ee', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  imageBox: {
+    backgroundColor: '#f6f0ee',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    width: '100%',
+    alignSelf: 'stretch',
+  },
   coverImage: { width: '100%', height: '100%' },
+  imageLoaderOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(251,248,255,0.35)',
+  },
   lineCopy: { flex: 1 },
   lineName: { fontSize: 13, fontWeight: '800', color: '#17072d' },
   linePrice: { marginTop: 2, fontSize: 12, color: ACCENT, fontWeight: '800' },

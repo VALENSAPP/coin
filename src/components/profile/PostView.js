@@ -29,6 +29,9 @@ import {
   follow,
   unfollow,
   deletePost,
+} from '../../services/post';
+import { BASE_URL } from '../../config/urls';
+import {
   HidePost as apiHidePost,
   unHidePost as apiUnhidePost,
   getPostById,
@@ -840,7 +843,7 @@ export default function PostView({ postData = [], userData = {} }) {
         }
 
         const post = list.find(p => String(p.id) === String(modalPostId));
-        const deepLink = `https://api.valens.app/postshare/${encodeURIComponent(String(modalPostId))}`;
+        const deepLink = `${BASE_URL}/postshare/${encodeURIComponent(String(modalPostId))}`;
 
         const parsedGoal = Number(post?.raiseAmount);
         const isMissionPost = Number.isFinite(parsedGoal) && parsedGoal > 0;

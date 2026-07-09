@@ -1,14 +1,12 @@
 import axios from 'axios';
 import { BASE_URL, API_PARAM } from '../shims/env';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_URL } from '../config/urls';
 
 const baseUrl = BASE_URL;
 
 const axiosInstance = axios.create({
-    // baseURL: 'https://valenscorp.com/',
-    baseURL: 'https://api.valens.app/',
-    // baseURL: 'https://prod-api.valens.app/',
-
+    baseURL: API_URL,
     maxBodyLength: Infinity
 });
 

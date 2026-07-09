@@ -27,6 +27,7 @@ import { getAllUser } from './services/users';
 import useNotificationSetup from './utils/useNotificationSetup';
 import { requestUserPermission } from './services/NotificationService';
 import ProfileVerificationReminderModal from './components/modals/ProfileVerificationReminderModal';
+import { BASE_URL } from './config/urls';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -37,7 +38,7 @@ const LEGACY_KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShown';
 
 const linking = {
   prefixes: [
-    'https://api.valens.app',
+    BASE_URL,
     'valens://',
     'https://www.valens.app',
     'https://valens.app',

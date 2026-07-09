@@ -3517,6 +3517,7 @@
   "chatMessages": {
     "title": "Messages",
     "myClosetChatLabel": "My closet chat",
+    "shopChatLabel": "Shop chat",
     "messagesLabel": "Messages",
     "noClosetChatsYet": "No closet chats yet",
     "closetChatHint": "Chats you keep here stay separate from your main inbox",
@@ -3717,6 +3718,11 @@
     "pagination": "Page {{page}} of {{totalPages}} · {{total}} total orders",
     "itemCount": "{{count}} item(s)",
     "orderItemFallback": "Order item",
+    "orderCreatedAt": "Placed on {{date}}",
+    "orderTotalLabel": "Order total",
+    "orderNumberLabel": "Order number",
+    "buyerNameLabel": "Buyer",
+    "sellerNameLabel": "Seller",
     "status": {
       "pending": "To ship",
       "confirmed": "Confirmed",
@@ -3824,7 +3830,7 @@
     "termsText": "By placing this order, you agree to Valens Terms of Service and Privacy Policy.",
     "placeOrder": "Place Order",
     "checkoutError": "Could not proceed to checkout. Please try again.",
-    "orderReceivedTitle": "Order Received!",
+    "orderReceivedTitle": "Order Placed Successfully!",
     "orderReceivedSubtitle": "Thank you for your purchase. Your order has been placed successfully.",
     "orderIdLabel": "Order #{{id}}",
     "viewDetails": "View Details",
@@ -4165,6 +4171,8 @@
     "overviewTitle": "Overview",
     "thisWeek": "This week",
     "thisMonth": "This month",
+    "pinnedItemTitle": "Pinned Item",
+    "viewAllPinned": "View all pinned",
     "battlePerformanceTitle": "Battle Performance",
     "viewAllBattles": "View all battles",
     "sellerOrdersTitle": "Orders — As a Seller",
@@ -4250,6 +4258,10 @@
     "buyer": "Buyer",
     "shippingAddress": "Shipping Address",
     "items": "Items ({{count}})",
+    "itemsCount": "{{count}} item(s)",
+    "itemsLabel": "Items",
+    "orderNumberLabel": "Order number",
+    "totalLabel": "Total",
     "qty": "Qty: {{count}}",
     "noItemDetails": "No item details available for this order.",
     "orderTotal": "Order total",
@@ -4315,6 +4327,9 @@
     "voteHelpsOthers": "Your vote helps others decide!",
     "voteHelpsDecide": "Your vote helps others decide!",
     "voting": "Voting...",
+    "voteFailedTitle": "Unable to vote",
+    "voteFailedGeneric": "Something went wrong. Please try again.",
+    "alreadyVoted": "You have already voted in this battle.",
     "voteOnlyLiveBattles": "Voting is only allowed for live battles.",
     "voteFor": "Vote {{name}}",
     "resultsTitle": "Battle Results",
@@ -4333,18 +4348,32 @@
       "comments": "Comments",
       "totalVotes": "Total Votes",
       "totalViews": "Total Views",
-      "shares": "Shares"
+      "shares": "Shares",
+      "likes": "Likes"
     },
     "errors": {
       "questionRequired": "Battle question is required.",
       "typeRequired": "Please choose a battle type.",
       "durationRequired": "Please choose a battle duration.",
       "visibilityRequired": "Visibility is required.",
-      "itemsLoadFailed": "Could not load your closet items."
+      "itemsLoadFailed": "Could not load your closet items.",
+      "commentsLoadFailed": "Could not load comments.",
+      "commentNotPosted": "Could not post comment",
+      "commentNotDeleted": "Could not delete comment"
     },
     "noItems": "No closet items found yet.",
     "retry": "Retry",
-    "done": "Done"
+    "done": "Done",
+    "vote": "Vote",
+    "voteSwipeHint": "Your vote swipe others decide",
+    "totalVotes": "total votes",
+    "commentsTitle": "Comments",
+    "noCommentsYet": "Be the first to share your thoughts.",
+    "shareYourThoughts": "Share your thoughts...",
+    "deleteCommentTitle": "Delete comment?",
+    "deleteCommentMessage": "This comment will be removed permanently.",
+    "delete": "Delete",
+    "cancel": "Cancel"
   },
   "shopSettings": {
     "title": "Shop Settings",
@@ -4482,7 +4511,9 @@
     "boostNow": "Boost Now",
     "boostedTitle": "Item Boosted 🚀",
     "boostedMessage": "Your item is pinned and boosting now.",
-    "done": "Done"
+    "done": "Done",
+    "loading": "Loading",
+    "tryAgain": "Could not load boost packages. Please try again"
   },
   "promotion": {
     "headerTitle": "Create Promotion",

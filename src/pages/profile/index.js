@@ -18,6 +18,7 @@ import { showToastMessage } from '../../components/displaytoastmessage';
 import { getPostByUser, getUserCredentials, getUserDashboard } from '../../services/post';
 import { showLoader, hideLoader } from '../../redux/actions/LoaderAction';
 import { useAppTheme } from '../../theme/useApptheme';
+import { BASE_URL } from '../../config/urls';
 import WelcomeValensModal from '../../components/modals/WelcomeValensModal';
 import { useLanguage } from '../../i18n';
 import { setPostPinnedState, sortPostsByPinned } from '../../utils/postPinning';
@@ -106,9 +107,9 @@ const ProfileScreen = () => {
           if (formattedImageUrl.startsWith('http://') || formattedImageUrl.startsWith('https://')) {
             // already a full URL, use as-is
           } else if (formattedImageUrl.startsWith('/')) {
-            formattedImageUrl = `https://api.valens.app${formattedImageUrl}`;
+            formattedImageUrl = `${BASE_URL}${formattedImageUrl}`;
           } else {
-            formattedImageUrl = `https://api.valens.app/${formattedImageUrl}`;
+            formattedImageUrl = `${BASE_URL}/${formattedImageUrl}`;
           }
 
           userDataToSet.image = formattedImageUrl;

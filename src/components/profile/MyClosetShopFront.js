@@ -4,13 +4,13 @@ import {
   ActivityIndicator,
   Dimensions,
   FlatList,
-  Image,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import FastImage from 'react-native-fast-image';
 import { useFocusEffect } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
@@ -21,7 +21,6 @@ import {
   getMyClosetItems,
   getClosetBattlesPriority,
 } from '../../services/myCloset';
-import { useSelector } from 'react-redux';
 import {
   buildClosetNavContext,
   navigateToBattleLive,
@@ -42,6 +41,54 @@ const fmt = (v) => {
 };
 
 const thumb = (item) => item?.images?.[0] || item?.image || item?.thumbnail || null;
+
+const imageSource = (uri) =>
+  uri
+    ? {
+        uri,
+        priority: FastImage.priority.high,
+        cache: FastImage.cacheControl.immutable,
+      }
+    : null;
+
+const CachedImageBox = ({ uri, style, placeholderStyle, iconName, iconSize = 28 }) => {
+  const [loaded, setLoaded] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setLoaded(false);
+    setFailed(false);
+  }, [uri]);
+
+  if (!uri || failed) {
+    return (
+      <View style={[style, placeholderStyle]}>
+        <Ionicons name={iconName} size={iconSize} color="#9b8c7a" />
+      </View>
+    );
+  }
+
+  return (
+    <View style={style}>
+      {!loaded && (
+        <View style={s.imageLoadingOverlay}>
+          <ActivityIndicator size="small" color="#9b8c7a" />
+        </View>
+      )}
+      <FastImage
+        source={imageSource(uri)}
+        style={StyleSheet.absoluteFill}
+        resizeMode={FastImage.resizeMode.cover}
+        onLoad={() => setLoaded(true)}
+        onError={() => {
+          setFailed(true);
+          setLoaded(true);
+        }}
+        fadeDuration={0}
+      />
+    </View>
+  );
+};
 
 const unwrapMyClosetResponse = (source) => {
   const level1 = source?.data ?? source;
@@ -110,9 +157,13 @@ const BattleSlide = ({ battle, accent, t, onPress }) => (
       {/* left */}
       <View style={s.fighter}>
         <View style={s.fighterThumb}>
-          {battle.left.image
-            ? <Image source={{ uri: battle.left.image }} style={s.fighterImg} resizeMode="cover" />
-            : <Ionicons name="bag-outline" size={34} color="#9b8c7a" />}
+          <CachedImageBox
+            uri={battle.left.image}
+            style={s.fighterImgWrap}
+            placeholderStyle={s.fighterThumbPlaceholder}
+            iconName="bag-outline"
+            iconSize={34}
+          />
         </View>
         <Text style={s.fighterName} numberOfLines={2}>{battle.left.name}</Text>
         <Text style={s.fighterPrice}>{battle.left.price}</Text>
@@ -131,9 +182,13 @@ const BattleSlide = ({ battle, accent, t, onPress }) => (
       {/* right */}
       <View style={s.fighter}>
         <View style={[s.fighterThumb, { backgroundColor: '#f0eeec' }]}>
-          {battle.right.image
-            ? <Image source={{ uri: battle.right.image }} style={s.fighterImg} resizeMode="cover" />
-            : <Ionicons name="bag-handle-outline" size={34} color="#9b8c7a" />}
+          <CachedImageBox
+            uri={battle.right.image}
+            style={s.fighterImgWrap}
+            placeholderStyle={s.fighterThumbPlaceholder}
+            iconName="bag-handle-outline"
+            iconSize={34}
+          />
         </View>
         <Text style={s.fighterName} numberOfLines={2}>{battle.right.name}</Text>
         <Text style={s.fighterPrice}>{battle.right.price}</Text>
@@ -153,10 +208,13 @@ const ItemTile = ({ item, accent, onPress }) => {
   return (
     <TouchableOpacity activeOpacity={0.85} style={s.tile} onPress={onPress}>
       <View style={s.tileThumb}>
-        {item.image
-          ? <Image source={{ uri: item.image }} style={s.tileImg} />
-          : <View style={s.tileImgPlaceholder}><Ionicons name="shirt-outline" size={28} color="#9b8c7a" /></View>
-        }
+        <CachedImageBox
+          uri={item.image}
+          style={s.tileImgWrap}
+          placeholderStyle={s.tileImgPlaceholder}
+          iconName="shirt-outline"
+          iconSize={28}
+        />
         <TouchableOpacity
           style={s.heart}
           onPress={() => setLiked(l => !l)}
@@ -314,6 +372,17 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
     ? battles
     : (battlesLoading ? BATTLES_FALLBACK : battles);
 
+  useEffect(() => {
+    const urls = [
+      ...tiles.map(t => t.image),
+      ...displayBattles.flatMap(b => [b.left?.image, b.right?.image]),
+    ].filter(Boolean);
+
+    if (urls.length) {
+      FastImage.preload([...new Set(urls)].map(uri => imageSource(uri)));
+    }
+  }, [displayBattles, tiles]);
+
   const onScroll = (e) => {
     setDotIdx(Math.round(e.nativeEvent.contentOffset.x / (SCREEN_W - 24)));
   };
@@ -356,19 +425,22 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
     },
   ));
 
-  const goBattles = () => navigation?.navigate?.('MyClosetBattles', withClosetNavParams(
-    { params: navContext },
-    { closetId },
-  ));
-
-  const openBattle = battle => navigateToBattleLive(navigation, withClosetNavParams(
-    { params: navContext },
-    {
-      battleId: battle?.id,
-      initialBattle: battle,
-      selectedItems: [battle?.left, battle?.right].filter(Boolean),
-    },
-  ));
+  const goBattles = () => navigation?.navigate?.('ProfileMain', {
+    screen: 'MyClosetBattles', // or whatever route name you register MyClosetBattlesScreen under
+    params: { closetId },
+  });
+  const openBattle = battle => navigateToBattleLive(navigation, {
+    battleId: battle?.id,
+    initialBattle: battle,
+    selectedItems: [battle?.left, battle?.right].filter(Boolean),
+    returnToProfile: isOwnProfile
+      ? { screen: 'Profile' }
+      : {
+        tab: 'HomeMain',
+        screen: 'UsersProfile',
+        params: { userId: userData?.id },
+      },
+  });
   const goStorefront = () => navigation?.navigate?.('ProfileMain', { screen: 'MyClosetStorefront' });
   const goAddFirst = (isFirstItem = true) => navigation?.navigate?.('ProfileMain', {
     screen: 'MyClosetAddItemPhotos', params: { draft: {}, isFirstItem },
@@ -567,14 +639,23 @@ const s = StyleSheet.create({
     borderColor: '#d1d5db',
     backgroundColor: '#fafafa',
   },
-  tileImg: { width: '100%', height: '100%' },
+  tileImgWrap: { width: '100%', height: '100%' },
   tileImgPlaceholder: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f5f3ee' },
+  fighterImgWrap: { width: '100%', height: '100%' },
+  fighterThumbPlaceholder: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' },
   heart: { position: 'absolute', top: 7, right: 7, backgroundColor: '#ffffffcc', borderRadius: 20, padding: 4 },
   tileName: { fontSize: 12, fontWeight: '700', color: '#111827' },
   tilePrice: { fontSize: 13, fontWeight: '800', color: '#111827', marginTop: 1 },
 
   /* empty / loading */
   center: { alignItems: 'center', paddingVertical: 40, gap: 10 },
+  imageLoadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(245,243,238,0.72)',
+    zIndex: 2,
+  },
   emptyTxt: { fontSize: 14, color: '#9ca3af', fontWeight: '600' },
   addBtn: { paddingHorizontal: 20, paddingVertical: 9, borderRadius: 20, borderWidth: 1.5 },
   addBtnTxt: { fontSize: 13, fontWeight: '700' },

@@ -55,6 +55,7 @@ import { normalizeProfileType } from '../../utils/supportEligibility';
 import HexAvatar from '../../components/home/story.js/HexAvatar';
 import { Vsbanner } from '../../assets/icons';
 import { useLanguage } from '../../i18n';
+import { BASE_URL } from '../../config/urls';
 
 const isMeaningfulValue = value => {
   if (value === undefined || value === null) return false;
@@ -1164,8 +1165,8 @@ export default function BattleInProgress() {
           if (!image) return '';
           let url = String(image).trim();
           if (url.startsWith('http://') || url.startsWith('https://')) return url;
-          else if (url.startsWith('/')) return `https://api.valens.app/${url}`;
-          else return `https://api.valens.app/${url}`;
+          if (url.startsWith('/')) return `${BASE_URL}${url}`;
+          else return `${BASE_URL}/${url}`;
         };
 
         const normalizePointPayload = (response) => {

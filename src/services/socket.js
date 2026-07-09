@@ -1,18 +1,36 @@
 // services/socket.js
 import io from 'socket.io-client';
+import { API_URL } from '../config/urls';
 
-const SOCKET_URL = 'https://api.valens.app/';
-// const SOCKET_URL = 'http://192.168.29.211:3002/';
+const SOCKET_URL = API_URL;
 
 
 let socket = null;
 let isConnecting = false;
+let connectedUserId = null;
 let listeners = new Map();
 
 export const initializeSocket = async (userId) => {
-  if (socket?.connected) {
-    console.log('✅ Socket already connected');
+  // Attempt to resolve userId if not provided
+  let resolvedUserId = userId;
+  if (!resolvedUserId) {
+    try {
+      const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
+      resolvedUserId = await AsyncStorage.getItem('userId');
+    } catch (e) {
+      console.warn('Unable to read userId from AsyncStorage during socket init');
+    }
+  }
+
+  if (socket?.connected && connectedUserId === resolvedUserId) {
+    console.log('✅ Socket already connected with matching userId:', resolvedUserId);
     return socket;
+  }
+
+  if (socket) {
+    console.log('🔌 Disconnecting existing socket to update userId to:', resolvedUserId);
+    socket.disconnect();
+    socket = null;
   }
 
   if (isConnecting) {
@@ -21,31 +39,23 @@ export const initializeSocket = async (userId) => {
   }
 
   isConnecting = true;
-  console.log('🔌 Initializing socket connection...');
+  console.log('🔌 Initializing socket connection for userId:', resolvedUserId);
 
   try {
-    // Attempt to resolve userId if not provided
-    if (!userId) {
-      try {
-        const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
-        userId = await AsyncStorage.getItem('userId');
-      } catch (e) {
-        console.warn('Unable to read userId from AsyncStorage during socket init');
-      }
-    }
-
     socket = io(SOCKET_URL, {
-      transports: ['websocket'],
+      transports: ['polling', 'websocket'],
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionAttempts: 5,
+      query: resolvedUserId ? { userId: resolvedUserId } : {},
     });
+    connectedUserId = resolvedUserId;
 
     socket.on('connect', () => {
       console.log('✅ Socket connected successfully. Socket ID:', socket.id);
-      if (userId) {
-        console.log('📤 Auto-requesting chat box for user:', userId);
-        getUserChatBox(userId);
+      if (resolvedUserId) {
+        console.log('📤 Auto-requesting chat box for user:', resolvedUserId);
+        getUserChatBox(resolvedUserId);
       }
     });
 
@@ -53,16 +63,22 @@ export const initializeSocket = async (userId) => {
       console.log('⚠️ Socket disconnected. Reason:', reason);
     });
 
-    // socket.on('connect_error', (error) => {
-    //   console.error('❌ Socket connection error:', error.message);
-    // });
+    socket.on('connect_error', (error) => {
+      console.error('❌ Socket connection error details:', {
+        message: error.message,
+        name: error.name,
+        stack: error.stack,
+        type: error.type,
+        description: error.description
+      });
+    });
 
     socket.on('reconnect', (attemptNumber) => {
       console.log('🔄 Socket reconnected after', attemptNumber, 'attempts');
       // Re-request chat box on reconnect
-      if (userId) {
+      if (resolvedUserId) {
         try {
-          getUserChatBox(userId);
+          getUserChatBox(resolvedUserId);
         } catch (_) {}
       }
     });
@@ -352,4 +368,66 @@ export const isSocketConnected = () => {
   const connected = socket?.connected || false;
   console.log('🔍 Socket connection status:', connected);
   return connected;
+};
+
+// ========================================
+// MY CLOSET CHAT FUNCTIONS
+// ========================================
+
+/**
+ * Get user's closet chat threads
+ * @param {string} userId - Current user's ID
+ */
+export const getClosetChatThreads = (userId) => {
+  if (!socket?.connected) {
+    console.error('❌ Cannot get closet chat threads: Socket not connected');
+    return;
+  }
+  console.log('📤 Emitting getClosetChatThreads for user:', userId);
+  socket.emit('getClosetChatThreads', { userId });
+};
+
+/**
+ * Get closet chat messages in a thread
+ * @param {string} userId - Current user's ID
+ * @param {string} threadId - Closet chat thread ID
+ * @param {number} page - Page number
+ * @param {number} limit - Number of messages per page
+ */
+export const getClosetChatMessages = (userId, threadId, page = 1, limit = 20) => {
+  if (!socket?.connected) {
+    console.error('❌ Cannot get closet chat messages: Socket not connected');
+    return;
+  }
+  console.log('📤 Emitting getClosetChatMessages:', { userId, threadId, page, limit });
+  socket.emit('getClosetChatMessages', { userId, threadId, page, limit });
+};
+
+/**
+ * Send closet chat message
+ * @param {string} userId - Current user's ID
+ * @param {string} threadId - Closet chat thread ID
+ * @param {string} message - Message content
+ */
+export const sendClosetChatMessage = (userId, threadId, message) => {
+  if (!socket?.connected) {
+    console.error('❌ Cannot send closet chat message: Socket not connected');
+    return;
+  }
+  console.log('📤 Emitting sendClosetChatMessage:', { userId, threadId, message });
+  socket.emit('sendClosetChatMessage', { userId, threadId, message });
+};
+
+/**
+ * Mark closet chat message as seen
+ * @param {string} userId - Current user's ID
+ * @param {string} messageId - Message ID
+ */
+export const markClosetChatMessageSeen = (userId, messageId) => {
+  if (!socket?.connected) {
+    console.error('❌ Cannot mark closet chat message seen: Socket not connected');
+    return;
+  }
+  console.log('📤 Emitting markClosetChatMessageSeen:', { userId, messageId });
+  socket.emit('markClosetChatMessageSeen', { userId, messageId });
 };

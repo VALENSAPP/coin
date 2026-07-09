@@ -14,11 +14,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
-import { getAllConversations, sendMessage as sendMessageAPI } from '../../../services/chatMessage';
+import { getAllConversations, sendMessage as sendMessageAPI, getClosetChatThreadsApi } from '../../../services/chatMessage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../../theme/useApptheme';
-import { getSocket, initializeSocket } from '../../../services/socket';
+import { getSocket, initializeSocket, getClosetChatThreads } from '../../../services/socket';
 import useSocket from '../../../hooks/useSocket';
 import { number } from 'yup';
 import { useToast } from 'react-native-toast-notifications';
@@ -106,6 +106,7 @@ export default function ChatMessages() {
   const toast = useToast();
   const { t } = useLanguage();
   const [isScreenFocused, setIsScreenFocused] = useState(true);
+  const [profileType, setProfileType] = useState('');
 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedConversation, setSelectedConversation] = useState(null);
@@ -115,6 +116,39 @@ export default function ChatMessages() {
 
   // ✅ Active tab: 'messages' | 'closet'
   const [activeTab, setActiveTab] = useState(CHAT_TABS.MESSAGES);
+  const [closetThreads, setClosetThreads] = useState([]);
+  const [isClosetLoading, setIsClosetLoading] = useState(false);
+  const [closetError, setClosetError] = useState(null);
+
+  const fetchClosetConversations = useCallback(async () => {
+    if (!currentUserId) return;
+    try {
+      if (closetThreads.length === 0) setIsClosetLoading(true);
+      console.log('📡 ChatMessages: Fetching closet threads via API');
+      const response = await getClosetChatThreadsApi();
+      console.log('📥 API getClosetChatThreads response:', response);
+      if (response && response.success) {
+        const received = Array.isArray(response.data)
+          ? response.data
+          : (response.data?.threads || []);
+        setClosetThreads(received);
+        setClosetError(null);
+      } else {
+        setClosetError(response?.message || 'Failed to fetch closet chat threads');
+      }
+    } catch (err) {
+      console.warn('❌ API getClosetChatThreads error:', err);
+      setClosetError(err.message || 'Failed to fetch closet chat threads');
+    } finally {
+      setIsClosetLoading(false);
+    }
+  }, [currentUserId, closetThreads.length]);
+
+  const isBusinessProfile = String(profileType || '').toLowerCase() === 'company'
+    || String(profileType || '').toLowerCase() === 'business';
+  const closetChatTitle = isBusinessProfile
+    ? t('chatMessages.shopChatLabel', 'Shop chat')
+    : t('chatMessages.myClosetChatLabel', 'My Closet Chat');
 
   const hasProcessedShareRef = useRef(false);
   // Locally hidden chats (survives socket refresh until server marks isHidden)
@@ -158,6 +192,8 @@ export default function ChatMessages() {
   useEffect(() => {
     const initializeUserAndSocket = async () => {
       try {
+        const storedProfile = await AsyncStorage.getItem('profile');
+        setProfileType(storedProfile || '');
         const userId = await AsyncStorage.getItem('userId');
         if (userId) {
           setCurrentUserId(userId);
@@ -182,7 +218,7 @@ export default function ChatMessages() {
     };
 
     initializeUserAndSocket();
-  }, []);
+  }, [t]);
 
   // ✅ Handle socket reconnection
   useEffect(() => {
@@ -194,8 +230,14 @@ export default function ChatMessages() {
       setSocketReady(true);
       
       if (currentUserId) {
-        console.log('📡 ChatMessages: Requesting chat box on connect');
-        socket.emit('getUserChatBox', { userId: currentUserId });
+        if (activeTab === CHAT_TABS.CLOSET) {
+          console.log('📡 ChatMessages: Requesting closet chat threads on connect');
+          getClosetChatThreads(currentUserId);
+          fetchClosetConversations();
+        } else {
+          console.log('📡 ChatMessages: Requesting chat box on connect');
+          socket.emit('getUserChatBox', { userId: currentUserId });
+        }
       }
     };
 
@@ -209,8 +251,14 @@ export default function ChatMessages() {
       setSocketReady(true);
       
       if (currentUserId) {
-        console.log('📡 ChatMessages: Requesting chat box on reconnect');
-        socket.emit('getUserChatBox', { userId: currentUserId });
+        if (activeTab === CHAT_TABS.CLOSET) {
+          console.log('📡 ChatMessages: Requesting closet chat threads on reconnect');
+          getClosetChatThreads(currentUserId);
+          fetchClosetConversations();
+        } else {
+          console.log('📡 ChatMessages: Requesting chat box on reconnect');
+          socket.emit('getUserChatBox', { userId: currentUserId });
+        }
       }
     };
 
@@ -227,18 +275,25 @@ export default function ChatMessages() {
       socket.off('disconnect', handleDisconnect);
       socket.off('reconnect', handleReconnect);
     };
-  }, [currentUserId]);
+  }, [currentUserId, activeTab, fetchClosetConversations]);
 
-  // ✅ Request chat box when user ID is available and socket is ready
+  // ✅ Request chat box when user ID is available, socket is ready, or active tab changes
   useEffect(() => {
     if (currentUserId && socketReady) {
       const socket = getSocket();
       if (socket?.connected) {
-        console.log('📡 ChatMessages: Requesting initial chat box');
-        socket.emit('getUserChatBox', { userId: currentUserId });
+        if (activeTab === CHAT_TABS.CLOSET) {
+          setIsClosetLoading(true);
+          console.log('📡 ChatMessages: Requesting initial closet chat threads');
+          getClosetChatThreads(currentUserId);
+          fetchClosetConversations();
+        } else {
+          console.log('📡 ChatMessages: Requesting initial chat box');
+          socket.emit('getUserChatBox', { userId: currentUserId });
+        }
       }
     }
-  }, [currentUserId, socketReady]);
+  }, [currentUserId, socketReady, activeTab, fetchClosetConversations]);
 
   // ✅ Handle shared content from ShareModal
   useEffect(() => {
@@ -531,6 +586,37 @@ export default function ChatMessages() {
     }
   }, [currentUserId]);
 
+  // ✅ Listen for Closet Chat thread success
+  useSocket('closetChatThreads', (data) => {
+    console.log('📨 ChatMessages: Received closetChatThreads data');
+    setClosetThreads(Array.isArray(data) ? data : data?.threads || []);
+    setIsClosetLoading(false);
+    setClosetError(null);
+  }, []);
+
+  // ✅ Listen for Closet Chat thread error
+  useSocket('closetChatThreadsError', (data) => {
+    console.warn('📨 ChatMessages: Received closetChatThreadsError:', data?.message);
+    setClosetError(data?.message || 'Failed to fetch closet chat threads');
+    setIsClosetLoading(false);
+  }, []);
+
+  // ✅ Listen for Closet Chat new message push to refresh list
+  useSocket('closetChatNewMessage', (message) => {
+    console.log('🔔 ChatMessages: Received closetChatNewMessage, refreshing threads');
+    if (currentUserId) {
+      getClosetChatThreads(currentUserId);
+    }
+  }, [currentUserId]);
+
+  // ✅ Listen for Closet Chat seen confirmations to update unread badge / seen state in list
+  useSocket('closetChatMessageSeen', (data) => {
+    console.log('📨 ChatMessages: Received closetChatMessageSeen, refreshing threads');
+    if (currentUserId) {
+      getClosetChatThreads(currentUserId);
+    }
+  }, [currentUserId]);
+
   // ✅ Periodic refresh to catch any missed messages
   useEffect(() => {
     if (!currentUserId || !socketReady) {
@@ -543,8 +629,13 @@ export default function ChatMessages() {
     const interval = setInterval(() => {
       const socket = getSocket();
       if (socket?.connected && isScreenFocused) {
-        console.log('🔄 ChatMessages: Periodic refresh - requesting chat box');
-        socket.emit('getUserChatBox', { userId: currentUserId });
+        if (activeTab === CHAT_TABS.CLOSET) {
+          console.log('🔄 ChatMessages: Periodic refresh - requesting closet threads');
+          getClosetChatThreads(currentUserId);
+        } else {
+          console.log('🔄 ChatMessages: Periodic refresh - requesting chat box');
+          socket.emit('getUserChatBox', { userId: currentUserId });
+        }
       }
     }, 10000);
 
@@ -552,7 +643,9 @@ export default function ChatMessages() {
       console.log('⏰ ChatMessages: Clearing periodic refresh');
       clearInterval(interval);
     };
-  }, [currentUserId, socketReady, isScreenFocused]);
+  }, [currentUserId, socketReady, isScreenFocused, activeTab]);
+
+  // fetchConversations hook is moved below processConversationsData to satisfy ESLint dependency declaration order.
 
   // ✅ Track screen focus state and request fresh data when focused
   useFocusEffect(
@@ -561,55 +654,47 @@ export default function ChatMessages() {
       setIsScreenFocused(true);
 
       // Refresh conversations when screen becomes active
-      fetchConversations();
+      if (activeTab !== CHAT_TABS.CLOSET) {
+        fetchConversations();
+      }
 
-      if (currentUserId && socketReady) {
-        const socket = getSocket();
-        if (socket?.connected) {
-          console.log('📡 ChatMessages: Requesting chat box on focus');
-          socket.emit('getUserChatBox', { userId: currentUserId });
-        }
+      if (currentUserId) {
+        const checkAndReconnectSocket = async () => {
+          const socket = getSocket();
+          if (!socket || !socket.connected) {
+            console.log('🔌 ChatMessages focus: Socket not connected. Re-initializing socket...');
+            const newSocket = await initializeSocket(currentUserId);
+            if (newSocket?.connected) {
+              setSocketReady(true);
+              if (activeTab === CHAT_TABS.CLOSET) {
+                console.log('📡 ChatMessages: Requesting closet chat threads after re-init');
+                getClosetChatThreads(currentUserId);
+                fetchClosetConversations();
+              } else {
+                console.log('📡 ChatMessages: Requesting chat box after re-init');
+                newSocket.emit('getUserChatBox', { userId: currentUserId });
+              }
+            }
+          } else {
+            if (activeTab === CHAT_TABS.CLOSET) {
+              console.log('📡 ChatMessages: Requesting closet chat threads on focus');
+              getClosetChatThreads(currentUserId);
+              fetchClosetConversations();
+            } else {
+              console.log('📡 ChatMessages: Requesting chat box on focus');
+              socket.emit('getUserChatBox', { userId: currentUserId });
+            }
+          }
+        };
+        checkAndReconnectSocket();
       }
 
       return () => {
         console.log('👁️ ChatMessages: Screen unfocused');
         setIsScreenFocused(false);
       };
-    }, [currentUserId, socketReady])
+    }, [currentUserId, activeTab, fetchConversations, fetchClosetConversations])
   );
-
-  // ✅ Fetch conversations via API (only as fallback if socket data not received)
-  const fetchConversations = async () => {
-    if (!currentUserId) return;
-
-    if (dataSource === 'socket') {
-      console.log('✅ Already have socket data, skipping API call');
-      return;
-    }
-
-    try {
-      // Avoid flashing loader when list is already visible.
-      if (conversations.length === 0) setIsLoading(true);
-
-      const response = await getAllConversations();
-      console.log('📥 API Response (fallback):', response);
-
-      if (response.success && response.data) {
-        const processedConversations = processConversationsData(response.data);
-        console.log('⚠️ Using API data as fallback - count:', processedConversations.length);
-        setConversations(processedConversations);
-        setDataSource('api');
-        setError(null);
-      } else {
-        setError(response.message || t('chatMessages.failedToLoad'));
-      }
-    } catch (error) {
-      console.error('❌ Error fetching conversations:', error);
-      setError(t('chatMessages.failedToLoad'));
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   // ✅ Pull-to-refresh handler
   const onRefresh = useCallback(async () => {
@@ -619,16 +704,45 @@ export default function ChatMessages() {
     
     const socket = getSocket();
     if (socket?.connected) {
-      console.log('🔄 ChatMessages: Manual refresh - requesting chat box');
-      socket.emit('getUserChatBox', { userId: currentUserId });
+      if (activeTab === CHAT_TABS.CLOSET) {
+        console.log('🔄 ChatMessages: Manual refresh - requesting closet threads');
+        getClosetChatThreads(currentUserId);
+        fetchClosetConversations();
+      } else {
+        console.log('🔄 ChatMessages: Manual refresh - requesting chat box');
+        socket.emit('getUserChatBox', { userId: currentUserId });
+      }
     }
     
     setTimeout(() => {
       setRefreshing(false);
     }, 500);
-  }, [currentUserId, socketReady]);
+  }, [currentUserId, socketReady, activeTab, fetchClosetConversations]);
 
-  const processConversationsData = (conversationsData) => {
+  const formatTimestamp = useCallback((timestamp) => {
+    const now = new Date();
+    const messageDate = new Date(timestamp);
+    const diffInMinutes = Math.floor((now - messageDate) / (1000 * 60));
+
+    if (diffInMinutes < 1) {
+      return t('chatMessages.timestampNow');
+    } else if (diffInMinutes < 60) {
+      return t('chatMessages.timestampMinutes', { count: diffInMinutes });
+    } else if (diffInMinutes < 1440) {
+      return t('chatMessages.timestampHours', { count: Math.floor(diffInMinutes / 60) });
+    } else {
+      const diffInDays = Math.floor(diffInMinutes / 1440);
+      if (diffInDays === 1) {
+        return t('chatMessages.timestampOneDay');
+      } else if (diffInDays < 7) {
+        return t('chatMessages.timestampDays', { count: diffInDays });
+      } else {
+        return messageDate.toLocaleDateString([], { month: 'short', day: 'numeric' });
+      }
+    }
+  }, [t]);
+
+  const processConversationsData = useCallback((conversationsData) => {
     console.log('🔍 Processing conversations data - count:', conversationsData);
 
     if (!Array.isArray(conversationsData)) {
@@ -815,32 +929,51 @@ export default function ChatMessages() {
 
     console.log(`✅ Final processed conversations: ${result.length} items`);
     return result;
-  };
+  }, [currentUserId, t, formatTimestamp]);
 
-  const formatTimestamp = (timestamp) => {
-    const now = new Date();
-    const messageDate = new Date(timestamp);
-    const diffInMinutes = Math.floor((now - messageDate) / (1000 * 60));
+  // ✅ Fetch conversations via API (only as fallback if socket data not received)
+  const fetchConversations = useCallback(async () => {
+    if (!currentUserId) return;
 
-    if (diffInMinutes < 1) {
-      return t('chatMessages.timestampNow');
-    } else if (diffInMinutes < 60) {
-      return t('chatMessages.timestampMinutes', { count: diffInMinutes });
-    } else if (diffInMinutes < 1440) {
-      return t('chatMessages.timestampHours', { count: Math.floor(diffInMinutes / 60) });
-    } else {
-      const diffInDays = Math.floor(diffInMinutes / 1440);
-      if (diffInDays === 1) {
-        return t('chatMessages.timestampOneDay');
-      } else if (diffInDays < 7) {
-        return t('chatMessages.timestampDays', { count: diffInDays });
-      } else {
-        return messageDate.toLocaleDateString([], { month: 'short', day: 'numeric' });
-      }
+    if (dataSource === 'socket') {
+      console.log('✅ Already have socket data, skipping API call');
+      return;
     }
-  };
+
+    try {
+      // Avoid flashing loader when list is already visible.
+      if (conversations.length === 0) setIsLoading(true);
+
+      const response = await getAllConversations();
+      console.log('📥 API Response (fallback):', response);
+
+      if (response.success && response.data) {
+        const processedConversations = processConversationsData(response.data);
+        console.log('⚠️ Using API data as fallback - count:', processedConversations.length);
+        setConversations(processedConversations);
+        setDataSource('api');
+        setError(null);
+      } else {
+        setError(response.message || t('chatMessages.failedToLoad'));
+      }
+    } catch (error) {
+      console.error('❌ Error fetching conversations:', error);
+      setError(t('chatMessages.failedToLoad'));
+    } finally {
+      setIsLoading(false);
+    }
+  }, [currentUserId, dataSource, conversations.length, t, processConversationsData]);
 
   const handleUserChat = async (item) => {
+    if (activeTab === CHAT_TABS.CLOSET) {
+      navigation.navigate('UserClosetChat', {
+        threadId: item.threadId,
+        otherUser: item.otherUser,
+        orderInfo: item.orderInfo,
+      });
+      return;
+    }
+
     if (!item.userId || !item.user) {
       Alert.alert(t('chatMessages.errorTitle'), t('chatMessages.unableToOpenChat'));
       return;
@@ -997,19 +1130,51 @@ export default function ChatMessages() {
     </TouchableOpacity>
   );
 
+  // Map closet threads to standard conversation list shape
+  const mappedClosetConversations = closetThreads.map(thread => {
+    const otherUser = thread.otherUser || {};
+    const lastMsgObj = thread.lastMessage || {};
+    const lastMsgText = typeof thread.lastMessage === 'string'
+      ? thread.lastMessage
+      : (lastMsgObj.message || lastMsgObj.content || '');
+    const lastMsgTime = lastMsgObj.createdAt || lastMsgObj.timestamp || new Date().toISOString();
+
+    return {
+      id: thread.threadId || thread.id,
+      threadId: thread.threadId || thread.id,
+      userId: otherUser.id || otherUser.userId,
+      username: otherUser.displayName || otherUser.username || 'User',
+      displayName: otherUser.displayName,
+      avatar: otherUser.avatar || otherUser.image || ONLINE_PLACEHOLDER,
+      lastMessage: lastMsgText,
+      timestamp: formatTimestamp(lastMsgTime),
+      unreadCount: thread.unreadCount || 0,
+      isOnline: otherUser.isOnline || false,
+      otherUser: otherUser,
+      orderInfo: thread.orderInfo || thread.order,
+      isClosetChat: true,
+      user: {
+        id: otherUser.id || otherUser.userId,
+        displayName: otherUser.displayName,
+        username: otherUser.username,
+        image: otherUser.avatar || otherUser.image
+      }
+    };
+  });
+
   // Only "Messages" tab conversations are regular chats for now.
-  // "My closet chat" surfaces conversations flagged as closet chats
-  // (adjust the `isClosetChat` check below once the backend field is finalized).
   const messagesTabConversations = conversations.filter(c => !c.isClosetChat);
-  const closetTabConversations = conversations.filter(c => c.isClosetChat);
 
   const activeConversations = activeTab === CHAT_TABS.CLOSET
-    ? closetTabConversations
+    ? mappedClosetConversations
     : messagesTabConversations;
 
   const filteredConversations = activeConversations.filter(c =>
     c.username.toLowerCase().includes(search.toLowerCase())
   );
+
+  const activeLoading = activeTab === CHAT_TABS.CLOSET ? isClosetLoading : isLoading;
+  const activeError = activeTab === CHAT_TABS.CLOSET ? closetError : error;
 
   return (
     <SafeAreaView style={[styles.container, bgStyle]}>
@@ -1057,7 +1222,7 @@ export default function ChatMessages() {
           >
             {t('chatMessages.messagesLabel')}
           </Text>
-          {activeTab === CHAT_TABS.MESSAGES && <View style={styles.tabUnderline} />}
+          {activeTab === CHAT_TABS.MESSAGES && <View style={[styles.tabUnderline, {backgroundColor: text}]} />}
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -1072,11 +1237,18 @@ export default function ChatMessages() {
               activeTab === CHAT_TABS.CLOSET && styles.tabTextActive,
             ]}
           >
-            {t('chatMessages.myClosetChatLabel') || 'My closet chat'}
+            {closetChatTitle}
           </Text>
-          {activeTab === CHAT_TABS.CLOSET && <View style={styles.tabUnderline} />}
+          {activeTab === CHAT_TABS.CLOSET && <View style={[styles.tabUnderline, {backgroundColor: text}]} />}
         </TouchableOpacity>
       </View>
+
+      {/* Section Title for Closet Tab */}
+      {activeTab === CHAT_TABS.CLOSET && (
+        <View style={styles.sectionHeader}>
+          <Text style={[styles.sectionTitle, textStyle]}>{closetChatTitle}</Text>
+        </View>
+      )}
 
       {/* Chat List with RefreshControl */}
       <ScrollView
@@ -1094,21 +1266,28 @@ export default function ChatMessages() {
           />
         }
       >
-        {isLoading && !refreshing ? (
+        {activeLoading && !refreshing ? (
           <View style={styles.loadingContainer}>
             <Text style={[styles.loadingText, textStyle]}>{t('chatMessages.loadingConversations')}</Text>
           </View>
-        ) : error ? (
+        ) : activeError ? (
           <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>{error}</Text>
+            <Text style={styles.errorText}>{activeError}</Text>
             <TouchableOpacity
               style={[styles.retryButton, { backgroundColor: text }]}
               onPress={() => {
                 const socket = getSocket();
                 if (socket?.connected) {
-                  socket.emit('getUserChatBox', { userId: currentUserId });
+                  if (activeTab === CHAT_TABS.CLOSET) {
+                    setIsClosetLoading(true);
+                    getClosetChatThreads(currentUserId);
+                  } else {
+                    socket.emit('getUserChatBox', { userId: currentUserId });
+                  }
                 } else {
-                  fetchConversations();
+                  if (activeTab !== CHAT_TABS.CLOSET) {
+                    fetchConversations();
+                  }
                 }
               }}
             >
@@ -1121,14 +1300,12 @@ export default function ChatMessages() {
               {search
                 ? t('chatMessages.noConversationsFound')
                 : activeTab === CHAT_TABS.CLOSET
-                  ? (t('chatMessages.noClosetChatsYet') || 'No closet chats yet')
+                  ? "No closet chats yet. Chat starts after paid orders on eligible items."
                   : t('chatMessages.noConversationsYet')}
             </Text>
-            {!search && (
+            {!search && activeTab !== CHAT_TABS.CLOSET && (
               <Text style={styles.emptySubtext}>
-                {activeTab === CHAT_TABS.CLOSET
-                  ? (t('chatMessages.closetChatHint') || 'Chats you keep here stay separate from your main inbox')
-                  : t('chatMessages.startConversationHint')}
+                {t('chatMessages.startConversationHint')}
               </Text>
             )}
           </View>
@@ -1256,14 +1433,12 @@ const styles = StyleSheet.create({
     color: '#9ca3af',
   },
   tabTextActive: {
-    color: '#5a2d82',
     fontWeight: '700',
   },
   tabUnderline: {
     marginTop: 6,
     height: 3,
     borderRadius: 2,
-    backgroundColor: '#5a2d82',
     width: '100%',
   },
   chatItem: {
@@ -1360,6 +1535,16 @@ const styles = StyleSheet.create({
   },
   separator: {
     height: 10,
+  },
+  sectionHeader: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111',
   },
   loadingContainer: {
     flex: 1,

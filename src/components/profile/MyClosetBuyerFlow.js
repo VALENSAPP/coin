@@ -9,13 +9,16 @@ import {
   Linking,
   Modal,
   SafeAreaView,
+  KeyboardAvoidingView,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
+  Platform,
 } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import FastImage from 'react-native-fast-image';
 import { useFocusEffect } from '@react-navigation/native';
@@ -92,6 +95,15 @@ const imageUri = image => {
   return image?.uri || image?.url || image?.path || null;
 };
 
+const fastImageSource = uri =>
+  uri
+    ? {
+        uri,
+        priority: FastImage.priority.high,
+        cache: FastImage.cacheControl.immutable,
+      }
+    : null;
+
 const itemImages = item => {
   const images = Array.isArray(item?.images)
     ? item.images.map(imageUri).filter(Boolean)
@@ -109,6 +121,45 @@ const prefetchImageUrls = async items => {
     .filter(Boolean);
   if (!urls.length) return;
   await Promise.allSettled([...new Set(urls)].map(url => Image.prefetch(url)));
+};
+
+const CachedImageBox = ({ uri, style, placeholderStyle, iconName, iconSize = 26 }) => {
+  const [loaded, setLoaded] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setLoaded(false);
+    setFailed(false);
+  }, [uri]);
+
+  if (!uri || failed) {
+    return (
+      <View style={[style, placeholderStyle]}>
+        <Ionicons name={iconName} size={iconSize} color="#9b8c7a" />
+      </View>
+    );
+  }
+
+  return (
+    <View style={style}>
+      {!loaded && (
+        <View style={styles.imageLoadingOverlay}>
+          <ActivityIndicator size="small" color="#9b8c7a" />
+        </View>
+      )}
+      <FastImage
+        source={fastImageSource(uri)}
+        style={StyleSheet.absoluteFill}
+        resizeMode={FastImage.resizeMode.cover}
+        fadeDuration={0}
+        onLoad={() => setLoaded(true)}
+        onError={() => {
+          setFailed(true);
+          setLoaded(true);
+        }}
+      />
+    </View>
+  );
 };
 
 const unwrapBattlesResponse = source => {
@@ -165,11 +216,12 @@ const BattleSlide = ({ battle, accent, t, onPress }) => (
     <View style={styles.slide}>
       <View style={styles.fighter}>
         <View style={styles.fighterThumb}>
-          {battle.left.image ? (
-            <Image source={{ uri: battle.left.image }} style={styles.fighterImg} resizeMode="cover" />
-          ) : (
-            <Ionicons name="bag-outline" size={26} color="#9b8c7a" />
-          )}
+          <CachedImageBox
+            uri={battle.left.image}
+            style={styles.fighterImgWrap}
+            placeholderStyle={styles.fighterThumbPlaceholder}
+            iconName="bag-outline"
+          />
         </View>
         <Text style={styles.fighterName} numberOfLines={2}>{battle.left.name}</Text>
         <Text style={styles.fighterPrice}>{battle.left.price}</Text>
@@ -182,11 +234,12 @@ const BattleSlide = ({ battle, accent, t, onPress }) => (
 
       <View style={styles.fighter}>
         <View style={styles.fighterThumb}>
-          {battle.right.image ? (
-            <Image source={{ uri: battle.right.image }} style={styles.fighterImg} resizeMode="cover" />
-          ) : (
-            <Ionicons name="bag-handle-outline" size={26} color="#9b8c7a" />
-          )}
+          <CachedImageBox
+            uri={battle.right.image}
+            style={styles.fighterImgWrap}
+            placeholderStyle={styles.fighterThumbPlaceholder}
+            iconName="bag-handle-outline"
+          />
         </View>
         <Text style={styles.fighterName} numberOfLines={2}>{battle.right.name}</Text>
         <Text style={styles.fighterPrice}>{battle.right.price}</Text>
@@ -349,11 +402,11 @@ const BottomButton = ({ label, onPress, icon, accentColor }) => {
 const ImageBox = ({ uri, style, iconSize = 34 }) => (
   <View style={[styles.imageBox, style]}>
     {uri ? (
-      <Image
-        source={{ uri }}
+      <FastImage
+        source={fastImageSource(uri)}
         style={styles.coverImage}
-        fadeDuration={200}
-        resizeMode="cover"
+        fadeDuration={0}
+        resizeMode={FastImage.resizeMode.cover}
       />
     ) : (
       <Ionicons name="shirt-outline" size={iconSize} color="#9b8c7a" />
@@ -405,7 +458,7 @@ const DetailImageCarousel = ({ images, onZoomChange, accentColor }) => {
           uri={item}
           height={HERO_IMAGE_HEIGHT}
           width={HERO_IMAGE_WIDTH}
-          resizeMode={FastImage.resizeMode.cover}
+          resizeMode={FastImage.resizeMode.contain}
           onZoomChange={handleZoomChange}
           simultaneousHandlers={listRef}
         />
@@ -522,11 +575,13 @@ const SellerCard = ({ seller, accentColor }) => {
   return (
     <View style={styles.sellerCard}>
       <View style={[styles.sellerAvatar, { backgroundColor: text }]}>
-        {seller?.image ? (
-          <Image source={{ uri: seller.image }} style={styles.coverImage} />
-        ) : (
-          <Ionicons name="person" size={20} color="#fff" />
-        )}
+        <CachedImageBox
+          uri={seller?.image}
+          style={styles.sellerAvatarImage}
+          placeholderStyle={styles.sellerAvatarPlaceholder}
+          iconName="person"
+          iconSize={20}
+        />
       </View>
       <View style={styles.sellerCopy}>
         <Text style={styles.sellerName}>
@@ -774,64 +829,76 @@ const AddAddressModal = ({ visible, onClose, onSaved, editAddress, accentColor }
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={handleClose}>
-      <SafeAreaView style={styles.modalSafe}>
-        <View style={styles.modalHeader}>
-          <TouchableOpacity onPress={handleClose} style={styles.iconButton}>
-            <Ionicons name="close" size={22} color="#17072d" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>{isEdit ? t('myClosetBuyer.editAddressTitle') : t('myClosetBuyer.newAddressTitle')}</Text>
-          <View style={styles.iconButton} />
-        </View>
-        <ScrollView contentContainerStyle={styles.modalContent} showsVerticalScrollIndicator={false}>
-          <Field label={`${t('myClosetBuyer.field.fullName')} *`} fieldKey="fullName" placeholder="John Doe"
-            value={form.fullName} onChangeText={v => set('fullName', v)}
-            onBlur={() => handleBlur('fullName')} error={errors.fullName} />
-          <Field label={`${t('myClosetBuyer.field.phoneNumber')} *`} fieldKey="phoneNumber" placeholder="+1 555 000 0000"
-            keyboardType="phone-pad" value={form.phoneNumber} onChangeText={v => set('phoneNumber', v)}
-            onBlur={() => handleBlur('phoneNumber')} error={errors.phoneNumber} />
-          <Field label={t('myClosetBuyer.field.alternateNumber')} fieldKey="alternateNumber"
-            keyboardType="phone-pad" value={form.alternateNumber} onChangeText={v => set('alternateNumber', v)}
-            onBlur={() => handleBlur('alternateNumber')} error={errors.alternateNumber} />
-          <Field label={`${t('myClosetBuyer.field.addressLine1')} *`} fieldKey="addressLine1" placeholder="123 Main Street"
-            value={form.addressLine1} onChangeText={v => set('addressLine1', v)}
-            onBlur={() => handleBlur('addressLine1')} error={errors.addressLine1} />
-          <Field label={t('myClosetBuyer.field.addressLine2')} fieldKey="addressLine2" placeholder="Apt, Suite, Floor…"
-            value={form.addressLine2} onChangeText={v => set('addressLine2', v)}
-            onBlur={() => handleBlur('addressLine2')} error={errors.addressLine2} />
-          <Field label={`${t('myClosetBuyer.field.city')} *`} fieldKey="city" placeholder="New York"
-            value={form.city} onChangeText={v => set('city', v)}
-            onBlur={() => handleBlur('city')} error={errors.city} />
-          <Field label={t('myClosetBuyer.field.state')} fieldKey="state" placeholder="NY"
-            value={form.state} onChangeText={v => set('state', v)}
-            onBlur={() => handleBlur('state')} error={errors.state} />
-          <Field label={t('myClosetBuyer.field.country')} fieldKey="country" placeholder="United States"
-            value={form.country} onChangeText={v => set('country', v)}
-            onBlur={() => handleBlur('country')} error={errors.country} />
-          <Field label={t('myClosetBuyer.field.postalCode')} fieldKey="postalCode" placeholder="10001"
-            keyboardType="numeric" value={form.postalCode} onChangeText={v => set('postalCode', v)}
-            onBlur={() => handleBlur('postalCode')} error={errors.postalCode} />
-
-          <TouchableOpacity
-            style={styles.defaultRow}
-            activeOpacity={0.8}
-            onPress={() => set('isDefault', !form.isDefault)}
+      <KeyboardAvoidingView
+        style={styles.modalSafe}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <SafeAreaView style={styles.modalSafe}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={handleClose} style={styles.iconButton}>
+              <Ionicons name="close" size={22} color="#17072d" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>{isEdit ? t('myClosetBuyer.editAddressTitle') : t('myClosetBuyer.newAddressTitle')}</Text>
+            <View style={styles.iconButton} />
+          </View>
+          <KeyboardAwareScrollView
+            contentContainerStyle={styles.modalContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            enableOnAndroid
+            // extraScrollHeight={24}
+            keyboardOpeningTime={0}
           >
-            <Ionicons
-              name={form.isDefault ? 'checkbox' : 'square-outline'}
-              size={20}
-              color={accent}
+            <Field label={`${t('myClosetBuyer.field.fullName')} *`} fieldKey="fullName" placeholder="John Doe"
+              value={form.fullName} onChangeText={v => set('fullName', v)}
+              onBlur={() => handleBlur('fullName')} error={errors.fullName} />
+            <Field label={`${t('myClosetBuyer.field.phoneNumber')} *`} fieldKey="phoneNumber" placeholder="+1 555 000 0000"
+              keyboardType="phone-pad" value={form.phoneNumber} onChangeText={v => set('phoneNumber', v)}
+              onBlur={() => handleBlur('phoneNumber')} error={errors.phoneNumber} />
+            <Field label={t('myClosetBuyer.field.alternateNumber')} fieldKey="alternateNumber"
+              keyboardType="phone-pad" value={form.alternateNumber} onChangeText={v => set('alternateNumber', v)}
+              onBlur={() => handleBlur('alternateNumber')} error={errors.alternateNumber} />
+            <Field label={`${t('myClosetBuyer.field.addressLine1')} *`} fieldKey="addressLine1" placeholder="123 Main Street"
+              value={form.addressLine1} onChangeText={v => set('addressLine1', v)}
+              onBlur={() => handleBlur('addressLine1')} error={errors.addressLine1} />
+            <Field label={t('myClosetBuyer.field.addressLine2')} fieldKey="addressLine2" placeholder="Apt, Suite, Floor…"
+              value={form.addressLine2} onChangeText={v => set('addressLine2', v)}
+              onBlur={() => handleBlur('addressLine2')} error={errors.addressLine2} />
+            <Field label={`${t('myClosetBuyer.field.city')} *`} fieldKey="city" placeholder="New York"
+              value={form.city} onChangeText={v => set('city', v)}
+              onBlur={() => handleBlur('city')} error={errors.city} />
+            <Field label={t('myClosetBuyer.field.state')} fieldKey="state" placeholder="NY"
+              value={form.state} onChangeText={v => set('state', v)}
+              onBlur={() => handleBlur('state')} error={errors.state} />
+            <Field label={t('myClosetBuyer.field.country')} fieldKey="country" placeholder="United States"
+              value={form.country} onChangeText={v => set('country', v)}
+              onBlur={() => handleBlur('country')} error={errors.country} />
+            <Field label={t('myClosetBuyer.field.postalCode')} fieldKey="postalCode" placeholder="10001"
+              keyboardType="numeric" value={form.postalCode} onChangeText={v => set('postalCode', v)}
+              onBlur={() => handleBlur('postalCode')} error={errors.postalCode} />
+
+            <TouchableOpacity
+              style={styles.defaultRow}
+              activeOpacity={0.8}
+              onPress={() => set('isDefault', !form.isDefault)}
+            >
+              <Ionicons
+                name={form.isDefault ? 'checkbox' : 'square-outline'}
+                size={20}
+                color={accent}
+              />
+              <Text style={styles.defaultLabel}>{t('myClosetBuyer.setAsDefaultAddress')}</Text>
+            </TouchableOpacity>
+          </KeyboardAwareScrollView>
+          <View style={styles.modalBottomBar}>
+            <BottomButton
+              label={saving ? t('myClosetBuyer.saving') : isEdit ? t('myClosetBuyer.updateAddressButton') : t('myClosetBuyer.saveAddressButton')}
+              onPress={saving ? undefined : handleSave}
+              accentColor={accent}
             />
-            <Text style={styles.defaultLabel}>{t('myClosetBuyer.setAsDefaultAddress')}</Text>
-          </TouchableOpacity>
-        </ScrollView>
-        <View style={styles.bottomBar}>
-          <BottomButton
-            label={saving ? t('myClosetBuyer.saving') : isEdit ? t('myClosetBuyer.updateAddressButton') : t('myClosetBuyer.saveAddressButton')}
-            onPress={saving ? undefined : handleSave}
-            accentColor={accent}
-          />
-        </View>
-      </SafeAreaView>
+          </View>
+        </SafeAreaView>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };
@@ -961,6 +1028,7 @@ const MyClosetBattlesScreen = ({ navigation, route }) => {
   const { bgStyle, text: accent } = useClosetTheme(route);
   const { t } = useLanguage();
   const closetId = route?.params?.closetId;
+  const isOwnProfile = route?.params?.isOwnProfile ?? false;
   const returnTo = route?.params?.returnTo;
 
   const [battles, setBattles] = useState([]);
@@ -990,8 +1058,15 @@ const MyClosetBattlesScreen = ({ navigation, route }) => {
       battleId: battle?.id,
       initialBattle: battle,
       selectedItems: [battle?.left, battle?.right].filter(Boolean),
+      returnToProfile: isOwnProfile
+        ? { screen: 'Profile' }
+        : {
+            tab: 'HomeMain',
+            screen: 'UsersProfile',
+            params: { userId: route?.params?.seller?.id || route?.params?.sellerId },
+          },
     }));
-  }, [navigation, route]);
+  }, [navigation, isOwnProfile, route, route?.params?.seller?.id, route?.params?.sellerId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -1204,9 +1279,12 @@ const MyClosetBuyerOptionsScreen = ({ navigation, route }) => {
         onRightPress={() => goBack(navigation, returnTo)}
         returnTo={returnTo}
       />
-      <ScrollView
+      <KeyboardAwareScrollView
         contentContainerStyle={styles.formContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        enableOnAndroid
+        extraScrollHeight={24}
       >
         <View style={styles.optionProductRow}>
           <ImageBox uri={item.image} style={styles.optionThumb} iconSize={22} />
@@ -1257,7 +1335,7 @@ const MyClosetBuyerOptionsScreen = ({ navigation, route }) => {
           />
           <Text style={styles.counterText}>{note.length}/100</Text>
         </View>
-      </ScrollView>
+      </KeyboardAwareScrollView>
       <View style={styles.bottomBar}>
         <BottomButton
           label={adding ? t('myClosetBuyer.adding') : syncingQty ? t('myClosetBuyer.loading') : t('myClosetBuyer.addToCart')}
@@ -1601,6 +1679,18 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
     // }
   };
 
+  const handleOpenShippingStep = () => {
+    navigation.navigate(
+      'MyClosetBuyerShipping',
+      withClosetNavParams(route, {
+        cartId,
+        cartItemsSnapshot: cartItems,
+        shippingOptionsMap,
+        requiresShipping,
+      }),
+    );
+  };
+
   const isEmpty = !cartLoading && cartItems.length === 0;
 
   // ── Helper: resolve image + name from a cart item ────────────────────
@@ -1667,14 +1757,19 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
                 return (
                   <View key={ci.id} style={styles.cartLineCard}>
                     {/* Top-right shipping badge */}
-                    <View style={styles.shippingBadge}>
+                    <TouchableOpacity
+                      activeOpacity={0.8}
+                      onPress={opt === SHIP_OPTION_BOTH ? handleOpenShippingStep : undefined}
+                      disabled={opt !== SHIP_OPTION_BOTH}
+                      style={styles.shippingBadge}
+                    >
                       <Ionicons
                         name={opt === SHIP_OPTION_LOCAL ? 'storefront-outline' : 'cube-outline'}
                         size={11}
                         color={MUTED}
                       />
                       <Text style={styles.shippingBadgeText}>{shippingLabel}</Text>
-                    </View>
+                    </TouchableOpacity>
 
                     <ImageBox uri={cartItemImage(ci)} style={styles.cartThumb} iconSize={22} />
                     <View style={styles.cartCopy}>
@@ -2679,7 +2774,18 @@ const MyClosetBuyerOrderReceivedScreen = ({ navigation, route }) => {
         <TouchableOpacity
           activeOpacity={0.85}
           style={styles.secondaryButton}
-          onPress={() => navigateClosetReturn(navigation, returnTo)}
+          onPress={() => navigation.reset({
+                index: 0,
+                routes: [
+                  {
+                    name: 'MainApp',
+                    params: {
+                      screen: 'wallet',
+                      params: { screen: 'MyCloset' },
+                    },
+                  },
+                ],
+              })}
         >
           <Text style={[styles.secondaryButtonText, { color: text }]}>{t('myClosetBuyer.goToMyOrders')}</Text>
         </TouchableOpacity>
@@ -2795,6 +2901,16 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
+  fighterImgWrap: {
+    width: '100%',
+    height: '100%',
+  },
+  fighterThumbPlaceholder: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   fighterName: {
     fontSize: 13,
     lineHeight: 18,
@@ -2846,6 +2962,13 @@ const styles = StyleSheet.create({
 
   imageBox: { backgroundColor: '#f6f0ee', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   coverImage: { width: '100%', height: '100%' },
+  imageLoadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(246,240,238,0.72)',
+    zIndex: 2,
+  },
 
   loaderWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 80 },
@@ -2877,6 +3000,8 @@ const styles = StyleSheet.create({
     width: 44, height: 44, borderRadius: 22,
     alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
   },
+  sellerAvatarImage: { width: '100%', height: '100%' },
+  sellerAvatarPlaceholder: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' },
   sellerCopy: { flex: 1, paddingHorizontal: 12 },
   sellerName: { fontSize: 13, fontWeight: '900', color: '#17072d' },
   sellerMeta: { marginTop: 2, fontSize: 11, color: MUTED },
@@ -2894,6 +3019,14 @@ const styles = StyleSheet.create({
     position: 'absolute', left: 0, right: 0, bottom: 0,
     paddingHorizontal: 20, paddingTop: 12, paddingBottom: 22,
     backgroundColor: '#ffffffee', borderTopWidth: 1, borderTopColor: '#f0eaf6',
+  },
+  modalBottomBar: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 22,
+    backgroundColor: '#ffffffee',
+    borderTopWidth: 1,
+    borderTopColor: '#f0eaf6',
   },
   bottomButton: {
     minHeight: 50, borderRadius: 13,
@@ -3089,7 +3222,7 @@ const styles = StyleSheet.create({
   secondaryButtonText: { fontSize: 14, fontWeight: '900' },
 
   // add address modal form
-  modalContent: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 120 },
+  modalContent: { paddingHorizontal: 20, paddingTop: 16 },
   fieldWrap: { marginBottom: 14 },
   fieldLabel: { fontSize: 12, fontWeight: '800', color: '#21083f', marginBottom: 5 },
   fieldInput: {

@@ -16,6 +16,7 @@ import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../displaytoastmessage';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useLanguage } from '../../i18n';
+import { BASE_URL } from '../../config/urls';
 
 const UsernameModal = ({ visible, onClose, data }) => {
   const sheetRef = useRef();
@@ -46,7 +47,7 @@ const UsernameModal = ({ visible, onClose, data }) => {
     resolvedData?.displayName ||
     '';
 
-  const qrShareUrl = `https://api.valens.app/profile/${resolvedUserId}?username=${encodeURIComponent(resolvedUsername)}&callbackUrl=${encodeURIComponent('com.valens://')}`;
+  const qrShareUrl = `${BASE_URL}/profile/${resolvedUserId}?username=${encodeURIComponent(resolvedUsername)}&callbackUrl=${encodeURIComponent('com.valens://')}`;
 
   const getProfileShareMessage = () => {
     const profileLabel = resolvedUsername ? `@${resolvedUsername}` : 'this profile';

@@ -43,6 +43,9 @@ const EbookPublisher = ({ navigation }) => {
   const [selectedCover, setSelectedCover] = useState('minimal');
   const [customCoverImage, setCustomCoverImage] = useState(null);
   const [allowDownload, setAllowDownload] = useState(false);
+  const [amount, setAmount] = useState('0');
+  const [promoCode, setPromoCode] = useState('');
+  const [promoEnabled, setPromoEnabled] = useState(false);
   const [isPublished, setIsPublished] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -234,10 +237,22 @@ const EbookPublisher = ({ navigation }) => {
         ebookpdf: selectedPdf,
         // ✅ Must be array, NOT .join()
         tableContent: chapters.map(item => item.title), // ["Chapter1", "Chapter2"]
+        amount: Number(String(amount || '0')) || 0,
+        promoCode: String(promoCode || '').trim(),
+        log: {
+          createdAt: new Date().toISOString(),
+          meta: {
+            title: title.trim(),
+            amount: Number(String(amount || '0')) || 0,
+            promoCode: String(promoCode || '').trim(),
+            chapters: chapters.length,
+            allowDownload: !!allowDownload,
+          },
+        },
       };
       console.log('📚 tableContent before API call:', JSON.stringify(payload.tableContent));
 
-      console.log('Payload:', payload);
+      console.log('Payload (with log):', payload);
       console.log('Cover Image:', coverSource);
       console.log('Chapters:', chapters);
       console.log('Table of Contents (titles only):', payload.tableContent);
@@ -530,7 +545,7 @@ const EbookPublisher = ({ navigation }) => {
               </View>
             </View>
 
-            <View style={styles.settingsCard}>
+            <View style={[styles.settingsCard, { borderColor: `${text}33` }]}>
               <View style={styles.settingsRow}>
                 <Text style={styles.settingLabel}>Allow download</Text>
                 <Switch
@@ -540,6 +555,54 @@ const EbookPublisher = ({ navigation }) => {
                   thumbColor="#FFFFFF"
                 />
               </View>
+
+              {/* Price Card */}
+              <View style={[styles.priceCard, { borderColor: `${text}22` }]}>
+                <Text style={[styles.priceLabel, { color: text }]}>Price per Book</Text>
+                <View style={styles.priceInputRow}>
+                  <View style={[styles.priceDollar, { borderColor: `${text}22` }]}>
+                    <Text style={[styles.priceDollarText, { color: text }]}>$</Text>
+                  </View>
+                  <TextInput
+                    value={String(amount)}
+                    onChangeText={val => setAmount(val.replace(/[^0-9.]/g, ''))}
+                    style={[styles.priceInput, { color: text }]}
+                    placeholder="0.00"
+                    placeholderTextColor={`${text}66`}
+                    keyboardType={Platform.OS === 'android' ? 'numeric' : 'decimal-pad'}
+                  />
+                </View>
+                <Text style={styles.priceHint}>Suggested price range: $2.99 - $49.99</Text>
+              </View>
+
+              {/* Promo toggle + input */}
+              <View style={styles.promoRow}>
+                <View style={styles.promoLeft}>
+                  <Text style={[styles.settingTitle]}>Add Promo Code (Optional)</Text>
+                  <Text style={[styles.settingSubtitle]}>Create a discount code to promote your e-book</Text>
+                </View>
+                <View style={styles.promoRight}>
+                  <Switch
+                    value={promoEnabled}
+                    onValueChange={setPromoEnabled}
+                    trackColor={{ false: '#D1D5DB', true: text }}
+                    thumbColor="#FFFFFF"
+                  />
+                </View>
+              </View>
+
+              {promoEnabled && (
+                <View style={[styles.promoInputWrap, { borderColor: `${text}22` }]}>
+                  <TextInput
+                    value={promoCode}
+                    onChangeText={setPromoCode}
+                    style={[styles.inputText, styles.promoInput, { color: text }]}
+                    placeholder="Enter promo code"
+                    placeholderTextColor={`${text}66`}
+                    autoCapitalize="characters"
+                  />
+                </View>
+              )}
             </View>
             <TouchableOpacity
               style={[styles.primaryButton, { backgroundColor: text, opacity: isSubmitting ? 0.75 : 1 }]}
@@ -789,6 +852,24 @@ const styles = StyleSheet.create({
   previewStats: { marginTop: 14, gap: 10 },
   previewStat: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   previewStatText: { fontSize: 12, color: '#4B5563', flex: 1 },
+  priceCard: {
+    marginTop: 12,
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    backgroundColor: '#fff',
+  },
+  priceLabel: { fontSize: 13, fontWeight: '700', marginBottom: 8 },
+  priceInputRow: { flexDirection: 'row', alignItems: 'center' },
+  priceDollar: { width: 44, height: 44, borderWidth: 1, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginRight: 8, backgroundColor: '#fff' },
+  priceDollarText: { fontSize: 18, fontWeight: '800' },
+  priceInput: { flex: 1, fontSize: 16, paddingVertical: 8 },
+  priceHint: { fontSize: 12, color: '#6B7280', marginTop: 8 },
+  promoRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 16 },
+  promoLeft: { flex: 1, paddingRight: 8 },
+  promoRight: { width: 64, alignItems: 'flex-end' },
+  promoInputWrap: { marginTop: 12, borderWidth: 1, borderRadius: 10, backgroundColor: '#fff', paddingHorizontal: 12 },
+  promoInput: { minHeight: 44, paddingVertical: 10 },
   settingsCard: { marginTop: 16, padding: 14, borderRadius: 18, backgroundColor: '#F8FAFC' },
   settingsRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
   settingLabel: { fontSize: 13, color: '#6B7280' },

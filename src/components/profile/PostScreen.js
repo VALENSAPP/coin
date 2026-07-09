@@ -18,6 +18,7 @@ import { pinPost, unpinPost } from '../../services/post';
 import { isPostPinned, setPostPinnedState, sortPostsByPinned } from '../../utils/postPinning';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useLanguage } from '../../i18n';
+import { BASE_URL } from '../../config/urls';
 import { isPostVideoUrl } from '../../utils/postMediaFormat';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -102,8 +103,8 @@ const normalizeImageUrl = (url) => {
   if (!url || typeof url !== 'string') return null;
   const trimmed = url.trim();
   if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:')) return trimmed;
-  if (trimmed.startsWith('/')) return `https://api.valens.app${trimmed}`;
-  return `https://api.valens.app/${trimmed}`;
+  if (trimmed.startsWith('/')) return `${BASE_URL}${trimmed}`;
+  return `${BASE_URL}/${trimmed}`;
 };
 
 const getPostPrimaryMediaUrl = (post) =>

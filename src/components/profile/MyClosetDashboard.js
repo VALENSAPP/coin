@@ -20,6 +20,7 @@ import {
   getSellerDashboard,
   getMarketplaceOverview,
   getMyClosetMe,
+  getClosetBattlesPriority,
 } from '../../services/myCloset';
 import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
@@ -103,6 +104,51 @@ const buildBattleStats = t => ([
   { key: 'battleviews', label: t('myClosetDashboard.battle.battleViews'), value: '860', icon: 'eye-outline' },
 ]);
 
+const unwrapBattlePriorityResponse = source => {
+  const root = source?.data?.data ?? source?.data ?? source;
+  const battles = root?.battles ?? root?.data?.battles ?? root?.items ?? root ?? [];
+  return Array.isArray(battles) ? battles : [];
+};
+
+const formatCurrency = value => {
+  if (value == null || value === '') return '$0.00';
+  const textValue = String(value).trim();
+  if (textValue.startsWith('$')) return textValue;
+  const numericValue = Number(textValue);
+  return Number.isNaN(numericValue) ? textValue : `$${numericValue.toFixed(0)}`;
+};
+
+const normalizePriorityBattle = battle => {
+  const participants = Array.isArray(battle?.participants) ? [...battle.participants] : [];
+  participants.sort((a, b) => Number(a?.position ?? 0) - Number(b?.position ?? 0));
+  const [left, right] = participants;
+  const winnerParticipant = participants.find(participant => participant?.isWinner) || null;
+  const winnerProduct = battle?.winner?.product ?? battle?.winner?.item ?? winnerParticipant?.product ?? null;
+  const primaryProduct = winnerProduct || left?.product || right?.product || null;
+
+  return {
+    id: String(battle?.id || battle?._id || ''),
+    title: battle?.title || 'Pinned Item',
+    price: formatCurrency(primaryProduct?.price ?? battle?.price ?? 0),
+    image: primaryProduct?.images?.[0] || primaryProduct?.image || null,
+    badge: battle?.hasWinnerBadge ? 'Winner' : null,
+    promoLabel: battle?.hasTenPercentOffPromotion
+      ? '10% OFF + 2 GM'
+      : battle?.hasFreeShippingPromotion
+        ? 'Free Shipping'
+        : null,
+    pinLabel: battle?.isPinnedOnTop ? 'Pin' : null,
+    raw: battle,
+  };
+};
+
+const navigateToBattleList = (navigation, closetId) => {
+  navigation?.navigate?.('ProfileMain', {
+    screen: 'MyClosetBattles',
+    params: closetId ? { closetId } : undefined,
+  });
+};
+
 const ORDER_STATUS_KEYS = {
   pending: 'myClosetDashboard.orderStatus.pending',
   confirmed: 'myClosetDashboard.orderStatus.confirmed',
@@ -137,7 +183,19 @@ const formatOrderPrice = value => {
   return Number.isNaN(numericValue) ? textValue : `$${numericValue.toFixed(2)}`;
 };
 
+const unwrapOrderImage = item =>
+  item?.productImage ||
+  item?.product?.images?.[0] ||
+  item?.product?.image ||
+  item?.image ||
+  item?.thumbnail ||
+  null;
+
 const getOrderThumbImage = order =>
+  order?.items?.[0]?.productImage ||
+  order?.items?.[0]?.product?.images?.[0] ||
+  order?.items?.[0]?.product?.image ||
+  order?.items?.[0]?.image ||
   order?.item?.images?.[0] ||
   order?.item?.image ||
   order?.product?.images?.[0] ||
@@ -158,17 +216,29 @@ const getOrderAmount = order =>
 
 const normalizeBuyerOrder = (order, index, t) => {
   const status = normalizeOrderStatus(order?.orderStatus ?? order?.status);
+  const items = Array.isArray(order?.items) ? order.items : [];
+  const primaryItem = items[0] || order?.item || order?.product || null;
+  const itemCount = Number(order?.totalItemCount ?? items.length ?? 0);
   return {
     key: String(order?.id || order?._id || index),
     id: order?.id || order?._id,
     name: getOrderDisplayName(order, t),
+    buyerName: order?.buyerName || order?.buyer?.username || order?.buyer?.userName || t('myClosetDashboard.buyer'),
     order: t('myClosetDashboard.orderNumber', {
       number: order?.orderNumber || order?.orderId || order?.id || order?._id || index + 1,
     }),
+    orderNumber: order?.orderNumber || order?.orderId || order?.id || order?._id || index + 1,
     price: formatOrderPrice(getOrderAmount(order)),
+    totalAmount: formatOrderPrice(order?.totalAmount ?? order?.amount ?? order?.total),
     status: t(ORDER_STATUS_KEYS[status]),
+    statusKey: status,
     statusColor: ORDER_STATUS_COLORS[status],
     image: getOrderThumbImage(order),
+    createdAt: order?.createdAt || order?.created_at || null,
+    totalItemCount: itemCount,
+    firstItem: primaryItem,
+    itemImages: items.map(unwrapOrderImage).filter(Boolean),
+    rawItems: items,
     raw: order,
   };
 };
@@ -179,6 +249,7 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
   const [closetItems, setClosetItems] = useState([]);
   const [shopName, setShopName] = useState('');
   const [shopHandle, setShopHandle] = useState('');
+  const [closetId, setClosetId] = useState(null);
   const [itemsLoading, setItemsLoading] = useState(false);
   const [recentOrders, setRecentOrders] = useState([]);            // Seller: orders received
   const [ordersLoading, setOrdersLoading] = useState(false);
@@ -191,6 +262,8 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
   const [overviewRange, setOverviewRange] = useState('weekly'); // 'weekly' | 'monthly'
   const [marketplaceOverview, setMarketplaceOverview] = useState(null);
   const [marketplaceLoading, setMarketplaceLoading] = useState(false);
+  const [priorityBattles, setPriorityBattles] = useState([]);
+  const [priorityBattlesLoading, setPriorityBattlesLoading] = useState(false);
 
   const { bgStyle, textStyle, text, cardStyle } = useAppTheme(userData?.profile);
   const battleStats = useMemo(() => buildBattleStats(t), [t]);
@@ -294,6 +367,29 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
     }
   }, []);
 
+  const loadPriorityBattles = useCallback(async () => {
+    const resolvedClosetId = closetId || userData?.closetId || userData?.myClosetId || userData?.closet?.id || userData?.closet?._id;
+    if (!resolvedClosetId) {
+      setPriorityBattles([]);
+      return;
+    }
+
+    setPriorityBattlesLoading(true);
+    try {
+      const response = await getClosetBattlesPriority(resolvedClosetId, { page: 1, limit: 10 });
+      const battles = unwrapBattlePriorityResponse(response)
+        .filter(battle => battle?.isPinnedOnTop)
+        .map(normalizePriorityBattle)
+        .filter(battle => battle.id);
+      setPriorityBattles(battles);
+    } catch (error) {
+      console.warn('Unable to load closet battle priority:', error);
+      setPriorityBattles([]);
+    } finally {
+      setPriorityBattlesLoading(false);
+    }
+  }, [closetId, userData?.closetId, userData?.myClosetId, userData?.closet?.id, userData?.closet?._id]);
+
   const loadClosetItems = useCallback(async () => {
     setItemsLoading(true);
     try {
@@ -325,8 +421,10 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
     dispatch(showLoader());
     try {
       const response = await getMyClosetMe();
-      setShopName(response?.data?.shopName);
-      setShopHandle(response?.data?.shopUsername);
+      const data = response?.data?.data ?? response?.data ?? {};
+      setShopName(data?.shopName);
+      setShopHandle(data?.shopUsername);
+      setClosetId(data?.closetId ?? data?.id ?? data?._id ?? data?.closet?.id ?? data?.closet?._id ?? null);
     } catch (error) {
       console.warn('Unable to load closet items:', error);
     } finally {
@@ -344,6 +442,11 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
       loadMarketplaceOverview(overviewRange);
     }, [loadClosetItems, loadRecentOrders, loadBuyerOrders, loadDashboard, loadMarketplaceOverview, overviewRange]),
   );
+
+  useEffect(() => {
+    if (!closetId) return;
+    loadPriorityBattles();
+  }, [closetId, loadPriorityBattles]);
 
   const statCards = useMemo(() => buildStatCards(marketplaceOverview, t), [marketplaceOverview, t]);
   const overviewCards = useMemo(() => buildOverviewCards(dashboardData, t), [dashboardData, t]);
@@ -438,6 +541,7 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
         orderId: order.raw?.id || order.raw?._id || order.id,
         orderPreview: order.raw,
         viewType: 'buyer',
+        returnTo: 'MyClosetDashboard'
       },
     });
   };
@@ -459,6 +563,8 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
     price: formatPrice(item?.price ?? item?.amount ?? item?.salePrice),
     image: getItemImage(item),
   }));
+  const pinnedItems = priorityBattles.slice(0, 3);
+  const showPinnedViewAll = priorityBattles.length > pinnedItems.length;
 
   return (
     <ScrollView
@@ -518,6 +624,67 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
           </Text>
         </View>
       </View>
+
+      {/* ── Pinned Item ── */}
+      {(priorityBattlesLoading || pinnedItems.length > 0) && (
+        <View style={[styles.pinnedSection, cardStyle, { borderColor: withAlpha(text, 0.12) }]}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, textStyle]}>{t('myClosetDashboard.pinnedItemTitle') || 'Pinned Item'}</Text>
+            {showPinnedViewAll && (
+              <TouchableOpacity activeOpacity={0.8} onPress={() => navigateToBattleList(navigation, closetId)}>
+                <Text style={styles.sectionMeta}>{t('myClosetDashboard.viewAllPinned')} ›</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          {priorityBattlesLoading && pinnedItems.length === 0 ? (
+            <View style={styles.itemsLoadingWrap}>
+              <ActivityIndicator color={text} />
+            </View>
+          ) : (
+            pinnedItems.map(item => (
+              <View key={item.id} style={styles.pinnedCard}>
+                <View style={styles.pinnedThumbWrap}>
+                  {item.image ? (
+                    <Image source={{ uri: item.image }} style={styles.pinnedThumb} />
+                  ) : (
+                    <View style={[styles.pinnedThumb, styles.pinnedThumbPlaceholder]}>
+                      <Ionicons name="shirt-outline" size={26} color={text} />
+                    </View>
+                  )}
+                </View>
+
+                <View style={styles.pinnedBody}>
+                  <View style={styles.pinnedTopRow}>
+                    <Text style={[styles.pinnedTitle, textStyle]} numberOfLines={1}>{item.title}</Text>
+                    {item.badge ? (
+                      <View style={styles.winnerBadge}>
+                        <Text style={styles.winnerBadgeText}>🏆 {item.badge}</Text>
+                      </View>
+                    ) : null}
+                  </View>
+
+                  <Text style={[styles.pinnedPrice, textStyle]}>{item.price}</Text>
+
+                  <View style={styles.pinnedBottomRow}>
+                    {item.promoLabel ? (
+                      <View style={styles.promoPill}>
+                        <Text style={styles.promoPillText}>{item.promoLabel}</Text>
+                      </View>
+                    ) : <View />}
+
+                    {item.pinLabel ? (
+                      <View style={styles.pinPill}>
+                        <Ionicons name="pin-outline" size={14} color="#6b46c1" />
+                        <Text style={styles.pinPillText}>{item.pinLabel}</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                </View>
+              </View>
+            ))
+          )}
+        </View>
+      )}
 
       {/* ── Overview (by range) ── */}
       <View style={[styles.sectionCard, cardStyle, { borderColor: withAlpha(text, 0.12) }]}>
@@ -619,12 +786,17 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
                 <View style={styles.itemCopy}>
                   <Text style={[styles.itemName, textStyle]} numberOfLines={1}>{item.name}</Text>
                   <Text style={styles.itemOrder}>{item.order}</Text>
+                  <Text style={styles.itemMeta} numberOfLines={1}>
+                    {item.buyerName}
+                    {item.createdAt ? ` • ${new Date(item.createdAt).toLocaleDateString()}` : ''}
+                  </Text>
                 </View>
                 <View style={styles.orderRight}>
                   <View style={[styles.statusBadge, { backgroundColor: `${item.statusColor}18` }]}>
                     <Text style={[styles.statusText, { color: item.statusColor }]}>{item.status}</Text>
                   </View>
-                  <Text style={[styles.orderPrice, textStyle]}>{item.price}</Text>
+                  <Text style={[styles.orderPrice, textStyle]}>{item.totalAmount}</Text>
+                  <Text style={styles.orderCount}>{item.totalItemCount} item{item.totalItemCount === 1 ? '' : 's'}</Text>
                 </View>
               </TouchableOpacity>
             ))}
@@ -672,12 +844,17 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
                 <View style={styles.itemCopy}>
                   <Text style={[styles.itemName, textStyle]} numberOfLines={1}>{item.name}</Text>
                   <Text style={styles.itemOrder}>{item.order}</Text>
+                  <Text style={styles.itemMeta} numberOfLines={1}>
+                    {/* {item.buyerName} */}
+                    {item.createdAt ? ` ${new Date(item.createdAt).toLocaleDateString()}` : ''}
+                  </Text>
                 </View>
                 <View style={styles.orderRight}>
                   <View style={[styles.statusBadge, { backgroundColor: `${item.statusColor}18` }]}>
                     <Text style={[styles.statusText, { color: item.statusColor }]}>{item.status}</Text>
                   </View>
-                  <Text style={[styles.orderPrice, textStyle]}>{item.price}</Text>
+                  <Text style={[styles.orderPrice, textStyle]}>{item.totalAmount}</Text>
+                  <Text style={styles.orderCount}>{item.totalItemCount} item{item.totalItemCount === 1 ? '' : 's'}</Text>
                 </View>
               </TouchableOpacity>
             ))}
@@ -830,6 +1007,99 @@ const styles = StyleSheet.create({
   liveBannerText: { fontSize: 13, fontWeight: '700', flex: 1 },
   liveBannerSub: { fontWeight: '500', color: '#6b7280' },
 
+  pinnedSection: {
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 14,
+    marginBottom: 14,
+  },
+  pinnedCard: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#f3f4f6',
+  },
+  pinnedThumbWrap: {
+    width: 84,
+    height: 84,
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: '#f5f3ef',
+  },
+  pinnedThumb: {
+    width: '100%',
+    height: '100%',
+  },
+  pinnedThumbPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pinnedBody: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  pinnedTopRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  pinnedTitle: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  pinnedPrice: {
+    marginTop: 4,
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  winnerBadge: {
+    backgroundColor: '#fde68a',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  winnerBadgeText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#7c2d12',
+  },
+  pinnedBottomRow: {
+    marginTop: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  promoPill: {
+    backgroundColor: '#f97316',
+    borderRadius: 9,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  promoPillText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  pinPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#f5f3ff',
+    borderRadius: 9,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  pinPillText: {
+    color: '#6b46c1',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+
   // Section card
   sectionCard: {
     borderRadius: 20,
@@ -897,6 +1167,7 @@ const styles = StyleSheet.create({
   itemCopy: { flex: 1 },
   itemName: { fontSize: 14, fontWeight: '700' },
   itemOrder: { marginTop: 2, color: '#6b7280', fontSize: 12, fontWeight: '500' },
+  itemMeta: { marginTop: 2, color: '#9ca3af', fontSize: 11, fontWeight: '500' },
   orderRight: { alignItems: 'flex-end', gap: 4 },
   statusBadge: {
     borderRadius: 20,
@@ -905,6 +1176,7 @@ const styles = StyleSheet.create({
   },
   statusText: { fontSize: 11, fontWeight: '700' },
   orderPrice: { fontSize: 13, fontWeight: '700' },
+  orderCount: { color: '#9ca3af', fontSize: 11, fontWeight: '600' },
 
   // Items grid
   itemsGrid: {
@@ -979,7 +1251,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 4,
+    marginBottom: 30,
   },
   battleCtaLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   battleCtaTitle: { color: '#fff', fontSize: 15, fontWeight: '800' },

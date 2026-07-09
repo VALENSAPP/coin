@@ -15,6 +15,10 @@ const createStyles = () => {
       alignItems: 'center',
       marginLeft: -13,
     },
+    headerLeftContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
     header: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -22,6 +26,9 @@ const createStyles = () => {
       paddingHorizontal: 15,
       paddingVertical: 4,
       borderBottomColor: '#dbdbdb',
+      zIndex: 20,
+      elevation: 20,
+      backgroundColor: 'transparent',
     },
     appLogo: {
       resizeMode: 'contain',
