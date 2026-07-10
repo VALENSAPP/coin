@@ -2026,7 +2026,11 @@
     "reviewButton": "Rivedi",
     "back": "Indietro",
     "subscriberOnlyTitle": "Solo per gli abbonati",
-    "subscriberOnlyDescription": "Solo gli abbonati possono accedere e leggere questo e-book."
+    "subscriberOnlyDescription": "Solo gli abbonati possono accedere e leggere questo e-book.",
+    "uploadMyBook": "Carica il mio libro",
+    "myLibrary": "La mia libreria",
+    "libraryLoadFailed": "Non siamo riusciti a caricare la tua libreria in questo momento.",
+    "noLibraryItems": "Non sono stati trovati e-book acquistati."
   },
   "transactions": {
     "loadFailed": "Impossibile caricare le transazioni",

@@ -63,7 +63,7 @@ const EbookDetailScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   console.log('📥 EbookDetailScreen received params:', JSON.stringify(route?.params, null, 2));
-  const ebook = route?.params?.ebook || {};
+  const ebook = useMemo(() => route?.params?.ebook || {}, [route?.params?.ebook]);
   const routeLoggedInUserId = route?.params?.loggedInUserId;
   const { bgStyle,text } = useAppTheme(route?.params?.userData?.profile);
   const { t } = useLanguage();
@@ -74,7 +74,13 @@ const EbookDetailScreen = () => {
 
   const title = ebook.caption || ebook.title || 'E-book';
   const userName = ebook.userName || 'Unknown Author';
-  const userImage = ebook.userImage || 'https://i.pravatar.cc/80?img=32';
+  const userAvatarSource = useMemo(() => {
+    const uri = ebook.userImage || ebook.avatar || ebook.user?.avatar || ebook.user?.image || ebook.creator?.avatar || ebook.creator?.image;
+    if (uri && typeof uri === 'string' && uri.trim().length > 0) {
+      return { uri: uri.trim() };
+    }
+    return require('../../assets/icons/pngicons/blackUser.png');
+  }, [ebook]);
   const description = getDescription(ebook.text);
 
   const pdfUrl = useMemo(() => {
@@ -408,7 +414,7 @@ const EbookDetailScreen = () => {
           </TouchableOpacity>
           <View style={styles.authorWrap}>
             <View style={styles.avatarStack}>
-              <Image source={{ uri: userImage }} style={styles.avatar} />
+              <Image source={userAvatarSource} style={styles.avatar} />
               {/* <View style={styles.onlineDot} /> */}
             </View>
             <View style={styles.authorTextWrap}>

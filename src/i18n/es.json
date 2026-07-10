@@ -2026,7 +2026,11 @@
     "reviewButton": "Revisar",
     "back": "Atrás",
     "subscriberOnlyTitle": "Solo para suscriptores",
-    "subscriberOnlyDescription": "Solo los suscriptores pueden acceder y leer este libro electrónico."
+    "subscriberOnlyDescription": "Solo los suscriptores pueden acceder y leer este libro electrónico.",
+    "uploadMyBook": "Subir mi libro",
+    "myLibrary": "Mi biblioteca",
+    "libraryLoadFailed": "No pudimos cargar tu biblioteca en este momento.",
+    "noLibraryItems": "Aún no se han encontrado libros electrónicos comprados."
   },
   "transactions": {
     "loadFailed": "No se pudieron cargar las transacciones",

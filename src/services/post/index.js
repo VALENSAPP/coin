@@ -213,6 +213,30 @@ export const getPostByUser = async (userId, type = '') => {
   });
 };
 
+export const getMarketPlaceEbook = async (userId) => {
+  if (!userId) {
+    throw new Error('getMarketPlaceEbook: you must pass a valid userId');
+  }
+
+  return axiosInstance.get('post/getMarketPlaceEbook', {
+    params: {
+      userId,
+    },
+  });
+};
+
+export const getMyEbookLibrary = async () => {
+  return axiosInstance.get('post/myEbookLibrary');
+};
+
+export const getMarketPlaceEbookById = async (postId) => {
+  if (!postId || typeof postId !== 'string') {
+    throw new Error('getMarketPlaceEbookById: you must pass a valid postId');
+  }
+
+  return axiosInstance.get(`post/getMarketPlaceEbookById/${postId}`);
+};
+
 export const getPostById = async (postId) => {
   if (!postId || typeof postId !== 'string') {
     throw new Error('getPostById: you must pass a valid postId');

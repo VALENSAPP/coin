@@ -2026,7 +2026,11 @@
     "reviewButton": "VÃ©rifier",
     "back": "Retour",
     "subscriberOnlyTitle": "RÃ©servÃ© aux abonnÃ©s",
-    "subscriberOnlyDescription": "Seuls les abonnÃ©s peuvent accÃ©der Ã  ce livre numÃ©rique et le lire."
+    "subscriberOnlyDescription": "Seuls les abonnÃ©s peuvent accÃ©der Ã  ce livre numÃ©rique et le lire.",
+    "uploadMyBook": "Téléverser mon livre",
+    "myLibrary": "Ma bibliothèque",
+    "libraryLoadFailed": "Nous n'avons pas pu charger votre bibliothèque pour le moment.",
+    "noLibraryItems": "Aucun livre numérique acheté pour le moment."
   },
   "transactions": {
     "loadFailed": "Ã‰chec du chargement des transactions",

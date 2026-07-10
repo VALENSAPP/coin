@@ -354,6 +354,12 @@ export const deleteMarketplaceBattleComment = async (battleId, commentId) => {
   return axiosInstance.delete(`marketplace-battles/${battleId}/comments/${commentId}`);
 }
 
+export const reactToMarketplaceBattleComment = async (battleId, commentId, reaction) => {
+  return axiosInstance.post(`marketplace-battles/${battleId}/comments/${commentId}/reaction`, {
+    reaction,
+  });
+};
+
 export const getMarketplaceBattleBoostPackages = async () => {
   return axiosInstance.get('/marketplace-battle-boosts/packages');
 };

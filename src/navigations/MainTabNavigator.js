@@ -102,6 +102,10 @@ import PaymentScreen from '../pages/Stripe/PaymentScreen';
 import OpenBattleScreen from '../pages/profile/OpenBattleScreen';
 import ProfileBattleScreen from '../pages/profile/ProfileBattleScreen';
 import EbookDetailScreen from '../components/profile/EbookDetailScreen';
+import AllEbooksScreen from '../components/profile/AllEbooksScreen';
+import EbookBuyDetailsScreen from '../components/profile/EbookBuyDetailsScreen';
+import EbookCheckoutScreen from '../components/profile/EbookCheckoutScreen';
+import EbookPaymentSuccessScreen from '../components/profile/EbookPaymentSuccessScreen';
 import ArchiveScreen from '../pages/settings/archeive';
 import HighlightsScreen from '../pages/settings/highlights';
 import BattleInProgress from '../pages/settings/BattleInProgress';
@@ -403,6 +407,31 @@ export default function MainTabNavigator() {
           options={{ headerShown: false }}
         />
         {/* <Stack.Screen name="OpenBattle" component={OpenBattleScreen} options={{ headerShown: false }} /> */}
+        <Stack.Screen
+          name="EbookDetail"
+          component={EbookDetailScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="AllEbooks"
+          component={AllEbooksScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="EbookBuyDetails"
+          component={EbookBuyDetailsScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="EbookCheckout"
+          component={EbookCheckoutScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="EbookPaymentSuccess"
+          component={EbookPaymentSuccessScreen}
+          options={{ headerShown: false }}
+        />
       </Stack.Navigator>
     );
   }, []);
@@ -522,6 +551,26 @@ export default function MainTabNavigator() {
         <Stack.Screen
           name="EbookDetail"
           component={EbookDetailScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="AllEbooks"
+          component={AllEbooksScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="EbookBuyDetails"
+          component={EbookBuyDetailsScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="EbookCheckout"
+          component={EbookCheckoutScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="EbookPaymentSuccess"
+          component={EbookPaymentSuccessScreen}
           options={{ headerShown: false }}
         />
         <Stack.Screen
@@ -1178,7 +1227,12 @@ export default function MainTabNavigator() {
         'CreateWinnerPromotion',
         'PromotionDetails',
         'PreviewPromotion',
-        'BattleInsightsActions'
+        'BattleInsightsActions',
+        'EbookDetail',
+        'AllEbooks',
+        'EbookBuyDetails',
+        'EbookCheckout',
+        'EbookPaymentSuccess',
       ];
 
       let currentRouteName = routeName;

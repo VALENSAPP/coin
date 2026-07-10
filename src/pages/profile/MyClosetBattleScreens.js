@@ -35,6 +35,7 @@ import {
   getMarketplaceBattleComments,
   addMarketplaceBattleComment,
   deleteMarketplaceBattleComment,
+  reactToMarketplaceBattleComment,
 } from '../../services/myCloset';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -255,11 +256,37 @@ const normalizeMarketplaceComment = (comment = {}, index = 0) => ({
   message: comment?.comment || comment?.message || comment?.text || '',
   userId: String(comment?.userId || comment?.user?.id || comment?.user?._id || ''),
   authorName: comment?.user?.name || comment?.user?.displayName || comment?.user?.userName || comment?.authorName || 'Valens User',
-  avatar: comment?.user?.avatar || comment?.user?.image || comment?.user?.profilePicture || null,
-  likes: Number(comment?.likeCount ?? comment?.likesCount ?? 0) || 0,
+  avatar: comment?.user?.profileImage || comment?.user?.avatar || comment?.user?.image || comment?.user?.profilePicture || null,
+  likes: Number(comment?.likeCount ?? comment?.likesCount ?? comment?._count?.likes ?? 0) || 0,
+  dislikes: Number(comment?.dislikeCount ?? comment?.dislikesCount ?? comment?._count?.dislikes ?? 0) || 0,
+  userReaction: comment?.userReaction || null,
   createdAt: comment?.createdAt || comment?.created_at || '',
   timeAgo: relativeTimeFromNow(comment?.createdAt || comment?.created_at),
 });
+
+const CommentAvatarCircle = ({ uri, size = 32 }) => {
+  const [imageError, setImageError] = useState(false);
+
+  useEffect(() => {
+    setImageError(false);
+  }, [uri]);
+
+  return (
+    <View style={[liveStyles.commentAvatarCircle, liveStyles.commentAvatarFallback]}>
+      {uri && !imageError ? (
+        <FastImage
+          source={fastImageSource(uri)}
+          style={liveStyles.commentAvatarImage}
+          resizeMode={FastImage.resizeMode.cover}
+          fadeDuration={0}
+          onError={() => setImageError(true)}
+        />
+      ) : (
+        <Ionicons name="person-outline" size={14} color="#fff" />
+      )}
+    </View>
+  );
+};
 
 export const Header = ({ title, onBack, rightIcon, subtitle, onShare, accentColor, titleColor }) => (
   <View style={styles.headerRow}>
@@ -925,6 +952,7 @@ export function BattleLiveScreen({ navigation, route }) {
     battle?.status === 'EXPIRED' ||
     battle?.outcome === 'EXPIRED' ||
     (!isBattleLive && battle?.daysLeft === 0);
+  const isBattleFinished = ['COMPLETED', 'FINISHED', 'ENDED', 'CLOSED'].includes(String(battle?.status || '').toUpperCase());
   const isBattleVotingOpen = !isBattleExpired && battle?.outcome !== 'CANCELLED';
   const canVote = isBattleVotingOpen && !hasVoted && !checkingVote;
   const liveScreenTitle = isBattleExpired ? (t('battleInProgress.battleEnded') || 'Battle Ended') : t('battle.liveTitle');
@@ -1126,6 +1154,56 @@ export function BattleLiveScreen({ navigation, route }) {
     }
   };
 
+  const handleReactToComment = useCallback(async (comment, reaction) => {
+    if (!battleId || !comment?.id) return;
+
+    const currentReaction = comment?.userReaction || null;
+    const nextReaction = currentReaction === reaction ? 'NONE' : reaction;
+    const previousComments = comments;
+
+    setComments(prev =>
+      prev.map(item => {
+        if (item.id !== comment.id) return item;
+
+        const wasLike = currentReaction === 'LIKE';
+        const wasDislike = currentReaction === 'DISLIKE';
+        const willLike = nextReaction === 'LIKE';
+        const willDislike = nextReaction === 'DISLIKE';
+
+        return {
+          ...item,
+          likes: Math.max(0, (item.likes || 0) - (wasLike ? 1 : 0) + (willLike ? 1 : 0)),
+          dislikes: Math.max(0, (item.dislikes || 0) - (wasDislike ? 1 : 0) + (willDislike ? 1 : 0)),
+          userReaction: nextReaction === 'NONE' ? null : nextReaction,
+        };
+      }),
+    );
+
+    try {
+      const response = await reactToMarketplaceBattleComment(battleId, comment.id, nextReaction);
+      console.log("-----------reactToMarketplaceBattleComment----------",response)
+      const data = response?.data?.data ?? response?.data ?? response;
+      setComments(prev =>
+        prev.map(item =>
+          item.id === comment.id
+            ? {
+                ...item,
+                likes: Number(data?.likeCount ?? item.likes ?? 0) || 0,
+                dislikes: Number(data?.dislikeCount ?? item.dislikes ?? 0) || 0,
+                userReaction: data?.userReaction ?? item.userReaction ?? null,
+              }
+            : item,
+        ),
+      );
+    } catch (err) {
+      setComments(previousComments);
+      Alert.alert(
+        t('battle.errors.commentReactionFailed') || 'Could not update reaction.',
+        err?.response?.data?.message || err?.message || t('battleInProgress.tryAgain') || 'Please try again.',
+      );
+    }
+  }, [battleId, comments, t]);
+
   // All useEffects together, still before any early return
   useEffect(() => {
     AsyncStorage.getItem('userId').then(setCurrentUserId).catch(() => { });
@@ -1312,13 +1390,7 @@ export function BattleLiveScreen({ navigation, route }) {
             const isOwnComment = currentUserId && comment.userId === String(currentUserId);
             return (
               <View key={comment.id} style={liveStyles.commentRow}>
-                {comment.avatar ? (
-                  <Image source={{ uri: comment.avatar }} style={liveStyles.commentAvatar} />
-                ) : (
-                  <View style={[liveStyles.commentAvatar, liveStyles.commentAvatarFallback]}>
-                    <Ionicons name="person-outline" size={14} color="#fff" />
-                  </View>
-                )}
+                <CommentAvatarCircle uri={comment.avatar} size={32} />
                 <View style={liveStyles.commentBody}>
                   <View style={liveStyles.commentTopRow}>
                     <Text style={[liveStyles.commentAuthor, { color: primaryText }]} numberOfLines={1}>
@@ -1328,12 +1400,50 @@ export function BattleLiveScreen({ navigation, route }) {
                   </View>
                   <Text style={liveStyles.commentMessage}>{comment.message}</Text>
                   <View style={liveStyles.commentActionsRow}>
-                    {comment.likes > 0 ? (
-                      <View style={liveStyles.commentLikeChip}>
-                        <Ionicons name="heart" size={12} color="#E11D48" />
-                        <Text style={liveStyles.commentLikeText}>{comment.likes}</Text>
-                      </View>
-                    ) : null}
+                    <TouchableOpacity
+                      activeOpacity={0.75}
+                      onPress={() => handleReactToComment(comment, 'LIKE')}
+                      style={[
+                        liveStyles.commentReactionChip,
+                        comment.userReaction === 'LIKE' && liveStyles.commentReactionChipActive,
+                      ]}
+                    >
+                      <Ionicons
+                        name={comment.userReaction === 'LIKE' ? 'thumbs-up' : 'thumbs-up-outline'}
+                        size={13}
+                        color={comment.userReaction === 'LIKE' ? '#2563EB' : MUTED}
+                      />
+                      <Text
+                        style={[
+                          liveStyles.commentReactionText,
+                          comment.userReaction === 'LIKE' && liveStyles.commentReactionTextActive,
+                        ]}
+                      >
+                        {comment.likes}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      activeOpacity={0.75}
+                      onPress={() => handleReactToComment(comment, 'DISLIKE')}
+                      style={[
+                        liveStyles.commentReactionChip,
+                        comment.userReaction === 'DISLIKE' && liveStyles.commentReactionChipActive,
+                      ]}
+                    >
+                      <Ionicons
+                        name={comment.userReaction === 'DISLIKE' ? 'thumbs-down' : 'thumbs-down-outline'}
+                        size={13}
+                        color={comment.userReaction === 'DISLIKE' ? '#DC2626' : MUTED}
+                      />
+                      <Text
+                        style={[
+                          liveStyles.commentReactionText,
+                          comment.userReaction === 'DISLIKE' && liveStyles.commentReactionTextActive,
+                        ]}
+                      >
+                        {comment.dislikes}
+                      </Text>
+                    </TouchableOpacity>
                     {isOwnComment ? (
                       <TouchableOpacity
                         onPress={() => confirmDeleteComment(comment)}
@@ -1399,15 +1509,17 @@ export function BattleLiveScreen({ navigation, route }) {
             <Text style={styles.primaryButtonText}>{t('battle.done') || 'Done'}</Text>
           </LinearGradient>
         </TouchableOpacity>
-        <TouchableOpacity
-          activeOpacity={0.9}
-          onPress={() => navigation.navigate('BattleResultsScreen', { battleId })}
-          style={styles.footerActionFlex}
-        >
-          <LinearGradient colors={[accent, PURPLE_2]} style={styles.primaryButton}>
-            <Text style={styles.primaryButtonText}>{t('battle.viewResults') || 'View Results'}</Text>
-          </LinearGradient>
-        </TouchableOpacity>
+        {isBattleFinished ? (
+          <TouchableOpacity
+            activeOpacity={0.9}
+            onPress={() => navigation.navigate('BattleResultsScreen', { battleId })}
+            style={styles.footerActionFlex}
+          >
+            <LinearGradient colors={[accent, PURPLE_2]} style={styles.primaryButton}>
+              <Text style={styles.primaryButtonText}>{t('battle.viewResults') || 'View Results'}</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        ) : null}
       </View>
     </KeyboardAwareScrollView>
   );
@@ -1451,7 +1563,8 @@ const liveStyles = StyleSheet.create({
   emptyCommentsText: { fontSize: 12, fontWeight: '600', color: MUTED, textAlign: 'center', paddingVertical: 14 },
 
   commentRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
-  commentAvatar: { width: 32, height: 32, borderRadius: 16 },
+  commentAvatarCircle: { width: 32, height: 32, borderRadius: 16, overflow: 'hidden' },
+  commentAvatarImage: { width: '100%', height: '100%' },
   commentAvatarFallback: { backgroundColor: '#B6ABCF', alignItems: 'center', justifyContent: 'center' },
   commentBody: { flex: 1, minWidth: 0 },
   commentTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -1459,8 +1572,10 @@ const liveStyles = StyleSheet.create({
   commentTime: { fontSize: 10, fontWeight: '600', color: MUTED },
   commentMessage: { fontSize: 12.5, color: TEXT, marginTop: 2, lineHeight: 17 },
   commentActionsRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 },
-  commentLikeChip: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  commentLikeText: { fontSize: 11, fontWeight: '700', color: '#E11D48' },
+  commentReactionChip: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999, backgroundColor: '#F7F2FF' },
+  commentReactionChipActive: { backgroundColor: '#E8F0FF' },
+  commentReactionText: { fontSize: 11, fontWeight: '700', color: MUTED },
+  commentReactionTextActive: { color: '#1D4ED8' },
   commentDeleteBtn: { paddingVertical: 2 },
   commentDeleteText: { fontSize: 11, fontWeight: '700', color: '#DC2626' },
 
@@ -1500,6 +1615,7 @@ export function BattleResultsScreen({ navigation, route }) {
   const voteDifference = insights?.voteDifference ?? null;
   const winningMarginPercentagePoints = insights?.winningMarginPercentagePoints ?? null;
   const battleStatus = insights?.status || battle?.status;
+  const isBattleFinished = ['COMPLETED', 'FINISHED', 'ENDED', 'CLOSED'].includes(String(battleStatus || '').toUpperCase());
   const battleOutcome = insights?.outcome || battle?.outcome;
   const winnerDeclared = battleOutcome === 'WINNER' && !!insights?.winner?.product;
   const isCreator = !!currentUserId && !!battle?.createdBy && String(currentUserId) === String(battle.createdBy);

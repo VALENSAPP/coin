@@ -9,12 +9,14 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Image,
 } from 'react-native';
 import FastImage from 'react-native-fast-image';
 import { useFocusEffect } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useLanguage } from '../../i18n';
+import { getMarketPlaceEbook } from '../../services/post';
 import {
   getClosetItemsByClosetId,
   getMyClosetById,
@@ -45,10 +47,10 @@ const thumb = (item) => item?.images?.[0] || item?.image || item?.thumbnail || n
 const imageSource = (uri) =>
   uri
     ? {
-        uri,
-        priority: FastImage.priority.high,
-        cache: FastImage.cacheControl.immutable,
-      }
+      uri,
+      priority: FastImage.priority.high,
+      cache: FastImage.cacheControl.immutable,
+    }
     : null;
 
 const CachedImageBox = ({ uri, style, placeholderStyle, iconName, iconSize = 28 }) => {
@@ -235,7 +237,80 @@ const ItemTile = ({ item, accent, onPress }) => {
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
-const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = true, closetNavContext }) => {
+const themeStyles = {
+  purple: { bg: '#5A2D82', tint: '#EDE3FA' },
+  sand: { bg: '#C08B47', tint: '#FFF1D9' },
+  forest: { bg: '#274C3A', tint: '#DDEFE3' },
+  gold: { bg: '#8A6B1C', tint: '#F8EBC2' },
+  ink: { bg: '#1F2937', tint: '#E5E7EB' },
+};
+
+const getCoverImage = (item) => {
+  if (!item) return null;
+  const img = item.images?.[0] || item.image || item.thumbnail;
+  if (typeof img === 'string') return img;
+  if (img?.uri) return img.uri;
+  if (img?.url) return img.url;
+  return null;
+};
+
+const getDescription = (item) => {
+  if (!item) return 'No description available';
+  if (typeof item.text === 'string') {
+    try {
+      const parsed = JSON.parse(item.text);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed[0];
+      }
+    } catch (e) {
+      return item.text || 'No description available';
+    }
+  }
+  if (Array.isArray(item.text) && item.text.length > 0) {
+    return item.text[0];
+  }
+  return item.description || 'No description available';
+};
+
+const EbookRowItem = React.memo(({ item, isPurchased, isOwnProfile, accent, onPress }) => {
+  const coverImage = getCoverImage(item);
+  const title = item.caption || item.title || 'E-book';
+  const description = getDescription(item);
+  const palette = themeStyles[item.theme] || themeStyles.purple;
+  const priceLabel = item.amount != null ? `$${parseFloat(item.amount).toFixed(2)}` : 'Free';
+  const showPurchasedBadge = isOwnProfile || isPurchased;
+
+  return (
+    <TouchableOpacity activeOpacity={0.88} onPress={onPress} style={s.ebookCard}>
+      <View style={s.ebookCoverContainer}>
+        {coverImage ? (
+          <Image source={{ uri: coverImage }} style={s.ebookCoverImage} resizeMode="cover" />
+        ) : (
+          <View style={[s.ebookCover, { backgroundColor: palette.bg }]}>
+            <Text style={s.ebookCoverPlaceholderText}>{title.charAt(0).toUpperCase()}</Text>
+          </View>
+        )}
+      </View>
+      <View style={s.ebookCardBody}>
+        <Text style={s.ebookTitle} numberOfLines={1}>{title}</Text>
+        <Text style={s.ebookDesc} numberOfLines={2}>{description}</Text>
+        <View style={s.ebookMetaRow}>
+          <Text style={[s.ebookMeta, { color: accent }]}>📚 {item?.tableContent?.length || 0} Chapters</Text>
+          {showPurchasedBadge ? (
+            <View style={s.ebookOwnedBadge}>
+              <Text style={s.ebookOwnedBadgeText}>{isOwnProfile ? 'Owned' : 'Purchased'}</Text>
+            </View>
+          ) : (
+            <Text style={[s.ebookPriceTag, { color: accent }]}>{priceLabel}</Text>
+          )}
+        </View>
+      </View>
+      <Ionicons name="chevron-forward" size={18} color="#6b7280" />
+    </TouchableOpacity>
+  );
+});
+
+const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = true, loggedInUserId, closetNavContext }) => {
   const { t } = useLanguage();
   const [storedUsername, setStoredUsername] = useState('');
   const [items, setItems] = useState([]);
@@ -243,6 +318,69 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
   const [dotIdx, setDotIdx] = useState(0);
   const [closetDetails, setClosetDetails] = useState(null);
   const [closetId, setClosetId] = useState(null);
+
+  // E-books State and Fetch
+  const [ebooks, setEbooks] = useState([]);
+  const [ebooksLoading, setEbooksLoading] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState(null);
+  const [purchasedMap, setPurchasedMap] = useState({});
+
+  useEffect(() => {
+    AsyncStorage.getItem('userId').then((id) => {
+      if (id) setCurrentUserId(id);
+    });
+  }, []);
+
+  const fetchEbooks = useCallback(async (userId) => {
+    if (!userId) {
+      setEbooks([]);
+      return;
+    }
+    setEbooksLoading(true);
+    try {
+      const response = await getMarketPlaceEbook(userId);
+      const payload =
+        response?.data?.posts ??
+        response?.data?.data?.posts ??
+        response?.data?.data ??
+        response?.data ??
+        response;
+      const formattedData = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.posts)
+          ? payload.posts
+          : Array.isArray(payload?.data)
+            ? payload.data
+            : [];
+
+      const ebookData = formattedData.filter((post) => {
+        const formatValue = String(post?.format || post?.type || '').toLowerCase();
+        const imageUrl = String(post?.images?.[0] || post?.image || post?.video || '');
+        const isPdf = /\.pdf(\?|$)/i.test(imageUrl);
+
+        return (
+          !post?.visibleTo || post.visibleTo === ''
+        ) && (
+            formatValue === 'ebook' || formatValue === 'book' || isPdf
+          );
+      });
+      setEbooks(ebookData);
+
+      // Load purchase status for all fetched ebooks
+      const map = {};
+      for (const item of ebookData) {
+        const itemId = item.id || item._id;
+        const purchased = await AsyncStorage.getItem(`purchased_ebook_${itemId}`);
+        map[itemId] = purchased === 'true';
+      }
+      setPurchasedMap(map);
+    } catch (err) {
+      console.log('MyClosetShopFront fetchEbooks error:', err);
+      setEbooks([]);
+    } finally {
+      setEbooksLoading(false);
+    }
+  }, []);
 
   // ── battles state ──
   const [battles, setBattles] = useState([]);
@@ -330,14 +468,17 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
 
       // ── fetch battle picks once we know the closetId, for either profile type ──
       await loadBattles(resolvedClosetId);
+      // fetch ebooks
+      await fetchEbooks(targetUserId);
     } catch {
       setItems([]);
       setClosetDetails(null);
       setBattles([]);
+      setEbooks([]);
     } finally {
       setLoading(false);
     }
-  }, [isOwnProfile, targetUserId, loadBattles]);
+  }, [isOwnProfile, targetUserId, loadBattles, fetchEbooks]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
@@ -347,6 +488,8 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
     setClosetId(null);
     setDotIdx(0);
     setBattles([]);
+    setEbooks([]);
+    setPurchasedMap({});
   }, [targetUserId, isOwnProfile]);
 
   const shopName = useMemo(() =>
@@ -354,6 +497,14 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
     || t('myClosetShopFront.defaultShopName'),
     [closetDetails?.shopName, t],
   );
+
+  const shopDescription = useMemo(() => {
+    return closetDetails?.description || '';
+  }, [closetDetails?.description]);
+
+  const shopLogo = useMemo(() => {
+    return closetDetails?.shopLogo || '';
+  }, [closetDetails?.shopLogo]);
 
   const tiles = useMemo(() =>
     items.slice(0, 6).map((it, i) => ({
@@ -387,13 +538,13 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
     setDotIdx(Math.round(e.nativeEvent.contentOffset.x / (SCREEN_W - 24)));
   };
 
-  const seller = {
+  const seller = useMemo(() => ({
     id: userData?.id,
     displayName: userData?.displayName,
     userName: userData?.userName,
     image: userData?.image,
     profile: userData?.profile,
-  };
+  }), [userData]);
 
   const navContext = useMemo(
     () =>
@@ -446,30 +597,111 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
     screen: 'MyClosetAddItemPhotos', params: { draft: {}, isFirstItem },
   });
 
+  const goAllEbooks = () => navigation?.navigate?.('AllEbooks', {
+    userData,
+    loggedInUserId: loggedInUserId || currentUserId,
+    isOwnProfile,
+  });
+
+  const handleEbookPress = async (item) => {
+    try {
+      const itemId = item.id || item._id;
+      const purchased = await AsyncStorage.getItem(`purchased_ebook_${itemId}`);
+      const isPurchased = purchased === 'true' || isOwnProfile || item.isPurchased === true || item.isPurchased === 'true';
+      if (isPurchased) {
+        navigation?.navigate?.('EbookDetail', {
+          ebook: item,
+          userData,
+          loggedInUserId: loggedInUserId || currentUserId,
+        });
+      } else {
+        navigation?.navigate?.('EbookBuyDetails', {
+          ebook: item,
+          userData,
+          loggedInUserId: loggedInUserId || currentUserId,
+        });
+      }
+    } catch (err) {
+      console.log('Error checking ebook purchase:', err);
+    }
+  };
+
   return (
     <ScrollView style={[s.root, bgStyle]} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
 
       {/* ── Banner ── */}
       {userData?.profile !== 'user' ? (
         <TouchableOpacity activeOpacity={0.9} style={s.banner} onPress={goStorefront}>
-          <View style={[s.bannerIcon, { backgroundColor: `${accent}18` }]}>
-            <Ionicons name="storefront-outline" size={26} color={accent} />
-          </View>
+          {
+            shopLogo ?
+              <Image
+                source={{ uri: shopLogo }}
+                style={s.previewLogo}
+              />
+              :
+              <View style={[s.bannerIcon, { backgroundColor: `${accent}18` }]}>
+                <Ionicons name="storefront-outline" size={26} color={accent} />
+              </View>
+          }
           <View style={s.bannerBody}>
             <Text style={[s.bannerTitle, { color: accent }]}>{shopName}</Text>
-            <Text style={s.bannerSub}>{t('myClosetShopFront.shopOwnerBannerSubtitle')}</Text>
+            <Text style={s.bannerSub}>{shopDescription ? shopDescription : t('myClosetShopFront.shopOwnerBannerSubtitle')}</Text>
           </View>
         </TouchableOpacity>
       ) : (
         <TouchableOpacity activeOpacity={0.9} style={s.banner} onPress={goStorefront}>
-          <View style={[s.bannerIcon, { backgroundColor: `${accent}18` }]}>
-            <Ionicons name="bag-handle" size={26} color={accent} />
-          </View>
+          {
+            shopLogo ?
+              <Image
+                source={{ uri: shopLogo }}
+                style={s.previewLogo}
+              />
+              :
+              <View style={[s.bannerIcon, { backgroundColor: `${accent}18` }]}>
+                <Ionicons name="bag-handle" size={26} color={accent} />
+              </View>
+          }
           <View style={s.bannerBody}>
             <Text style={[s.bannerTitle, { color: accent }]}>{shopName}</Text>
-            <Text style={s.bannerSub}>{t('myClosetShopFront.userBannerSubtitle')}</Text>
+            <Text style={s.bannerSub}>{shopDescription ? shopDescription : t('myClosetShopFront.userBannerSubtitle')}</Text>
           </View>
         </TouchableOpacity>
+      )}
+
+      {/* ── E-books Section ── */}
+      {(ebooksLoading || ebooks.length > 0) && (
+        <View style={s.section}>
+          <View style={s.sectionHead}>
+            <View style={s.sectionLeft}>
+              <Text style={s.sectionEmoji}>📚</Text>
+              <Text style={s.sectionTitle}>E-books</Text>
+            </View>
+            <TouchableOpacity onPress={goAllEbooks} activeOpacity={0.7}>
+              <Text style={[s.seeAll, { color: accent }]}>{t('myClosetShopFront.seeAll')} ›</Text>
+            </TouchableOpacity>
+          </View>
+
+          {ebooksLoading && ebooks.length === 0 ? (
+            <View style={s.center}><ActivityIndicator color={accent} /></View>
+          ) : (
+            <View style={s.ebookList}>
+              {ebooks.slice(0, 3).map(item => {
+                const itemId = item.id || item._id;
+                const purchased = purchasedMap[itemId] || item.isPurchased === true || item.isPurchased === 'true';
+                return (
+                  <EbookRowItem
+                    key={itemId}
+                    item={item}
+                    isPurchased={purchased}
+                    isOwnProfile={isOwnProfile}
+                    accent={accent}
+                    onPress={() => handleEbookPress(item)}
+                  />
+                );
+              })}
+            </View>
+          )}
+        </View>
       )}
 
       {/* ── Battle Picks ── */}
@@ -576,6 +808,16 @@ const s = StyleSheet.create({
   content: { paddingBottom: 60 },
 
   /* banner */
+  previewLogo: {
+    width: 64,
+    height: 64,
+    borderRadius: 20,
+    overflow: 'hidden',
+    backgroundColor: '#f5f3ff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10
+  },
   banner: {
     flexDirection: 'row', alignItems: 'center',
     margin: 12, padding: 14,
@@ -659,4 +901,88 @@ const s = StyleSheet.create({
   emptyTxt: { fontSize: 14, color: '#9ca3af', fontWeight: '600' },
   addBtn: { paddingHorizontal: 20, paddingVertical: 9, borderRadius: 20, borderWidth: 1.5 },
   addBtnTxt: { fontSize: 13, fontWeight: '700' },
+
+  /* Ebook Row Styles */
+  ebookList: {
+    paddingHorizontal: 12,
+    marginBottom: 8,
+  },
+  ebookCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#f0ece8',
+    shadowColor: '#000',
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
+  },
+  ebookCoverContainer: {
+    width: 60,
+    height: 84,
+    borderRadius: 10,
+    overflow: 'hidden',
+    marginRight: 12,
+    backgroundColor: '#f5f3ee',
+  },
+  ebookCoverImage: {
+    width: '100%',
+    height: '100%',
+  },
+  ebookCover: {
+    flex: 1,
+    padding: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  ebookCoverPlaceholderText: {
+    color: '#fff',
+    fontSize: 22,
+    fontWeight: '800',
+  },
+  ebookCardBody: {
+    flex: 1,
+  },
+  ebookTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  ebookDesc: {
+    fontSize: 11,
+    color: '#6b7280',
+    lineHeight: 15,
+    marginBottom: 6,
+  },
+  ebookMetaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  ebookMeta: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  ebookPriceTag: {
+    fontSize: 12,
+    fontWeight: '800',
+    marginRight: 4,
+  },
+  ebookOwnedBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    backgroundColor: '#DEF7EC',
+    borderRadius: 6,
+  },
+  ebookOwnedBadgeText: {
+    color: '#03543F',
+    fontSize: 10,
+    fontWeight: '800',
+  },
 });

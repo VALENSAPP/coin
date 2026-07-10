@@ -2040,7 +2040,11 @@
     "reviewButton": "Review",
     "back": "Back",
     "subscriberOnlyTitle": "Subscribers Only",
-    "subscriberOnlyDescription": "Only subscribers can access and read this e-book."
+    "subscriberOnlyDescription": "Only subscribers can access and read this e-book.",
+    "uploadMyBook": "Upload My Book",
+    "myLibrary": "My Library",
+    "libraryLoadFailed": "We could not load your library right now.",
+    "noLibraryItems": "No purchased e-books found yet."
   },
   "transactions": {
     "loadFailed": "Failed to load transactions",

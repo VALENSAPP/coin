@@ -1,6 +1,6 @@
 // src/navigations/MainStack.js
 import React, { useEffect, useLayoutEffect, useRef } from 'react';
-import { View, ActivityIndicator, Alert, StyleSheet, Animated, Dimensions, TouchableWithoutFeedback, TouchableOpacity } from 'react-native';
+import { View, ActivityIndicator, Alert, StyleSheet, Animated, Dimensions, TouchableWithoutFeedback, TouchableOpacity, Text as RNText } from 'react-native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createDrawerNavigator, DrawerContentScrollView, DrawerItemList } from '@react-navigation/drawer';
 import { useDispatch, useSelector } from 'react-redux';
@@ -37,6 +37,7 @@ import CashOut from '../pages/wallet/CashOut';
 import SendCoins from '../pages/wallet/SendCoins';
 import TextGradient from '../assets/textgradient/TextGradient';
 import { Text } from 'react-native';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 
 import { createToken, getTokenByUserId, getTokenPrice } from '../services/tokens';
 import { hideLoader, showLoader } from '../redux/actions/LoaderAction';
@@ -50,15 +51,27 @@ import PrivateCircle from '../components/profile/PrivateCircle';
 import { useLanguage } from '../i18n';
 import { lockProfile } from '../services/kycverification';
 import WhiteScreen from '../pages/authentication/WhiteScreen';
+import { normalizeProfileType } from '../utils/closetNavigation';
 
 const Stack = createStackNavigator();
 const Drawer = createDrawerNavigator();
 
 // Custom Drawer Content Component
 const CustomDrawerContent = (props) => {
-  const navigation = useNavigation();
   const { bgStyle, textStyle, text } = useAppTheme();
   const { t } = useLanguage();
+  const reduxProfile = useSelector(state => state.userProfile.userProfile);
+  const [storedProfile, setStoredProfile] = React.useState('');
+  const resolvedProfile = normalizeProfileType(
+    reduxProfile && reduxProfile !== 'normal' ? reduxProfile : storedProfile || 'user',
+  );
+  const isCompanyProfile = resolvedProfile === 'company';
+  const drawerItems = props.state.routes.map((route, index) => ({
+    route,
+    index,
+    focused: props.state.index === index,
+    options: props.descriptors[route.key]?.options || {},
+  }));
 
 
   const blockProfile = React.useCallback(async () => {
@@ -73,7 +86,36 @@ const CustomDrawerContent = (props) => {
   }, []);
   useEffect(() => {
     blockProfile();
-  }, [])
+  }, []);
+
+  useEffect(() => {
+    AsyncStorage.getItem('profile').then(value => {
+      if (value) setStoredProfile(value);
+    });
+  }, []);
+
+  const navigateToEbookPublisher = () => {
+    props.navigation.closeDrawer();
+    props.navigation.navigate('MainApp', {
+      screen: 'wallet',
+      params: {
+        screen: 'EbookPublisher',
+        params: {
+          type: 'private',
+          format: 'ebook',
+        },
+      },
+    });
+  };
+
+  const navigateToWalletScreen = (screen, params) => {
+    props.navigation.closeDrawer();
+    props.navigation.navigate('MainApp', {
+      screen: 'wallet',
+      params: params ? { screen, params } : { screen },
+    });
+  };
+
   return (
     <DrawerContentScrollView {...props} contentContainerStyle={{ flex: 1 }}>
       {/* Drawer Header */}
@@ -84,7 +126,7 @@ const CustomDrawerContent = (props) => {
       }, bgStyle]}>
         <TouchableOpacity onPress={() => {
           props.navigation.closeDrawer();
-          navigation.navigate('MainApp', {
+          props.navigation.navigate('MainApp', {
             screen: 'HomeMain',
           });
         }} activeOpacity={0.7}>
@@ -109,25 +151,92 @@ const CustomDrawerContent = (props) => {
       </View>
 
       {/* Drawer Items with Custom Navigation */}
-      <DrawerItemList
-        {...props}
-        onItemPress={({ route, preventDefault }) => {
-          preventDefault();
-          props.navigation.closeDrawer();
+      {drawerItems.map(({ route, options }) => {
+        if (options.drawerItemStyle?.display === 'none') return null;
+        if (route.name === 'MainApp') return null;
+        if (route.name === 'DrawerSubscription' || route.name === 'Privatecircle' || route.name === 'DrawerSettings') return null;
+        if (route.name === 'My closet' || route.name === 'Shop') return null;
 
-          // Navigate to wallet tab with specific screen
-          if (route.name !== 'MainApp') {
-            navigation.navigate('MainApp', {
-              screen: 'wallet',
-              params: { screen: route.name }
-            });
-          } else {
-            navigation.navigate('MainApp', {
-              screen: 'HomeMain',
-            });
-          }
-        }}
-      />
+        const label =
+          options.drawerLabel ??
+          options.title ??
+          route.name;
+
+        const handlePress = () => {
+          if (route.name === 'DrawerDashboard') navigateToWalletScreen('Dashboard');
+          else if (route.name === 'DrawerWallet') navigateToWalletScreen('WalletMain');
+          else if (route.name === 'DrawerActivity') navigateToWalletScreen('Activity');
+          else if (route.name === 'Valens Wallet') navigateToWalletScreen('ValensWallet');
+        };
+
+        return (
+          <TouchableOpacity
+            key={route.key}
+            onPress={handlePress}
+            activeOpacity={0.75}
+            style={{
+              paddingHorizontal: 20,
+              paddingVertical: 18,
+              backgroundColor: 'transparent',
+            }}
+          >
+            <Text style={{ fontSize: 15, color: '#000', fontWeight: '600' }}>
+              {label}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+
+        <TouchableOpacity
+          onPress={() => navigateToWalletScreen(isCompanyProfile ? 'Shop' : 'MyCloset')}
+        activeOpacity={0.75}
+        style={{ paddingHorizontal: 20, paddingVertical: 18 }}
+      >
+        <Text style={{ fontSize: 15, color: '#000', fontWeight: '600' }}>
+          {isCompanyProfile ? t('drawerNav.shop') : t('drawerNav.myCloset')}
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        onPress={navigateToEbookPublisher}
+        activeOpacity={0.75}
+        style={{ flexDirection: 'row', paddingHorizontal: 20, paddingVertical: 12 }}
+      >
+        <Ionicons name="book-outline" size={18} color={text} style={{ marginRight: 12 }} />
+        <Text style={{ fontSize: 13, color: text, fontWeight: '500' }}>
+          Sell Ebook
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        onPress={() => navigateToWalletScreen('SubscriptionSetup')}
+        activeOpacity={0.75}
+        style={{ paddingHorizontal: 20, paddingVertical: 18 }}
+      >
+        <Text style={{ fontSize: 15, color: '#000', fontWeight: '600' }}>
+          {t('drawerNav.subscriptions')}
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        onPress={() => navigateToWalletScreen('Privatecircle', { skipPrivateCircleApi: true })}
+        activeOpacity={0.75}
+        style={{ paddingHorizontal: 20, paddingVertical: 18 }}
+      >
+        <Text style={{ fontSize: 15, color: '#000', fontWeight: '600' }}>
+          {t('drawerNav.privateCircle')}
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        onPress={() => navigateToWalletScreen('Settings')}
+        activeOpacity={0.75}
+        style={{ paddingHorizontal: 20, paddingVertical: 18 }}
+      >
+        <Text style={{ fontSize: 15, color: '#000', fontWeight: '600' }}>
+          {t('drawerNav.settings')}
+        </Text>
+      </TouchableOpacity>
     </DrawerContentScrollView>
   );
 };
@@ -187,9 +296,9 @@ const GlobalDrawerNavigator = () => {
   const { t } = useLanguage();
   const reduxProfile = useSelector(state => state.userProfile.userProfile);
   const [storedProfile, setStoredProfile] = React.useState('');
-  const resolvedProfile = String(
+  const resolvedProfile = normalizeProfileType(
     reduxProfile && reduxProfile !== 'normal' ? reduxProfile : storedProfile || 'user',
-  ).toLowerCase();
+  );
   const isCompanyProfile = resolvedProfile === 'company';
 
   useEffect(() => {
@@ -313,6 +422,7 @@ const GlobalDrawerNavigator = () => {
           options={{
             drawerLabel: t('drawerNav.myCloset'),
             headerShown: false,
+            drawerItemStyle: { display: 'none' },
           }}
           listeners={({ navigation }) => ({
             drawerItemPress: (e) => {
@@ -333,6 +443,7 @@ const GlobalDrawerNavigator = () => {
           options={{
             drawerLabel: t('drawerNav.shop'),
             headerShown: false,
+            drawerItemStyle: { display: 'none' },
           }}
           listeners={({ navigation }) => ({
             drawerItemPress: (e) => {
@@ -348,23 +459,23 @@ const GlobalDrawerNavigator = () => {
       )}
       {/* {!isCompanyProfile && ( */}
 
-        <Drawer.Screen
-          name="DrawerSubscription"
-          component={DummyComponent}
-          options={{
-            drawerLabel: t('drawerNav.subscriptions'),
-            headerShown: false,
-          }}
-          listeners={({ navigation }) => ({
-            drawerItemPress: (e) => {
-              e.preventDefault();
-              navigation.navigate('MainApp', {
-                screen: 'wallet',
-                params: { screen: 'SubscriptionSetup' }
-              });
-            },
-          })}
-        />
+      <Drawer.Screen
+        name="DrawerSubscription"
+        component={DummyComponent}
+        options={{
+          drawerLabel: t('drawerNav.subscriptions'),
+          headerShown: false,
+        }}
+        listeners={({ navigation }) => ({
+          drawerItemPress: (e) => {
+            e.preventDefault();
+            navigation.navigate('MainApp', {
+              screen: 'wallet',
+              params: { screen: 'SubscriptionSetup' }
+            });
+          },
+        })}
+      />
       {/* )} */}
 
       <Drawer.Screen
@@ -419,14 +530,14 @@ export default function MainStack({ isFirstLaunch }) {
     return (
       <Stack.Navigator key={isAddAccount ? 'authStack' : 'unauthStack'}
         initialRouteName={
-        isAddAccount
-          ? 'Login'
-          : isFirstLaunch
-          ? 'SelectAccountType'
-          : isLogin
-          ? 'WhiteScreen'
-          : 'Login'
-      }
+          isAddAccount
+            ? 'Login'
+            : isFirstLaunch
+              ? 'SelectAccountType'
+              : isLogin
+                ? 'WhiteScreen'
+                : 'Login'
+        }
         screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
         <Stack.Screen name="WhiteScreen" component={WhiteScreen} />
         <Stack.Screen name="SelectAccountType" component={SelectAccountType} />

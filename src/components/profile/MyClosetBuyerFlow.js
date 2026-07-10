@@ -262,7 +262,7 @@ const normalizeItem = (item = {}, index = 0, t) => ({
   category: item?.category || t('myClosetBuyer.defaultCategory'),
   condition: item?.condition || t('myClosetBuyer.defaultCondition'),
   description: item?.description || t('myClosetBuyer.defaultDescription'),
-  quantityAvailable: Number(item?.quantity || item?.availableQuantity || 1) || 1,
+  quantityAvailable: Number(item?.quantity ?? item?.availableQuantity ?? 1) || 0,
   sellerName: item?.sellerName || item?.userName || item?.ownerName || '',
 });
 
@@ -384,14 +384,19 @@ const Header = ({ navigation, title, rightIcon, onRightPress, returnTo }) => (
   </View>
 );
 
-const BottomButton = ({ label, onPress, icon, accentColor }) => {
+const BottomButton = ({ label, onPress, icon, accentColor, disabled = false }) => {
   const { text: fallbackAccent } = useAppTheme();
   const buttonColor = accentColor || fallbackAccent;
   return (
     <TouchableOpacity
       activeOpacity={0.9}
+      disabled={disabled}
       onPress={onPress}
-      style={[styles.bottomButton, { backgroundColor: buttonColor }]}
+      style={[
+        styles.bottomButton,
+        { backgroundColor: buttonColor },
+        disabled && styles.bottomButtonDisabled,
+      ]}
     >
       {icon ? <Ionicons name={icon} size={16} color="#fff" style={styles.buttonIcon} /> : null}
       <Text style={styles.bottomButtonText}>{label}</Text>
@@ -1131,6 +1136,7 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
   const returnTo = route?.params?.returnTo;
   const [liked, setLiked] = useState(false);
   const [detailScrollEnabled, setDetailScrollEnabled] = useState(true);
+  const isOutOfStock = Number(item.quantityAvailable) <= 0;
 
   const goOptions = () => {
     navigation.navigate('MyClosetBuyerOptions', withClosetNavParams(route, {
@@ -1181,7 +1187,12 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
       </ScrollView>
       {!isOwnProfile && (
         <View style={styles.bottomBar}>
-          <BottomButton label={t('myClosetBuyer.buyNow')} onPress={goOptions} accentColor={text} />
+          <BottomButton
+            label={isOutOfStock ? 'Out of stock' : t('myClosetBuyer.buyNow')}
+            onPress={goOptions}
+            accentColor={text}
+            disabled={isOutOfStock}
+          />
         </View>
       )}
     </SafeAreaView>
@@ -2096,6 +2107,14 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
   };
 
   const selectedAddress = addresses[selectedAddressIndex] ?? null;
+  const isAddressComplete = !!(
+    selectedAddress &&
+    String(selectedAddress.fullName || '').trim() &&
+    String(selectedAddress.phoneNumber || '').trim() &&
+    String(selectedAddress.addressLine1 || '').trim() &&
+    String(selectedAddress.city || '').trim()
+  );
+  const canContinue = !continuing && allChoicesMade && (!requiresShipping || isAddressComplete);
 
   const nextCart = {
     ...route.params,
@@ -2318,12 +2337,13 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
         <BottomButton
           label={continuing ? t('myClosetBuyer.loading') : t('myClosetBuyer.continueToPayment')}
           accentColor={text}
-          onPress={continuing ? undefined : async () => {
+          disabled={!canContinue}
+          onPress={canContinue ? async () => {
             if (!allChoicesMade) {
               Alert.alert(t('myClosetBuyer.selectShippingTitle'), t('myClosetBuyer.selectShippingMessage'));
               return;
             }
-            if (requiresShipping && !selectedAddress && addresses.length > 0) {
+            if (requiresShipping && !isAddressComplete) {
               Alert.alert(t('myClosetBuyer.selectAddressTitle'), t('myClosetBuyer.selectAddressMessage'));
               return;
             }
@@ -2363,7 +2383,7 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
             } finally {
               setContinuing(false);
             }
-          }}
+          } : undefined}
         />
       </View>
 
@@ -3031,6 +3051,9 @@ const styles = StyleSheet.create({
   bottomButton: {
     minHeight: 50, borderRadius: 13,
     alignItems: 'center', justifyContent: 'center', flexDirection: 'row',
+  },
+  bottomButtonDisabled: {
+    opacity: 0.55,
   },
   bottomButtonText: { color: '#fff', fontSize: 15, fontWeight: '900' },
   buttonIcon: { marginRight: 7 },

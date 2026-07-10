@@ -440,7 +440,7 @@ export default function ProfileBattleHub({
           <TouchableOpacity
             style={[
               styles.tabButton,
-              activeTab === 'myBattle' && styles.activeTabButton,
+              activeTab === 'myBattle' && {backgroundColor: text},
             ]}
             onPress={() => setActiveTab('myBattle')}
           >
@@ -457,7 +457,7 @@ export default function ProfileBattleHub({
           <TouchableOpacity
             style={[
               styles.tabButton,
-              activeTab === 'battleArena' && styles.activeTabButton,
+              activeTab === 'battleArena' && {backgroundColor: text},
             ]}
             onPress={() => setActiveTab('battleArena')}
           >
@@ -474,7 +474,7 @@ export default function ProfileBattleHub({
           <TouchableOpacity
             style={[
               styles.tabButton,
-              activeTab === 'pastBattle' && styles.activeTabButton,
+              activeTab === 'pastBattle' && {backgroundColor: text},
             ]}
             onPress={() => setActiveTab('pastBattle')}
           >
@@ -563,7 +563,7 @@ export default function ProfileBattleHub({
 
 const styles = StyleSheet.create({
   contentContainer: {
-    paddingBottom: 20,
+    paddingBottom: 45,
     padding: 10,
   },
   heroCard: {
@@ -766,10 +766,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
     borderRadius: 10,
-  },
-
-  activeTabButton: {
-    backgroundColor: '#5a2d82',
   },
 
   tabText: {

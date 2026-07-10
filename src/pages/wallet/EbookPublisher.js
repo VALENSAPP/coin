@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, Image, Platform, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { pick, types as documentTypes } from '@react-native-documents/picker';
 import { launchImageLibrary } from 'react-native-image-picker';
@@ -6,10 +6,12 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useLanguage } from '../../i18n';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
-import { createPost } from '../../services/post';
+import { createPost, getMyEbookLibrary } from '../../services/post';
 import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import RNFS from 'react-native-fs';
+import { useRoute } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const MAX_PDF_SIZE_BYTES = 100 * 1024 * 1024;
 
@@ -28,12 +30,14 @@ const getFileSizeLabel = (size) => {
 const EbookPublisher = ({ navigation }) => {
   const { bgStyle, cardStyle, textStyle, text } = useAppTheme();
   const { t } = useLanguage();
+  const route = useRoute();
   const dispatch = useDispatch();
   const tf = (key, fallback) => {
     const value = t(key);
     return value === key || value == null || value === '' ? fallback : value;
   };
   const [step, setStep] = useState(1);
+  const [stepOneTab, setStepOneTab] = useState('upload');
   const [selectedPdf, setSelectedPdf] = useState(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -48,6 +52,12 @@ const EbookPublisher = ({ navigation }) => {
   const [promoEnabled, setPromoEnabled] = useState(false);
   const [isPublished, setIsPublished] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [libraryBooks, setLibraryBooks] = useState([]);
+  const [libraryLoading, setLibraryLoading] = useState(false);
+  const [libraryError, setLibraryError] = useState('');
+  const [librarySearch, setLibrarySearch] = useState('');
+  const [currentUserId, setCurrentUserId] = useState(null);
+  const loggedInUserId = route?.params?.loggedInUserId;
 
   const progress = useMemo(() => Math.min(100, (step / 3) * 100), [step]);
   const coverOptions = useMemo(() => ([
@@ -77,6 +87,66 @@ const EbookPublisher = ({ navigation }) => {
   const selectedCoverInfo = coverOptions.find(item => item.id === selectedCover) || coverOptions[0];
 
   const chapterCount = chapters.length;
+
+  useEffect(() => {
+    const fetchLibrary = async () => {
+      if (stepOneTab !== 'library') return;
+
+      setLibraryLoading(true);
+      setLibraryError('');
+
+      try {
+        const res = await getMyEbookLibrary();
+        console.log("response in getMyEbookLibrary--------",res)
+        const payload = res?.data?.posts || res?.data?.post || res?.data?.data?.posts || res?.data?.data?.post || res?.data;
+        const nextBooks = Array.isArray(payload) ? payload : Array.isArray(payload?.posts) ? payload.posts : [];
+        setLibraryBooks(nextBooks);
+      } catch (error) {
+        setLibraryError(tf('ebookPublisher.libraryLoadFailed', 'We could not load your library right now.'));
+      } finally {
+        setLibraryLoading(false);
+      }
+    };
+
+    fetchLibrary();
+  }, [stepOneTab]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const storedUserId = await AsyncStorage.getItem('userId');
+        setCurrentUserId(storedUserId ? String(storedUserId) : null);
+      } catch (error) {
+        console.log('Failed to load current user id for ebook library', error);
+      }
+    })();
+  }, []);
+
+  const filteredLibraryBooks = useMemo(() => {
+    const query = librarySearch.trim().toLowerCase();
+    if (!query) return libraryBooks;
+
+    return libraryBooks.filter((item) => {
+      const title = String(item?.caption || item?.title || item?.ebookTitle || '').toLowerCase();
+      const author = String(item?.userName || item?.author || item?.displayName || '').toLowerCase();
+      const category = String(item?.category || item?.genre || item?.type || '').toLowerCase();
+      const description = String(item?.description || '').toLowerCase();
+      return title.includes(query) || author.includes(query) || category.includes(query) || description.includes(query);
+    });
+  }, [libraryBooks, librarySearch]);
+
+  const handleOpenLibraryEbook = (item) => {
+    const params = {
+      ebook: item,
+      userData: route?.params?.userData,
+      loggedInUserId: loggedInUserId || currentUserId,
+    };
+
+    navigation?.navigate?.('ProfileMain', {
+      screen: 'EbookDetail',
+      params,
+    });
+  };
 
   const handlePickPdf = async () => {
     try {
@@ -344,40 +414,124 @@ const EbookPublisher = ({ navigation }) => {
         </View>
 
         {step === 1 && (
-          <View style={[styles.card, cardStyle]}>
-            <Text style={[styles.sectionTitle, textStyle]}>{t('ebookPublisher.uploadTitle')}</Text>
-            <Text style={styles.sectionText}>{t('ebookPublisher.uploadHint')}</Text>
+        <View style={[styles.card, cardStyle]}>
+          <Text style={[styles.sectionTitle, textStyle]}>{t('ebookPublisher.uploadTitle')}</Text>
+          <Text style={styles.sectionText}>{t('ebookPublisher.uploadHint')}</Text>
 
-            <TouchableOpacity style={[styles.uploadArea, { borderColor: text }]} onPress={handlePickPdf}>
-              <Ionicons name="cloud-upload-outline" size={44} color={text} />
-              <Text style={styles.uploadPrimary}>{t('ebookPublisher.dragDrop')}</Text>
-              <Text style={styles.uploadSecondary}>{t('ebookPublisher.or')}</Text>
-              <View style={[styles.uploadButton, { backgroundColor: text }]}>
-                <Text style={styles.uploadButtonText}>{t('ebookPublisher.choosePdf')}</Text>
-              </View>
-              <Text style={styles.limitText}>{t('ebookPublisher.maxLimit')}</Text>
+          <View style={styles.topToggle}>
+            <TouchableOpacity
+              onPress={() => setStepOneTab('upload')}
+              style={[styles.topToggleButton, stepOneTab === 'upload' && { backgroundColor: text }]}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="cloud-upload-outline" size={16} color={stepOneTab === 'upload' ? '#fff' : text} />
+              <Text style={[styles.topToggleText, stepOneTab === 'upload' && styles.topToggleTextActive]}>
+                {tf('ebookPublisher.uploadMyBook', 'Upload My Book')}
+              </Text>
             </TouchableOpacity>
-
-            {selectedPdf && (
-              <View style={styles.fileRow}>
-                <View style={styles.fileBadge}>
-                  <Text style={styles.fileBadgeText}>PDF</Text>
-                </View>
-                <View style={styles.fileMeta}>
-                  <Text style={[styles.fileName, textStyle]} numberOfLines={1}>
-                    {selectedPdf.name}
-                  </Text>
-                  <Text style={styles.fileSize}>{getFileSizeLabel(selectedPdf.size)}</Text>
-                </View>
-                <Ionicons name="checkmark-circle" size={24} color="#22c55e" />
-              </View>
-            )}
-
-            <View style={styles.infoBox}>
-              <Ionicons name="information-circle-outline" size={18} color={text} />
-              <Text style={styles.infoText}>{t('ebookPublisher.pdfHelp')}</Text>
-            </View>
+            <TouchableOpacity
+              onPress={() => setStepOneTab('library')}
+              style={[styles.topToggleButton, stepOneTab === 'library' && { backgroundColor: text }]}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="book-outline" size={16} color={stepOneTab === 'library' ? '#fff' : text} />
+              <Text style={[styles.topToggleText, stepOneTab === 'library' && styles.topToggleTextActive]}>
+                {tf('ebookPublisher.myLibrary', 'My Library')}
+              </Text>
+            </TouchableOpacity>
           </View>
+
+          {stepOneTab === 'upload' ? (
+            <>
+              <TouchableOpacity style={[styles.uploadArea, { borderColor: text }]} onPress={handlePickPdf}>
+                <Ionicons name="cloud-upload-outline" size={44} color={text} />
+                <Text style={styles.uploadPrimary}>{t('ebookPublisher.dragDrop')}</Text>
+                <Text style={styles.uploadSecondary}>{t('ebookPublisher.or')}</Text>
+                <View style={[styles.uploadButton, { backgroundColor: text }]}>
+                  <Text style={styles.uploadButtonText}>{t('ebookPublisher.choosePdf')}</Text>
+                </View>
+                <Text style={styles.limitText}>{t('ebookPublisher.maxLimit')}</Text>
+              </TouchableOpacity>
+
+              {selectedPdf && (
+                <View style={styles.fileRow}>
+                  <View style={styles.fileBadge}>
+                    <Text style={styles.fileBadgeText}>PDF</Text>
+                  </View>
+                  <View style={styles.fileMeta}>
+                    <Text style={[styles.fileName, textStyle]} numberOfLines={1}>
+                      {selectedPdf.name}
+                    </Text>
+                    <Text style={styles.fileSize}>{getFileSizeLabel(selectedPdf.size)}</Text>
+                  </View>
+                  <Ionicons name="checkmark-circle" size={24} color="#22c55e" />
+                </View>
+              )}
+
+              <View style={styles.infoBox}>
+                <Ionicons name="information-circle-outline" size={18} color={text} />
+                <Text style={styles.infoText}>{t('ebookPublisher.pdfHelp')}</Text>
+              </View>
+            </>
+          ) : (
+            <View style={styles.libraryPanel}>
+              <Text style={[styles.libraryTitle, textStyle]}>My Library</Text>
+              <Text style={styles.sectionText}>E-books you&apos;ve purchased from creators on Valens.</Text>
+
+              <View style={styles.searchBar}>
+                <Ionicons name="search" size={16} color="#9CA3AF" />
+                <TextInput
+                  value={librarySearch}
+                  onChangeText={setLibrarySearch}
+                  placeholder="Search your library"
+                  placeholderTextColor="#9CA3AF"
+                  style={styles.searchInput}
+                  returnKeyType="search"
+                />
+                <Ionicons name="options-outline" size={16} color="#9CA3AF" />
+              </View>
+
+              {libraryLoading ? (
+                <Text style={styles.libraryStateText}>{tf('myClosetBuyer.loading', 'Loading...')}</Text>
+              ) : libraryError ? (
+                <Text style={styles.libraryStateText}>{libraryError}</Text>
+              ) : filteredLibraryBooks.length === 0 ? (
+                <Text style={styles.libraryStateText}>
+                  {librarySearch.trim()
+                    ? tf('ebookPublisher.noLibraryMatches', 'No e-books match your search.')
+                    : tf('ebookPublisher.noLibraryItems', 'No purchased e-books found yet.')}
+                </Text>
+              ) : (
+                filteredLibraryBooks.map(item => {
+                  const libraryTitle = item?.caption || item?.title || item?.ebookTitle || 'Untitled e-book';
+                  const libraryAuthor = item?.userName || item?.author || item?.displayName || 'Unknown Author';
+                  const libraryCategory = item?.category || item?.genre || item?.type || 'E-book';
+                  const coverLabel = String(libraryTitle).slice(0, 2).toUpperCase();
+                  const progress = Math.max(0, Math.min(Number(item?.progress ?? item?.readProgress ?? 0), 100));
+                  const tint = item?.themeColor || item?.color || text;
+
+                  return (
+                    <TouchableOpacity
+                      key={String(item?.id || item?._id || libraryTitle)}
+                      activeOpacity={0.85}
+                      style={styles.libraryItem}
+                      onPress={() => handleOpenLibraryEbook(item)}
+                    >
+                      <View style={[styles.libraryCover, { backgroundColor: tint }]}>
+                        <Text style={styles.libraryCoverText}>{coverLabel}</Text>
+                      </View>
+                      <View style={styles.libraryMeta}>
+                        <Text style={styles.libraryItemTitle} numberOfLines={1}>{libraryTitle}</Text>
+                        <Text style={styles.libraryItemSubtitle}>by {libraryAuthor}</Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+                    </TouchableOpacity>
+                  );
+                })
+              )}
+            </View>
+          )}
+        </View>
         )}
 
         {step === 2 && (
@@ -617,12 +771,12 @@ const EbookPublisher = ({ navigation }) => {
         )}
 
         <View style={styles.footerActions}>
-          {step > 1 && (
+          {stepOneTab === 'upload' && step > 1 && (
             <TouchableOpacity style={[styles.footerButton, { borderColor: text }]} onPress={() => setStep(step - 1)}>
               <Text style={[styles.footerButtonText, { color: text }]}>{tf('ebookPublisher.back', 'Back')}</Text>
             </TouchableOpacity>
           )}
-          {step < 3 && (
+          {stepOneTab === 'upload' && step < 3 && (
             <TouchableOpacity
               style={[styles.footerButton, styles.footerButtonPrimary, { backgroundColor: text }]}
               onPress={() => setStep(prev => (prev === 1 && !selectedPdf ? prev : Math.min(3, prev + 1)))}
@@ -661,6 +815,25 @@ const styles = StyleSheet.create({
   title: { fontSize: 20, fontWeight: '800' },
   subtitle: { fontSize: 13, color: '#6B7280', marginTop: 4, textAlign: 'center' },
   content: { paddingHorizontal: 16, paddingBottom: 40 },
+  topToggle: {
+    flexDirection: 'row',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginBottom: 14,
+  },
+  topToggleButton: {
+    flex: 1,
+    minHeight: 46,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#fff',
+  },
+  topToggleText: { fontWeight: '700', color: '#374151' },
+  topToggleTextActive: { color: '#fff' },
   progressTrack: {
     height: 8,
     borderRadius: 999,
@@ -694,6 +867,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   sectionTitle: { fontSize: 18, fontWeight: '800', marginBottom: 6 },
+  libraryTitle: { fontSize: 18, fontWeight: '800', marginBottom: 2, color: '#111827' },
   sectionText: { fontSize: 13, color: '#6B7280', marginBottom: 14, lineHeight: 19 },
   helperText: { fontSize: 12, color: '#6B7280', marginBottom: 8, fontWeight: '600' },
   uploadArea: {
@@ -717,6 +891,64 @@ const styles = StyleSheet.create({
   },
   uploadButtonText: { color: '#fff', fontWeight: '700' },
   limitText: { marginTop: 14, fontSize: 12, color: '#6B7280' },
+  libraryPanel: { gap: 12 },
+  libraryStateText: { fontSize: 14, color: '#6B7280', fontWeight: '600', paddingVertical: 8 },
+  searchBar: {
+    minHeight: 46,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#fff',
+  },
+  searchInput: { flex: 1, color: '#111827', fontSize: 13, paddingVertical: 0, paddingHorizontal: 0 },
+  filterRow: { gap: 10, paddingVertical: 2 },
+  filterPill: {
+    minHeight: 32,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterText: { fontSize: 12, fontWeight: '600', color: '#6B7280' },
+  libraryItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 12,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#fff',
+  },
+  libraryCover: {
+    width: 52,
+    height: 68,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  libraryCoverText: { color: '#fff', fontWeight: '900', fontSize: 12, textAlign: 'center' },
+  libraryMeta: { flex: 1 },
+  libraryItemTitle: { fontSize: 14, fontWeight: '800', color: '#111827' },
+  libraryItemSubtitle: { marginTop: 2, fontSize: 12, color: '#6B7280' },
+  libraryCategory: { marginTop: 4, fontSize: 12, fontWeight: '600' },
+  progressLine: {
+    height: 4,
+    borderRadius: 999,
+    backgroundColor: '#E5E7EB',
+    overflow: 'hidden',
+    marginTop: 8,
+  },
+  progressLineFill: { height: '100%', borderRadius: 999 },
+  progressLabel: { marginTop: 4, fontSize: 11, color: '#6B7280', fontWeight: '600' },
+  libraryActions: { alignItems: 'center', justifyContent: 'space-between', alignSelf: 'stretch', paddingVertical: 4 },
   fileRow: {
     marginTop: 14,
     padding: 14,

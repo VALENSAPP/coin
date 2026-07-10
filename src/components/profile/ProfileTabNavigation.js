@@ -373,6 +373,7 @@ const ProfileTabs = memo(({
           userData={userData}
           shopDraft={shopDraft}
           isOwnProfile={isOwnProfile}
+          loggedInUserId={loggedInUserId}
           closetData={closetData}
           closetNavContext={closetNavContext}
         />
