@@ -3043,7 +3043,7 @@ export default function BattleInProgress() {
                   })}
                 >
                   <View style={styles.sideCommentButtonTopRow}>
-                    <Text style={[styles.sideCommentButtonText, { color: palette.primary }]}>
+                    <Text style={[styles.sideCommentButtonText, { color: palette.primary }]} numberOfLines={1} ellipsizeMode="tail"> 
                       {action.label}
                     </Text>
                     <View style={styles.sideCommentLikeButton}>

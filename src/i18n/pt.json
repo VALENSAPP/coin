@@ -4114,11 +4114,13 @@
       "rating": "Calificación"
     },
     "battle": {
-      "entered": "Batallas participadas",
+      "entered": "Batalhas participadas",
+      "created": "Batalhas criadas",
       "votes": "Total de votos",
-      "winRate": "Porcentaje de victorias",
-      "topRanked": "Mejor clasificado",
-      "battleViews": "Visualizaciones de batallas"
+      "views": "Visualizações totais",
+      "winRate": "Porcentagem de vitórias",
+      "topRanked": "Melhor classificação",
+      "battleViews": "Visualizações de batalhas"
     },
     "orderStatus": {
       "pending": "Pendiente de envío",
@@ -4141,6 +4143,19 @@
     "noTopItem": "Ainda não há um item com melhor desempenho",
     "thisWeek": "Esta semana",
     "thisMonth": "Este mês"
+  },
+  "myClosetEarnings": {
+    "title": "Ganhos",
+    "totalEarningsLabel": "Ganhos totais",
+    "vsLastMonth": "em comparação com o mês passado",
+    "itemSales": "Vendas de produtos",
+    "shippingEarnings": "Receita de frete",
+    "fees": "Taxas",
+    "payouts": "Pagamentos",
+    "availableBalance": "Saldo disponível",
+    "withdrawButton": "Retirar",
+    "payoutHistoryTitle": "Histórico de pagamentos",
+    "noHistory": "Nenhum histórico de pagamento disponível."
   },
   "myClosetShopFront": {
     "vs": "VS",

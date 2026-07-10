@@ -4115,7 +4115,9 @@
     },
     "battle": {
       "entered": "Batallas participadas",
+      "created": "Batallas creadas",
       "votes": "Total de votos",
+      "views": "Visualizaciones totales",
       "winRate": "Porcentaje de victorias",
       "topRanked": "Mejor clasificado",
       "battleViews": "Visualizaciones de batallas"
@@ -4190,6 +4192,19 @@
       "delivered": "Entregado",
       "cancelled": "Cancelado"
     }
+  },
+  "myClosetEarnings": {
+    "title": "Ganancias",
+    "totalEarningsLabel": "Ganancias totales",
+    "vsLastMonth": "en comparación con el mes pasado",
+    "itemSales": "Ventas de artículos",
+    "shippingEarnings": "Ingresos de envío",
+    "fees": "Tarifas",
+    "payouts": "Pagos",
+    "availableBalance": "Saldo disponible",
+    "withdrawButton": "Retirar",
+    "payoutHistoryTitle": "Historial de pagos",
+    "noHistory": "No hay historial de pagos disponible."
   },
   "battle": {
     "headerTitle": "Artículo en batalla",

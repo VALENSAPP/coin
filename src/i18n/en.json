@@ -4207,7 +4207,9 @@
     },
     "battle": {
       "entered": "Battles Entered",
+      "created": "Battles Created",
       "votes": "Total Votes",
+      "views": "Total Views",
       "winRate": "Win Rate",
       "topRanked": "Top Ranked",
       "battleViews": "Battle Views"
@@ -4282,6 +4284,19 @@
       "delivered": "Delivered",
       "cancelled": "Cancelled"
     }
+  },
+  "myClosetEarnings": {
+    "title": "Earnings",
+    "totalEarningsLabel": "Total earnings",
+    "vsLastMonth": "vs last month",
+    "itemSales": "Item sales",
+    "shippingEarnings": "Shipping earnings",
+    "fees": "Fees",
+    "payouts": "Payouts",
+    "availableBalance": "Available balance",
+    "withdrawButton": "Withdraw",
+    "payoutHistoryTitle": "Payout history",
+    "noHistory": "No payout history available."
   },
   "battle": {
     "headerTitle": "Battle Item",

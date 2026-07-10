@@ -151,6 +151,7 @@ import LanguageSelectionScreen from '../pages/settings/LanguageSelectionScreen';
 import { useLanguage } from '../i18n';
 import MyClosetOrdersScreen from '../components/profile/MyClosetOrdersScreen';
 import MyClosetOrderDetailScreen from '../components/profile/MyClosetOrderDetailScreen';
+import MyClosetEarningsScreen from '../components/profile/MyClosetEarningsScreen';
 import {
   BattleInsightsActionsScreen,
   BoostWinningItemScreen,
@@ -497,6 +498,7 @@ export default function MainTabNavigator() {
         <Stack.Screen name="PreviewPromotion" component={PreviewPromotionScreen} />
         <Stack.Screen name="MyClosetOrders" component={MyClosetOrdersScreen} />
         <Stack.Screen name="MyClosetOrderDetail" component={MyClosetOrderDetailScreen} />
+        <Stack.Screen name="MyClosetEarnings" component={MyClosetEarningsScreen} options={{ headerShown: false }} />
         <Stack.Screen name="MyClosetBuyerItems" component={MyClosetBuyerItemsScreen} />
         <Stack.Screen name="MyClosetBattles" component={MyClosetBattlesScreen} />
         <Stack.Screen name="MyClosetBuyerItemDetail" component={MyClosetBuyerItemDetailScreen} />
@@ -809,6 +811,11 @@ export default function MainTabNavigator() {
             component={MyClosetScreen}
             // ── TRANSLATION CHANGE ───────────────────────────────────────────
             options={{ headerTitle: t('walletStack.myCloset') }}
+          />
+          <Stack.Screen
+            name="MyClosetEarnings"
+            component={MyClosetEarningsScreen}
+            options={{ headerShown: false }}
           />
           <Stack.Screen
             name="Shop"

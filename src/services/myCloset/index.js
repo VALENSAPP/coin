@@ -379,3 +379,15 @@ export const createMarketplaceBattleBoostPaymentSession = async boostId => {
 export const createMarketplaceBattleWinnerPromotion = async (battleId, data) => {
   return axiosInstance.post(`/marketplace-battles/${battleId}/winner-promotion`, data);
 };
+
+export const getEarning = async (data) => {
+  return axiosInstance.get('earnings', data);
+};
+
+export const getEarningHistory = async ( data) => {
+  return axiosInstance.get('earnings/history', data);
+};
+
+export const getbattlePerformance = async ( data) => {
+  return axiosInstance.get('marketplace-battles/marketPlaceBattleOverview', data);
+};

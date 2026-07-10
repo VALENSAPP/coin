@@ -4115,7 +4115,9 @@
     },
     "battle": {
       "entered": "Battles participées",
+      "created": "Battles créées",
       "votes": "Total des votes",
+      "views": "Vues totales",
       "winRate": "Taux de victoire",
       "topRanked": "Meilleur classement",
       "battleViews": "Vues des battles"
@@ -4190,6 +4192,19 @@
       "delivered": "Livrée",
       "cancelled": "Annulée"
     }
+  },
+  "myClosetEarnings": {
+    "title": "Gains",
+    "totalEarningsLabel": "Gains totaux",
+    "vsLastMonth": "par rapport au mois dernier",
+    "itemSales": "Ventes d'articles",
+    "shippingEarnings": "Revenus d'expédition",
+    "fees": "Frais",
+    "payouts": "Paiements",
+    "availableBalance": "Solde disponible",
+    "withdrawButton": "Retirer",
+    "payoutHistoryTitle": "Historique des paiements",
+    "noHistory": "Aucun historique de paiement disponible."
   },
   "battle": {
     "headerTitle": "Article en duel",

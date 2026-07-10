@@ -4115,7 +4115,9 @@
     },
     "battle": {
       "entered": "Sfide partecipate",
+      "created": "Sfide create",
       "votes": "Totale voti",
+      "views": "Visualizzazioni totali",
       "winRate": "Percentuale di vittorie",
       "topRanked": "Miglior posizione",
       "battleViews": "Visualizzazioni delle sfide"
@@ -4141,6 +4143,19 @@
     "noTopItem": "Nessun articolo con prestazioni migliori al momento",
     "thisWeek": "Questa settimana",
     "thisMonth": "Questo mese"
+  },
+  "myClosetEarnings": {
+    "title": "Guadagni",
+    "totalEarningsLabel": "Guadagni totali",
+    "vsLastMonth": "rispetto al mese scorso",
+    "itemSales": "Vendite di articoli",
+    "shippingEarnings": "Ricavi di spedizione",
+    "fees": "Commissioni",
+    "payouts": "Pagamenti",
+    "availableBalance": "Saldo disponibile",
+    "withdrawButton": "Preleva",
+    "payoutHistoryTitle": "Storico pagamenti",
+    "noHistory": "Nessuno storico dei pagamenti disponibile."
   },
   "myClosetShopFront": {
     "vs": "VS",

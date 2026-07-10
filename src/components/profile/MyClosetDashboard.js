@@ -21,6 +21,7 @@ import {
   getMarketplaceOverview,
   getMyClosetMe,
   getClosetBattlesPriority,
+  getbattlePerformance,
 } from '../../services/myCloset';
 import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
@@ -96,12 +97,10 @@ const buildOverviewCards = (data, t) => ([
   // { key: 'rating', label: t('myClosetDashboard.overview.rating'), value: data?.rating != null ? String(data.rating) : '—' },
 ]);
 
-const buildBattleStats = t => ([
-  { key: 'entered', label: t('myClosetDashboard.battle.entered'), value: '5', icon: 'trophy-outline' },
-  { key: 'votes', label: t('myClosetDashboard.battle.votes'), value: '125', icon: 'people-outline' },
-  { key: 'winrate', label: t('myClosetDashboard.battle.winRate'), value: '62%', icon: 'trending-up-outline' },
-  { key: 'topranked', label: t('myClosetDashboard.battle.topRanked'), value: '2', icon: 'navigate-circle-outline' },
-  { key: 'battleviews', label: t('myClosetDashboard.battle.battleViews'), value: '860', icon: 'eye-outline' },
+const buildBattleStats = (data, t) => ([
+  { key: 'created', label: t('myClosetDashboard.battle.created'), value: String(data?.totalBattlesCreated ?? 0), icon: 'trophy-outline' },
+  { key: 'votes', label: t('myClosetDashboard.battle.votes'), value: String(data?.totalVotes ?? 0), icon: 'people-outline' },
+  { key: 'views', label: t('myClosetDashboard.battle.views'), value: String(data?.totalViews ?? 0), icon: 'eye-outline' },
 ]);
 
 const unwrapBattlePriorityResponse = source => {
@@ -145,7 +144,11 @@ const normalizePriorityBattle = battle => {
 const navigateToBattleList = (navigation, closetId) => {
   navigation?.navigate?.('ProfileMain', {
     screen: 'MyClosetBattles',
-    params: closetId ? { closetId } : undefined,
+    params: {
+      ...(closetId ? { closetId } : {}),
+      isOwnProfile: true,
+      returnTo: { tab: 'wallet', screen: 'Shop' },
+    },
   });
 };
 
@@ -262,11 +265,13 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
   const [overviewRange, setOverviewRange] = useState('weekly'); // 'weekly' | 'monthly'
   const [marketplaceOverview, setMarketplaceOverview] = useState(null);
   const [marketplaceLoading, setMarketplaceLoading] = useState(false);
+  const [battlePerformance, setBattlePerformance] = useState(null);
+  const [battlePerformanceLoading, setBattlePerformanceLoading] = useState(false);
   const [priorityBattles, setPriorityBattles] = useState([]);
   const [priorityBattlesLoading, setPriorityBattlesLoading] = useState(false);
 
   const { bgStyle, textStyle, text, cardStyle } = useAppTheme(userData?.profile);
-  const battleStats = useMemo(() => buildBattleStats(t), [t]);
+  const battleStats = useMemo(() => buildBattleStats(battlePerformance, t), [battlePerformance, t]);
 
   const dispatch = useDispatch();
 
@@ -367,8 +372,23 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
     }
   }, []);
 
+  const loadBattlePerformance = useCallback(async () => {
+    setBattlePerformanceLoading(true);
+    try {
+      const response = await getbattlePerformance();
+      const data = response?.data?.data ?? response?.data ?? response;
+      setBattlePerformance(data);
+    } catch (error) {
+      console.warn('Unable to load battle performance:', error);
+      setBattlePerformance(null);
+    } finally {
+      setBattlePerformanceLoading(false);
+    }
+  }, []);
+
+  const resolvedClosetId = closetId || userData?.closetId || userData?.myClosetId || userData?.closet?.id || userData?.closet?._id;
+
   const loadPriorityBattles = useCallback(async () => {
-    const resolvedClosetId = closetId || userData?.closetId || userData?.myClosetId || userData?.closet?.id || userData?.closet?._id;
     if (!resolvedClosetId) {
       setPriorityBattles([]);
       return;
@@ -440,7 +460,8 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
       loadBuyerOrders();
       loadDashboard();
       loadMarketplaceOverview(overviewRange);
-    }, [loadClosetItems, loadRecentOrders, loadBuyerOrders, loadDashboard, loadMarketplaceOverview, overviewRange]),
+      loadBattlePerformance();
+    }, [loadClosetItems, loadRecentOrders, loadBuyerOrders, loadDashboard, loadMarketplaceOverview, loadBattlePerformance, overviewRange]),
   );
 
   useEffect(() => {
@@ -491,9 +512,7 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
   };
 
   const handleViewAllBattles = () => {
-    navigation?.navigate?.('ProfileMain', {
-      screen: 'MyBattles', // make sure this is registered in ProfileStack
-    });
+    navigateToBattleList(navigation, resolvedClosetId);
   };
 
   const handleViewAllItems = () => {
@@ -514,6 +533,10 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
     navigation?.navigate?.('wallet', {
       screen: 'MarketplaceAnalytics',
     });
+  };
+
+  const handleOpenEarnings = () => {
+    navigation?.navigate?.('MyClosetEarnings');
   };
 
   const handleOpenOrder = order => {
@@ -604,10 +627,16 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
         <View style={styles.heroStatsRow}>
           {overviewCards.map((card, idx) => (
             <React.Fragment key={card.key}>
-              <View style={styles.heroStatItem}>
-                <Text style={[styles.heroStatValue, textStyle]}>{card.value}</Text>
-                <Text style={styles.heroStatLabel}>{card.label}</Text>
-              </View>
+              <TouchableOpacity
+                activeOpacity={card.key === 'earnings' ? 0.8 : 1}
+                onPress={card.key === 'earnings' ? handleOpenEarnings : undefined}
+                style={card.key === 'earnings' ? styles.heroStatTouchable : undefined}
+              >
+                <View style={styles.heroStatItem}>
+                  <Text style={[styles.heroStatValue, textStyle]}>{card.value}</Text>
+                  <Text style={styles.heroStatLabel}>{card.label}</Text>
+                </View>
+              </TouchableOpacity>
               {idx < overviewCards.length - 1 && (
                 <View style={[styles.heroStatDivider, { backgroundColor: withAlpha(text, 0.12) }]} />
               )}
@@ -631,7 +660,7 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, textStyle]}>{t('myClosetDashboard.pinnedItemTitle') || 'Pinned Item'}</Text>
             {showPinnedViewAll && (
-              <TouchableOpacity activeOpacity={0.8} onPress={() => navigateToBattleList(navigation, closetId)}>
+              <TouchableOpacity activeOpacity={0.8} onPress={() => navigateToBattleList(navigation, resolvedClosetId)}>
                 <Text style={styles.sectionMeta}>{t('myClosetDashboard.viewAllPinned')} ›</Text>
               </TouchableOpacity>
             )}
