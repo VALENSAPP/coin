@@ -67,13 +67,14 @@ const TokenPurchaseModal = ({ onClose, onPurchase, hasFollowing = false, autoFoc
 
   useEffect(() => {
     const subscription = DeviceEventEmitter.addListener('PAYMENT_COMPLETED', (data) => {
+      paymentCompletedRef.current = true;
       setIsProcessingPurchase(false);
       dispatch(hideLoader());
       if (onPurchase) onPurchase();
       showToastMessage(toast, 'success', t('tokenPurchase.paymentCompleted'));
     });
     return () => subscription.remove();
-  }, [onPurchase, dispatch, toast]);
+  }, [onPurchase, dispatch, toast, t]);
 
   const fetchTokenPrice = useCallback(async () => {
     try {

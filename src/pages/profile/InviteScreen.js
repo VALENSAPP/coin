@@ -18,6 +18,7 @@ import Clipboard from '@react-native-clipboard/clipboard';
 import { useAppTheme } from '../../theme/useApptheme';
 import HexAvatar from '../../components/home/story.js/HexAvatar';
 import { useLanguage } from '../../i18n';
+import { BASE_URL } from '../../config/urls';
 
 const { width } = Dimensions.get('window');
 
@@ -34,8 +35,8 @@ export default function InviteScreen() {
     Alert.alert(t('invite.copiedTitle'), t('invite.copiedReferralMessage'));
   };
 
-  const deepLinkQr = `https://api.valens.app/callback`;
-  const deepLinkUrl = 'https://api.valens.app/callback';
+  const deepLinkQr = `${BASE_URL}/callback`;
+  const deepLinkUrl = `${BASE_URL}/callback`;
 
   const avatar = route?.params?.avatar;
 

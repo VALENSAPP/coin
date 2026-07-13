@@ -29,6 +29,9 @@ import {
   follow,
   unfollow,
   deletePost,
+} from '../../services/post';
+import { BASE_URL } from '../../config/urls';
+import {
   HidePost as apiHidePost,
   unHidePost as apiUnhidePost,
   getPostById,
@@ -53,8 +56,13 @@ import useScreenshotProtection, {
 import { navigateToUserProfile } from '../../utils/navigateToUserProfile';
 import { isPostVideoUrl } from '../../utils/postMediaFormat';
 
-const isTruthyTrustPost = value =>
-  value === true || value === 1 || String(value).toLowerCase() === 'true';
+import {
+  extractPostFromByIdResponse,
+  mergeTrustPostFields,
+  resolveIsTrustPost,
+  resolveTrustPostFromSources,
+  withTrustPostFields,
+} from '../../utils/trustPost';
 
 export default function PostView({ postData = [], userData = {} }) {
   // ─── All hooks at the very top ───────────────────────────────
@@ -71,11 +79,19 @@ export default function PostView({ postData = [], userData = {} }) {
   const returnTo = route?.params?.returnTo;
 
   const normalizePosts = useCallback((candidate, fallback = []) => {
-    if (Array.isArray(candidate) && candidate.length) return candidate;
-    if (candidate && typeof candidate === 'object') return [candidate];
-    if (Array.isArray(fallback) && fallback.length) return fallback;
-    return [];
-  }, []);
+    let raw = [];
+    if (Array.isArray(candidate) && candidate.length) raw = candidate;
+    else if (candidate && typeof candidate === 'object') raw = [candidate];
+    else if (Array.isArray(fallback) && fallback.length) raw = fallback;
+
+    const routeTrustHint = resolveTrustPostFromSources(routeParams)
+      ? { isTrustPost: true, communityTrustPost: true }
+      : {};
+
+    return raw.map(post =>
+      mergeTrustPostFields(routeTrustHint, withTrustPostFields(post)),
+    );
+  }, [routeParams?.isTrustPost, routeParams?.communityTrustPost]);
 
   const [posts, setPosts] = useState(() => normalizePosts(navPostData, postData));
 
@@ -171,33 +187,48 @@ export default function PostView({ postData = [], userData = {} }) {
     })();
   }, []);
 
-  // ─── Fetch post from API when coming from UserChat ──────────
+  // ─── Hydrate post from API (chat, shared trust posts, etc.) ─
   useEffect(() => {
-    const fetchPostFromUserChat = async () => {
-      const chatPostId = posts[0]?.id;
-      if (userChat && chatPostId) {
-        const postId = chatPostId;
+    const sourcePost = normalizePosts(navPostData, postData)[0];
+    const postId = sourcePost?.id;
+    if (!postId) return undefined;
 
-        try {
-          const response = await getPostById(postId);
-          if (response?.statusCode === 200) {
-            setList([response.data]);
+    let cancelled = false;
 
-            const freshPost = response.data;
-            setSaved(prev => ({ ...prev, [freshPost.id]: !!freshPost.isSaved }));
-            setLiked(prev => ({ ...prev, [freshPost.id]: !!freshPost.isLike }));
-            setPostLikesCount(prev => ({ ...prev, [freshPost.id]: freshPost.likeCount ?? 0 }));
-            setPostCommentsCount(prev => ({ ...prev, [freshPost.id]: freshPost.commentCount ?? 0 }));
-            setHiddenById(prev => ({ ...prev, [freshPost.id]: !!freshPost.isHide }));
+    const hydratePostFromApi = async () => {
+      try {
+        const response = await getPostById(String(postId));
+        const fetched = extractPostFromByIdResponse(response);
+        if (!fetched || cancelled) return;
 
-            if (freshPost.userId != null && typeof freshPost.isFollow === 'boolean') {
-              setFollowingByUserId(prev => ({ ...prev, [String(freshPost.userId)]: freshPost.isFollow }));
-            }
-          } else {
-            showToastMessage(toast, 'danger', t('postView.failedLoadPost'));
-          }
-        } catch (error) {
-          console.error('Error fetching post from UserChat:', error);
+        const trustFromRoute = resolveTrustPostFromSources(routeParams, sourcePost);
+        const merged = mergeTrustPostFields(
+          mergeTrustPostFields(sourcePost, {
+            isTrustPost: trustFromRoute,
+            communityTrustPost: trustFromRoute,
+          }),
+          fetched,
+        );
+
+        setList(prev =>
+          prev.map(post => (String(post.id) === String(postId) ? merged : post)),
+        );
+        setPosts(prev =>
+          prev.map(post => (String(post.id) === String(postId) ? merged : post)),
+        );
+
+        setSaved(prev => ({ ...prev, [merged.id]: !!merged.isSaved }));
+        setLiked(prev => ({ ...prev, [merged.id]: !!merged.isLike }));
+        setPostLikesCount(prev => ({ ...prev, [merged.id]: merged.likeCount ?? 0 }));
+        setPostCommentsCount(prev => ({ ...prev, [merged.id]: merged.commentCount ?? 0 }));
+        setHiddenById(prev => ({ ...prev, [merged.id]: !!merged.isHide }));
+
+        if (merged.userId != null && typeof merged.isFollow === 'boolean') {
+          setFollowingByUserId(prev => ({ ...prev, [String(merged.userId)]: merged.isFollow }));
+        }
+      } catch (error) {
+        console.error('Error hydrating post in PostView:', error);
+        if (userChat) {
           showToastMessage(
             toast,
             'danger',
@@ -207,8 +238,9 @@ export default function PostView({ postData = [], userData = {} }) {
       }
     };
 
-    fetchPostFromUserChat();
-  }, [posts, toast, userChat, t]);
+    hydratePostFromApi();
+    return () => { cancelled = true; };
+  }, [paramsKey, navPostData, postData, normalizePosts, routeParams?.isTrustPost, routeParams?.communityTrustPost, userChat, toast, t]);
 
   // ─── Refetch post data ──────────────────────────────────────
   const refetchPostData = useCallback(async (postId) => {
@@ -217,21 +249,18 @@ export default function PostView({ postData = [], userData = {} }) {
     try {
       const response = await getPostById(postId);
 
-      let freshPost = null;
-
-      if (response?.data?.statusCode === 200 && response?.data?.success && response?.data?.data) {
-        freshPost = response.data.data;
-      } else if (response?.statusCode === 200 && response?.success && response?.data) {
-        freshPost = response.data;
-      } else if (Array.isArray(response?.data) && response.data.length > 0) {
-        freshPost = response.data[0];
-      } else if (response?.data && typeof response.data === 'object' && response.data.id) {
-        freshPost = response.data;
-      }
+      const freshPost = extractPostFromByIdResponse(response);
 
       if (freshPost && freshPost.id) {
         setList(prev => prev.map(p =>
-          String(p.id) === String(postId) ? freshPost : p,
+          String(p.id) === String(postId)
+            ? mergeTrustPostFields(p, freshPost)
+            : p,
+        ));
+        setPosts(prev => prev.map(p =>
+          String(p.id) === String(postId)
+            ? mergeTrustPostFields(p, freshPost)
+            : p,
         ));
 
         setSaved(prev => ({ ...prev, [freshPost.id]: !!freshPost.isSaved }));
@@ -355,6 +384,14 @@ export default function PostView({ postData = [], userData = {} }) {
   const visiblePosts = useMemo(
     () => list.filter(item => !hiddenById[item.id]),
     [list, hiddenById],
+  );
+
+  const isOnlyVisiblePost = useCallback(
+    postId => {
+      if (!postId || visiblePosts.length !== 1) return false;
+      return String(visiblePosts[0]?.id) === String(postId);
+    },
+    [visiblePosts],
   );
 
   const shouldProtectPrivateContent = useMemo(
@@ -806,7 +843,7 @@ export default function PostView({ postData = [], userData = {} }) {
         }
 
         const post = list.find(p => String(p.id) === String(modalPostId));
-        const deepLink = `https://api.valens.app/postshare/${encodeURIComponent(String(modalPostId))}`;
+        const deepLink = `${BASE_URL}/postshare/${encodeURIComponent(String(modalPostId))}`;
 
         const parsedGoal = Number(post?.raiseAmount);
         const isMissionPost = Number.isFinite(parsedGoal) && parsedGoal > 0;
@@ -945,8 +982,14 @@ export default function PostView({ postData = [], userData = {} }) {
       }
 
       if (action === 'hidePost') {
+        const isLastVisible =
+          visiblePosts.length === 1 &&
+          String(visiblePosts[0]?.id) === String(modalPostId);
         await handleToggleHide(modalPostId);
         closeOptions();
+        if (isLastVisible) {
+          handleBackPress();
+        }
         return;
       }
 
@@ -1005,6 +1048,7 @@ export default function PostView({ postData = [], userData = {} }) {
   // ─── Renderer ───────────────────────────────────────────────
   const renderFeedItem = useCallback(
     ({ item }) => {
+      const itemIsTrustPost = resolveTrustPostFromSources(item, routeParams);
       const mapped = {
         id: item.id,
         username: item.userName ?? 'Unknown',
@@ -1043,7 +1087,8 @@ export default function PostView({ postData = [], userData = {} }) {
         userId: item.userId,
         boughtBy: item.boughtBy || [],
         taggedPeople: Array.isArray(item.taggedPeople) ? item.taggedPeople : [],
-        isTrustPost: isTruthyTrustPost(item.isTrustPost),
+        isTrustPost: itemIsTrustPost,
+        communityTrustPost: itemIsTrustPost,
         returnTo,
         follow:
           typeof followingByUserId[String(item.userId)] === 'boolean'
@@ -1097,6 +1142,7 @@ export default function PostView({ postData = [], userData = {} }) {
       handleToggleFollow,
       handleToggleSave,
       returnTo,
+      routeParams,
       toggleLike,
       currentlyVisiblePostId,
       screenFocused,
@@ -1178,6 +1224,9 @@ export default function PostView({ postData = [], userData = {} }) {
     };
   }, []);
 
+  const headerPost = list[0] || posts[0] || visiblePosts[0];
+  const showHeaderTrustBadge = resolveTrustPostFromSources(headerPost, routeParams);
+
   return (
     <>
       <SafeAreaView style={[styles.container, bgStyle]}>
@@ -1188,7 +1237,17 @@ export default function PostView({ postData = [], userData = {} }) {
           >
             <Ionicons name="arrow-back" size={24} color={text} />
           </TouchableOpacity>
-          <Text style={[styles.userText, { color: text }]}>{posts[0]?.userName || t('postView.postsHeaderFallback')}</Text>
+          <View style={styles.headerTitleWrap}>
+            <Text style={[styles.userText, { color: text }]}>
+              {headerPost?.userName || t('postView.postsHeaderFallback')}
+            </Text>
+            {showHeaderTrustBadge && (
+              <View style={styles.headerTrustBadge}>
+                <Ionicons name="shield-checkmark" size={14} color="#059669" />
+                <Text style={styles.headerTrustText}>{t('postItem.trust')}</Text>
+              </View>
+            )}
+          </View>
           <View style={styles.placeholder} />
         </View>
 
@@ -1243,7 +1302,15 @@ export default function PostView({ postData = [], userData = {} }) {
         isHidden={!!(modalPostId && hiddenById[modalPostId])}
         hideBusy={modalPostId ? hidingIds.has(modalPostId) : false}
         onHiddenChange={(id, nextHidden) => {
+          const isLastVisible =
+            visiblePosts.length === 1 &&
+            String(visiblePosts[0]?.id) === String(id);
+
           setHiddenById(prev => ({ ...prev, [id]: nextHidden }));
+
+          if (nextHidden && isLastVisible) {
+            handleBackPress();
+          }
         }}
       />
 
@@ -1305,10 +1372,25 @@ const styles = StyleSheet.create({
   buttons: {
     padding: 5,
   },
+  headerTitleWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTrustBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+    gap: 4,
+  },
+  headerTrustText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#059669',
+  },
   userText: {
     fontSize: 16,
     fontWeight: '500',
-    flex: 1,
     textAlign: 'center',
   },
   placeholder: {

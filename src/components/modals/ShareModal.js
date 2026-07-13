@@ -17,6 +17,7 @@ import RBSheet from 'react-native-raw-bottom-sheet';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BASE_URL } from '../../config/urls';
 
 import { following as apiFollowing } from '../../services/profile';
 import { sharePost } from '../../services/post';
@@ -25,6 +26,7 @@ import Clipboard from '@react-native-clipboard/clipboard';
 import { useAppTheme } from '../../theme/useApptheme';
 import { getSocket, initializeSocket } from '../../services/socket';
 import { useLanguage } from '../../i18n';
+import { appendTrustPostShareFields } from '../../utils/trustPost';
 
 const { width, height: screenHeight } = Dimensions.get('window');
 const COLS = 3;
@@ -192,6 +194,13 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
           messageData.storyId = String(sharedContent.storyId).replace(/_\d+$/, '');
         }
 
+        if (sharedContent.post) {
+          Object.assign(
+            messageData,
+            appendTrustPostShareFields(messageData, sharedContent.post),
+          );
+        }
+
         if (socket?.connected) socket.emit('sendMessage', messageData);
       }
     } catch (e) {
@@ -244,12 +253,12 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
     if (!id) return null;
 
     if (story) {
-      return `https://api.valens.app/storyshare/${encodeURIComponent(String(id))}`;
+      return `${BASE_URL}/storyshare/${encodeURIComponent(String(id))}`;
     }
     if (reel || reelId) {
-      return `https://api.valens.app/reelshare/${encodeURIComponent(String(id))}`;
+      return `${BASE_URL}/reelshare/${encodeURIComponent(String(id))}`;
     }
-    return `https://api.valens.app/postshare/${encodeURIComponent(String(id))}`;
+    return `${BASE_URL}/postshare/${encodeURIComponent(String(id))}`;
   };
 
   const generateShareText = () => {
@@ -415,7 +424,6 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
         <View style={[styles.bottomBar, bgStyle, { borderTopColor: border, paddingBottom: bottomPad }]}>
           <Action icon="share-social-outline" label={t('shareModal.shareToLabel')} onPress={shareToSystem} iconColor={icon} labelColor={text} />
           <Action icon="copy-outline" label={t('shareModal.copyLinkLabel')} onPress={copyToClipboard} iconColor={icon} labelColor={text} />
-          {/* <Action icon="logo-whatsapp" label={t('shareModal.whatsappLabel')} onPress={shareToWhatsApp} iconColor={icon} labelColor={text} /> */}
         </View>
       )}
       </View>
@@ -503,11 +511,15 @@ const styles = StyleSheet.create({
 
   sendBar: {
     borderTopWidth: StyleSheet.hairlineWidth,
-    padding: 12, alignItems: 'center',
+    paddingTop: 14,
+    paddingHorizontal: 12,
+    alignItems: 'center',
   },
   sendButton: {
-    borderRadius: 10, paddingHorizontal: 22, paddingVertical: 10, width: '90%',
-    bottom: 5
+    borderRadius: 10,
+    paddingHorizontal: 22,
+    paddingVertical: 12,
+    width: '90%',
   },
   sendButtonText: { color: '#fff', fontWeight: '600', fontSize: 15, textAlign: 'center' },
 });

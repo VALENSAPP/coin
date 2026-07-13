@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+﻿import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -31,6 +31,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import createStyles from '../../../pages/home/Style';
 import { useAppTheme } from '../../../theme/useApptheme';
+import { useThemeContext } from '../../../theme/ThemeContext';
 import HexAvatar from './HexAvatar';
 import StoryComposer from './StoryComposer';
 import {
@@ -55,10 +56,15 @@ import {
   prepareStoryClipsAudioForUpload,
 } from '../../../utils/storyAudioUpload';
 import {
-  parseStoryMeta,
+  appendStoryThumbnailFiles,
+  prepareStoryClipThumbnails,
+  resolveClipThumbnailUri,
+  resolveStoryVideoThumbnailSource,
+} from '../../../utils/storyThumbnail';
+import {
   resolveStoryAudioPayload,
   resolveStoryDurationMs,
-  looksLikeUrl,
+  mapApiStoryRowToClips,
 } from '../../../utils/storyAudioResolve';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { showToastMessage } from '../../displaytoastmessage';
@@ -161,7 +167,7 @@ const storyVideoPlayerCustomStyles = {
 
 const storyVideoThumbnailOverlayStyle = [
   StyleSheet.absoluteFillObject,
-  { zIndex: 5 },
+  { zIndex: 10, elevation: 10 },
 ];
 
 const storyVideoLoadModalStyles = StyleSheet.create({
@@ -242,53 +248,9 @@ const storyVideoLoadModalStyles = StyleSheet.create({
   },
 });
 
-function resolveStoryClipThumbnailUrl(storyLike, idx, clipMeta) {
-  const candidate =
-    clipMeta?.thumbnail ||
-    clipMeta?.thumbnailUrl ||
-    clipMeta?.thumb ||
-    clipMeta?.thumbUrl ||
-    clipMeta?.poster ||
-    clipMeta?.posterUrl ||
-    clipMeta?.cover ||
-    clipMeta?.coverUrl ||
-    (Array.isArray(storyLike?.thumbnails) ? storyLike.thumbnails[idx] : null) ||
-    storyLike?.thumbnail ||
-    storyLike?.thumbnailUrl ||
-    storyLike?.thumb ||
-    storyLike?.thumbUrl ||
-    storyLike?.poster ||
-    storyLike?.posterUrl ||
-    storyLike?.cover ||
-    storyLike?.coverUrl ||
-    null;
-
-  if (!looksLikeUrl(candidate)) return null;
-  return String(candidate).trim();
-}
-
-function resolveStoryVideoThumbnailSource(storyLike) {
-  const candidate =
-    storyLike?.thumbnail ||
-    storyLike?.thumbnailUrl ||
-    storyLike?.thumb ||
-    storyLike?.thumbUrl ||
-    storyLike?.poster ||
-    storyLike?.posterUrl ||
-    storyLike?.cover ||
-    storyLike?.coverUrl ||
-    (Array.isArray(storyLike?.thumbnails) ? storyLike.thumbnails[0] : null) ||
-    storyLike?.videoThumbnail ||
-    storyLike?.videoThumb ||
-    null;
-  if (!looksLikeUrl(candidate)) return null;
-  return { uri: String(candidate).trim() };
-}
-
-
-// ─────────────────────────────────────────────────────────────────────────────
+// ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 // StoryAnalytics Modal
-// ─────────────────────────────────────────────────────────────────────────────
+// ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 const StoryAnalytics = ({ visible, onClose, story, currentUser }) => {
   const [activeTab, setActiveTab] = useState('likes');
   const { t } = useLanguage();
@@ -424,9 +386,9 @@ const StoryAnalytics = ({ visible, onClose, story, currentUser }) => {
 };
 
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 // OptionsSheet
-// ─────────────────────────────────────────────────────────────────────────────
+// ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 const OptionsSheet = ({ visible, onClose, isMuted, onToggleMute, onReport, username }) => {
   const { t } = useLanguage();
 
@@ -461,9 +423,9 @@ const OptionsSheet = ({ visible, onClose, isMuted, onToggleMute, onReport, usern
 };
 
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 // StoryViewer
-// ─────────────────────────────────────────────────────────────────────────────
+// ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 const StoryViewer = ({
   visible,
   stories,
@@ -483,7 +445,7 @@ const StoryViewer = ({
   ownerProfileImage,
   onDrawerClose,
   onOpenUserProfile,
-  currentUserId,          // ← add this
+  currentUserId,          // ΓåÉ add this
 }) => {
   const insets = useSafeAreaInsets();
   const storyTopInset = Math.max(insets.top, Platform.OS === 'ios' ? 44 : 0);
@@ -511,9 +473,10 @@ const StoryViewer = ({
   const shareRef = useRef(null);
   const [selectedPostId, setSelectedPostId] = useState(null);
 
-  // ── Media state ──────────────────────────────────────────────────────────
+  // ΓöÇΓöÇ Media state ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   const [isMediaReady, setIsMediaReady] = useState(false);
   const [isFirstFrameReady, setIsFirstFrameReady] = useState(false);
+  const [isImageLoaded, setIsImageLoaded] = useState(false);
   const [isBuffering, setIsBuffering] = useState(false);
   const [videoLoadModalVisible, setVideoLoadModalVisible] = useState(false);
   const [videoRetryNonce, setVideoRetryNonce] = useState(0);
@@ -624,7 +587,7 @@ const StoryViewer = ({
 
   const currentStoryThumbnail = resolveStoryVideoThumbnailSource(currentStory);
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
+  // ΓöÇΓöÇ Helpers ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   const stopAndResetProgress = (resetToZero = true) => {
     if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
     progressAnimation.stopAnimation();
@@ -729,7 +692,7 @@ const StoryViewer = ({
     if (remainingDuration > 50) startProgress(remainingDuration);
   };
 
-  // ── Story change: reset ALL state ─────────────────────────────────────────
+  // ΓöÇΓöÇ Story change: reset ALL state ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   useEffect(() => {
     if (!visible || !currentStory) return;
 
@@ -751,6 +714,7 @@ const StoryViewer = ({
     setIsBuffering(false);
     setVideoLoadModalVisible(false);
     setIsFirstFrameReady(false);
+    setIsImageLoaded(false);
     dispatch(hideLoader());
 
     if (currentStory.type === 'video' && videoRef.current?.seek) {
@@ -840,7 +804,7 @@ const StoryViewer = ({
     return () => clearInterval(tick);
   }, [isYoutubeAudio, shouldPlayStoryAudio, youtubeVideoId]);
 
-  // ── Pan responder ─────────────────────────────────────────────────────────
+  // ΓöÇΓöÇ Pan responder ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   const pan = useRef(new Animated.ValueXY()).current;
   const panResponder = useRef(
     PanResponder.create({
@@ -983,7 +947,7 @@ console.log('VIEWER currentUser:', currentUser?.id, currentUser?.username, 'isUs
     );
   };
 
-  // ── Video media callbacks ─────────────────────────────────────────────────
+  // ΓöÇΓöÇ Video media callbacks ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   const markVideoFrameReady = () => {
     if (!visibleRef.current || pausedRef.current) return;
     clearVideoLoadWatchdog();
@@ -1010,6 +974,7 @@ console.log('VIEWER currentUser:', currentUser?.id, currentUser?.username, 'isUs
 
   const onImageLoaded = () => {
     dispatch(hideLoader());
+    setIsImageLoaded(true);
     mediaFullyLoadedRef.current = true;
     setIsMediaReady(true);
     if (!progressStartedRef.current) {
@@ -1057,7 +1022,7 @@ console.log('VIEWER currentUser:', currentUser?.id, currentUser?.username, 'isUs
       showVideoLoadModal();
       return;
     }
-    // Image failed — keep the progress bar still; user can tap to skip.
+    // Image failed ΓÇö keep the progress bar still; user can tap to skip.
     setStoryPaused(true);
     stopAndResetProgress(true);
   };
@@ -1069,7 +1034,7 @@ console.log('VIEWER currentUser:', currentUser?.id, currentUser?.username, 'isUs
     }
   };
 
-  // ── User analytics bottom UI styles ──────────────────────────────────────
+  // ΓöÇΓöÇ User analytics bottom UI styles ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   const userAnalyticsStyles = {
     bottomContainer: {
       position: 'absolute',
@@ -1129,7 +1094,7 @@ console.log('VIEWER currentUser:', currentUser?.id, currentUser?.username, 'isUs
     shareText: { color: '#fff', fontSize: 14, fontWeight: '600', marginLeft: 8 },
   };
 
-  // ── Render ────────────────────────────────────────────────────────────────
+  // ΓöÇΓöÇ Render ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   return (
     <Modal
       visible={visible}
@@ -1140,14 +1105,27 @@ console.log('VIEWER currentUser:', currentUser?.id, currentUser?.username, 'isUs
     >
       <View style={modalStyles.modalBg} {...panResponder.panHandlers}>
 
-        {/* ── IMAGE story (black placeholder always present) ──────────────── */}
+        {/* ΓöÇΓöÇ IMAGE story (black placeholder always present) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
         {currentStory?.type === 'image' ? (
           <View style={modalStyles.storyMediaFullscreen} pointerEvents="none">
+            {currentStoryThumbnail && !isImageLoaded ? (
+              <Image
+                source={currentStoryThumbnail}
+                style={modalStyles.storyMediaFill}
+                resizeMode="cover"
+                pointerEvents="none"
+              />
+            ) : null}
             {currentStory?.uri ? (
               <Image
                 key={`story_img_${storyKey}`}
                 source={{ uri: currentStory.uri }}
-                style={modalStyles.storyMediaFill}
+                style={[
+                  modalStyles.storyMediaFill,
+                  currentStoryThumbnail && !isImageLoaded
+                    ? { opacity: 0, position: 'absolute' }
+                    : null,
+                ]}
                 resizeMode="cover"
                 onLoadEnd={onImageLoaded}
                 onError={onMediaError}
@@ -1156,7 +1134,7 @@ console.log('VIEWER currentUser:', currentUser?.id, currentUser?.username, 'isUs
           </View>
         ) : null}
 
-        {/* ── Fixed UI overlay: progress + header ─────────────────────────── */}
+        {/* ΓöÇΓöÇ Fixed UI overlay: progress + header ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
         <View style={modalStyles.storyUiOverlay} pointerEvents="box-none">
           <View style={[modalStyles.progressContainer, { paddingTop: storyProgressTop }]}>
             {currentUser.stories.map((_, idx) => (
@@ -1231,12 +1209,19 @@ console.log('VIEWER currentUser:', currentUser?.id, currentUser?.username, 'isUs
           </View>
         </View>
 
-        {/* ── Story content ───────────────────────────────────────────────── */}
+        {/* ΓöÇΓöÇ Story content ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
         <View style={[modalStyles.storyContent]}>
 
-          {/* VIDEO story ──────────────────────────────────────────────────── */}
+          {/* VIDEO story ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
           {currentStory.type !== 'image' && (
             <View style={modalStyles.storyVideoWrap} pointerEvents="box-none">
+              <View
+                style={[
+                  StyleSheet.absoluteFillObject,
+                  { opacity: isFirstFrameReady ? 1 : 0, zIndex: 1, elevation: 1 },
+                ]}
+                pointerEvents="none"
+              >
               <VideoPlayer
                 key={`${storyKey}:${videoRetryNonce}`}
                 ref={videoRef}
@@ -1288,6 +1273,7 @@ console.log('VIEWER currentUser:', currentUser?.id, currentUser?.username, 'isUs
                 customStyles={storyVideoPlayerCustomStyles}
                 pointerEvents="none"
               />
+              </View>
 
               {!isFirstFrameReady && currentStoryThumbnail && (
                 <Image
@@ -1306,7 +1292,10 @@ console.log('VIEWER currentUser:', currentUser?.id, currentUser?.username, 'isUs
 
               {!isMediaReady && !!currentStoryThumbnail && (
                 <View
-                  style={{ position: 'absolute', bottom: 80, alignSelf: 'center', zIndex: 10 }}
+                  style={[
+                    modalStyles.storyVideoLoadingOverlay,
+                    modalStyles.storyVideoLoadingOverlayWithPoster,
+                  ]}
                   pointerEvents="none"
                 >
                   <ActivityIndicator size="small" color="rgba(255,255,255,0.75)" />
@@ -1315,7 +1304,7 @@ console.log('VIEWER currentUser:', currentUser?.id, currentUser?.username, 'isUs
             </View>
           )}
 
-          {/* YouTube audio (hidden) — unmount while paused so playback cannot continue */}
+          {/* YouTube audio (hidden) ΓÇö unmount while paused so playback cannot continue */}
           {isYoutubeAudio && shouldPlayStoryAudio ? (
             <View style={storyYoutubeAudioStyle} pointerEvents="none" collapsable={false}>
               <YoutubePlayer
@@ -1355,7 +1344,7 @@ console.log('VIEWER currentUser:', currentUser?.id, currentUser?.username, 'isUs
             </View>
           ) : null}
 
-          {/* Direct audio (hidden) — unmount while paused so playback cannot continue */}
+          {/* Direct audio (hidden) ΓÇö unmount while paused so playback cannot continue */}
           {isDirectAudio && shouldPlayStoryAudio ? (
             <Video
               ref={directAudioRef}
@@ -1482,7 +1471,7 @@ console.log('VIEWER currentUser:', currentUser?.id, currentUser?.username, 'isUs
           )}
         </View>
 
-        {/* ── Own story: analytics + delete + share ───────────────────────── */}
+        {/* ΓöÇΓöÇ Own story: analytics + delete + share ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
         {isViewingOwnStory && (
           <View style={userAnalyticsStyles.bottomContainer}>
             <View style={userAnalyticsStyles.statsRow}>
@@ -1516,9 +1505,9 @@ console.log('VIEWER currentUser:', currentUser?.id, currentUser?.username, 'isUs
                     userName: currentUser?.username,
                     userImage: ownerProfileImage || currentUser?.image,
                     user: {
-                      id: currentUserId,                               // ← real userId
+                      id: currentUserId,                               // ΓåÉ real userId
                       displayName: currentUser?.username,
-                      image: ownerProfileImage || currentUser?.image   // ← .image not .avatar
+                      image: ownerProfileImage || currentUser?.image   // ΓåÉ .image not .avatar
                     },
                   });
                 }}
@@ -1536,7 +1525,7 @@ console.log('VIEWER currentUser:', currentUser?.id, currentUser?.username, 'isUs
           </View>
         )}
 
-        {/* ── Other users' story: emoji bursts + message input ────────────── */}
+        {/* ΓöÇΓöÇ Other users' story: emoji bursts + message input ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
         {!isViewingOwnStory && (
           <>
             <View pointerEvents="none" style={burstStyles.layer}>
@@ -1559,7 +1548,7 @@ console.log('VIEWER currentUser:', currentUser?.id, currentUser?.username, 'isUs
               style={[inputStyles.wrap, { paddingBottom: insets.bottom + 20 }]}
             >
               <View style={inputStyles.quickRow}>
-                {['👍', '👏', '🔥', '😍', '😂', '😮'].map(emo => (
+                {['≡ƒæì', '≡ƒæÅ', '≡ƒöÑ', '≡ƒÿì', '≡ƒÿé', '≡ƒÿ«'].map(emo => (
                   <TouchableOpacity
                     key={emo}
                     style={inputStyles.quickBtn}
@@ -1659,9 +1648,9 @@ console.log('VIEWER currentUser:', currentUser?.id, currentUser?.username, 'isUs
 };
 
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 // Helpers
-// ─────────────────────────────────────────────────────────────────────────────
+// ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 const formatTime = timestamp => {
   const diff = Date.now() - timestamp;
   const minutes = Math.floor(diff / (1000 * 60));
@@ -1672,12 +1661,13 @@ const formatTime = timestamp => {
 };
 
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 // Stories (main export)
-// ─────────────────────────────────────────────────────────────────────────────
+// ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 export default function Stories({ refreshTick, sidebarMode = false, onDrawerClose }) {
   const styles = createStyles();
-  const { textStyle, icon } = useAppTheme();
+  const { textStyle, icon, card, border } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
   const navigation = useNavigation();
   const { t } = useLanguage();
   const [stories, setStories] = useState([]);
@@ -1717,7 +1707,7 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
         String(story.storyId) === String(sharedStoryId) ||
         String(story.id).replace(/_\d+$/, '') === String(sharedStoryId)
       ) {
-        // ── if the matched bucket is the current user's own
+        // ΓöÇΓöÇ if the matched bucket is the current user's own
         // following bucket (isUser is false but id matches currentUserId)
         // force it to open the own bucket at index 0 instead
         const resolvedUserIdx =
@@ -1767,32 +1757,7 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
         isUser: true,
         hasUnseenStory: false,
         muted: false,
-        stories: userStoriesRaw.flatMap((story) => {
-          const ts = new Date(story.createdAt || story.updatedAt || Date.now()).getTime();
-          const meta = parseStoryMeta(story.storyMeta);
-          return (story.media || []).map((url, idx) => {
-            const clipMeta = meta?.clips?.[idx] || {};
-            const mediaType = resolveStoryClipType(String(url), clipMeta);
-            const thumbnailUrl = resolveStoryClipThumbnailUrl(story, idx, clipMeta);
-            const fallbackAudio =
-              clipMeta.audio ?? meta?.audio ?? story?.audio ?? story?.song ?? story?.music ?? null;
-            return {
-              ...clipMeta,
-              audio: fallbackAudio,
-              duration: resolveStoryDurationMs({ ...clipMeta, type: mediaType }),
-              thumbnail: thumbnailUrl,
-              id: `${story.id}_${idx}`,
-              storyId: story.id,
-              type: mediaType,
-              uri: String(url).trim(),
-              timestamp: ts,
-              seen: false,
-              views: [],
-              likes: [],
-              comments: [],
-            };
-          });
-        }),
+        stories: userStoriesRaw.flatMap(story => mapApiStoryRowToClips(story)),
       };
 
       const userStoriesMap = new Map();
@@ -1804,31 +1769,7 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
           userStory.user?.username ||
           t('stories.unknownUser');
         const userImage = userStory.user?.image || '';
-        const ts = new Date(userStory.createdAt || userStory.updatedAt || Date.now()).getTime();
-        const followingMeta = parseStoryMeta(userStory.storyMeta);
-
-        const storyObjects = (userStory.media || []).map((url, idx) => {
-          const clipMeta = followingMeta?.clips?.[idx] || {};
-          const mediaType = resolveStoryClipType(String(url), clipMeta);
-          const thumbnailUrl = resolveStoryClipThumbnailUrl(userStory, idx, clipMeta);
-          const fallbackAudio =
-            clipMeta.audio ?? followingMeta?.audio ?? userStory?.audio ?? userStory?.song ?? userStory?.music ?? null;
-          return {
-            ...clipMeta,
-            audio: fallbackAudio,
-            duration: resolveStoryDurationMs({ ...clipMeta, type: mediaType }),
-            thumbnail: thumbnailUrl,
-            id: `${userStory.id}_${idx}`,
-            storyId: userStory.id,
-            type: mediaType,
-            uri: String(url).trim(),
-            timestamp: ts,
-            seen: false,
-            views: [],
-            likes: [],
-            comments: [],
-          };
-        });
+        const storyObjects = mapApiStoryRowToClips(userStory);
 
         if (userStoriesMap.has(userId)) {
           userStoriesMap.get(userId).stories.push(...storyObjects);
@@ -2117,6 +2058,7 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
     });
     formData.append('storyMeta', JSON.stringify(buildStoryMetaPayload(clips)));
     await appendStoryAudioFiles(formData, clips);
+    appendStoryThumbnailFiles(formData, clips);
 
     const response = await retryWithBackoff(() =>
       Promise.race([
@@ -2137,6 +2079,7 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
               id: `story_${Date.now()}_${Math.random()}`,
               type: item.isVideo ? 'video' : 'image',
               uri: item.processedUri || item.original.uri,
+              thumbnail: resolveClipThumbnailUri(item),
               audio: item.audio || { mode: 'original' },
               audioTrim: item.audioTrim || { start: 0, end: null },
               trim: item.trim || { start: 0, end: null },
@@ -2168,7 +2111,8 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
 
   const handleComposerDone = async (processedArray) => {
     try {
-      const clips = await prepareStoryClipsAudioForUpload(processedArray);
+      const withAudio = await prepareStoryClipsAudioForUpload(processedArray);
+      const clips = await prepareStoryClipThumbnails(withAudio);
       await saveUploadState(clips);
       uploadStoryInBackground(clips);
       setComposerVisible(false);
@@ -2494,7 +2438,7 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
         ownerProfileImage={profileImage}
         onDrawerClose={onDrawerClose}
         onOpenUserProfile={handleOpenStoryUserProfile}
-        currentUserId={currentUserId}        // ← add this
+        currentUserId={currentUserId}        // ΓåÉ add this
       />
 
       <StoryComposer
@@ -2505,14 +2449,25 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
       />
 
       {isUploadingStory && (
-        <View style={{ backgroundColor: '#f5f5f5', paddingHorizontal: 16, paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#e0e0e0' }}>
+        <View style={{
+          backgroundColor: isDarkMode ? card : '#f5f5f5',
+          paddingHorizontal: 16,
+          paddingVertical: 8,
+          borderTopWidth: 1,
+          borderTopColor: border || '#e0e0e0',
+        }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
             <ActivityIndicator size={16} color="#4da3ff" style={{ marginRight: 10 }} />
-            <Text style={{ fontSize: 13, fontWeight: '600', color: '#1a1a1a' }}>
+            <Text style={[{ fontSize: 13, fontWeight: '600' }, textStyle]}>
               {t('stories.uploadingDrops')}
             </Text>
           </View>
-          <View style={{ height: 4, backgroundColor: '#e0e0e0', borderRadius: 2, overflow: 'hidden' }}>
+          <View style={{
+            height: 4,
+            backgroundColor: isDarkMode ? border : '#e0e0e0',
+            borderRadius: 2,
+            overflow: 'hidden',
+          }}>
             <Animated.View
               style={{
                 height: '100%',

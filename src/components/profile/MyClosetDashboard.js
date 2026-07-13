@@ -13,7 +13,19 @@ import { useFocusEffect } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useThemeContext } from '../../theme/ThemeContext';
-import { getMyClosetItems, getSellerOrders, getBuyerOrders } from '../../services/myCloset';
+import { useLanguage } from '../../i18n';
+import {
+  getMyClosetItems,
+  getSellerOrders,
+  getBuyerOrders,
+  getSellerDashboard,
+  getMarketplaceOverview,
+  getMyClosetMe,
+  getClosetBattlesPriority,
+  getbattlePerformance,
+} from '../../services/myCloset';
+import { useDispatch } from 'react-redux';
+import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 
 const mixWithWhite = (hex, amount = 0.88) => {
   const normalized = String(hex || '').replace('#', '');
@@ -35,38 +47,131 @@ const withAlpha = (hex, alpha = 0.12) => {
   return `rgba(${r},${g},${b},${alpha})`;
 };
 
-const nestedSurface = (isDarkMode, accent, border) =>
+const nestedSurface = (isDarkMode, accent) =>
   isDarkMode ? withAlpha(accent, 0.14) : mixWithWhite(accent, 0.92);
 
-const statCards = [
-  { key: 'views', label: 'Views', value: '245', delta: '+18%', icon: 'eye-outline' },
-  { key: 'likes', label: 'Likes', value: '32', delta: '+12%', icon: 'heart-outline' },
-  { key: 'orders', label: 'Orders', value: '3', delta: '+50%', icon: 'bag-outline' },
-  { key: 'revenue', label: 'Revenue', value: '$210', delta: '+22%', icon: 'cash-outline' },
-];
+// Formats a raw percent number (e.g. -100, 18, 0) into a signed display string ("+18%", "-100%", "0%").
+// Returns null when there is no meaningful value yet, so the UI can hide the delta pill.
+const formatDelta = percent => {
+  if (percent == null || Number.isNaN(Number(percent))) return null;
+  const value = Number(percent);
+  if (value === 0) return '0%';
+  return `${value > 0 ? '+' : ''}${value}%`;
+};
 
-const overviewCards = [
-  { key: 'items', label: 'Items', value: '12' },
-  { key: 'sold', label: 'Sold', value: '8' },
-  { key: 'earnings', label: 'Earnings', value: '$1,250' },
-  { key: 'rating', label: 'Rating', value: '4.8' },
-];
+// data here is the /dashboard/marketPlaceOverview payload:
+// { viewsCount, likesCount, ordersCount, revenue, previousPeriod, changes }
+const buildStatCards = (data, t) => ([
+  {
+    key: 'views',
+    label: t('myClosetDashboard.stats.views'),
+    value: String(data?.viewsCount ?? 0),
+    delta: formatDelta(data?.changes?.viewsPercent),
+    icon: 'eye-outline',
+  },
+  {
+    key: 'likes',
+    label: t('myClosetDashboard.stats.likes'),
+    value: String(data?.likesCount ?? 0),
+    delta: formatDelta(data?.changes?.likesPercent),
+    icon: 'heart-outline',
+  },
+  {
+    key: 'orders',
+    label: t('myClosetDashboard.stats.orders'),
+    value: String(data?.ordersCount ?? 0),
+    delta: formatDelta(data?.changes?.ordersPercent),
+    icon: 'bag-outline',
+  },
+  {
+    key: 'revenue',
+    label: t('myClosetDashboard.stats.revenue'),
+    value: `$${Number(data?.revenue ?? 0).toFixed(0)}`,
+    delta: formatDelta(data?.changes?.revenuePercent),
+    icon: 'cash-outline',
+  },
+]);
 
-const battleStats = [
-  { key: 'entered', label: 'Battles Entered', value: '5', icon: 'trophy-outline' },
-  { key: 'votes', label: 'Total Votes', value: '125', icon: 'people-outline' },
-  { key: 'winrate', label: 'Win Rate', value: '62%', icon: 'trending-up-outline' },
-  { key: 'topranked', label: 'Top Ranked', value: '2', icon: 'navigate-circle-outline' },
-  { key: 'battleviews', label: 'Battle Views', value: '860', icon: 'eye-outline' },
-];
+// This still comes from the general /dashboard endpoint (totalItems/sold/rating aren't
+// part of the marketplace overview by-range payload).
+const buildOverviewCards = (data, t) => ([
+  { key: 'items', label: t('myClosetDashboard.overview.items'), value: String(data?.totalItems ?? 0) },
+  { key: 'sold', label: t('myClosetDashboard.overview.sold'), value: String(data?.sold ?? 0) },
+  { key: 'earnings', label: t('myClosetDashboard.overview.earnings'), value: `$${Number(data?.revenue ?? 0).toFixed(0)}` },
+  // { key: 'rating', label: t('myClosetDashboard.overview.rating'), value: data?.rating != null ? String(data.rating) : '—' },
+]);
 
-const ORDER_STATUS_META = {
-  pending: { label: 'To ship', color: '#7c3aed' },
-  confirmed: { label: 'Confirmed', color: '#0891b2' },
-  processing: { label: 'Processing', color: '#d97706' },
-  shipped: { label: 'Shipped', color: '#2563eb' },
-  delivered: { label: 'Delivered', color: '#16a34a' },
-  cancelled: { label: 'Cancelled', color: '#dc2626' },
+const buildBattleStats = (data, t) => ([
+  { key: 'created', label: t('myClosetDashboard.battle.created'), value: String(data?.totalBattlesCreated ?? 0), icon: 'trophy-outline' },
+  { key: 'votes', label: t('myClosetDashboard.battle.votes'), value: String(data?.totalVotes ?? 0), icon: 'people-outline' },
+  { key: 'views', label: t('myClosetDashboard.battle.views'), value: String(data?.totalViews ?? 0), icon: 'eye-outline' },
+]);
+
+const unwrapBattlePriorityResponse = source => {
+  const root = source?.data?.data ?? source?.data ?? source;
+  const battles = root?.battles ?? root?.data?.battles ?? root?.items ?? root ?? [];
+  return Array.isArray(battles) ? battles : [];
+};
+
+const formatCurrency = value => {
+  if (value == null || value === '') return '$0.00';
+  const textValue = String(value).trim();
+  if (textValue.startsWith('$')) return textValue;
+  const numericValue = Number(textValue);
+  return Number.isNaN(numericValue) ? textValue : `$${numericValue.toFixed(0)}`;
+};
+
+const normalizePriorityBattle = battle => {
+  const participants = Array.isArray(battle?.participants) ? [...battle.participants] : [];
+  participants.sort((a, b) => Number(a?.position ?? 0) - Number(b?.position ?? 0));
+  const [left, right] = participants;
+  const winnerParticipant = participants.find(participant => participant?.isWinner) || null;
+  const winnerProduct = battle?.winner?.product ?? battle?.winner?.item ?? winnerParticipant?.product ?? null;
+  const primaryProduct = winnerProduct || left?.product || right?.product || null;
+
+  return {
+    id: String(battle?.id || battle?._id || ''),
+    title: battle?.title || 'Pinned Item',
+    price: formatCurrency(primaryProduct?.price ?? battle?.price ?? 0),
+    image: primaryProduct?.images?.[0] || primaryProduct?.image || null,
+    badge: battle?.hasWinnerBadge ? 'Winner' : null,
+    promoLabel: battle?.hasTenPercentOffPromotion
+      ? '10% OFF + 2 GM'
+      : battle?.hasFreeShippingPromotion
+        ? 'Free Shipping'
+        : null,
+    pinLabel: battle?.isPinnedOnTop ? 'Pin' : null,
+    raw: battle,
+  };
+};
+
+const navigateToBattleList = (navigation, closetId) => {
+  navigation?.navigate?.('ProfileMain', {
+    screen: 'MyClosetBattles',
+    params: {
+      ...(closetId ? { closetId } : {}),
+      isOwnProfile: true,
+      returnTo: { tab: 'wallet', screen: 'Shop' },
+    },
+  });
+};
+
+const ORDER_STATUS_KEYS = {
+  pending: 'myClosetDashboard.orderStatus.pending',
+  confirmed: 'myClosetDashboard.orderStatus.confirmed',
+  processing: 'myClosetDashboard.orderStatus.processing',
+  shipped: 'myClosetDashboard.orderStatus.shipped',
+  delivered: 'myClosetDashboard.orderStatus.delivered',
+  cancelled: 'myClosetDashboard.orderStatus.cancelled',
+};
+
+const ORDER_STATUS_COLORS = {
+  pending: '#7c3aed',
+  confirmed: '#0891b2',
+  processing: '#d97706',
+  shipped: '#2563eb',
+  delivered: '#16a34a',
+  cancelled: '#dc2626',
 };
 
 const normalizeOrderStatus = raw => {
@@ -85,53 +190,104 @@ const formatOrderPrice = value => {
   return Number.isNaN(numericValue) ? textValue : `$${numericValue.toFixed(2)}`;
 };
 
+const unwrapOrderImage = item =>
+  item?.productImage ||
+  item?.product?.images?.[0] ||
+  item?.product?.image ||
+  item?.image ||
+  item?.thumbnail ||
+  null;
+
 const getOrderThumbImage = order =>
+  order?.items?.[0]?.productImage ||
+  order?.items?.[0]?.product?.images?.[0] ||
+  order?.items?.[0]?.product?.image ||
+  order?.items?.[0]?.image ||
   order?.item?.images?.[0] ||
   order?.item?.image ||
   order?.product?.images?.[0] ||
   order?.image ||
   null;
 
-const getOrderDisplayName = order => {
+const getOrderDisplayName = (order, t) => {
   if (order?.item?.name || order?.item?.title) return order.item.name || order.item.title;
   if (order?.product?.name) return order.product.name;
   if (order?.itemName) return order.itemName;
   const count = order?.totalItemCount;
-  if (count) return `${count} item${count === 1 ? '' : 's'}`;
-  return 'Order item';
+  if (count) return t('myClosetDashboard.orderItemsCount', { count });
+  return t('myClosetDashboard.orderItemFallback');
 };
 
 const getOrderAmount = order =>
   order?.totalAmount ?? order?.amount ?? order?.price ?? order?.item?.price ?? 0;
 
-const normalizeBuyerOrder = (order, index) => {
+const normalizeBuyerOrder = (order, index, t) => {
   const status = normalizeOrderStatus(order?.orderStatus ?? order?.status);
-  const meta = ORDER_STATUS_META[status];
+  const items = Array.isArray(order?.items) ? order.items : [];
+  const primaryItem = items[0] || order?.item || order?.product || null;
+  const itemCount = Number(order?.totalItemCount ?? items.length ?? 0);
   return {
     key: String(order?.id || order?._id || index),
     id: order?.id || order?._id,
-    name: getOrderDisplayName(order),
-    order: `Order #${order?.orderNumber || order?.orderId || order?.id || order?._id || index + 1}`,
+    name: getOrderDisplayName(order, t),
+    buyerName: order?.buyerName || order?.buyer?.username || order?.buyer?.userName || t('myClosetDashboard.buyer'),
+    order: t('myClosetDashboard.orderNumber', {
+      number: order?.orderNumber || order?.orderId || order?.id || order?._id || index + 1,
+    }),
+    orderNumber: order?.orderNumber || order?.orderId || order?.id || order?._id || index + 1,
     price: formatOrderPrice(getOrderAmount(order)),
-    status: meta.label,
-    statusColor: meta.color,
+    totalAmount: formatOrderPrice(order?.totalAmount ?? order?.amount ?? order?.total),
+    status: t(ORDER_STATUS_KEYS[status]),
+    statusKey: status,
+    statusColor: ORDER_STATUS_COLORS[status],
     image: getOrderThumbImage(order),
+    createdAt: order?.createdAt || order?.created_at || null,
+    totalItemCount: itemCount,
+    firstItem: primaryItem,
+    itemImages: items.map(unwrapOrderImage).filter(Boolean),
+    rawItems: items,
     raw: order,
   };
 };
 
 const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
+  const { t } = useLanguage();
   const [storedUsername, setStoredUsername] = useState('');
   const [closetItems, setClosetItems] = useState([]);
+  const [shopName, setShopName] = useState('');
+  const [shopHandle, setShopHandle] = useState('');
+  const [closetId, setClosetId] = useState(null);
   const [itemsLoading, setItemsLoading] = useState(false);
   const [recentOrders, setRecentOrders] = useState([]);            // Seller: orders received
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [buyerOrders, setBuyerOrders] = useState([]);         // Buyer: orders placed
+  const [dashboardData, setDashboardData] = useState(null);
+  const [dashboardLoading, setDashboardLoading] = useState(false);
   const [buyerOrdersLoading, setBuyerOrdersLoading] = useState(false);
-  const { bgStyle, textStyle, accent, cardStyle, border, mutedText, mutedTextStyle } = useAppTheme(userData?.profile);
+
+  // Marketplace overview (views/likes/orders/revenue by range) — GET /dashboard/marketPlaceOverview
+  const [overviewRange, setOverviewRange] = useState('weekly'); // 'weekly' | 'monthly'
+  const [marketplaceOverview, setMarketplaceOverview] = useState(null);
+  const [marketplaceLoading, setMarketplaceLoading] = useState(false);
+  const [battlePerformance, setBattlePerformance] = useState(null);
+  const [battlePerformanceLoading, setBattlePerformanceLoading] = useState(false);
+  const [priorityBattles, setPriorityBattles] = useState([]);
+  const [priorityBattlesLoading, setPriorityBattlesLoading] = useState(false);
+
+  const {
+    bgStyle,
+    textStyle,
+    accent,
+    cardStyle,
+    border,
+    mutedText,
+    mutedTextStyle,
+  } = useAppTheme(userData?.profile);
   const { isDarkMode } = useThemeContext();
-  const labelColor = isDarkMode ? '#ffffff' : '#111827';
-  const surface = nestedSurface(isDarkMode, accent, border);
+  const surface = nestedSurface(isDarkMode, accent);
+  const battleStats = useMemo(() => buildBattleStats(battlePerformance, t), [battlePerformance, t]);
+
+  const dispatch = useDispatch();
 
   useEffect(() => {
     let isMounted = true;
@@ -165,14 +321,14 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
             ? payload.data
             : [];
 
-      setRecentOrders(list.slice(0, 3).map(normalizeBuyerOrder));
+      setRecentOrders(list.slice(0, 3).map((order, index) => normalizeBuyerOrder(order, index, t)));
     } catch (error) {
       console.warn('Unable to load recent orders:', error);
       setRecentOrders([]);
     } finally {
       setOrdersLoading(false);
     }
-  }, []);
+  }, [t]);
 
   const loadBuyerOrders = useCallback(async () => {
     setBuyerOrdersLoading(true);
@@ -192,22 +348,81 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
             ? payload.data
             : [];
 
-      setBuyerOrders(list.slice(0, 3).map(normalizeBuyerOrder));
+      setBuyerOrders(list.slice(0, 3).map((order, index) => normalizeBuyerOrder(order, index, t)));
     } catch (error) {
       console.warn('Unable to load buyer orders:', error);
       setBuyerOrders([]);
     } finally {
       setBuyerOrdersLoading(false);
     }
+  }, [t]);
+
+  const loadDashboard = useCallback(async () => {
+    setDashboardLoading(true);
+    try {
+      const response = await getSellerDashboard();
+      const data = response?.data?.data ?? response?.data ?? response;
+      setDashboardData(data);
+    } catch (error) {
+      console.warn('Unable to load dashboard stats:', error);
+      setDashboardData(null);
+    } finally {
+      setDashboardLoading(false);
+    }
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      loadClosetItems();
-      loadRecentOrders();
-      loadBuyerOrders();
-    }, [loadClosetItems, loadRecentOrders, loadBuyerOrders]),
-  );
+  // Fetches GET /dashboard/marketPlaceOverview?range=weekly|monthly
+  const loadMarketplaceOverview = useCallback(async range => {
+    setMarketplaceLoading(true);
+    try {
+      const response = await getMarketplaceOverview(range);
+      const data = response?.data?.data ?? response?.data ?? response;
+      setMarketplaceOverview(data);
+    } catch (error) {
+      console.warn('Unable to load marketplace overview:', error);
+      setMarketplaceOverview(null);
+    } finally {
+      setMarketplaceLoading(false);
+    }
+  }, []);
+
+  const loadBattlePerformance = useCallback(async () => {
+    setBattlePerformanceLoading(true);
+    try {
+      const response = await getbattlePerformance();
+      const data = response?.data?.data ?? response?.data ?? response;
+      setBattlePerformance(data);
+    } catch (error) {
+      console.warn('Unable to load battle performance:', error);
+      setBattlePerformance(null);
+    } finally {
+      setBattlePerformanceLoading(false);
+    }
+  }, []);
+
+  const resolvedClosetId = closetId || userData?.closetId || userData?.myClosetId || userData?.closet?.id || userData?.closet?._id;
+
+  const loadPriorityBattles = useCallback(async () => {
+    if (!resolvedClosetId) {
+      setPriorityBattles([]);
+      return;
+    }
+
+    setPriorityBattlesLoading(true);
+    try {
+      const response = await getClosetBattlesPriority(resolvedClosetId, { page: 1, limit: 10 });
+      const battles = unwrapBattlePriorityResponse(response)
+        .filter(battle => battle?.isPinnedOnTop)
+        .map(normalizePriorityBattle)
+        .filter(battle => battle.id);
+      setPriorityBattles(battles);
+    } catch (error) {
+      console.warn('Unable to load closet battle priority:', error);
+      setPriorityBattles([]);
+    } finally {
+      setPriorityBattlesLoading(false);
+    }
+  }, [closetId, userData?.closetId, userData?.myClosetId, userData?.closet?.id, userData?.closet?._id]);
 
   const loadClosetItems = useCallback(async () => {
     setItemsLoading(true);
@@ -236,26 +451,44 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
     }
   }, []);
 
-  const shopName = useMemo(
-    () =>
-      shopDraft?.shopName ||
-      userData?.businessName ||
-      userData?.companyProfile?.businessName ||
-      storedUsername ||
-      userData?.displayName ||
-      'My Closet',
-    [shopDraft?.shopName, storedUsername, userData?.businessName, userData?.companyProfile?.businessName, userData?.displayName],
+  const checkShopState = async () => {
+    dispatch(showLoader());
+    try {
+      const response = await getMyClosetMe();
+      const data = response?.data?.data ?? response?.data ?? {};
+      setShopName(data?.shopName);
+      setShopHandle(data?.shopUsername);
+      setClosetId(data?.closetId ?? data?.id ?? data?._id ?? data?.closet?.id ?? data?.closet?._id ?? null);
+    } catch (error) {
+      console.warn('Unable to load closet items:', error);
+    } finally {
+      dispatch(hideLoader());
+    }
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      checkShopState();
+      loadClosetItems();
+      loadRecentOrders();
+      loadBuyerOrders();
+      loadDashboard();
+      loadMarketplaceOverview(overviewRange);
+      loadBattlePerformance();
+    }, [loadClosetItems, loadRecentOrders, loadBuyerOrders, loadDashboard, loadMarketplaceOverview, loadBattlePerformance, overviewRange]),
   );
 
-  const shopHandle = useMemo(
-    () =>
-      shopDraft?.username ||
-      userData?.userName ||
-      userData?.username ||
-      storedUsername ||
-      'grazielascloset',
-    [shopDraft?.username, storedUsername, userData?.userName, userData?.username],
-  );
+  useEffect(() => {
+    if (!closetId) return;
+    loadPriorityBattles();
+  }, [closetId, loadPriorityBattles]);
+
+  const statCards = useMemo(() => buildStatCards(marketplaceOverview, t), [marketplaceOverview, t]);
+  const overviewCards = useMemo(() => buildOverviewCards(dashboardData, t), [dashboardData, t]);
+
+  const handleToggleRange = () => {
+    setOverviewRange(prev => (prev === 'weekly' ? 'monthly' : 'weekly'));
+  };
 
   const avatarUri =
     shopDraft?.logo?.uri ||
@@ -281,16 +514,19 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
     });
   };
 
+  // sellerId is threaded through to CreateBattleScreen so it can call
+  // GET /mycloset/items?userId=... for the right seller's closet.
   const handleCreateBattlePress = () => {
     navigation?.navigate?.('ProfileMain', {
       screen: 'CreateBattle', // same — must exist in ProfileStack
+      params: {
+        sellerId: userData?.id || userData?._id,
+      },
     });
   };
 
   const handleViewAllBattles = () => {
-    navigation?.navigate?.('ProfileMain', {
-      screen: 'MyBattles', // make sure this is registered in ProfileStack
-    });
+    navigateToBattleList(navigation, resolvedClosetId);
   };
 
   const handleViewAllItems = () => {
@@ -305,6 +541,16 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
       screen: 'MyClosetOrders',
       params: { viewType: 'seller' },
     });
+  };
+
+  const handleOpenAnalytics = () => {
+    navigation?.navigate?.('wallet', {
+      screen: 'MarketplaceAnalytics',
+    });
+  };
+
+  const handleOpenEarnings = () => {
+    navigation?.navigate?.('MyClosetEarnings');
   };
 
   const handleOpenOrder = order => {
@@ -332,6 +578,7 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
         orderId: order.raw?.id || order.raw?._id || order.id,
         orderPreview: order.raw,
         viewType: 'buyer',
+        returnTo: 'MyClosetDashboard'
       },
     });
   };
@@ -349,10 +596,12 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
 
   const displayItems = closetItems.slice(0, 6).map((item, index) => ({
     key: String(item?.id || item?._id || index),
-    name: item?.name || item?.title || item?.itemName || 'Untitled item',
+    name: item?.name || item?.title || item?.itemName || t('myClosetDashboard.untitledItem'),
     price: formatPrice(item?.price ?? item?.amount ?? item?.salePrice),
     image: getItemImage(item),
   }));
+  const pinnedItems = priorityBattles.slice(0, 3);
+  const showPinnedViewAll = priorityBattles.length > pinnedItems.length;
 
   return (
     <ScrollView
@@ -376,7 +625,7 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
             </View>
             <View style={styles.heroMeta}>
               <Text style={[styles.heroTitle, textStyle]}>{shopName}</Text>
-              <Text style={[styles.heroHandle, mutedTextStyle]}>valens.app/{String(shopHandle).toLowerCase()}</Text>
+              <Text style={[styles.heroHandle, mutedTextStyle]}>valens.app/{String(shopHandle).toLowerCase().replace(/\s+/g, '')}</Text>
             </View>
           </View>
           <TouchableOpacity
@@ -384,7 +633,7 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
             onPress={handleSharePress}
             style={[styles.shareButton, { borderColor: withAlpha(accent, 0.35) }]}
           >
-            <Text style={[styles.shareButtonText, { color: accent }]}>Share Shop</Text>
+            <Text style={[styles.shareButtonText, { color: accent }]}>{t('myClosetDashboard.shareShop')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -392,12 +641,18 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
         <View style={styles.heroStatsRow}>
           {overviewCards.map((card, idx) => (
             <React.Fragment key={card.key}>
-              <View style={styles.heroStatItem}>
-                <Text style={[styles.heroStatValue, textStyle]}>{card.value}</Text>
-                <Text style={[styles.heroStatLabel, mutedTextStyle]}>{card.label}</Text>
-              </View>
+              <TouchableOpacity
+                activeOpacity={card.key === 'earnings' ? 0.8 : 1}
+                onPress={card.key === 'earnings' ? handleOpenEarnings : undefined}
+                style={card.key === 'earnings' ? styles.heroStatTouchable : undefined}
+              >
+                <View style={styles.heroStatItem}>
+                  <Text style={[styles.heroStatValue, textStyle]}>{card.value}</Text>
+                  <Text style={[styles.heroStatLabel, mutedTextStyle]}>{card.label}</Text>
+                </View>
+              </TouchableOpacity>
               {idx < overviewCards.length - 1 && (
-                <View style={[styles.heroStatDivider, { backgroundColor: border }]} />
+                <View style={[styles.heroStatDivider, { backgroundColor: withAlpha(accent, 0.12) }]} />
               )}
             </React.Fragment>
           ))}
@@ -407,28 +662,114 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
         <View style={[styles.liveBanner, { backgroundColor: withAlpha(accent, 0.12) }]}>
           <Ionicons name="bag-handle-outline" size={16} color={accent} />
           <Text style={[styles.liveBannerText, textStyle]}>
-            Your shop is live! 🎉{'  '}
-            <Text style={[styles.liveBannerSub, mutedTextStyle]}>Keep adding items and grow your closet.</Text>
+            {t('myClosetDashboard.liveBannerTitle')}{'  '}
+            <Text style={[styles.liveBannerSub, mutedTextStyle]}>{t('myClosetDashboard.liveBannerSubtitle')}</Text>
           </Text>
         </View>
       </View>
 
-      {/* ── Overview (this week) ── */}
+      {/* ── Pinned Item ── */}
+      {(priorityBattlesLoading || pinnedItems.length > 0) && (
+        <View style={[styles.pinnedSection, cardStyle, { borderColor: border }]}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, textStyle]}>{t('myClosetDashboard.pinnedItemTitle') || 'Pinned Item'}</Text>
+            {showPinnedViewAll && (
+              <TouchableOpacity activeOpacity={0.8} onPress={() => navigateToBattleList(navigation, resolvedClosetId)}>
+                <Text style={[styles.sectionMeta, mutedTextStyle]}>{t('myClosetDashboard.viewAllPinned')} ›</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          {priorityBattlesLoading && pinnedItems.length === 0 ? (
+            <View style={styles.itemsLoadingWrap}>
+              <ActivityIndicator color={accent} />
+            </View>
+          ) : (
+            pinnedItems.map(item => (
+              <View key={item.id} style={styles.pinnedCard}>
+                <View style={styles.pinnedThumbWrap}>
+                  {item.image ? (
+                    <Image source={{ uri: item.image }} style={styles.pinnedThumb} />
+                  ) : (
+                    <View style={[styles.pinnedThumb, styles.pinnedThumbPlaceholder]}>
+                      <Ionicons name="shirt-outline" size={26} color={accent} />
+                    </View>
+                  )}
+                </View>
+
+                <View style={styles.pinnedBody}>
+                  <View style={styles.pinnedTopRow}>
+                    <Text style={[styles.pinnedTitle, textStyle]} numberOfLines={1}>{item.title}</Text>
+                    {item.badge ? (
+                      <View style={styles.winnerBadge}>
+                        <Text style={styles.winnerBadgeText}>🏆 {item.badge}</Text>
+                      </View>
+                    ) : null}
+                  </View>
+
+                  <Text style={[styles.pinnedPrice, textStyle]}>{item.price}</Text>
+
+                  <View style={styles.pinnedBottomRow}>
+                    {item.promoLabel ? (
+                      <View style={styles.promoPill}>
+                        <Text style={styles.promoPillText}>{item.promoLabel}</Text>
+                      </View>
+                    ) : <View />}
+
+                    {item.pinLabel ? (
+                      <View style={styles.pinPill}>
+                        <Ionicons name="pin-outline" size={14} color={accent} />
+                        <Text style={[styles.pinPillText, { color: accent }]}>{item.pinLabel}</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                </View>
+              </View>
+            ))
+          )}
+        </View>
+      )}
+
+      {/* ── Overview (by range) ── */}
       <View style={[styles.sectionCard, cardStyle, { borderColor: border }]}>
         <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, textStyle]}>Overview</Text>
-          <Text style={[styles.sectionMeta, mutedTextStyle]}>This week ▾</Text>
+          <Text style={[styles.sectionTitle, textStyle]}>{t('myClosetDashboard.overviewTitle')}</Text>
+          <TouchableOpacity activeOpacity={0.8} onPress={handleOpenAnalytics}>
+            <Text style={[styles.sectionMeta, mutedTextStyle]}>{t('myClosetDashboard.viewAll')} ›</Text>
+          </TouchableOpacity>
         </View>
 
+        <TouchableOpacity activeOpacity={0.8} onPress={handleToggleRange} style={{ marginBottom: 12 }}>
+          <Text style={[styles.sectionMeta, mutedTextStyle]}>
+            {overviewRange === 'weekly' ? t('myClosetDashboard.thisWeek') : t('myClosetDashboard.thisMonth')} ▾
+          </Text>
+        </TouchableOpacity>
+
         <View style={styles.quickGrid}>
-          {statCards.map(card => (
-            <View key={card.key} style={[styles.quickCard, { backgroundColor: surface }]}>
-              <Ionicons name={card.icon} size={18} color={accent} />
-              <Text style={[styles.quickValue, textStyle]}>{card.value}</Text>
-              <Text style={[styles.quickLabel, mutedTextStyle]}>{card.label}</Text>
-              <Text style={styles.quickDelta}>↑ {card.delta}</Text>
+          {marketplaceLoading ? (
+            <View style={styles.itemsLoadingWrap}>
+              <ActivityIndicator color={accent} />
             </View>
-          ))}
+          ) : (
+            <View style={styles.quickGrid}>
+              {statCards.map(card => (
+                <View key={card.key} style={[styles.quickCard, { backgroundColor: surface }]}>
+                  <Ionicons name={card.icon} size={18} color={accent} />
+                  <Text style={[styles.quickValue, textStyle]}>{card.value}</Text>
+                  <Text style={[styles.quickLabel, mutedTextStyle]}>{card.label}</Text>
+                  {card.delta != null && (
+                    <Text
+                      style={[
+                        styles.quickDelta,
+                        { color: card.delta.startsWith('-') ? '#dc2626' : '#16a34a' },
+                      ]}
+                    >
+                      {card.delta}
+                    </Text>
+                  )}
+                </View>
+              ))}
+            </View>
+          )}
         </View>
       </View>
 
@@ -437,11 +778,11 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
         <View style={styles.sectionHeader}>
           <View style={styles.rowCenter}>
             <Ionicons name="flame-outline" size={16} color={accent} style={{ marginRight: 5 }} />
-            <Text style={[styles.sectionTitle, textStyle]}>Battle Performance</Text>
+            <Text style={[styles.sectionTitle, textStyle]}>{t('myClosetDashboard.battlePerformanceTitle')}</Text>
             <Ionicons name="information-circle-outline" size={14} color={mutedText} style={{ marginLeft: 4 }} />
           </View>
           <TouchableOpacity activeOpacity={0.8} onPress={handleViewAllBattles}>
-            <Text style={[styles.sectionMeta, mutedTextStyle]}>View all battles</Text>
+            <Text style={[styles.sectionMeta, mutedTextStyle]}>{t('myClosetDashboard.viewAllBattles')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -457,11 +798,11 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
       </View>
 
       {/* ── Seller Order History (orders you've received) ── */}
-      <View style={[styles.sectionCard, cardStyle, { borderColor: withAlpha(accent, 0.12) }]}>
+      <View style={[styles.sectionCard, cardStyle, { borderColor: border }]}>
         <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, textStyle]}>Orders — As a Seller</Text>
+          <Text style={[styles.sectionTitle, textStyle]}>{t('myClosetDashboard.sellerOrdersTitle')}</Text>
           <TouchableOpacity activeOpacity={0.8} onPress={handleViewAllOrders}>
-            <Text style={[styles.sectionMeta, mutedTextStyle]}>View all ›</Text>
+            <Text style={[styles.sectionMeta, mutedTextStyle]}>{t('myClosetDashboard.viewAll')} ›</Text>
           </TouchableOpacity>
         </View>
 
@@ -488,33 +829,38 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
                 <View style={styles.itemCopy}>
                   <Text style={[styles.itemName, textStyle]} numberOfLines={1}>{item.name}</Text>
                   <Text style={[styles.itemOrder, mutedTextStyle]}>{item.order}</Text>
+                  <Text style={[styles.itemMeta, mutedTextStyle]} numberOfLines={1}>
+                    {item.buyerName}
+                    {item.createdAt ? ` • ${new Date(item.createdAt).toLocaleDateString()}` : ''}
+                  </Text>
                 </View>
                 <View style={styles.orderRight}>
                   <View style={[styles.statusBadge, { backgroundColor: `${item.statusColor}18` }]}>
                     <Text style={[styles.statusText, { color: item.statusColor }]}>{item.status}</Text>
                   </View>
-                  <Text style={[styles.orderPrice, textStyle]}>{item.price}</Text>
+                  <Text style={[styles.orderPrice, textStyle]}>{item.totalAmount}</Text>
+                  <Text style={[styles.orderCount, mutedTextStyle]}>{item.totalItemCount} item{item.totalItemCount === 1 ? '' : 's'}</Text>
                 </View>
               </TouchableOpacity>
             ))}
           </View>
         ) : (
-          <View style={styles.emptyItemsCard}>
+          <View style={[styles.emptyItemsCard, { borderColor: border }]}>
             <Ionicons name="bag-outline" size={24} color={accent} />
-            <Text style={[styles.emptyItemsText, textStyle]}>No orders yet</Text>
+            <Text style={[styles.emptyItemsText, textStyle]}>{t('myClosetDashboard.noOrdersYet')}</Text>
           </View>
         )}
       </View>
 
       {/* ── Buyer Order History (orders you've placed) ── */}
-      <View style={[styles.sectionCard, cardStyle, { borderColor: withAlpha(accent, 0.12) }]}>
+      <View style={[styles.sectionCard, cardStyle, { borderColor: border }]}>
         <View style={styles.sectionHeader}>
           <View style={styles.rowCenter}>
             <Ionicons name="cart-outline" size={16} color={accent} style={{ marginRight: 5 }} />
-            <Text style={[styles.sectionTitle, textStyle]}>Orders — As a Buyer</Text>
+            <Text style={[styles.sectionTitle, textStyle]}>{t('myClosetDashboard.buyerOrdersTitle')}</Text>
           </View>
           <TouchableOpacity activeOpacity={0.8} onPress={handleViewAllBuyerOrders}>
-            <Text style={[styles.sectionMeta, mutedTextStyle]}>View all ›</Text>
+            <Text style={[styles.sectionMeta, mutedTextStyle]}>{t('myClosetDashboard.viewAll')} ›</Text>
           </TouchableOpacity>
         </View>
 
@@ -541,20 +887,25 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
                 <View style={styles.itemCopy}>
                   <Text style={[styles.itemName, textStyle]} numberOfLines={1}>{item.name}</Text>
                   <Text style={[styles.itemOrder, mutedTextStyle]}>{item.order}</Text>
+                  <Text style={[styles.itemMeta, mutedTextStyle]} numberOfLines={1}>
+                    {/* {item.buyerName} */}
+                    {item.createdAt ? ` ${new Date(item.createdAt).toLocaleDateString()}` : ''}
+                  </Text>
                 </View>
                 <View style={styles.orderRight}>
                   <View style={[styles.statusBadge, { backgroundColor: `${item.statusColor}18` }]}>
                     <Text style={[styles.statusText, { color: item.statusColor }]}>{item.status}</Text>
                   </View>
-                  <Text style={[styles.orderPrice, textStyle]}>{item.price}</Text>
+                  <Text style={[styles.orderPrice, textStyle]}>{item.totalAmount}</Text>
+                  <Text style={[styles.orderCount, mutedTextStyle]}>{item.totalItemCount} item{item.totalItemCount === 1 ? '' : 's'}</Text>
                 </View>
               </TouchableOpacity>
             ))}
           </View>
         ) : (
-          <View style={styles.emptyItemsCard}>
+          <View style={[styles.emptyItemsCard, { borderColor: border }]}>
             <Ionicons name="cart-outline" size={24} color={accent} />
-            <Text style={[styles.emptyItemsText, textStyle]}>No purchases yet</Text>
+            <Text style={[styles.emptyItemsText, textStyle]}>{t('myClosetDashboard.noPurchasesYet')}</Text>
           </View>
         )}
       </View>
@@ -562,9 +913,9 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
       {/* ── Your Items Grid ── */}
       <View style={[styles.sectionCard, cardStyle, { borderColor: border }]}>
         <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, textStyle]}>Your Items</Text>
+          <Text style={[styles.sectionTitle, textStyle]}>{t('myClosetDashboard.yourItemsTitle')}</Text>
           <TouchableOpacity activeOpacity={0.8} onPress={handleViewAllItems}>
-            <Text style={[styles.sectionMeta, mutedTextStyle]}>View all ›</Text>
+            <Text style={[styles.sectionMeta, mutedTextStyle]}>{t('myClosetDashboard.viewAll')} ›</Text>
           </TouchableOpacity>
         </View>
 
@@ -590,16 +941,16 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
           ) : (
             <View style={[styles.emptyItemsCard, { borderColor: border }]}>
               <Ionicons name="shirt-outline" size={24} color={accent} />
-              <Text style={[styles.emptyItemsText, textStyle]}>No items yet</Text>
+              <Text style={[styles.emptyItemsText, textStyle]}>{t('myClosetDashboard.noItemsYet')}</Text>
             </View>
           )}
 
           {/* Add New Item tile */}
           <TouchableOpacity activeOpacity={0.85} style={styles.itemGridCard} onPress={handleAddItemPress}>
-            <View style={[styles.itemGridThumb, styles.addItemThumb, { borderColor: withAlpha(accent, 0.35) }]}>
+            <View style={[styles.itemGridThumb, styles.addItemThumb, { borderColor: withAlpha(accent, 0.2) }]}>
               <Ionicons name="add" size={28} color={accent} />
             </View>
-            <Text style={[styles.itemGridName, { color: accent, fontWeight: '700' }]}>Add New Item</Text>
+            <Text style={[styles.itemGridName, { color: accent, fontWeight: '700' }]}>{t('myClosetDashboard.addNewItem')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -613,12 +964,12 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
         <View style={styles.battleCtaLeft}>
           <Ionicons name="flame" size={20} color="#fff" />
           <View style={{ marginLeft: 10 }}>
-            <Text style={styles.battleCtaTitle}>Battle Item</Text>
-            <Text style={styles.battleCtaSub}>Let your items compete and earn votes!</Text>
+            <Text style={styles.battleCtaTitle}>{t('myClosetDashboard.battleCtaTitle')}</Text>
+            <Text style={styles.battleCtaSub}>{t('myClosetDashboard.battleCtaSubtitle')}</Text>
           </View>
         </View>
         <View style={[styles.battleCtaButton, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
-          <Text style={styles.battleCtaButtonText}>Create Battle</Text>
+          <Text style={styles.battleCtaButtonText}>{t('myClosetDashboard.createBattleButton')}</Text>
         </View>
       </TouchableOpacity>
     </ScrollView>
@@ -626,7 +977,7 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: { flex: 1, marginBottom: 50 },
   content: { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 100 },
 
   // Hero
@@ -684,6 +1035,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   heroStatItem: { alignItems: 'center', flex: 1 },
+  heroStatTouchable: { flex: 1 },
   heroStatValue: { fontSize: 18, fontWeight: '800' },
   heroStatLabel: { marginTop: 2, fontSize: 12, fontWeight: '600' },
   heroStatDivider: { width: 1, height: 32 },
@@ -698,6 +1050,98 @@ const styles = StyleSheet.create({
   },
   liveBannerText: { fontSize: 13, fontWeight: '700', flex: 1 },
   liveBannerSub: { fontWeight: '500' },
+
+  pinnedSection: {
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 14,
+    marginBottom: 14,
+  },
+  pinnedCard: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#f3f4f6',
+  },
+  pinnedThumbWrap: {
+    width: 84,
+    height: 84,
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: '#f5f3ef',
+  },
+  pinnedThumb: {
+    width: '100%',
+    height: '100%',
+  },
+  pinnedThumbPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pinnedBody: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  pinnedTopRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  pinnedTitle: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  pinnedPrice: {
+    marginTop: 4,
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  winnerBadge: {
+    backgroundColor: '#fde68a',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  winnerBadgeText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#7c2d12',
+  },
+  pinnedBottomRow: {
+    marginTop: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  promoPill: {
+    backgroundColor: '#f97316',
+    borderRadius: 9,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  promoPillText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  pinPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#f5f3ff',
+    borderRadius: 9,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  pinPillText: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
 
   // Section card
   sectionCard: {
@@ -766,6 +1210,7 @@ const styles = StyleSheet.create({
   itemCopy: { flex: 1 },
   itemName: { fontSize: 14, fontWeight: '700' },
   itemOrder: { marginTop: 2, fontSize: 12, fontWeight: '500' },
+  itemMeta: { marginTop: 2, fontSize: 11, fontWeight: '500' },
   orderRight: { alignItems: 'flex-end', gap: 4 },
   statusBadge: {
     borderRadius: 20,
@@ -774,6 +1219,7 @@ const styles = StyleSheet.create({
   },
   statusText: { fontSize: 11, fontWeight: '700' },
   orderPrice: { fontSize: 13, fontWeight: '700' },
+  orderCount: { fontSize: 11, fontWeight: '600' },
 
   // Items grid
   itemsGrid: {
@@ -829,6 +1275,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     borderStyle: 'dashed',
+    borderColor: '#ddd',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
@@ -847,7 +1294,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 4,
+    marginBottom: 30,
   },
   battleCtaLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   battleCtaTitle: { color: '#fff', fontSize: 15, fontWeight: '800' },
@@ -858,6 +1305,11 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
   },
   battleCtaButtonText: { color: '#fff', fontWeight: '800', fontSize: 13 },
+  quickDelta: {
+    marginTop: 2,
+    fontSize: 11,
+    fontWeight: '600',
+  },
 });
 
 export default MyClosetDashboard;

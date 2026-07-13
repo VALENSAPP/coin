@@ -27,6 +27,7 @@ import { getAllUser } from './services/users';
 import useNotificationSetup from './utils/useNotificationSetup';
 import { requestUserPermission } from './services/NotificationService';
 import ProfileVerificationReminderModal from './components/modals/ProfileVerificationReminderModal';
+import { BASE_URL } from './config/urls';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -37,7 +38,7 @@ const LEGACY_KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShown';
 
 const linking = {
   prefixes: [
-    'https://api.valens.app',
+    BASE_URL,
     'valens://',
     'https://www.valens.app',
     'https://valens.app',
@@ -101,8 +102,7 @@ export default function Main() {
   const appState = useRef(AppState.currentState);
   const welcomeModalCloseInFlight = useRef(false);
   const lockLogoutInFlight = useRef(false);
-
-   const postSplashPermissionsRequestedRef = useRef(false);
+  const postSplashPermissionsRequestedRef = useRef(false);
 
   const requestPostSplashPermissions = React.useCallback(() => {
     if (postSplashPermissionsRequestedRef.current) return;
@@ -191,7 +191,6 @@ export default function Main() {
       ]);
 
       const response = await getUserCredentials(id);
-      console.log(response, 'fdATAresponseresponseresponseresponseresponseresponse');
       if (response?.statusCode !== 200) return;
 
       const userData = response?.data?.user || response?.data || response;
@@ -259,8 +258,10 @@ export default function Main() {
       if (lockLogoutInFlight.current) return;
 
       const response = await lockProfile();
-      console.log(response, 'llick profilee e reposneenenene')
-      const isLock = String(response?.data?.isLock ?? '').toLowerCase() === 'true';
+      console.log(response, 'lock prolfe have ')
+      const rawPayload = response?.data ?? response;
+      const isLock =
+        String(rawPayload?.profileLock ?? rawPayload?.isLock ?? rawPayload?.data?.profileLock ?? rawPayload?.data?.isLock ?? '').toLowerCase() === 'true';
       if (!isLock) return;
 
       lockLogoutInFlight.current = true;
@@ -307,10 +308,14 @@ export default function Main() {
       return;
     }
 
-    navigationRef.current.navigate('BlockedVerification', {
-      profile: blockedVerificationProfile,
-    });
-    setBlockedVerificationProfile(null);
+    const timer = setTimeout(() => {
+      navigationRef.current?.navigate('BlockedVerification', {
+        profile: blockedVerificationProfile,
+      });
+      setBlockedVerificationProfile(null);
+    }, 300);
+
+    return () => clearTimeout(timer);
   }, [blockedVerificationProfile, isLoading, isLoggedIn, isNavigationReady]);
 
   useEffect(() => {
@@ -373,7 +378,7 @@ export default function Main() {
         const response = await authSesionHistory();
         const sessions = response?.data?.sessions || [];
         const currentSession = sessions.find(s => s.deviceId === deviceId);
-        console.log('Session check result:', { response, sessions, currentSession, deviceId });
+
         if (currentSession) {
           dispatch(loggedIn());
           await ensureCurrentAccountSaved();
@@ -650,7 +655,7 @@ export default function Main() {
   // Render
   // ─────────────────────────────────────────────────────────────────────────
 
-   if (isLoading) {
+  if (isLoading) {
     return (
       <ThemeProvider activeProfile={userProfile}>
         <Splash onFinish={handleSplashFinish} />

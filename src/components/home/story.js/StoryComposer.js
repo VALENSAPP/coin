@@ -27,6 +27,9 @@ import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { captureRef } from 'react-native-view-shot';
 import { useAppTheme } from '../../../theme/useApptheme';
+import { useThemeContext } from '../../../theme/ThemeContext';
+import PostMusicGalleryModal from '../../post/PostMusicGalleryModal';
+import PostStoryMusicTrimModal from '../../post/PostStoryMusicTrimModal';
 import ImagePicker from 'react-native-image-crop-picker';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -106,6 +109,29 @@ const isOriginalAudio = a => a == null || a === 'original';
 
 const isYoutubeTrack = a =>
   typeof a === 'object' && a?.source === 'youtube' && a?.videoId;
+
+function storyAudioToGallerySelection(audio) {
+  if (isOriginalAudio(audio)) {
+    return { musicSource: 'none', musicId: 'none' };
+  }
+  if (isYoutubeTrack(audio)) {
+    return {
+      musicSource: 'youtube',
+      musicId: `yt:${audio.videoId}`,
+      musicYoutubeVideoId: audio.videoId,
+    };
+  }
+  if (typeof audio === 'string') {
+    const track = POST_SOUNDTRACKS.find(
+      item => item.storyLibraryId === audio || item.id === audio,
+    );
+    return {
+      musicSource: 'builtin',
+      musicId: track?.id || audio,
+    };
+  }
+  return null;
+}
 
 const getAudioPreviewUri = a => {
   if (isOriginalAudio(a)) return null;
@@ -297,7 +323,8 @@ export default function StoryComposer({
   const [waveformViewportW, setWaveformViewportW] = useState(SCREEN_WIDTH - 48);
   const [audioTrimPerIndex, setAudioTrimPerIndex] = useState({});
   const [audioTrimConfirmedPerIndex, setAudioTrimConfirmedPerIndex] = useState({});
-  const { bgStyle, textStyle, bg } = useAppTheme();
+  const { bgStyle, textStyle, cardStyle, text: themeText, bg } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
   const insets = useSafeAreaInsets();
   const trashZoneRef = useRef(null);
   const [trashRect, setTrashRect] = useState(null);
@@ -341,6 +368,7 @@ export default function StoryComposer({
   const [waveformScrollX, setWaveformScrollX] = useState(0);
   const [showMusicTrimAdvanced, setShowMusicTrimAdvanced] = useState(false);
   const [musicBadgePosPerIndex, setMusicBadgePosPerIndex] = useState({});
+  const [showMusicCardPerIndex, setShowMusicCardPerIndex] = useState({});
   const [canvasLayout, setCanvasLayout] = useState({
     width: SCREEN_WIDTH,
     height: SCREEN_HEIGHT * 0.65,
@@ -372,7 +400,7 @@ export default function StoryComposer({
     if (!justOpened) return;
 
     const list = (mediaList || []).map(normalizeStoryMediaItem);
-    const f = {}, s = {}, tx = {}, a = {}, tr = {}, v = {}, atr = {}, atc = {};
+    const f = {}, s = {}, tx = {}, a = {}, tr = {}, v = {}, atr = {}, atc = {}, smc = {};
     setMediaItems(list);
     list.forEach((_, i) => {
       f[i]   = 'none';
@@ -383,6 +411,7 @@ export default function StoryComposer({
       v[i]   = 1;
       atr[i] = { start: 0, end: null };
       atc[i] = false;
+      smc[i] = true;
     });
     setFilterPerIndex(f);
     setStickersPerIndex(s);
@@ -392,6 +421,7 @@ export default function StoryComposer({
     setVolumePerIndex(v);
     setAudioTrimPerIndex(atr);
     setAudioTrimConfirmedPerIndex(atc);
+    setShowMusicCardPerIndex(smc);
     audioTrimPerIndexRef.current = atr;
     setLyricsPerIndex({});
     setLyricsError(null);
@@ -409,14 +439,7 @@ export default function StoryComposer({
     setActiveTab('none');
   }, [modalVisible, mediaList]);
 
-  if (showAudioTrimModal) {
-    const start  = Math.max(0, Number(audioTrimStartDraft) || 0);
-    const endRaw = audioTrimEndDraft.trim();
-    const end    = endRaw === '' || !Number.isFinite(Number(endRaw)) ? null : Number(endRaw);
-    audioTrimPerIndexRef.current = { ...audioTrimPerIndex, [index]: { start, end } };
-  } else {
-    audioTrimPerIndexRef.current = audioTrimPerIndex;
-  }
+  audioTrimPerIndexRef.current = audioTrimPerIndex;
 
   const currentMedia       = mediaItems[index];
   const trimStartCur       = trimPerIndex[index]?.start;
@@ -509,22 +532,15 @@ export default function StoryComposer({
   }, [musicQuery, showAudioModal]);
 
   const presentMusicTrimModal = useCallback((trimOverride) => {
-    closeSheets();
-    setActiveTab('none');
     setShowAudioModal(false);
-
-    const at = trimOverride ?? (audioTrimPerIndex[index] || { start: 0, end: null });
-    const dur = getMusicTimelineDurationSec(audioPerIndex[index], musicPreviewDur);
-    setAudioTrimStartDraft(String(at.start ?? 0));
-    if (at.end != null && at.end !== '') {
-      setAudioTrimEndDraft(String(at.end));
-    } else if (dur > DEFAULT_STORY_CLIP_SEC) {
-      setAudioTrimEndDraft(String(DEFAULT_STORY_CLIP_SEC));
-    } else {
-      setAudioTrimEndDraft('');
+    setShowTrimModal(false);
+    setShowVolumeModal(false);
+    setActiveTab('none');
+    if (trimOverride) {
+      setAudioTrimPerIndex(prev => ({ ...prev, [index]: trimOverride }));
     }
     setShowAudioTrimModal(true);
-  }, [index, audioPerIndex, audioTrimPerIndex, musicPreviewDur]);
+  }, [index]);
 
   const openMusicTrimEditor = useCallback(() => {
     const audio = audioPerIndex[index] ?? 'original';
@@ -549,6 +565,7 @@ export default function StoryComposer({
       setAudioPerIndex(prev => ({ ...prev, [index]: 'original' }));
       setAudioTrimPerIndex(prev => ({ ...prev, [index]: { start: 0, end: null } }));
       setAudioTrimConfirmedPerIndex(prev => ({ ...prev, [index]: true }));
+      setShowMusicCardPerIndex(prev => ({ ...prev, [index]: true }));
       setVolumePerIndex(prev => ({ ...prev, [index]: 1 }));
     } else {
       const libraryId = track.storyLibraryId || track.id;
@@ -558,6 +575,7 @@ export default function StoryComposer({
         [index]: { start: 0, end: DEFAULT_STORY_CLIP_SEC },
       }));
       setAudioTrimConfirmedPerIndex(prev => ({ ...prev, [index]: false }));
+      setShowMusicCardPerIndex(prev => ({ ...prev, [index]: true }));
     }
     setLyricsPerIndex(prev => ({ ...prev, [index]: null }));
     setShowAudioModal(false);
@@ -588,6 +606,7 @@ export default function StoryComposer({
       },
     }));
     setAudioTrimConfirmedPerIndex(prev => ({ ...prev, [index]: false }));
+    setShowMusicCardPerIndex(prev => ({ ...prev, [index]: true }));
     setAudioTrimPerIndex(prev => ({
       ...prev,
       [index]: {
@@ -605,6 +624,7 @@ export default function StoryComposer({
         ? Math.min(d, DEFAULT_STORY_CLIP_SEC)
         : DEFAULT_STORY_CLIP_SEC;
     presentMusicTrimModal({ start: 0, end: trimEnd });
+    setTimeout(() => loadLyricsForClip(), 200);
   };
 
   const loadLyricsForClip = async () => {
@@ -796,6 +816,7 @@ export default function StoryComposer({
 
   const clearLibraryMusicForClip = () => {
     setAudioPerIndex(prev => ({ ...prev, [index]: 'original' }));
+    setShowMusicCardPerIndex(prev => ({ ...prev, [index]: true }));
     setMusicBadgePosPerIndex(prev => {
       const next = { ...prev };
       delete next[index];
@@ -864,9 +885,6 @@ export default function StoryComposer({
         if (!isOriginalAudio(clipAudio) && audioTrimConfirmedPerIndex[i] !== true) {
           setIndex(i);
           closeSheets();
-          const at = audioTrimPerIndex[i] || { start: 0, end: null };
-          setAudioTrimStartDraft(String(at.start ?? 0));
-          setAudioTrimEndDraft(at.end == null ? '' : String(at.end));
           setShowAudioTrimModal(true);
           Alert.alert(
             t('storyComposer.soundTrimFirstTitle'),
@@ -922,7 +940,9 @@ export default function StoryComposer({
           volume:       volumePerIndex[i]   ?? 1,
           isVideo:      isVid,
           duration:     m.duration,
-          musicBadge:   musicBadgePosPerIndex[i] || null,
+          musicBadge:
+            showMusicCardPerIndex[i] !== false ? (musicBadgePosPerIndex[i] || null) : null,
+          showMusicCard: showMusicCardPerIndex[i] !== false,
         });
       }
       onDone?.(out);
@@ -980,6 +1000,11 @@ export default function StoryComposer({
         setAudioTrimConfirmedPerIndex(at => {
           const u = { ...at };
           normalizedPicks.forEach((_, j) => { u[base + j] = false; });
+          return u;
+        });
+        setShowMusicCardPerIndex(smc => {
+          const u = { ...smc };
+          normalizedPicks.forEach((_, j) => { u[base + j] = true; });
           return u;
         });
         return next;
@@ -1083,7 +1108,7 @@ export default function StoryComposer({
     typeof audioSel === 'object' && audioSel?.videoId
       ? `yt_${audioSel.videoId}`
       : String(audioSel);
-  const trimPreviewPaused   = Boolean(showAudioTrimModal && musicEditorPaused);
+  const trimPreviewPaused   = Boolean(showAudioTrimModal);
   const catalogDurationFromMeta =
     typeof audioSel === 'object' && audioSel?.fullDurationSec != null
       ? Number(audioSel.fullDurationSec)
@@ -1094,39 +1119,6 @@ export default function StoryComposer({
     [audioSel, musicPreviewDur],
   );
   musicTimelineDurationRef.current = musicTimelineDurationSec;
-
-  // ─── Sound trim effects ────────────────────────────────────────────────────
-
-  useEffect(() => {
-    if (!showAudioTrimModal || !hasLibraryMusicPlayback) return;
-    const timer = setTimeout(() => {
-      if (musicEditorPausedRef.current) return;
-      const previewDur = musicPreviewDurationRef.current || 30;
-      const at = {
-        start: Math.max(0, Number(audioTrimStartDraft) || 0),
-        end:
-          audioTrimEndDraft.trim() === '' || !Number.isFinite(Number(audioTrimEndDraft))
-            ? null
-            : Number(audioTrimEndDraft),
-      };
-      const { start: playStart, end: playEnd, hasOverlap } =
-        getMusicTrimPlaybackWindowFromTrim(at, previewDur);
-      if (!hasOverlap || playEnd <= playStart) return;
-      if (musicPreviewUri) {
-        musicPreviewRef.current?.seek(playStart);
-        musicPreviewRef.current?.resume?.();
-      }
-      if (isYoutubeAudio) {
-        youtubePreviewRef.current?.seekTo?.(playStart, true);
-      }
-      setMusicPreviewSec(playStart);
-    }, 150);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    showAudioTrimModal, audioTrimStartDraft, audioTrimEndDraft,
-    index, musicPreviewKey, hasLibraryMusicPlayback, isYoutubeAudio, musicPreviewUri,
-  ]);
 
   useEffect(() => { setMusicPreviewSec(0); }, [index, musicPreviewKey]);
 
@@ -1190,73 +1182,6 @@ export default function StoryComposer({
     return () => clearInterval(tick);
   }, [audioSel, index, modalVisible, showAudioTrimModal, musicEditorPaused, musicPreviewKey, isYoutubeAudio]);
 
-  // ─── Waveform ──────────────────────────────────────────────────────────────
-
-  const waveformSegmentSec = Math.min(trimClipWindowSec, Math.max(0.1, musicTimelineDurationSec));
-  const waveformContentW   = Math.max(1, musicTimelineDurationSec * WAVEFORM_PX_PER_SEC);
-  const waveformWindowPx   = waveformSegmentSec * WAVEFORM_PX_PER_SEC;
-  const waveDimSide        = Math.max(0, (waveformViewportW - waveformWindowPx) / 2);
-
-  const onWaveformScroll = e => {
-    const scrollX = e.nativeEvent.contentOffset.x;
-    setWaveformScrollX(scrollX);
-    const duration   = musicTimelineDurationSec;
-    if (duration <= 0) return;
-    const segmentSec = Math.min(trimClipWindowSec, duration);
-    const pxPerSec   = WAVEFORM_PX_PER_SEC;
-    const viewportW  = waveformViewportW;
-    const windowW    = segmentSec * pxPerSec;
-    const maxStart   = Math.max(0, duration - segmentSec);
-    const leftEdge   = scrollX + viewportW / 2 - windowW / 2;
-    let startSec     = leftEdge / pxPerSec;
-    startSec         = Math.max(0, Math.min(startSec, maxStart));
-    const endSec     = Math.min(startSec + segmentSec, duration);
-    setAudioTrimStartDraft(startSec.toFixed(2));
-    setAudioTrimEndDraft(endSec.toFixed(2));
-  };
-
-  useEffect(() => {
-    if (showAudioTrimModal) {
-      waveformSyncedRef.current = false;
-      setMusicEditorPaused(false);
-      setShowMusicTrimAdvanced(false);
-      setSoundTrimClipSec(DEFAULT_STORY_CLIP_SEC);
-    }
-  }, [showAudioTrimModal]);
-
-  const applySoundTrimClipLength = nextSec => {
-    const bounded = Math.min(
-      MAX_STORY_CLIP_SEC,
-      Math.max(MIN_STORY_CLIP_SEC, Math.round(Number(nextSec) || DEFAULT_STORY_CLIP_SEC)),
-    );
-    setSoundTrimClipSec(bounded);
-    const duration = musicTimelineDurationSec;
-    if (duration <= 0) return;
-    const start        = Math.max(0, Number(audioTrimStartDraft) || 0);
-    const maxStart     = Math.max(0, duration - bounded);
-    const clampedStart = Math.min(start, maxStart);
-    const end          = Math.min(clampedStart + bounded, duration);
-    setAudioTrimStartDraft(clampedStart.toFixed(2));
-    setAudioTrimEndDraft(end.toFixed(2));
-    waveformSyncedRef.current = false;
-    setTimeout(() => {
-      const d  = musicTimelineDurationRef.current || duration;
-      const vw = waveformViewportW;
-      if (vw < 24 || !d) return;
-      const seg      = Math.min(bounded, d);
-      const pxPerSec = WAVEFORM_PX_PER_SEC;
-      const windowW  = seg * pxPerSec;
-      const contentW = d * pxPerSec;
-      const leftPx   = clampedStart * pxPerSec;
-      const maxScroll = Math.max(0, contentW - vw);
-      const scrollX  = Math.max(0, Math.min(maxScroll, leftPx - vw / 2 + windowW / 2));
-      waveformScrollRef.current?.scrollTo({ x: scrollX, animated: true });
-      setWaveformScrollX(scrollX);
-    }, 80);
-  };
-
-  const handleTrimPlayPause = () => setMusicEditorPaused(prev => !prev);
-
   useEffect(() => {
     const sub = AppState.addEventListener('change', next => {
       if (next === 'active') return;
@@ -1266,35 +1191,13 @@ export default function StoryComposer({
   }, [showAudioTrimModal]);
 
   const cancelMusicTrim = () => {
-    const at = audioTrimPerIndex[index] || { start: 0, end: null };
-    setAudioTrimStartDraft(String(at.start ?? 0));
-    setAudioTrimEndDraft(at.end == null ? '' : String(at.end));
     setShowAudioTrimModal(false);
     setMusicEditorPaused(false);
+    const audio = audioPerIndex[index] ?? 'original';
+    if (!hasLibraryMusicSelection(audio)) {
+      setShowAudioModal(true);
+    }
   };
-
-  const onMusicTrimDone = () => {
-    setAudioTrimPerIndex(prev => ({
-      ...prev,
-      [index]: {
-        start: Number(audioTrimStartDraft) || 0,
-        end:   audioTrimEndDraft.trim() ? Number(audioTrimEndDraft) || null : null,
-      },
-    }));
-    setAudioTrimConfirmedPerIndex(prev => ({ ...prev, [index]: true }));
-    setShowAudioTrimModal(false);
-    setMusicEditorPaused(false);
-  };
-
-  const igSegStart = Number(audioTrimStartDraft) || 0;
-  const igSegEnd   =
-    audioTrimEndDraft.trim() === ''
-      ? musicTimelineDurationSec
-      : Math.min(Number(audioTrimEndDraft) || musicTimelineDurationSec, musicTimelineDurationSec);
-  const igSegmentProgress =
-    igSegEnd > igSegStart
-      ? Math.max(0, Math.min(1, (musicPreviewSec - igSegStart) / (igSegEnd - igSegStart)))
-      : 0;
 
   const trackArtworkUri =
     typeof audioSel === 'object' &&
@@ -1309,6 +1212,8 @@ export default function StoryComposer({
   const musicBadgeY       = musicBadgeStored?.y       ?? defaultMusicBadgePosition(canvasLayout).y;
   const musicBadgeScale   = musicBadgeStored?.scale   ?? 1;
   const musicBadgeRotation = musicBadgeStored?.rotation ?? 0;
+
+  const showMusicCardForClip = showMusicCardPerIndex[index] !== false;
 
   // ─── Music badge JSX (shared between image + video branches) ──────────────
   const MusicBadge = (
@@ -1517,7 +1422,7 @@ export default function StoryComposer({
                       style={[StyleSheet.absoluteFillObject, { backgroundColor: currentFilterOverlay }]}
                     />
                   ) : null}
-                  {useLibraryMusic ? MusicBadge : null}
+                  {useLibraryMusic && showMusicCardForClip ? MusicBadge : null}
                 </View>
               ) : currentMedia ? (
                 /* Video canvas */
@@ -1563,7 +1468,7 @@ export default function StoryComposer({
                       videoRef.current?.seek(start);
                     }}
                   />
-                  {useLibraryMusic ? MusicBadge : null}
+                  {useLibraryMusic && showMusicCardForClip ? MusicBadge : null}
                 </View>
               ) : null}
 
@@ -1785,138 +1690,11 @@ export default function StoryComposer({
           </SafeAreaView>
 
           {/* ── Bottom sheets (audio / trim / volume / text) ── */}
-          {(showAudioModal || showTrimModal || showVolumeModal || activeTab === 'text') && (
+          {(showTrimModal || showVolumeModal || activeTab === 'text') && (
             <View style={styles.sheetHost} pointerEvents="box-none">
               <Pressable style={styles.sheetBackdropPress} onPress={closeSheets} />
               <View style={styles.sheetCardWrap} pointerEvents="box-none">
                 <View style={styles.sheetCard}>
-
-                  {/* Music sheet */}
-                  {showAudioModal && (
-                    <View style={styles.musicSheetInner}>
-                      <Text style={styles.sheetTitle}>{t('storyComposer.musicSheetTitle')}</Text>
-                      <Text style={styles.sheetSub}>{t('storyComposer.musicSheetSub')}</Text>
-                      {hasLibraryMusicSelection(audioPerIndex[index]) ? (
-                        <TouchableOpacity
-                          style={styles.postMusicEditClipBtn}
-                          onPress={() => {
-                            setShowAudioModal(false);
-                            openMusicTrimEditor();
-                          }}
-                          activeOpacity={0.8}
-                        >
-                          <Icon name="cut-outline" size={18} color="#4da3ff" />
-                          <Text style={styles.postMusicEditClipText}>
-                            {t('selectedPost.editMusicClip')}
-                          </Text>
-                        </TouchableOpacity>
-                      ) : null}
-                      {!getYoutubeSearchApiKey() ? (
-                        <Text style={styles.sheetApiKeyHint}>
-                          {t('storyComposer.musicApiKeyHint')}
-                        </Text>
-                      ) : null}
-                      <TextInput
-                        placeholder={t('storyComposer.musicSearchPlaceholder')}
-                        placeholderTextColor="#999"
-                        style={styles.musicSearchInput}
-                        value={musicQuery}
-                        onChangeText={setMusicQuery}
-                        autoCorrect={false}
-                        autoCapitalize="none"
-                      />
-                      <FlatList
-                        style={styles.musicResultsList}
-                        keyboardShouldPersistTaps="handled"
-                        data={musicQuery.trim() ? musicResults : []}
-                        keyExtractor={it => String(it.videoId)}
-                        ListHeaderComponent={
-                          !musicQuery.trim() ? (
-                            <View style={styles.quickPickBlock}>
-                              <Text style={styles.quickPickTitle}>
-                                {t('storyComposer.musicQuickPicksTitle')}
-                              </Text>
-                              {POST_SOUNDTRACKS.map(track => {
-                                const sel = audioPerIndex[index];
-                                const selected =
-                                  track.id === 'none'
-                                    ? isOriginalAudio(sel)
-                                    : typeof sel === 'string' &&
-                                      (sel === track.storyLibraryId || sel === track.id);
-                                return (
-                                  <TouchableOpacity
-                                    key={track.id}
-                                    style={styles.sheetRow}
-                                    onPress={() => selectBuiltinTrack(track)}
-                                    activeOpacity={0.7}
-                                  >
-                                    <Icon name="musical-note" size={18} color="#4da3ff" />
-                                    <View style={{ flex: 1, marginLeft: 8 }}>
-                                      <Text style={styles.sheetRowText}>{track.title}</Text>
-                                      <Text style={styles.itunesArtist}>{track.artist}</Text>
-                                    </View>
-                                    {selected ? (
-                                      <Icon name="checkmark-circle" size={18} color="#4da3ff" />
-                                    ) : null}
-                                  </TouchableOpacity>
-                                );
-                              })}
-                            </View>
-                          ) : null
-                        }
-                        renderItem={({ item }) => {
-                          const sel      = audioPerIndex[index];
-                          const selected = isYoutubeSelection(sel, item.videoId);
-                          return (
-                            <TouchableOpacity
-                              style={styles.itunesRow}
-                              onPress={() => selectYoutubeTrack(item)}
-                              activeOpacity={0.7}
-                            >
-                              {item.thumbnailUrl ? (
-                                <Image source={{ uri: item.thumbnailUrl }} style={styles.itunesArtwork} />
-                              ) : (
-                                <View style={[styles.itunesArtwork, styles.itunesArtworkPlaceholder]}>
-                                  <Icon name="musical-note" size={18} color="#4da3ff" />
-                                </View>
-                              )}
-                              <View style={styles.itunesRowText}>
-                                <Text style={styles.itunesTitle} numberOfLines={2}>{item.title}</Text>
-                                <Text style={styles.itunesArtist} numberOfLines={1}>{item.channelTitle}</Text>
-                              </View>
-                              {selected ? (
-                                <Icon name="checkmark-circle" size={18} color="#4da3ff" />
-                              ) : (
-                                <Icon name="play-circle-outline" size={22} color="#4da3ff" />
-                              )}
-                            </TouchableOpacity>
-                          );
-                        }}
-                        ListEmptyComponent={
-                          musicQuery.trim() ? (
-                            <View style={styles.musicEmptyWrap}>
-                              {musicLoading ? (
-                                <ActivityIndicator color="#4da3ff" />
-                              ) : !getYoutubeSearchApiKey() ? (
-                                <Text style={styles.musicEmptyText}>
-                                  {t('storyComposer.musicSearchUnavailable')}
-                                </Text>
-                              ) : (
-                                <Text style={styles.musicEmptyText}>
-                                  {t('storyComposer.musicNoSongsFound')}
-                                </Text>
-                              )}
-                            </View>
-                          ) : null
-                        }
-                        ListFooterComponent={
-                          <Text style={styles.sheetFootnote}>
-                            {t('storyComposer.musicFootnote')}
-                          </Text>
-                        }
-                      />
-                    </View>
-                  )}
 
                   {/* Video trim sheet */}
                   {showTrimModal && (
@@ -2063,312 +1841,60 @@ export default function StoryComposer({
 
         </View>
 
-        {/* ── Sound trim (full-screen waveform modal) ── */}
-        {showAudioTrimModal && useLibraryMusic && hasLibraryMusicPlayback ? (
-          <SafeAreaView style={styles.igMusicEditorRoot} edges={['top', 'bottom']}>
-            <View style={styles.igMusicEditorInner}>
+        <PostMusicGalleryModal
+          embedded
+          visible={showAudioModal}
+          onClose={() => setShowAudioModal(false)}
+          query={musicQuery}
+          onQueryChange={setMusicQuery}
+          results={musicResults}
+          loading={musicLoading}
+          hasYoutubeApi={Boolean(getYoutubeSearchApiKey())}
+          selection={storyAudioToGallerySelection(audioPerIndex[index] ?? 'original')}
+          hasLibraryMusic={hasLibraryMusicSelection(audioPerIndex[index])}
+          showMusicCard={showMusicCardPerIndex[index] !== false}
+          onShowMusicCardChange={value =>
+            setShowMusicCardPerIndex(prev => ({ ...prev, [index]: value }))
+          }
+          onEditClip={() => {
+            setShowAudioModal(false);
+            openMusicTrimEditor();
+          }}
+          onSelectBuiltin={selectBuiltinTrack}
+          onSelectYoutube={selectYoutubeTrack}
+          backgroundColor={cardStyle?.backgroundColor || '#fff'}
+          textColor={themeText || '#111'}
+          accentColor={themeText || '#5a2d82'}
+          isDark={isDarkMode}
+        />
 
-              {/* Header row */}
-              <View style={styles.igMusicHeader}>
-                <TouchableOpacity
-                  onPress={cancelMusicTrim}
-                  hitSlop={12}
-                  style={styles.igHeaderSideLeft}
-                >
-                  <Text style={styles.igHeaderBtn}>{t('storyComposer.soundTrimCancel')}</Text>
-                </TouchableOpacity>
-                <View style={styles.igMusicHeaderCenter}>
-                  {trackArtworkUri ? (
-                    <Image source={{ uri: trackArtworkUri }} style={styles.igArtwork} />
-                  ) : (
-                    <View style={styles.igArtworkPlaceholder}>
-                      <Icon name="musical-notes" size={20} color="#8e8e93" />
-                    </View>
-                  )}
-                  <View style={styles.igColorRing} accessibilityElementsHidden>
-                    <LinearGradient
-                      colors={['#ff6b35','#f7b733','#6bcb77','#4d96ff','#9b59b6']}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={styles.igColorRingInner}
-                    />
-                  </View>
-                </View>
-                <TouchableOpacity
-                  onPress={onMusicTrimDone}
-                  hitSlop={12}
-                  style={styles.igHeaderSideRight}
-                >
-                  <Text style={styles.igHeaderBtnDone}>{t('storyComposer.soundTrimDone')}</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Track preview card */}
-              <View style={styles.igTrimPreviewArea}>
-                <View style={styles.igTrimPreviewCard}>
-                  <View style={styles.igTrimPreviewArtRow}>
-                    {trackArtworkUri ? (
-                      <Image source={{ uri: trackArtworkUri }} style={styles.igTrimPreviewArt} />
-                    ) : (
-                      <LinearGradient
-                        colors={['#3d3d45','#1e1e24']}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.igTrimPreviewArtPlaceholder}
-                      >
-                        <Icon name="musical-notes" size={30} color="rgba(255,255,255,0.88)" />
-                      </LinearGradient>
-                    )}
-                    <View style={styles.igTrimPreviewTextCol}>
-                      <Text style={styles.igTrimPreviewTitle} numberOfLines={2}>
-                        {getAudioTitle(audioSel, t)}
-                      </Text>
-                      {getAudioSubtitle(audioSel) ? (
-                        <Text style={styles.igTrimPreviewSub} numberOfLines={1}>
-                          {getAudioSubtitle(audioSel)}
-                        </Text>
-                      ) : null}
-                    </View>
-                  </View>
-                </View>
-              </View>
-
-              {/* Playback row */}
-              <View style={styles.igPlaybackRow}>
-                <Pressable
-                  style={({ pressed }) => [styles.igPlayBtnOuter, pressed && styles.igPlayBtnPressed]}
-                  onPress={handleTrimPlayPause}
-                  hitSlop={14}
-                  accessibilityRole="button"
-                  accessibilityLabel={
-                    musicEditorPaused
-                      ? t('storyComposer.playPreview') // re-use "Done"/"Play" — or add a dedicated key
-                      : t('storyComposer.pausePreview')
-                  }
-                  android_disableSound
-                >
-                  <LinearGradient
-                    colors={musicEditorPaused ? ['#3a3a42','#25252a'] : ['#4da3ff','#6366f1']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.igPlayBtnGradient}
-                  >
-                    <Icon name={musicEditorPaused ? 'play' : 'pause'} size={28} color="#fff" />
-                  </LinearGradient>
-                </Pressable>
-                <View style={styles.igProgressCol}>
-                  <Text style={styles.igProgressLabel}>
-                    {t('storyComposer.soundTrimPreviewLabel')}
-                  </Text>
-                  <View style={styles.igProgressWrap}>
-                    <View style={styles.igProgressTrack}>
-                      <LinearGradient
-                        colors={['#4da3ff','#a78bfa']}
-                        start={{ x: 0, y: 0.5 }}
-                        end={{ x: 1, y: 0.5 }}
-                        style={[
-                          styles.igProgressFill,
-                          { width: `${Math.round(igSegmentProgress * 1000) / 10}%` },
-                        ]}
-                      />
-                    </View>
-                  </View>
-                </View>
-                <View style={styles.igDurationBadge}>
-                  <Text style={styles.igDurationBadgeText}>
-                    {Math.round(Math.max(0, igSegEnd - igSegStart))}s
-                  </Text>
-                </View>
-              </View>
-
-              {/* Clip length row */}
-              <View style={styles.igClipLenRow}>
-                <Text style={styles.igClipLenLabel}>
-                  {t('storyComposer.soundTrimClipLengthLabel')}
-                </Text>
-                <View style={styles.igClipSegmentTrack}>
-                  {[15, 30].map(sec => (
-                    <Pressable
-                      key={sec}
-                      onPress={() => applySoundTrimClipLength(sec)}
-                      style={({ pressed }) => [
-                        styles.igClipSegChip,
-                        trimClipWindowSec === sec && styles.igClipSegChipOn,
-                        pressed && styles.igClipLenChipPressed,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.igClipSegChipText,
-                          trimClipWindowSec === sec && styles.igClipSegChipTextOn,
-                        ]}
-                      >
-                        {sec}s
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-              </View>
-
-              {/* Waveform section */}
-              <View style={styles.igWaveSection}>
-                <Text style={styles.igWaveSectionTitle}>
-                  {t('storyComposer.soundTrimSectionTitle')}
-                </Text>
-                <Text style={styles.igWaveHint}>
-                  {t('storyComposer.soundTrimWaveHint', {
-                    min:     MIN_STORY_CLIP_SEC,
-                    max:     MAX_STORY_CLIP_SEC,
-                    default: DEFAULT_STORY_CLIP_SEC,
-                  })}
-                </Text>
-                <View style={styles.igWaveMetaRow}>
-                  <View style={styles.igWaveMetaPill}>
-                    <Text style={styles.igWaveMetaPillLabel}>
-                      {t('storyComposer.soundTrimFullLabel')}
-                    </Text>
-                    <Text style={styles.igWaveMetaPillValue}>
-                      {formatTimeMmSs(musicTimelineDurationSec)}
-                    </Text>
-                  </View>
-                  <Text style={styles.igWaveMetaDot}>·</Text>
-                  <View style={styles.igWaveMetaPill}>
-                    <Text style={styles.igWaveMetaPillLabel}>
-                      {t('storyComposer.soundTrimSelectionLabel')}
-                    </Text>
-                    <Text style={styles.igWaveMetaPillValue}>
-                      {formatTimeMmSs(Math.max(0, igSegEnd - igSegStart))}
-                      <Text style={styles.igWaveMetaPillSec}>
-                        {' '}({Math.round(Math.max(0, igSegEnd - igSegStart))}s)
-                      </Text>
-                    </Text>
-                  </View>
-                </View>
-
-                <View
-                  style={styles.waveformOuterIg}
-                  onLayout={e => {
-                    const w = e.nativeEvent.layout.width;
-                    if (w < 24) return;
-                    setWaveformViewportW(w);
-                    setTimeout(() => {
-                      const duration = musicTimelineDurationRef.current;
-                      if (!duration) return;
-                      if (waveformSyncedRef.current) return;
-                      const startSec   = Number(audioTrimStartDraft) || 0;
-                      const segmentSec = Math.min(trimClipWindowSec, duration);
-                      const pxPerSec   = WAVEFORM_PX_PER_SEC;
-                      const viewportW  = w;
-                      const windowW    = segmentSec * pxPerSec;
-                      const contentW   = duration * pxPerSec;
-                      const leftPx     = startSec * pxPerSec;
-                      const maxScroll  = Math.max(0, contentW - viewportW);
-                      const scrollX    = Math.max(0, Math.min(maxScroll, leftPx - viewportW / 2 + windowW / 2));
-                      waveformScrollRef.current?.scrollTo({ x: scrollX, animated: false });
-                      setWaveformScrollX(scrollX);
-                      waveformSyncedRef.current = true;
-                    }, 40);
-                  }}
-                >
-                  <ScrollView
-                    ref={waveformScrollRef}
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    onScroll={onWaveformScroll}
-                    scrollEventThrottle={16}
-                    contentContainerStyle={styles.waveformScrollContent}
-                  >
-                    <View style={[styles.waveformBarsRowIg, { width: waveformContentW }]}>
-                      {Array.from(
-                        {
-                          length: Math.min(
-                            240,
-                            Math.max(20, Math.floor(waveformContentW / WAVE_BAR_STEP)),
-                          ),
-                        },
-                        (_, i) => {
-                          const h           = 0.25 + ((i * 17) % 74) / 100;
-                          const barLeft     = i * WAVE_BAR_STEP;
-                          const barScreenLeft = barLeft - waveformScrollX;
-                          const vw          = waveformViewportW;
-                          const ww          = Math.min(waveformWindowPx, vw);
-                          const winLeft     = vw / 2 - ww / 2;
-                          const winRight    = vw / 2 + ww / 2;
-                          const inWin       =
-                            barScreenLeft + WAVE_BAR_STEP > winLeft &&
-                            barScreenLeft < winRight;
-                          return (
-                            <View
-                              key={`igwb_${i}`}
-                              style={[
-                                styles.waveformBarIg,
-                                inWin ? styles.waveformBarIgHot : styles.waveformBarIgCold,
-                                { height: Math.max(10, 62 * h) },
-                              ]}
-                            />
-                          );
-                        },
-                      )}
-                    </View>
-                  </ScrollView>
-                  <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-                    <View style={[styles.waveDimSideIg, styles.waveDimLeft,  { width: waveDimSide }]} />
-                    <View style={[styles.waveDimSideIg, styles.waveDimRight, { width: waveDimSide }]} />
-                    <View
-                      style={[
-                        styles.waveWindowFrameIg,
-                        {
-                          width: Math.min(waveformWindowPx, waveformViewportW),
-                          left:  (waveformViewportW - Math.min(waveformWindowPx, waveformViewportW)) / 2,
-                        },
-                      ]}
-                    >
-                      <LinearGradient
-                        colors={['rgba(255,122,51,0.25)','rgba(168,85,247,0.28)']}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={StyleSheet.absoluteFillObject}
-                      />
-                    </View>
-                  </View>
-                </View>
-
-                <TouchableOpacity
-                  style={styles.igAdvancedBtn}
-                  onPress={() => setShowMusicTrimAdvanced(a => !a)}
-                >
-                  <Text style={styles.igAdvancedBtnText}>
-                    {showMusicTrimAdvanced
-                      ? t('storyComposer.soundTrimHideExact')
-                      : t('storyComposer.soundTrimShowExact')}
-                  </Text>
-                </TouchableOpacity>
-
-                {showMusicTrimAdvanced ? (
-                  <View style={styles.igAdvancedInputs}>
-                    <TextInput
-                      value={audioTrimStartDraft}
-                      onChangeText={setAudioTrimStartDraft}
-                      keyboardType="decimal-pad"
-                      placeholder={t('storyComposer.soundTrimStartPlaceholder')}
-                      placeholderTextColor="#666"
-                      style={styles.igSheetInput}
-                    />
-                    <TextInput
-                      value={audioTrimEndDraft}
-                      onChangeText={setAudioTrimEndDraft}
-                      keyboardType="decimal-pad"
-                      placeholder={t('storyComposer.soundTrimEndPlaceholder')}
-                      placeholderTextColor="#666"
-                      style={styles.igSheetInput}
-                    />
-                  </View>
-                ) : null}
-              </View>
-
-            </View>
-          </SafeAreaView>
-        ) : null}
+        <PostStoryMusicTrimModal
+          embedded
+          visible={showAudioTrimModal}
+          audioSel={audioSel}
+          initialTrim={audioTrimPerIndex[index] || { start: 0, end: null }}
+          lyricsBundle={lyricsPerIndex[index] || null}
+          lyricsLoading={lyricsLoading}
+          showMusicCard={showMusicCardPerIndex[index] !== false}
+          onShowMusicCardChange={value =>
+            setShowMusicCardPerIndex(prev => ({ ...prev, [index]: value }))
+          }
+          onCancel={cancelMusicTrim}
+          onDone={({ start, end }) => {
+            setAudioTrimPerIndex(prev => ({ ...prev, [index]: { start, end } }));
+            setAudioTrimConfirmedPerIndex(prev => ({ ...prev, [index]: true }));
+            setShowAudioTrimModal(false);
+            setMusicEditorPaused(false);
+          }}
+          onDelete={() => {
+            clearLibraryMusicForClip();
+            setAudioTrimPerIndex(prev => ({ ...prev, [index]: { start: 0, end: null } }));
+            setAudioTrimConfirmedPerIndex(prev => ({ ...prev, [index]: true }));
+            setLyricsPerIndex(prev => ({ ...prev, [index]: null }));
+            setShowMusicCardPerIndex(prev => ({ ...prev, [index]: true }));
+            setShowAudioTrimModal(false);
+          }}
+        />
       </GestureHandlerRootView>
     </Modal>
   );

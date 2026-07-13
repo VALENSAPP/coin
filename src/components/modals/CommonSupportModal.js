@@ -33,7 +33,7 @@ const CommonSupportModal = ({
   }, [reduxProfile, loggedInProfileType]);
 
   const profileThemeType = isBusinessProfile ? 'company' : undefined;
-  const { text, card, accent, mutedText, border } = useAppTheme(profileThemeType);
+  const { text, card, cardStyle, accent, mutedText, border } = useAppTheme(profileThemeType);
   const { t } = useLanguage();
 
   useEffect(() => {
@@ -56,7 +56,7 @@ const CommonSupportModal = ({
       onRequestClose={onClose}
     >
       <View style={styles.overlay}>
-        <View style={[styles.modalContainer, { backgroundColor: card }]}>
+        <View style={[styles.modalContainer, cardStyle]}>
           {!!title && (
             <Text style={[styles.title, { color: text }]}>{title}</Text>
           )}

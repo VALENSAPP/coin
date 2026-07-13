@@ -16,7 +16,6 @@ import PostItem from './PostItem';
 import Suggestion from './suggestion';
 
 import {
-  getPostlikes,
   likePost,
   savePost,
   unSavePost,
@@ -39,6 +38,7 @@ import { getAllUser } from '../../../services/users';
 import TokenPurchaseModal from '../../modals/TokenPurchaseModal';
 import { following as apiFollowing, followers as apiFollowers } from '../../../services/profile';
 import { useFocusEffect } from '@react-navigation/native';
+import { BASE_URL } from '../../../config/urls';
 import TokenSellModal from '../../modals/TokenSellModal';
 import { getUserTokenInfoByBlockChain } from '../../../services/tokens';
 import { getSuggestedUsers } from '../../../services/home';
@@ -48,7 +48,7 @@ import { extractPostMusicPayloadFromApi, applyClientPostOverlayCache } from '../
 import { isPostVideoUrl } from '../../../utils/postMediaFormat';
 import { useLanguage } from '../../../i18n';
 
-const isTruthyTrustPost = value => value === true || value === 1 || String(value).toLowerCase() === 'true';
+import { resolveIsTrustPost } from '../../../utils/trustPost';
 
 const isVideoMediaUrl = (url, postType) => {
   if (String(postType || '').toLowerCase() === 'reel') return true;
@@ -72,7 +72,6 @@ const Posts = forwardRef(function Posts(
   const [postLikesCount, setPostLikesCount] = useState({});
   const [postCommentsCount, setPostCommentsCount] = useState({});
   const [likingIds, setLikingIds] = useState(new Set());
-  const [postLikes, setPostLikes] = useState({});
   const [commentPostId, setCommentPostId] = useState(null);
   const [commentPostOwnerId, setCommentPostOwnerId] = useState(null);
   const [currentUserId, setCurrentUserId] = useState(null);
@@ -325,7 +324,7 @@ const Posts = forwardRef(function Posts(
           end_time: item.end_time || null,
           tokenBalance: item.tokenBalance || 0,
           shareCount: item.shareCount || 0,
-          isTrustPost: isTruthyTrustPost(item.isTrustPost),
+          isTrustPost: resolveIsTrustPost(item),
           taggedPeople: Array.isArray(item.taggedPeople) ? item.taggedPeople : [],
           location: item.location || item.Location || '',
           createdAt: item.createdAt || item.created_at || null,
@@ -678,7 +677,7 @@ const Posts = forwardRef(function Posts(
         }
 
         const post = mappedPosts.find(p => String(p.id) === String(modalPostId));
-        const deepLink = `https://api.valens.app/postshare/${encodeURIComponent(String(modalPostId))}`;
+        const deepLink = `${BASE_URL}/postshare/${encodeURIComponent(String(modalPostId))}`;
 
         const parsedGoal = Number(post?.raiseAmount);
         const isMissionPost = Number.isFinite(parsedGoal) && parsedGoal > 0;

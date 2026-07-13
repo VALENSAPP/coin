@@ -7,7 +7,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useRoute } from '@react-navigation/native';
 import { useToast } from 'react-native-toast-notifications';
 import { useDispatch } from 'react-redux';
 
@@ -19,6 +19,7 @@ import { getPostByUser, getUserCredentials, getUserDashboard } from '../../servi
 import { showLoader, hideLoader } from '../../redux/actions/LoaderAction';
 import { useAppTheme } from '../../theme/useApptheme';
 import { normalizeProfileType } from '../../utils/supportEligibility';
+import { BASE_URL } from '../../config/urls';
 import WelcomeValensModal from '../../components/modals/WelcomeValensModal';
 import { useLanguage } from '../../i18n';
 import { setPostPinnedState, sortPostsByPinned } from '../../utils/postPinning';
@@ -28,6 +29,8 @@ const KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShownEver';
 const LEGACY_KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShown';
 
 const ProfileScreen = () => {
+  const route = useRoute();
+  const initialTab = route?.params?.initialTab || route?.params?.params?.initialTab;
   const [posts, setPosts] = useState([]);
   const [userId, setUserId] = useState();
   const [userDashboard, setUserDashboard] = useState();
@@ -107,9 +110,9 @@ const ProfileScreen = () => {
           if (formattedImageUrl.startsWith('http://') || formattedImageUrl.startsWith('https://')) {
             // already a full URL, use as-is
           } else if (formattedImageUrl.startsWith('/')) {
-            formattedImageUrl = `https://api.valens.app${formattedImageUrl}`;
+            formattedImageUrl = `${BASE_URL}${formattedImageUrl}`;
           } else {
-            formattedImageUrl = `https://api.valens.app/${formattedImageUrl}`;
+            formattedImageUrl = `${BASE_URL}/${formattedImageUrl}`;
           }
 
           userDataToSet.image = formattedImageUrl;
@@ -196,7 +199,8 @@ const profileTabsProps = useMemo(() => ({
   refreshKey: refreshKey,
   onPostPinChanged: handlePostPinChanged,
   scrollEnabled: false,
-}), [posts, userData, userDashboard, userId, refreshKey, handlePostPinChanged]);
+  initialTab,
+}), [posts, userData, userDashboard, userId, refreshKey, handlePostPinChanged, initialTab]);
 
   return (
     <SafeAreaView style={[styles.container, bgStyle]}>

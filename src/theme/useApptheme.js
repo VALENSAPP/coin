@@ -29,9 +29,12 @@ export const useAppTheme = profileTypeOverride => {
     typeof profileTypeOverride === 'string'
       ? profileTypeOverride.toLowerCase()
       : undefined;
+  // Map legacy 'normal' → 'user' (dev) while keeping dark-mode resolveTheme (HEAD)
+  const resolvedProfileType =
+    normalizedProfileType === 'normal' ? 'user' : normalizedProfileType;
 
   const resolvedTheme =
-    resolveTheme(normalizedProfileType, isDarkMode) ?? contextTheme;
+    resolveTheme(resolvedProfileType, isDarkMode) ?? contextTheme;
 
   return {
     ...resolvedTheme,

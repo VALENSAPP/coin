@@ -37,6 +37,7 @@ import ProfileModal from '../modals/ProfileModal';
 import UsernameModal from '../modals/UsernameModal';
 import TradeModal from '../modals/TradeModal';
 import SupportCreatorModal from '../modals/SupportCreatorModal';
+import TipSupportModal from '../modals/TipSupportModal';
 import WelcomeValensModal from '../modals/WelcomeValensModal';
 import { showLoader, hideLoader } from '../../redux/actions/LoaderAction';
 import { useDispatch, useSelector } from 'react-redux';
@@ -47,6 +48,10 @@ import {
   appendStoryAudioFiles,
   prepareStoryClipsAudioForUpload,
 } from '../../utils/storyAudioUpload';
+import {
+  appendStoryThumbnailFiles,
+  prepareStoryClipThumbnails,
+} from '../../utils/storyThumbnail';
 import {
   WhiteDragonfly,
   Thread,
@@ -75,6 +80,7 @@ import { isSupportAllowed, normalizeProfileType } from '../../utils/supportEligi
 import HexAvatar from '../home/story.js/HexAvatar';
 import { useLanguage } from '../../i18n';
 import { getCart } from '../../services/myCloset';
+import { buildClosetNavContext, withClosetNavParams } from '../../utils/closetNavigation';
 
 const KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShownEver';
 const LEGACY_KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShown';
@@ -208,6 +214,7 @@ const ProfilePersonData = ({
   const [userProfile, setUserProfile] = useState('');
   const [supportModalVisible, setSupportModalVisible] = useState(false);
   const [supportDisclaimerVisible, setSupportDisclaimerVisible] = useState(false);
+  const [tipSupportVisible, setTipSupportVisible] = useState(false);
   const [followActionsOpen, setFollowActionsOpen] = useState(false);
   const [welcomeModalVisible, setWelcomeModalVisible] = useState(false);
   const [totalSupportOpen, setTotalSupportOpen] = useState(false);
@@ -321,12 +328,14 @@ const ProfilePersonData = ({
 
   const fetchCartCount = useCallback(async () => {
     try {
-      const response = await getCart();
-      const cartObj = response?.data?.data?.cart ?? response?.data?.cart;
-      const totals = response?.data?.data?.totals ?? response?.data?.totals;
+      const getUserId = targetUserId || userData?.id || userData?._id || userData?.userId || userId || ''
+      const dataToSend = { sellerId: getUserId }
+      const response = await getCart(dataToSend);
+      const cartsArr = response?.data?.data?.carts ?? response?.data?.carts ?? [];
+      const cartObj = cartsArr[0] ?? null; // sellerId filter → at most one cart
       const items = cartObj?.cartItems ?? [];
       const count =
-        totals?.totalItems ??
+        cartObj?.totals?.totalItems ??
         items.reduce((sum, ci) => sum + (Number(ci?.quantity) || 0), 0);
       setCartCount(count || 0);
     } catch (error) {
@@ -444,7 +453,8 @@ const ProfilePersonData = ({
 
   const handleComposerDone = async processedArray => {
     try {
-      const clips = await prepareStoryClipsAudioForUpload(processedArray);
+      const withAudio = await prepareStoryClipsAudioForUpload(processedArray);
+      const clips = await prepareStoryClipThumbnails(withAudio);
       setComposerVisible(false);
 
       const formData = new FormData();
@@ -457,6 +467,7 @@ const ProfilePersonData = ({
       });
       formData.append('storyMeta', JSON.stringify(buildStoryMetaPayload(clips)));
       await appendStoryAudioFiles(formData, clips);
+      appendStoryThumbnailFiles(formData, clips);
 
       const response = await PostStory(formData);
       if (response?.success) {
@@ -586,6 +597,11 @@ const ProfilePersonData = ({
       chain: 'POLYGON',
     });
   }, [canSupport, recipientWalletAddress, startSupportPayment, userId, targetUserId, userData, t]);
+
+  const handleSendTip = useCallback(() => {
+    setSupportDisclaimerVisible(false);
+    setTipSupportVisible(true);
+  }, []);
 
   const handleOpenSupportDisclaimer = useCallback(() => {
     const supporterProfile = isBusinessProfile ? 'company' : 'user';
@@ -1111,13 +1127,7 @@ const ProfilePersonData = ({
       const screen = returnByTo?.screen;
       const params = returnByTo?.params;
       if (tab) {
-        const parentNav = navigation.getParent?.();
-        if (parentNav?.jumpTo) {
-          parentNav.jumpTo(tab);
-          if (screen) parentNav.navigate(tab, { screen, params });
-        } else {
-          navigation.navigate(tab, screen ? { screen, params } : undefined);
-        }
+        navigation.navigate(tab, screen ? { screen, params } : undefined);
         return;
       }
     }
@@ -1185,11 +1195,31 @@ const ProfilePersonData = ({
             <TouchableOpacity style={styles.iconButton} onPress={() => redirect()}>
               <Ionicons name="share-outline" size={25} color={icon} />
             </TouchableOpacity>
-            {!fromUsersProfile && (
+            {fromUsersProfile && (
               <>
                 <TouchableOpacity
                   style={styles.iconButton}
-                  onPress={() => navigation.navigate('MyClosetBuyerCart')}
+                  onPress={() => {
+                    const sellerId = targetUserId || userData?.id || userData?._id || userData?.userId || userId || '';
+                    const sellerProfile = effectiveProfileType || userData?.profile;
+                    navigation.navigate('MyClosetBuyerCart', withClosetNavParams(
+                      {
+                        params: buildClosetNavContext({
+                          isOwnProfile: false,
+                          sellerProfile,
+                          sellerId,
+                          seller: {
+                            id: sellerId,
+                            displayName: userData?.displayName,
+                            userName: userData?.userName,
+                            image: userData?.image,
+                            profile: sellerProfile,
+                          },
+                        }),
+                      },
+                      { sellerId },
+                    ));
+                  }}
                 >
                   <View>
                     <Ionicons name="cart-outline" size={25} color={icon} />
@@ -1202,6 +1232,10 @@ const ProfilePersonData = ({
                     )}
                   </View>
                 </TouchableOpacity>
+              </>
+            )}
+            {!fromUsersProfile && (
+              <>
                 <TouchableOpacity style={styles.iconButton} onPress={() => setModalVisible(true)}>
                   <FontAwesome name="plus-square-o" size={25} color={icon} />
                 </TouchableOpacity>
@@ -1628,6 +1662,13 @@ const ProfilePersonData = ({
         variant="disclaimer"
         onClose={() => setSupportDisclaimerVisible(false)}
         onSupport={handleSupportNow}
+        onTipSupport={handleSendTip}
+      />
+      <TipSupportModal
+        visible={tipSupportVisible}
+        creatorName={username || userData?.userName || t('profilePersonData.creatorFallback')}
+        vendorId={targetUserId ?? userData?.userId ?? userData?.UserId ?? userData?.id}
+        onClose={() => setTipSupportVisible(false)}
       />
 
       {/* Profile Image Viewer */}

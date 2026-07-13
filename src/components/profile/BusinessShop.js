@@ -25,6 +25,7 @@ import useScreenshotProtection, {
   SCREENSHOT_PROTECTED_SOURCES,
 } from '../../hooks/useScreenshotProtection';
 import MyClosetShopFront from './MyClosetShopFront';
+import { getDragonflyIcon } from './ProfilePersonalData';
 
 const { width: screenWidth } = Dimensions.get('window');
 const numColumns = 3;
@@ -147,6 +148,12 @@ const PostImage = memo(({ item, themeTextStyle }) => {
 
 const ItemSeparator = memo(() => <View style={styles.itemSeparator} />);
 
+function isProfileFullyIdentityVerified(user) {
+  if (!user || user.kyc !== true) return false;
+  if (typeof user.kyb === 'boolean') return user.kyb === true;
+  return true;
+}
+
 const BusinessShopScreen = ({
   userData,
   isSubscribed,
@@ -156,14 +163,25 @@ const BusinessShopScreen = ({
   refreshKey,
   isActiveTab = false,
   activeMediaFilter = 'photo',
+  dashboard,
+  closetNavContext,
 }) => {
-  console.log(activeMediaFilter,'activeMediaFilteractiveMediaFilteractiveMediaFilter')
+  console.log(userData, '---------------------userData-------------------------')
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [statusLoading, setStatusLoading] = useState(false);
   const [resolvedIsSubscribed, setResolvedIsSubscribed] = useState(false);
   const [shopCheckComplete, setShopCheckComplete] = useState(false);
   const [shopExists, setShopExists] = useState(false);
+
+  const effectiveProfileType = userData?.profile && userData?.profile;
+  const normalizedProfileThemeType =
+    typeof effectiveProfileType === 'string' ? effectiveProfileType.toLowerCase() : '';
+  const isCompanyProfile = normalizedProfileThemeType === 'company';
+  const showIdentityVerified = isProfileFullyIdentityVerified(userData);
+
+  const DragonflyIcon = getDragonflyIcon(dashboard?.totalFollowers, isCompanyProfile);
+
   const navigation = useNavigation();
   const isFocused = useIsFocused();
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -512,7 +530,12 @@ const BusinessShopScreen = ({
           <View style={styles.marketingBody}>
             {isOwnProfile ? (
               <>
-                <Text style={[styles.marketingTitle, textStyle]}>{t('privateContent.shopTitle')}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+                <Text style={[styles.marketingTitle, textStyle]}> {`${userData.displayName}'s ${t('privateContent.shopTitle')}`}</Text>
+                {showIdentityVerified && (
+                  <DragonflyIcon width={20} height={20} />
+                )}
+              </View>
                 <Text style={[styles.marketingText, textStyle]}>{t('privateContent.shopWelcome')}</Text>
                 <Text style={[styles.marketingText, textStyle]}>{t('privateContent.shopOwnDescription')}</Text>
                 {!shopCheckComplete || shopExists ? null : (
@@ -589,6 +612,7 @@ const BusinessShopScreen = ({
           userData={userData}
           shopDraft={null}
           isOwnProfile={isOwnProfile}
+          closetNavContext={closetNavContext}
         />
       );
     }

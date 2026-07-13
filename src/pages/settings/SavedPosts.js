@@ -37,15 +37,110 @@ import useScreenshotProtection, { shouldProtectScreenshot } from '../../hooks/us
 const { width } = Dimensions.get('window');
 const GRID_ITEM_SIZE = (width - 6) / 3;
 
+const ebookThemeStyles = {
+  purple: { bg: '#5A2D82', tint: '#EDE3FA' },
+  sand: { bg: '#C08B47', tint: '#FFF1D9' },
+  forest: { bg: '#274C3A', tint: '#DDEFE3' },
+  gold: { bg: '#8A6B1C', tint: '#F8EBC2' },
+  ink: { bg: '#1F2937', tint: '#E5E7EB' },
+};
+
+const getEbookCoverImage = (item) => {
+  if (!item) return null;
+  const img = item.images?.[0] || item.image || item.thumbnail;
+  if (typeof img === 'string') return img;
+  if (img?.uri) return img.uri;
+  if (img?.url) return img.url;
+  return null;
+};
+
+const getEbookDescription = (item) => {
+  if (!item) return 'No description available';
+  if (typeof item.text === 'string') {
+    try {
+      const parsed = JSON.parse(item.text);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed[0];
+      }
+    } catch (e) {
+      return item.text || 'No description available';
+    }
+  }
+  if (Array.isArray(item.text) && item.text.length > 0) {
+    return item.text[0];
+  }
+  return item.description || 'No description available';
+};
+
+const EbookCard = ({ item, onPress, cardStyle, textStyle, themeText }) => {
+  const coverImage = getEbookCoverImage(item);
+  const title = item.caption || item.title || 'E-book';
+  const description = getEbookDescription(item);
+  const palette = ebookThemeStyles[item.theme] || ebookThemeStyles.purple;
+  const activeTint = themeText || '#5A2D82';
+
+  return (
+    <TouchableOpacity
+      activeOpacity={0.88}
+      onPress={onPress}
+      style={[
+        styles.ebookCard,
+        cardStyle,
+        { borderColor: themeText ? `${themeText}33` : '#E8E1F3' },
+      ]}
+    >
+      <View style={styles.ebookCoverContainer}>
+        {coverImage ? (
+          <Image source={{ uri: coverImage }} style={styles.ebookCoverImage} resizeMode="cover" />
+        ) : (
+          <View style={[styles.ebookCover, { backgroundColor: palette.bg }]}>
+            <Text style={styles.ebookCoverPlaceholderText}>{title.charAt(0).toUpperCase()}</Text>
+          </View>
+        )}
+      </View>
+      <View style={styles.ebookCardBody}>
+        <Text style={[styles.ebookTitle, textStyle]} numberOfLines={1}>
+          {title}
+        </Text>
+        <Text style={[styles.ebookDesc, textStyle, { opacity: 0.7 }]} numberOfLines={2}>
+          {description}
+        </Text>
+        <View style={styles.ebookMetaRow}>
+          <Text style={[styles.ebookMeta, { color: activeTint }]}>
+            📚 {item?.tableContent?.length || 0} Chapters
+          </Text>
+        </View>
+      </View>
+      <Icon name="chevron-forward" size={18} color="#6b7280" />
+    </TouchableOpacity>
+  );
+};
+
+const isEbookItem = (post) => {
+  if (!post) return false;
+  const formatValue = String(post.format || post.type || post.postType || '').toLowerCase();
+  const imageUrl = String(post.images?.[0] || post.image || post.video || '');
+  const isPdf = /\.pdf(\?|$)/i.test(imageUrl);
+  return formatValue === 'ebook' || formatValue === 'book' || isPdf;
+};
+
 const SavedPostsScreen = ({ navigation }) => {
   // Data
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState('posts');
+
+  const displayPosts = useMemo(() => {
+    return posts.filter(p => {
+      const isEbook = isEbookItem(p);
+      return activeTab === 'posts' ? !isEbook : isEbook;
+    });
+  }, [posts, activeTab]);
 
   const nonReelPosts = useMemo(
-    () => posts.filter(p => p?.type !== 'reel'),
-    [posts],
+    () => displayPosts.filter(p => p?.type !== 'reel'),
+    [displayPosts],
   );
 
   // Per-post UI state
@@ -53,7 +148,6 @@ const SavedPostsScreen = ({ navigation }) => {
   const [saved, setSaved] = useState({});
   const [postLikesCount, setPostLikesCount] = useState({});
   const [postCommentsCount, setPostCommentsCount] = useState({});
-  const [selectedTab, setSelectedTab] = useState('all');
   // Follow state
   const [followingByUserId, setFollowingByUserId] = useState({});
   const [followingBusy, setFollowingBusy] = useState(new Set());
@@ -444,7 +538,7 @@ const SavedPostsScreen = ({ navigation }) => {
 
   // Open full-screen viewer
   const openPostViewer = useCallback((index) => {
-    const post = posts[index];
+    const post = displayPosts[index];
     if (!post) return;
 
     // If it's a reel, navigate to FlipsScreen
@@ -453,7 +547,7 @@ const SavedPostsScreen = ({ navigation }) => {
       const params = {
         item: post,
         profileUserId,
-        profileReels: posts.filter(p => p?.type === 'reel'),
+        profileReels: displayPosts.filter(p => p?.type === 'reel'),
         key: Date.now().toString(),
       };
 
@@ -485,9 +579,9 @@ const SavedPostsScreen = ({ navigation }) => {
     );
 
     // Otherwise open the in-screen viewer modal
-    setInitialPostIndex(index);
+    setInitialPostIndex(filteredIndex !== -1 ? filteredIndex : 0);
     setViewerVisible(true);
-  }, [navigation, posts, nonReelPosts]);
+  }, [navigation, displayPosts, nonReelPosts]);
 
   // Close viewer
   const closePostViewer = useCallback(() => {
@@ -704,6 +798,48 @@ const SavedPostsScreen = ({ navigation }) => {
     [textStyle, themeText, t]
   );
 
+  const EbookEmptyState = useCallback(
+    () => (
+      <View style={styles.emptyState}>
+        <Icon
+          name="book-outline"
+          size={80}
+          color={
+            typeof themeText === 'string' && themeText.startsWith('#') && themeText.length === 7
+              ? `${themeText}55`
+              : '#C7C7CC'
+          }
+        />
+        <Text style={[styles.emptyTitle, textStyle]}>No Saved E-books</Text>
+        <Text style={[styles.emptySubtitle, textStyle, { opacity: 0.7 }]}>
+          E-books you save will appear here.
+        </Text>
+      </View>
+    ),
+    [textStyle, themeText]
+  );
+
+  const renderEbookCard = useCallback(
+    ({ item }) => (
+      <EbookCard
+        item={item}
+        onPress={() => {
+          navigation.navigate('ProfileMain', {
+            screen: 'EbookDetail',
+            params: {
+              ebook: item,
+              loggedInUserId: currentUserId,
+            },
+          });
+        }}
+        cardStyle={cardStyle}
+        textStyle={textStyle}
+        themeText={themeText}
+      />
+    ),
+    [navigation, cardStyle, textStyle, themeText, currentUserId]
+  );
+
   // Viewer viewability
   const viewerViewabilityConfigRef = useRef({
     viewAreaCoveragePercentThreshold: 50,
@@ -765,7 +901,35 @@ const SavedPostsScreen = ({ navigation }) => {
         <View style={styles.headerSpacer} />
       </View>
 
-      {/* Grid View */}
+      {/* Tab bar */}
+      <View style={[styles.tabBar, cardStyle]}>
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => setActiveTab('posts')}
+          style={[
+            styles.tabButton,
+            activeTab === 'posts' && { borderBottomColor: themeText || '#5A2D82' }
+          ]}
+        >
+          <Text style={[styles.tabText, textStyle, activeTab === 'posts' && { color: themeText || '#5A2D82', fontWeight: '800' }]}>
+            Posts
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => setActiveTab('ebooks')}
+          style={[
+            styles.tabButton,
+            activeTab === 'ebooks' && { borderBottomColor: themeText || '#5A2D82' }
+          ]}
+        >
+          <Text style={[styles.tabText, textStyle, activeTab === 'ebooks' && { color: themeText || '#5A2D82', fontWeight: '800' }]}>
+            E-books
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Grid View or Ebook List */}
       {loading && posts.length === 0 ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={themeText || '#4d2a88'} />
@@ -773,9 +937,10 @@ const SavedPostsScreen = ({ navigation }) => {
             {t('savedPosts.loadingText')}
           </Text>
         </View>
-      ) : (
+      ) : activeTab === 'posts' ? (
         <FlatList
-          data={posts}
+          key="posts-list"
+          data={displayPosts}
           renderItem={renderGridItem}
           keyExtractor={keyExtractor}
           numColumns={3}
@@ -788,12 +953,33 @@ const SavedPostsScreen = ({ navigation }) => {
           }
           ListEmptyComponent={!loading ? <EmptyState /> : null}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={posts.length === 0 ? styles.emptyContainer : styles.gridContainer}
-          columnWrapperStyle={posts.length > 0 ? styles.gridRow : null}
+          contentContainerStyle={displayPosts.length === 0 ? styles.emptyContainer : styles.gridContainer}
+          columnWrapperStyle={displayPosts.length > 0 ? styles.gridRow : null}
           removeClippedSubviews={true}
           maxToRenderPerBatch={12}
           windowSize={10}
           initialNumToRender={9}
+        />
+      ) : (
+        <FlatList
+          key="ebooks-list"
+          data={displayPosts}
+          renderItem={renderEbookCard}
+          keyExtractor={keyExtractor}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={themeText || '#4d2a88'}
+            />
+          }
+          ListEmptyComponent={!loading ? <EbookEmptyState /> : null}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={displayPosts.length === 0 ? styles.emptyContainer : styles.ebookListContainer}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={10}
+          windowSize={10}
+          initialNumToRender={6}
         />
       )}
 
@@ -1024,6 +1210,91 @@ const styles = StyleSheet.create({
   },
   postContainer: {
     paddingBottom: 16,
+  },
+  ebookListContainer: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    paddingBottom: 24,
+  },
+  ebookCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#E8E1F3',
+  },
+  ebookCover: {
+    width: 68,
+    height: 92,
+    borderRadius: 12,
+    padding: 8,
+    justifyContent: 'space-between',
+    marginRight: 12,
+  },
+  ebookCoverContainer: {
+    width: 68,
+    height: 92,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginRight: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f3f4f6',
+  },
+  ebookCoverImage: {
+    width: '100%',
+    height: '100%',
+  },
+  ebookCoverPlaceholderText: {
+    color: '#fff',
+    fontSize: 24,
+    fontWeight: '800',
+  },
+  ebookCardBody: {
+    flex: 1,
+  },
+  ebookTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  ebookDesc: {
+    fontSize: 12,
+    color: '#6b7280',
+    lineHeight: 16,
+    marginBottom: 8,
+  },
+  ebookMetaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  ebookMeta: {
+    fontSize: 11,
+    fontWeight: '700',
+    marginRight: 10,
+    marginBottom: 2,
+  },
+  tabBar: {
+    flexDirection: 'row',
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#e0e0e0',
+    backgroundColor: '#fff',
+  },
+  tabButton: {
+    flex: 1,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6b7280',
   },
 });
 

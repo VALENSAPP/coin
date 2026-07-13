@@ -1,13 +1,12 @@
 import axios from 'axios';
 import { BASE_URL, API_PARAM } from '../shims/env';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_URL } from '../config/urls';
 
 const baseUrl = BASE_URL;
 
 const axiosInstance = axios.create({
-    // baseURL: 'https://valenscorp.com/',
-    baseURL: 'https://api.valens.app/',
-
+    baseURL: API_URL,
     maxBodyLength: Infinity
 });
 
@@ -30,7 +29,7 @@ export const authInterceptor = axiosInstance.interceptors.request.use(
             config.url == "user/editProfile" ||
             config.url == "story/upload" ||
             config.url == "company-profile/upload-documents" ||
-            isMyClosetCreateOrUpdate  ||
+            isMyClosetCreateOrUpdate ||
             config.url == "mycloset/items"
         ) {
             config.headers['Content-Type'] = 'multipart/form-data';
@@ -47,7 +46,7 @@ export const authInterceptor = axiosInstance.interceptors.request.use(
 
 export const authInterceptorResponse = axiosInstance.interceptors.response.use(
     (response) => {
-        console.log(response, "res333333333333333333333333")
+        // console.log(response, "res333333333333333333333333")
         return response.data;
     },
     async (error) => {

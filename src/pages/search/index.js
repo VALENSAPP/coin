@@ -67,6 +67,7 @@ import BattleCard, { AutoScrollBattleRow } from '../../components/search/Battlec
 import BattleExplore from './BattleExplore';
 import { getUserCredentials } from '../../services/post';
 import { useLanguage } from '../../i18n';
+import { BASE_URL } from '../../config/urls';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const DEFAULT_PROFILE_AVATAR = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
@@ -310,8 +311,8 @@ const normalizeImageUrl = url => {
   if (!url || typeof url !== 'string') return null;
   const trimmed = url.trim();
   if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:') || trimmed.startsWith('file://')) return trimmed;
-  if (trimmed.startsWith('/')) return `https://api.valens.app${trimmed}`;
-  return `https://api.valens.app/${trimmed}`;
+  if (trimmed.startsWith('/')) return `${BASE_URL}${trimmed}`;
+  return `${BASE_URL}/${trimmed}`;
 };
 
 // ─── MissionProgressBar (memoized) ──────────────────────────────────────────

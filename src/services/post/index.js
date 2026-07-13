@@ -109,6 +109,16 @@ export const createPost = async data => {
     formData.append('allowDownload', data.allowDownload ? 'true' : 'false');
   }
 
+  // Price and promo code for e-books
+  if (data.amount != null) {
+    // send as string to form-data
+    formData.append('amount', String(data.amount));
+  }
+
+  if (data.promoCode != null && String(data.promoCode).trim() !== '') {
+    formData.append('promoCode', String(data.promoCode).trim());
+  }
+
 if (data.tableContent) {
   console.log('Appending table contents');
 
@@ -200,6 +210,30 @@ export const getPostByUser = async (userId, type = '') => {
       type,
     },
   });
+};
+
+export const getMarketPlaceEbook = async (userId) => {
+  if (!userId) {
+    throw new Error('getMarketPlaceEbook: you must pass a valid userId');
+  }
+
+  return axiosInstance.get('post/getMarketPlaceEbook', {
+    params: {
+      userId,
+    },
+  });
+};
+
+export const getMyEbookLibrary = async () => {
+  return axiosInstance.get('post/myEbookLibrary');
+};
+
+export const getMarketPlaceEbookById = async (postId) => {
+  if (!postId || typeof postId !== 'string') {
+    throw new Error('getMarketPlaceEbookById: you must pass a valid postId');
+  }
+
+  return axiosInstance.get(`post/getMarketPlaceEbookById/${postId}`);
 };
 
 export const getPostById = async (postId) => {
@@ -438,4 +472,6 @@ export async function unVote(data) {
   return axiosInstance.post('post/removePostTrustVote', data);
 }
 
-
+export async function getvotesDetail(data) {
+  return axiosInstance.post('post/getTrustVoteBypostId', data);
+}

@@ -86,6 +86,7 @@ function isYoutubeSelected(item, selection) {
 
 export default function PostMusicGalleryModal({
   visible,
+  embedded = false,
   onClose,
   query,
   onQueryChange,
@@ -314,13 +315,9 @@ export default function PostMusicGalleryModal({
     </View>
   );
 
-  return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      presentationStyle="fullScreen"
-      onRequestClose={onClose}
-    >
+  if (!visible) return null;
+
+  const content = (
       <SafeAreaView style={[styles.root, { backgroundColor: resolvedBackground }]} edges={['top', 'left', 'right', 'bottom']}>
         <View style={[styles.header, { borderBottomColor: borderColor }]}>
           <TouchableOpacity
@@ -392,11 +389,30 @@ export default function PostMusicGalleryModal({
           showsVerticalScrollIndicator={false}
         />
       </SafeAreaView>
+  );
+
+  if (embedded) {
+    return <View style={styles.embeddedHost}>{content}</View>;
+  }
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="fullScreen"
+      onRequestClose={onClose}
+    >
+      {content}
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  embeddedHost: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 2000,
+    elevation: 2000,
+  },
   root: {
     flex: 1,
   },

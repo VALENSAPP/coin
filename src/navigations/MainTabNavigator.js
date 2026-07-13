@@ -37,6 +37,7 @@ import heartNotification from '../pages/home/HeartNotification';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import Settings from '../pages/settings';
 import UserChat from '../pages/home/chatMessages/UserChat';
+import UserClosetChat from '../pages/home/chatMessages/UserClosetChat';
 import ChatMessages from '../pages/home/chatMessages/ChatMessages';
 import PostScreen from '../pages/post';
 import FollowersFollowingScreen from '../pages/profile/FollowersScreen';
@@ -61,7 +62,7 @@ import Notification from '../pages/settings/Notification';
 import Favourites from '../pages/home/Favourites';
 import Following from '../pages/home/Following';
 import HidePosts from '../pages/settings/HidePosts';
-import subscription from '../pages/settings/Subscription';
+import SubscriptionDetails from '../pages/settings/SubscriptionDetails';
 import TextGradient from '../assets/textgradient/TextGradient';
 import CreateMission from '../pages/post/uploadPost/CreateMission';
 import EditPostScreen from '../pages/post/uploadPost/EditPostScreen';
@@ -90,6 +91,7 @@ import TwoFactorAuthScreen from '../pages/wallet/Two-FactorAuth';
 import LoginHistoryScreen from '../pages/wallet/LoginHistory';
 import SubventionSetupScreen from '../pages/wallet/Subscriptions';
 import EbookPublisherScreen from '../pages/wallet/EbookPublisher';
+import TipPayoutSetupScreen from '../pages/wallet/TipPayoutSetup';
 import KYCVerification from '../pages/authentication/kycVerification';
 import FlipsScreen from '../pages/reels';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -101,6 +103,10 @@ import PaymentScreen from '../pages/Stripe/PaymentScreen';
 import OpenBattleScreen from '../pages/profile/OpenBattleScreen';
 import ProfileBattleScreen from '../pages/profile/ProfileBattleScreen';
 import EbookDetailScreen from '../components/profile/EbookDetailScreen';
+import AllEbooksScreen from '../components/profile/AllEbooksScreen';
+import EbookBuyDetailsScreen from '../components/profile/EbookBuyDetailsScreen';
+import EbookCheckoutScreen from '../components/profile/EbookCheckoutScreen';
+import EbookPaymentSuccessScreen from '../components/profile/EbookPaymentSuccessScreen';
 import ArchiveScreen from '../pages/settings/archeive';
 import HighlightsScreen from '../pages/settings/highlights';
 import BattleInProgress from '../pages/settings/BattleInProgress';
@@ -118,6 +124,7 @@ import HexAvatar from '../components/home/story.js/HexAvatar';
 import { getUserCredentials } from '../services/post';
 import { getMyClosetMe } from '../services/myCloset';
 import RevenueFromSubscriptions from '../pages/wallet/MyRevenue';
+import MarketplaceAnalytics from '../pages/wallet/MarketplaceAnalytics';
 import ValensWallet from '../pages/wallet/ValensWallet';
 import TransactionActivityScreen from '../pages/wallet/TransactionActivityScreen';
 import ProfileShop from '../components/profile/Shop';
@@ -127,6 +134,7 @@ import {
   MyClosetItemsManagementScreen,
 } from '../components/profile/MyClosetItemManagement';
 import {
+  MyClosetBattlesScreen,
   MyClosetBuyerCartScreen,
   MyClosetBuyerCheckoutScreen,
   MyClosetBuyerItemDetailScreen,
@@ -144,7 +152,16 @@ import PrivateCircle from '../components/profile/PrivateCircle';
 import LanguageSelectionScreen from '../pages/settings/LanguageSelectionScreen';
 // ── TRANSLATION CHANGE: import useLanguage hook ──────────────────────────────
 import { useLanguage } from '../i18n';
-import { normalizeProfileType } from '../utils/supportEligibility';
+import MyClosetEarningsScreen from '../components/profile/MyClosetEarningsScreen';
+import {
+  BattleInsightsActionsScreen,
+  BoostWinningItemScreen,
+  CreateWinnerPromotionScreen,
+  PreviewPromotionScreen,
+  PromotionDetailsScreen,
+  ReviewBoostScreen,
+} from '../pages/profile/Myclosetbattleinsightsscreens';
+import { normalizeProfileType } from '../utils/closetNavigation';
 
 const VIEWED_PROFILE_THEME_EVENT = 'VIEWED_PROFILE_THEME';
 
@@ -169,7 +186,7 @@ const MyClosetScreen = props => {
 
         if (!isMounted) return;
 
-        if (profileValue) setStoredProfile(profileValue);
+        if (profileValue) setStoredProfile(normalizeProfileType(profileValue) || 'user');
 
         const closetData = closetValue?.data || closetValue;
         const hasApiSignal =
@@ -180,7 +197,7 @@ const MyClosetScreen = props => {
         const closetExists =
           hasApiSignal && !apiReportedNetworkError
             ? closetValue?.statusCode === 200 &&
-              Boolean(closetData?.shopName || closetData?.id || closetData?.data)
+            Boolean(closetData?.shopName || closetData?.id || closetData?.data)
             : null;
 
         setHasCreatedShop(
@@ -244,7 +261,7 @@ const ShopScreenWrapper = props => {
 
         if (!isMounted) return;
 
-        if (profileValue) setStoredProfile(profileValue);
+        if (profileValue) setStoredProfile(normalizeProfileType(profileValue) || 'user');
 
         const closetData = closetValue?.data || closetValue;
         const hasApiSignal =
@@ -255,7 +272,7 @@ const ShopScreenWrapper = props => {
         const closetExists =
           hasApiSignal && !apiReportedNetworkError
             ? closetValue?.statusCode === 200 &&
-              Boolean(closetData?.shopName || closetData?.id || closetData?.data)
+            Boolean(closetData?.shopName || closetData?.id || closetData?.data)
             : null;
 
         setHasCreatedShop(
@@ -356,6 +373,7 @@ export default function MainTabNavigator() {
         <Stack.Screen name="Favourites" component={Favourites} />
         <Stack.Screen name="Following" component={Following} />
         <Stack.Screen name="UserChat" component={UserChat} />
+        <Stack.Screen name="UserClosetChat" component={UserClosetChat} />
         <Stack.Screen name="UsersProfile" component={Usersprofile} />
         <Stack.Screen name="MyClosetBuyerItems" component={MyClosetBuyerItemsScreen} />
         <Stack.Screen name="MyClosetBuyerItemDetail" component={MyClosetBuyerItemDetailScreen} />
@@ -366,6 +384,16 @@ export default function MainTabNavigator() {
         <Stack.Screen name="MyClosetBuyerPayment" component={MyClosetBuyerPaymentScreen} />
         <Stack.Screen name="MyClosetBuyerReview" component={MyClosetBuyerReviewScreen} />
         <Stack.Screen name="MyClosetBuyerOrderReceived" component={MyClosetBuyerOrderReceivedScreen} />
+        <Stack.Screen name="MyClosetBattles" component={MyClosetBattlesScreen} />
+        <Stack.Screen name="BattleLive" component={BattleLiveScreen} />
+        <Stack.Screen name="BattleResultsScreen" component={BattleResultsScreen} />
+        <Stack.Screen name="BattleInsightsActions" component={BattleInsightsActionsScreen} />
+        <Stack.Screen name="BoostWinningItem" component={BoostWinningItemScreen} />
+        <Stack.Screen name="ReviewBoost" component={ReviewBoostScreen} />
+        <Stack.Screen name="CreateWinnerPromotion" component={CreateWinnerPromotionScreen} />
+        <Stack.Screen name="PromotionDetails" component={PromotionDetailsScreen} />
+        <Stack.Screen name="PreviewPromotion" component={PreviewPromotionScreen} />
+        <Stack.Screen name="CreateBattle" component={CreateBattleScreen} />
         <Stack.Screen
           name="ShareProfile"
           component={ShareProfile}
@@ -394,6 +422,31 @@ export default function MainTabNavigator() {
           options={{ headerShown: false }}
         />
         {/* <Stack.Screen name="OpenBattle" component={OpenBattleScreen} options={{ headerShown: false }} /> */}
+        <Stack.Screen
+          name="EbookDetail"
+          component={EbookDetailScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="AllEbooks"
+          component={AllEbooksScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="EbookBuyDetails"
+          component={EbookBuyDetailsScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="EbookCheckout"
+          component={EbookCheckoutScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="EbookPaymentSuccess"
+          component={EbookPaymentSuccessScreen}
+          options={{ headerShown: false }}
+        />
       </Stack.Navigator>
     );
   }, []);
@@ -451,9 +504,17 @@ export default function MainTabNavigator() {
           name="MyClosetItemEditor"
           component={MyClosetItemEditorScreen}
         />
+        <Stack.Screen name="BattleInsightsActions" component={BattleInsightsActionsScreen} />
+        <Stack.Screen name="BoostWinningItem" component={BoostWinningItemScreen} />
+        <Stack.Screen name="ReviewBoost" component={ReviewBoostScreen} />
+        <Stack.Screen name="CreateWinnerPromotion" component={CreateWinnerPromotionScreen} />
+        <Stack.Screen name="PromotionDetails" component={PromotionDetailsScreen} />
+        <Stack.Screen name="PreviewPromotion" component={PreviewPromotionScreen} />
         <Stack.Screen name="MyClosetOrders" component={MyClosetOrdersScreen} />
         <Stack.Screen name="MyClosetOrderDetail" component={MyClosetOrderDetailScreen} />
+        <Stack.Screen name="MyClosetEarnings" component={MyClosetEarningsScreen} options={{ headerShown: false }} />
         <Stack.Screen name="MyClosetBuyerItems" component={MyClosetBuyerItemsScreen} />
+        <Stack.Screen name="MyClosetBattles" component={MyClosetBattlesScreen} />
         <Stack.Screen name="MyClosetBuyerItemDetail" component={MyClosetBuyerItemDetailScreen} />
         <Stack.Screen name="MyClosetBuyerOptions" component={MyClosetBuyerOptionsScreen} />
         <Stack.Screen name="MyClosetBuyerCart" component={MyClosetBuyerCartScreen} />
@@ -508,6 +569,26 @@ export default function MainTabNavigator() {
         <Stack.Screen
           name="EbookDetail"
           component={EbookDetailScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="AllEbooks"
+          component={AllEbooksScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="EbookBuyDetails"
+          component={EbookBuyDetailsScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="EbookCheckout"
+          component={EbookCheckoutScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="EbookPaymentSuccess"
+          component={EbookPaymentSuccessScreen}
           options={{ headerShown: false }}
         />
         <Stack.Screen
@@ -572,7 +653,7 @@ export default function MainTabNavigator() {
         />
         <Stack.Screen
           name="subscription"
-          component={subscription}
+          component={SubscriptionDetails}
           options={{ headerShown: false }}
         />
         <Stack.Screen
@@ -746,6 +827,11 @@ export default function MainTabNavigator() {
             options={{ headerTitle: t('walletStack.myCloset') }}
           />
           <Stack.Screen
+            name="MyClosetEarnings"
+            component={MyClosetEarningsScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
             name="Shop"
             component={ShopScreenWrapper}
             // ── TRANSLATION CHANGE ───────────────────────────────────────────
@@ -862,6 +948,11 @@ export default function MainTabNavigator() {
             options={{ headerShown: false }}
           />
           <Stack.Screen
+            name="TipPayoutSetup"
+            component={TipPayoutSetupScreen}
+            options={{ headerTitle: t('drawerNav.dashboard') }}
+          />
+          <Stack.Screen
             name="ViewMissionPost"
             component={ViewMissioPost}
             // ── TRANSLATION CHANGE ───────────────────────────────────────────
@@ -872,6 +963,11 @@ export default function MainTabNavigator() {
             component={RevenueFromSubscriptions}
             // ── TRANSLATION CHANGE ───────────────────────────────────────────
             options={{ headerTitle: t('walletStack.revenueFromSubscriptions') }}
+          />
+          <Stack.Screen
+            name="MarketplaceAnalytics"
+            component={MarketplaceAnalytics}
+            options={{ headerShown: false }}
           />
           <Stack.Screen
             name="LanguageSelectionScreen"
@@ -1114,6 +1210,7 @@ export default function MainTabNavigator() {
         'HeartNotification',
         'Following',
         'UserChat',
+        'UserClosetChat',
         'PostUpload',
         'PostEditor',
         'EditPost',
@@ -1151,6 +1248,25 @@ export default function MainTabNavigator() {
         'MyClosetBuyerReview',
         'MyClosetBuyerOrderReceived',
         'BattleVoteDetails',
+        'CreateBattle',
+        'BattleSetup',
+        'BattlePreview',
+        'BattleLive',
+        'BattleResultsScreen',
+        'ProfileBattleScreen',
+        'ArchiveScreen',
+        'HighlightsScreen',
+        'BoostWinningItem',
+        'ReviewBoost',
+        'CreateWinnerPromotion',
+        'PromotionDetails',
+        'PreviewPromotion',
+        'BattleInsightsActions',
+        'EbookDetail',
+        'AllEbooks',
+        'EbookBuyDetails',
+        'EbookCheckout',
+        'EbookPaymentSuccess',
       ];
 
       let currentRouteName = routeName;

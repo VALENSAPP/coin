@@ -1,20 +1,26 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  DeviceEventEmitter,
   Dimensions,
   FlatList,
   Image,
+  Linking,
   Modal,
   SafeAreaView,
+  KeyboardAvoidingView,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
+  Platform,
 } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import FastImage from 'react-native-fast-image';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   getMyClosetItems,
@@ -29,19 +35,47 @@ import {
   deleteCartItem,
   clearCart,
   checkoutCart,
+  getClosetItemsByClosetId,
+  setCartItemShippingChoice,
+  createPaymentSession,
+  getRecentPaymentDetails,
+  getPaymentDetailsByPaymentId,
+  getClosetBattlesPriority,
 } from '../../services/myCloset';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useThemeContext } from '../../theme/ThemeContext';
+import { useLanguage } from '../../i18n';
+import InAppBrowser from 'react-native-inappbrowser-reborn';
+import { FlatList as GestureFlatList } from 'react-native-gesture-handler';
+import InstagramZoomableImage from '../shared/InstagramZoomableImage';
+import {
+  navigateToBattleLive,
+  navigateClosetReturn,
+  useClosetTheme,
+  withClosetNavParams,
+} from '../../utils/closetNavigation';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const GRID_GAP = 12;
 const GRID_ITEM_WIDTH = (SCREEN_WIDTH - 48) / 2;
 const HERO_IMAGE_WIDTH = SCREEN_WIDTH - 40;
+const HERO_IMAGE_HEIGHT = 220;
 const MUTED = '#6b7280';
 const BORDER = '#ebe4f3';
 const SURFACE = '#fbf8ff';
 const ERROR_COLOR = '#dc2626';
 const ERROR_BG = '#fff5f5';
+const SHIP_OPTION_SHIP = 'ship_items';
+const SHIP_OPTION_LOCAL = 'local_pick';
+const SHIP_OPTION_BOTH = 'both';
+
+const allowedShippingChoices = shippingOption => {
+  if (shippingOption === SHIP_OPTION_BOTH) return [SHIP_OPTION_SHIP, SHIP_OPTION_LOCAL];
+  if (shippingOption === SHIP_OPTION_LOCAL) return [SHIP_OPTION_LOCAL];
+  return [SHIP_OPTION_SHIP];
+};
+
+const cartItemProductId = ci => ci?.product?.id || ci?.product?._id || ci?.productId;
 
 const currency = value => {
   if (value == null || value === '') return '$0.00';
@@ -62,6 +96,15 @@ const imageUri = image => {
   return image?.uri || image?.url || image?.path || null;
 };
 
+const fastImageSource = uri =>
+  uri
+    ? {
+      uri,
+      priority: FastImage.priority.high,
+      cache: FastImage.cacheControl.immutable,
+    }
+    : null;
+
 const itemImages = item => {
   const images = Array.isArray(item?.images)
     ? item.images.map(imageUri).filter(Boolean)
@@ -81,52 +124,241 @@ const prefetchImageUrls = async items => {
   await Promise.allSettled([...new Set(urls)].map(url => Image.prefetch(url)));
 };
 
-const normalizeItem = (item = {}, index = 0) => ({
+const CachedImageBox = ({ uri, style, placeholderStyle, iconName, iconSize = 26 }) => {
+  const [loaded, setLoaded] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setLoaded(false);
+    setFailed(false);
+  }, [uri]);
+
+  if (!uri || failed) {
+    return (
+      <View style={[style, placeholderStyle]}>
+        <Ionicons name={iconName} size={iconSize} color="#9b8c7a" />
+      </View>
+    );
+  }
+
+  return (
+    <View style={style}>
+      {!loaded && (
+        <View style={styles.imageLoadingOverlay}>
+          <ActivityIndicator size="small" color="#9b8c7a" />
+        </View>
+      )}
+      <FastImage
+        source={fastImageSource(uri)}
+        style={StyleSheet.absoluteFill}
+        resizeMode={FastImage.resizeMode.cover}
+        fadeDuration={0}
+        onLoad={() => setLoaded(true)}
+        onError={() => {
+          setFailed(true);
+          setLoaded(true);
+        }}
+      />
+    </View>
+  );
+};
+
+const unwrapBattlesResponse = source => {
+  const battles = source?.data?.battles ?? source?.data?.data?.battles ?? source?.battles ?? [];
+  return Array.isArray(battles) ? battles : [];
+};
+
+const fmt = value => {
+  if (value == null || value === '') return '$0.00';
+  const text = String(value).trim();
+  if (text.startsWith('$')) return text;
+  const numeric = Number(text);
+  return Number.isNaN(numeric) ? text : `$${numeric.toFixed(2)}`;
+};
+
+const thumb = item => {
+  if (!item) return null;
+  if (Array.isArray(item.images) && item.images.length) return item.images[0];
+  return item.image || item.thumbnail || null;
+};
+
+const mapParticipant = (participant = {}, closet) => {
+  const product = participant.product ?? {};
+  return {
+    participantId: participant.id,
+    name: product.name || '',
+    price: fmt(product.price),
+    image: thumb(product),
+    user: closet?.shopName || closet?.shopUsername || '',
+    pct: Number(participant.votePercentage ?? 0),
+    isWinner: !!participant.isWinner,
+  };
+};
+
+const mapBattle = (battle, index) => {
+  const sorted = [...(battle?.participants ?? [])].sort(
+    (left, right) => (left.position ?? 0) - (right.position ?? 0),
+  );
+  const [p1, p2] = sorted;
+
+  return {
+    id: String(battle?.id ?? index),
+    title: battle?.title,
+    left: mapParticipant(p1, battle?.closet),
+    right: mapParticipant(p2, battle?.closet),
+  };
+};
+
+const BattleSlide = ({ battle, accent, t, onPress }) => (
+  <TouchableOpacity activeOpacity={0.9} onPress={onPress} style={styles.battleCard}>
+    <Text style={styles.battleTitle} numberOfLines={1}>
+      {battle.title || t('myClosetShopFront.battlePicksTitle')}
+    </Text>
+    <View style={styles.slide}>
+      <View style={styles.fighter}>
+        <View style={styles.fighterThumb}>
+          <CachedImageBox
+            uri={battle.left.image}
+            style={styles.fighterImgWrap}
+            placeholderStyle={styles.fighterThumbPlaceholder}
+            iconName="bag-outline"
+          />
+        </View>
+        <Text style={styles.fighterName} numberOfLines={2}>{battle.left.name}</Text>
+        <Text style={styles.fighterPrice}>{battle.left.price}</Text>
+        <Text style={[styles.pct, { color: accent }]}>{battle.left.pct}%</Text>
+      </View>
+
+      <View style={styles.vsBubble}>
+        <Text style={styles.vsText}>{t('myClosetShopFront.vs')}</Text>
+      </View>
+
+      <View style={styles.fighter}>
+        <View style={styles.fighterThumb}>
+          <CachedImageBox
+            uri={battle.right.image}
+            style={styles.fighterImgWrap}
+            placeholderStyle={styles.fighterThumbPlaceholder}
+            iconName="bag-handle-outline"
+          />
+        </View>
+        <Text style={styles.fighterName} numberOfLines={2}>{battle.right.name}</Text>
+        <Text style={styles.fighterPrice}>{battle.right.price}</Text>
+        <Text style={styles.pctRed}>{battle.right.pct}%</Text>
+      </View>
+    </View>
+  </TouchableOpacity>
+);
+
+// `description`/`brand`/`condition` fall back to translated defaults when the API omits them.
+const normalizeItem = (item = {}, index = 0, t) => ({
   id: String(item?.id || item?._id || `item-${index}`),
   raw: item,
-  name: item?.name || item?.title || item?.itemName || 'Untitled item',
+  name: item?.name || item?.title || item?.itemName || t('myClosetBuyer.untitledItem'),
   price: currency(item?.price ?? item?.amount ?? item?.salePrice),
   priceValue: numberFromPrice(item?.price ?? item?.amount ?? item?.salePrice),
   image: itemImage(item),
   images: itemImages(item),
-  brand: item?.brand || 'Valens Closet',
-  category: item?.category || 'Accessories',
-  condition: item?.condition || 'Like new',
-  description:
-    item?.description ||
-    'Authentic closet item in excellent condition. Worn only a few times and ready for a new home.',
-  quantityAvailable: Number(item?.quantity || item?.availableQuantity || 1) || 1,
+  brand: item?.brand || t('myClosetBuyer.defaultBrand'),
+  category: item?.category || t('myClosetBuyer.defaultCategory'),
+  condition: item?.condition || t('myClosetBuyer.defaultCondition'),
+  description: item?.description || t('myClosetBuyer.defaultDescription'),
+  quantityAvailable: Number(item?.quantity ?? item?.availableQuantity ?? 1) || 0,
   sellerName: item?.sellerName || item?.userName || item?.ownerName || '',
 });
 
-const normalizeItems = items =>
-  (Array.isArray(items) ? items : []).map((item, index) => normalizeItem(item, index));
+const normalizeItems = (items, t) =>
+  (Array.isArray(items) ? items : []).map((item, index) => normalizeItem(item, index, t));
 
-const getRouteItems = route =>
-  normalizeItems(route?.params?.items || route?.params?.initialItems || []);
+const getRouteItems = (route, t) =>
+  normalizeItems(route?.params?.items || route?.params?.initialItems || [], t);
 
-const buildCart = (route, overrides = {}) => {
-  const item = normalizeItem(route?.params?.item || {}, 0);
+const buildCart = (route, t, overrides = {}) => {
+  const item = normalizeItem(route?.params?.item || {}, 0, t);
   const quantity = Number(route?.params?.quantity || 1) || 1;
-  const shipping = Number(route?.params?.shipping ?? 10);
-  const serviceFee = Number(route?.params?.serviceFee ?? 5);
-  const itemTotal = item.priceValue * quantity;
+  const cartItemsSnapshot = route?.params?.cartItemsSnapshot || null;
+  const breakdown = route?.params?.checkoutData?.breakdown ?? null;
+
+  const fallbackItemTotal = item.priceValue * quantity;
+  const itemTotal = breakdown?.itemsSubtotal ?? route?.params?.itemTotal ?? fallbackItemTotal;
+  const shipping = breakdown?.shippingAmount ?? Number(route?.params?.shippingAmount ?? route?.params?.shipping ?? 0);
+  const taxAmount = breakdown?.taxAmount ?? 0;
+  const platformFee = breakdown?.platformFee ?? 0;
+  const discountAmount = breakdown?.discountAmount ?? 0;
+  const total = breakdown?.totalAmountDue ?? route?.params?.total ?? itemTotal;
+
   return {
     item,
     quantity,
     note: route?.params?.note || '',
     seller: route?.params?.seller || {},
     items: route?.params?.items || [],
-    shipping,
-    serviceFee,
+    cartItemsSnapshot,
     itemTotal,
-    total: itemTotal /*+ shipping + serviceFee*/,
+    shipping,
+    taxAmount,
+    platformFee,
+    discountAmount,
+    total,
     ...overrides,
   };
 };
 
-const goBack = navigation => {
-  if (navigation.canGoBack?.()) navigation.goBack();
+const goBack = (navigation, returnTo) => {
+  if (navigation.canGoBack?.()) {
+    navigation.goBack();
+    return;
+  }
+  navigateClosetReturn(navigation, returnTo);
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Field validation rules — labels/messages are functions of `t` so components
+// re-derive them via useMemo when the language changes.
+// ─────────────────────────────────────────────────────────────────────────────
+const getFieldRules = t => ({
+  fullName: { required: true, label: t('myClosetBuyer.field.fullName') },
+  phoneNumber: {
+    required: true,
+    label: t('myClosetBuyer.field.phoneNumber'),
+    pattern: /^[+\d\s\-()]{7,20}$/,
+    patternMsg: t('myClosetBuyer.field.invalidPhone'),
+  },
+  alternateNumber: {
+    required: false,
+    label: t('myClosetBuyer.field.alternateNumber'),
+    pattern: /^[+\d\s\-()]{7,20}$/,
+    patternMsg: t('myClosetBuyer.field.invalidPhone'),
+  },
+  addressLine1: { required: true, label: t('myClosetBuyer.field.addressLine1') },
+  addressLine2: { required: false, label: t('myClosetBuyer.field.addressLine2') },
+  city: { required: true, label: t('myClosetBuyer.field.city') },
+  state: { required: false, label: t('myClosetBuyer.field.state') },
+  country: { required: false, label: t('myClosetBuyer.field.country') },
+  postalCode: {
+    required: false,
+    label: t('myClosetBuyer.field.postalCode'),
+    pattern: /^\d{3,10}$/,
+    patternMsg: t('myClosetBuyer.field.invalidPostalCode'),
+  },
+});
+
+const validateField = (key, value, fieldRules, t) => {
+  const rule = fieldRules[key];
+  if (!rule) return null;
+  const trimmed = String(value ?? '').trim();
+  if (rule.required && !trimmed) return t('myClosetBuyer.field.required', { label: rule.label });
+  if (trimmed && rule.pattern && !rule.pattern.test(trimmed)) return rule.patternMsg;
+  return null;
+};
+
+const validateForm = (form, fieldRules, t) => {
+  const errors = {};
+  Object.keys(fieldRules).forEach(key => {
+    const err = validateField(key, form[key], fieldRules, t);
+    if (err) errors[key] = err;
+  });
+  return errors;
 };
 
 const withAlphaFlow = (hex, alpha = 0.12) => {
@@ -139,14 +371,14 @@ const withAlphaFlow = (hex, alpha = 0.12) => {
 };
 
 const BottomBar = ({ children }) => {
-  const { bgStyle, accent } = useAppTheme();
+  const { bg, accent } = useAppTheme();
   const { isDarkMode } = useThemeContext();
   return (
     <View
       style={[
         styles.bottomBar,
         {
-          backgroundColor: isDarkMode ? bgStyle.backgroundColor : '#ffffffee',
+          backgroundColor: isDarkMode ? bg : '#ffffffee',
           borderTopColor: isDarkMode ? withAlphaFlow(accent, 0.2) : '#f0eaf6',
         },
       ]}
@@ -160,40 +392,50 @@ const BottomBar = ({ children }) => {
 // Shared UI atoms
 // ─────────────────────────────────────────────────────────────────────────────
 
-const Header = ({ navigation, title, rightIcon, onRightPress }) => {
+const Header = ({ navigation, title, rightIcon, onRightPress, returnTo }) => {
   const { accent } = useAppTheme();
   const { isDarkMode } = useThemeContext();
   const labelColor = isDarkMode ? '#ffffff' : '#17072d';
   const chipSurface = isDarkMode ? 'rgba(255,255,255,0.08)' : '#ffffff';
 
   return (
-  <View style={styles.header}>
-    <TouchableOpacity
-      onPress={() => goBack(navigation)}
-      style={[styles.iconButton, { backgroundColor: chipSurface }]}
-      activeOpacity={0.8}
-    >
-      <Ionicons name="chevron-back" size={22} color={accent} />
-    </TouchableOpacity>
-    <Text style={[styles.headerTitle, { color: labelColor }]}>{title}</Text>
-    {rightIcon ? (
-      <TouchableOpacity onPress={onRightPress} style={[styles.iconButton, { backgroundColor: chipSurface }]} activeOpacity={0.8}>
-        <Ionicons name={rightIcon} size={21} color={accent} />
+    <View style={styles.header}>
+      <TouchableOpacity
+        onPress={() => goBack(navigation, returnTo)}
+        style={[styles.iconButton, { backgroundColor: chipSurface }]}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="chevron-back" size={22} color={accent} />
       </TouchableOpacity>
-    ) : (
-      <View style={styles.iconButton} />
-    )}
-  </View>
+      <Text style={[styles.headerTitle, { color: labelColor }]}>{title}</Text>
+      {rightIcon ? (
+        <TouchableOpacity
+          onPress={onRightPress}
+          style={[styles.iconButton, { backgroundColor: chipSurface }]}
+          activeOpacity={0.8}
+        >
+          <Ionicons name={rightIcon} size={21} color={accent} />
+        </TouchableOpacity>
+      ) : (
+        <View style={styles.iconButton} />
+      )}
+    </View>
   );
 };
 
-const BottomButton = ({ label, onPress, icon }) => {
-  const { accent } = useAppTheme();
+const BottomButton = ({ label, onPress, icon, accentColor, disabled = false }) => {
+  const { text: fallbackAccent } = useAppTheme();
+  const buttonColor = accentColor || fallbackAccent;
   return (
     <TouchableOpacity
       activeOpacity={0.9}
+      disabled={disabled}
       onPress={onPress}
-      style={[styles.bottomButton, { backgroundColor: accent }]}
+      style={[
+        styles.bottomButton,
+        { backgroundColor: buttonColor },
+        disabled && styles.bottomButtonDisabled,
+      ]}
     >
       {icon ? <Ionicons name={icon} size={16} color="#fff" style={styles.buttonIcon} /> : null}
       <Text style={styles.bottomButtonText}>{label}</Text>
@@ -204,11 +446,11 @@ const BottomButton = ({ label, onPress, icon }) => {
 const ImageBox = ({ uri, style, iconSize = 34 }) => (
   <View style={[styles.imageBox, style]}>
     {uri ? (
-      <Image
-        source={{ uri }}
+      <FastImage
+        source={fastImageSource(uri)}
         style={styles.coverImage}
-        fadeDuration={200}
-        resizeMode="cover"
+        fadeDuration={0}
+        resizeMode={FastImage.resizeMode.cover}
       />
     ) : (
       <Ionicons name="shirt-outline" size={iconSize} color="#9b8c7a" />
@@ -216,36 +458,82 @@ const ImageBox = ({ uri, style, iconSize = 34 }) => (
   </View>
 );
 
-const DetailImageCarousel = ({ images }) => {
-  const { accent } = useAppTheme();
-  const { isDarkMode } = useThemeContext();
-  const dotInactive = isDarkMode ? 'rgba(255,255,255,0.25)' : '#d7cce3';
+const DetailImageCarousel = ({ images, onZoomChange, accentColor }) => {
+  const { text: fallbackAccent } = useAppTheme();
+  const text = accentColor || fallbackAccent;
   const [activeIndex, setActiveIndex] = useState(0);
+  const [scrollEnabled, setScrollEnabled] = useState(true);
+  const listRef = useRef(null);
   const galleryImages = images.length ? images : [null];
 
-  const onScrollEnd = event => {
+  useEffect(() => {
+    const urls = galleryImages.filter(Boolean);
+    if (!urls.length) return;
+    FastImage.preload(urls.map(uri => ({ uri, priority: FastImage.priority.high })));
+  }, [galleryImages]);
+
+  const onScroll = useCallback(event => {
     const nextIndex = Math.round(
       event.nativeEvent.contentOffset.x / HERO_IMAGE_WIDTH,
     );
-    setActiveIndex(Math.max(0, Math.min(nextIndex, galleryImages.length - 1)));
-  };
+    const clampedIndex = Math.max(0, Math.min(nextIndex, galleryImages.length - 1));
+    if (clampedIndex !== activeIndex) {
+      setActiveIndex(clampedIndex);
+    }
+  }, [activeIndex, galleryImages.length]);
+
+  const handleZoomChange = useCallback(zoomed => {
+    setScrollEnabled(!zoomed);
+    onZoomChange?.(zoomed);
+  }, [onZoomChange]);
+
+  const renderItem = useCallback(({ item }) => {
+    if (!item) {
+      return (
+        <View style={styles.heroSlide}>
+          <ImageBox uri={null} style={styles.heroImage} iconSize={64} />
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.heroSlide}>
+        <InstagramZoomableImage
+          uri={item}
+          height={HERO_IMAGE_HEIGHT}
+          width={HERO_IMAGE_WIDTH}
+          resizeMode={FastImage.resizeMode.contain}
+          onZoomChange={handleZoomChange}
+          simultaneousHandlers={listRef}
+        />
+      </View>
+    );
+  }, [handleZoomChange]);
 
   return (
     <View>
-      <FlatList
+      <GestureFlatList
+        ref={listRef}
         data={galleryImages}
         keyExtractor={(uri, index) => `${uri || 'placeholder'}-${index}`}
-        renderItem={({ item }) => (
-          <ImageBox uri={item} style={styles.heroImage} iconSize={64} />
-        )}
+        renderItem={renderItem}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
-        bounces={galleryImages.length > 1}
-        onMomentumScrollEnd={onScrollEnd}
-        initialNumToRender={1}
-        windowSize={3}
+        scrollEnabled={scrollEnabled && galleryImages.length > 1}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
+        decelerationRate="fast"
+        snapToInterval={HERO_IMAGE_WIDTH}
+        snapToAlignment="start"
+        disableIntervalMomentum
+        directionalLockEnabled
+        nestedScrollEnabled
         removeClippedSubviews={false}
+        initialNumToRender={galleryImages.length > 1 ? 2 : 1}
+        maxToRenderPerBatch={2}
+        windowSize={3}
+        extraData={activeIndex}
         getItemLayout={(_, index) => ({
           length: HERO_IMAGE_WIDTH,
           offset: HERO_IMAGE_WIDTH * index,
@@ -257,7 +545,7 @@ const DetailImageCarousel = ({ images }) => {
           {galleryImages.map((_, index) => (
             <View
               key={index}
-              style={[styles.photoDot, { backgroundColor: index === activeIndex ? accent : dotInactive }]}
+              style={[styles.photoDot, index === activeIndex && { backgroundColor: text }]}
             />
           ))}
         </View>
@@ -268,23 +556,35 @@ const DetailImageCarousel = ({ images }) => {
   );
 };
 
-const SummaryRow = ({ label, value, bold }) => {
-  const { accent, textStyle, mutedTextStyle } = useAppTheme();
+const SummaryRow = ({ label, value, bold, accentColor }) => {
+  const { text: fallbackAccent } = useAppTheme();
+  const text = accentColor || fallbackAccent;
   return (
     <View style={styles.summaryRow}>
-      <Text style={[styles.summaryLabel, mutedTextStyle, bold && styles.summaryStrong]}>{label}</Text>
-      <Text style={[styles.summaryValue, textStyle, bold && styles.summaryTotal, bold && { color: accent }]}>
+      <Text style={[styles.summaryLabel, bold && styles.summaryStrong]}>{label}</Text>
+      <Text style={[styles.summaryValue, bold && styles.summaryTotal, bold && { color: text }]}>
         {value}
       </Text>
     </View>
   );
 };
 
-const CheckoutSteps = ({ current }) => {
-  const { accent, mutedTextStyle } = useAppTheme();
-  const { isDarkMode } = useThemeContext();
-  const stepSurface = isDarkMode ? 'rgba(255,255,255,0.08)' : '#ffffff';
-  const steps = ['Cart', 'Shipping', 'Payment', 'Review'];
+const CheckoutSteps = ({ current, includeShipping = true, accentColor }) => {
+  const { text: fallbackAccent } = useAppTheme();
+  const text = accentColor || fallbackAccent;
+  const { t } = useLanguage();
+  const steps = includeShipping
+    ? [
+      t('myClosetBuyer.steps.cart'),
+      t('myClosetBuyer.steps.shipping'),
+      t('myClosetBuyer.steps.payment'),
+      t('myClosetBuyer.steps.review'),
+    ]
+    : [
+      t('myClosetBuyer.steps.cart'),
+      t('myClosetBuyer.steps.payment'),
+      t('myClosetBuyer.steps.review'),
+    ];
   return (
     <View style={styles.stepsWrap}>
       {steps.map((step, index) => {
@@ -293,31 +593,17 @@ const CheckoutSteps = ({ current }) => {
         return (
           <React.Fragment key={step}>
             <View style={styles.stepItem}>
-              <View
-                style={[
-                  styles.stepCircle,
-                  { backgroundColor: stepSurface, borderColor: withAlphaFlow(accent, 0.35) },
-                  (done || active) && { backgroundColor: accent, borderColor: accent },
-                ]}
-              >
+              <View style={[styles.stepCircle, (done || active) && { backgroundColor: text, borderColor: text }]}>
                 {done ? (
                   <Ionicons name="checkmark" size={12} color="#fff" />
                 ) : (
-                  <Text style={[styles.stepNumber, mutedTextStyle, (done || active) && styles.stepNumberActive]}>
-                    {index + 1}
-                  </Text>
+                  <Text style={[styles.stepNumber, (done || active) && styles.stepNumberActive]}>{index + 1}</Text>
                 )}
               </View>
-              <Text style={[styles.stepLabel, mutedTextStyle, active && { color: accent }]}>{step}</Text>
+              <Text style={[styles.stepLabel, active && { color: text }]}>{step}</Text>
             </View>
             {index < steps.length - 1 && (
-              <View
-                style={[
-                  styles.stepConnector,
-                  { backgroundColor: withAlphaFlow(accent, 0.25) },
-                  index < current && { backgroundColor: accent },
-                ]}
-              />
+              <View style={[styles.stepConnector, index < current && { backgroundColor: text }]} />
             )}
           </React.Fragment>
         );
@@ -326,98 +612,124 @@ const CheckoutSteps = ({ current }) => {
   );
 };
 
-const SellerCard = ({ seller }) => {
-  const { accent, textStyle, mutedTextStyle } = useAppTheme();
-  const { isDarkMode } = useThemeContext();
-  const cardSurface = isDarkMode ? withAlphaFlow(accent, 0.1) : '#ffffff';
-
+const SellerCard = ({ seller, accentColor }) => {
+  const { text: fallbackAccent } = useAppTheme();
+  const text = accentColor || fallbackAccent;
+  const { t } = useLanguage();
   return (
-    <View style={[styles.sellerCard, { backgroundColor: cardSurface, borderColor: withAlphaFlow(accent, 0.2) }]}>
-      <View style={[styles.sellerAvatar, { backgroundColor: accent }]}>
-        {seller?.image ? (
-          <Image source={{ uri: seller.image }} style={styles.coverImage} />
-        ) : (
-          <Ionicons name="person" size={20} color="#fff" />
-        )}
+    <View style={styles.sellerCard}>
+      <View style={[styles.sellerAvatar, { backgroundColor: text }]}>
+        <CachedImageBox
+          uri={seller?.image}
+          style={styles.sellerAvatarImage}
+          placeholderStyle={styles.sellerAvatarPlaceholder}
+          iconName="person"
+          iconSize={20}
+        />
       </View>
       <View style={styles.sellerCopy}>
-        <Text style={[styles.sellerName, textStyle]}>
-          {seller?.displayName || seller?.userName || 'Closet seller'}
+        <Text style={styles.sellerName}>
+          {seller?.displayName || seller?.userName || t('myClosetBuyer.closetSellerFallback')}
         </Text>
-        <Text style={[styles.sellerMeta, mutedTextStyle]}>Active 2h ago</Text>
+        <Text style={styles.sellerMeta}>{t('myClosetBuyer.sellerActive2h')}</Text>
         <View style={styles.ratingRow}>
           <Ionicons name="star" size={12} color="#f59e0b" />
-          <Text style={[styles.ratingText, textStyle]}>4.8 (32)</Text>
+          <Text style={styles.ratingText}>4.8 (32)</Text>
         </View>
       </View>
-      <Ionicons name="chevron-forward" size={18} color={accent} />
+      <Ionicons name="chevron-forward" size={18} color="#17072d" />
     </View>
   );
 };
 
-const OrderSummary = ({ cart, editable, compact, onEditCart }) => {
-  const { accent, textStyle, mutedTextStyle, cardStyle, border } = useAppTheme();
-  const { isDarkMode } = useThemeContext();
-  const surface = isDarkMode ? withAlphaFlow(accent, 0.1) : SURFACE;
+const OrderSummary = ({ cart, editable, compact, onEditCart, accentColor }) => {
+  const { text: fallbackAccent } = useAppTheme();
+  const text = accentColor || fallbackAccent;
+  const { t } = useLanguage();
+  const lines = Array.isArray(cart.cartItemsSnapshot) && cart.cartItemsSnapshot.length
+    ? cart.cartItemsSnapshot
+    : null;
 
   return (
-    <View style={[styles.card, cardStyle, { borderColor: border, backgroundColor: surface }, compact && styles.compactCard]}>
+    <View style={[styles.card, compact && styles.compactCard]}>
       <View style={styles.cardHeaderRow}>
-        <Text style={[styles.cardTitle, textStyle]}>Order Summary</Text>
+        <Text style={styles.cardTitle}>{t('myClosetBuyer.orderSummary')}</Text>
         {editable ? (
           <TouchableOpacity activeOpacity={0.8} onPress={onEditCart}>
-            <Text style={[styles.editText, { color: accent }]}>Edit Cart</Text>
+            <Text style={[styles.editText, { color: text }]}>{t('myClosetBuyer.editCart')}</Text>
           </TouchableOpacity>
         ) : null}
       </View>
-      <View style={styles.summaryItemRow}>
-        <ImageBox uri={cart.item.image} style={styles.summaryThumb} iconSize={22} />
-        <View style={styles.summaryItemCopy}>
-          <Text style={[styles.summaryItemName, textStyle]} numberOfLines={2}>
-            {cart.item.name}
-          </Text>
-          <Text style={[styles.summaryItemPrice, { color: accent }]}>{cart.item.price}</Text>
-          <Text style={[styles.summaryItemQty, mutedTextStyle]}>Qty: {cart.quantity}</Text>
+
+      {lines ? (
+        lines.map((ci, idx) => {
+          const image =
+            imageUri(ci?.product?.images?.[0]) || imageUri(ci?.product?.image) || null;
+          const name = ci?.product?.name || ci?.product?.title || t('myClosetBuyer.itemFallback');
+          const price = currency(ci?.product?.price ?? ci?.price ?? 0);
+          const qty = ci.quantity || 1;
+          return (
+            <View key={ci.id || idx}>
+              <View style={styles.summaryItemRow}>
+                <ImageBox uri={image} style={styles.summaryThumb} iconSize={22} />
+                <View style={styles.summaryItemCopy}>
+                  <Text style={styles.summaryItemName} numberOfLines={2}>{name}</Text>
+                  <Text style={[styles.summaryItemPrice, { color: text }]}>{price}</Text>
+                  <Text style={styles.summaryItemQty}>{t('myClosetBuyer.qtyLabel', { qty })}</Text>
+                </View>
+              </View>
+              {idx < lines.length - 1 ? <View style={styles.divider} /> : null}
+            </View>
+          );
+        })
+      ) : (
+        <View style={styles.summaryItemRow}>
+          <ImageBox uri={cart.item.image} style={styles.summaryThumb} iconSize={22} />
+          <View style={styles.summaryItemCopy}>
+            <Text style={styles.summaryItemName} numberOfLines={2}>{cart.item.name}</Text>
+            <Text style={[styles.summaryItemPrice, { color: text }]}>{cart.item.price}</Text>
+            <Text style={styles.summaryItemQty}>{t('myClosetBuyer.qtyLabel', { qty: cart.quantity })}</Text>
+          </View>
         </View>
-      </View>
-      <View style={[styles.divider, { backgroundColor: withAlphaFlow(accent, 0.15) }]} />
-      <SummaryRow label="Item total" value={currency(cart.itemTotal)} />
-      <SummaryRow label="Total" value={currency(cart.total)} bold />
+      )}
+
+      <View style={styles.divider} />
+      <SummaryRow label={t('myClosetBuyer.itemTotal')} value={currency(cart.itemTotal)} accentColor={text} />
+      {cart.shipping > 0 ? (
+        <SummaryRow label={t('myClosetBuyer.shippingFee')} value={currency(cart.shipping)} accentColor={text} />
+      ) : null}
+      {cart.taxAmount > 0 ? (
+        <SummaryRow label={t('myClosetBuyer.taxAmount')} value={currency(cart.taxAmount)} accentColor={text} />
+      ) : null}
+      {cart.platformFee > 0 ? (
+        <SummaryRow label={t('myClosetBuyer.platformFee')} value={currency(cart.platformFee)} accentColor={text} />
+      ) : null}
+      {cart.discountAmount > 0 ? (
+        <SummaryRow label={t('myClosetBuyer.discountAmount')} value={`-${currency(cart.discountAmount)}`} accentColor={text} />
+      ) : null}
+      <SummaryRow label={t('myClosetBuyer.total')} value={currency(cart.total)} bold accentColor={text} />
     </View>
   );
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Field validation rules
-// ─────────────────────────────────────────────────────────────────────────────
-const FIELD_RULES = {
-  fullName: { required: true, label: 'Full Name' },
-  phoneNumber: { required: true, label: 'Phone Number', pattern: /^[+\d\s\-()]{7,20}$/, patternMsg: 'Enter a valid phone number' },
-  alternateNumber: { required: false, label: 'Alternate Number', pattern: /^[+\d\s\-()]{7,20}$/, patternMsg: 'Enter a valid phone number' },
-  addressLine1: { required: true, label: 'Address Line 1' },
-  addressLine2: { required: false, label: 'Address Line 2' },
-  city: { required: true, label: 'City' },
-  state: { required: false, label: 'State / Province' },
-  country: { required: false, label: 'Country' },
-  postalCode: { required: false, label: 'Postal Code', pattern: /^\d{3,10}$/, patternMsg: 'Enter a valid postal code' },
-};
-
-const validateField = (key, value) => {
-  const rule = FIELD_RULES[key];
-  if (!rule) return null;
-  const trimmed = String(value ?? '').trim();
-  if (rule.required && !trimmed) return `${rule.label} is required`;
-  if (trimmed && rule.pattern && !rule.pattern.test(trimmed)) return rule.patternMsg;
-  return null;
-};
-
-const validateForm = form => {
-  const errors = {};
-  Object.keys(FIELD_RULES).forEach(key => {
-    const err = validateField(key, form[key]);
-    if (err) errors[key] = err;
-  });
-  return errors;
+const FixedShippingBadge = ({ choice, accentColor }) => {
+  const { text: fallbackAccent } = useAppTheme();
+  const text = accentColor || fallbackAccent;
+  const { t } = useLanguage();
+  const meta = SHIPPING_CHOICE_META[choice];
+  return (
+    <View style={styles.fixedShipCard}>
+      <Ionicons name={meta.icon} size={16} color={text} />
+      <View style={{ flex: 1, marginLeft: 8 }}>
+        <Text style={styles.fixedShipTitle}>{t(meta.titleKey)}</Text>
+        <Text style={styles.fixedShipSub}>
+          {choice === SHIP_OPTION_SHIP
+            ? t('myClosetBuyer.fixedShipNote')
+            : t('myClosetBuyer.fixedLocalNote')}
+        </Text>
+      </View>
+    </View>
+  );
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -462,11 +774,12 @@ const EMPTY_ADDRESS = {
 };
 
 // editAddress prop: if passed, modal opens in edit mode pre-filled with that address
-const AddAddressModal = ({ visible, onClose, onSaved, editAddress }) => {
-  const { accent, bgStyle, textStyle, mutedTextStyle } = useAppTheme();
-  const { isDarkMode } = useThemeContext();
-  const inputSurface = isDarkMode ? 'rgba(255,255,255,0.08)' : '#ffffff';
+const AddAddressModal = ({ visible, onClose, onSaved, editAddress, accentColor }) => {
+  const { text: fallbackAccent } = useAppTheme();
+  const accent = accentColor || fallbackAccent;
+  const { t } = useLanguage();
   const isEdit = !!editAddress;
+  const fieldRules = useMemo(() => getFieldRules(t), [t]);
 
   const [form, setForm] = useState(EMPTY_ADDRESS);
   const [errors, setErrors] = useState({});
@@ -499,21 +812,21 @@ const AddAddressModal = ({ visible, onClose, onSaved, editAddress }) => {
   const set = useCallback((key, value) => {
     setForm(prev => ({ ...prev, [key]: value }));
     if (touched[key]) {
-      const err = validateField(key, value);
+      const err = validateField(key, value, fieldRules, t);
       setErrors(prev => ({ ...prev, [key]: err }));
     }
-  }, [touched]);
+  }, [touched, fieldRules, t]);
 
   const handleBlur = useCallback(key => {
     setTouched(prev => ({ ...prev, [key]: true }));
-    const err = validateField(key, form[key]);
+    const err = validateField(key, form[key], fieldRules, t);
     setErrors(prev => ({ ...prev, [key]: err }));
-  }, [form]);
+  }, [form, fieldRules, t]);
 
   const handleSave = async () => {
-    const allTouched = Object.keys(FIELD_RULES).reduce((acc, k) => ({ ...acc, [k]: true }), {});
+    const allTouched = Object.keys(fieldRules).reduce((acc, k) => ({ ...acc, [k]: true }), {});
     setTouched(allTouched);
-    const allErrors = validateForm(form);
+    const allErrors = validateForm(form, fieldRules, t);
     setErrors(allErrors);
     if (Object.keys(allErrors).length > 0) return;
 
@@ -545,7 +858,7 @@ const AddAddressModal = ({ visible, onClose, onSaved, editAddress }) => {
       setTouched({});
       onClose();
     } catch (err) {
-      Alert.alert('Error', err?.response?.data?.message || 'Could not save address. Please try again.');
+      Alert.alert(t('myClosetBuyer.errorTitle'), err?.response?.data?.message || t('myClosetBuyer.addressSaveError'));
     } finally {
       setSaving(false);
     }
@@ -560,63 +873,76 @@ const AddAddressModal = ({ visible, onClose, onSaved, editAddress }) => {
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={handleClose}>
-      <SafeAreaView style={[styles.modalSafe, bgStyle]}>
-        <View style={[styles.modalHeader, { borderBottomColor: withAlphaFlow(accent, 0.2) }]}>
-          <TouchableOpacity onPress={handleClose} style={styles.iconButton}>
-            <Ionicons name="close" size={22} color={accent} />
-          </TouchableOpacity>
-          <Text style={[styles.headerTitle, textStyle]}>{isEdit ? 'Edit Address' : 'New Address'}</Text>
-          <View style={styles.iconButton} />
-        </View>
-        <ScrollView contentContainerStyle={styles.modalContent} showsVerticalScrollIndicator={false}>
-          <Field label="Full Name *" fieldKey="fullName" placeholder="John Doe"
-            value={form.fullName} onChangeText={v => set('fullName', v)}
-            onBlur={() => handleBlur('fullName')} error={errors.fullName} />
-          <Field label="Phone Number *" fieldKey="phoneNumber" placeholder="+1 555 000 0000"
-            keyboardType="phone-pad" value={form.phoneNumber} onChangeText={v => set('phoneNumber', v)}
-            onBlur={() => handleBlur('phoneNumber')} error={errors.phoneNumber} />
-          <Field label="Alternate Number" fieldKey="alternateNumber"
-            keyboardType="phone-pad" value={form.alternateNumber} onChangeText={v => set('alternateNumber', v)}
-            onBlur={() => handleBlur('alternateNumber')} error={errors.alternateNumber} />
-          <Field label="Address Line 1 *" fieldKey="addressLine1" placeholder="123 Main Street"
-            value={form.addressLine1} onChangeText={v => set('addressLine1', v)}
-            onBlur={() => handleBlur('addressLine1')} error={errors.addressLine1} />
-          <Field label="Address Line 2" fieldKey="addressLine2" placeholder="Apt, Suite, Floor…"
-            value={form.addressLine2} onChangeText={v => set('addressLine2', v)}
-            onBlur={() => handleBlur('addressLine2')} error={errors.addressLine2} />
-          <Field label="City *" fieldKey="city" placeholder="New York"
-            value={form.city} onChangeText={v => set('city', v)}
-            onBlur={() => handleBlur('city')} error={errors.city} />
-          <Field label="State / Province" fieldKey="state" placeholder="NY"
-            value={form.state} onChangeText={v => set('state', v)}
-            onBlur={() => handleBlur('state')} error={errors.state} />
-          <Field label="Country" fieldKey="country" placeholder="United States"
-            value={form.country} onChangeText={v => set('country', v)}
-            onBlur={() => handleBlur('country')} error={errors.country} />
-          <Field label="Postal Code" fieldKey="postalCode" placeholder="10001"
-            keyboardType="numeric" value={form.postalCode} onChangeText={v => set('postalCode', v)}
-            onBlur={() => handleBlur('postalCode')} error={errors.postalCode} />
-
-          <TouchableOpacity
-            style={styles.defaultRow}
-            activeOpacity={0.8}
-            onPress={() => set('isDefault', !form.isDefault)}
+      <KeyboardAvoidingView
+        style={styles.modalSafe}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <SafeAreaView style={styles.modalSafe}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={handleClose} style={styles.iconButton}>
+              <Ionicons name="close" size={22} color="#17072d" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>{isEdit ? t('myClosetBuyer.editAddressTitle') : t('myClosetBuyer.newAddressTitle')}</Text>
+            <View style={styles.iconButton} />
+          </View>
+          <KeyboardAwareScrollView
+            contentContainerStyle={styles.modalContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            enableOnAndroid
+            // extraScrollHeight={24}
+            keyboardOpeningTime={0}
           >
-            <Ionicons
-              name={form.isDefault ? 'checkbox' : 'square-outline'}
-              size={20}
-              color={accent}
+            <Field label={`${t('myClosetBuyer.field.fullName')} *`} fieldKey="fullName" placeholder="John Doe"
+              value={form.fullName} onChangeText={v => set('fullName', v)}
+              onBlur={() => handleBlur('fullName')} error={errors.fullName} />
+            <Field label={`${t('myClosetBuyer.field.phoneNumber')} *`} fieldKey="phoneNumber" placeholder="+1 555 000 0000"
+              keyboardType="phone-pad" value={form.phoneNumber} onChangeText={v => set('phoneNumber', v)}
+              onBlur={() => handleBlur('phoneNumber')} error={errors.phoneNumber} />
+            <Field label={t('myClosetBuyer.field.alternateNumber')} fieldKey="alternateNumber"
+              keyboardType="phone-pad" value={form.alternateNumber} onChangeText={v => set('alternateNumber', v)}
+              onBlur={() => handleBlur('alternateNumber')} error={errors.alternateNumber} />
+            <Field label={`${t('myClosetBuyer.field.addressLine1')} *`} fieldKey="addressLine1" placeholder="123 Main Street"
+              value={form.addressLine1} onChangeText={v => set('addressLine1', v)}
+              onBlur={() => handleBlur('addressLine1')} error={errors.addressLine1} />
+            <Field label={t('myClosetBuyer.field.addressLine2')} fieldKey="addressLine2" placeholder="Apt, Suite, Floor…"
+              value={form.addressLine2} onChangeText={v => set('addressLine2', v)}
+              onBlur={() => handleBlur('addressLine2')} error={errors.addressLine2} />
+            <Field label={`${t('myClosetBuyer.field.city')} *`} fieldKey="city" placeholder="New York"
+              value={form.city} onChangeText={v => set('city', v)}
+              onBlur={() => handleBlur('city')} error={errors.city} />
+            <Field label={t('myClosetBuyer.field.state')} fieldKey="state" placeholder="NY"
+              value={form.state} onChangeText={v => set('state', v)}
+              onBlur={() => handleBlur('state')} error={errors.state} />
+            <Field label={t('myClosetBuyer.field.country')} fieldKey="country" placeholder="United States"
+              value={form.country} onChangeText={v => set('country', v)}
+              onBlur={() => handleBlur('country')} error={errors.country} />
+            <Field label={t('myClosetBuyer.field.postalCode')} fieldKey="postalCode" placeholder="10001"
+              keyboardType="numeric" value={form.postalCode} onChangeText={v => set('postalCode', v)}
+              onBlur={() => handleBlur('postalCode')} error={errors.postalCode} />
+
+            <TouchableOpacity
+              style={styles.defaultRow}
+              activeOpacity={0.8}
+              onPress={() => set('isDefault', !form.isDefault)}
+            >
+              <Ionicons
+                name={form.isDefault ? 'checkbox' : 'square-outline'}
+                size={20}
+                color={accent}
+              />
+              <Text style={styles.defaultLabel}>{t('myClosetBuyer.setAsDefaultAddress')}</Text>
+            </TouchableOpacity>
+          </KeyboardAwareScrollView>
+          <View style={styles.modalBottomBar}>
+            <BottomButton
+              label={saving ? t('myClosetBuyer.saving') : isEdit ? t('myClosetBuyer.updateAddressButton') : t('myClosetBuyer.saveAddressButton')}
+              onPress={saving ? undefined : handleSave}
+              accentColor={accent}
             />
-            <Text style={[styles.defaultLabel, textStyle]}>Set as default address</Text>
-          </TouchableOpacity>
-        </ScrollView>
-        <BottomBar>
-          <BottomButton
-            label={saving ? 'Saving…' : isEdit ? 'Update Address' : 'Save Address'}
-            onPress={saving ? undefined : handleSave}
-          />
-        </BottomBar>
-      </SafeAreaView>
+          </View>
+        </SafeAreaView>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };
@@ -626,14 +952,14 @@ const AddAddressModal = ({ visible, onClose, onSaved, editAddress }) => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const MyClosetBuyerItemsScreen = ({ navigation, route }) => {
-  const { bgStyle, accent, mutedText } = useAppTheme(route?.params?.seller?.profile);
-  const { isDarkMode } = useThemeContext();
-  const labelColor = isDarkMode ? '#ffffff' : '#17072d';
-  const imageSurface = isDarkMode ? 'rgba(255,255,255,0.06)' : '#f6f0ee';
-  const [items, setItems] = useState(() => getRouteItems(route));
+  const { bgStyle, text } = useClosetTheme(route);
+  const { t } = useLanguage();
+  const [items, setItems] = useState(() => getRouteItems(route, t));
   const [loading, setLoading] = useState(false);
   const seller = useMemo(() => route?.params?.seller || {}, [route?.params?.seller]);
   const sellerId = route?.params?.sellerId || seller?.id;
+  const accent = text;
+  const returnTo = route?.params?.returnTo;
 
   const loadItems = useCallback(async () => {
     if (items.length) return;
@@ -649,7 +975,7 @@ const MyClosetBuyerItemsScreen = ({ navigation, route }) => {
           : Array.isArray(payload?.data)
             ? payload.data
             : [];
-      const normalized = normalizeItems(nextItems);
+      const normalized = normalizeItems(nextItems, t);
       prefetchImageUrls(nextItems);
       setItems(normalized);
     } catch {
@@ -657,7 +983,7 @@ const MyClosetBuyerItemsScreen = ({ navigation, route }) => {
     } finally {
       setLoading(false);
     }
-  }, [items.length, sellerId]);
+  }, [items.length, sellerId, t]);
 
   useFocusEffect(
     useCallback(() => {
@@ -667,15 +993,15 @@ const MyClosetBuyerItemsScreen = ({ navigation, route }) => {
 
   const openItem = useCallback(
     item => {
-      navigation.navigate('MyClosetBuyerItemDetail', {
+      navigation.navigate('MyClosetBuyerItemDetail', withClosetNavParams(route, {
         item: item.raw || item,
         seller,
         sellerId,
         items: route?.params?.items || items.map(row => row.raw || row),
         isOwnProfile: route?.params?.isOwnProfile,
-      });
+      }));
     },
-    [items, navigation, route?.params?.items, seller, sellerId],
+    [items, navigation, route, seller, sellerId],
   );
 
   const renderItem = ({ item }) => (
@@ -684,12 +1010,12 @@ const MyClosetBuyerItemsScreen = ({ navigation, route }) => {
       style={styles.gridCard}
       onPress={() => openItem(item)}
     >
-      <ImageBox uri={item.image} style={[styles.gridImage, { backgroundColor: imageSurface }]} />
-      <Text style={[styles.gridTitle, { color: labelColor }]} numberOfLines={2}>
+      <ImageBox uri={item.image} style={styles.gridImage} />
+      <Text style={styles.gridTitle} numberOfLines={2}>
         {item.name}
       </Text>
       <Text style={[styles.gridPrice, { color: accent }]}>{item.price}</Text>
-      <Text style={[styles.gridMeta, { color: mutedText }]} numberOfLines={1}>
+      <Text style={styles.gridMeta} numberOfLines={1}>
         {item.condition}
       </Text>
     </TouchableOpacity>
@@ -697,7 +1023,7 @@ const MyClosetBuyerItemsScreen = ({ navigation, route }) => {
 
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
-      <Header navigation={navigation} title="My Closet" />
+      <Header navigation={navigation} title={t('myClosetBuyer.myClosetTitle')} returnTo={returnTo} />
       {loading ? (
         <View style={styles.loaderWrap}>
           <ActivityIndicator color={accent} />
@@ -717,20 +1043,22 @@ const MyClosetBuyerItemsScreen = ({ navigation, route }) => {
           removeClippedSubviews
           ListHeaderComponent={(
             <View style={styles.listIntro}>
-              <Text style={[styles.listTitle, { color: labelColor }]}>
-                {seller?.displayName || seller?.userName || 'Closet'} items
+              <Text style={styles.listTitle}>
+                {t('myClosetBuyer.closetItemsHeading', {
+                  name: seller?.displayName || seller?.userName || t('myClosetBuyer.closetFallback'),
+                })}
               </Text>
-              <Text style={[styles.listSubtitle, { color: mutedText }]}>
-                {items.length} item{items.length === 1 ? '' : 's'} available
+              <Text style={styles.listSubtitle}>
+                {t('myClosetBuyer.itemsAvailable', { count: items.length })}
               </Text>
             </View>
           )}
           ListEmptyComponent={(
             <View style={styles.emptyState}>
-              <Ionicons name="shirt-outline" size={34} color={accent} />
-              <Text style={[styles.emptyTitle, { color: labelColor }]}>No items available</Text>
-              <Text style={[styles.emptyText, { color: mutedText }]}>
-                This closet does not have any listed items yet.
+              <Ionicons name="shirt-outline" size={34} color="#c4b5d4" />
+              <Text style={styles.emptyTitle}>{t('myClosetBuyer.noItemsAvailable')}</Text>
+              <Text style={styles.emptyText}>
+                {t('myClosetBuyer.noItemsAvailableText')}
               </Text>
             </View>
           )}
@@ -740,59 +1068,170 @@ const MyClosetBuyerItemsScreen = ({ navigation, route }) => {
   );
 };
 
+const MyClosetBattlesScreen = ({ navigation, route }) => {
+  const { bgStyle, text: accent } = useClosetTheme(route);
+  const { t } = useLanguage();
+  const closetId = route?.params?.closetId;
+  const isOwnProfile = route?.params?.isOwnProfile ?? false;
+  const returnTo = route?.params?.returnTo;
+
+  const [battles, setBattles] = useState([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const LIMIT = 10;
+
+  const loadPage = useCallback(async (pageToLoad, replace = false) => {
+    if (!closetId) return;
+    try {
+      const res = await getClosetBattlesPriority(closetId, { page: pageToLoad, limit: LIMIT });
+      console.log('loadPage res:', res);
+      const raw = unwrapBattlesResponse(res);
+      const mapped = raw.map(mapBattle);
+      setBattles(prev => (replace ? mapped : [...prev, ...mapped]));
+      setHasMore(mapped.length === LIMIT);
+    } catch {
+      if (replace) setBattles([]);
+      setHasMore(false);
+    }
+  }, [closetId]);
+
+  const openBattle = useCallback((battle) => {
+    navigateToBattleLive(navigation, withClosetNavParams(route, {
+      battleId: battle?.id,
+      initialBattle: battle,
+      selectedItems: [battle?.left, battle?.right].filter(Boolean),
+      returnToProfile: isOwnProfile
+        ? { screen: 'Profile' }
+        : {
+          tab: 'HomeMain',
+          screen: 'UsersProfile',
+          params: { userId: route?.params?.seller?.id || route?.params?.sellerId },
+        },
+    }));
+  }, [navigation, isOwnProfile, route, route?.params?.seller?.id, route?.params?.sellerId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      setLoading(true);
+      setPage(1);
+      loadPage(1, true).finally(() => setLoading(false));
+    }, [loadPage]),
+  );
+
+  const loadMore = async () => {
+    if (loadingMore || !hasMore || loading) return;
+    setLoadingMore(true);
+    const nextPage = page + 1;
+    await loadPage(nextPage, false);
+    setPage(nextPage);
+    setLoadingMore(false);
+  };
+
+  return (
+    <SafeAreaView style={[styles.safeArea, bgStyle]}>
+      <Header navigation={navigation} title={t('myClosetShopFront.battlePicksTitle')} returnTo={returnTo} />
+      {loading ? (
+        <View style={styles.loaderWrap}>
+          <ActivityIndicator color={accent} />
+        </View>
+      ) : (
+        <FlatList
+          data={battles}
+          keyExtractor={b => b.id}
+          renderItem={({ item }) => (
+            <View style={{ marginBottom: 16 }}>
+              <BattleSlide battle={item} accent={accent} t={t} onPress={() => openBattle(item)} />
+            </View>
+          )}
+          contentContainerStyle={{ padding: 16 }}
+          showsVerticalScrollIndicator={false}
+          onEndReachedThreshold={0.4}
+          onEndReached={loadMore}
+          ListFooterComponent={loadingMore ? (
+            <View style={{ paddingVertical: 16 }}>
+              <ActivityIndicator color={accent} />
+            </View>
+          ) : null}
+          ListEmptyComponent={(
+            <View style={styles.emptyState}>
+              <Ionicons name="flash-outline" size={34} color="#c4b5d4" />
+              <Text style={styles.emptyTitle}>{t('battleHub.noBattlesYet') || 'No battles yet'}</Text>
+            </View>
+          )}
+        />
+      )}
+    </SafeAreaView>
+  );
+};
+
 const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
-  const { accent, bgStyle, textStyle, mutedTextStyle } = useAppTheme();
-  const { isDarkMode } = useThemeContext();
-  const cardSurface = isDarkMode ? withAlphaFlow(accent, 0.1) : '#ffffff';
-  const item = normalizeItem(route?.params?.item || {}, 0);
+  const { text, bgStyle } = useClosetTheme(route);
+  const { t } = useLanguage();
+  const item = normalizeItem(route?.params?.item || {}, 0, t);
   const seller = route?.params?.seller || {};
   const isOwnProfile = route?.params?.isOwnProfile ?? false;
+  const returnTo = route?.params?.returnTo;
   const [liked, setLiked] = useState(false);
+  const [detailScrollEnabled, setDetailScrollEnabled] = useState(true);
+  const isOutOfStock = Number(item.quantityAvailable) <= 0;
 
   const goOptions = () => {
-    navigation.navigate('MyClosetBuyerOptions', {
+    navigation.navigate('MyClosetBuyerOptions', withClosetNavParams(route, {
       item: item.raw,
       seller,
       sellerId: route?.params?.sellerId,
       items: route?.params?.items || [],
-    });
+    }));
   };
 
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
       <Header
         navigation={navigation}
-        title="My Closet"
+        title={t('myClosetBuyer.myClosetTitle')}
         rightIcon={liked ? 'heart' : 'heart-outline'}
         onRightPress={() => setLiked(prev => !prev)}
+        returnTo={returnTo}
       />
       <ScrollView
         contentContainerStyle={styles.detailContent}
         showsVerticalScrollIndicator={false}
+        scrollEnabled={detailScrollEnabled}
       >
-        <DetailImageCarousel images={item.images} />
-        <Text style={[styles.detailName, textStyle]}>{item.name}</Text>
-        <Text style={[styles.detailPrice, { color: accent }]}>{item.price}</Text>
-        <SellerCard seller={seller} />
-        <Text style={[styles.sectionLabel, textStyle]}>Description</Text>
-        <Text style={[styles.description, mutedTextStyle]}>{item.description}</Text>
+        <DetailImageCarousel
+          images={item.images}
+          accentColor={text}
+          onZoomChange={zoomed => setDetailScrollEnabled(!zoomed)}
+        />
+        <Text style={styles.detailName}>{item.name}</Text>
+        <Text style={[styles.detailPrice, { color: text }]}>{item.price}</Text>
+        {/* <SellerCard seller={seller} accentColor={text} /> */}
+        <Text style={styles.sectionLabel}>{t('myClosetBuyer.description')}</Text>
+        <Text style={styles.description}>{item.description}</Text>
         <View style={styles.attributeList}>
           {[
-            { icon: 'shield-checkmark-outline', label: 'Condition', value: item.condition },
-            { icon: 'pricetag-outline', label: 'Brand', value: item.brand },
-            { icon: 'albums-outline', label: 'Category', value: item.category },
+            { icon: 'shield-checkmark-outline', label: t('myClosetBuyer.condition'), value: item.condition },
+            { icon: 'pricetag-outline', label: t('myClosetBuyer.brand'), value: item.brand },
+            { icon: 'albums-outline', label: t('myClosetBuyer.category'), value: item.category },
           ].map(attr => (
             <View key={attr.label} style={styles.attributeRow}>
-              <Ionicons name={attr.icon} size={15} color={accent} />
-              <Text style={[styles.attributeLabel, mutedTextStyle]}>{attr.label}</Text>
-              <Text style={[styles.attributeValue, textStyle]}>{attr.value}</Text>
+              <Ionicons name={attr.icon} size={15} color={text} />
+              <Text style={styles.attributeLabel}>{attr.label}</Text>
+              <Text style={styles.attributeValue}>{attr.value}</Text>
             </View>
           ))}
         </View>
       </ScrollView>
       {!isOwnProfile && (
-      <BottomBar>
-        <BottomButton label="Buy Now" onPress={goOptions} />
+        <BottomBar>
+          <BottomButton
+            label={isOutOfStock ? 'Out of stock' : t('myClosetBuyer.buyNow')}
+            onPress={goOptions}
+            accentColor={text}
+            disabled={isOutOfStock}
+          />
       </BottomBar>
       )}
     </SafeAreaView>
@@ -800,10 +1239,10 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
 };
 
 const MyClosetBuyerOptionsScreen = ({ navigation, route }) => {
-  const { accent, bgStyle, textStyle, mutedTextStyle } = useAppTheme();
-  const { isDarkMode } = useThemeContext();
-  const inputSurface = isDarkMode ? 'rgba(255,255,255,0.08)' : '#ffffff';
-  const item = normalizeItem(route?.params?.item || {}, 0);
+  const { text, bgStyle } = useClosetTheme(route);
+  const { t } = useLanguage();
+  const returnTo = route?.params?.returnTo;
+  const item = normalizeItem(route?.params?.item || {}, 0, t);
   const [quantity, setQuantity] = useState(1);
   const [note, setNote] = useState('');
   const [adding, setAdding] = useState(false);
@@ -819,9 +1258,11 @@ const MyClosetBuyerOptionsScreen = ({ navigation, route }) => {
       (async () => {
         setSyncingQty(true);
         try {
-          const response = await getCart();
+          const dataToSend = { sellerId: route?.params?.sellerId }
+          const response = await getCart(dataToSend);
           if (cancelled) return;
-          const cartObj = response?.data?.cart;
+          const cartsArr = response?.data?.carts ?? [];
+          const cartObj = cartsArr[0] ?? null;   // sellerId filter means at most one match
           const cartItems = cartObj?.cartItems ?? [];
           const match = Array.isArray(cartItems)
             ? cartItems.find(ci => {
@@ -849,14 +1290,14 @@ const MyClosetBuyerOptionsScreen = ({ navigation, route }) => {
   // ── POST /cart/items — add item to server cart ───────────────────────────
   const goCart = async () => {
     if (!productId) {
-      navigation.navigate('MyClosetBuyerCart', {
+      navigation.navigate('MyClosetBuyerCart', withClosetNavParams(route, {
         item: item.raw,
         seller: route?.params?.seller || {},
         sellerId: route?.params?.sellerId,
         items: route?.params?.items || [],
         quantity,
         note,
-      });
+      }));
       return;
     }
     setAdding(true);
@@ -864,32 +1305,36 @@ const MyClosetBuyerOptionsScreen = ({ navigation, route }) => {
       await addCartItem({ productId, quantity });
     } catch (err) {
       setAdding(false);
-      Alert.alert('Error', err?.response?.data?.message || 'Could not add item to cart.');
+      Alert.alert(t('myClosetBuyer.errorTitle'), err?.response?.data?.message || t('myClosetBuyer.addToCartError'));
       return;
     } finally {
       setAdding(false);
     }
-    navigation.navigate('MyClosetBuyerCart', {
+    navigation.navigate('MyClosetBuyerCart', withClosetNavParams(route, {
       item: item.raw,
       seller: route?.params?.seller || {},
       sellerId: route?.params?.sellerId,
       items: route?.params?.items || [],
       quantity,
       note,
-    });
+    }));
   };
 
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
       <Header
         navigation={navigation}
-        title="Select Options"
+        title={t('myClosetBuyer.selectOptions')}
         rightIcon="close"
-        onRightPress={() => goBack(navigation)}
+        onRightPress={() => goBack(navigation, returnTo)}
+        returnTo={returnTo}
       />
-      <ScrollView
+      <KeyboardAwareScrollView
         contentContainerStyle={styles.formContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        enableOnAndroid
+        extraScrollHeight={24}
       >
         <View style={styles.optionProductRow}>
           <ImageBox uri={item.image} style={styles.optionThumb} iconSize={22} />
@@ -899,8 +1344,8 @@ const MyClosetBuyerOptionsScreen = ({ navigation, route }) => {
           </View>
         </View>
 
-        <Text style={styles.sectionLabel}>Quantity</Text>
-        <Text style={styles.helperText}>How many would you like?</Text>
+        <Text style={styles.sectionLabel}>{t('myClosetBuyer.quantity')}</Text>
+        <Text style={styles.helperText}>{t('myClosetBuyer.quantityHelper')}</Text>
         <View style={styles.quantityBox}>
           <TouchableOpacity
             style={styles.qtyButton}
@@ -908,12 +1353,12 @@ const MyClosetBuyerOptionsScreen = ({ navigation, route }) => {
             activeOpacity={0.8}
             disabled={adding || syncingQty}
           >
-            <Ionicons name="remove" size={17} color={accent} />
+            <Ionicons name="remove" size={17} color={text} />
           </TouchableOpacity>
           {syncingQty ? (
-            <ActivityIndicator size="small" color={accent} />
+            <ActivityIndicator size="small" color={text} />
           ) : (
-            <Text style={[styles.quantityText, textStyle]}>{quantity}</Text>
+            <Text style={styles.quantityText}>{quantity}</Text>
           )}
           <TouchableOpacity
             style={styles.qtyButton}
@@ -921,33 +1366,111 @@ const MyClosetBuyerOptionsScreen = ({ navigation, route }) => {
             activeOpacity={0.8}
             disabled={adding || syncingQty}
           >
-            <Ionicons name="add" size={17} color={accent} />
+            <Ionicons name="add" size={17} color={text} />
           </TouchableOpacity>
         </View>
-        <Text style={styles.availabilityText}>Only {available} available</Text>
+        <Text style={styles.availabilityText}>{t('myClosetBuyer.onlyAvailable', { count: available })}</Text>
 
-        <Text style={styles.sectionLabel}>Add a note (optional)</Text>
+        <Text style={styles.sectionLabel}>{t('myClosetBuyer.addNoteOptional')}</Text>
         <View style={styles.noteBox}>
           <TextInput
             value={note}
             onChangeText={setNote}
             maxLength={100}
             multiline
-            placeholder="e.g. gift wrap, message to seller..."
+            placeholder={t('myClosetBuyer.notePlaceholder')}
             placeholderTextColor="#a8a0b3"
             style={styles.noteInput}
             editable={!adding && !syncingQty}
           />
           <Text style={styles.counterText}>{note.length}/100</Text>
         </View>
-      </ScrollView>
+      </KeyboardAwareScrollView>
       <BottomBar>
         <BottomButton
-          label={adding ? 'Adding…' : syncingQty ? 'Loading…' : 'Add to Cart'}
+          label={adding ? t('myClosetBuyer.adding') : syncingQty ? t('myClosetBuyer.loading') : t('myClosetBuyer.addToCart')}
           onPress={(adding || syncingQty) ? undefined : goCart}
+          accentColor={text}
         />
       </BottomBar>
     </SafeAreaView>
+  );
+};
+
+const SHIPPING_CHOICE_META = {
+  [SHIP_OPTION_SHIP]: {
+    icon: 'cube-outline',
+    titleKey: 'myClosetBuyer.shipChoiceTitle',
+    rows: [
+      { icon: 'location-outline', textKey: 'myClosetBuyer.shipChoiceRow1' },
+      { icon: 'car-outline', textKey: 'myClosetBuyer.shipChoiceRow2' },
+    ],
+  },
+  [SHIP_OPTION_LOCAL]: {
+    icon: 'storefront-outline',
+    titleKey: 'myClosetBuyer.localChoiceTitle',
+    rows: [
+      { icon: 'walk-outline', textKey: 'myClosetBuyer.localChoiceRow1' },
+      { icon: 'cash-outline', textKey: 'myClosetBuyer.localChoiceRow2' },
+    ],
+  },
+};
+
+const ShippingChoiceCard = ({ choice, selected, onPress, disabled, accentColor }) => {
+  const { text: fallbackAccent } = useAppTheme();
+  const text = accentColor || fallbackAccent;
+  const { t } = useLanguage();
+  const meta = SHIPPING_CHOICE_META[choice];
+  return (
+    <TouchableOpacity
+      activeOpacity={0.85}
+      onPress={onPress}
+      disabled={disabled}
+      style={[
+        styles.shipChoiceCard,
+        selected && { borderColor: text, backgroundColor: SURFACE },
+      ]}
+    >
+      <View style={styles.shipChoiceHeaderRow}>
+        <Ionicons name={meta.icon} size={18} color={text} />
+        <Text style={styles.shipChoiceTitle}>{t(meta.titleKey)}</Text>
+        <View style={[styles.shipChoiceCheck, selected && { backgroundColor: text, borderColor: text }]}>
+          {selected ? <Ionicons name="checkmark" size={12} color="#fff" /> : null}
+        </View>
+      </View>
+      {meta.rows.map(row => (
+        <View key={row.textKey} style={styles.shipChoiceDetailRow}>
+          <Ionicons name={row.icon} size={12} color={MUTED} />
+          <Text style={styles.shipChoiceDetailText}>{t(row.textKey)}</Text>
+        </View>
+      ))}
+    </TouchableOpacity>
+  );
+};
+
+// One row per cart item that needs an explicit choice (shippingOption === 'both')
+const ItemShippingChoicePicker = ({ item, selectedChoice, onSelect, loading, text }) => {
+  const { t } = useLanguage();
+  return (
+    <View style={styles.shipChoiceItemBlock}>
+      <Text style={styles.shipChoiceItemName} numberOfLines={1}>
+        Item -
+        <Text style={{ color: text }}> {item?.product?.name || item?.product?.title || t('myClosetBuyer.itemFallback')}</Text>
+      </Text>
+      <View style={styles.shipChoiceCardsRow}>
+        {[SHIP_OPTION_SHIP, SHIP_OPTION_LOCAL].map(choice => (
+          <ShippingChoiceCard
+            key={choice}
+            choice={choice}
+            selected={selectedChoice === choice}
+            disabled={loading}
+            onPress={() => onSelect(item.id, choice)}
+            accentColor={text}
+          />
+        ))}
+      </View>
+      {loading ? <ActivityIndicator size="small" style={{ marginTop: 6 }} /> : null}
+    </View>
   );
 };
 
@@ -955,10 +1478,15 @@ const MyClosetBuyerOptionsScreen = ({ navigation, route }) => {
 // Cart screen — GET /cart on mount, PATCH quantity, DELETE item, DELETE /cart
 // ─────────────────────────────────────────────────────────────────────────────
 const MyClosetBuyerCartScreen = ({ navigation, route }) => {
-  const { accent, bgStyle, textStyle, mutedTextStyle, cardStyle, border } = useAppTheme();
-  const { isDarkMode } = useThemeContext();
-  const inputSurface = isDarkMode ? 'rgba(255,255,255,0.08)' : '#ffffff';
-  const localCart = buildCart(route); // fallback data from route params
+  const [closetId, setClosetId] = useState(null);
+  const [shippingOptionsMap, setShippingOptionsMap] = useState({});
+  const [shippingChoiceLoading, setShippingChoiceLoading] = useState(null);
+  const [cartId, setCartId] = useState(null);
+  const [checkingOut, setCheckingOut] = useState(false);
+  const { text, bgStyle } = useClosetTheme(route);
+  const { t } = useLanguage();
+  const returnTo = route?.params?.returnTo;
+  const localCart = buildCart(route, t); // fallback data from route params
 
   // ── Server cart state ───────────────────────────────────────────────────
   const [cartItems, setCartItems] = useState([]); // array of items from GET /cart
@@ -974,16 +1502,42 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
     setCartLoading(true);
     setCartError(null);
     try {
-      const response = await getCart();
-      const cartObj = response?.data?.cart;
+      const dataToSend = { sellerId: route?.params?.sellerId };
+      const response = await getCart(dataToSend);
+      const cartsArr = response?.data?.data?.carts ?? response?.data?.carts ?? [];
+      const cartObj = cartsArr[0] ?? null;
       const items = cartObj?.cartItems ?? [];
       setCartItems(Array.isArray(items) ? items : []);
+      setClosetId(cartObj?.closetId ?? null);
+      setCartId(cartObj?.id ?? null);
+
+      // Pull the seller's items so we know each product's shipping option.
+      if (cartObj?.closetId) {
+        try {
+          const closetRes = await getClosetItemsByClosetId(cartObj.closetId);
+          const closetItems = closetRes?.data?.data ?? closetRes?.data ?? [];
+          console.log('[DEBUG] raw closet item sample:', JSON.stringify(closetItems[0], null, 2));
+
+          const map = {};
+          (Array.isArray(closetItems) ? closetItems : []).forEach(ci => {
+            const pid = ci?.id || ci?._id;
+            if (pid) map[pid] = ci?.shippingOption ?? ci?.shippingOptions ?? SHIP_OPTION_SHIP;
+          });
+          console.log('[DEBUG] shippingOptionsMap:', map);
+          console.log('[DEBUG] cartItems productIds:', cartItems.map(ci => ({ id: ci.id, productId: cartItemProductId(ci) })));
+          setShippingOptionsMap(map);
+        } catch {
+          setShippingOptionsMap({}); // non-fatal, falls back to ship-only per item
+        }
+      } else {
+        setShippingOptionsMap({});
+      }
     } catch (err) {
-      setCartError('Could not load cart. Please try again.');
+      setCartError(t('myClosetBuyer.cartLoadError'));
     } finally {
       setCartLoading(false);
     }
-  }, []);
+  }, [t, route?.params?.sellerId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -996,14 +1550,14 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
     // If already at 1 and decrementing → remove the item and go back if cart becomes empty
     if (delta === -1 && currentQty === 1) {
       const targetItem = cartItems.find(ci => ci.id === cartItemId);
-      const name = targetItem?.product?.name || targetItem?.name || 'this item';
+      const name = targetItem?.product?.name || targetItem?.name || t('myClosetBuyer.thisItemFallback');
       Alert.alert(
-        'Remove item',
-        `Remove "${name}" from cart?`,
+        t('myClosetBuyer.removeItemTitle'),
+        t('myClosetBuyer.removeItemMessage', { name }),
         [
-          { text: 'Cancel', style: 'cancel' },
+          { text: t('myClosetBuyer.cancel'), style: 'cancel' },
           {
-            text: 'Remove',
+            text: t('myClosetBuyer.remove'),
             style: 'destructive',
             onPress: async () => {
               setItemActionLoading(cartItemId);
@@ -1012,10 +1566,10 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
                 const remaining = cartItems.filter(ci => ci.id !== cartItemId);
                 setCartItems(remaining);
                 if (remaining.length === 0) {
-                  goBack(navigation);
+                  goBack(navigation, returnTo);
                 }
               } catch (err) {
-                Alert.alert('Error', err?.response?.data?.message || 'Could not remove item.');
+                Alert.alert(t('myClosetBuyer.errorTitle'), err?.response?.data?.message || t('myClosetBuyer.removeItemError'));
               } finally {
                 setItemActionLoading(null);
               }
@@ -1041,22 +1595,50 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
       setCartItems(prev =>
         prev.map(ci => (ci.id === cartItemId ? { ...ci, quantity: currentQty } : ci)),
       );
-      Alert.alert('Error', err?.response?.data?.message || 'Could not update quantity.');
+      Alert.alert(t('myClosetBuyer.errorTitle'), err?.response?.data?.message || t('myClosetBuyer.updateQuantityError'));
     } finally {
       setItemActionLoading(null);
     }
   };
 
+  const handleShippingChoiceChange = async (cartItemId, choice) => {
+    const target = cartItems.find(ci => ci.id === cartItemId);
+    if (!target || target.selectedShippingChoice === choice) return;
+    const previous = target.selectedShippingChoice;
+
+    setCartItems(prev =>
+      prev.map(ci => (ci.id === cartItemId ? { ...ci, selectedShippingChoice: choice } : ci)),
+    );
+    setShippingChoiceLoading(cartItemId);
+    try {
+      await setCartItemShippingChoice(cartItemId, choice);
+    } catch (err) {
+      setCartItems(prev =>
+        prev.map(ci => (ci.id === cartItemId ? { ...ci, selectedShippingChoice: previous } : ci)),
+      );
+      Alert.alert(
+        t('myClosetBuyer.errorTitle'),
+        err?.response?.data?.message || t('myClosetBuyer.updateShippingChoiceError'),
+      );
+    } finally {
+      setShippingChoiceLoading(null);
+    }
+  };
+
+  const requiresShipping = cartItems.some(
+    ci => (ci.selectedShippingChoice || SHIP_OPTION_SHIP) === SHIP_OPTION_SHIP,
+  );
+
   // ── DELETE /cart/items/{cartItemId} — remove single item ─────────────
   const handleRemoveItem = cartItem => {
-    const name = cartItem?.product?.name || cartItem?.name || 'this item';
+    const name = cartItem?.product?.name || cartItem?.name || t('myClosetBuyer.thisItemFallback');
     Alert.alert(
-      'Remove item',
-      `Remove "${name}" from cart?`,
+      t('myClosetBuyer.removeItemTitle'),
+      t('myClosetBuyer.removeItemMessage', { name }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('myClosetBuyer.cancel'), style: 'cancel' },
         {
-          text: 'Remove',
+          text: t('myClosetBuyer.remove'),
           style: 'destructive',
           onPress: async () => {
             setItemActionLoading(cartItem.id);
@@ -1064,7 +1646,7 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
               await deleteCartItem(cartItem.id);
               setCartItems(prev => prev.filter(ci => ci.id !== cartItem.id));
             } catch (err) {
-              Alert.alert('Error', err?.response?.data?.message || 'Could not remove item.');
+              Alert.alert(t('myClosetBuyer.errorTitle'), err?.response?.data?.message || t('myClosetBuyer.removeItemError'));
             } finally {
               setItemActionLoading(null);
             }
@@ -1077,12 +1659,12 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
   // ── DELETE /cart — clear entire cart ─────────────────────────────────
   const handleClearCart = () => {
     Alert.alert(
-      'Clear Cart',
-      'Remove all items from your cart?',
+      t('myClosetBuyer.clearCartTitle'),
+      t('myClosetBuyer.clearCartMessage'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('myClosetBuyer.cancel'), style: 'cancel' },
         {
-          text: 'Clear All',
+          text: t('myClosetBuyer.clearAll'),
           style: 'destructive',
           onPress: async () => {
             setClearingCart(true);
@@ -1090,7 +1672,7 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
               await clearCart();
               setCartItems([]);
             } catch (err) {
-              Alert.alert('Error', err?.response?.data?.message || 'Could not clear cart.');
+              Alert.alert(t('myClosetBuyer.errorTitle'), err?.response?.data?.message || t('myClosetBuyer.clearCartError'));
             } finally {
               setClearingCart(false);
             }
@@ -1109,42 +1691,96 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
   const serviceFee = localCart.serviceFee;
   const total = computedItemTotal /* + shipping + serviceFee*/;
 
-  const handleProceed = () => {
-    navigation.navigate('MyClosetBuyerCheckout', {
-      ...route.params,
-      itemTotal: computedItemTotal,
-      total,
-    });
+  const handleProceed = async () => {
+    if (!cartId) {
+      Alert.alert(t('myClosetBuyer.errorTitle'), t('myClosetBuyer.cartLoadError'));
+      return;
+    }
+    // setCheckingOut(true);
+    // try {
+    //   const response = await checkoutCart(cartId);
+    //   console.log('[DEBUG] checkout breakdown:', response);
+    //   const checkout = response?.data?.checkout ?? null;
+
+    //   if (checkout && checkout.isValid === false) {
+    //     // Backend flagged an issue (e.g. quantity no longer available, item removed by seller)
+    //     const message =
+    //       checkout?.issues?.[0]?.message ||
+    //       t('myClosetBuyer.checkoutError');
+    //     Alert.alert(t('myClosetBuyer.errorTitle'), message);
+    //     return;
+    //   }
+
+    //   const breakdown = checkout?.breakdown ?? null;
+    //   console.log('[DEBUG] checkout breakdown:', JSON.stringify(breakdown, null, 2));
+    navigation.navigate('MyClosetBuyerCheckout', withClosetNavParams(route, {
+      cartId,
+      cartItemsSnapshot: cartItems,
+      shippingOptionsMap,
+      requiresShipping,
+    }));
+    // } catch (err) {
+    //   Alert.alert(
+    //     t('myClosetBuyer.errorTitle'),
+    //     err?.response?.data?.message || t('myClosetBuyer.checkoutError'),
+    //   );
+    // } finally {
+    //   setCheckingOut(false);
+    // }
+  };
+
+  const handleOpenShippingStep = () => {
+    navigation.navigate(
+      'MyClosetBuyerShipping',
+      withClosetNavParams(route, {
+        cartId,
+        cartItemsSnapshot: cartItems,
+        shippingOptionsMap,
+        requiresShipping,
+      }),
+    );
   };
 
   const isEmpty = !cartLoading && cartItems.length === 0;
 
   // ── Helper: resolve image + name from a cart item ────────────────────
   const cartItemImage = ci => imageUri(ci?.product?.images?.[0]) || imageUri(ci?.product?.image) || imageUri(ci?.image) || null;
-  const cartItemName = ci => ci?.product?.name || ci?.product?.title || ci?.name || 'Item';
+  const cartItemName = ci => ci?.product?.name || ci?.product?.title || ci?.name || t('myClosetBuyer.itemFallback');
   const cartItemPrice = ci => currency(ci?.product?.price ?? ci?.price ?? 0);
   const cartItemMax = ci => Number(ci?.product?.quantity || ci?.product?.availableQuantity || 99) || 99;
+
+  const totalQuantity = cartItems.reduce(
+    (total, item) => total + (item.quantity || 0),
+    0,
+  );
 
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
       <Header
         navigation={navigation}
-        title={cartLoading ? 'Cart' : `Cart (${cartItems.length})`}
+        title={
+          cartLoading
+            ? t('myClosetBuyer.cartTitle')
+            : t('myClosetBuyer.cartTitleWithCount', {
+              count: totalQuantity,
+            })
+        }
         rightIcon={cartItems.length > 0 ? 'trash-outline' : undefined}
         onRightPress={handleClearCart}
+        returnTo={returnTo}
       />
 
       {cartLoading ? (
         <View style={styles.loaderWrap}>
-          <ActivityIndicator color={accent} />
+          <ActivityIndicator color={text} />
         </View>
       ) : cartError ? (
         <View style={styles.emptyState}>
           <Ionicons name="alert-circle-outline" size={36} color={ERROR_COLOR} />
-          <Text style={styles.emptyTitle}>Couldn't load cart</Text>
+          <Text style={styles.emptyTitle}>{t('myClosetBuyer.cartLoadErrorTitle')}</Text>
           <Text style={styles.emptyText}>{cartError}</Text>
           <TouchableOpacity onPress={fetchCart} style={styles.retryButton}>
-            <Text style={styles.retryText}>Retry</Text>
+            <Text style={styles.retryText}>{t('myClosetBuyer.retry')}</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -1155,15 +1791,15 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
           {isEmpty ? (
             <View style={styles.emptyState}>
               <Ionicons name="cart-outline" size={40} color="#c4b5d4" />
-              <Text style={styles.emptyTitle}>Your cart is empty</Text>
-              <Text style={styles.emptyText}>Items you add will appear here.</Text>
+              <Text style={styles.emptyTitle}>{t('myClosetBuyer.emptyCartTitle')}</Text>
+              <Text style={styles.emptyText}>{t('myClosetBuyer.emptyCartText')}</Text>
             </View>
           ) : (
             <>
               {clearingCart ? (
                 <View style={styles.cartClearingBanner}>
-                  <ActivityIndicator size="small" color={accent} />
-                  <Text style={[styles.cartClearingText, { color: text }]}>Clearing cart…</Text>
+                  <ActivityIndicator size="small" color={text} />
+                  <Text style={[styles.cartClearingText, { color: text }]}>{t('myClosetBuyer.clearingCart')}</Text>
                 </View>
               ) : null}
 
@@ -1171,15 +1807,37 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
                 const isActing = itemActionLoading === ci.id;
                 const qty = ci.quantity || 1;
                 const maxQty = cartItemMax(ci);
+                const opt = shippingOptionsMap[cartItemProductId(ci)] ?? SHIP_OPTION_SHIP;
+                const shippingLabel =
+                  opt === SHIP_OPTION_BOTH
+                    ? t('myClosetBuyer.shippingChoosePending')
+                    : opt === SHIP_OPTION_LOCAL
+                      ? t('myClosetBuyer.localPickup')
+                      : t('myClosetBuyer.shipToMe');
+
                 return (
                   <View key={ci.id} style={styles.cartLineCard}>
+                    {/* Top-right shipping badge */}
+                    <TouchableOpacity
+                      activeOpacity={0.8}
+                      onPress={opt === SHIP_OPTION_BOTH ? handleOpenShippingStep : undefined}
+                      disabled={opt !== SHIP_OPTION_BOTH}
+                      style={styles.shippingBadge}
+                    >
+                      <Ionicons
+                        name={opt === SHIP_OPTION_LOCAL ? 'storefront-outline' : 'cube-outline'}
+                        size={11}
+                        color={MUTED}
+                      />
+                      <Text style={styles.shippingBadgeText}>{shippingLabel}</Text>
+                    </TouchableOpacity>
+
                     <ImageBox uri={cartItemImage(ci)} style={styles.cartThumb} iconSize={22} />
                     <View style={styles.cartCopy}>
                       <Text style={styles.cartItemName} numberOfLines={2}>
                         {cartItemName(ci)}
                       </Text>
                       <Text style={[styles.cartPrice, { color: text }]}>{cartItemPrice(ci)}</Text>
-                      {/* Inline quantity editor → PATCH /cart/items/{cartItemId} */}
                       <View style={styles.cartQtyRow}>
                         <TouchableOpacity
                           style={[styles.cartQtyBtn, isActing && styles.cartQtyBtnDisabled]}
@@ -1187,10 +1845,10 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
                           activeOpacity={0.8}
                           disabled={isActing}
                         >
-                          <Ionicons name="remove" size={14} color={accent} />
+                          <Ionicons name="remove" size={14} color={text} />
                         </TouchableOpacity>
                         {isActing ? (
-                          <ActivityIndicator size="small" color={accent} style={{ minWidth: 18 }} />
+                          <ActivityIndicator size="small" color={text} style={{ minWidth: 18 }} />
                         ) : (
                           <Text style={styles.cartQtyText}>{qty}</Text>
                         )}
@@ -1200,7 +1858,7 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
                           activeOpacity={0.8}
                           disabled={isActing}
                         >
-                          <Ionicons name="add" size={14} color={accent} />
+                          <Ionicons name="add" size={14} color={text} />
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -1218,18 +1876,25 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
               })}
 
               <View style={styles.summaryBlock}>
-                <SummaryRow label="Item total" value={currency(computedItemTotal)} />
-                {/* <SummaryRow label="Shipping" value={currency(shipping)} />
-                <SummaryRow label="Service fee" value={currency(serviceFee)} /> */}
-                <SummaryRow label="Total" value={currency(total)} bold />
+                <SummaryRow
+                  label={t('myClosetBuyer.itemTotal')}
+                  value={currency(computedItemTotal)}
+                  accentColor={text}
+                />
+                <SummaryRow
+                  label={t('myClosetBuyer.total')}
+                  value={currency(total)}
+                  bold
+                  accentColor={text}
+                />
               </View>
 
               <View style={styles.protectionCard}>
                 <View style={styles.protectionIcon}>
-                  <Ionicons name="shield-checkmark-outline" size={24} color={accent} />
+                  <Ionicons name="shield-checkmark-outline" size={24} color={text} />
                 </View>
                 <Text style={[styles.protectionText, { color: text }]}>
-                  You're protected with Valens Purchase Protection
+                  {t('myClosetBuyer.purchaseProtection')}
                 </Text>
                 <Ionicons name="information-circle-outline" size={16} color="#8b5e9f" />
               </View>
@@ -1240,35 +1905,87 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
 
       {!isEmpty && !cartLoading && !cartError && (
         <BottomBar>
-          <BottomButton label="Proceed to Checkout" onPress={handleProceed} />
-        </BottomBar>
+          <BottomButton
+            label={checkingOut ? t('myClosetBuyer.loading') : t('myClosetBuyer.proceedToCheckout')}
+            onPress={checkingOut ? undefined : handleProceed}
+            accentColor={text}
+          />
+      </BottomBar>
       )}
     </SafeAreaView>
   );
 };
 
 const MyClosetBuyerCheckoutScreen = ({ navigation, route }) => {
-  const { bgStyle } = useAppTheme();
-  const cart = buildCart(route);
+  const { t } = useLanguage();
+  const { bgStyle, text } = useClosetTheme(route);
+  const returnTo = route?.params?.returnTo;
+  const cart = buildCart(route, t);
+  const requiresShipping = route?.params?.requiresShipping ?? true;
+  const [continuing, setContinuing] = useState(false);
 
-  const handleEditCart = () => {
-    navigation.navigate('MyClosetBuyerCart', route.params);
+  const handleEditCart = () => navigation.navigate('MyClosetBuyerCart', withClosetNavParams(route));
+
+  const handleContinue = async () => {
+    const cartId = route?.params?.cartId;
+    if (!cartId) {
+      navigation.navigate(
+        requiresShipping ? 'MyClosetBuyerShipping' : 'MyClosetBuyerPayment',
+        withClosetNavParams(route),
+      );
+      return;
+    }
+
+    setContinuing(true);
+    try {
+      const response = await checkoutCart(cartId);
+      const checkout = response?.data?.data?.checkout ?? null;
+
+      if (checkout && checkout.isValid === false) {
+        const message = checkout?.issues?.[0]?.message || t('myClosetBuyer.checkoutError');
+        Alert.alert(t('myClosetBuyer.errorTitle'), message);
+        return;
+      }
+
+      const breakdown = checkout?.breakdown ?? null;
+
+      navigation.navigate(
+        requiresShipping ? 'MyClosetBuyerShipping' : 'MyClosetBuyerPayment',
+        withClosetNavParams(route, {
+          checkoutData: checkout,
+          itemTotal: breakdown?.itemsSubtotal ?? route?.params?.itemTotal,
+          shippingAmount: breakdown?.shippingAmount ?? 0,
+          total: breakdown?.totalAmountDue ?? route?.params?.total,
+        }),
+      );
+    } catch (err) {
+      Alert.alert(
+        t('myClosetBuyer.errorTitle'),
+        err?.response?.data?.message || t('myClosetBuyer.checkoutError'),
+      );
+    } finally {
+      setContinuing(false);
+    }
   };
 
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
-      <Header navigation={navigation} title="Checkout" />
-      <ScrollView
-        contentContainerStyle={styles.checkoutContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <CheckoutSteps current={0} />
-        <OrderSummary cart={cart} editable onEditCart={handleEditCart} />
+      <Header navigation={navigation} title={t('myClosetBuyer.checkoutTitle')} returnTo={returnTo} />
+      <ScrollView contentContainerStyle={styles.checkoutContent} showsVerticalScrollIndicator={false}>
+        <CheckoutSteps current={0} includeShipping={requiresShipping} accentColor={text} />
+        <OrderSummary cart={cart} editable onEditCart={handleEditCart} accentColor={text} />
       </ScrollView>
       <BottomBar>
         <BottomButton
-          label="Continue to Shipping"
-          onPress={() => navigation.navigate('MyClosetBuyerShipping', route.params)}
+          label={
+            continuing
+              ? t('myClosetBuyer.loading')
+              : requiresShipping
+                ? t('myClosetBuyer.continueToShipping')
+                : t('myClosetBuyer.continueToPayment')
+          }
+          onPress={continuing ? undefined : handleContinue}
+          accentColor={text}
         />
       </BottomBar>
     </SafeAreaView>
@@ -1279,14 +1996,14 @@ const MyClosetBuyerCheckoutScreen = ({ navigation, route }) => {
 // Shipping screen — fetches real addresses from GET /address/getAddress
 // ─────────────────────────────────────────────────────────────────────────────
 const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
-  const { accent, bgStyle, textStyle, mutedTextStyle, cardStyle, border } = useAppTheme();
-  const { isDarkMode } = useThemeContext();
-  const inputSurface = isDarkMode ? 'rgba(255,255,255,0.08)' : '#ffffff';
-  const surface = isDarkMode ? withAlphaFlow(accent, 0.1) : SURFACE;
-  const cart = buildCart(route);
+  const { text, bgStyle } = useClosetTheme(route);
+  const { t } = useLanguage();
+  const returnTo = route?.params?.returnTo;
+  const cart = buildCart(route, t);
   const [method, setMethod] = useState('standard');
   const [showAddressModal, setShowAddressModal] = useState(false);
-  const [editingAddress, setEditingAddress] = useState(null); // address being edited
+  const [editingAddress, setEditingAddress] = useState(null);
+  const [continuing, setContinuing] = useState(false);
 
   // Real address list from API
   const [addresses, setAddresses] = useState([]);
@@ -1294,6 +2011,51 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
   const [addressError, setAddressError] = useState(null);
   const [selectedAddressIndex, setSelectedAddressIndex] = useState(0);
   const [actionLoading, setActionLoading] = useState(null); // addressId being acted upon
+
+  const cartItemsSnapshot = route?.params?.cartItemsSnapshot || [];
+  const shippingOptionsMap = route?.params?.shippingOptionsMap || {};
+
+  const [shippingChoices, setShippingChoices] = useState(() => {
+    const initial = {};
+    cartItemsSnapshot.forEach(ci => {
+      initial[ci.id] = ci.selectedShippingChoice || null;
+    });
+    return initial;
+  });
+  const [choiceLoading, setChoiceLoading] = useState(null);
+
+  // Items where the seller allows both, so the buyer must pick
+  const itemsNeedingChoice = cartItemsSnapshot.filter(
+    ci => (shippingOptionsMap[cartItemProductId(ci)] ?? SHIP_OPTION_SHIP) === SHIP_OPTION_BOTH,
+  );
+
+  const fixedChoiceItems = cartItemsSnapshot.filter(
+    ci => (shippingOptionsMap[cartItemProductId(ci)] ?? SHIP_OPTION_SHIP) !== SHIP_OPTION_BOTH,
+  );
+  // Effective choice per item: explicit pick, or the only option the seller allows
+  const effectiveChoice = ci => {
+    const opt = shippingOptionsMap[cartItemProductId(ci)] ?? SHIP_OPTION_SHIP;
+    if (opt === SHIP_OPTION_BOTH) return shippingChoices[ci.id] || null;
+    return opt === SHIP_OPTION_LOCAL ? SHIP_OPTION_LOCAL : SHIP_OPTION_SHIP;
+  };
+
+  const allChoicesMade = itemsNeedingChoice.every(ci => !!shippingChoices[ci.id]);
+  const requiresShipping = cartItemsSnapshot.some(ci => effectiveChoice(ci) === SHIP_OPTION_SHIP);
+
+  const handleSelectChoice = async (cartItemId, choice) => {
+    const previous = shippingChoices[cartItemId];
+    if (previous === choice) return;
+    setShippingChoices(prev => ({ ...prev, [cartItemId]: choice }));
+    setChoiceLoading(cartItemId);
+    try {
+      await setCartItemShippingChoice(cartItemId, choice);
+    } catch (err) {
+      setShippingChoices(prev => ({ ...prev, [cartItemId]: previous }));
+      Alert.alert(t('myClosetBuyer.errorTitle'), err?.response?.data?.message || t('myClosetBuyer.updateShippingChoiceError'));
+    } finally {
+      setChoiceLoading(null);
+    }
+  };
 
   // ── Fetch addresses from GET /address/getAddress ────────────────────────
   const fetchAddresses = useCallback(async () => {
@@ -1311,11 +2073,11 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
       const defaultIdx = arr.findIndex(a => a.isDefault);
       setSelectedAddressIndex(defaultIdx >= 0 ? defaultIdx : 0);
     } catch (err) {
-      setAddressError('Could not load addresses. Please try again.');
+      setAddressError(t('myClosetBuyer.addressLoadError'));
     } finally {
       setAddressLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     fetchAddresses();
@@ -1348,12 +2110,12 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
   // ── DELETE: PATCH /address/deleteAddress/{addressId} ──────────────────────
   const handleDelete = addr => {
     Alert.alert(
-      'Delete Address',
-      `Remove "${addr.fullName}" (${addr.addressLine1})?`,
+      t('myClosetBuyer.deleteAddressTitle'),
+      t('myClosetBuyer.deleteAddressMessage', { name: addr.fullName, line: addr.addressLine1 }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('myClosetBuyer.cancel'), style: 'cancel' },
         {
-          text: 'Delete',
+          text: t('myClosetBuyer.delete'),
           style: 'destructive',
           onPress: async () => {
             setActionLoading(addr.id);
@@ -1365,7 +2127,7 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
                 return updated;
               });
             } catch (err) {
-              Alert.alert('Error', err?.response?.data?.message || 'Could not delete address.');
+              Alert.alert(t('myClosetBuyer.errorTitle'), err?.response?.data?.message || t('myClosetBuyer.deleteAddressError'));
             } finally {
               setActionLoading(null);
             }
@@ -1388,13 +2150,21 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
       const newIdx = addresses.findIndex(a => a.id === addr.id);
       if (newIdx >= 0) setSelectedAddressIndex(newIdx);
     } catch (err) {
-      Alert.alert('Error', err?.response?.data?.message || 'Could not set default address.');
+      Alert.alert(t('myClosetBuyer.errorTitle'), err?.response?.data?.message || t('myClosetBuyer.setDefaultAddressError'));
     } finally {
       setActionLoading(null);
     }
   };
 
   const selectedAddress = addresses[selectedAddressIndex] ?? null;
+  const isAddressComplete = !!(
+    selectedAddress &&
+    String(selectedAddress.fullName || '').trim() &&
+    String(selectedAddress.phoneNumber || '').trim() &&
+    String(selectedAddress.addressLine1 || '').trim() &&
+    String(selectedAddress.city || '').trim()
+  );
+  const canContinue = !continuing && allChoicesMade && (!requiresShipping || isAddressComplete);
 
   const nextCart = {
     ...route.params,
@@ -1407,151 +2177,190 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
 
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
-      <Header navigation={navigation} title="Shipping Information" />
+      <Header navigation={navigation} title={t('myClosetBuyer.shippingInformationTitle')} returnTo={returnTo} />
       <ScrollView
         contentContainerStyle={styles.checkoutContent}
         showsVerticalScrollIndicator={false}
       >
-        <CheckoutSteps current={1} />
+        <CheckoutSteps current={1} accentColor={text} />
 
-        <Text style={styles.sectionLabel}>Shipping Address</Text>
+        {(itemsNeedingChoice.length > 0 || fixedChoiceItems.length > 0) && (
+          <>
+            <Text style={styles.sectionLabel}>{t('myClosetBuyer.chooseShippingTitle')}</Text>
 
-        {/* ── Address list states ── */}
-        {addressLoading ? (
-          <View style={styles.addressLoader}>
-            <ActivityIndicator size="small" color={accent} />
-            <Text style={styles.addressLoaderText}>Loading addresses…</Text>
-          </View>
-        ) : addressError ? (
-          <View style={styles.addressErrorBox}>
-            <Ionicons name="alert-circle-outline" size={18} color={ERROR_COLOR} />
-            <Text style={styles.addressErrorText}>{addressError}</Text>
-            <TouchableOpacity onPress={fetchAddresses} style={styles.retryButton}>
-              <Text style={styles.retryText}>Retry</Text>
-            </TouchableOpacity>
-          </View>
-        ) : addresses.length === 0 ? (
-          <View style={styles.noAddressBox}>
-            <Ionicons name="location-outline" size={32} color="#c4b5d4" />
-            <Text style={styles.noAddressTitle}>No saved addresses</Text>
-            <Text style={styles.noAddressText}>Add an address to continue checkout.</Text>
-          </View>
-        ) : (
-          addresses.map((addr, idx) => {
-            const isSelected = selectedAddressIndex === idx;
-            const isActing = actionLoading === addr.id;
-            return (
-              <View
-                key={addr.id || idx}
-                style={[
-                  styles.addressCard,
-                  isSelected && styles.addressCardSelected,
-                  isSelected && { borderColor: accent },
-                ]}
-              >
-                {/* Tap row selects address */}
-                <TouchableOpacity
-                  activeOpacity={0.85}
-                  onPress={() => setSelectedAddressIndex(idx)}
-                  style={styles.addressCardContent}
-                >
-                  <View style={{ flex: 1 }}>
-                    <View style={styles.addressNameRow}>
-                      <Text style={styles.addressName}>{addr.fullName}</Text>
-                      {addr.isDefault ? (
-                        <View style={styles.defaultBadge}>
-                          <Text style={[styles.defaultBadgeText, { color: text }]}>Default</Text>
-                        </View>
-                      ) : null}
-                    </View>
-                    {addr.phoneNumber ? (
-                      <Text style={styles.addressPhone}>{addr.phoneNumber}</Text>
-                    ) : null}
-                    <Text style={styles.addressText}>{addr.addressLine1}</Text>
-                    {addr.addressLine2 ? (
-                      <Text style={styles.addressText}>{addr.addressLine2}</Text>
-                    ) : null}
-                    <Text style={styles.addressText}>
-                      {[addr.city, addr.state, addr.postalCode].filter(Boolean).join(', ')}
-                    </Text>
-                    {addr.country ? (
-                      <Text style={styles.addressText}>{addr.country}</Text>
-                    ) : null}
-                  </View>
-                  {isActing ? (
-                    <ActivityIndicator size="small" color={accent} style={{ marginLeft: 8 }} />
-                  ) : (
-                    <Ionicons
-                      name={isSelected ? 'radio-button-on' : 'radio-button-off'}
-                      size={20}
-                      color={accent}
-                    />
-                  )}
+            {/* Items where buyer must actively choose */}
+            {itemsNeedingChoice.map(ci => (
+              <ItemShippingChoicePicker
+                text={text}
+                key={ci.id}
+                item={ci}
+                selectedChoice={shippingChoices[ci.id]}
+                onSelect={handleSelectChoice}
+                loading={choiceLoading === ci.id}
+              />
+            ))}
+
+            {/* Items where the seller already fixed the option — show it read-only so it's clear */}
+            {fixedChoiceItems.map(ci => {
+              const opt = shippingOptionsMap[cartItemProductId(ci)] ?? SHIP_OPTION_SHIP;
+              const name = ci?.product?.name || ci?.product?.title || t('myClosetBuyer.itemFallback');
+              return (
+                <View key={ci.id} style={{ marginBottom: 12 }}>
+                  <Text style={styles.shipChoiceItemName} numberOfLines={1}>Item -
+                    <Text style={{ color: text }}> {name}</Text></Text>
+                  <FixedShippingBadge
+                    choice={opt === SHIP_OPTION_LOCAL ? SHIP_OPTION_LOCAL : SHIP_OPTION_SHIP}
+                    accentColor={text}
+                  />
+                </View>
+              );
+            })}
+          </>
+        )}
+
+        {requiresShipping && (
+          <>
+            <Text style={styles.sectionLabel}>{t('myClosetBuyer.shippingAddress')}</Text>
+
+            {/* ── Address list states ── */}
+            {addressLoading ? (
+              <View style={styles.addressLoader}>
+                <ActivityIndicator size="small" color={text} />
+                <Text style={styles.addressLoaderText}>{t('myClosetBuyer.loadingAddresses')}</Text>
+              </View>
+            ) : addressError ? (
+              <View style={styles.addressErrorBox}>
+                <Ionicons name="alert-circle-outline" size={18} color={ERROR_COLOR} />
+                <Text style={styles.addressErrorText}>{addressError}</Text>
+                <TouchableOpacity onPress={fetchAddresses} style={styles.retryButton}>
+                  <Text style={styles.retryText}>{t('myClosetBuyer.retry')}</Text>
                 </TouchableOpacity>
-
-                {/* Action row: Edit · Delete · Set Default */}
-                <View style={styles.addressActionsRow}>
-                  {/* Edit */}
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    style={styles.addressActionBtn}
-                    onPress={() => handleEdit(addr)}
-                    disabled={isActing}
+              </View>
+            ) : addresses.length === 0 ? (
+              <View style={styles.noAddressBox}>
+                <Ionicons name="location-outline" size={32} color="#c4b5d4" />
+                <Text style={styles.noAddressTitle}>{t('myClosetBuyer.noSavedAddresses')}</Text>
+                <Text style={styles.noAddressText}>{t('myClosetBuyer.addAddressToContinue')}</Text>
+              </View>
+            ) : (
+              addresses.map((addr, idx) => {
+                const isSelected = selectedAddressIndex === idx;
+                const isActing = actionLoading === addr.id;
+                return (
+                  <View
+                    key={addr.id || idx}
+                    style={[
+                      styles.addressCard,
+                      isSelected && styles.addressCardSelected,
+                      isSelected && { borderColor: text },
+                    ]}
                   >
-                    <Ionicons name="create-outline" size={14} color={accent} />
-                    <Text style={[styles.addressActionText, { color: text }]}>Edit</Text>
-                  </TouchableOpacity>
+                    {/* Tap row selects address */}
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      onPress={() => setSelectedAddressIndex(idx)}
+                      style={styles.addressCardContent}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <View style={styles.addressNameRow}>
+                          <Text style={styles.addressName}>{addr.fullName}</Text>
+                          {addr.isDefault ? (
+                            <View style={styles.defaultBadge}>
+                              <Text style={[styles.defaultBadgeText, { color: text }]}>{t('myClosetBuyer.defaultBadge')}</Text>
+                            </View>
+                          ) : null}
+                        </View>
+                        {addr.phoneNumber ? (
+                          <Text style={styles.addressPhone}>{addr.phoneNumber}</Text>
+                        ) : null}
+                        <Text style={styles.addressText}>{addr.addressLine1}</Text>
+                        {addr.addressLine2 ? (
+                          <Text style={styles.addressText}>{addr.addressLine2}</Text>
+                        ) : null}
+                        <Text style={styles.addressText}>
+                          {[addr.city, addr.state, addr.postalCode].filter(Boolean).join(', ')}
+                        </Text>
+                        {addr.country ? (
+                          <Text style={styles.addressText}>{addr.country}</Text>
+                        ) : null}
+                      </View>
+                      {isActing ? (
+                        <ActivityIndicator size="small" color={text} style={{ marginLeft: 8 }} />
+                      ) : (
+                        <Ionicons
+                          name={isSelected ? 'radio-button-on' : 'radio-button-off'}
+                          size={20}
+                          color={text}
+                        />
+                      )}
+                    </TouchableOpacity>
 
-                  <View style={styles.addressActionDivider} />
-
-                  {/* Delete */}
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    style={styles.addressActionBtn}
-                    onPress={() => handleDelete(addr)}
-                    disabled={isActing}
-                  >
-                    <Ionicons name="trash-outline" size={14} color={ERROR_COLOR} />
-                    <Text style={[styles.addressActionText, { color: ERROR_COLOR }]}>Delete</Text>
-                  </TouchableOpacity>
-
-                  {/* Set as Default (hidden if already default) */}
-                  {!addr.isDefault ? (
-                    <>
-                      <View style={styles.addressActionDivider} />
+                    {/* Action row: Edit · Delete · Set Default */}
+                    <View style={styles.addressActionsRow}>
+                      {/* Edit */}
                       <TouchableOpacity
                         activeOpacity={0.8}
                         style={styles.addressActionBtn}
-                        onPress={() => handleMakeDefault(addr)}
+                        onPress={() => handleEdit(addr)}
                         disabled={isActing}
                       >
-                        <Ionicons name="star-outline" size={14} color="#f59e0b" />
-                        <Text style={[styles.addressActionText, { color: '#b45309' }]}>
-                          Set Default
-                        </Text>
+                        <Ionicons name="create-outline" size={14} color={text} />
+                        <Text style={[styles.addressActionText, { color: text }]}>{t('myClosetBuyer.edit')}</Text>
                       </TouchableOpacity>
-                    </>
-                  ) : null}
-                </View>
-              </View>
-            );
-          })
+
+                      <View style={styles.addressActionDivider} />
+
+                      {/* Delete */}
+                      <TouchableOpacity
+                        activeOpacity={0.8}
+                        style={styles.addressActionBtn}
+                        onPress={() => handleDelete(addr)}
+                        disabled={isActing}
+                      >
+                        <Ionicons name="trash-outline" size={14} color={ERROR_COLOR} />
+                        <Text style={[styles.addressActionText, { color: ERROR_COLOR }]}>{t('myClosetBuyer.delete')}</Text>
+                      </TouchableOpacity>
+
+                      {/* Set as Default (hidden if already default) */}
+                      {!addr.isDefault ? (
+                        <>
+                          <View style={styles.addressActionDivider} />
+                          <TouchableOpacity
+                            activeOpacity={0.8}
+                            style={styles.addressActionBtn}
+                            onPress={() => handleMakeDefault(addr)}
+                            disabled={isActing}
+                          >
+                            <Ionicons name="star-outline" size={14} color="#f59e0b" />
+                            <Text style={[styles.addressActionText, { color: '#b45309' }]}>
+                              {t('myClosetBuyer.setDefault')}
+                            </Text>
+                          </TouchableOpacity>
+                        </>
+                      ) : null}
+                    </View>
+                  </View>
+                );
+              })
+            )}
+
+            {/* Add new address */}
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={styles.addAddressButton}
+              onPress={() => setShowAddressModal(true)}
+            >
+              <Ionicons name="add-circle-outline" size={18} color={text} />
+              <Text style={[styles.addAddressText, { color: text }]}>{t('myClosetBuyer.addNewAddress')}</Text>
+            </TouchableOpacity>
+
+          </>
         )}
 
-        {/* Add new address */}
-        <TouchableOpacity
-          activeOpacity={0.85}
-          style={styles.addAddressButton}
-          onPress={() => setShowAddressModal(true)}
-        >
-          <Ionicons name="add-circle-outline" size={18} color={accent} />
-          <Text style={[styles.addAddressText, { color: text }]}>Add new address</Text>
-        </TouchableOpacity>
-
-        <Text style={styles.sectionLabel}>Shipping Method</Text>
+        {/* <Text style={styles.sectionLabel}>{t('myClosetBuyer.shippingMethod')}</Text>
         {[
-          { key: 'standard', label: 'Standard Shipping (3-5 days)', price: 10 },
-          { key: 'express', label: 'Express Shipping (1-2 days)', price: 20 },
+          { key: 'standard', label: t('myClosetBuyer.standardShipping'), price: 10 },
+          { key: 'express', label: t('myClosetBuyer.expressShipping'), price: 20 },
         ].map(option => (
           <TouchableOpacity
             key={option.key}
@@ -1560,7 +2369,7 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
             style={[
               styles.radioCard,
               method === option.key && styles.radioCardSelected,
-              method === option.key && { borderColor: accent },
+              method === option.key && { borderColor: text },
             ]}
           >
             <Ionicons
@@ -1571,19 +2380,60 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
             <Text style={styles.radioLabel}>{option.label}</Text>
             <Text style={styles.radioPrice}>{currency(option.price)}</Text>
           </TouchableOpacity>
-        ))}
+        ))} */}
       </ScrollView>
 
       <BottomBar>
         <BottomButton
-          label="Continue to Payment"
-          onPress={() => {
-            if (!selectedAddress && addresses.length > 0) {
-              Alert.alert('Select address', 'Please select a shipping address to continue.');
+          label={continuing ? t('myClosetBuyer.loading') : t('myClosetBuyer.continueToPayment')}
+          accentColor={text}
+          disabled={!canContinue}
+          onPress={canContinue ? async () => {
+            if (!allChoicesMade) {
+              Alert.alert(t('myClosetBuyer.selectShippingTitle'), t('myClosetBuyer.selectShippingMessage'));
               return;
             }
-            navigation.navigate('MyClosetBuyerPayment', nextCart);
-          }}
+            if (requiresShipping && !isAddressComplete) {
+              Alert.alert(t('myClosetBuyer.selectAddressTitle'), t('myClosetBuyer.selectAddressMessage'));
+              return;
+            }
+
+            const cartId = route?.params?.cartId;
+            if (!cartId) {
+              navigation.navigate('MyClosetBuyerPayment', withClosetNavParams(route, { ...nextCart, requiresShipping }));
+              return;
+            }
+
+            setContinuing(true);
+            try {
+              const response = await checkoutCart(cartId);
+              const checkout = response?.data?.data?.checkout ?? null;
+
+              if (checkout && checkout.isValid === false) {
+                const message = checkout?.issues?.[0]?.message || t('myClosetBuyer.checkoutError');
+                Alert.alert(t('myClosetBuyer.errorTitle'), message);
+                return;
+              }
+
+              const breakdown = checkout?.breakdown ?? null;
+
+              navigation.navigate('MyClosetBuyerPayment', withClosetNavParams(route, {
+                ...nextCart,
+                requiresShipping,
+                checkoutData: checkout,
+                itemTotal: breakdown?.itemsSubtotal ?? nextCart?.itemTotal,
+                shippingAmount: breakdown?.shippingAmount ?? 0,
+                total: breakdown?.totalAmountDue ?? nextCart?.total,
+              }));
+            } catch (err) {
+              Alert.alert(
+                t('myClosetBuyer.errorTitle'),
+                err?.response?.data?.message || t('myClosetBuyer.checkoutError'),
+              );
+            } finally {
+              setContinuing(false);
+            }
+          } : undefined}
         />
       </BottomBar>
 
@@ -1592,31 +2442,58 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
         onClose={() => { setShowAddressModal(false); setEditingAddress(null); }}
         onSaved={editingAddress ? handleAddressUpdated : handleAddressSaved}
         editAddress={editingAddress}
+        accentColor={text}
       />
     </SafeAreaView>
   );
 };
 
 const MyClosetBuyerPaymentScreen = ({ navigation, route }) => {
-  const { accent, bgStyle, textStyle, mutedTextStyle } = useAppTheme();
-  const { isDarkMode } = useThemeContext();
-  const inputSurface = isDarkMode ? 'rgba(255,255,255,0.08)' : '#ffffff';
-  const cart = buildCart(route);
+  const { text, bgStyle } = useClosetTheme(route);
+  const { t } = useLanguage();
+  const returnTo = route?.params?.returnTo;
   const [paymentMethod, setPaymentMethod] = useState('secure');
+  const requiresShipping = route?.params?.requiresShipping ?? true;
+  const cartId = route?.params?.cartId;
+
+  // If we already have fresh checkout data (breakdown), use it as-is.
+  // Otherwise, fetch it ourselves so the fee/tax/total are never stale or missing.
+  const [checkoutData, setCheckoutData] = useState(route?.params?.checkoutData ?? null);
+  const [loadingBreakdown, setLoadingBreakdown] = useState(!route?.params?.checkoutData && !!cartId);
+  const [breakdownError, setBreakdownError] = useState(null);
+
+  useEffect(() => {
+    if (route?.params?.checkoutData || !cartId) return;
+    let cancelled = false;
+    (async () => {
+      setLoadingBreakdown(true);
+      setBreakdownError(null);
+      try {
+        const response = await checkoutCart(cartId);
+        const checkout = response?.data?.checkout ?? null;
+        if (!cancelled) setCheckoutData(checkout);
+      } catch (err) {
+        if (!cancelled) setBreakdownError(t('myClosetBuyer.checkoutError'));
+      } finally {
+        if (!cancelled) setLoadingBreakdown(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [cartId, route?.params?.checkoutData, t]);
+
+  const cart = buildCart({ params: { ...route.params, checkoutData } }, t);
 
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
-      <Header navigation={navigation} title="Payment" />
+      <Header navigation={navigation} title={t('myClosetBuyer.paymentTitle')} returnTo={returnTo} />
       <ScrollView
         contentContainerStyle={styles.checkoutContent}
         showsVerticalScrollIndicator={false}
       >
-        <CheckoutSteps current={2} />
-        <Text style={styles.sectionLabel}>Payment Method</Text>
+        <CheckoutSteps current={requiresShipping ? 2 : 1} includeShipping={requiresShipping} accentColor={text} />
+        <Text style={styles.sectionLabel}>{t('myClosetBuyer.paymentMethod')}</Text>
         {[
-          { key: 'secure', label: 'Valens Secure Checkout', sub: 'Pay securely on Valens', icon: 'shield-checkmark-outline' },
-          // { key: 'card', label: 'Credit / Debit Card', sub: 'VISA  Mastercard  AMEX', icon: 'card-outline' },
-          // { key: 'apple', label: 'Apple Pay', sub: '', icon: 'logo-apple' },
+          { key: 'secure', label: t('myClosetBuyer.secureCheckout'), sub: t('myClosetBuyer.secureCheckoutSub'), icon: 'shield-checkmark-outline' },
         ].map(option => (
           <TouchableOpacity
             key={option.key}
@@ -1625,7 +2502,7 @@ const MyClosetBuyerPaymentScreen = ({ navigation, route }) => {
             style={[
               styles.paymentOption,
               paymentMethod === option.key && styles.radioCardSelected,
-              paymentMethod === option.key && { borderColor: accent },
+              paymentMethod === option.key && { borderColor: text },
             ]}
           >
             <Ionicons
@@ -1637,16 +2514,29 @@ const MyClosetBuyerPaymentScreen = ({ navigation, route }) => {
               <Text style={styles.radioLabel}>{option.label}</Text>
               {option.sub ? <Text style={styles.paymentSub}>{option.sub}</Text> : null}
             </View>
-            <Ionicons name={option.icon} size={18} color={accent} />
+            <Ionicons name={option.icon} size={18} color={text} />
           </TouchableOpacity>
         ))}
-        <OrderSummary cart={cart} compact />
+
+        {loadingBreakdown ? (
+          <View style={styles.loaderWrap}>
+            <ActivityIndicator color={text} />
+          </View>
+        ) : breakdownError ? (
+          <View style={styles.addressErrorBox}>
+            <Ionicons name="alert-circle-outline" size={18} color={ERROR_COLOR} />
+            <Text style={styles.addressErrorText}>{breakdownError}</Text>
+          </View>
+        ) : (
+          <OrderSummary cart={cart} compact accentColor={text} />
+        )}
       </ScrollView>
       <BottomBar>
         <BottomButton
-          label="Continue to Review"
+          label={t('myClosetBuyer.continueToReview')}
+          accentColor={text}
           onPress={() =>
-            navigation.navigate('MyClosetBuyerReview', { ...route.params, paymentMethod })
+            navigation.navigate('MyClosetBuyerReview', withClosetNavParams(route, { checkoutData, paymentMethod }))
           }
         />
       </BottomBar>
@@ -1658,25 +2548,145 @@ const MyClosetBuyerPaymentScreen = ({ navigation, route }) => {
 // Review screen — shows dynamically selected address instead of hardcoded one
 // ─────────────────────────────────────────────────────────────────────────────
 const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
-  const { accent, bgStyle, textStyle, mutedTextStyle } = useAppTheme();
-  const { isDarkMode } = useThemeContext();
-  const surface = isDarkMode ? withAlphaFlow(accent, 0.1) : SURFACE;
-  const cart = buildCart(route);
-  const [checking, setChecking] = useState(false);  
+  const { text, bgStyle } = useClosetTheme(route);
+  const { t } = useLanguage();
+  const returnTo = route?.params?.returnTo;
+  const cart = buildCart(route, t);
+  const [checking, setChecking] = useState(false);
   // shippingAddress passed from Shipping screen via nextCart
   const addr = route?.params?.shippingAddress ?? null;
+  const requiresShipping = route?.params?.requiresShipping ?? true;
 
-  const handleContinue = async () => {
+  const findPaymentId = useCallback(async (cartId) => {
+    try {
+      const response = await getRecentPaymentDetails();
+      const list = response?.data?.data ?? response?.data ?? [];
+      const payments = Array.isArray(list) ? list : list ? [list] : [];
+
+      // The endpoint only ever returns the single most recent payment, so try to
+      // match on cartId (top-level or nested in metadata) but fall back to that
+      // one record if no match is found rather than returning null.
+      const match =
+        payments.find(p => p?.cartId === cartId || p?.metadata?.cartId === cartId) ??
+        payments[0] ??
+        null;
+      return match?.id ?? null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const pollForPaidPayment = useCallback(async (paymentId, { attempts = 8, delayMs = 1500 } = {}) => {
+    for (let i = 0; i < attempts; i += 1) {
+      try {
+        const response = await getPaymentDetailsByPaymentId(paymentId);
+        const payment = response?.data ?? null;
+        if (payment?.status === 'PAID') return payment;
+      } catch {
+        // ignore and retry
+      }
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+    }
+    return null;
+  }, []);
+
+  const finalizeOrder = useCallback(async (cartId) => {
     setChecking(true);
     try {
-      const response = await checkoutCart();
-      const checkoutData = response?.data?.data?.checkout ?? null;
-      navigation.navigate('MyClosetBuyerOrderReceived', {
-        ...route.params,
-        checkoutData,
+      const paymentId = await findPaymentId(cartId);
+      if (!paymentId) {
+        Alert.alert(t('myClosetBuyer.errorTitle'), t('myClosetBuyer.paymentNotConfirmedError'));
+        return;
+      }
+
+      const payment = await pollForPaidPayment(paymentId);
+      if (!payment) {
+        Alert.alert(t('myClosetBuyer.errorTitle'), t('myClosetBuyer.paymentNotConfirmedError'));
+        return;
+      }
+
+      navigation.navigate('MyClosetBuyerOrderReceived', withClosetNavParams(route, {
+        payment,
+        orderId: payment.orderId,
+      }));
+    } finally {
+      setChecking(false);
+    }
+  }, [findPaymentId, pollForPaidPayment, navigation, route.params, t]);
+
+  useEffect(() => {
+    const cartId = route?.params?.cartId;
+    if (!cartId) return undefined;
+
+    const sub = DeviceEventEmitter.addListener('PAYMENT_COMPLETED', (payload) => {
+      if (payload?.status === 'success') {
+        finalizeOrder(cartId);
+      }
+    });
+    return () => sub.remove();
+  }, [route?.params?.cartId, finalizeOrder]);
+
+  const handleContinue = async () => {
+    const cartId = route?.params?.cartId;
+    const addressId = addr?.id ?? null;
+
+    if (!cartId) {
+      Alert.alert(t('myClosetBuyer.errorTitle'), t('myClosetBuyer.checkoutError'));
+      return;
+    }
+    // addressId is required only when this order actually needs shipping
+    if (requiresShipping && !addressId) {
+      Alert.alert(t('myClosetBuyer.selectAddressTitle'), t('myClosetBuyer.selectAddressMessage'));
+      return;
+    }
+
+    setChecking(true);
+    try {
+      const response = await createPaymentSession({
+        cartId,
+        addressId,
+        currency: 'usd',
       });
+
+      console.log('createPaymentSession response:', response);
+      const session = response?.data?.data ?? response?.data ?? null;
+      const checkoutUrl = session?.url ?? session?.checkoutUrl ?? session?.session?.url ?? null;
+
+      if (!checkoutUrl) {
+        Alert.alert(t('myClosetBuyer.errorTitle'), t('myClosetBuyer.checkoutError'));
+        return;
+      }
+
+      const canOpen = await Linking.canOpenURL(checkoutUrl);
+      if (canOpen) {
+        if (await InAppBrowser.isAvailable()) {
+          const result = await InAppBrowser.open(checkoutUrl, {
+            dismissButtonStyle: 'close',
+            preferredBarTintColor: '#ffffff',
+            preferredControlTintColor: '#000000',
+            readerMode: false,
+            animated: true,
+            modalPresentationStyle: 'fullScreen',
+            modalTransitionStyle: 'coverVertical',
+            enableBarCollapsing: false,
+            showTitle: true,
+            toolbarColor: '#ffffff',
+            secondaryToolbarColor: '#f0f0f0',
+            forceCloseOnRedirection: true,
+          });
+          // if (result.type === 'dismiss' || result.type === 'cancel') {
+          //   startProgressBarAndFetch();
+          // }
+        } else {
+          await Linking.openURL(checkoutUrl);
+        }
+      } else {
+        Alert.alert(t('myClosetBuyer.errorTitle'), t('myClosetBuyer.checkoutError'));
+      }
+      // Note: actual order confirmation should happen after Stripe redirects back
+      // (via deep link / webhook), not immediately here — see note below.
     } catch (err) {
-      Alert.alert('Error', err?.response?.data?.message || 'Could not proceed to checkout. Please try again.');
+      Alert.alert(t('myClosetBuyer.errorTitle'), err?.response?.data?.message || t('myClosetBuyer.checkoutError'));
     } finally {
       setChecking(false);
     }
@@ -1684,68 +2694,78 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
 
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
-      <Header navigation={navigation} title="Review Order" />
+      <Header navigation={navigation} title={t('myClosetBuyer.reviewOrderTitle')} returnTo={returnTo} />
       <ScrollView
         contentContainerStyle={styles.checkoutContent}
         showsVerticalScrollIndicator={false}
       >
-        <CheckoutSteps current={3} />
-        <View style={styles.reviewSectionHeader}>
-          <Text style={styles.sectionLabel}>Shipping Address</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('MyClosetBuyerShipping', route.params)}>
-            <Text style={[styles.editText, { color: text }]}>Edit</Text>
+        <CheckoutSteps current={requiresShipping ? 3 : 2} includeShipping={requiresShipping} accentColor={text} />
+        {requiresShipping ? (
+          <>
+            <View style={styles.reviewSectionHeader}>
+              <Text style={styles.sectionLabel}>{t('myClosetBuyer.shippingAddress')}</Text>
+              <TouchableOpacity onPress={() => navigation.navigate('MyClosetBuyerShipping', withClosetNavParams(route))}>
+                <Text style={[styles.editText, { color: text }]}>{t('myClosetBuyer.edit')}</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.reviewCard}>
+              {addr ? (
+                <>
+                  <Text style={styles.addressName}>{addr.fullName}</Text>
+                  {addr.phoneNumber ? <Text style={styles.addressPhone}>{addr.phoneNumber}</Text> : null}
+                  <Text style={styles.addressText}>{addr.addressLine1}</Text>
+                  {addr.addressLine2 ? <Text style={styles.addressText}>{addr.addressLine2}</Text> : null}
+                  <Text style={styles.addressText}>
+                    {[addr.city, addr.state, addr.postalCode].filter(Boolean).join(', ')}
+                  </Text>
+                  {addr.country ? <Text style={styles.addressText}>{addr.country}</Text> : null}
+                </>
+              ) : (
+                <Text style={styles.addressText}>{t('myClosetBuyer.noAddressSelected')}</Text>
+              )}
+            </View>
+          </>
+        ) : (
+          <View style={styles.reviewLineCard}>
+            <Ionicons name="storefront-outline" size={18} color={text} />
+            <Text style={styles.radioLabel}>{t('myClosetBuyer.localPickupSelected')}</Text>
+          </View>
+        )}
+        {/* <View style={styles.reviewSectionHeader}>
+          <Text style={styles.sectionLabel}>{t('myClosetBuyer.shippingMethod')}</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('MyClosetBuyerShipping', withClosetNavParams(route))}>
+            <Text style={[styles.editText, { color: text }]}>{t('myClosetBuyer.edit')}</Text>
           </TouchableOpacity>
-        </View>
-        <View style={styles.reviewCard}>
-          {addr ? (
-            <>
-              <Text style={styles.addressName}>{addr.fullName}</Text>
-              {addr.phoneNumber ? <Text style={styles.addressPhone}>{addr.phoneNumber}</Text> : null}
-              <Text style={styles.addressText}>{addr.addressLine1}</Text>
-              {addr.addressLine2 ? <Text style={styles.addressText}>{addr.addressLine2}</Text> : null}
-              <Text style={styles.addressText}>
-                {[addr.city, addr.state, addr.postalCode].filter(Boolean).join(', ')}
-              </Text>
-              {addr.country ? <Text style={styles.addressText}>{addr.country}</Text> : null}
-            </>
-          ) : (
-            <Text style={styles.addressText}>No address selected</Text>
-          )}
-        </View>
-        <View style={styles.reviewSectionHeader}>
-          <Text style={styles.sectionLabel}>Shipping Method</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('MyClosetBuyerShipping', route.params)}>
-            <Text style={[styles.editText, { color: text }]}>Edit</Text>
-          </TouchableOpacity>
-        </View>
-        <View style={styles.reviewLineCard}>
+        </View> */}
+        {/* <View style={styles.reviewLineCard}>
           <Text style={styles.radioLabel}>
             {route?.params?.shippingMethod === 'express'
-              ? 'Express Shipping (1-2 days)'
-              : 'Standard Shipping (3-5 days)'}
+              ? t('myClosetBuyer.expressShipping')
+              : t('myClosetBuyer.standardShipping')}
           </Text>
           <Text style={styles.radioPrice}>{currency(cart.shipping)}</Text>
-        </View>
+        </View> */}
         <View style={styles.reviewSectionHeader}>
-          <Text style={styles.sectionLabel}>Payment Method</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('MyClosetBuyerPayment', route.params)}>
-            <Text style={[styles.editText, { color: text }]}>Edit</Text>
+          <Text style={styles.sectionLabel}>{t('myClosetBuyer.paymentMethod')}</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('MyClosetBuyerPayment', withClosetNavParams(route))}>
+            <Text style={[styles.editText, { color: text }]}>{t('myClosetBuyer.edit')}</Text>
           </TouchableOpacity>
         </View>
         <View style={styles.reviewLineCard}>
-          <Ionicons name="shield-checkmark-outline" size={18} color={accent} />
-          <Text style={styles.radioLabel}>Valens Secure Checkout</Text>
+          <Ionicons name="shield-checkmark-outline" size={18} color={text} />
+          <Text style={styles.radioLabel}>{t('myClosetBuyer.secureCheckout')}</Text>
         </View>
-        <OrderSummary cart={cart} compact />
+        <OrderSummary cart={cart} compact accentColor={text} />
         <Text style={styles.termsText}>
-          By placing this order, you agree to Valens Terms of Service and Privacy Policy.
+          {t('myClosetBuyer.termsText')}
         </Text>
       </ScrollView>
       <BottomBar>
         <BottomButton
-          label="Place Order"
+          label={checking ? t('myClosetBuyer.confirmingPayment') : t('myClosetBuyer.placeOrder')}
           icon="lock-closed-outline"
-          onPress={() => handleContinue()}
+          onPress={checking ? undefined : handleContinue}
+          accentColor={text}
         />
       </BottomBar>
     </SafeAreaView>
@@ -1753,19 +2773,22 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
 };
 
 const MyClosetBuyerOrderReceivedScreen = ({ navigation, route }) => {
-  const { accent, bgStyle, textStyle, mutedTextStyle } = useAppTheme();
-  const { isDarkMode } = useThemeContext();
-  const inputSurface = isDarkMode ? 'rgba(255,255,255,0.08)' : '#ffffff';
-  const cart = buildCart(route);
-  const today = new Date();
-  const orderId = useMemo(() => `V${String(Date.now()).slice(-7)}`, []);
+  const { text, bgStyle } = useClosetTheme(route);
+  const { t } = useLanguage();
+  const returnTo = route?.params?.returnTo;
+  const payment = route?.params?.payment ?? null;
+  const cart = buildCart(route, t);
+
+  console.log("MyClosetBuyerOrderReceivedScreen--------response ", route?.params)
+
+  const orderId = payment?.orderId || route?.params?.orderId;
+  const amount = payment?.amount != null ? payment.amount / 100 : cart.total; // amount is in cents per your sample
+  const orderDate = payment?.createdAt ? new Date(payment.createdAt) : new Date();
+  const items = payment?.metadata?.items ?? [];
 
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
-      <ScrollView
-        contentContainerStyle={styles.receivedContent}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView contentContainerStyle={styles.receivedContent} showsVerticalScrollIndicator={false}>
         <View style={styles.confettiArea}>
           {[...Array(18)].map((_, index) => (
             <View
@@ -1780,39 +2803,61 @@ const MyClosetBuyerOrderReceivedScreen = ({ navigation, route }) => {
               ]}
             />
           ))}
-          <View style={[styles.checkCircle, { backgroundColor: accent }]}>
+          <View style={[styles.checkCircle, { backgroundColor: text }]}>
             <Ionicons name="checkmark" size={48} color="#fff" />
           </View>
         </View>
-        <Text style={[styles.receivedTitle, textStyle]}>Order Received!</Text>
-        <Text style={[styles.receivedSubtitle, mutedTextStyle]}>
-          Thank you for your purchase. Your order has been placed successfully.
-        </Text>
+        <Text style={[styles.receivedTitle, { color: text }]}>{t('myClosetBuyer.orderReceivedTitle')}</Text>
+        <Text style={styles.receivedSubtitle}>{t('myClosetBuyer.orderReceivedSubtitle')}</Text>
         <View style={styles.orderCard}>
           <View style={styles.orderCardHeader}>
             <View>
-              <Text style={styles.orderId}>Order #{orderId}</Text>
+              <Text style={styles.orderId}>
+                {t('myClosetBuyer.orderIdLabel', { id: orderId ? String(orderId).slice(-7).toUpperCase() : '—' })}
+              </Text>
               <Text style={styles.orderDate}>
-                {today.toLocaleDateString()} at{' '}
-                {today.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                {orderDate.toLocaleDateString()} at{' '}
+                {orderDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </Text>
             </View>
-            <Text style={[styles.editText, { color: accent }]}>View Details</Text>
+            {/* <Text style={[styles.editText, { color: text }]}>{t('myClosetBuyer.viewDetails')}</Text> */}
           </View>
-          <View style={[styles.divider, { backgroundColor: withAlphaFlow(accent, 0.15) }]} />
-          <Text style={[styles.sectionLabel, textStyle]}>Estimated Delivery</Text>
-          <Text style={[styles.addressText, mutedTextStyle]}>May 13 - May 15, 2026</Text>
-          <Text style={[styles.receivedTotal, { color: accent }]}>Total {currency(cart.total)}</Text>
+          <View style={styles.divider} />
+          {items.length > 0 ? (
+            items.map((it, idx) => (
+              <Text key={idx} style={styles.addressText}>
+                {it.name} × {it.quantity}
+              </Text>
+            ))
+          ) : null}
+          <Text style={[styles.receivedTotal, { color: text, marginTop: 10 }]}>
+            {t('myClosetBuyer.totalLabel', { amount: currency(amount) })}
+          </Text>
         </View>
       </ScrollView>
       <BottomBar>
-        <BottomButton label="Continue Shopping" onPress={() => navigation.popToTop?.()} />
+        <BottomButton
+          label={t('myClosetBuyer.continueShopping')}
+          onPress={() => navigateClosetReturn(navigation, returnTo)}
+          accentColor={text}
+        />
         <TouchableOpacity
           activeOpacity={0.85}
-          style={[styles.secondaryButton, { borderColor: withAlphaFlow(accent, 0.25), backgroundColor: inputSurface }]}
-          onPress={() => navigation.popToTop?.()}
+          style={styles.secondaryButton}
+          onPress={() => navigation.reset({
+            index: 0,
+            routes: [
+              {
+                name: 'MainApp',
+                params: {
+                  screen: 'wallet',
+                  params: { screen: 'MyCloset' },
+                },
+              },
+            ],
+          })}
         >
-          <Text style={[styles.secondaryButtonText, { color: accent }]}>Go to My Orders</Text>
+          <Text style={[styles.secondaryButtonText, { color: text }]}>{t('myClosetBuyer.goToMyOrders')}</Text>
         </TouchableOpacity>
       </BottomBar>
     </SafeAreaView>
@@ -1824,6 +2869,7 @@ export {
   MyClosetBuyerCheckoutScreen,
   MyClosetBuyerItemDetailScreen,
   MyClosetBuyerItemsScreen,
+  MyClosetBattlesScreen,
   MyClosetBuyerOptionsScreen,
   MyClosetBuyerOrderReceivedScreen,
   MyClosetBuyerPaymentScreen,
@@ -1872,30 +2918,147 @@ const styles = StyleSheet.create({
   gridContent: { paddingHorizontal: 18, paddingBottom: 110 },
   gridRow: { gap: GRID_GAP },
   listIntro: { paddingTop: 8, paddingBottom: 14 },
-  listTitle: { fontSize: 22, fontWeight: '900' },
-  listSubtitle: { marginTop: 4, fontSize: 13, fontWeight: '600' },
+  listTitle: { fontSize: 22, fontWeight: '900', color: '#17072d' },
+  listSubtitle: { marginTop: 4, fontSize: 13, color: MUTED, fontWeight: '600' },
   gridCard: { width: GRID_ITEM_WIDTH, marginBottom: 18 },
   gridImage: { width: '100%', aspectRatio: 1, borderRadius: 16 },
-  gridTitle: { marginTop: 8, minHeight: 36, fontSize: 14, lineHeight: 18, fontWeight: '800' },
+  gridTitle: { marginTop: 8, minHeight: 36, fontSize: 14, lineHeight: 18, color: '#17072d', fontWeight: '800' },
   gridPrice: { marginTop: 4, fontSize: 15, fontWeight: '900' },
   gridMeta: { marginTop: 3, fontSize: 12, color: MUTED },
 
+  battleCard: {
+    borderWidth: 1,
+    borderColor: BORDER,
+    borderRadius: 20,
+    backgroundColor: '#fff',
+    padding: 14,
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 2,
+  },
+  battleTitle: {
+    marginBottom: 10,
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#17072d',
+  },
+  slide: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    flexWrap: 'nowrap',
+  },
+  fighter: {
+    flex: 1,
+    alignItems: 'center',
+    minWidth: 0,
+  },
+  fighterThumb: {
+    width: 72,
+    height: 72,
+    borderRadius: 14,
+    backgroundColor: '#f6f0ee',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  fighterImg: {
+    width: '100%',
+    height: '100%',
+  },
+  fighterImgWrap: {
+    width: '100%',
+    height: '100%',
+  },
+  fighterThumbPlaceholder: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fighterName: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '900',
+    color: '#17072d',
+    textAlign: 'center',
+    minHeight: 36,
+  },
+  fighterPrice: {
+    marginTop: -10,
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#17072d',
+  },
+  userRow: {
+    marginTop: 8,
+  },
+  username: {
+    fontSize: 11,
+    color: MUTED,
+    fontWeight: '700',
+  },
+  pct: {
+    fontSize: 11,
+    fontWeight: '900',
+  },
+  pctRed: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#dc2626',
+  },
+  vsBubble: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f4ecfb',
+    borderWidth: 1,
+    borderColor: BORDER,
+    alignSelf: 'center',
+    marginHorizontal: 4,
+  },
+  vsText: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#21083f',
+  },
+
   imageBox: { backgroundColor: '#f6f0ee', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   coverImage: { width: '100%', height: '100%' },
+  imageLoadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(246,240,238,0.72)',
+    zIndex: 2,
+  },
 
   loaderWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 80 },
-  emptyTitle: { marginTop: 12, fontSize: 17, fontWeight: '900' },
-  emptyText: { marginTop: 5, fontSize: 13, textAlign: 'center' },
+  emptyTitle: { marginTop: 12, fontSize: 17, fontWeight: '900', color: '#17072d' },
+  emptyText: { marginTop: 5, fontSize: 13, color: MUTED, textAlign: 'center' },
 
   // detail
   detailContent: { paddingHorizontal: 20, paddingBottom: 110 },
-  heroImage: { width: HERO_IMAGE_WIDTH, height: 220, borderRadius: 18 },
+  heroImage: { width: HERO_IMAGE_WIDTH, height: HERO_IMAGE_HEIGHT, borderRadius: 18 },
+  heroSlide: {
+    width: HERO_IMAGE_WIDTH,
+    height: HERO_IMAGE_HEIGHT,
+    borderRadius: 18,
+    overflow: 'hidden',
+    backgroundColor: '#f3ede4',
+  },
   photoDots: { flexDirection: 'row', justifyContent: 'center', gap: 7, marginTop: 18, marginBottom: 16 },
   photoDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#d7cce3' },
   photoDotsSpacer: { height: 42 },
   detailName: { fontSize: 22, fontWeight: '900', color: '#17072d' },
-  detailPrice: { marginTop: 3, fontSize: 21, fontWeight: '900' },
+  detailPrice: { marginTop: 3, fontSize: 21, fontWeight: '900', marginBottom: 30 },
 
   sellerCard: {
     flexDirection: 'row', alignItems: 'center',
@@ -1906,6 +3069,8 @@ const styles = StyleSheet.create({
     width: 44, height: 44, borderRadius: 22,
     alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
   },
+  sellerAvatarImage: { width: '100%', height: '100%' },
+  sellerAvatarPlaceholder: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' },
   sellerCopy: { flex: 1, paddingHorizontal: 12 },
   sellerName: { fontSize: 13, fontWeight: '900', color: '#17072d' },
   sellerMeta: { marginTop: 2, fontSize: 11, color: MUTED },
@@ -1924,9 +3089,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20, paddingTop: 12, paddingBottom: 22,
     borderTopWidth: 1,
   },
+  modalBottomBar: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 22,
+    borderTopWidth: 1,
+    borderTopColor: '#f0eaf6',
+  },
   bottomButton: {
     minHeight: 50, borderRadius: 13,
     alignItems: 'center', justifyContent: 'center', flexDirection: 'row',
+  },
+  bottomButtonDisabled: {
+    opacity: 0.55,
   },
   bottomButtonText: { color: '#fff', fontSize: 15, fontWeight: '900' },
   buttonIcon: { marginRight: 7 },
@@ -1960,6 +3135,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center',
     borderWidth: 1, borderColor: BORDER, borderRadius: 14,
     padding: 10, marginBottom: 20, backgroundColor: '#fff',
+    position: 'relative',           // ← add this
   },
   cartThumb: { width: 72, height: 58, borderRadius: 10 },
   cartCopy: { flex: 1, paddingHorizontal: 12 },
@@ -2117,7 +3293,7 @@ const styles = StyleSheet.create({
   secondaryButtonText: { fontSize: 14, fontWeight: '900' },
 
   // add address modal form
-  modalContent: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 120 },
+  modalContent: { paddingHorizontal: 20, paddingTop: 16 },
   fieldWrap: { marginBottom: 14 },
   fieldLabel: { fontSize: 12, fontWeight: '800', color: '#21083f', marginBottom: 5 },
   fieldInput: {
@@ -2144,4 +3320,50 @@ const styles = StyleSheet.create({
   },
   defaultRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 10 },
   defaultLabel: { fontSize: 13, fontWeight: '700', color: '#17072d' },
+  shippingChoiceRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 6 },
+  shippingChoicePill: {
+    borderWidth: 1, borderColor: BORDER, borderRadius: 20,
+    paddingHorizontal: 10, paddingVertical: 5, backgroundColor: '#fff',
+  },
+  shippingChoicePillActive: { backgroundColor: SURFACE },
+  shippingChoiceText: { fontSize: 11, fontWeight: '700', color: MUTED },
+  shippingChoiceTextActive: { fontWeight: '900' },
+  shippingBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: SURFACE,
+    borderWidth: 1,
+    borderColor: BORDER,
+    borderRadius: 10,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    zIndex: 1,
+  },
+  shippingBadgeText: { fontSize: 10, color: MUTED, fontWeight: '700' },
+  shipChoiceItemBlock: { marginBottom: 20 },
+  shipChoiceItemName: { fontSize: 12, color: '#000', fontWeight: '700', marginBottom: 8 },
+  shipChoiceCardsRow: { flexDirection: 'row', gap: 10 },
+  shipChoiceCard: {
+    flex: 1, borderWidth: 1, borderColor: BORDER, borderRadius: 14,
+    padding: 12, backgroundColor: '#fff',
+  },
+  shipChoiceHeaderRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 6 },
+  shipChoiceTitle: { flex: 1, fontSize: 13, fontWeight: '900', color: '#17072d' },
+  shipChoiceCheck: {
+    width: 18, height: 18, borderRadius: 9, borderWidth: 1.5, borderColor: '#d7cce3',
+    alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff',
+  },
+  shipChoiceDetailRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
+  shipChoiceDetailText: { fontSize: 11, color: MUTED, fontWeight: '600' },
+  fixedShipCard: {
+    flexDirection: 'row', alignItems: 'center',
+    borderWidth: 1, borderColor: BORDER, borderRadius: 12,
+    padding: 10, backgroundColor: SURFACE, marginBottom: 8,
+  },
+  fixedShipTitle: { fontSize: 12, fontWeight: '900', color: '#17072d' },
+  fixedShipSub: { fontSize: 11, color: MUTED, marginTop: 2 },
 });

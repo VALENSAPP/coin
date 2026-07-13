@@ -34,3 +34,12 @@ export const getMyFanSubscriptionList = async (id) => {
 export const getFansubscriptionStatus = async (id) => {
   return axiosInstance.get(`billing/getfanSubscriptionStatus/${id}`);
 };
+
+export const sendTip = async (data) => {
+    console.log('sendTip data:', data);
+  return axiosInstance.post('billing/send-tip', data);
+};
+
+export const payEbook = async (data) => {
+  return axiosInstance.post('billing/ebook-payment', data);
+};

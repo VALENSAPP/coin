@@ -1,7 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -9,6 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import FastImage from 'react-native-fast-image';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useDispatch } from 'react-redux';
@@ -17,12 +17,17 @@ import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { showToastMessage } from '../displaytoastmessage';
 import {
   getSellerOrderDetails,
+  getBuyerOrderDetail,
   markOrderProcessing,
   markOrderShipped,
   markOrderDelivered,
 } from '../../services/myCloset';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useThemeContext } from '../../theme/ThemeContext';
+import { useLanguage } from '../../i18n';
+import ShippingDetailsModal from '../modals/ShippingDetailsModal';
+
+const MUTED = '#6b7280';
 
 const withAlpha = (hex, alpha = 0.12) => {
   const normalized = String(hex || '').replace('#', '');
@@ -33,31 +38,31 @@ const withAlpha = (hex, alpha = 0.12) => {
   return `rgba(${r},${g},${b},${alpha})`;
 };
 
-const MUTED = '#6b7280';
-
 // ── Status meta + flow (kept in sync with the orders list screen) ─────────
+// Labels are stored as i18n keys and resolved with t() inside the components
+// that render them, since these constants live outside any component.
 const STATUS_META = {
-  pending: { label: 'To ship', color: '#7c3aed', bg: 'rgba(124,58,237,0.12)' },
-  confirmed: { label: 'Confirmed', color: '#0891b2', bg: 'rgba(8,145,178,0.12)' },
-  processing: { label: 'Processing', color: '#d97706', bg: 'rgba(217,119,6,0.12)' },
-  shipped: { label: 'Shipped', color: '#2563eb', bg: 'rgba(37,99,235,0.12)' },
-  delivered: { label: 'Delivered', color: '#16a34a', bg: 'rgba(22,163,74,0.12)' },
-  cancelled: { label: 'Cancelled', color: '#dc2626', bg: 'rgba(220,38,38,0.12)' },
+  pending: { labelKey: 'myClosetOrderDetail.status.pending', color: '#7c3aed', bg: 'rgba(124,58,237,0.12)' },
+  confirmed: { labelKey: 'myClosetOrderDetail.status.confirmed', color: '#0891b2', bg: 'rgba(8,145,178,0.12)' },
+  processing: { labelKey: 'myClosetOrderDetail.status.processing', color: '#d97706', bg: 'rgba(217,119,6,0.12)' },
+  shipped: { labelKey: 'myClosetOrderDetail.status.shipped', color: '#2563eb', bg: 'rgba(37,99,235,0.12)' },
+  delivered: { labelKey: 'myClosetOrderDetail.status.delivered', color: '#16a34a', bg: 'rgba(22,163,74,0.12)' },
+  cancelled: { labelKey: 'myClosetOrderDetail.status.cancelled', color: '#dc2626', bg: 'rgba(220,38,38,0.12)' },
 };
 
 const STATUS_FLOW = {
-  pending: { label: 'Mark as Processing', actionKey: 'processing' },
-  confirmed: { label: 'Mark as Processing', actionKey: 'processing' },
-  processing: { label: 'Mark as Shipped', actionKey: 'shipped' },
-  shipped: { label: 'Mark as Delivered', actionKey: 'delivered' },
+  pending: { labelKey: 'myClosetOrderDetail.markAsProcessing', actionKey: 'processing' },
+  confirmed: { labelKey: 'myClosetOrderDetail.markAsProcessing', actionKey: 'processing' },
+  processing: { labelKey: 'myClosetOrderDetail.markAsShipped', actionKey: 'shipped' },
+  shipped: { labelKey: 'myClosetOrderDetail.markAsDelivered', actionKey: 'delivered' },
   delivered: null,
   cancelled: null,
 };
 
 const ACTION_BY_KEY = {
-  processing: markOrderProcessing,
-  shipped: markOrderShipped,
-  delivered: markOrderDelivered,
+  processing: (id) => markOrderProcessing(id),
+  shipped: (id, extra) => markOrderShipped(id, extra),
+  delivered: (id) => markOrderDelivered(id),
 };
 
 const TIMELINE_STEPS = ['pending', 'processing', 'shipped', 'delivered'];
@@ -91,19 +96,37 @@ const imageUri = image => {
   return image?.uri || image?.url || image?.path || null;
 };
 
+const fastImageSource = uri =>
+  uri
+    ? {
+        uri,
+        priority: FastImage.priority.high,
+        cache: FastImage.cacheControl.immutable,
+      }
+    : null;
+
+const firstImage = value => {
+  if (Array.isArray(value)) return imageUri(value[0]);
+  return imageUri(value);
+};
+
 const getLineItemImage = line =>
-  imageUri(line?.product?.images?.[0]) ||
-  imageUri(line?.product?.image) ||
-  imageUri(line?.item?.images?.[0]) ||
-  imageUri(line?.image) ||
+  firstImage(line?.productImage) ||
+  firstImage(line?.product?.images) ||
+  firstImage(line?.product?.image) ||
+  firstImage(line?.item?.productImage) ||
+  firstImage(line?.item?.images) ||
+  firstImage(line?.item?.image) ||
+  firstImage(line?.images) ||
+  firstImage(line?.image) ||
   null;
 
-const getLineItemName = line =>
-  line?.product?.name || line?.product?.title || line?.item?.name || line?.name || 'Item';
+const getLineItemName = (line, t) =>
+  line?.product?.name || line?.product?.title || line?.item?.name || line?.name || t('myClosetOrderDetail.defaultItemName');
 
 const getLineItemPrice = line => line?.product?.price ?? line?.price ?? 0;
 
-const normalizeOrderDetail = order => {
+const normalizeOrderDetail = (order, t) => {
   const lineItems = Array.isArray(order?.orderItems)
     ? order.orderItems
     : Array.isArray(order?.items)
@@ -114,7 +137,7 @@ const normalizeOrderDetail = order => {
 
   const normalizedLines = lineItems.map((line, index) => ({
     id: line?.id || line?._id || String(index),
-    name: getLineItemName(line),
+    name: getLineItemName(line, t),
     image: getLineItemImage(line),
     quantity: Number(line?.quantity || 1),
     price: currency(getLineItemPrice(line)),
@@ -128,10 +151,21 @@ const normalizeOrderDetail = order => {
     orderNumber: order?.orderNumber || order?.orderId || order?.id,
     status: normalizeStatus(order?.orderStatus ?? order?.status),
     createdAt: formatDate(order?.createdAt || order?.orderDate),
-    buyerName: order?.buyerName || order?.buyer?.username || order?.buyer?.userName || 'Buyer',
+    buyerName: order?.buyerName || order?.buyer?.username || order?.buyer?.userName || t('myClosetOrderDetail.buyer'),
     buyerId: order?.buyerId || order?.buyer?.id,
     totalAmount: currency(order?.totalAmount ?? order?.amount ?? order?.total),
     totalItemCount: order?.totalItemCount ?? normalizedLines.length,
+    orderStatusLabel: t(`myClosetOrderDetail.status.${normalizeStatus(order?.orderStatus ?? order?.status)}`),
+    coverImage:
+      firstImage(order?.productImage) ||
+      firstImage(order?.item?.productImage) ||
+      firstImage(order?.items?.[0]?.productImage) ||
+      firstImage(order?.items?.[0]?.product?.images) ||
+      firstImage(order?.items?.[0]?.product?.image) ||
+      firstImage(order?.items?.[0]?.images) ||
+      firstImage(order?.items?.[0]?.image) ||
+      firstImage(order?.image) ||
+      null,
     lines: normalizedLines,
     address,
     raw: order,
@@ -159,14 +193,31 @@ const Header = ({ onBack, title }) => {
   );
 };
 
-const ImageBox = ({ uri, style, iconSize = 22 }) => {
+const ImageBox = ({ uri, style, iconSize = 22, resizeMode = FastImage.resizeMode.cover }) => {
+  const [loading, setLoading] = useState(Boolean(uri));
+  const { accent } = useAppTheme();
   const { isDarkMode } = useThemeContext();
   const imageSurface = isDarkMode ? 'rgba(255,255,255,0.06)' : '#f6f0ee';
+  const source = fastImageSource(uri);
 
   return (
     <View style={[styles.imageBox, { backgroundColor: imageSurface }, style]}>
-      {uri ? (
-        <Image source={{ uri }} style={styles.coverImage} resizeMode="cover" />
+      {source ? (
+        <>
+          <FastImage
+            source={source}
+            style={styles.coverImage}
+            resizeMode={resizeMode}
+            onLoadStart={() => setLoading(true)}
+            onLoadEnd={() => setLoading(false)}
+            onError={() => setLoading(false)}
+          />
+          {loading ? (
+            <View style={styles.imageLoaderOverlay}>
+              <ActivityIndicator size="small" color={accent} />
+            </View>
+          ) : null}
+        </>
       ) : (
         <Ionicons name="shirt-outline" size={iconSize} color="#9b8c7a" />
       )}
@@ -175,11 +226,13 @@ const ImageBox = ({ uri, style, iconSize = 22 }) => {
 };
 
 const SummaryRow = ({ label, value, bold }) => {
-  const { textStyle, mutedTextStyle } = useAppTheme();
+  const { textStyle, mutedTextStyle, accent } = useAppTheme();
   return (
     <View style={styles.summaryRow}>
       <Text style={[styles.summaryLabel, mutedTextStyle, bold && styles.summaryStrong]}>{label}</Text>
-      <Text style={[styles.summaryValue, textStyle, bold && styles.summaryTotal]}>{value}</Text>
+      <Text style={[styles.summaryValue, textStyle, bold && styles.summaryTotal, bold && { color: accent }]}>
+        {value}
+      </Text>
     </View>
   );
 };
@@ -197,7 +250,9 @@ const BottomButton = ({ label, onPress, disabled }) => {
   );
 };
 
+// Small horizontal progress tracker: Pending → Processing → Shipped → Delivered
 const StatusTimeline = ({ status }) => {
+  const { t } = useLanguage();
   const { accent, mutedTextStyle } = useAppTheme();
   const currentIndex = TIMELINE_STEPS.indexOf(status === 'cancelled' ? 'pending' : status);
   const connectorColor = withAlpha(accent, 0.25);
@@ -215,7 +270,7 @@ const StatusTimeline = ({ status }) => {
                 {done ? <Ionicons name="checkmark" size={11} color="#fff" /> : null}
               </View>
               <Text style={[styles.timelineLabel, mutedTextStyle, active && { color: accent, fontWeight: '900' }]}>
-                {meta.label}
+                {t(meta.labelKey)}
               </Text>
             </View>
             {index < TIMELINE_STEPS.length - 1 && (
@@ -236,35 +291,43 @@ const StatusTimeline = ({ status }) => {
 
 const MyClosetOrderDetailScreen = ({ navigation, route }) => {
   const orderId = route?.params?.orderId;
+  const returnTo = route?.params?.returnTo;
   const toast = useToast();
   const dispatch = useDispatch();
   const { accent, bgStyle, cardStyle, textStyle, mutedTextStyle, border } = useAppTheme();
   const { isDarkMode } = useThemeContext();
   const surface = isDarkMode ? withAlpha(accent, 0.1) : '#fbf8ff';
+  const { t } = useLanguage();
 
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [advancing, setAdvancing] = useState(false);
+  const [shippingModalVisible, setShippingModalVisible] = useState(false);
+
+  const viewType = route?.params?.viewType;
+  const canUpdateStatus = viewType !== 'buyer';
 
   const loadOrder = useCallback(async () => {
     if (!orderId) {
-      setError('Missing order reference.');
+      setError(t('myClosetOrderDetail.missingOrderReference'));
       setLoading(false);
       return;
     }
     setLoading(true);
     setError(null);
     try {
-      const response = await getSellerOrderDetails(orderId);
+      const response = viewType === 'buyer'
+        ? await getBuyerOrderDetail(orderId)
+        : await getSellerOrderDetails(orderId);
       const payload = response?.data?.data ?? response?.data ?? response;
-      setOrder(normalizeOrderDetail(payload));
+      setOrder(normalizeOrderDetail(payload, t));
     } catch (err) {
-      setError(err?.response?.data?.message || err?.message || 'Could not load order details.');
+      setError(err?.response?.data?.message || err?.message || t('myClosetOrderDetail.couldNotLoadOrder'));
     } finally {
       setLoading(false);
     }
-  }, [orderId]);
+  }, [orderId, t]);
 
   useFocusEffect(
     useCallback(() => {
@@ -272,36 +335,69 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
     }, [loadOrder]),
   );
 
-  const handleAdvance = useCallback(async () => {
+  const handleAdvance = useCallback(async (extra) => {
+    if (!canUpdateStatus) return;
     if (!order) return;
     const flowStep = STATUS_FLOW[order.status];
     const action = flowStep ? ACTION_BY_KEY[flowStep.actionKey] : null;
     if (!action) return;
 
+    if (flowStep.actionKey === 'shipped' && !extra) {
+      setShippingModalVisible(true);
+      return;
+    }
+
     setAdvancing(true);
     dispatch(showLoader());
     try {
-      await action(order.id);
-      showToastMessage(toast, 'success', 'Order status updated.');
+      await action(order.id, extra);
+      showToastMessage(toast, 'success', t('myClosetOrderDetail.orderStatusUpdated'));
       await loadOrder();
     } catch (err) {
-      showToastMessage(
-        toast,
-        'danger',
-        err?.response?.data?.message || err?.message || 'Unable to update order status.',
-      );
+      showToastMessage(toast, 'danger', err?.response?.data?.message || err?.message || t('myClosetOrderDetail.unableToUpdateStatus'));
     } finally {
       setAdvancing(false);
       dispatch(hideLoader());
+      setShippingModalVisible(false);
     }
-  }, [dispatch, loadOrder, order, toast]);
+  }, [canUpdateStatus, dispatch, loadOrder, order, t, toast]);
 
-  const goBack = () => (navigation.canGoBack?.() ? navigation.goBack() : null);
+  const goBack = useCallback(() => {
+    console.log("return to -----------------",returnTo)
+
+    if (returnTo == 'MyClosetDashboard') {
+      navigation.reset({
+        index: 0,
+        routes: [
+          {
+            name: 'MainApp',
+            params: {
+              screen: 'wallet',
+              params: { screen: 'MyCloset' },
+            },
+          },
+        ],
+      })
+      return;
+    }
+
+    if (navigation?.canGoBack?.()) {
+      navigation.goBack();
+      return;
+    }
+
+    if (navigation?.popToTop) {
+      navigation.popToTop();
+      return;
+    }
+
+    navigation?.navigate?.('MyCloset');
+  }, [navigation, returnTo]);
 
   if (loading) {
     return (
       <SafeAreaView style={[styles.safeArea, bgStyle]}>
-        <Header onBack={goBack} title="Order Details" />
+        <Header onBack={goBack} title={t('myClosetOrderDetail.headerTitle')} />
         <View style={styles.loaderWrap}>
           <ActivityIndicator color={accent} />
         </View>
@@ -312,13 +408,17 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
   if (error || !order) {
     return (
       <SafeAreaView style={[styles.safeArea, bgStyle]}>
-        <Header onBack={goBack} title="Order Details" />
+        <Header onBack={goBack} title={t('myClosetOrderDetail.headerTitle')} />
         <View style={styles.emptyState}>
           <Ionicons name="alert-circle-outline" size={34} color="#dc2626" />
-          <Text style={[styles.emptyTitle, textStyle]}>Couldn't load order</Text>
+          <Text style={[styles.emptyTitle, textStyle]}>{t('myClosetOrderDetail.couldntLoadOrder')}</Text>
           <Text style={[styles.emptyText, mutedTextStyle]}>{error}</Text>
-          <TouchableOpacity activeOpacity={0.85} style={[styles.retryButton, { backgroundColor: accent }]} onPress={loadOrder}>
-            <Text style={styles.retryText}>Retry</Text>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            style={[styles.retryButton, { backgroundColor: accent }]}
+            onPress={loadOrder}
+          >
+            <Text style={styles.retryText}>{t('myClosetOrderDetail.retry')}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -330,19 +430,34 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
 
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
-      <Header onBack={goBack} title={`Order #${order.orderNumber}`} />
+      <Header onBack={goBack} title={t('myClosetOrderDetail.orderNumberTitle', { orderNumber: order.orderNumber })} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.topRow}>
           <Text style={[styles.orderDate, mutedTextStyle]}>{order.createdAt}</Text>
           <View style={[styles.statusBadge, { backgroundColor: meta.bg }]}>
-            <Text style={[styles.statusText, { color: meta.color }]}>{meta.label}</Text>
+            <Text style={[styles.statusText, { color: meta.color }]}>{t(meta.labelKey)}</Text>
+          </View>
+        </View>
+
+        <View style={styles.metaRow}>
+          <View style={[styles.metaPill, { backgroundColor: withAlpha(accent, 0.1) }]}>
+            <Text style={[styles.metaLabel, mutedTextStyle]}>{t('myClosetOrderDetail.orderNumberLabel')}</Text>
+            <Text style={[styles.metaValue, textStyle]}>#{order.orderNumber}</Text>
+          </View>
+          <View style={[styles.metaPill, { backgroundColor: withAlpha(accent, 0.1) }]}>
+            <Text style={[styles.metaLabel, mutedTextStyle]}>{t('myClosetOrderDetail.itemsLabel')}</Text>
+            <Text style={[styles.metaValue, textStyle]}>{t('myClosetOrderDetail.itemsCount', { count: order.totalItemCount })}</Text>
+          </View>
+          <View style={[styles.metaPill, { backgroundColor: withAlpha(accent, 0.1) }]}>
+            <Text style={[styles.metaLabel, mutedTextStyle]}>{t('myClosetOrderDetail.totalLabel')}</Text>
+            <Text style={[styles.metaValue, textStyle]}>{order.totalAmount}</Text>
           </View>
         </View>
 
         {order.status !== 'cancelled' && <StatusTimeline status={order.status} />}
 
         <View style={[styles.card, cardStyle, { borderColor: border, backgroundColor: surface }]}>
-          <Text style={[styles.cardTitle, textStyle]}>Buyer</Text>
+          <Text style={[styles.cardTitle, textStyle]}>{t('myClosetOrderDetail.buyer')}</Text>
           <View style={styles.buyerRow}>
             <View style={[styles.buyerAvatar, { backgroundColor: accent }]}>
               <Ionicons name="person" size={18} color="#fff" />
@@ -353,7 +468,7 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
 
         {order.address ? (
           <View style={[styles.card, cardStyle, { borderColor: border, backgroundColor: surface }]}>
-            <Text style={[styles.cardTitle, textStyle]}>Shipping Address</Text>
+            <Text style={[styles.cardTitle, textStyle]}>{t('myClosetOrderDetail.shippingAddress')}</Text>
             <Text style={[styles.addressText, textStyle]}>{order.address.fullName}</Text>
             {order.address.phoneNumber ? (
               <Text style={[styles.addressSub, mutedTextStyle]}>{order.address.phoneNumber}</Text>
@@ -371,7 +486,17 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
         ) : null}
 
         <View style={[styles.card, cardStyle, { borderColor: border, backgroundColor: surface }]}>
-          <Text style={[styles.cardTitle, textStyle]}>Items ({order.totalItemCount})</Text>
+          <Text style={[styles.cardTitle, textStyle]}>{t('myClosetOrderDetail.items', { count: order.totalItemCount })}</Text>
+          {order.coverImage ? (
+            <View style={styles.coverWrap}>
+              <ImageBox
+                uri={order.coverImage}
+                style={styles.coverThumb}
+                iconSize={28}
+                resizeMode={FastImage.resizeMode.contain}
+              />
+            </View>
+          ) : null}
           {order.lines.length ? (
             order.lines.map(line => (
               <View key={line.id} style={styles.lineRow}>
@@ -380,31 +505,39 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
                   <Text style={[styles.lineName, textStyle]} numberOfLines={2}>
                     {line.name}
                   </Text>
-                  <Text style={[styles.linePrice, mutedTextStyle]}>{line.price}</Text>
-                  <Text style={[styles.lineQty, mutedTextStyle]}>Qty: {line.quantity}</Text>
+                  <Text style={[styles.linePrice, { color: accent }]}>{line.price}</Text>
+                  <Text style={[styles.lineQty, mutedTextStyle]}>{t('myClosetOrderDetail.qty', { count: line.quantity })}</Text>
                 </View>
                 <Text style={[styles.lineTotal, textStyle]}>{line.lineTotal}</Text>
               </View>
             ))
           ) : (
-            <Text style={[styles.addressSub, mutedTextStyle]}>No item details available for this order.</Text>
+            <Text style={[styles.addressSub, mutedTextStyle]}>{t('myClosetOrderDetail.noItemDetails')}</Text>
           )}
         </View>
 
         <View style={[styles.card, cardStyle, { borderColor: border, backgroundColor: surface }]}>
-          <SummaryRow label="Order total" value={order.totalAmount} bold />
+          <SummaryRow label={t('myClosetOrderDetail.orderTotal')} value={order.totalAmount} bold />
         </View>
 
-      {flowStep ? (
-        <View style={[styles.bottomBar, { backgroundColor: bgStyle.backgroundColor, borderTopColor: withAlpha(accent, 0.2) }]}>
-          <BottomButton
-            label={advancing ? 'Updating…' : flowStep.label}
-            onPress={handleAdvance}
-            disabled={advancing}
-          />
-        </View>
-      ) : null}
+        {canUpdateStatus && flowStep ? (
+          <View style={[styles.bottomBar, { backgroundColor: bgStyle.backgroundColor, borderTopColor: withAlpha(accent, 0.2) }]}>
+            <BottomButton
+              label={advancing ? t('myClosetOrderDetail.updating') : t(flowStep.labelKey)}
+              onPress={() => handleAdvance()}
+              disabled={advancing}
+            />
+          </View>
+        ) : null}
       </ScrollView>
+      {canUpdateStatus ? (
+        <ShippingDetailsModal
+          visible={shippingModalVisible}
+          text={accent}
+          onCancel={() => setShippingModalVisible(false)}
+          onSubmit={(payload) => handleAdvance(payload)}
+        />
+      ) : null}
     </SafeAreaView>
   );
 };
@@ -433,15 +566,15 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 15,
     fontWeight: '900',
-    color: '#21083f',
+    
   },
 
   content: { paddingHorizontal: 20, paddingBottom: 120 },
 
   loaderWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 30 },
-  emptyTitle: { marginTop: 12, fontSize: 17, fontWeight: '900', color: '#17072d' },
-  emptyText: { marginTop: 5, fontSize: 13, color: MUTED, textAlign: 'center' },
+  emptyTitle: { marginTop: 12, fontSize: 17, fontWeight: '900' },
+  emptyText: { marginTop: 5, fontSize: 13, textAlign: 'center' },
   retryButton: { marginTop: 16, paddingHorizontal: 16, paddingVertical: 9, borderRadius: 10 },
   retryText: { color: '#fff', fontSize: 13, fontWeight: '800' },
 
@@ -452,9 +585,13 @@ const styles = StyleSheet.create({
     marginTop: 6,
     marginBottom: 18,
   },
-  orderDate: { fontSize: 12, color: MUTED, fontWeight: '700' },
+  orderDate: { fontSize: 12, fontWeight: '700' },
   statusBadge: { borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
   statusText: { fontSize: 11, fontWeight: '800' },
+  metaRow: { flexDirection: 'row', gap: 8, marginBottom: 16, flexWrap: 'wrap' },
+  metaPill: { flexGrow: 1, minWidth: '31%', borderRadius: 12, padding: 10 },
+  metaLabel: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase', marginBottom: 2 },
+  metaValue: { fontSize: 13, fontWeight: '800' },
 
   timelineWrap: {
     flexDirection: 'row',
@@ -481,6 +618,8 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   cardTitle: { fontSize: 13, fontWeight: '900', marginBottom: 10 },
+  coverWrap: { marginBottom: 12, width: '100%' },
+  coverThumb: { width: '100%', height: 220, borderRadius: 14, alignSelf: 'stretch' },
 
   buyerRow: { flexDirection: 'row', alignItems: 'center' },
   buyerAvatar: {
@@ -504,8 +643,20 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(128,128,128,0.15)',
   },
   lineThumb: { width: 52, height: 52, borderRadius: 10, marginRight: 10 },
-  imageBox: { alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  imageBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    width: '100%',
+    alignSelf: 'stretch',
+  },
   coverImage: { width: '100%', height: '100%' },
+  imageLoaderOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(251,248,255,0.35)',
+  },
   lineCopy: { flex: 1 },
   lineName: { fontSize: 13, fontWeight: '800' },
   linePrice: { marginTop: 2, fontSize: 12, fontWeight: '800' },
@@ -536,3 +687,4 @@ const styles = StyleSheet.create({
   },
   bottomButtonText: { color: '#fff', fontSize: 15, fontWeight: '900' },
 });
+

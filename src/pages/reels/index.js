@@ -24,6 +24,7 @@ import {
   Keyboard,
   Platform,
   DeviceEventEmitter,
+  Modal,
 } from 'react-native';
 import { FlatList as GestureFlatList } from 'react-native-gesture-handler';
 import Video from 'react-native-video';
@@ -65,7 +66,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import ShareModal from '../../components/modals/ShareModal';
 import ReportFlowScreen from '../../components/modals/Report';
 import Clipboard from '@react-native-clipboard/clipboard';
-import TokenPurchaseModal from '../../components/modals/TokenPurchaseModal';
+import TipSupportModal from '../../components/modals/TipSupportModal';
 import TokenSellModal from '../../components/modals/TokenSellModal';
 import SupportCreatorModal from '../../components/modals/SupportCreatorModal';
 import { getUserTokenInfoByBlockChain } from '../../services/tokens';
@@ -776,6 +777,7 @@ export default function FlipsScreen() {
   const [commentPostOwnerId, setCommentPostOwnerId] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [supportDisclaimerVisible, setSupportDisclaimerVisible] = useState(false);
+  const [tipPurchaseVisible, setTipPurchaseVisible] = useState(false);
   const [purchaseAutoFocus, setPurchaseAutoFocus] = useState(false);
   const [pendingFollowUserId, setPendingFollowUserId] = useState(null);
   const [pendingFollowAction, setPendingFollowAction] = useState(null);
@@ -1485,6 +1487,11 @@ export default function FlipsScreen() {
     setModalVisible(false);
     setSupportDisclaimerVisible(true);
   }, [recipientProfile, supporterProfile, t]);
+
+  const handleSendTip = useCallback(() => {
+    setSupportDisclaimerVisible(false);
+    setTipPurchaseVisible(true);
+  }, []);
 
   const animateHeart = useCallback(
     id => {
@@ -2367,7 +2374,14 @@ export default function FlipsScreen() {
           variant="disclaimer"
           onClose={() => setSupportDisclaimerVisible(false)}
           onSupport={handleSupportNow}
-          canSupport={recipientWalletAddress}
+          onTipSupport={handleSendTip}
+          canSupport={!!recipientWalletAddress}
+        />
+        <TipSupportModal
+          visible={tipPurchaseVisible}
+          creatorName={currentReel?.user || t('flips.creatorFallback')}
+          vendorId={currentReel?.UserId ?? currentReel?.userId}
+          onClose={() => setTipPurchaseVisible(false)}
         />
       </SafeAreaView>
     </GestureHandlerRootView>
@@ -2800,5 +2814,17 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 12,
     alignItems: 'center',
+  },
+  tipModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(12, 8, 20, 0.45)',
+    justifyContent: 'flex-end',
+  },
+  tipModalSheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    minHeight: 500,
+    paddingBottom: 20,
   },
 });

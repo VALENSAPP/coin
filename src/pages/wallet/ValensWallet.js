@@ -479,7 +479,12 @@ const ValensWallet = ({ navigation }) => {
                                     />
                                 </TouchableOpacity>
                             </View>
-                            <Text style={[styles.balanceValue, { color: gradientText, fontSize: balanceFontSize }]}>
+                            <Text
+                                numberOfLines={1}
+                                adjustsFontSizeToFit
+                                minimumFontScale={0.5}
+                                style={[styles.balanceValue, { color: gradientText, fontSize: balanceFontSize }]}
+                            >
                                 {displayPortfolioValue}
                             </Text>
                             <View style={styles.balanceSubRow} />

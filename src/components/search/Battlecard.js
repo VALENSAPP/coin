@@ -19,6 +19,7 @@ import HexAvatar from '../../components/home/story.js/HexAvatar';
 import { useLanguage } from '../../i18n';
 import { useBusinessProfileTheme } from '../../theme/useBusinessProfileTheme';
 import { useThemeContext } from '../../theme/ThemeContext';
+import { BASE_URL } from '../../config/urls';
 
 const DEFAULT_AVATAR = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -29,8 +30,8 @@ const normalizeImageUrl = url => {
     if (!url || typeof url !== 'string') return null;
     const t = url.trim();
     if (t.startsWith('http://') || t.startsWith('https://') || t.startsWith('data:') || t.startsWith('file://')) return t;
-    if (t.startsWith('/')) return `https://api.valens.app${t}`;
-    return `https://api.valens.app/${t}`;
+    if (t.startsWith('/')) return `${BASE_URL}${t}`;
+    return `${BASE_URL}/${t}`;
 };
 
 const formatAmount = value => {

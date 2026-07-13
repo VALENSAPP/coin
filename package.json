@@ -69,6 +69,7 @@
     "react-native-capture-protection": "^2.4.1",
     "react-native-color-matrix-image-filters": "^7.0.2",
     "react-native-country-picker-modal": "^2.0.0",
+    "react-native-create-thumbnail": "^2.2.0",
     "react-native-date-picker": "^5.0.12",
     "react-native-device-info": "^15.0.1",
     "react-native-dotenv": "^3.3.1",

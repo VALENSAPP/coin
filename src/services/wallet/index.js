@@ -108,3 +108,31 @@ export const transationActivity = async (params) => {
   }
   return axiosInstance.get('billing/received-transactions');
 }
+
+export const totalTransactions = async (params) => {
+  const candidates = [
+    'billing/received-totals-transactions',
+    'received-totals-transactions',
+    'billing/received-totals',
+  ];
+
+  let lastError = null;
+  for (const path of candidates) {
+    try {
+      const resp = await axiosInstance.get(path, { params });
+      return resp;
+    } catch (err) {
+      lastError = err;
+      if (err?.response?.status === 404) continue;
+      throw err;
+    }
+  }
+
+  // Fallback: try fetching transactions list if totals endpoint not available
+  try {
+    return await axiosInstance.get('billing/received-transactions', { params });
+  } catch (err) {
+    // if all fail, throw the last meaningful error
+    throw lastError || err || new Error('totalTransactions: no endpoints available');
+  }
+}

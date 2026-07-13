@@ -37,6 +37,7 @@ import HexAvatar from "../../components/home/story.js/HexAvatar";
 import { Dragonfly } from "../../assets/icons";
 import { useLanguage } from "../../i18n";
 import { getDragonflyIcon } from "../../components/profile/ProfilePersonalData";
+import { BASE_URL } from "../../config/urls";
 
 const WalletAddress = '0xf8652b01';
 const userCredits = { current: 3, total: 5, renewal: "Oct 1" };
@@ -118,8 +119,8 @@ export default function WalletComponent() {
                     let formattedImageUrl = userDataToSet.image.trim();
                     if (!formattedImageUrl.startsWith('http://') && !formattedImageUrl.startsWith('https://')) {
                         formattedImageUrl = formattedImageUrl.startsWith('/')
-                            ? `https://api.valens.app${formattedImageUrl}`
-                            : `https://api.valens.app/${formattedImageUrl}`;
+                            ? `${BASE_URL}${formattedImageUrl}`
+                            : `${BASE_URL}/${formattedImageUrl}`;
                     }
                     userDataToSet.image = formattedImageUrl;
                 }

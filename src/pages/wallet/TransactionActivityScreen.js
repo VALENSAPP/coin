@@ -184,6 +184,13 @@ export default function TransactionActivityScreen() {
     try {
       setLoading(true);
       dispatch(showLoader());
+      // If caller provided preloaded raw transactions, use them instead of fetching
+      const provided = route?.params?.transactionsRaw;
+      if (provided && Array.isArray(provided)) {
+        setActivity(await mapTransactionsToActivity(provided));
+        return;
+      }
+
       const response = await transationActivity();
       const raw =
         response?.data?.transactions ||

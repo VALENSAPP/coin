@@ -134,7 +134,7 @@ export default function OptionsModal({
       <RBSheet
         ref={sheetRef}
         draggable
-        height={canEdit ? 340 : 250}
+        height={canEdit ? 300 : 250}
         onClose={onClose}
         customModalProps={{
           statusBarTranslucent: true,
@@ -204,9 +204,7 @@ export default function OptionsModal({
                   </TouchableOpacity>
                 </>
               ) : null}
-            </View>
 
-            <View style={styles.innerContainer}>
               {/* Hide / Unhide */}
               {canHide ? (
                 <TouchableOpacity

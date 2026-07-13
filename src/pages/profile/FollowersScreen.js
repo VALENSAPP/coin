@@ -8,6 +8,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -19,6 +20,7 @@ import {
 } from '../../services/profile';
 import { follow, unfollow, getUserCredentials } from '../../services/post';
 import SupportCreatorModal from '../../components/modals/SupportCreatorModal';
+import TipSupportModal from '../../components/modals/TipSupportModal';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
 import { useBusinessProfileTheme } from '../../theme/useBusinessProfileTheme';
@@ -50,7 +52,7 @@ export default function FollowersFollowingScreen({ navigation, route }) {
     route?.params?.username ||
     route?.params?.user?.Username ||
     'Unknown User';
-  const profileUserIdFromRoute = route?.params.userId || null;
+  const profileUserIdFromRoute = route?.params?.userId || route?.params?.params?.userId || null;
 
   const [selfUserId, setSelfUserId] = useState(null);
   const [activeTab, setActiveTab] = useState(initialTab == 'following' ? 'following' : 'followers');
@@ -64,6 +66,7 @@ export default function FollowersFollowingScreen({ navigation, route }) {
   const [walletAddress, setWalletAddress] = useState('');
   const [supportModalVisible, setSupportModalVisible] = useState(false);
   const [supportDisclaimerVisible, setSupportDisclaimerVisible] = useState(false);
+  const [tipPurchaseVisible, setTipPurchaseVisible] = useState(false);
   const [selectedSupportUser, setSelectedSupportUser] = useState(null);
   const [selfProfileType, setSelfProfileType] = useState('user');
 
@@ -350,6 +353,11 @@ export default function FollowersFollowingScreen({ navigation, route }) {
     t,
   ]);
 
+  const handleSendTip = useCallback(() => {
+    setSupportDisclaimerVisible(false);
+    setTipPurchaseVisible(true);
+  }, []);
+
   const filteredFollowers = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return followersList;
@@ -407,30 +415,38 @@ export default function FollowersFollowingScreen({ navigation, route }) {
   );
 
   const handleBack = () => {
-  const screenParams = route?.params?.screenParams || {};
-  const returnTo = route?.params?.returnTo;
+    const screenParams = route?.params?.screenParams || route?.params?.params?.screenParams || route?.params?.params || {};
+    const returnTo = route?.params?.returnTo || route?.params?.params?.returnTo;
 
-  if (returnTo === 'UserProfile') {
-    navigation.navigate('ProfileMain', {
-      screen: 'UsersProfile',
-      params: {
-        userId: screenParams?.userId || '',
-        username: screenParams?.username || '',
-      },
-    });
-  } else if (returnTo === 'Home') {
-    navigation.navigate('HomeMain', {
-      screen: 'UsersProfile',
-      params: {
-        userId: screenParams?.userId || '',
-        username: screenParams?.username || '',
-        returnTo: 'Search',
-      },
-    });
-  } else {
-    navigation.goBack();
-  }
-};
+    if (returnTo === 'UserProfile') {
+      if (screenParams?.userId) {
+        navigation.navigate('ProfileMain', {
+          screen: 'CreatorProfile',
+          params: {
+            userId: screenParams?.userId || '',
+            username: screenParams?.username || '',
+          },
+        });
+      } else {
+        navigation.navigate('ProfileMain', {
+          screen: 'Profile',
+        });
+      }
+    } else if (returnTo === 'Home') {
+      navigation.navigate('HomeMain', {
+        screen: 'UsersProfile',
+        params: {
+          userId: screenParams?.userId || '',
+          username: screenParams?.username || '',
+          returnTo: screenParams?.returnTo || 'Home',
+        },
+      });
+    } else if (returnTo === 'Dashboard') {
+      navigation.navigate('wallet', { screen: 'Dashboard' });
+    } else {
+      navigation.goBack();
+    }
+  };
   const renderItem =
     tab =>
       ({ item }) => {
@@ -602,6 +618,14 @@ export default function FollowersFollowingScreen({ navigation, route }) {
         variant="disclaimer"
         onClose={() => setSupportDisclaimerVisible(false)}
         onSupport={handleSupportNow}
+        onTipSupport={handleSendTip}
+        canSupport={canSupport}
+      />
+      <TipSupportModal
+        visible={tipPurchaseVisible}
+        creatorName={selectedSupportUser?.username || t('followersFollowing.creatorFallback')}
+        vendorId={selectedSupportUser?.id}
+        onClose={() => setTipPurchaseVisible(false)}
       />
     </SafeAreaView>
   );
@@ -704,4 +728,16 @@ export default function FollowersFollowingScreen({ navigation, route }) {
     },
 
     separator: { height: 12 },
+    tipModalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(12, 8, 20, 0.45)',
+      justifyContent: 'flex-end',
+    },
+    tipModalSheet: {
+      backgroundColor: '#FFFFFF',
+      borderTopLeftRadius: 24,
+      borderTopRightRadius: 24,
+      minHeight: 500,
+      paddingBottom: 20,
+    },
   });

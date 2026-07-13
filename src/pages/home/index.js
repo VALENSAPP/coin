@@ -779,16 +779,23 @@ const openLinkedStory = useCallback(async (sharedStoryId) => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.headerLeft} onPress={openGlobalDrawer}>
-          <LogoIcon height={45} width={45} />
-          <TextGradient
-            style={{ fontWeight: 'bold', fontSize: 20 }}
-            locations={[0, 1]}
-            colors={['#513189bd', '#e54ba0']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            text={t('home.appTitle')}
-          />
+        <TouchableOpacity
+          style={styles.headerLeft}
+          onPress={openGlobalDrawer}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          activeOpacity={0.8}
+        >
+          <View pointerEvents="none" style={styles.headerLeftContent}>
+            <LogoIcon height={45} width={45} />
+            <TextGradient
+              style={{ fontWeight: 'bold', fontSize: 20 }}
+              locations={[0, 1]}
+              colors={['#513189bd', '#e54ba0']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              text={t('home.appTitle')}
+            />
+          </View>
         </TouchableOpacity>
         <View style={styles.headerIcons}>
           <TouchableOpacity
@@ -797,6 +804,8 @@ const openLinkedStory = useCallback(async (sharedStoryId) => {
             onPress={() => {
               navigation.navigate('HeartNotification');
             }}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            activeOpacity={0.8}
           >
             <Icon name="notifications-outline" size={25} color={icon} />
             {notificationUnreadCount > 0 && (
@@ -812,6 +821,8 @@ const openLinkedStory = useCallback(async (sharedStoryId) => {
             onPress={() => navigation.navigate('ChatMessages')}
             accessibilityLabel={t('home.chatLabel')}
             style={headerBadgeStyles.iconButton}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            activeOpacity={0.8}
           >
             <Chat width={24} height={24} fill={icon} />
             {unreadCount > 0 && (
@@ -827,6 +838,8 @@ const openLinkedStory = useCallback(async (sharedStoryId) => {
             onPress={toggleSidebar}
             accessibilityLabel={sidebarVisible ? t('home.storiesCloseLabel') : t('home.storiesOpenLabel')}
             style={sidebarStyles.toggleButton}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            activeOpacity={0.8}
           >
             <Icon
               name={sidebarVisible ? "chevron-forward" : "chevron-back"}

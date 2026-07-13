@@ -22,6 +22,7 @@ import { getProfile } from '../../services/createProfile';
 import { useBusinessProfileTheme } from '../../theme/useBusinessProfileTheme';
 import HexAvatar from '../../components/home/story.js/HexAvatar';
 import { useLanguage } from '../../i18n';
+import { BASE_URL } from '../../config/urls';
 import {
   disableNotifications,
   enableNotifications,
@@ -133,9 +134,9 @@ export const SettingsScreen = ({ navigation }) => {
             if (formattedImageUrl.startsWith('http://') || formattedImageUrl.startsWith('https://')) {
               console.log('Image URL is already absolute:', formattedImageUrl);
             } else if (formattedImageUrl.startsWith('/')) {
-              formattedImageUrl = `https://api.valens.app${formattedImageUrl}`;
+              formattedImageUrl = `${BASE_URL}${formattedImageUrl}`;
             } else {
-              formattedImageUrl = `https://api.valens.app/${formattedImageUrl}`;
+              formattedImageUrl = `${BASE_URL}/${formattedImageUrl}`;
             }
 
             userDataToSet.image = formattedImageUrl;
@@ -191,7 +192,7 @@ export const SettingsScreen = ({ navigation }) => {
           },
         },
         {
-          label: 'Shop Settings',
+          label: t('walletSettings.shopSettings'),
           icon: 'storefront-outline',
           action: () => navigation.navigate('ShopSettings'),
         },

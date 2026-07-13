@@ -56,6 +56,7 @@ import { normalizeProfileType } from '../../utils/supportEligibility';
 import HexAvatar from '../../components/home/story.js/HexAvatar';
 import { Vsbanner } from '../../assets/icons';
 import { useLanguage } from '../../i18n';
+import { BASE_URL } from '../../config/urls';
 
 const isMeaningfulValue = value => {
   if (value === undefined || value === null) return false;
@@ -1170,8 +1171,8 @@ export default function BattleInProgress() {
           if (!image) return '';
           let url = String(image).trim();
           if (url.startsWith('http://') || url.startsWith('https://')) return url;
-          else if (url.startsWith('/')) return `https://api.valens.app/${url}`;
-          else return `https://api.valens.app/${url}`;
+          if (url.startsWith('/')) return `${BASE_URL}${url}`;
+          else return `${BASE_URL}/${url}`;
         };
 
         const normalizePointPayload = (response) => {
@@ -3072,7 +3073,7 @@ export default function BattleInProgress() {
                   })}
                 >
                   <View style={styles.sideCommentButtonTopRow}>
-                    <Text style={[styles.sideCommentButtonText, { color: palette.primary }]} numberOfLines={1}>
+                    <Text style={[styles.sideCommentButtonText, { color: palette.primary }]} numberOfLines={1} ellipsizeMode="tail"> 
                       {action.label}
                     </Text>
                     <View style={styles.sideCommentLikeButton}>
@@ -3433,12 +3434,12 @@ const styles = StyleSheet.create({
   },
   secondaryButton: { flex: 1, minHeight: 46, borderRadius: 16, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
   secondaryButtonText: { fontSize: 14, fontWeight: '800' },
-  inviteSecondaryButton: { minHeight: 46, borderRadius: 16, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  inviteSecondaryButton: { minHeight: 46, borderRadius: 16, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF'},
   sideCommentActionsRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
-  sideCommentButton: { flex: 1, minHeight: 62, borderRadius: 14, borderWidth: 1.5, alignItems: 'stretch', justifyContent: 'center', paddingHorizontal: 10, paddingVertical: 8 },
+  sideCommentButton: { flex: 1, minHeight: 62, borderRadius: 14, borderWidth: 1.5, alignItems: 'stretch', justifyContent: 'center', backgroundColor: '#FFFFFF', paddingHorizontal: 10, paddingVertical: 8 },
   sideCommentButtonTopRow: { flexDirection: 'row', alignItems: 'center', minWidth: 0 },
-  sideCommentButtonText: { flex: 1, minWidth: 0, fontSize: 13, fontWeight: '900' },
-  sideCommentLikeButton: { flexDirection: 'row', alignItems: 'center', flexShrink: 0, marginLeft: 6 },
+  sideCommentButtonText: { flex: 1, minWidth: 0, fontSize: 13, fontWeight: '900', lineHeight: 18 },
+  sideCommentLikeButton: { flexDirection: 'row', alignItems: 'center', flexShrink: 0, marginLeft: 6, paddingTop: 1 },
   sideCommentLikeText: { color: '#E11D48', fontSize: 12, fontWeight: '700', marginLeft: 4, lineHeight: 16 },
   sideCommentPreviewText: { fontSize: 11, fontWeight: '700', lineHeight: 15, marginTop: 3 },
 

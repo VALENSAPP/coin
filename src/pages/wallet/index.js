@@ -25,7 +25,7 @@ import { getLatestTransactions, getRecentActivities, getTokenHistory, getTopCrea
 import { useFocusEffect } from '@react-navigation/native';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
-import { getCreditsLeft, totalMission, totalSupport, totalamount, referPoints, metaMaskRecived, totalPoints, getTotalFollowers, subscriptionEarningGraph } from '../../services/wallet';
+import { getCreditsLeft, totalMission, totalSupport, totalamount, referPoints, metaMaskRecived, totalPoints, getTotalFollowers, subscriptionEarningGraph, totalTransactions } from '../../services/wallet';
 import { getUserCredentials, getUserDashboard } from '../../services/post';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import RBSheet from 'react-native-raw-bottom-sheet';
@@ -38,6 +38,7 @@ import HexAvatar from '../../components/home/story.js/HexAvatar';
 import { useWalletConnectSupport } from '../../context/WalletConnectSupportContext';
 import { appKit } from '../../config/AppKitConfig';
 import { getDragonflyIcon } from '../../components/profile/ProfilePersonalData';
+import { getTipPayoutSetup } from '../../utils/tipPayoutStorage';
 import MIcon from 'react-native-vector-icons/MaterialCommunityIcons';
 import {
   WhiteDragonfly,
@@ -591,7 +592,10 @@ export const WalletDashboardScreen = ({ navigation }) => {
     { id: 'Mission Post', title: t('walletDashboard.kpi.missionPost'), value: '-', icon: 'ribbon' },
     { id: 'referralPoints', title: t('walletDashboard.kpi.referralPoints'), value: '-', icon: 'gift' },
     { id: 'metamask', title: t('walletDashboard.kpi.metamaskWallet'), value: '-', icon: 'logo-usd' },
+    { id: 'tipPayout', title: t('walletDashboard.tipPayout.title'), value: '', icon: 'cash' },
+    { id: 'ebook', title: t('walletDashboard.ebook.title'), value: '', icon: 'book' },
   ]);
+  const [tipPayoutSetup, setTipPayoutSetup] = useState(null);
   const dispatch = useDispatch();
   const toast = useToast();
   const {
@@ -615,6 +619,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
     image: FALLBACK_AVATAR,
   });
   const [followersCount, setFollowersCount] = useState(0);
+  const [userId, setUserId] = useState(null);
   const [connectedWalletType, setConnectedWalletType] = useState(null);
 
   const activityChartW = width - 64;
@@ -752,6 +757,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
         console.log('User ID not found');
         return;
       }
+      setUserId(id);
 
       const response = await getUserCredentials(id);
 
@@ -807,15 +813,16 @@ export const WalletDashboardScreen = ({ navigation }) => {
   }, [kpiData, isBusinessProfile]);
 
   const kpiGridData = useMemo(() => {
-    const list = [...visibleKpiData];
-    const isMetaMaskLast = list[list.length - 1]?.id === 'metamask';
+    const fullWidthIds = new Set(['metamask', 'tipPayout', 'ebook']);
+    const fullWidthItems = visibleKpiData.filter(item => fullWidthIds.has(item.id));
+    const gridItems = visibleKpiData.filter(item => !fullWidthIds.has(item.id));
+    const list = [...gridItems];
 
-    if (isMetaMaskLast && list.length % 2 === 0) {
-      list.splice(list.length - 1, 0, { id: 'kpi-placeholder', isPlaceholder: true });
-    } else if (!isMetaMaskLast && list.length % 2 !== 0) {
+    if (list.length % 2 !== 0) {
       list.push({ id: 'kpi-placeholder', isPlaceholder: true });
     }
-    return list;
+
+    return [...list, ...fullWidthItems];
   }, [visibleKpiData]);
 
   /** Profile header, KPI grid, Battle Points — same gradient */
@@ -869,6 +876,48 @@ export const WalletDashboardScreen = ({ navigation }) => {
     };
   }, []);
 
+  const tipPayoutReady = !!tipPayoutSetup?.connected;
+
+  const fetchTipPayoutStatus = async () => {
+    try {
+      const saved = await getTipPayoutSetup();
+      setTipPayoutSetup(saved);
+    } catch {
+      setTipPayoutSetup(null);
+    }
+  };
+
+  const handleTipPayoutPress = async () => {
+    const saved = tipPayoutSetup || (await getTipPayoutSetup());
+    if (saved?.connected) {
+      navigation.navigate('TipPayoutSetup', { initialStep: 'success', saved });
+      return;
+    }
+    navigation.navigate('TipPayoutSetup');
+  };
+
+  const handleEbookPress = () => {
+    navigation.navigate('EbookPublisher', { type: 'private', format: 'ebook' });
+  };
+
+  const handleViewTotalTransactions = async () => {
+    try {
+      dispatch(showLoader());
+      const response = await totalTransactions({ page: 1, limit: 10 });
+      console.log(response,'dyta all trnsationn')
+      const raw = response?.data?.data?.transactions || response?.data?.transactions || response?.data?.data || response?.data || [];
+      navigation.navigate('TransactionActivity', {
+        transactionsRaw: raw,
+        returnTo: { tab: 'wallet', screen: 'WalletDashboard' },
+      });
+    } catch (e) {
+      console.error('Error loading total transactions', e);
+      showToastMessage(toast, 'danger', e?.response?.data?.message || e?.message || 'Failed to load transactions');
+    } finally {
+      dispatch(hideLoader());
+    }
+  };
+
   useFocusEffect(
     useCallback(() => {
       const fetchData = async () => {
@@ -889,6 +938,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
             fetchMetaMaskReceived(),
             totalMissonDonation(),
             fetchTopCreators(),
+            fetchTipPayoutStatus(),
           ]);
         } catch (error) {
           console.error('Error fetching dashboard data:', error);
@@ -902,6 +952,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
       return () => {
         // Cleanup if needed
       };
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [dispatch])
   );
 
@@ -922,6 +973,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
         fetchReferralPoints(),
         fetchMetaMaskReceived(),
         fetchTopCreators(),
+        fetchTipPayoutStatus(),
       ]);
     } catch (error) {
       console.error('Error refreshing data:', error);
@@ -1252,9 +1304,11 @@ export const WalletDashboardScreen = ({ navigation }) => {
 
   const renderKPICard = (item) => {
     const isMetaMaskCard = item.id === 'metamask';
+    const isTipPayoutCard = item.id === 'tipPayout';
+    const isEbookCard = item.id === 'ebook';
     const cellStyle = [
       styles.kpiCardCell,
-      isMetaMaskCard && styles.kpiCardCellFull,
+      (isMetaMaskCard || isTipPayoutCard || isEbookCard) && styles.kpiCardCellFull,
     ];
 
     if (item?.isPlaceholder) {
@@ -1336,6 +1390,105 @@ export const WalletDashboardScreen = ({ navigation }) => {
                   </View>
                 </View>
                 <Ionicons name="chevron-forward" size={18} color={gradientText} style={styles.kpiChevron} />
+              </View>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    if (isTipPayoutCard) {
+      const tipStatusText = tipPayoutReady
+        ? t('walletDashboard.tipPayout.connected')
+        : t('walletDashboard.tipPayout.setupRequired');
+      const tipActionText = tipPayoutReady
+        ? t('walletDashboard.tipPayout.viewDetails')
+        : t('walletDashboard.tipPayout.tapToConnect');
+
+      return (
+        <View key={item.id} style={cellStyle}>
+          <TouchableOpacity
+            style={styles.kpiCardTouchable}
+            activeOpacity={0.86}
+            onPress={handleTipPayoutPress}
+          >
+            <LinearGradient
+              colors={walletScreenGradient}
+              start={{ x: -5, y: -5 }}
+              end={{ x: 1, y: 1 }}
+              style={[styles.kpiCard, styles.kpiCardMetaMask, { shadowColor: text }]}
+            >
+              <View style={styles.kpiMetaMaskRow}>
+                <View style={styles.kpiMetaMaskLeft}>
+                  <View style={[styles.kpiTipIconWrap, { backgroundColor: '#1FAF5A' }]}>
+                    <Text style={styles.kpiTipIconText}>P</Text>
+                  </View>
+                  <View style={styles.kpiMetaMaskText}>
+                    <Text style={[styles.kpiTitle, { color: text }]} numberOfLines={1}>
+                      {item.title}
+                    </Text>
+                    <Text style={[styles.kpiTipDescription, { color: text }]} numberOfLines={3}>
+                      {t('walletDashboard.tipPayout.description')}
+                    </Text>
+                    <View style={styles.kpiMetaMaskStatusRow}>
+                      <View
+                        style={[
+                          styles.kpiStatusDot,
+                          { backgroundColor: tipPayoutReady ? '#16a34a' : '#b45309' },
+                        ]}
+                      />
+                      <Text
+                        style={[
+                          styles.kpiMetaMaskStatusText,
+                          { color: tipPayoutReady ? '#16a34a' : '#b45309' },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {tipStatusText}
+                      </Text>
+                      <Text style={[styles.kpiMetaMaskHint, { color: text }]} numberOfLines={1}>
+                        {tipActionText}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={text} style={styles.kpiChevron} />
+              </View>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    if (isEbookCard) {
+      return (
+        <View key={item.id} style={cellStyle}>
+          <TouchableOpacity
+            style={styles.kpiCardTouchable}
+            activeOpacity={0.86}
+            onPress={handleEbookPress}
+          >
+            <LinearGradient
+              colors={walletScreenGradient}
+              start={{ x: -5, y: -5 }}
+              end={{ x: 1, y: 1 }}
+              style={[styles.kpiCard, styles.kpiCardMetaMask, { shadowColor: text }]}
+            >
+              <View style={styles.kpiMetaMaskRow}>
+                <View style={styles.kpiMetaMaskLeft}>
+                  <View style={[styles.kpiTipIconWrap, { backgroundColor: '#EDE4FF' }]}>
+                    <Ionicons name="book" size={22} color={text} />
+                  </View>
+                  <View style={styles.kpiMetaMaskText}>
+                    <Text style={[styles.kpiTitle, { color: text }]} numberOfLines={1}>
+                      {item.title}
+                    </Text>
+                    <Text style={[styles.kpiTipDescription, { color: text }]} numberOfLines={2}>
+                      {t('walletDashboard.ebook.description')}
+                    </Text>
+                  </View>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={text} style={styles.kpiChevron} />
               </View>
             </LinearGradient>
           </TouchableOpacity>
@@ -1468,6 +1621,44 @@ export const WalletDashboardScreen = ({ navigation }) => {
             style={styles.kpiCardTouchable}
             activeOpacity={0.86}
             onPress={() => navigation.navigate('RevenueFromSubscriptions')}
+          >
+            {cardContent}
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    if (item.id === 'followers') {
+      return (
+        <View key={item.id} style={cellStyle}>
+          <TouchableOpacity
+            style={styles.kpiCardTouchable}
+            activeOpacity={0.86}
+            onPress={() => {
+              navigation.navigate('ProfileMain', {
+                screen: 'FollowersFollowingScreen',
+                params: {
+                  tab: 'followers',
+                  userName: userProfile.name,
+                  userId: userId,
+                  returnTo: 'Dashboard',
+                },
+              });
+            }}
+          >
+            {cardContent}
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    if (item.id === 'Total Earning') {
+      return (
+        <View key={item.id} style={cellStyle}>
+          <TouchableOpacity
+            style={styles.kpiCardTouchable}
+            activeOpacity={0.86}
+            onPress={handleViewTotalTransactions}
           >
             {cardContent}
           </TouchableOpacity>
@@ -2785,6 +2976,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
+  },
+  kpiTipIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  kpiTipIconText: {
+    color: '#111827',
+    fontSize: 22,
+    fontWeight: '800',
+  },
+  kpiTipDescription: {
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 4,
+    marginBottom: 6,
+    opacity: 0.9,
   },
   kpiWalletIcon: {
     width: 28,

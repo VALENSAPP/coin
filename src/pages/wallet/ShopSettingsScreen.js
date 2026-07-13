@@ -24,6 +24,8 @@ import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { useBusinessProfileTheme } from '../../theme/useBusinessProfileTheme';
 import { useThemeContext } from '../../theme/ThemeContext';
+import { useLanguage } from '../../i18n';
+import { BASE_URL } from '../../config/urls';
 import {
   createMyCloset,
   deleteMyCloset,
@@ -51,8 +53,8 @@ const normalizeUrl = value => {
   const raw = String(value || '').trim();
   if (!raw) return '';
   if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
-  if (raw.startsWith('/')) return `https://api.valens.app${raw}`;
-  return `https://api.valens.app/${raw}`;
+  if (raw.startsWith('/')) return `${BASE_URL}${raw}`;
+  return `${BASE_URL}/${raw}`;
 };
 
 const getFirstPresent = (source, keys) => {
@@ -121,6 +123,7 @@ const EditModal = ({
   mutedText,
   isDarkMode,
 }) => {
+  const { t } = useLanguage();
   const [draftValue, setDraftValue] = useState(value || '');
 
   useEffect(() => {
@@ -160,14 +163,16 @@ const EditModal = ({
                 { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.08)' : '#f3f4f6' },
               ]}
             >
-              <Text style={[styles.modalSecondaryText, { color: labelColor }]}>Cancel</Text>
+              <Text style={[styles.modalSecondaryText, { color: labelColor }]}>
+                {t('shopSettings.cancel')}
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
               activeOpacity={0.9}
               onPress={() => onSave(draftValue)}
               style={[styles.modalPrimary, { backgroundColor: accent }]}
             >
-              <Text style={styles.modalPrimaryText}>Save</Text>
+              <Text style={styles.modalPrimaryText}>{t('shopSettings.save')}</Text>
             </TouchableOpacity>
           </View>
         </Pressable>
@@ -215,6 +220,7 @@ const ShopSettingsScreen = ({ navigation }) => {
   const { bgStyle, cardStyle, accent, mutedText, border } =
     useBusinessProfileTheme();
   const { isDarkMode } = useThemeContext();
+  const { t } = useLanguage();
   const labelColor = isDarkMode ? '#ffffff' : '#111827';
   const [saving, setSaving] = useState(false);
   const [data, setData] = useState(defaultState);
@@ -250,12 +256,12 @@ const ShopSettingsScreen = ({ navigation }) => {
       showToastMessage(
         toast,
         'danger',
-        error?.response?.data?.message || error?.message || 'Failed to load shop settings.',
+        error?.response?.data?.message || error?.message || t('shopSettings.toasts.loadFailed'),
       );
     } finally {
       dispatch(hideLoader());
     }
-  }, [dispatch, toast]);
+  }, [dispatch, t, toast]);
 
   useFocusEffect(
     useCallback(() => {
@@ -265,8 +271,8 @@ const ShopSettingsScreen = ({ navigation }) => {
 
   const shopLink = useMemo(() => {
     const handle = String(data.shopUsername || '').trim().toLowerCase();
-    return handle ? `valens.app/${handle}` : 'valens.app/your-shop';
-  }, [data.shopUsername]);
+    return handle ? `valens.app/${handle}` : `valens.app/${t('shopSettings.yourShopSlug')}`;
+  }, [data.shopUsername, t]);
 
   const handleImagePick = useCallback(async () => {
     try {
@@ -288,9 +294,9 @@ const ShopSettingsScreen = ({ navigation }) => {
       }));
     } catch (error) {
       console.warn('Shop logo picker error:', error);
-      showToastMessage(toast, 'danger', 'Unable to open photo library.');
+      showToastMessage(toast, 'danger', t('shopSettings.toasts.photoLibraryUnavailable'));
     }
-  }, [toast]);
+  }, [t, toast]);
 
   const handleSave = useCallback(async () => {
     const payload = {
@@ -319,7 +325,7 @@ const ShopSettingsScreen = ({ navigation }) => {
         showToastMessage(
           toast,
           'success',
-          response?.message || 'Shop settings saved successfully.',
+          response?.message || t('shopSettings.toasts.saveSuccess'),
         );
 
         if (payload.shopUsername) {
@@ -338,28 +344,28 @@ const ShopSettingsScreen = ({ navigation }) => {
       showToastMessage(
         toast,
         'danger',
-        response?.message || 'Unable to save shop settings.',
+        response?.message || t('shopSettings.toasts.saveFailed'),
       );
     } catch (error) {
       showToastMessage(
         toast,
         'danger',
-        error?.response?.data?.message || error?.message || 'Unable to save shop settings.',
+        error?.response?.data?.message || error?.message || t('shopSettings.toasts.saveFailed'),
       );
     } finally {
       setSaving(false);
       dispatch(hideLoader());
     }
-  }, [data, dispatch, toast]);
+  }, [data, dispatch, t, toast]);
 
   const handleDeleteCloset = useCallback(() => {
     Alert.alert(
-      'Delete My Closet',
-      'This will permanently delete your closet and its settings. This action cannot be undone.',
+      t('shopSettings.deleteAlert.title'),
+      t('shopSettings.deleteAlert.message'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('shopSettings.cancel'), style: 'cancel' },
         {
-          text: 'Delete',
+          text: t('shopSettings.delete'),
           style: 'destructive',
           onPress: async () => {
             setSaving(true);
@@ -377,7 +383,7 @@ const ShopSettingsScreen = ({ navigation }) => {
                 showToastMessage(
                   toast,
                   'success',
-                  response?.message || 'My Closet deleted successfully.',
+                  response?.message || t('shopSettings.toasts.deleteSuccess'),
                 );
                 navigation.goBack();
                 return;
@@ -386,13 +392,13 @@ const ShopSettingsScreen = ({ navigation }) => {
               showToastMessage(
                 toast,
                 'danger',
-                response?.message || 'Unable to delete My Closet.',
+                response?.message || t('shopSettings.toasts.deleteFailed'),
               );
             } catch (error) {
               showToastMessage(
                 toast,
                 'danger',
-                error?.response?.data?.message || error?.message || 'Unable to delete My Closet.',
+                error?.response?.data?.message || error?.message || t('shopSettings.toasts.deleteFailed'),
               );
             } finally {
               setSaving(false);
@@ -402,37 +408,37 @@ const ShopSettingsScreen = ({ navigation }) => {
         },
       ],
     );
-  }, [dispatch, navigation, toast]);
+  }, [dispatch, navigation, t, toast]);
 
   const activeModalConfig = {
     shopName: {
-      title: 'Edit shop name',
-      placeholder: "e.g. John's Closet",
+      title: t('shopSettings.modals.shopName.title'),
+      placeholder: t('shopSettings.modals.shopName.placeholder'),
       multiline: false,
     },
     shopUsername: {
-      title: 'Edit username',
-      placeholder: 'grazielascloset',
+      title: t('shopSettings.modals.shopUsername.title'),
+      placeholder: t('shopSettings.modals.shopUsername.placeholder'),
       multiline: false,
     },
     description: {
-      title: 'Edit description',
-      placeholder: 'Curated pieces with timeless style.',
+      title: t('shopSettings.modals.description.title'),
+      placeholder: t('shopSettings.modals.description.placeholder'),
       multiline: true,
     },
     shippingOptions: {
-      title: 'Shipping & return policy',
-      placeholder: 'Tell buyers how shipping and returns work.',
+      title: t('shopSettings.modals.shippingOptions.title'),
+      placeholder: t('shopSettings.modals.shippingOptions.placeholder'),
       multiline: true,
     },
     paymentMethod: {
-      title: 'Payment methods',
-      placeholder: 'Stripe, cash, card, etc.',
+      title: t('shopSettings.modals.paymentMethod.title'),
+      placeholder: t('shopSettings.modals.paymentMethod.placeholder'),
       multiline: true,
     },
     shopPreferences: {
-      title: 'Shop preferences',
-      placeholder: 'Preferred style, audience, order rules...',
+      title: t('shopSettings.modals.shopPreferences.title'),
+      placeholder: t('shopSettings.modals.shopPreferences.placeholder'),
       multiline: true,
     },
   }[activeField];
@@ -452,10 +458,10 @@ const ShopSettingsScreen = ({ navigation }) => {
             ]}
           >
             <Text style={[styles.sectionHeaderText, { color: accent }]}>
-              Shop information
+              {t('shopSettings.shopInformation')}
             </Text>
             <Text style={[styles.heroSubtext, { color: mutedText }]}>
-              Update the details customers see when they visit your shop.
+              {t('shopSettings.shopInformationSubtitle')}
             </Text>
 
             <View style={styles.previewBlock}>
@@ -482,19 +488,19 @@ const ShopSettingsScreen = ({ navigation }) => {
               </View>
               <View style={styles.previewCopy}>
                 <Text style={[styles.previewTitle, { color: labelColor }]} numberOfLines={1}>
-                  {data.shopName || 'Your Shop'}
+                  {data.shopName || t('shopSettings.yourShopFallback')}
                 </Text>
                 <Text style={[styles.previewHandle, { color: mutedText }]}>{shopLink}</Text>
                 <Text style={[styles.previewDescription, { color: mutedText }]} numberOfLines={2}>
-                  {data.description || 'Add a short description for your shop.'}
+                  {data.description || t('shopSettings.addDescriptionFallback')}
                 </Text>
               </View>
             </View>
 
             <View style={[styles.rowsCard, cardStyle]}>
               <Row
-                label="Shop name"
-                value={data.shopName || 'Tap to add'}
+                label={t('shopSettings.rows.shopName')}
+                value={data.shopName || t('shopSettings.tapToAdd')}
                 onPress={() => setActiveField('shopName')}
                 labelColor={labelColor}
                 mutedText={mutedText}
@@ -502,9 +508,9 @@ const ShopSettingsScreen = ({ navigation }) => {
               />
               <View style={[styles.rowDivider, { backgroundColor: border }]} />
               <Row
-                label="Username"
-                value={`valens.app/${data.shopUsername || 'your-shop'}`}
-                subtitle="This is your public shop link"
+                label={t('shopSettings.rows.username')}
+                value={`valens.app/${data.shopUsername || t('shopSettings.yourShopSlug')}`}
+                subtitle={t('shopSettings.rows.usernameSubtitle')}
                 onPress={() => setActiveField('shopUsername')}
                 labelColor={labelColor}
                 mutedText={mutedText}
@@ -512,8 +518,8 @@ const ShopSettingsScreen = ({ navigation }) => {
               />
               <View style={[styles.rowDivider, { backgroundColor: border }]} />
               <Row
-                label="Shop description"
-                value={data.description || 'Tap to describe your shop'}
+                label={t('shopSettings.rows.description')}
+                value={data.description || t('shopSettings.rows.descriptionFallback')}
                 multiline
                 onPress={() => setActiveField('description')}
                 labelColor={labelColor}
@@ -522,9 +528,9 @@ const ShopSettingsScreen = ({ navigation }) => {
               />
               <View style={[styles.rowDivider, { backgroundColor: border }]} />
               <Row
-                label="Shop logo"
-                value={data.shopLogo ? 'Logo uploaded' : 'Add a logo'}
-                subtitle="Use a square image for best results."
+                label={t('shopSettings.rows.logo')}
+                value={data.shopLogo ? t('shopSettings.rows.logoUploaded') : t('shopSettings.rows.addLogo')}
+                subtitle={t('shopSettings.rows.logoSubtitle')}
                 onPress={handleImagePick}
                 labelColor={labelColor}
                 mutedText={mutedText}
@@ -532,9 +538,9 @@ const ShopSettingsScreen = ({ navigation }) => {
               />
               <View style={[styles.rowDivider, { backgroundColor: border }]} />
               <Row
-                label="Location"
-                value={data.location || 'Tap to add your location'}
-                subtitle="Shown on your public shop page."
+                label={t('shopSettings.rows.location')}
+                value={data.location || t('shopSettings.rows.locationFallback')}
+                subtitle={t('shopSettings.rows.locationSubtitle')}
                 onPress={() => setLocationModalVisible(true)}
                 labelColor={labelColor}
                 mutedText={mutedText}
@@ -551,35 +557,35 @@ const ShopSettingsScreen = ({ navigation }) => {
               ]}
             >
               <Text style={[styles.sectionHeaderText, textStyle]}>
-                More settings
+                {t('shopSettings.moreSettings')}
               </Text>
               <View style={styles.rowsCard}>
                 <Row
-                  label="Shipping & return policy"
-                  value={data.shippingOptions || data.returnPolicy || 'Configure shipping rules'}
-                  subtitle="Set how you ship and handle returns."
+                  label={t('shopSettings.rows.shippingPolicy')}
+                  value={data.shippingOptions || data.returnPolicy || t('shopSettings.rows.shippingPolicyFallback')}
+                  subtitle={t('shopSettings.rows.shippingPolicySubtitle')}
                   onPress={() => setActiveField('shippingOptions')}
                 />
                 <View style={styles.rowDivider} />
                 <Row
-                  label="Payment methods"
-                  value={data.paymentMethod || 'Choose payment methods'}
-                  subtitle="Tell buyers how they can pay."
+                  label={t('shopSettings.rows.paymentMethods')}
+                  value={data.paymentMethod || t('shopSettings.rows.paymentMethodsFallback')}
+                  subtitle={t('shopSettings.rows.paymentMethodsSubtitle')}
                   onPress={() => setActiveField('paymentMethod')}
                 />
                 <View style={styles.rowDivider} />
                 <Row
-                  label="Shop preferences"
-                  value={data.shopPreferences || 'Set your shop defaults'}
-                  subtitle="Audience, style, and ordering preferences."
+                  label={t('shopSettings.rows.shopPreferences')}
+                  value={data.shopPreferences || t('shopSettings.rows.shopPreferencesFallback')}
+                  subtitle={t('shopSettings.rows.shopPreferencesSubtitle')}
                   onPress={() => setActiveField('shopPreferences')}
                 />
                 <View style={styles.rowDivider} />
                 <View style={styles.notificationRow}>
                   <View style={styles.rowCopy}>
-                    <Text style={styles.rowLabel}>Notifications</Text>
+                    <Text style={styles.rowLabel}>{t('shopSettings.rows.notifications')}</Text>
                     <Text style={styles.rowSubtitle}>
-                      Receive updates for shop activity.
+                      {t('shopSettings.rows.notificationsSubtitle')}
                     </Text>
                   </View>
                   <Switch
@@ -607,10 +613,10 @@ const ShopSettingsScreen = ({ navigation }) => {
               {saving ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={styles.saveButtonText}>Save changes</Text>
+                <Text style={styles.saveButtonText}>{t('shopSettings.saveChanges')}</Text>
               )}
             </TouchableOpacity>
-            <TouchableOpacity
+            {/* <TouchableOpacity
               activeOpacity={0.9}
               onPress={handleDeleteCloset}
               disabled={saving}
@@ -622,8 +628,8 @@ const ShopSettingsScreen = ({ navigation }) => {
                 },
               ]}
             >
-              <Text style={styles.deleteButtonText}>Delete My Closet</Text>
-            </TouchableOpacity>
+              <Text style={styles.deleteButtonText}>{t('shopSettings.deleteMyCloset')}</Text>
+            </TouchableOpacity> */}
           </View>
         </ScrollView>
 
