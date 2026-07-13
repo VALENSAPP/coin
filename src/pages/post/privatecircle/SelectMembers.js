@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -93,79 +93,99 @@ export default function PrivateCircleSelectMembers() {
     AsyncStorage.getItem('profile').then((type) => setProfileType(type || ''));
   }, []);
 
-  const loadPool = useCallback(async () => {
-    setLoadingPool(true);
-    try {
-      let persistedMembers = initialMembers;
-      const shouldSyncFromApi =
-        (mode === 'manage' || returnToWalletPrivateCircle) && !returnToReview;
-
-      if (shouldSyncFromApi) {
-        const dashRes = await getPrivateCircleDashboard();
-        if (isPrivateCircleApiSuccess(dashRes)) {
-          const { members } = parsePrivateCircleDashboard(dashRes);
-          persistedMembers = (Array.isArray(members) ? members : [])
-            .map(shapePrivateCircleMember)
-            .filter((member) => member.id);
-          const ids = persistedMembers.map((member) => String(member.id));
-          setPersistedIds(ids);
-          setSelectedIds(ids);
-        } else {
-          setPersistedIds([]);
-          setSelectedIds([]);
-          persistedMembers = [];
-        }
-      } else if (returnToReview) {
-        const reviewSelectedIds = Array.isArray(route.params?.selectedIds)
-          ? route.params.selectedIds.map(String).filter(Boolean)
-          : [];
-        if (reviewSelectedIds.length > 0) {
-          setSelectedIds(reviewSelectedIds);
-        }
-        if (routePersistedIds?.length) {
-          setPersistedIds(routePersistedIds);
-        } else {
-          setPersistedIds(initialMembers.map((member) => String(member.id)));
-        }
-        persistedMembers = initialMembers;
-      } else if (routePersistedIds?.length) {
-        setPersistedIds(routePersistedIds);
-      }
-
-      const selfUserId = await AsyncStorage.getItem('userId');
-      let users = [];
-      if (selfUserId) {
-        const res = await apiFollowing(selfUserId);
-        const rows = res?.data?.data ?? res?.data ?? [];
-        users = rows
-          .map((rel) => rel?.following || rel?.user || rel || null)
-          .filter(Boolean)
-          .map(shapePrivateCircleMember)
-          .filter((u) => u.id);
-      }
-
-      setPoolMembers(mergeMembersById([persistedMembers, initialMembers, users]));
-    } catch {
-      showToastMessage(toast, 'danger', t('privateCircleMint.loadMembersError'));
-      setPoolMembers(initialMembers);
-    } finally {
-      setLoadingPool(false);
-    }
-  }, [
-    initialMembers,
-    mode,
-    returnToReview,
-    returnToWalletPrivateCircle,
-    route.params?.selectedIds,
-    routePersistedIds,
-    t,
-    toast,
-  ]);
+  // Keep latest route values in refs so focus-load does not recreate and
+  // re-fire when setParams / route params change (that caused the loader loop).
+  const initialMembersRef = useRef(initialMembers);
+  const routeSelectedIdsRef = useRef(route.params?.selectedIds);
+  const routePersistedIdsRef = useRef(routePersistedIds);
+  initialMembersRef.current = initialMembers;
+  routeSelectedIdsRef.current = route.params?.selectedIds;
+  routePersistedIdsRef.current = routePersistedIds;
 
   useFocusEffect(
     useCallback(() => {
+      let cancelled = false;
+
+      const loadPool = async () => {
+        setLoadingPool(true);
+        try {
+          const latestInitialMembers = initialMembersRef.current;
+          const latestRoutePersistedIds = routePersistedIdsRef.current;
+          let persistedMembers = latestInitialMembers;
+
+          // Fetch saved circle members once when this screen gains focus.
+          const shouldSyncFromApi =
+            mode === 'manage' ||
+            mode === 'mint' ||
+            returnToWalletPrivateCircle ||
+            returnToReview;
+
+          if (shouldSyncFromApi) {
+            const dashRes = await getPrivateCircleDashboard();
+            if (cancelled) return;
+
+            if (isPrivateCircleApiSuccess(dashRes)) {
+              const { members } = parsePrivateCircleDashboard(dashRes);
+              persistedMembers = (Array.isArray(members) ? members : [])
+                .map(shapePrivateCircleMember)
+                .filter((member) => member.id);
+              const ids = persistedMembers.map((member) => String(member.id));
+              setPersistedIds(ids);
+              setSelectedIds(ids);
+            } else if (returnToReview) {
+              const reviewSelectedIds = Array.isArray(routeSelectedIdsRef.current)
+                ? routeSelectedIdsRef.current.map(String).filter(Boolean)
+                : [];
+              if (reviewSelectedIds.length > 0) {
+                setSelectedIds(reviewSelectedIds);
+              }
+              if (latestRoutePersistedIds?.length) {
+                setPersistedIds(latestRoutePersistedIds);
+              } else {
+                setPersistedIds(latestInitialMembers.map((member) => String(member.id)));
+              }
+              persistedMembers = latestInitialMembers;
+            } else {
+              setPersistedIds([]);
+              setSelectedIds([]);
+              persistedMembers = [];
+            }
+          } else if (latestRoutePersistedIds?.length) {
+            setPersistedIds(latestRoutePersistedIds);
+          }
+
+          const selfUserId = await AsyncStorage.getItem('userId');
+          if (cancelled) return;
+
+          let users = [];
+          if (selfUserId) {
+            const res = await apiFollowing(selfUserId);
+            if (cancelled) return;
+            const rows = res?.data?.data ?? res?.data ?? [];
+            users = rows
+              .map((rel) => rel?.following || rel?.user || rel || null)
+              .filter(Boolean)
+              .map(shapePrivateCircleMember)
+              .filter((u) => u.id);
+          }
+
+          setPoolMembers(mergeMembersById([persistedMembers, latestInitialMembers, users]));
+        } catch {
+          if (!cancelled) {
+            showToastMessage(toast, 'danger', t('privateCircleMint.loadMembersError'));
+            setPoolMembers(initialMembersRef.current);
+          }
+        } finally {
+          if (!cancelled) setLoadingPool(false);
+        }
+      };
+
       loadPool();
-    }, [loadPool]),
+
+      return () => {
+        cancelled = true;
+      };
+    }, [mode, returnToReview, returnToWalletPrivateCircle, t, toast]),
   );
 
   const filtered = useMemo(() => {
@@ -188,13 +208,18 @@ export default function PrivateCircleSelectMembers() {
   }, [navigation]);
 
   const goBackToReview = useCallback(() => {
-    navigation.replace('PrivateCircleReview', {
-      mode,
-      members: circleMembers,
-      selectedIds,
-      selectedMembers: buildSelectedMembers(selectedIds, poolMembers),
-      persistedIds,
-      returnToReview: true,
+    const selectedMembers = buildSelectedMembers(selectedIds, poolMembers);
+    // Update existing Review on the stack instead of stacking another Review.
+    navigation.navigate({
+      name: 'PrivateCircleReview',
+      params: {
+        mode,
+        members: selectedMembers.length ? selectedMembers : circleMembers,
+        selectedIds,
+        selectedMembers,
+        persistedIds,
+      },
+      merge: true,
     });
   }, [navigation, mode, circleMembers, selectedIds, poolMembers, persistedIds]);
 
@@ -281,14 +306,28 @@ export default function PrivateCircleSelectMembers() {
   };
 
   const goToReview = (ids, membersAlreadySaved = false) => {
-    navigation.replace('PrivateCircleReview', {
+    const selectedMembers = buildSelectedMembers(ids, poolMembers);
+    const params = {
       mode,
-      members: circleMembers,
+      members: selectedMembers.length ? selectedMembers : circleMembers,
       selectedIds: ids,
-      selectedMembers: buildSelectedMembers(ids, poolMembers),
+      selectedMembers,
       persistedIds,
       membersAlreadySaved,
-    });
+    };
+
+    // Returning to Review: merge into the existing screen so Back does not
+    // land on an older Review instance that still has the starting member list.
+    if (returnToReview) {
+      navigation.navigate({
+        name: 'PrivateCircleReview',
+        params,
+        merge: true,
+      });
+      return;
+    }
+
+    navigation.replace('PrivateCircleReview', params);
   };
 
   const handleContinue = async () => {
@@ -304,6 +343,11 @@ export default function PrivateCircleSelectMembers() {
 
     if (returnToWalletPrivateCircle) {
       goBackToWalletPrivateCircle();
+      return;
+    }
+
+    if (mode === 'manage') {
+      navigation.goBack();
       return;
     }
 
@@ -383,6 +427,10 @@ export default function PrivateCircleSelectMembers() {
           onPress={() => {
             if (returnToWalletPrivateCircle) {
               goBackToWalletPrivateCircle();
+              return;
+            }
+            if (returnToReview) {
+              goBackToReview();
               return;
             }
             navigation.goBack();

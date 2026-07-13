@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -12,18 +12,22 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { useLanguage } from '../../../i18n';
 import { useAppTheme } from '../../../theme/useApptheme';
 import { showToastMessage } from '../../../components/displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
-// import PrivateCircleStepper from './PrivateCircleStepper';
 import HexAvatar from '../../../components/home/story.js/HexAvatar';
-import { addPrivateCircleMembers, isPrivateCircleApiSuccess } from '../../../services/privatecircle';
+import {
+  addPrivateCircleMembers,
+  getPrivateCircleDashboard,
+  isPrivateCircleApiSuccess,
+  parsePrivateCircleDashboard,
+  shapePrivateCircleMember,
+} from '../../../services/privatecircle';
 import { continuePrivateMint } from './privateCircleFlow';
 
-const PREVIEW_HEX_SIZE = 34;
-const PREVIEW_HEX_LIMIT = 4;
+const MEMBER_HEX_SIZE = 40;
 
 export default function PrivateCircleReview() {
   const navigation = useNavigation();
@@ -32,22 +36,97 @@ export default function PrivateCircleReview() {
   const { t } = useLanguage();
   const [profileType, setProfileType] = useState('');
   const [saving, setSaving] = useState(false);
+  const [loadingMembers, setLoadingMembers] = useState(false);
 
   const mode = route.params?.mode === 'mint' ? 'mint' : 'setup';
-  const circleMembers = useMemo(() => Array.isArray(route.params?.members) ? route.params.members : [], [route.params?.members]);
-  const selectedIds = useMemo(() => Array.isArray(route.params?.selectedIds)
-    ? route.params.selectedIds.map(String)
-    : [], [route.params?.selectedIds]);
-  const selectedMembers = useMemo(() => Array.isArray(route.params?.selectedMembers)
-    ? route.params.selectedMembers
-    : [], [route.params?.selectedMembers]);
-  const persistedIds = useMemo(() => Array.isArray(route.params?.persistedIds)
-    ? route.params.persistedIds.map(String)
-    : circleMembers.map((member) => String(member.id)), [route.params?.persistedIds, circleMembers]);
+
+  const routeSelectedIds = useMemo(
+    () =>
+      Array.isArray(route.params?.selectedIds) ? route.params.selectedIds.map(String) : [],
+    [route.params?.selectedIds],
+  );
+  const routeSelectedMembers = useMemo(
+    () => (Array.isArray(route.params?.selectedMembers) ? route.params.selectedMembers : []),
+    [route.params?.selectedMembers],
+  );
+  const routeCircleMembers = useMemo(
+    () => (Array.isArray(route.params?.members) ? route.params.members : []),
+    [route.params?.members],
+  );
+  const routePersistedIds = useMemo(
+    () =>
+      Array.isArray(route.params?.persistedIds)
+        ? route.params.persistedIds.map(String)
+        : routeCircleMembers.map((member) => String(member.id)),
+    [route.params?.persistedIds, routeCircleMembers],
+  );
+
+  // Local state so focus refresh / navigation params both stay in sync.
+  const [selectedIds, setSelectedIds] = useState(routeSelectedIds);
+  const [selectedMembers, setSelectedMembers] = useState(routeSelectedMembers);
+  const [circleMembers, setCircleMembers] = useState(routeCircleMembers);
+  const [persistedIds, setPersistedIds] = useState(routePersistedIds);
 
   useEffect(() => {
     AsyncStorage.getItem('profile').then((type) => setProfileType(type || ''));
   }, []);
+
+  // Keep local state aligned when Continue updates route params.
+  useEffect(() => {
+    if (routeSelectedIds.length > 0) {
+      setSelectedIds(routeSelectedIds);
+    }
+    if (routeSelectedMembers.length > 0) {
+      setSelectedMembers(routeSelectedMembers);
+    }
+    if (routeCircleMembers.length > 0) {
+      setCircleMembers(routeCircleMembers);
+    }
+    if (routePersistedIds.length > 0) {
+      setPersistedIds(routePersistedIds);
+    }
+  }, [routeSelectedIds, routeSelectedMembers, routeCircleMembers, routePersistedIds]);
+
+  const applyMembersFromApi = useCallback((membersRaw) => {
+    const members = (Array.isArray(membersRaw) ? membersRaw : [])
+      .map(shapePrivateCircleMember)
+      .filter((member) => member.id);
+    const ids = members.map((member) => String(member.id));
+
+    setCircleMembers(members);
+    setSelectedIds(ids);
+    setSelectedMembers(members);
+    setPersistedIds(ids);
+
+    return { members, ids };
+  }, []);
+
+  // Fetch once per focus — do not setParams here (that retriggered focus work).
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+
+      const refreshMembersFromApi = async () => {
+        setLoadingMembers(true);
+        try {
+          const response = await getPrivateCircleDashboard();
+          if (cancelled || !isPrivateCircleApiSuccess(response)) return;
+          const { members } = parsePrivateCircleDashboard(response);
+          applyMembersFromApi(members);
+        } catch {
+          // Keep whatever is already on screen if refresh fails.
+        } finally {
+          if (!cancelled) setLoadingMembers(false);
+        }
+      };
+
+      refreshMembersFromApi();
+
+      return () => {
+        cancelled = true;
+      };
+    }, [applyMembersFromApi]),
+  );
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('beforeRemove', (event) => {
@@ -76,21 +155,20 @@ export default function PrivateCircleReview() {
   const { text } = useAppTheme(profileType);
 
   const memberCount = selectedIds.length;
-  const previewMembers = useMemo(
-    () => selectedMembers.slice(0, PREVIEW_HEX_LIMIT),
-    [selectedMembers],
-  );
-  const extraMemberCount = Math.max(0, memberCount - PREVIEW_HEX_LIMIT);
   const existingMemberIdSet = useMemo(() => new Set(persistedIds), [persistedIds]);
 
   const openMemberPicker = () => {
-    navigation.navigate('PrivateCircleSelectMembers', {
-      mode,
-      members: circleMembers,
-      selectedIds,
-      selectedMembers,
-      persistedIds,
-      returnToReview: true,
+    navigation.navigate({
+      name: 'PrivateCircleSelectMembers',
+      params: {
+        mode,
+        members: circleMembers,
+        selectedIds,
+        selectedMembers,
+        persistedIds,
+        returnToReview: true,
+      },
+      merge: true,
     });
   };
 
@@ -136,29 +214,6 @@ export default function PrivateCircleReview() {
     });
   };
 
-  const memberHexPreview = (
-    <View style={styles.hexPreviewRow}>
-      {previewMembers.map((member, index) => (
-        <View
-          key={member.id}
-          style={[styles.hexPreviewSlot, index > 0 && styles.hexPreviewOverlap]}
-        >
-          <HexAvatar
-            uri={member.avatar}
-            size={PREVIEW_HEX_SIZE}
-            borderWidth={2}
-            borderColor="#FFFFFF"
-          />
-        </View>
-      ))}
-      {extraMemberCount > 0 && (
-        <Text style={[styles.hexPreviewMore, { color: headingColor }]}>
-          {t('privateCircleMint.reviewMembersMore', { count: extraMemberCount })}
-        </Text>
-      )}
-    </View>
-  );
-
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={styles.header}>
@@ -171,8 +226,6 @@ export default function PrivateCircleReview() {
         <View style={styles.backBtn} />
       </View>
 
-      {/* <PrivateCircleStepper currentStep={3} accentColor={headingColor} /> */}
-
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
@@ -184,7 +237,7 @@ export default function PrivateCircleReview() {
 
         <View style={styles.summaryCard}>
           <TouchableOpacity
-            style={styles.summaryRow}
+            style={styles.summaryHeader}
             activeOpacity={0.85}
             onPress={openMemberPicker}
           >
@@ -192,16 +245,43 @@ export default function PrivateCircleReview() {
               <Ionicons name="lock-closed" size={20} color="#FFFFFF" />
             </View>
             <View style={styles.rowTextWrap}>
-              <Text style={[styles.rowTitle, { color: headingColor }]}>
+              <Text style={[styles.rowTitle, { color: headingColor }]} numberOfLines={1}>
                 {t('privateCircleMint.reviewMembersTitle')}
               </Text>
-              <Text style={styles.rowSubtitle}>
+              <Text style={styles.rowSubtitle} numberOfLines={1}>
                 {t('privateCircleMint.reviewMembersCount', { count: memberCount })}
               </Text>
             </View>
-            {memberCount > 0 ? memberHexPreview : null}
-            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+            {loadingMembers ? (
+              <ActivityIndicator size="small" color={headingColor} />
+            ) : (
+              <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+            )}
           </TouchableOpacity>
+
+          {selectedMembers.length > 0 ? (
+            <View style={styles.memberList}>
+              {selectedMembers.map((member, index) => (
+                <View
+                  key={member.id}
+                  style={[
+                    styles.memberRow,
+                    index < selectedMembers.length - 1 && styles.memberRowDivider,
+                  ]}
+                >
+                  <HexAvatar
+                    uri={member.avatar}
+                    size={MEMBER_HEX_SIZE}
+                    borderWidth={2}
+                    borderColor="#E5E7EB"
+                  />
+                  <Text style={[styles.memberName, { color: headingColor }]} numberOfLines={1}>
+                    {member.username || member.name}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
         </View>
       </ScrollView>
 
@@ -287,7 +367,7 @@ const styles = StyleSheet.create({
     elevation: 2,
     marginBottom: 12,
   },
-  summaryRow: {
+  summaryHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
@@ -315,27 +395,26 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     lineHeight: 18,
   },
-  divider: {
-    height: 1,
-    backgroundColor: '#F3F4F6',
-    marginHorizontal: 14,
+  memberList: {
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+    paddingHorizontal: 14,
+    paddingBottom: 6,
   },
-  hexPreviewRow: {
+  memberRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    flexShrink: 1,
-    maxWidth: 105,
+    paddingVertical: 12,
+    gap: 12,
   },
-  hexPreviewSlot: {
-    zIndex: 1,
+  memberRowDivider: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
   },
-  hexPreviewOverlap: {
-    marginLeft: -10,
-  },
-  hexPreviewMore: {
-    marginLeft: 6,
-    fontSize: 14,
-    fontWeight: '700',
+  memberName: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
   },
   footer: {
     paddingHorizontal: 20,

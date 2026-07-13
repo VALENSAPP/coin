@@ -236,6 +236,8 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
   const [dashboardMemberCount, setDashboardMemberCount] = useState(0);
   const [dashboardPostCount, setDashboardPostCount] = useState(0);
   const [circleAccessActive, setCircleAccessActive] = useState(null);
+  // null = not checked yet, true = circle already set up, false = not set up
+  const [hasPrivateCircle, setHasPrivateCircle] = useState(null);
   const [removingMemberIds, setRemovingMemberIds] = useState([]);
   // null = not yet checked, true = is member, false = not a member
   const [isMember, setIsMember] = useState(null);
@@ -271,6 +273,59 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
     }
   }, []);
 
+  const fetchRecentActivities = useCallback(async () => {
+    try {
+      const response = await recentActivity();
+      console.log(response, '  PrivateCircle recentActivity API response:');
+      if (!isPrivateCircleApiSuccess(response)) {
+        setRecentActivities([]);
+        return;
+      }
+      setRecentActivities(parseRecentActivities(response, t));
+    } catch (error) {
+      console.log('PrivateCircle recentActivity error:', error);
+      setRecentActivities([]);
+    }
+  }, [t]);
+
+  const fetchPrivateCircleDashboard = useCallback(async () => {
+    try {
+      const response = await getPrivateCircleDashboard();
+      console.log(response, '  PrivateCircle dashboard API response:');
+      if (!isPrivateCircleApiSuccess(response)) {
+        setDashboardMembers([]);
+        setDashboardMemberCount(0);
+        setDashboardPostCount(0);
+        setCircleAccessActive(null);
+        setHasPrivateCircle(false);
+        return false;
+      }
+
+      const { members, count, postCount, isActive } = parsePrivateCircleDashboard(response);
+      setDashboardMembers(
+        members.map((member) => ({
+          id: member.id,
+          name: member.username,
+          image: normalizeImageUrl(member.avatar) || member.avatar,
+        })),
+      );
+      setDashboardMemberCount(count);
+      setDashboardPostCount(postCount);
+      setCircleAccessActive(isActive);
+      // Circle exists once dashboard succeeds (even with 0 members / posts).
+      setHasPrivateCircle(true);
+      return true;
+    } catch (error) {
+      console.log('PrivateCircle dashboard error:', error);
+      setDashboardMembers([]);
+      setDashboardMemberCount(0);
+      setDashboardPostCount(0);
+      setCircleAccessActive(null);
+      setHasPrivateCircle(false);
+      return false;
+    }
+  }, []);
+
   // ── Membership check → then fetch if allowed ─────────────────────────────
   const checkMembershipAndFetch = useCallback(async () => {
     if (skipPrivateCircleApi) {
@@ -285,10 +340,11 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
     try {
       setLoading(true);
 
-      // Own profile → always a member, show all posts
+      // Own profile → always a member; also load dashboard so we know if the
+      // circle is already set up (otherwise "Start It Now" keeps showing).
       if (isOwnProfile) {
         setIsMember(true);
-        await fetchPostsOnly(userData.id);
+        await Promise.all([fetchPostsOnly(userData.id), fetchPrivateCircleDashboard()]);
         return;
       }
 
@@ -298,11 +354,13 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
       if (!isPrivateCircleApiSuccess(response)) {
         // API failed or not set up → not a member
         setIsMember(false);
+        setHasPrivateCircle(false);
         setPosts([]);
         return;
       }
 
       const { members, count, setupData } = parsePrivateCircleSetup(response);
+      setHasPrivateCircle(true);
 
       // Populate dashboard values for the viewed user's private circle
       setDashboardMembers(
@@ -344,70 +402,25 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
     } catch (error) {
       console.log('PrivateCircle membership check error:', error);
       setIsMember(false);
+      setHasPrivateCircle(false);
       setPosts([]);
     } finally {
       setLoading(false);
     }
-  }, [skipPrivateCircleApi, userData?.id, isOwnProfile, loggedInUserId, fetchPostsOnly]);
-
-  const fetchRecentActivities = useCallback(async () => {
-    try {
-      const response = await recentActivity();
-      console.log(response, '  PrivateCircle recentActivity API response:');
-      if (!isPrivateCircleApiSuccess(response)) {
-        setRecentActivities([]);
-        return;
-      }
-      setRecentActivities(parseRecentActivities(response, t));
-    } catch (error) {
-      console.log('PrivateCircle recentActivity error:', error);
-      setRecentActivities([]);
-    }
-  }, [t]);
-
-  const fetchPrivateCircleDashboard = useCallback(async () => {
-    try {
-      const response = await getPrivateCircleDashboard();
-      console.log(response, '  PrivateCircle dashboard API response:');
-      if (!isPrivateCircleApiSuccess(response)) {
-        setDashboardMembers([]);
-        setDashboardMemberCount(0);
-        setDashboardPostCount(0);
-        setCircleAccessActive(null);
-        return;
-      }
-
-      const { members, count, postCount, isActive } = parsePrivateCircleDashboard(response);
-      setDashboardMembers(
-        members.map((member) => ({
-          id: member.id,
-          name: member.username,
-          image: normalizeImageUrl(member.avatar) || member.avatar,
-        })),
-      );
-      setDashboardMemberCount(count);
-      setDashboardPostCount(postCount);
-      setCircleAccessActive(isActive);
-    } catch (error) {
-      console.log('PrivateCircle dashboard error:', error);
-      setDashboardMembers([]);
-      setDashboardMemberCount(0);
-      setDashboardPostCount(0);
-      setCircleAccessActive(null);
-    }
-  }, []);
+  }, [skipPrivateCircleApi, userData?.id, isOwnProfile, loggedInUserId, fetchPostsOnly, fetchPrivateCircleDashboard]);
 
   const fetchDashboardData = useCallback(async () => {
-    if (!isWalletPrivateCircle) {
-      setRecentActivities([]);
-      setDashboardMembers([]);
-      setDashboardMemberCount(0);
-      setDashboardPostCount(0);
-      setCircleAccessActive(null);
+    // Wallet and own-profile both need dashboard; guests get it from membership API.
+    if (!isWalletPrivateCircle && !isOwnProfile) {
       return;
     }
-    await Promise.all([fetchRecentActivities(), fetchPrivateCircleDashboard()]);
-  }, [isWalletPrivateCircle, fetchRecentActivities, fetchPrivateCircleDashboard]);
+    if (isWalletPrivateCircle) {
+      setHasPrivateCircle(true);
+      await Promise.all([fetchRecentActivities(), fetchPrivateCircleDashboard()]);
+      return;
+    }
+    await fetchPrivateCircleDashboard();
+  }, [isWalletPrivateCircle, isOwnProfile, fetchRecentActivities, fetchPrivateCircleDashboard]);
 
   const walletMembersForPicker = useMemo(
     () => dashboardMembers.map((member) => ({
@@ -427,10 +440,10 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
         members: walletMembersForPicker,
         selectedIds: walletMembersForPicker.map((member) => member.id),
         selectedMembers: walletMembersForPicker,
-        returnToWalletPrivateCircle: true,
+        ...(isWalletPrivateCircle ? { returnToWalletPrivateCircle: true } : {}),
       },
     });
-  }, [navigation, walletMembersForPicker]);
+  }, [navigation, walletMembersForPicker, isWalletPrivateCircle]);
 
   const handleRemoveMember = useCallback(async (memberId) => {
     const normalized = String(memberId || '');
@@ -541,6 +554,10 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
 
   const previewMembers = dashboardMembers;
   const isAccessActive = circleAccessActive ?? isMember;
+  // Own profile with an existing circle should manage it — not show onboarding CTA.
+  const showStartCircleCta = isOwnProfile && hasPrivateCircle === false;
+  const showOwnerDashboard =
+    isWalletPrivateCircle || (isOwnProfile && hasPrivateCircle === true);
 
   // ── Info card (shown when not a member OR no posts) ───────────────────────
   // ─── Outside PrivateCircle, at file level ─────────────────────────────────────
@@ -549,7 +566,8 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
     cardStyle,
     text,
     textStyle,
-    isOwnProfile,
+    showStartCircleCta,
+    showOwnerDashboard,
     isWalletPrivateCircle,
     onStartPress,
     bullets,
@@ -568,7 +586,7 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
-      {isOwnProfile ? (
+      {showStartCircleCta ? (
         <View style={[styles.card, cardStyle, { borderColor: withAlpha(text, 0.12) }]}>
           <LinearGradient
             colors={[withAlpha(text, 0.16), withAlpha(text, 0.06)]}
@@ -633,7 +651,9 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
             <View style={styles.cardBody}>
               <View style={styles.statusHeader}>
                 <Text style={[styles.title, styles.statusTitle, textStyle]}>
-                  {t('privateCircle.guestTitle')}
+                  {showOwnerDashboard
+                    ? t('privateCircle.ownTitle')
+                    : t('privateCircle.guestTitle')}
                 </Text>
                 <View
                   style={[
@@ -656,11 +676,11 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
                 </View>
               </View>
               <Text style={[styles.paragraph, textStyle]}>
-                {t('privateCircle.guestNotPublic')}{' '}
-                {t('privateCircle.guestNeedInvite')}{' '}
-                {t('privateCircle.guestAudience')}
+                {showOwnerDashboard
+                  ? t('privateCircle.ownYourSpace')
+                  : `${t('privateCircle.guestNotPublic')} ${t('privateCircle.guestNeedInvite')} ${t('privateCircle.guestAudience')}`}
               </Text>
-              {!isWalletPrivateCircle && (
+              {!showOwnerDashboard && (
                 <>
                   <Text style={[styles.paragraph, textStyle]}>
                     {t('privateCircle.guestInviteOnly')}
@@ -690,23 +710,25 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
               </View>
             </View>
           </View>
-          {isWalletPrivateCircle ? (
+          {showOwnerDashboard ? (
             <View >
-              <View style={[styles.dashboardPanel, cardStyle, { borderColor: withAlpha(text, 0.1) }]}>
-                <View style={styles.previewSectionHeader}>
-                  <Text style={[styles.miniSectionTitle, textStyle]}>{t('privateCircle.recentActivity')}</Text>
-                </View>
-                {recentActivities.map((activity) => (
-                  <View key={activity.id} style={styles.activityRow}>
-                    <View style={[styles.activityDot, { backgroundColor: text }]} />
-                    <View style={styles.activityTextWrap}>
-                      <Text style={[styles.activityName, textStyle]}>{activity.name}</Text>
-                      <Text style={styles.activityMeta}>{activity.body || activity.action}</Text>
-                    </View>
-                    <Text style={styles.activityTime}>{activity.time}</Text>
+              {isWalletPrivateCircle ? (
+                <View style={[styles.dashboardPanel, cardStyle, { borderColor: withAlpha(text, 0.1) }]}>
+                  <View style={styles.previewSectionHeader}>
+                    <Text style={[styles.miniSectionTitle, textStyle]}>{t('privateCircle.recentActivity')}</Text>
                   </View>
-                ))}
-              </View>
+                  {recentActivities.map((activity) => (
+                    <View key={activity.id} style={styles.activityRow}>
+                      <View style={[styles.activityDot, { backgroundColor: text }]} />
+                      <View style={styles.activityTextWrap}>
+                        <Text style={[styles.activityName, textStyle]}>{activity.name}</Text>
+                        <Text style={styles.activityMeta}>{activity.body || activity.action}</Text>
+                      </View>
+                      <Text style={styles.activityTime}>{activity.time}</Text>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
 
               <View style={[styles.dashboardPanel, cardStyle, { borderColor: withAlpha(text, 0.1) }]}>
                 <View style={styles.previewSectionHeader}>
@@ -761,7 +783,8 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
     cardStyle,
     text,
     textStyle,
-    isOwnProfile,
+    showStartCircleCta,
+    showOwnerDashboard,
     isWalletPrivateCircle,
     onStartPress,
     bullets,
@@ -778,31 +801,23 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
 
   // ── Render sites ──────────────────────────────────────────────────────────────
   if (skipPrivateCircleApi) return <InfoCard {...infoCardProps} />;
-  if (loading || isMember === null) return (
-    <View style={[gridStyles.loaderContainer, bgStyle]}>
-      <ActivityIndicator size="large" color={text} />
-    </View>
-  );
-  if (!isMember) return <InfoCard {...infoCardProps} />;
-  if (posts.length === 0) return <InfoCard {...infoCardProps} />;
-  // ── Loading ───────────────────────────────────────────────────────────────
-  if (loading || isMember === null) {
+  if (loading || isMember === null || (isOwnProfile && hasPrivateCircle === null)) {
     return (
       <View style={[gridStyles.loaderContainer, bgStyle]}>
         <ActivityIndicator size="large" color={text} />
       </View>
     );
   }
-
-  // ── Not a member → info card ──────────────────────────────────────────────
-  if (!isMember) {
-    return <InfoCard />;
+  // Own profile, circle not set up yet → onboarding CTA
+  if (isOwnProfile && hasPrivateCircle === false) {
+    return <InfoCard {...infoCardProps} />;
   }
-
-  // ── Member but no posts → info card ──────────────────────────────────────
-  if (posts.length === 0) {
-    return <InfoCard />;
+  // Own profile, circle exists but no posts yet → dashboard (not Start It Now)
+  if (isOwnProfile && hasPrivateCircle && posts.length === 0) {
+    return <InfoCard {...infoCardProps} />;
   }
+  if (!isMember) return <InfoCard {...infoCardProps} />;
+  if (posts.length === 0) return <InfoCard {...infoCardProps} />;
 
   // ── Member + posts → grid ─────────────────────────────────────────────────
   return (
