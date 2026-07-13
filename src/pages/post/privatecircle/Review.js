@@ -34,20 +34,39 @@ export default function PrivateCircleReview() {
   const [saving, setSaving] = useState(false);
 
   const mode = route.params?.mode === 'mint' ? 'mint' : 'setup';
-  const circleMembers = Array.isArray(route.params?.members) ? route.params.members : [];
-  const selectedIds = Array.isArray(route.params?.selectedIds)
+  const circleMembers = useMemo(() => Array.isArray(route.params?.members) ? route.params.members : [], [route.params?.members]);
+  const selectedIds = useMemo(() => Array.isArray(route.params?.selectedIds)
     ? route.params.selectedIds.map(String)
-    : [];
-  const selectedMembers = Array.isArray(route.params?.selectedMembers)
+    : [], [route.params?.selectedIds]);
+  const selectedMembers = useMemo(() => Array.isArray(route.params?.selectedMembers)
     ? route.params.selectedMembers
-    : [];
-  const persistedIds = Array.isArray(route.params?.persistedIds)
+    : [], [route.params?.selectedMembers]);
+  const persistedIds = useMemo(() => Array.isArray(route.params?.persistedIds)
     ? route.params.persistedIds.map(String)
-    : circleMembers.map((member) => String(member.id));
+    : circleMembers.map((member) => String(member.id)), [route.params?.persistedIds, circleMembers]);
 
   useEffect(() => {
     AsyncStorage.getItem('profile').then((type) => setProfileType(type || ''));
   }, []);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (event) => {
+      const actionType = event.data.action?.type;
+      if (actionType === 'POP' || actionType === 'GO_BACK') {
+        event.preventDefault();
+        navigation.replace('PrivateCircleSelectMembers', {
+          mode,
+          members: circleMembers,
+          selectedIds,
+          selectedMembers,
+          persistedIds,
+          returnToReview: false,
+        });
+      }
+    });
+
+    return unsubscribe;
+  }, [navigation, mode, circleMembers, selectedIds, selectedMembers, persistedIds]);
 
   const isCompanyProfile = profileType === 'company';
   const profileActionGradient = isCompanyProfile
