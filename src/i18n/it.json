@@ -3650,10 +3650,10 @@
     },
     "tabs": {
       "all": "Tutti",
-      "pending": "Da spedire",
       "processing": "In elaborazione",
-      "shipped": "Da spedire",
-      "delivered": "Consegnati"
+      "shipped": "Spedito",
+      "shipMe": "Spediscimi",
+      "delivered": "Consegnato"
     }
   },
   "myClosetBuyer": {

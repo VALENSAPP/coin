@@ -3649,11 +3649,11 @@
       "delivered": "Marquer comme livrée"
     },
     "tabs": {
-      "all": "Toutes",
-      "pending": "À expédier",
-      "processing": "En cours de traitement",
-      "shipped": "À expédier",
-      "delivered": "Livrées"
+      "all": "Tous",
+      "processing": "En cours",
+      "shipped": "Expédié",
+      "shipMe": "Expédiez-moi",
+      "delivered": "Livré"
     }
   },
   "myClosetBuyer": {
