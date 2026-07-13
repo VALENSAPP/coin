@@ -703,8 +703,8 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
 
                     {item.pinLabel ? (
                       <View style={styles.pinPill}>
-                        <Ionicons name="pin-outline" size={14} color="#6b46c1" />
-                        <Text style={styles.pinPillText}>{item.pinLabel}</Text>
+                        <Ionicons name="pin-outline" size={14} color={text} />
+                        <Text style={[styles.pinPillText, {color: text}]}>{item.pinLabel}</Text>
                       </View>
                     ) : null}
                   </View>
@@ -1124,7 +1124,6 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   pinPillText: {
-    color: '#6b46c1',
     fontSize: 11,
     fontWeight: '800',
   },

@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -73,10 +73,10 @@ const imageUri = image => {
 const fastImageSource = uri =>
   uri
     ? {
-        uri,
-        priority: FastImage.priority.high,
-        cache: FastImage.cacheControl.immutable,
-      }
+      uri,
+      priority: FastImage.priority.high,
+      cache: FastImage.cacheControl.immutable,
+    }
     : null;
 
 const firstImage = value => {
@@ -150,14 +150,6 @@ const normalizeOrder = (order, index, mode, t) => ({
   image: getOrderImage(order),
   raw: order,
 });
-
-const TABS = [
-  { key: 'all', status: null },
-  // { key: 'pending', status: 'PENDING' },
-  { key: 'processing', status: 'PROCESSING' },
-  { key: 'shipped', status: 'SHIPPED' },
-  { key: 'delivered', status: 'DELIVERED' },
-];
 
 // Cancellable statuses on the buyer side — adjust to match your backend's actual rules
 const BUYER_CANCELLABLE_STATUSES = ['pending', 'confirmed', 'processing'];
@@ -299,6 +291,22 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
   // Which side of the marketplace we're viewing — defaults to seller for backward compatibility
   const mode = route?.params?.viewType === 'buyer' ? 'buyer' : 'seller';
 
+  const SELLER_TABS = [
+    { key: 'all', status: null },
+    { key: 'processing', status: 'PROCESSING' },
+    { key: 'shipped', status: 'SHIPPED' },
+    { key: 'delivered', status: 'DELIVERED' },
+  ];
+
+  const BUYER_TABS = [
+    { key: 'all', status: null },
+    { key: 'processing', status: 'PROCESSING' },
+    { key: 'shipMe', status: 'SHIPPED' },
+    { key: 'delivered', status: 'DELIVERED' },
+  ];
+
+  const tabs = mode === 'buyer' ? BUYER_TABS : SELLER_TABS;
+  const [allOrders, setAllOrders] = useState([]);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -334,7 +342,7 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
   // Loads orders for the currently active tab/status, server-side filtered & paginated
   const loadOrders = useCallback(
     async (page = 1, append = false) => {
-      const tabConfig = TABS.find(tab => tab.key === activeTab) || TABS[0];
+      const tabConfig = tabs.find(tab => tab.key === activeTab) || tabs[0];
       append ? setLoadingMore(true) : setLoading(true);
       try {
         const response = await fetchOrdersPage(page, tabConfig.status);
@@ -342,7 +350,11 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
         const pagination = extractPagination(response);
         const normalized = list.map((order, index) => normalizeOrder(order, index, mode, t));
 
-        setOrders(prev => (append ? [...prev, ...normalized] : normalized));
+        if (mode === 'buyer') {
+          setAllOrders(normalized);
+        }
+
+        setOrders(normalized);
         setPageInfo(prev => ({
           page: pagination?.page ?? page,
           limit: pagination?.limit ?? prev.limit,
@@ -367,13 +379,13 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
   const loadCounts = useCallback(async () => {
     try {
       const results = await Promise.all(
-        TABS.map(tab => fetchOrdersPage(1, tab.status).then(res => {
+        tabs.map(tab => fetchOrdersPage(1, tab.status).then(res => {
           // limit isn't part of fetchOrdersPage's signature; request it directly here
           return res;
         })),
       );
       const nextCounts = {};
-      TABS.forEach((tab, index) => {
+      tabs.forEach((tab, index) => {
         const pagination = extractPagination(results[index]);
         nextCounts[tab.key] = pagination?.total ?? 0;
       });
@@ -383,13 +395,15 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
     }
   }, [fetchOrdersPage]);
 
-  useFocusEffect(
-    useCallback(() => {
-      loadOrders(1, false);
+useFocusEffect(
+  useCallback(() => {
+    loadOrders(1, false);
+
+    if (mode === 'seller') {
       loadCounts();
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeTab, mode]),
-  );
+    }
+  }, [activeTab, mode]),
+);
 
   const handleLoadMore = useCallback(() => {
     if (loadingMore || pageInfo.page >= pageInfo.totalPages) return;
@@ -408,7 +422,34 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
   );
 
   // `orders` already reflects the active tab's server-side filter, so it doubles as `visibleOrders`.
-  const visibleOrders = orders;
+  const visibleOrders = useMemo(() => {
+    if (mode !== 'buyer') return orders;
+
+    switch (activeTab) {
+      case 'processing':
+        return allOrders.filter(o => o.status === 'processing');
+
+      case 'shipMe':
+        return allOrders.filter(o => o.status === 'shipped');
+
+      case 'delivered':
+        return allOrders.filter(o => o.status === 'delivered');
+
+      default:
+        return allOrders;
+    }
+  }, [mode, activeTab, allOrders, orders]);
+
+useEffect(() => {
+  if (mode !== 'buyer') return;
+
+  setCounts({
+    all: allOrders.length,
+    processing: allOrders.filter(o => o.status === 'processing').length,
+    shipMe: allOrders.filter(o => o.status === 'shipped').length,
+    delivered: allOrders.filter(o => o.status === 'delivered').length,
+  });
+}, [allOrders, mode]);
 
   const handleAdvance = useCallback(
     async (order, extra) => {
@@ -506,7 +547,7 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
       <OrdersHeader onBack={handleBack} title={headerTitle} />
 
       <View style={styles.tabsRow}>
-        {TABS.map(tab => {
+        {tabs.map(tab => {
           const isActive = activeTab === tab.key;
           const count = counts[tab.key];
           return (

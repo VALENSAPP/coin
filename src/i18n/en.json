@@ -3742,9 +3742,9 @@
     },
     "tabs": {
       "all": "All",
-      "pending": "To ship",
       "processing": "Processing",
-      "shipped": "To Ship",
+      "shipped": "Shipped",
+      "shipMe": "Ship Me",
       "delivered": "Delivered"
     }
   },

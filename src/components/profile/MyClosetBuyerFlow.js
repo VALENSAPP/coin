@@ -98,10 +98,10 @@ const imageUri = image => {
 const fastImageSource = uri =>
   uri
     ? {
-        uri,
-        priority: FastImage.priority.high,
-        cache: FastImage.cacheControl.immutable,
-      }
+      uri,
+      priority: FastImage.priority.high,
+      cache: FastImage.cacheControl.immutable,
+    }
     : null;
 
 const itemImages = item => {
@@ -1066,10 +1066,10 @@ const MyClosetBattlesScreen = ({ navigation, route }) => {
       returnToProfile: isOwnProfile
         ? { screen: 'Profile' }
         : {
-            tab: 'HomeMain',
-            screen: 'UsersProfile',
-            params: { userId: route?.params?.seller?.id || route?.params?.sellerId },
-          },
+          tab: 'HomeMain',
+          screen: 'UsersProfile',
+          params: { userId: route?.params?.seller?.id || route?.params?.sellerId },
+        },
     }));
   }, [navigation, isOwnProfile, route, route?.params?.seller?.id, route?.params?.sellerId]);
 
@@ -1098,7 +1098,7 @@ const MyClosetBattlesScreen = ({ navigation, route }) => {
           <ActivityIndicator color={accent} />
         </View>
       ) : (
-          <FlatList
+        <FlatList
           data={battles}
           keyExtractor={b => b.id}
           renderItem={({ item }) => (
@@ -1168,7 +1168,7 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
         />
         <Text style={styles.detailName}>{item.name}</Text>
         <Text style={[styles.detailPrice, { color: text }]}>{item.price}</Text>
-        <SellerCard seller={seller} accentColor={text} />
+        {/* <SellerCard seller={seller} accentColor={text} /> */}
         <Text style={styles.sectionLabel}>{t('myClosetBuyer.description')}</Text>
         <Text style={styles.description}>{item.description}</Text>
         <View style={styles.attributeList}>
@@ -1710,11 +1710,22 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
   const cartItemPrice = ci => currency(ci?.product?.price ?? ci?.price ?? 0);
   const cartItemMax = ci => Number(ci?.product?.quantity || ci?.product?.availableQuantity || 99) || 99;
 
+  const totalQuantity = cartItems.reduce(
+    (total, item) => total + (item.quantity || 0),
+    0,
+  );
+
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
       <Header
         navigation={navigation}
-        title={cartLoading ? t('myClosetBuyer.cartTitle') : t('myClosetBuyer.cartTitleWithCount', { count: cartItems.length })}
+        title={
+          cartLoading
+            ? t('myClosetBuyer.cartTitle')
+            : t('myClosetBuyer.cartTitleWithCount', {
+              count: totalQuantity,
+            })
+        }
         rightIcon={cartItems.length > 0 ? 'trash-outline' : undefined}
         onRightPress={handleClearCart}
         returnTo={returnTo}
@@ -2508,23 +2519,23 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
   const requiresShipping = route?.params?.requiresShipping ?? true;
 
   const findPaymentId = useCallback(async (cartId) => {
-  try {
-    const response = await getRecentPaymentDetails();
-    const list = response?.data?.data ?? response?.data ?? [];
-    const payments = Array.isArray(list) ? list : list ? [list] : [];
+    try {
+      const response = await getRecentPaymentDetails();
+      const list = response?.data?.data ?? response?.data ?? [];
+      const payments = Array.isArray(list) ? list : list ? [list] : [];
 
-    // The endpoint only ever returns the single most recent payment, so try to
-    // match on cartId (top-level or nested in metadata) but fall back to that
-    // one record if no match is found rather than returning null.
-    const match =
-      payments.find(p => p?.cartId === cartId || p?.metadata?.cartId === cartId) ??
-      payments[0] ??
-      null;
-    return match?.id ?? null;
-  } catch {
-    return null;
-  }
-}, []);
+      // The endpoint only ever returns the single most recent payment, so try to
+      // match on cartId (top-level or nested in metadata) but fall back to that
+      // one record if no match is found rather than returning null.
+      const match =
+        payments.find(p => p?.cartId === cartId || p?.metadata?.cartId === cartId) ??
+        payments[0] ??
+        null;
+      return match?.id ?? null;
+    } catch {
+      return null;
+    }
+  }, []);
 
   const pollForPaidPayment = useCallback(async (paymentId, { attempts = 8, delayMs = 1500 } = {}) => {
     for (let i = 0; i < attempts; i += 1) {
@@ -2795,17 +2806,17 @@ const MyClosetBuyerOrderReceivedScreen = ({ navigation, route }) => {
           activeOpacity={0.85}
           style={styles.secondaryButton}
           onPress={() => navigation.reset({
-                index: 0,
-                routes: [
-                  {
-                    name: 'MainApp',
-                    params: {
-                      screen: 'wallet',
-                      params: { screen: 'MyCloset' },
-                    },
-                  },
-                ],
-              })}
+            index: 0,
+            routes: [
+              {
+                name: 'MainApp',
+                params: {
+                  screen: 'wallet',
+                  params: { screen: 'MyCloset' },
+                },
+              },
+            ],
+          })}
         >
           <Text style={[styles.secondaryButtonText, { color: text }]}>{t('myClosetBuyer.goToMyOrders')}</Text>
         </TouchableOpacity>
@@ -3009,7 +3020,7 @@ const styles = StyleSheet.create({
   photoDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#d7cce3' },
   photoDotsSpacer: { height: 42 },
   detailName: { fontSize: 22, fontWeight: '900', color: '#17072d' },
-  detailPrice: { marginTop: 3, fontSize: 21, fontWeight: '900' },
+  detailPrice: { marginTop: 3, fontSize: 21, fontWeight: '900', marginBottom: 30 },
 
   sellerCard: {
     flexDirection: 'row', alignItems: 'center',

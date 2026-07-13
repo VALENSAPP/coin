@@ -29,7 +29,3 @@ allprojects {
         maven { url "https://maven.sumsub.com/repository/maven-public/" }
     }
 }
-
-gradle.taskGraph.whenReady { graph ->
-    graph.allTasks.findAll { it.name.contains("lintVital") }.each { it.enabled = false }
-}
