@@ -44,7 +44,7 @@ export const buildClosetReturnTo = ({
   }
 
   return {
-    tab: 'Profile',
+    tab: 'ProfileMain',
     screen: 'Profile',
     params: { initialTab: tabKey },
   };

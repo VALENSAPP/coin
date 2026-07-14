@@ -51,6 +51,7 @@ import InAppBrowser from 'react-native-inappbrowser-reborn';
 import { FlatList as GestureFlatList } from 'react-native-gesture-handler';
 import InstagramZoomableImage from '../shared/InstagramZoomableImage';
 import {
+  buildClosetReturnTo,
   navigateToBattleLive,
   navigateClosetReturn,
   useClosetTheme,
@@ -1092,15 +1093,13 @@ const MyClosetBattlesScreen = ({ navigation, route }) => {
       battleId: battle?.id,
       initialBattle: battle,
       selectedItems: [battle?.left, battle?.right].filter(Boolean),
-      returnToProfile: isOwnProfile
-        ? { screen: 'Profile' }
-        : {
-          tab: 'HomeMain',
-          screen: 'UsersProfile',
-          params: { userId: route?.params?.seller?.id || route?.params?.sellerId },
-        },
+      returnToProfile: buildClosetReturnTo({
+        isOwnProfile,
+        sellerProfile: route?.params?.seller?.profile || route?.params?.sellerProfile,
+        sellerId: route?.params?.seller?.id || route?.params?.sellerId,
+      }),
     }));
-  }, [navigation, isOwnProfile, route, route?.params?.seller?.id, route?.params?.sellerId]);
+  }, [navigation, isOwnProfile, route, route?.params?.seller?.id, route?.params?.seller?.profile, route?.params?.sellerId, route?.params?.sellerProfile]);
 
   useFocusEffect(
     useCallback(() => {
@@ -1280,6 +1279,7 @@ const MyClosetBuyerOptionsScreen = ({ navigation, route }) => {
   const [note, setNote] = useState('');
   const [adding, setAdding] = useState(false);
   const [syncingQty, setSyncingQty] = useState(false);
+  const [existingCartItemId, setExistingCartItemId] = useState(null);
   const available = Math.max(1, item.quantityAvailable);
 
   const productId = item.raw?.id || item.raw?._id || item.id;
@@ -1295,7 +1295,7 @@ const MyClosetBuyerOptionsScreen = ({ navigation, route }) => {
           const response = await getCart(dataToSend);
           if (cancelled) return;
           const cartsArr = response?.data?.carts ?? [];
-          const cartObj = cartsArr[0] ?? null;   // sellerId filter means at most one match
+          const cartObj = cartsArr[0] ?? null;
           const cartItems = cartObj?.cartItems ?? [];
           const match = Array.isArray(cartItems)
             ? cartItems.find(ci => {
@@ -1305,6 +1305,9 @@ const MyClosetBuyerOptionsScreen = ({ navigation, route }) => {
             : null;
           if (match) {
             setQuantity(Math.max(1, Math.min(available, Number(match.quantity) || 1)));
+            setExistingCartItemId(match.id);
+          } else {
+            setExistingCartItemId(null);
           }
         } catch {
           // silently ignore — keep whatever quantity was set
@@ -1320,7 +1323,6 @@ const MyClosetBuyerOptionsScreen = ({ navigation, route }) => {
     setQuantity(prev => Math.min(available, Math.max(1, prev + delta)));
   };
 
-  // ── POST /cart/items — add item to server cart ───────────────────────────
   const goCart = async () => {
     if (!productId) {
       navigation.navigate('MyClosetBuyerCart', withClosetNavParams(route, {
@@ -1335,7 +1337,11 @@ const MyClosetBuyerOptionsScreen = ({ navigation, route }) => {
     }
     setAdding(true);
     try {
-      await addCartItem({ productId, quantity });
+      if (existingCartItemId) {
+        await updateCartItem(existingCartItemId, { quantity });
+      } else {
+        await addCartItem({ productId, quantity });
+      }
     } catch (err) {
       setAdding(false);
       Alert.alert(t('myClosetBuyer.errorTitle'), err?.response?.data?.message || t('myClosetBuyer.addToCartError'));
@@ -1577,11 +1583,9 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
   }, [t, route?.params?.sellerId]);
 
   const fetchWishlist = useCallback(async () => {
-    console.log("in handleWishlistPress api---------------");
     setWishlistLoading(true);
     try {
       const response = await getWishlist(route?.params?.sellerId);
-      console.log("in handleWishlistPress api--route?.params?.sellerId-------------", response);
       const wishlistRecord = getWishlistRecordForSeller(response, route?.params?.sellerId);
       const rawWishlistItems = wishlistRecord?.wishlistItems ?? [];
       let populatedItems = [...rawWishlistItems];
@@ -1632,7 +1636,6 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
 
   useFocusEffect(
     useCallback(() => {
-      console.log(" in use focus effect---------------")
       fetchCart();
       fetchWishlist();
     }, [fetchCart, fetchWishlist]),
@@ -3332,7 +3335,7 @@ const styles = StyleSheet.create({
   },
   cartThumb: { width: 72, height: 58, borderRadius: 10 },
   cartCopy: { flex: 1, paddingHorizontal: 12 },
-  cartItemName: { fontSize: 13, color: '#17072d', fontWeight: '900' },
+  cartItemName: { fontSize: 13, color: '#17072d', fontWeight: '900', width: '45%' },
   cartPrice: { marginTop: 3, fontSize: 13, fontWeight: '900' },
   cartQtyRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 8 },
   cartQtyBtn: {

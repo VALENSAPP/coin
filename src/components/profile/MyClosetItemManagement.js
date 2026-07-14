@@ -25,6 +25,7 @@ import {
   getMyClosetItems,
   updateMyClosetItem,
 } from '../../services/myCloset';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 
 // Option lists are functions of `t` so they stay in sync when the language changes.
 // NOTE: `value` stays a fixed English identifier — only `label` is translated —
@@ -214,7 +215,9 @@ const ClosestHeader = ({ title, subtitle, onBack }) => (
     </TouchableOpacity>
     <View style={styles.headerCopy}>
       <Text style={styles.headerTitle}>{title}</Text>
-      <Text style={styles.headerSubtitle}>{subtitle}</Text>
+      {subtitle &&
+        <Text style={styles.headerSubtitle}>{subtitle}</Text>
+      }
     </View>
     <View style={styles.headerSpacer} />
   </View>
@@ -474,10 +477,17 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
 
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
-      <ScrollView contentContainerStyle={styles.screenContent} showsVerticalScrollIndicator={false}>
+      <KeyboardAwareScrollView
+        contentContainerStyle={styles.screenContent}
+        showsVerticalScrollIndicator={false}
+        enableOnAndroid
+        enableAutomaticScroll
+        extraScrollHeight={20}
+        keyboardShouldPersistTaps="handled"
+      >
         <ClosestHeader
           title={t('myClosetItemEditor.headerTitle')}
-          subtitle="/mycloset/items/{itemId}"
+          // subtitle="/mycloset/items/{itemId}"
           onBack={() => navigation.goBack()}
         />
 
@@ -558,7 +568,7 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
             disabled={saving}
             style={[styles.primaryButton, { backgroundColor: text, opacity: saving ? 0.8 : 1 }]}
           >
-           <Text style={styles.primaryButtonText}>{t('myClosetItemEditor.updateButton')}</Text>
+            <Text style={styles.primaryButtonText}>{t('myClosetItemEditor.updateButton')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             activeOpacity={0.9}
@@ -569,7 +579,7 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
             <Text style={styles.deleteButtonLargeText}>{t('myClosetItemEditor.deleteButton')}</Text>
           </TouchableOpacity>
         </View>
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 };

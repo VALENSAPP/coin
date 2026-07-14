@@ -270,6 +270,10 @@ export const getMarketPlaceEbookById = async (postId) => {
   return axiosInstance.get(`post/getMarketPlaceEbookById/${postId}`);
 };
 
+export const deleteMarketplaceEbook = async (ebookId) => {
+  return axiosInstance.delete(`marketplace-ebooks/${ebookId}`);
+};
+
 export const createMarketplaceEbook = async data => {
   console.log('Creating marketplace ebook with data:', data);
   const formData = new FormData();

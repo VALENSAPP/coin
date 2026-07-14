@@ -29,6 +29,7 @@ import {
 import { Alert } from 'react-native';
 import {
   buildClosetNavContext,
+  buildClosetReturnTo,
   navigateToBattleLive,
   withClosetNavParams,
 } from '../../utils/closetNavigation';
@@ -677,13 +678,11 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
     battleId: battle?.id,
     initialBattle: battle,
     selectedItems: [battle?.left, battle?.right].filter(Boolean),
-    returnToProfile: isOwnProfile
-      ? { screen: 'Profile' }
-      : {
-        tab: 'HomeMain',
-        screen: 'UsersProfile',
-        params: { userId: userData?.id },
-      },
+    returnToProfile: buildClosetReturnTo({
+      isOwnProfile,
+      sellerProfile: userData?.profile,
+      sellerId: userData?.id,
+    }),
   });
   const goStorefront = () => navigation?.navigate?.('ProfileMain', { screen: 'MyClosetStorefront' });
   const goAddFirst = (isFirstItem = true) => navigation?.navigate?.('ProfileMain', {
