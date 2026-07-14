@@ -6,7 +6,8 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useLanguage } from '../../i18n';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
-import { createPost, getMyEbookLibrary } from '../../services/post';
+import { createPost, getMyEbookLibrary, createMarketplaceEbook, getPurchasedEbooks } from '../../services/post';
+import { getMyClosetById } from '../../services/myCloset';
 import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import RNFS from 'react-native-fs';
@@ -25,6 +26,21 @@ const getFileSizeLabel = (size) => {
   const mb = size / (1024 * 1024);
   if (mb >= 1) return `${mb.toFixed(mb >= 10 ? 0 : 1)} MB`;
   return `${(size / 1024).toFixed(0)} KB`;
+};
+
+const normalizePickerUri = (uri) => {
+  if (!uri) return uri;
+
+  const withoutScheme = String(uri).replace(/^file:\/\//, '');
+  if (Platform.OS !== 'ios') {
+    return withoutScheme;
+  }
+
+  try {
+    return decodeURI(withoutScheme);
+  } catch (error) {
+    return withoutScheme;
+  }
 };
 
 const EbookPublisher = ({ navigation }) => {
@@ -57,7 +73,9 @@ const EbookPublisher = ({ navigation }) => {
   const [libraryError, setLibraryError] = useState('');
   const [librarySearch, setLibrarySearch] = useState('');
   const [currentUserId, setCurrentUserId] = useState(null);
+  const [closetId, setClosetId] = useState(null);
   const loggedInUserId = route?.params?.loggedInUserId;
+  const fromRootNavigator = !!route?.params?.fromRootNavigator;
 
   const progress = useMemo(() => Math.min(100, (step / 3) * 100), [step]);
   const coverOptions = useMemo(() => ([
@@ -96,10 +114,10 @@ const EbookPublisher = ({ navigation }) => {
       setLibraryError('');
 
       try {
-        const res = await getMyEbookLibrary();
-        console.log("response in getMyEbookLibrary--------",res)
-        const payload = res?.data?.posts || res?.data?.post || res?.data?.data?.posts || res?.data?.data?.post || res?.data;
-        const nextBooks = Array.isArray(payload) ? payload : Array.isArray(payload?.posts) ? payload.posts : [];
+        const res = fromRootNavigator ? await getPurchasedEbooks() : await getMyEbookLibrary();
+        console.log("response in fetchLibrary--------",res)
+        const payload = res?.data?.posts || res?.data?.post || res?.data?.data?.posts || res?.data?.data?.post || res?.ebooks || res?.data?.ebooks || res?.data || res;
+        const nextBooks = Array.isArray(payload) ? payload : Array.isArray(payload?.posts) ? payload.posts : Array.isArray(payload?.ebooks) ? payload.ebooks : [];
         setLibraryBooks(nextBooks);
       } catch (error) {
         setLibraryError(tf('ebookPublisher.libraryLoadFailed', 'We could not load your library right now.'));
@@ -109,15 +127,25 @@ const EbookPublisher = ({ navigation }) => {
     };
 
     fetchLibrary();
-  }, [stepOneTab]);
+  }, [stepOneTab, fromRootNavigator]);
 
   useEffect(() => {
     (async () => {
       try {
         const storedUserId = await AsyncStorage.getItem('userId');
-        setCurrentUserId(storedUserId ? String(storedUserId) : null);
+        const resolvedUserId = storedUserId ? String(storedUserId) : null;
+        setCurrentUserId(resolvedUserId);
+
+        if (resolvedUserId) {
+          const byUserRes = await getMyClosetById({ userId: resolvedUserId });
+          const closetData = byUserRes?.data ?? byUserRes;
+          const closetRecord = closetData?.closetDetails || closetData;
+          const resolvedClosetId = closetData?.closetId ?? closetRecord?.id ?? closetRecord?._id ?? null;
+          setClosetId(resolvedClosetId);
+          console.log('EbookPublisher loaded closetId:', resolvedClosetId);
+        }
       } catch (error) {
-        console.log('Failed to load current user id for ebook library', error);
+        console.log('Failed to load current user id / closet details for ebook publisher', error);
       }
     })();
   }, []);
@@ -140,6 +168,7 @@ const EbookPublisher = ({ navigation }) => {
       ebook: item,
       userData: route?.params?.userData,
       loggedInUserId: loggedInUserId || currentUserId,
+      fromRootNavigator: fromRootNavigator,
     };
 
     navigation?.navigate?.('ProfileMain', {
@@ -297,43 +326,68 @@ const EbookPublisher = ({ navigation }) => {
         };
       }
 
-      const payload = {
-        type: 'private',
-        format: 'ebook',
-        caption: title.trim(),
-        text: buildTextArray(description),
-        allowDownload,
-        images: coverSource ? [coverSource] : [],
-        ebookpdf: selectedPdf,
-        // ✅ Must be array, NOT .join()
-        tableContent: chapters.map(item => item.title), // ["Chapter1", "Chapter2"]
-        amount: Number(String(amount || '0')) || 0,
-        promoCode: String(promoCode || '').trim(),
-        log: {
-          createdAt: new Date().toISOString(),
-          meta: {
-            title: title.trim(),
-            amount: Number(String(amount || '0')) || 0,
-            promoCode: String(promoCode || '').trim(),
-            chapters: chapters.length,
-            allowDownload: !!allowDownload,
+      let response;
+      if (fromRootNavigator) {
+        let finalClosetId = closetId;
+        if (!finalClosetId) {
+          const resolvedUserId = currentUserId || (await AsyncStorage.getItem('userId'));
+          if (resolvedUserId) {
+            const byUserRes = await getMyClosetById({ userId: String(resolvedUserId) });
+            const closetData = byUserRes?.data ?? byUserRes;
+            const closetRecord = closetData?.closetDetails || closetData;
+            finalClosetId = closetData?.closetId ?? closetRecord?.id ?? closetRecord?._id ?? null;
+          }
+        }
+        if (!finalClosetId) {
+          Alert.alert(tf('ebookPublisher.uploadFailedTitle', 'Upload failed'), 'User closet profile not found. Please setup your closet first.');
+          setIsSubmitting(false);
+          dispatch(hideLoader());
+          return;
+        }
+
+        const marketplacePayload = {
+          closetId: finalClosetId,
+          caption: title.trim(),
+          text: buildTextArray(description),
+          isDownload: allowDownload,
+          images: coverSource ? [coverSource] : [],
+          ebookpdf: selectedPdf,
+          amount: Number(String(amount || '0')) || 0,
+          promoCode: String(promoCode || '').trim(),
+          tableContent: chapters.map(item => item.title),
+        };
+        console.log('Sending marketplace ebook payload:', marketplacePayload);
+        response = await createMarketplaceEbook(marketplacePayload);
+      } else {
+        const payload = {
+          type: 'private',
+          format: 'ebook',
+          caption: title.trim(),
+          text: buildTextArray(description),
+          allowDownload,
+          images: coverSource ? [coverSource] : [],
+          ebookpdf: selectedPdf,
+          tableContent: chapters.map(item => item.title),
+          amount: Number(String(amount || '0')) || 0,
+          promoCode: String(promoCode || '').trim(),
+          log: {
+            createdAt: new Date().toISOString(),
+            meta: {
+              title: title.trim(),
+              amount: Number(String(amount || '0')) || 0,
+              promoCode: String(promoCode || '').trim(),
+              chapters: chapters.length,
+              allowDownload: !!allowDownload,
+            },
           },
-        },
-      };
-      console.log('📚 tableContent before API call:', JSON.stringify(payload.tableContent));
-
-      console.log('Payload (with log):', payload);
-      console.log('Cover Image:', coverSource);
-      console.log('Chapters:', chapters);
-      console.log('Table of Contents (titles only):', payload.tableContent);
-
-      const response = await createPost(payload);
+        };
+        console.log('Sending standard post payload:', payload);
+        response = await createPost(payload);
+      }
 
       console.log('API Response:', response);
-      console.log('Status Code:', response?.status);
-      console.log('Response Data:', response?.data);
-
-      if (response?.status === 200) {
+      const isSuccess = response?.status === 200 || response?.statusCode === 200 || response?.success === true;
+      if (isSuccess) {
         console.log('✅ Ebook published successfully');
       }
 
@@ -711,23 +765,25 @@ const EbookPublisher = ({ navigation }) => {
               </View>
 
               {/* Price Card */}
-              <View style={[styles.priceCard, { borderColor: `${text}22` }]}>
-                <Text style={[styles.priceLabel, { color: text }]}>Price per Book</Text>
-                <View style={styles.priceInputRow}>
-                  <View style={[styles.priceDollar, { borderColor: `${text}22` }]}>
-                    <Text style={[styles.priceDollarText, { color: text }]}>$</Text>
+              {fromRootNavigator && (
+                <View style={[styles.priceCard, { borderColor: `${text}22` }]}>
+                  <Text style={[styles.priceLabel, { color: text }]}>Price per Book</Text>
+                  <View style={styles.priceInputRow}>
+                    <View style={[styles.priceDollar, { borderColor: `${text}22` }]}>
+                      <Text style={[styles.priceDollarText, { color: text }]}>$</Text>
+                    </View>
+                    <TextInput
+                      value={String(amount)}
+                      onChangeText={val => setAmount(val.replace(/[^0-9.]/g, ''))}
+                      style={[styles.priceInput, { color: text }]}
+                      placeholder="0.00"
+                      placeholderTextColor={`${text}66`}
+                      keyboardType={Platform.OS === 'android' ? 'numeric' : 'decimal-pad'}
+                    />
                   </View>
-                  <TextInput
-                    value={String(amount)}
-                    onChangeText={val => setAmount(val.replace(/[^0-9.]/g, ''))}
-                    style={[styles.priceInput, { color: text }]}
-                    placeholder="0.00"
-                    placeholderTextColor={`${text}66`}
-                    keyboardType={Platform.OS === 'android' ? 'numeric' : 'decimal-pad'}
-                  />
+                  <Text style={styles.priceHint}>Suggested price range: $2.99 - $49.99</Text>
                 </View>
-                <Text style={styles.priceHint}>Suggested price range: $2.99 - $49.99</Text>
-              </View>
+              )}
 
               {/* Promo toggle + input */}
               <View style={styles.promoRow}>

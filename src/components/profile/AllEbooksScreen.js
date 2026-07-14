@@ -3,7 +3,8 @@ import { View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator, 
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useIsFocused, useNavigation, useRoute } from '@react-navigation/native';
-import { getMarketPlaceEbook } from '../../services/post';
+import { getMarketPlaceEbook, getMarketplaceEbooksByClosetId } from '../../services/post';
+import { getMyClosetById } from '../../services/myCloset';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const themeStyles = {
@@ -94,11 +95,28 @@ const AllEbooksScreen = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [purchasedMap, setPurchasedMap] = useState({});
 
-  const fetchEbooks = useCallback(async (id) => {
+  const fetchEbooks = useCallback(async (id, cId = null) => {
     try {
       setLoading(true);
-      const response = await getMarketPlaceEbook(id);
+      let resolvedClosetId = cId || route?.params?.closetId;
+      if (!resolvedClosetId && id) {
+        const byUserRes = await getMyClosetById({ userId: id }).catch(() => null);
+        const closetData = byUserRes?.data ?? byUserRes;
+        const closetRecord = closetData?.closetDetails || closetData;
+        resolvedClosetId = closetData?.closetId ?? closetRecord?.id ?? closetRecord?._id ?? null;
+      }
+
+      if (!resolvedClosetId) {
+        setEbooks([]);
+        setLoading(false);
+        return;
+      }
+
+      console.log('Fetching marketplace ebooks in AllEbooksScreen for closetId:', resolvedClosetId);
+      const response = await getMarketplaceEbooksByClosetId(resolvedClosetId);
       const payload =
+        response?.data?.ebooks ??
+        response?.ebooks ??
         response?.data?.posts ??
         response?.data?.data?.posts ??
         response?.data?.data ??
@@ -109,11 +127,14 @@ const AllEbooksScreen = () => {
         ? payload
         : Array.isArray(payload?.posts)
           ? payload.posts
-          : Array.isArray(payload?.data)
-            ? payload.data
-            : [];
+          : Array.isArray(payload?.ebooks)
+            ? payload.ebooks
+            : Array.isArray(payload?.data)
+              ? payload.data
+              : [];
 
       const ebookData = formattedData.filter((post) => {
+        if (post?.ebookpdf) return true;
         const formatValue = String(post?.format || post?.type || '').toLowerCase();
         const imageUrl = String(post?.images?.[0] || post?.image || post?.video || '');
         const isPdf = /\.pdf(\?|$)/i.test(imageUrl);
@@ -121,7 +142,7 @@ const AllEbooksScreen = () => {
         return (
           !post?.visibleTo || post.visibleTo === ''
         ) && (
-            formatValue === 'ebook' || formatValue === 'book' || isPdf
+            formatValue === 'ebook' || formatValue === 'book' || isPdf || formatValue === 'private'
           );
       });
 
@@ -131,8 +152,8 @@ const AllEbooksScreen = () => {
       const map = {};
       for (const item of ebookData) {
         const itemId = item.id || item._id;
-        const purchased = await AsyncStorage.getItem(`purchased_ebook_${itemId}`);
-        map[itemId] = purchased === 'true';
+        const purchased = item.isPurchased ?? (await AsyncStorage.getItem(`purchased_ebook_${itemId}`) === 'true');
+        map[itemId] = !!purchased;
       }
       setPurchasedMap(map);
 
@@ -142,13 +163,13 @@ const AllEbooksScreen = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [route?.params?.closetId]);
 
   useEffect(() => {
     if (userData?.id && isFocused) {
-      fetchEbooks(userData.id);
+      fetchEbooks(userData.id, route?.params?.closetId);
     }
-  }, [userData?.id, isFocused, fetchEbooks]);
+  }, [userData?.id, isFocused, fetchEbooks, route?.params?.closetId]);
 
   const filteredEbooks = useMemo(() => {
     if (!searchQuery.trim()) return ebooks;

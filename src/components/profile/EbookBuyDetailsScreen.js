@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image } from 'rea
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { getMarketPlaceEbookById } from '../../services/post';
+import { getMarketplaceEbookById } from '../../services/post';
 
 const themeStyles = {
   purple: { bg: '#5A2D82', tint: '#EDE3FA' },
@@ -50,8 +50,8 @@ const EbookBuyDetailsScreen = () => {
       const ebookId = String(ebook?.id || ebook?._id || '').trim();
       if (!ebookId) return;
       try {
-        const res = await getMarketPlaceEbookById(ebookId);
-        console.log("getMarketPlaceEbookById-------------------", res)
+        const res = await getMarketplaceEbookById(ebookId);
+        console.log("getMarketplaceEbookById-------------------", res)
         const fetchedData = res?.data?.post || res?.data?.data?.post || res?.post || res?.data || res;
         if (fetchedData) {
           setLoadedEbook(fetchedData);

@@ -218,6 +218,20 @@ export const clearCart = async () => {
   return axiosInstance.delete('/cart');
 }
 
+export const getWishlist = async (sellerId) => {
+  return axiosInstance.get('/wishlist', {
+    params: sellerId ? { sellerId } : undefined,
+  });
+};
+
+export const addWishlistItem = async (productId) => {
+  return axiosInstance.post('/wishlist/items', { productId });
+};
+
+export const deleteWishlistItem = async (wishlistItemId) => {
+  return axiosInstance.delete(`/wishlist/items/${wishlistItemId}`);
+};
+
 export const getSellerOrders = async (params = {}) => {
   const query = new URLSearchParams();
   if (params.page) query.append('page', params.page);

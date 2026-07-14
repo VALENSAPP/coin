@@ -103,6 +103,7 @@ const CustomDrawerContent = (props) => {
         params: {
           type: 'private',
           format: 'ebook',
+          fromRootNavigator: true,
         },
       },
     });

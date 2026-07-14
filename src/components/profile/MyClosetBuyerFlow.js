@@ -37,6 +37,9 @@ import {
   checkoutCart,
   getClosetItemsByClosetId,
   setCartItemShippingChoice,
+  getWishlist,
+  addWishlistItem,
+  deleteWishlistItem,
   createPaymentSession,
   getRecentPaymentDetails,
   getPaymentDetailsByPaymentId,
@@ -75,6 +78,24 @@ const allowedShippingChoices = shippingOption => {
 };
 
 const cartItemProductId = ci => ci?.product?.id || ci?.product?._id || ci?.productId;
+const wishlistItemProductId = item => item?.product?.id || item?.product?._id || item?.productId || item?.id || item?._id;
+
+const getWishlistPayload = response => response?.data?.data ?? response?.data ?? response ?? {};
+
+const getWishlistsArray = response => {
+  const payload = getWishlistPayload(response);
+  if (Array.isArray(payload?.wishlists)) return payload.wishlists;
+  if (Array.isArray(payload?.wishlist)) return payload.wishlist;
+  if (Array.isArray(payload)) return payload;
+  return [];
+};
+
+const getWishlistRecordForSeller = (response, sellerId) => {
+  const wishlists = getWishlistsArray(response);
+  if (!wishlists.length) return null;
+  if (!sellerId) return wishlists[0] || null;
+  return wishlists.find(w => String(w?.sellerId) === String(sellerId)) || wishlists[0] || null;
+};
 
 const currency = value => {
   if (value == null || value === '') return '$0.00';
@@ -94,6 +115,8 @@ const imageUri = image => {
   if (typeof image === 'string') return image;
   return image?.uri || image?.url || image?.path || null;
 };
+
+const unwrapWishlistItems = response => getWishlistRecordForSeller(response)?.wishlistItems ?? [];
 
 const fastImageSource = uri =>
   uri
@@ -278,13 +301,19 @@ const buildCart = (route, t, overrides = {}) => {
   const cartItemsSnapshot = route?.params?.cartItemsSnapshot || null;
   const breakdown = route?.params?.checkoutData?.breakdown ?? null;
 
-  const fallbackItemTotal = item.priceValue * quantity;
+  let fallbackItemTotal = item.priceValue * quantity;
+  if (Array.isArray(cartItemsSnapshot) && cartItemsSnapshot.length > 0) {
+    fallbackItemTotal = cartItemsSnapshot.reduce((sum, ci) => {
+      const price = ci?.product?.price ?? ci?.price ?? item.priceValue;
+      return sum + price * (ci.quantity || 1);
+    }, 0);
+  }
   const itemTotal = breakdown?.itemsSubtotal ?? route?.params?.itemTotal ?? fallbackItemTotal;
   const shipping = breakdown?.shippingAmount ?? Number(route?.params?.shippingAmount ?? route?.params?.shipping ?? 0);
   const taxAmount = breakdown?.taxAmount ?? 0;
   const platformFee = breakdown?.platformFee ?? 0;
   const discountAmount = breakdown?.discountAmount ?? 0;
-  const total = breakdown?.totalAmountDue ?? route?.params?.total ?? itemTotal;
+  const total = breakdown?.totalAmountDue ?? route?.params?.total ?? (itemTotal + shipping + taxAmount + platformFee - discountAmount);
 
   return {
     item,
@@ -1135,8 +1164,51 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
   const isOwnProfile = route?.params?.isOwnProfile ?? false;
   const returnTo = route?.params?.returnTo;
   const [liked, setLiked] = useState(false);
+  const [wishlistLoading, setWishlistLoading] = useState(false);
   const [detailScrollEnabled, setDetailScrollEnabled] = useState(true);
   const isOutOfStock = Number(item.quantityAvailable) <= 0;
+  const productId = item.raw?.id || item.raw?._id || item.id;
+
+  useEffect(() => {
+    let active = true;
+    const loadWishlistState = async () => {
+      if (!productId) return;
+      try {
+        const response = await getWishlist(route?.params?.sellerId);
+        if (!active) return;
+        const wishlistItems = unwrapWishlistItems(response);
+        const match = wishlistItems.some(w => String(wishlistItemProductId(w)) === String(productId));
+        setLiked(match);
+      } catch {
+        if (active) setLiked(false);
+      }
+    };
+    loadWishlistState();
+    return () => { active = false; };
+  }, [productId, route?.params?.sellerId]);
+
+  const handleWishlistPress = async () => {
+    if (!productId || wishlistLoading) return;
+    setWishlistLoading(true);
+    try {
+      if (liked) {
+        const response = await getWishlist(route?.params?.sellerId);
+        const wishlistItems = unwrapWishlistItems(response);
+        const match = wishlistItems.find(w => String(wishlistItemProductId(w)) === String(productId));
+        if (match) {
+          await deleteWishlistItem(match.id || match._id || match.wishlistItemId || match.wishlistId);
+        }
+        setLiked(false);
+      } else {
+        await addWishlistItem(productId);
+        setLiked(true);
+      }
+    } catch (err) {
+      Alert.alert(t('myClosetBuyer.errorTitle'), err?.response?.data?.message || 'Could not update wishlist.');
+    } finally {
+      setWishlistLoading(false);
+    }
+  };
 
   const goOptions = () => {
     navigation.navigate('MyClosetBuyerOptions', withClosetNavParams(route, {
@@ -1153,7 +1225,7 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
         navigation={navigation}
         title={t('myClosetBuyer.myClosetTitle')}
         rightIcon={liked ? 'heart' : 'heart-outline'}
-        onRightPress={() => setLiked(prev => !prev)}
+        onRightPress={handleWishlistPress}
         returnTo={returnTo}
       />
       <ScrollView
@@ -1453,6 +1525,10 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
   const [cartItems, setCartItems] = useState([]); // array of items from GET /cart
   const [cartLoading, setCartLoading] = useState(true);
   const [cartError, setCartError] = useState(null);
+  const [wishlistItems, setWishlistItems] = useState([]);
+  const [wishlistLoading, setWishlistLoading] = useState(true);
+  const [wishlistActionLoading, setWishlistActionLoading] = useState(null);
+  const [wishlistCountOverride, setWishlistCountOverride] = useState(null);
 
   // Per-item action loading (cartItemId being updated/deleted)
   const [itemActionLoading, setItemActionLoading] = useState(null);
@@ -1500,10 +1576,66 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
     }
   }, [t, route?.params?.sellerId]);
 
+  const fetchWishlist = useCallback(async () => {
+    console.log("in handleWishlistPress api---------------");
+    setWishlistLoading(true);
+    try {
+      const response = await getWishlist(route?.params?.sellerId);
+      console.log("in handleWishlistPress api--route?.params?.sellerId-------------", response);
+      const wishlistRecord = getWishlistRecordForSeller(response, route?.params?.sellerId);
+      const rawWishlistItems = wishlistRecord?.wishlistItems ?? [];
+      let populatedItems = [...rawWishlistItems];
+
+      if (rawWishlistItems.length > 0) {
+        try {
+          let closetItems = [];
+          if (wishlistRecord?.closetId) {
+            const closetRes = await getClosetItemsByClosetId(wishlistRecord.closetId);
+            closetItems = closetRes?.data?.data ?? closetRes?.data?.items ?? closetRes?.data ?? [];
+          }
+          if (!closetItems.length) {
+            const sellerIdToUse = route?.params?.sellerId || wishlistRecord?.sellerId;
+            if (sellerIdToUse) {
+              const closetRes = await getMyClosetItems(sellerIdToUse);
+              closetItems = closetRes?.data?.data ?? closetRes?.data?.items ?? closetRes?.data ?? [];
+            }
+          }
+
+          if (closetItems.length > 0) {
+            populatedItems = rawWishlistItems.map(item => {
+              const match = closetItems.find(
+                ci => String(ci?.id || ci?._id) === String(item?.productId)
+              );
+              if (match) {
+                return {
+                  ...item,
+                  product: match,
+                };
+              }
+              return item;
+            });
+          }
+        } catch (fetchErr) {
+          console.log('[DEBUG] Failed to fetch closet items for wishlist population', fetchErr);
+        }
+      }
+
+      setWishlistItems(populatedItems);
+      setWishlistCountOverride(null);
+    } catch (err) {
+      setWishlistItems([]);
+      setWishlistCountOverride(null);
+    } finally {
+      setWishlistLoading(false);
+    }
+  }, [route?.params?.sellerId]);
+
   useFocusEffect(
     useCallback(() => {
+      console.log(" in use focus effect---------------")
       fetchCart();
-    }, [fetchCart]),
+      fetchWishlist();
+    }, [fetchCart, fetchWishlist]),
   );
 
   // ── PATCH /cart/items/{cartItemId} — update quantity ──────────────────
@@ -1617,6 +1749,49 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
     );
   };
 
+  const handleWishlistToggle = async item => {
+    const productId = wishlistItemProductId(item);
+    if (!productId) return;
+    const existing = wishlistItems.find(w => String(wishlistItemProductId(w)) === String(productId));
+    setWishlistActionLoading(productId);
+    try {
+      if (existing) {
+        const prevItems = [...wishlistItems];
+        setWishlistCountOverride(prev => {
+          const currentCount = prev !== null ? prev : prevItems.length;
+          return Math.max(0, currentCount - 1);
+        });
+        setWishlistItems(prev => prev.filter(w => (w?.id || w?._id) !== (existing?.id || existing?._id)));
+        try {
+          await deleteWishlistItem(existing.id || existing._id || existing.wishlistItemId || existing.wishlistId);
+        } catch (apiErr) {
+          setWishlistItems(prevItems);
+          setWishlistCountOverride(prev => (prev !== null ? prev + 1 : null));
+          throw apiErr;
+        }
+      } else {
+        await addWishlistItem(productId);
+        await fetchWishlist();
+      }
+    } catch (err) {
+      Alert.alert(t('myClosetBuyer.errorTitle'), err?.response?.data?.message || t('myClosetBuyer.updateWishlistError'));
+    } finally {
+      setWishlistActionLoading(null);
+    }
+  };
+
+  const handleAddWishlistToCart = async item => {
+    const productId = wishlistItemProductId(item);
+    if (!productId) return;
+    const quantity = Math.max(1, Number(item?.quantity || 1));
+    try {
+      await addCartItem({ productId, quantity });
+      await fetchCart();
+    } catch (err) {
+      Alert.alert(t('myClosetBuyer.errorTitle'), err?.response?.data?.message || t('myClosetBuyer.addToCartError'));
+    }
+  };
+
   // ── DELETE /cart — clear entire cart ─────────────────────────────────
   const handleClearCart = () => {
     Alert.alert(
@@ -1703,6 +1878,7 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
   };
 
   const isEmpty = !cartLoading && cartItems.length === 0;
+  const wishlistEmpty = !wishlistLoading && wishlistItems.length === 0;
 
   // ── Helper: resolve image + name from a cart item ────────────────────
   const cartItemImage = ci => imageUri(ci?.product?.images?.[0]) || imageUri(ci?.product?.image) || imageUri(ci?.image) || null;
@@ -1835,7 +2011,61 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
                   </View>
                 );
               })}
+            </>
+          )}
 
+          <View style={styles.wishlistBlock}>
+            <View style={styles.wishlistHeader}>
+              <Text style={styles.wishlistTitle}>{t('myClosetBuyer.wishlistTitle')}</Text>
+              <Text style={styles.wishlistCount}>
+                {wishlistLoading ? '...' : `${wishlistCountOverride !== null ? wishlistCountOverride : wishlistItems.length}`}
+              </Text>
+            </View>
+
+            {wishlistLoading ? (
+              <ActivityIndicator color={text} />
+            ) : wishlistEmpty ? (
+              <Text style={styles.wishlistEmptyText}>{t('myClosetBuyer.wishlistEmpty')}</Text>
+            ) : (
+              wishlistItems.map(item => {
+                const productId = wishlistItemProductId(item);
+                const title = item?.product?.name || item?.name || item?.product?.title || t('myClosetBuyer.itemFallback');
+                const price = currency(item?.product?.price ?? item?.price ?? 0);
+                const thumb = imageUri(item?.product?.images?.[0]) || imageUri(item?.product?.image) || imageUri(item?.image);
+                const inCart = cartItems.some(ci => String(cartItemProductId(ci)) === String(productId));
+                const busy = wishlistActionLoading === productId;
+
+                return (
+                  <View key={String(productId || item.id || item._id)} style={styles.wishlistCard}>
+                    <ImageBox uri={thumb} style={styles.wishlistThumb} iconSize={20} />
+                    <View style={styles.wishlistCopy}>
+                      <Text style={styles.wishlistItemName} numberOfLines={2}>{title}</Text>
+                      <Text style={[styles.wishlistPrice, { color: text }]}>{price}</Text>
+                    </View>
+                    <View style={styles.wishlistActions}>
+                      <TouchableOpacity
+                        style={styles.wishlistHeartBtn}
+                        onPress={() => handleWishlistToggle(item)}
+                        disabled={busy}
+                      >
+                        <Ionicons name="heart" size={18} color="#e11d48" />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.wishlistAddBtn, inCart && styles.wishlistAddBtnDisabled]}
+                        onPress={() => handleAddWishlistToCart(item)}
+                        disabled={inCart}
+                      >
+                        <Ionicons name="cart-outline" size={16} color={inCart ? '#9ca3af' : text} />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                );
+              })
+            )}
+          </View>
+
+          {!isEmpty && (
+            <>
               <View style={styles.summaryBlock}>
                 <SummaryRow
                   label={t('myClosetBuyer.itemTotal')}
@@ -3119,6 +3349,52 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: BORDER,
   },
   cartClearingText: { fontSize: 13, fontWeight: '700' },
+  wishlistBlock: {
+    marginTop: 18,
+    borderWidth: 1,
+    borderColor: BORDER,
+    borderRadius: 14,
+    backgroundColor: '#fff',
+    padding: 14,
+  },
+  wishlistHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  wishlistTitle: { fontSize: 15, fontWeight: '900', color: '#17072d' },
+  wishlistCount: { fontSize: 12, fontWeight: '800', color: MUTED },
+  wishlistEmptyText: { fontSize: 13, color: MUTED, paddingVertical: 6 },
+  wishlistCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: BORDER,
+  },
+  wishlistThumb: { width: 54, height: 54, borderRadius: 12 },
+  wishlistCopy: { flex: 1, paddingHorizontal: 10 },
+  wishlistItemName: { fontSize: 13, fontWeight: '800', color: '#17072d' },
+  wishlistPrice: { marginTop: 3, fontSize: 13, fontWeight: '900' },
+  wishlistActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  wishlistHeartBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff1f3',
+  },
+  wishlistAddBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f4eefb',
+  },
+  wishlistAddBtnDisabled: { opacity: 0.4 },
 
   summaryBlock: { borderTopWidth: 1, borderTopColor: BORDER, paddingTop: 16 },
   summaryRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 13 },

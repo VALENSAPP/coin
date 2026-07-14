@@ -3750,6 +3750,9 @@
   },
   "myClosetBuyer": {
     "myClosetTitle": "My Closet",
+    "wishlistTitle": "Wishlist",
+    "wishlistEmpty": "No items in wishlist yet.",
+    "updateWishlistError": "Could not update wishlist.",
     "untitledItem": "Untitled item",
     "defaultBrand": "Valens Closet",
     "defaultCategory": "Accessories",

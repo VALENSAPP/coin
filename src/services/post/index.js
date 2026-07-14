@@ -4,9 +4,14 @@ import { appendStoryAudioFiles } from '../../utils/storyAudioUpload';
 
 const appendMultipartFile = (formData, fieldName, file) => {
   if (!file || !file.uri) return;
+  const uri = String(file.uri);
+  const normalizedUri = Platform.OS === 'android'
+    ? uri
+    : (uri.startsWith('file://') ? uri : `file://${uri}`);
+
   formData.append(fieldName, {
-    uri: Platform.OS === 'android' ? file.uri : file.uri.replace('file://', ''),
-    name: file.name || file.uri.split('/').pop(),
+    uri: normalizedUri,
+    name: file.name || uri.split('/').pop(),
     type: file.type || 'application/octet-stream',
   });
 };
@@ -145,9 +150,14 @@ if (data.tableContent) {
         return;
       }
 
+      const uri = String(file.uri);
+      const normalizedUri = Platform.OS === 'android'
+        ? uri
+        : (uri.startsWith('file://') ? uri : `file://${uri}`);
+
       formData.append("images", {
-        uri: Platform.OS === "android" ? file.uri : file.uri.replace("file://", ""),
-        name: file.name || file.uri.split("/").pop(),
+        uri: normalizedUri,
+        name: file.name || uri.split("/").pop(),
         type: file.type,
       });
     });
@@ -160,9 +170,14 @@ if (data.tableContent) {
         return;
       }
 
+      const uri = String(file.uri);
+      const normalizedUri = Platform.OS === 'android'
+        ? uri
+        : (uri.startsWith('file://') ? uri : `file://${uri}`);
+
       formData.append("images", {
-        uri: Platform.OS === "android" ? file.uri : file.uri.replace("file://", ""),
-        name: file.name || file.uri.split("/").pop(),
+        uri: normalizedUri,
+        name: file.name || uri.split("/").pop(),
         type: file.type || "image/jpeg",
       });
     });
@@ -229,12 +244,86 @@ export const getMyEbookLibrary = async () => {
   return axiosInstance.get('post/myEbookLibrary');
 };
 
+export const getPurchasedEbooks = async () => {
+  return axiosInstance.get('marketplace-ebooks/purchasedEbook');
+};
+
+export const getMarketplaceEbooksByClosetId = async (closetId) => {
+  if (!closetId) {
+    throw new Error('getMarketplaceEbooksByClosetId: closetId is required');
+  }
+  return axiosInstance.get(`marketplace-ebooks/closet/${closetId}`);
+};
+
+export const getMarketplaceEbookById = async (ebookId) => {
+  if (!ebookId) {
+    throw new Error('getMarketplaceEbookById: ebookId is required');
+  }
+  return axiosInstance.get(`marketplace-ebooks/byEbookId/${ebookId}`);
+};
+
 export const getMarketPlaceEbookById = async (postId) => {
   if (!postId || typeof postId !== 'string') {
     throw new Error('getMarketPlaceEbookById: you must pass a valid postId');
   }
 
   return axiosInstance.get(`post/getMarketPlaceEbookById/${postId}`);
+};
+
+export const createMarketplaceEbook = async data => {
+  console.log('Creating marketplace ebook with data:', data);
+  const formData = new FormData();
+
+  if (data.closetId) {
+    formData.append('closetId', data.closetId);
+  }
+  if (data.caption) {
+    formData.append('caption', data.caption);
+  }
+  if (data.text != null) {
+    const textValue = Array.isArray(data.text) ? data.text.join('\n') : String(data.text);
+    formData.append('text', textValue);
+  }
+  if (data.amount != null) {
+    formData.append('amount', String(data.amount));
+  }
+  if (data.isDownload != null) {
+    formData.append('isDownload', data.isDownload ? 'true' : 'false');
+  }
+  if (data.promoCode != null && String(data.promoCode).trim() !== '') {
+    formData.append('promoCode', String(data.promoCode).trim());
+  }
+  if (data.tableContent != null) {
+    const tableContentValue = Array.isArray(data.tableContent)
+      ? JSON.stringify(data.tableContent)
+      : String(data.tableContent);
+    formData.append('tableContent', tableContentValue);
+  }
+
+  appendMultipartFile(formData, 'ebookpdf', data.ebookpdf);
+
+  if (Array.isArray(data.images)) {
+    data.images.forEach(file => {
+      if (!file || !file.uri) {
+        console.warn('Skipping invalid image file:', file);
+        return;
+      }
+
+      const uri = String(file.uri);
+      const normalizedUri = Platform.OS === 'android'
+        ? uri
+        : (uri.startsWith('file://') ? uri : `file://${uri}`);
+
+      formData.append('images', {
+        uri: normalizedUri,
+        name: file.name || uri.split('/').pop(),
+        type: file.type || 'image/jpeg',
+      });
+    });
+  }
+
+  console.log('marketplace-ebooks/create formData:', formData);
+  return axiosInstance.post('marketplace-ebooks/create', formData);
 };
 
 export const getPostById = async (postId) => {

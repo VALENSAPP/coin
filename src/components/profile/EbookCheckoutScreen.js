@@ -6,7 +6,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { InAppBrowser } from 'react-native-inappbrowser-reborn';
 import { getPaymentSessionUrl, STRIPE_BROWSER_OPTIONS } from '../../utils/stripeOnboarding';
-import { payEbook } from '../../services/stirpe';
+import { payMarketplaceEbook } from '../../services/stirpe';
 
 const themeStyles = {
   purple: { bg: '#5A2D82', tint: '#EDE3FA' },
@@ -49,11 +49,11 @@ const EbookCheckoutScreen = () => {
     try {
       const payload = {
         amount: total,
-        postId: ebook.id || ebook._id,
-        targetUserId: userData?.id,
+        closetId: ebook?.closetId || ebook?.closet?._id || ebook?.closet?.id || route?.params?.closetId || userData?.closetId || userData?.myClosetId || userData?.closetDetails?.id || userData?.closetDetails?._id,
+        ebookId: ebook.id || ebook._id,
       };
 
-      const response = await payEbook(payload);
+      const response = await payMarketplaceEbook(payload);
       const url = getPaymentSessionUrl(response);
 
       if (!url) {

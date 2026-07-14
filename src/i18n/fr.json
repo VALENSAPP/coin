@@ -3658,6 +3658,9 @@
   },
   "myClosetBuyer": {
     "myClosetTitle": "Mon Dressing",
+    "wishlistTitle": "Liste d'envies",
+    "wishlistEmpty": "Aucun article dans la liste d'envies pour le moment.",
+    "updateWishlistError": "Impossible de mettre à jour la liste d'envies.",
     "untitledItem": "Article sans titre",
     "defaultBrand": "Valens Closet",
     "defaultCategory": "Accessoires",

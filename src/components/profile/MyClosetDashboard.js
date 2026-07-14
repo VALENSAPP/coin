@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import FastImage from 'react-native-fast-image';
 import { useFocusEffect } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
@@ -116,6 +117,15 @@ const formatCurrency = value => {
   const numericValue = Number(textValue);
   return Number.isNaN(numericValue) ? textValue : `$${numericValue.toFixed(0)}`;
 };
+
+const fastImageSource = uri =>
+  uri
+    ? {
+        uri,
+        priority: FastImage.priority.high,
+        cache: FastImage.cacheControl.immutable,
+      }
+    : null;
 
 const normalizePriorityBattle = battle => {
   const participants = Array.isArray(battle?.participants) ? [...battle.participants] : [];
@@ -674,7 +684,11 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
               <View key={item.id} style={styles.pinnedCard}>
                 <View style={styles.pinnedThumbWrap}>
                   {item.image ? (
-                    <Image source={{ uri: item.image }} style={styles.pinnedThumb} />
+                    <FastImage
+                      source={fastImageSource(item.image)}
+                      style={styles.pinnedThumb}
+                      resizeMode={FastImage.resizeMode.cover}
+                    />
                   ) : (
                     <View style={[styles.pinnedThumb, styles.pinnedThumbPlaceholder]}>
                       <Ionicons name="shirt-outline" size={26} color={text} />

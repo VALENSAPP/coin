@@ -504,8 +504,8 @@ export function CreateBattleScreen({ navigation, route }) {
       const availableItems = nextItems.filter(
         item => Number(item.quantity) > 0
       );
-      const normalized = normalizeItems(availableItems, t);
-      prefetchImageUrls(availableItems);
+      const normalized = normalizeItems(nextItems, t);
+      prefetchImageUrls(nextItems);
       setItems(normalized);
       setSelectedIds(normalized.slice(0, 2).map(i => i.id));
     } catch (err) {

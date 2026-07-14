@@ -10,7 +10,7 @@ import RNFS from 'react-native-fs';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 import RBSheet from 'react-native-raw-bottom-sheet';
 import CommentSheet from '../home/posts/CommentSheet';
-import { deletePost, getPostlikes, likePost, savePost, unSavePost } from '../../services/post';
+import { deletePost, getPostlikes, likePost, savePost, unSavePost, getMarketplaceEbookById } from '../../services/post';
 import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../displaytoastmessage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -63,7 +63,35 @@ const EbookDetailScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   console.log('📥 EbookDetailScreen received params:', JSON.stringify(route?.params, null, 2));
-  const ebook = useMemo(() => route?.params?.ebook || {}, [route?.params?.ebook]);
+  const [ebookData, setEbookData] = useState(route?.params?.ebook || {});
+  const ebook = useMemo(() => ebookData, [ebookData]);
+  const fromRootNavigator = route?.params?.fromRootNavigator;
+
+  useEffect(() => {
+    if (route?.params?.ebook) {
+      setEbookData(route.params.ebook);
+    }
+  }, [route?.params?.ebook]);
+
+  useEffect(() => {
+    const fetchEbookDetail = async () => {
+      const ebookId = ebookData?.id || ebookData?._id;
+      if (!ebookId) return;
+
+      try {
+        const res = await getMarketplaceEbookById(String(ebookId));
+        console.log('getMarketplaceEbookById response:', res);
+        const resolvedEbook = res?.data?.ebook || res?.ebook || res?.data || res;
+        if (resolvedEbook && typeof resolvedEbook === 'object') {
+          setEbookData(resolvedEbook);
+        }
+      } catch (error) {
+        console.log('Failed to fetch marketplace ebook by ID:', error);
+      }
+    };
+
+    fetchEbookDetail();
+  }, [route?.params?.ebook?.id, route?.params?.ebook?._id]);
   const routeLoggedInUserId = route?.params?.loggedInUserId;
   const { bgStyle,text } = useAppTheme(route?.params?.userData?.profile);
   const { t } = useLanguage();

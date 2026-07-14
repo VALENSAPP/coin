@@ -3658,6 +3658,9 @@
   },
   "myClosetBuyer": {
     "myClosetTitle": "Il mio Armadio",
+    "wishlistTitle": "Lista dei desideri",
+    "wishlistEmpty": "Nessun articolo nella lista dei desideri.",
+    "updateWishlistError": "Impossibile aggiornare la lista dei desideri.",
     "untitledItem": "Articolo senza titolo",
     "defaultBrand": "Valens Closet",
     "defaultCategory": "Accessori",

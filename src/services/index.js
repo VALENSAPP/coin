@@ -22,7 +22,6 @@ export const authInterceptor = axiosInstance.interceptors.request.use(
         const method = (config.method || '').toLowerCase();
         const isMyClosetCreateOrUpdate =
             config.url === 'mycloset' && (method === 'post' || method === 'patch');
-
         if (
             isFormData ||
             config.url == "post/create" ||
@@ -30,7 +29,8 @@ export const authInterceptor = axiosInstance.interceptors.request.use(
             config.url == "story/upload" ||
             config.url == "company-profile/upload-documents" ||
             isMyClosetCreateOrUpdate ||
-            config.url == "mycloset/items"
+            config.url == "mycloset/items" ||
+            config.url == "marketplace-ebooks/create"
         ) {
             config.headers['Content-Type'] = 'multipart/form-data';
         } else {
