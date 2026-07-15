@@ -41,19 +41,21 @@ const EbookCheckoutScreen = () => {
   const palette = themeStyles[ebook?.theme] || themeStyles.purple;
 
   const price = Number(ebook?.amount || 0);
-  const fee = price * 0.10; // 10% platform fee
-  const total = price + fee;
+  const fee = price * 0.10; // 10% platform fee deducted from the seller share
+  const total = price;
 
   const handlePay = async () => {
     setPaying(true);
+    console.log("ebook data-----------------------",ebook)
     try {
       const payload = {
-        amount: total,
+        amount: price,
         closetId: ebook?.closetId || ebook?.closet?._id || ebook?.closet?.id || route?.params?.closetId || userData?.closetId || userData?.myClosetId || userData?.closetDetails?.id || userData?.closetDetails?._id,
         ebookId: ebook.id || ebook._id,
       };
-
+ console.log("payload for payMarketplaceEbook----------------",payload)
       const response = await payMarketplaceEbook(payload);
+      console.log("response for payMarketplaceEbook----------------",response)
       const url = getPaymentSessionUrl(response);
 
       if (!url) {
@@ -103,7 +105,7 @@ const EbookCheckoutScreen = () => {
             {coverImage ? (
               <Image source={{ uri: coverImage }} style={styles.coverImage} resizeMode="cover" />
             ) : (
-              <View style={[styles.fallbackCover, { backgroundColor: palette.bg }]}>
+              <View style={[styles.fallbackCover, { backgroundColor: text }]}>
                 <Text style={styles.fallbackText}>{title.charAt(0).toUpperCase()}</Text>
               </View>
             )}
@@ -121,10 +123,10 @@ const EbookCheckoutScreen = () => {
             <Text style={styles.invoiceLabel}>Price</Text>
             <Text style={[styles.invoiceValue, textStyle]}>${price.toFixed(2)}</Text>
           </View>
-          <View style={styles.invoiceRow}>
-            <Text style={styles.invoiceLabel}>Platform Fee</Text>
+          {/* <View style={styles.invoiceRow}>
+            <Text style={styles.invoiceLabel}>Platform Fee (10% deducted)</Text>
             <Text style={[styles.invoiceValue, textStyle]}>${fee.toFixed(2)}</Text>
-          </View>
+          </View> */}
           <View style={[styles.invoiceRow, styles.totalRow]}>
             <Text style={[styles.totalLabel, textStyle]}>Total</Text>
             <Text style={[styles.totalValue, { color: accentColor }]}>${total.toFixed(2)}</Text>

@@ -11,7 +11,7 @@ import { getMyClosetById } from '../../services/myCloset';
 import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import RNFS from 'react-native-fs';
-import { useRoute } from '@react-navigation/native';
+import { useFocusEffect, useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const MAX_PDF_SIZE_BYTES = 100 * 1024 * 1024;
@@ -26,6 +26,12 @@ const getFileSizeLabel = (size) => {
   const mb = size / (1024 * 1024);
   if (mb >= 1) return `${mb.toFixed(mb >= 10 ? 0 : 1)} MB`;
   return `${(size / 1024).toFixed(0)} KB`;
+};
+
+const formatDisplayName = (value) => {
+  const text = String(value || '').trim();
+  if (!text) return '';
+  return text.charAt(0).toUpperCase() + text.slice(1);
 };
 
 const normalizePickerUri = (uri) => {
@@ -68,6 +74,7 @@ const EbookPublisher = ({ navigation }) => {
   const [promoEnabled, setPromoEnabled] = useState(false);
   const [isPublished, setIsPublished] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [rootStep, setRootStep] = useState(1);
   const [libraryBooks, setLibraryBooks] = useState([]);
   const [libraryLoading, setLibraryLoading] = useState(false);
   const [libraryError, setLibraryError] = useState('');
@@ -76,6 +83,7 @@ const EbookPublisher = ({ navigation }) => {
   const [closetId, setClosetId] = useState(null);
   const loggedInUserId = route?.params?.loggedInUserId;
   const fromRootNavigator = !!route?.params?.fromRootNavigator;
+  const rootMode = fromRootNavigator;
 
   const progress = useMemo(() => Math.min(100, (step / 3) * 100), [step]);
   const coverOptions = useMemo(() => ([
@@ -150,6 +158,37 @@ const EbookPublisher = ({ navigation }) => {
     })();
   }, []);
 
+  useFocusEffect(
+    React.useCallback(() => {
+      if (!rootMode) return undefined;
+
+      setIsPublished(false);
+      setRootStep(1);
+      setSelectedPdf(null);
+      setTitle('');
+      setDescription('');
+      setChapters([]);
+      setChapterDraft('');
+      setEditingChapterId(null);
+      setPromoEnabled(false);
+      setPromoCode('');
+      setAmount('19.99');
+
+      return undefined;
+    }, [rootMode]),
+  );
+
+  useFocusEffect(
+    React.useCallback(() => {
+      if (!rootMode) return undefined;
+
+      setIsPublished(false);
+      setAmount(prev => (prev && prev !== '0' ? prev : '19.99'));
+
+      return undefined;
+    }, [rootMode]),
+  );
+
   const filteredLibraryBooks = useMemo(() => {
     const query = librarySearch.trim().toLowerCase();
     if (!query) return libraryBooks;
@@ -169,6 +208,7 @@ const EbookPublisher = ({ navigation }) => {
       userData: route?.params?.userData,
       loggedInUserId: loggedInUserId || currentUserId,
       fromRootNavigator: fromRootNavigator,
+      username: item?.userName || route?.params?.userData?.userName || route?.params?.userData?.username
     };
 
     navigation?.navigate?.('ProfileMain', {
@@ -301,6 +341,14 @@ const EbookPublisher = ({ navigation }) => {
       return;
     }
 
+    if (fromRootNavigator) {
+      const parsedAmount = parseFloat(amount);
+      if (isNaN(parsedAmount) || parsedAmount <= 0) {
+        Alert.alert(tf('ebookPublisher.uploadFailedTitle', 'Upload failed'), 'Price cannot be 0. Please enter a valid price.');
+        return;
+      }
+    }
+
     try {
       setIsSubmitting(true);
       dispatch(showLoader());
@@ -389,10 +437,12 @@ const EbookPublisher = ({ navigation }) => {
       const isSuccess = response?.status === 200 || response?.statusCode === 200 || response?.success === true;
       if (isSuccess) {
         console.log('✅ Ebook published successfully');
+        if (fromRootNavigator) {
+          setIsPublished(true);
+        } else {
+          navigation.goBack?.();
+        }
       }
-
-      setIsPublished(true);
-      navigation.goBack?.();
 
     } catch (error) {
       console.log('❌ API Error:', error);
@@ -418,59 +468,513 @@ const EbookPublisher = ({ navigation }) => {
     { key: 3, label: t('ebookPublisher.stepReview') },
   ];
 
+  const rootSteps = [
+    { key: 1, label: 'Upload', done: rootStep > 1 || isPublished, active: rootStep === 1 && !isPublished },
+    { key: 2, label: 'Details', done: rootStep > 2 || isPublished, active: rootStep === 2 && !isPublished },
+    { key: 3, label: 'Pricing', active: rootStep === 3 && !isPublished },
+    { key: 4, label: 'Publish', active: isPublished },
+  ];
+
+  const earningsAmount = Number(String(amount || '0')) || 0;
+  const platformFee = rootMode ? earningsAmount * 0.1 : 0;
+  const sellerEarnings = rootMode ? Math.max(0, earningsAmount - platformFee) : 0;
+  const handleGoToCloset = () => {
+    navigation?.navigate?.('MainApp', {
+      screen: 'wallet',
+      params: {
+        screen: 'MyCloset',
+      },
+    });
+  };
+
+  const renderUploadAndDetailsBlock = () => (
+    <>
+      <View style={styles.topToggle}>
+        <TouchableOpacity
+          onPress={() => setStepOneTab('upload')}
+          style={[styles.topToggleButton, stepOneTab === 'upload' && { backgroundColor: text }]}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="cloud-upload-outline" size={16} color={stepOneTab === 'upload' ? '#fff' : text} />
+          <Text style={[styles.topToggleText, stepOneTab === 'upload' && styles.topToggleTextActive]}>
+            {tf('ebookPublisher.uploadMyBook', 'Upload My Book')}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => setStepOneTab('library')}
+          style={[styles.topToggleButton, stepOneTab === 'library' && { backgroundColor: text }]}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="book-outline" size={16} color={stepOneTab === 'library' ? '#fff' : text} />
+          <Text style={[styles.topToggleText, stepOneTab === 'library' && styles.topToggleTextActive]}>
+            {tf('ebookPublisher.myLibrary', 'My Library')}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {stepOneTab === 'upload' ? (
+        <>
+          <TouchableOpacity style={[styles.uploadArea, { borderColor: text }]} onPress={handlePickPdf}>
+            <Ionicons name="cloud-upload-outline" size={44} color={text} />
+            <Text style={styles.uploadPrimary}>{t('ebookPublisher.dragDrop')}</Text>
+            <Text style={styles.uploadSecondary}>{t('ebookPublisher.or')}</Text>
+            <View style={[styles.uploadButton, { backgroundColor: text }]}>
+              <Text style={styles.uploadButtonText}>{t('ebookPublisher.choosePdf')}</Text>
+            </View>
+            <Text style={styles.limitText}>{t('ebookPublisher.maxLimit')}</Text>
+          </TouchableOpacity>
+
+          {selectedPdf && (
+            <View style={styles.fileRow}>
+              <View style={styles.fileBadge}>
+                <Text style={styles.fileBadgeText}>PDF</Text>
+              </View>
+              <View style={styles.fileMeta}>
+                <Text style={[styles.fileName, textStyle]} numberOfLines={1}>
+                  {selectedPdf.name}
+                </Text>
+                <Text style={styles.fileSize}>{getFileSizeLabel(selectedPdf.size)}</Text>
+              </View>
+              <Ionicons name="checkmark-circle" size={24} color="#22c55e" />
+            </View>
+          )}
+
+          <View style={styles.infoBox}>
+            <Ionicons name="information-circle-outline" size={18} color={text} />
+            <Text style={styles.infoText}>{t('ebookPublisher.pdfHelp')}</Text>
+          </View>
+        </>
+      ) : (
+        <View style={styles.libraryPanel}>
+          <Text style={[styles.libraryTitle, textStyle]}>My Library</Text>
+          <Text style={styles.sectionText}>E-books you&apos;ve purchased from creators on Valens.</Text>
+
+          <View style={styles.searchBar}>
+            <Ionicons name="search" size={16} color="#9CA3AF" />
+            <TextInput
+              value={librarySearch}
+              onChangeText={setLibrarySearch}
+              placeholder="Search your library"
+              placeholderTextColor="#9CA3AF"
+              style={styles.searchInput}
+              returnKeyType="search"
+            />
+            <Ionicons name="options-outline" size={16} color="#9CA3AF" />
+          </View>
+
+          {libraryLoading ? (
+            <Text style={styles.libraryStateText}>{tf('myClosetBuyer.loading', 'Loading...')}</Text>
+          ) : libraryError ? (
+            <Text style={styles.libraryStateText}>{libraryError}</Text>
+          ) : filteredLibraryBooks.length === 0 ? (
+            <Text style={styles.libraryStateText}>
+              {librarySearch.trim()
+                ? tf('ebookPublisher.noLibraryMatches', 'No e-books match your search.')
+                : tf('ebookPublisher.noLibraryItems', 'No purchased e-books found yet.')}
+            </Text>
+          ) : (
+            filteredLibraryBooks.map(item => {
+              const libraryTitle = item?.caption || item?.title || item?.ebookTitle || 'Untitled e-book';
+              const libraryAuthor = formatDisplayName(item?.purchasedFrom || item?.userName || item?.author || item?.displayName || 'Unknown Author');
+              const coverLabel = String(libraryTitle).slice(0, 2).toUpperCase();
+              const tint = item?.themeColor || item?.color || text;
+
+              return (
+                <TouchableOpacity
+                  key={String(item?.id || item?._id || libraryTitle)}
+                  activeOpacity={0.85}
+                  style={styles.libraryItem}
+                  onPress={() => handleOpenLibraryEbook(item)}
+                >
+                  <View style={[styles.libraryCover, { backgroundColor: tint }]}>
+                    <Text style={styles.libraryCoverText}>{coverLabel}</Text>
+                  </View>
+                  <View style={styles.libraryMeta}>
+                    <Text style={styles.libraryItemTitle} numberOfLines={1}>{libraryTitle}</Text>
+                    <Text style={styles.libraryItemSubtitle}>by {libraryAuthor}</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+                </TouchableOpacity>
+              );
+            })
+          )}
+        </View>
+      )}
+    </>
+  );
+
+  const renderRootMode = () => {
+    if (isPublished) {
+      return (
+        <View style={[styles.rootSuccessCard, cardStyle]}>
+          <View style={styles.successConfetti}>
+            <View style={[styles.confettiDot, styles.confettiDotA]} />
+            <View style={[styles.confettiDot, styles.confettiDotB]} />
+            <View style={[styles.confettiDot, styles.confettiDotC]} />
+            <View style={[styles.confettiDot, styles.confettiDotD]} />
+          </View>
+
+          <View style={styles.successBadge}>
+            <Ionicons name="checkmark" size={42} color="#2FB344" />
+          </View>
+
+          <Text style={[styles.successTitle, textStyle]}>Congratulations!</Text>
+          <Text style={styles.successSubtitle}>Your e-book has been published successfully.</Text>
+
+          <View style={styles.successBookCard}>
+            <View style={styles.successBookCover}>
+              {selectedCoverInfo.imageUri || (selectedCover === 'custom' && customCoverImage) ? (
+                <Image
+                  source={{ uri: selectedCoverInfo.imageUri || customCoverImage?.uri }}
+                  style={styles.successBookCoverImage}
+                  resizeMode="cover"
+                />
+              ) : (
+                <View style={[styles.successBookCoverFallback, { backgroundColor: selectedCoverInfo.accent }]}>
+                  <Text style={styles.successBookCoverFallbackText}>DIGITAL CREATOR</Text>
+                </View>
+              )}
+            </View>
+
+            <View style={styles.successBookMeta}>
+              <Text style={styles.successBookTitle} numberOfLines={2}>{title || 'The Digital Creator'}</Text>
+              <Text style={styles.successBookPrice}>${earningsAmount ? earningsAmount.toFixed(2) : '19.99'}</Text>
+              <View style={styles.publishedPill}>
+                <Text style={styles.publishedPillText}>Published</Text>
+              </View>
+            </View>
+          </View>
+
+          <TouchableOpacity
+            style={[styles.goClosetButton, { backgroundColor: text }]}
+            onPress={handleGoToCloset}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.goClosetButtonText}>Go to Closet</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    if (rootStep === 1) {
+      return (
+        <View style={[styles.card, cardStyle]}>
+          <Text style={[styles.sectionTitle, textStyle]}>{t('ebookPublisher.uploadTitle')}</Text>
+          <Text style={styles.sectionText}>{t('ebookPublisher.uploadHint')}</Text>
+          {renderUploadAndDetailsBlock()}
+
+          {stepOneTab === 'upload' && (
+            <View style={styles.footerActions}>
+              <TouchableOpacity
+                style={[styles.footerButton, styles.footerButtonPrimary, { backgroundColor: text }]}
+                onPress={() => setRootStep(2)}
+              >
+                <Text style={styles.footerButtonPrimaryText}>Continue</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      );
+    }
+
+    if (rootStep === 2) {
+      return (
+        <View style={[styles.card, cardStyle]}>
+          <Text style={[styles.sectionTitle, textStyle]}>{tf('ebookPublisher.customizeTitle', 'Customize E-book')}</Text>
+          <Text style={styles.sectionText}>{tf('ebookPublisher.customizeHint', 'Select a cover, edit details, and build your table of contents.')}</Text>
+
+          <Text style={styles.fieldLabel}>1. {tf('ebookPublisher.coverLabel', 'Choose Cover')}</Text>
+          <Text style={styles.helperText}>Select a cover for your e-book.</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.coverRow}>
+            {coverOptions.map(option => {
+              const selected = option.id === selectedCover;
+              return (
+                <TouchableOpacity
+                  key={option.id}
+                  style={[styles.coverCard, selected && { borderColor: text }]}
+                  onPress={() => setSelectedCover(option.id)}
+                >
+                  <View
+                    style={[
+                      styles.coverPreview,
+                      option.imageUri || (option.id === 'custom' && customCoverImage)
+                        ? styles.coverPreviewCustom
+                        : { backgroundColor: option.accent },
+                    ]}
+                  >
+                    {option.imageUri ? (
+                      <Image source={{ uri: option.imageUri }} style={styles.customCoverImage} resizeMode="cover" />
+                    ) : option.id === 'custom' && customCoverImage ? (
+                      <Image source={{ uri: customCoverImage.uri }} style={styles.customCoverImage} resizeMode="cover" />
+                    ) : null}
+                  </View>
+                  <Text style={styles.coverTitle}>{option.title}</Text>
+                  <Text style={styles.coverSubtitle}>{option.subtitle}</Text>
+                  {selected && <Text style={[styles.coverSelected, { color: text }]}>{t('ebookPublisher.selected')}</Text>}
+                </TouchableOpacity>
+              );
+            })}
+
+            <TouchableOpacity style={[styles.coverCard, styles.uploadCoverCard, { borderColor: text }]} onPress={handlePickCoverImage}>
+              <Ionicons name="add" size={24} color={text} />
+              <Text style={styles.coverTitle}>{tf('ebookPublisher.uploadNew', 'Add Cover')}</Text>
+              <Text style={styles.coverSubtitle}>{tf('ebookPublisher.coverReplace', 'Choose a cover image from gallery')}</Text>
+            </TouchableOpacity>
+          </ScrollView>
+
+          <Text style={styles.fieldLabel}>2. E-book Title & Description</Text>
+          <Text style={styles.helperText}>Title</Text>
+          <View style={styles.inputLike}>
+            <TextInput
+              value={title}
+              onChangeText={setTitle}
+              style={[styles.inputText, styles.inputField]}
+              placeholder="Enter ebook title"
+              placeholderTextColor="#9CA3AF"
+            />
+          </View>
+
+          <Text style={styles.helperText}>Description</Text>
+          <View style={styles.textAreaLike}>
+            <TextInput
+              value={description}
+              onChangeText={setDescription}
+              style={[styles.inputText, styles.textAreaField]}
+              placeholder="Add each description line on a new row"
+              placeholderTextColor="#9CA3AF"
+              multiline
+              textAlignVertical="top"
+            />
+          </View>
+
+          <Text style={styles.fieldLabel}>3. Table of Contents</Text>
+          <Text style={styles.helperText}>Add chapter titles to send `tableContent`.</Text>
+
+          <View style={styles.chapterList}>
+            {chapters.length === 0 ? (
+              <Text style={styles.emptyChaptersText}>No chapters added yet.</Text>
+            ) : (
+              chapters.map((chapter, index) => (
+                <View key={chapter.id} style={styles.chapterRow}>
+                  <Ionicons name="reorder-three-outline" size={22} color="#9CA3AF" />
+                  <Text style={styles.chapterText}>{index + 1}. {chapter.title}</Text>
+                  <TouchableOpacity onPress={() => handleEditChapter(chapter)} style={styles.chapterAction}>
+                    <Ionicons name="pencil-outline" size={18} color="#6B7280" />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => handleDeleteChapter(chapter.id)} style={styles.chapterAction}>
+                    <Ionicons name="trash-outline" size={18} color="#6B7280" />
+                  </TouchableOpacity>
+                </View>
+              ))
+            )}
+
+            <View style={styles.chapterEditor}>
+              <TextInput
+                value={chapterDraft}
+                onChangeText={setChapterDraft}
+                style={styles.chapterInput}
+                placeholder={editingChapterId ? 'Edit chapter title' : 'New chapter title'}
+                placeholderTextColor="#9CA3AF"
+              />
+              <TouchableOpacity style={[styles.addChapterButton, { borderColor: text }]} onPress={handleAddOrUpdateChapter}>
+                <Text style={[styles.addChapterButtonText, { color: text }]}>
+                  {editingChapterId ? 'Save Chapter' : 'Add Chapter'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View style={styles.footerActions}>
+            <TouchableOpacity style={[styles.footerButton, { borderColor: text }]} onPress={() => setRootStep(1)}>
+              <Text style={[styles.footerButtonText, { color: text }]}>Back</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.footerButton, styles.footerButtonPrimary, { backgroundColor: text }]}
+              onPress={() => setRootStep(3)}
+            >
+              <Text style={styles.footerButtonPrimaryText}>Continue</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.rootPricingWrap}>
+        <Text style={[styles.rootSectionTitle, textStyle]}>Set Your Price</Text>
+        <Text style={styles.rootSectionSubtitle}>Set a fair price for your e-book.</Text>
+
+        <View style={[styles.rootCard, cardStyle]}>
+          <Text style={[styles.rootCardTitle, textStyle]}>Price per Book</Text>
+          <Text style={styles.rootCardBody}>This is the price customers will pay to purchase your e-book.</Text>
+
+          <View style={[styles.rootPriceField, { borderColor: `${text}44` }]}>
+            <Text style={styles.rootCurrency}>$</Text>
+            <TextInput
+              value={String(amount)}
+              onChangeText={val => setAmount(val.replace(/[^0-9.]/g, ''))}
+              style={[styles.rootPriceInput, textStyle]}
+              placeholder="19.99"
+              placeholderTextColor="#A8A0B8"
+              keyboardType={Platform.OS === 'android' ? 'numeric' : 'decimal-pad'}
+            />
+          </View>
+          <Text style={styles.rootHint}>Suggested price range: $2.99 - $49.99</Text>
+        </View>
+
+        <View style={[styles.rootCard, cardStyle]}>
+          <Text style={[styles.rootCardTitle, textStyle]}>You&apos;ll Earn</Text>
+          <Text style={styles.rootCardBody}>Your earnings per sale after platform fee.</Text>
+
+          <View style={styles.earningsRow}>
+            <Text style={styles.earningsLabel}>Price per Book</Text>
+            <Text style={styles.earningsValue}>${earningsAmount.toFixed(2)}</Text>
+          </View>
+          <View style={styles.earningsRow}>
+            <Text style={styles.earningsLabel}>Platform Fee (10%)</Text>
+            <Text style={styles.earningsValue}>-${platformFee.toFixed(2)}</Text>
+          </View>
+
+          <View style={styles.earningsDivider} />
+
+          <View style={styles.earningsRow}>
+            <Text style={[styles.earningsLabel, styles.earningsTotalLabel]}>You&apos;ll Earn</Text>
+            <Text style={[styles.earningsValue, styles.earningsTotalValue]}>${sellerEarnings.toFixed(2)}</Text>
+          </View>
+        </View>
+
+        <View style={[styles.rootCard, cardStyle]}>
+          <View style={styles.promoRow}>
+            <View style={styles.promoLeft}>
+              <Text style={[styles.settingTitle, styles.rootPromoTitle]}>Add Promo Code (Optional)</Text>
+              <Text style={styles.rootPromoSubtitle}>Create a discount code to promote your e-book</Text>
+            </View>
+            <View style={styles.promoRight}>
+              <Switch
+                value={promoEnabled}
+                onValueChange={setPromoEnabled}
+                trackColor={{ false: '#D1D5DB', true: text }}
+                thumbColor="#FFFFFF"
+              />
+            </View>
+          </View>
+
+          {promoEnabled && (
+            <View style={[styles.promoInputWrap, { borderColor: `${text}22` }]}>
+              <TextInput
+                value={promoCode}
+                onChangeText={setPromoCode}
+                style={[styles.inputText, styles.promoInput, { color: text }]}
+                placeholder="Enter promo code"
+                placeholderTextColor={`${text}66`}
+                autoCapitalize="characters"
+              />
+            </View>
+          )}
+        </View>
+
+        <TouchableOpacity
+          style={[styles.rootPrimaryButton, { backgroundColor: text, opacity: isSubmitting ? 0.75 : 1 }]}
+          onPress={handlePublish}
+          disabled={isSubmitting}
+        >
+          <Text style={styles.rootPrimaryButtonText}>Continue</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
   return (
     <View style={[styles.screen, bgStyle]}>
-      <View style={[styles.header, cardStyle]}>
+      <View style={[styles.header, cardStyle, rootMode && styles.rootHeader]}>
         <TouchableOpacity onPress={() => navigation.goBack?.()} style={styles.headerIconButton}>
-          <Ionicons name="close" size={24} color={text} />
+          <Ionicons name="arrow-back" size={22} color={text} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <Text style={[styles.title, textStyle]}>{t('ebookPublisher.title')}</Text>
-          <Text style={styles.subtitle}>{t('ebookPublisher.subtitle')}</Text>
+          <Text style={[styles.title, textStyle]}>{rootMode ? 'Sell E-book' : t('ebookPublisher.title')}</Text>
+          {!rootMode && <Text style={styles.subtitle}>{t('ebookPublisher.subtitle')}</Text>}
         </View>
-        <View style={styles.headerIconButton} />
+        {rootMode ? (
+          <View style={styles.headerActions}>
+            <TouchableOpacity style={styles.headerIconButton}>
+              <Ionicons name="information-circle-outline" size={22} color={text} />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.headerIconButton}>
+              <Ionicons name="ellipsis-horizontal" size={22} color={text} />
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.headerIconButton} />
+        )}
       </View>
 
       <KeyboardAwareScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, rootMode && styles.rootContent]}
         showsVerticalScrollIndicator={false}
         enableOnAndroid
         keyboardShouldPersistTaps="handled"
         extraScrollHeight={24}
         extraHeight={Platform.OS === 'ios' ? 40 : 80}
       >
-        <View style={[styles.progressTrack, cardStyle]}>
-          <View style={[styles.progressFill, { width: `${progress}%`, backgroundColor: text }]} />
-        </View>
+        {rootMode ? (
+          <>
+            <View style={styles.rootStepper}>
+              {rootSteps.map((item, index) => {
+                const active = item.active;
+                const done = item.done;
+                const isLast = index === rootSteps.length - 1;
+                return (
+                  <View key={item.key} style={styles.rootStepItem}>
+                    <View style={styles.rootStepTopRow}>
+                      <View style={[styles.rootStepCircle, (active || done) && { backgroundColor: text, borderColor: text }]}>
+                        <Text style={[styles.rootStepCircleText, (active || done) && styles.rootStepCircleTextActive]}>
+                          {done || active ? '✓' : item.key}
+                        </Text>
+                      </View>
+                      {!isLast && <View style={[styles.rootStepLine, { backgroundColor: text }]} />}
+                    </View>
+                    <Text style={[styles.rootStepLabel, active && { color: text, fontWeight: '800' }]}>{item.label}</Text>
+                  </View>
+                );
+              })}
+            </View>
 
-        <View style={styles.stepRow}>
-          {stepInfo.map(item => {
-            const active = item.key === step;
-            const done = item.key < step;
-            return (
-              <View key={item.key} style={styles.stepItem}>
-                <View
-                  style={[
-                    styles.stepCircle,
-                    { borderColor: text },
-                    active && { backgroundColor: text },
-                    done && { backgroundColor: text },
-                  ]}
-                >
-                  <Text style={[styles.stepNumber, (active || done) && styles.stepNumberActive]}>
-                    {done ? '✓' : item.key}
-                  </Text>
-                </View>
-                <Text style={[styles.stepLabel, active && { color: text }]}>{item.label}</Text>
-              </View>
-            );
-          })}
-        </View>
+            {renderRootMode()}
+          </>
+        ) : (
+          <>
+            <View style={[styles.progressTrack, cardStyle]}>
+              <View style={[styles.progressFill, { width: `${progress}%`, backgroundColor: text }]} />
+            </View>
 
-        {step === 1 && (
-        <View style={[styles.card, cardStyle]}>
-          <Text style={[styles.sectionTitle, textStyle]}>{t('ebookPublisher.uploadTitle')}</Text>
-          <Text style={styles.sectionText}>{t('ebookPublisher.uploadHint')}</Text>
+            <View style={styles.stepRow}>
+              {stepInfo.map(item => {
+                const active = item.key === step;
+                const done = item.key < step;
+                return (
+                  <View key={item.key} style={styles.stepItem}>
+                    <View
+                      style={[
+                        styles.stepCircle,
+                        { borderColor: text },
+                        active && { backgroundColor: text },
+                        done && { backgroundColor: text },
+                      ]}
+                    >
+                      <Text style={[styles.stepNumber, (active || done) && styles.stepNumberActive]}>
+                        {done ? '✓' : item.key}
+                      </Text>
+                    </View>
+                    <Text style={[styles.stepLabel, active && { color: text }]}>{item.label}</Text>
+                  </View>
+                );
+              })}
+            </View>
+
+            {step === 1 && (
+            <View style={[styles.card, cardStyle]}>
+              <Text style={[styles.sectionTitle, textStyle]}>{t('ebookPublisher.uploadTitle')}</Text>
+              <Text style={styles.sectionText}>{t('ebookPublisher.uploadHint')}</Text>
 
           <View style={styles.topToggle}>
             <TouchableOpacity
@@ -558,7 +1062,7 @@ const EbookPublisher = ({ navigation }) => {
               ) : (
                 filteredLibraryBooks.map(item => {
                   const libraryTitle = item?.caption || item?.title || item?.ebookTitle || 'Untitled e-book';
-                  const libraryAuthor = item?.userName || item?.author || item?.displayName || 'Unknown Author';
+                  const libraryAuthor = formatDisplayName(item?.purchasedFrom || item?.userName || item?.author || item?.displayName || 'Unknown Author');
                   const libraryCategory = item?.category || item?.genre || item?.type || 'E-book';
                   const coverLabel = String(libraryTitle).slice(0, 2).toUpperCase();
                   const progress = Math.max(0, Math.min(Number(item?.progress ?? item?.readProgress ?? 0), 100));
@@ -586,9 +1090,9 @@ const EbookPublisher = ({ navigation }) => {
             </View>
           )}
         </View>
-        )}
+            )}
 
-        {step === 2 && (
+            {step === 2 && (
           <View style={[styles.card, cardStyle]}>
             <Text style={[styles.sectionTitle, textStyle]}>{tf('ebookPublisher.customizeTitle', 'Customize E-book')}</Text>
             <Text style={styles.sectionText}>{tf('ebookPublisher.customizeHint', 'Select a cover, edit details, and build your table of contents.')}</Text>
@@ -694,9 +1198,9 @@ const EbookPublisher = ({ navigation }) => {
               </View>
             </View>
           </View>
-        )}
+            )}
 
-        {step === 3 && (
+            {step === 3 && (
           <View style={[styles.card, cardStyle]}>
             <Text style={[styles.sectionTitle, textStyle]}>{t('ebookPublisher.reviewTitle')}</Text>
             <Text style={styles.sectionText}>{t('ebookPublisher.reviewHint')}</Text>
@@ -824,25 +1328,27 @@ const EbookPublisher = ({ navigation }) => {
               </Text>
             </TouchableOpacity>
           </View>
-        )}
+            )}
 
-        <View style={styles.footerActions}>
-          {stepOneTab === 'upload' && step > 1 && (
-            <TouchableOpacity style={[styles.footerButton, { borderColor: text }]} onPress={() => setStep(step - 1)}>
-              <Text style={[styles.footerButtonText, { color: text }]}>{tf('ebookPublisher.back', 'Back')}</Text>
-            </TouchableOpacity>
-          )}
-          {stepOneTab === 'upload' && step < 3 && (
-            <TouchableOpacity
-              style={[styles.footerButton, styles.footerButtonPrimary, { backgroundColor: text }]}
-              onPress={() => setStep(prev => (prev === 1 && !selectedPdf ? prev : Math.min(3, prev + 1)))}
-            >
-              <Text style={styles.footerButtonPrimaryText}>
-                {step === 1 ? tf('ebookPublisher.continue', 'Continue') : tf('ebookPublisher.reviewButton', 'Review')}
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
+            <View style={styles.footerActions}>
+              {stepOneTab === 'upload' && step > 1 && (
+                <TouchableOpacity style={[styles.footerButton, { borderColor: text }]} onPress={() => setStep(step - 1)}>
+                  <Text style={[styles.footerButtonText, { color: text }]}>{tf('ebookPublisher.back', 'Back')}</Text>
+                </TouchableOpacity>
+              )}
+              {stepOneTab === 'upload' && step < 3 && (
+                <TouchableOpacity
+                  style={[styles.footerButton, styles.footerButtonPrimary, { backgroundColor: text }]}
+                  onPress={() => setStep(prev => (prev === 1 && !selectedPdf ? prev : Math.min(3, prev + 1)))}
+                >
+                  <Text style={styles.footerButtonPrimaryText}>
+                    {step === 1 ? tf('ebookPublisher.continue', 'Continue') : tf('ebookPublisher.reviewButton', 'Review')}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </>
+        )}
 
         <View style={styles.bottomSpacer} />
       </KeyboardAwareScrollView>
@@ -1194,6 +1700,304 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     marginTop: 4,
     maxWidth: '85%',
+  },
+  rootHeader: {
+    marginHorizontal: 12,
+    borderRadius: 28,
+    paddingHorizontal: 12,
+    marginBottom: 16,
+    marginTop: '10%'
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  rootContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 32,
+  },
+  rootStepper: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 18,
+    paddingHorizontal: 4,
+  },
+  rootStepItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  rootStepTopRow: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+    marginLeft: '50%'
+  },
+  rootStepCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#D1D5DB',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+  },
+  rootStepCircleText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#8E8AA3',
+  },
+  rootStepCircleTextActive: {
+    color: '#fff',
+  },
+  rootStepLine: {
+    flex: 1,
+    height: 2,
+    marginHorizontal: 4,
+    borderRadius: 999,
+    opacity: 0.35,
+  },
+  rootStepLabel: {
+    fontSize: 12,
+    color: '#8E8AA3',
+    fontWeight: '700',
+    marginLeft: -10
+  },
+  rootPricingWrap: {
+    gap: 14,
+  },
+  rootSectionTitle: {
+    fontSize: 28,
+    fontWeight: '900',
+    color: '#111827',
+    marginTop: 6,
+  },
+  rootSectionSubtitle: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 4,
+  },
+  rootCard: {
+    borderRadius: 18,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 2,
+  },
+  rootCardTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    marginBottom: 6,
+  },
+  rootCardBody: {
+    fontSize: 13,
+    color: '#6B7280',
+    marginBottom: 14,
+    lineHeight: 18,
+  },
+  rootPriceField: {
+    minHeight: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderRadius: 14,
+    backgroundColor: '#fff',
+    paddingHorizontal: 12,
+  },
+  rootCurrency: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#4B2A8F',
+    marginRight: 10,
+  },
+  rootPriceInput: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: '800',
+    paddingVertical: 0,
+  },
+  rootHint: {
+    marginTop: 10,
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  earningsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  earningsLabel: {
+    fontSize: 13,
+    color: '#374151',
+    fontWeight: '600',
+  },
+  earningsValue: {
+    fontSize: 13,
+    color: '#111827',
+    fontWeight: '800',
+  },
+  earningsDivider: {
+    height: 1,
+    backgroundColor: '#E5E7EB',
+    marginVertical: 8,
+  },
+  earningsTotalLabel: {
+    color: '#4B2A8F',
+    fontWeight: '800',
+  },
+  earningsTotalValue: {
+    color: '#2FB344',
+    fontSize: 16,
+  },
+  rootPromoTitle: {
+    fontSize: 15,
+  },
+  rootPromoSubtitle: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 4,
+    maxWidth: '90%',
+  },
+  rootPrimaryButton: {
+    minHeight: 54,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  rootPrimaryButtonText: {
+    color: '#fff',
+    fontWeight: '900',
+    fontSize: 16,
+  },
+  rootSuccessCard: {
+    borderRadius: 22,
+    padding: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 520,
+  },
+  successConfetti: {
+    position: 'absolute',
+    top: 18,
+    left: 18,
+    right: 18,
+    bottom: 18,
+  },
+  confettiDot: {
+    position: 'absolute',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  confettiDotA: { top: 20, left: 38, backgroundColor: '#34C759', transform: [{ rotate: '18deg' }] },
+  confettiDotB: { top: 48, right: 38, backgroundColor: '#F5C542', transform: [{ rotate: '18deg' }] },
+  confettiDotC: { top: 94, left: 18, backgroundColor: '#8ED1FC', transform: [{ rotate: '18deg' }] },
+  confettiDotD: { top: 110, right: 18, backgroundColor: '#C7B9E8', transform: [{ rotate: '18deg' }] },
+  successBadge: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    borderWidth: 4,
+    borderColor: '#2FB344',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 22,
+    marginBottom: 18,
+    backgroundColor: '#fff',
+  },
+  successTitle: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#111827',
+    marginBottom: 8,
+  },
+  successSubtitle: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginBottom: 18,
+  },
+  successBookCard: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 18,
+    padding: 12,
+    backgroundColor: '#fff',
+  },
+  successBookCover: {
+    width: 72,
+    height: 96,
+    borderRadius: 10,
+    overflow: 'hidden',
+    marginRight: 12,
+    backgroundColor: '#4B2A8F',
+  },
+  successBookCoverImage: {
+    width: '100%',
+    height: '100%',
+  },
+  successBookCoverFallback: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 8,
+  },
+  successBookCoverFallbackText: {
+    color: '#fff',
+    fontWeight: '900',
+    fontSize: 11,
+    textAlign: 'center',
+  },
+  successBookMeta: {
+    flex: 1,
+  },
+  successBookTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#111827',
+  },
+  successBookPrice: {
+    marginTop: 4,
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#111827',
+  },
+  publishedPill: {
+    alignSelf: 'flex-start',
+    marginTop: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 999,
+    backgroundColor: '#E7F8EA',
+  },
+  publishedPillText: {
+    color: '#2FB344',
+    fontWeight: '800',
+    fontSize: 12,
+  },
+  goClosetButton: {
+    marginTop: 18,
+    minHeight: 52,
+    paddingHorizontal: 22,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'stretch',
+  },
+  goClosetButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '900',
   },
 });
 
