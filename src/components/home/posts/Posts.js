@@ -314,6 +314,7 @@ const Posts = forwardRef(function Posts(
               null,
           })),
           caption: item.caption || '***',
+          hashtag: item.hashtag ?? item.hashtags ?? [],
           boughtBy: finalBoughtBy,
           follow: isFollowing,
           userTokenAddress: tokenAddress || null,

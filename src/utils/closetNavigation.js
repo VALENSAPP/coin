@@ -111,7 +111,13 @@ export const navigateClosetReturn = (navigation, returnTo) => {
   }
 
   const { tab, screen, params } = returnTo;
+  const tabNav = navigation.getParent?.() || navigation;
+
   if (tab && screen) {
+    try {
+      tabNav.navigate(tab, { screen, params });
+      return;
+    } catch (_error) {}
     try {
       navigation.navigate(tab, { screen, params });
       return;

@@ -517,8 +517,9 @@ const ProfileTabs = memo(({
 
     const timer = setTimeout(async () => {
       if (!loggedInUserId || isOwnProfile) return;
-      // Keep company shop-tab navigation free of the subscription modal.
-      // if (userData?.profile === 'company') return;
+      // Subscription popup is only for Private Content.
+      // Private Circle (invite/member access) must never trigger it.
+      if (initialTab !== 'privateContent') return;
       const hasActive = await getSubscriptionStatus(targetProfileId);
       if (!hasActive) {
         setPrivatKey(p => p + 1);

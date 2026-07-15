@@ -10,10 +10,19 @@ import RNFS from 'react-native-fs';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 import RBSheet from 'react-native-raw-bottom-sheet';
 import CommentSheet from '../home/posts/CommentSheet';
-import { deletePost, getPostlikes, likePost, savePost, unSavePost, getMarketplaceEbookById } from '../../services/post';
+import {
+  deletePost,
+  getPostlikes,
+  likePost,
+  savePost,
+  unSavePost,
+  getMarketplaceEbookById,
+  getMarketPlaceEbookById,
+} from '../../services/post';
 import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../displaytoastmessage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { navigateClosetReturn } from '../../utils/closetNavigation';
 
 const chaptersFallback = [
   'Build your personal brand',
@@ -22,8 +31,52 @@ const chaptersFallback = [
   'Grow your audience',
 ];
 
+const isValidEbookObject = (value) => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  if (value.error === true) return false;
+  if (typeof value.statusCode === 'number' && value.statusCode >= 400) return false;
+  return Boolean(
+    value.id ||
+      value._id ||
+      value.caption ||
+      value.title ||
+      value.ebookpdf ||
+      value.ebookPdf ||
+      value.text ||
+      value.description ||
+      (Array.isArray(value.images) && value.images.length > 0),
+  );
+};
 
-const getDescription = (textField) => {
+const extractEbookFromResponse = (res) => {
+  const candidates = [
+    res?.data?.ebook,
+    res?.data?.post,
+    res?.data?.data?.ebook,
+    res?.data?.data?.post,
+    res?.ebook,
+    res?.post,
+    res?.data?.data,
+    res?.data,
+    res,
+  ];
+  for (const candidate of candidates) {
+    if (isValidEbookObject(candidate)) return candidate;
+  }
+  return null;
+};
+
+const isMarketplaceEbookItem = (item) => {
+  if (!item || typeof item !== 'object') return false;
+  if (item.closetId || item.marketplaceEbookId || item.marketplaceId) return true;
+  if (item.isMarketplace === true || item.isMarketplace === 'true') return true;
+  const source = String(item.source || '').toLowerCase();
+  if (source === 'marketplace' || source === 'closet') return true;
+  return false;
+};
+
+const getDescription = (ebookItem) => {
+  const textField = ebookItem?.text ?? ebookItem?.description;
   if (!textField) return 'No description available';
 
   if (typeof textField === 'string') {
@@ -63,8 +116,28 @@ const EbookDetailScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   console.log('📥 EbookDetailScreen received params:', JSON.stringify(route?.params, null, 2));
+  const routeUserData = route?.params?.userData;
   const [ebookData, setEbookData] = useState(route?.params?.ebook || {});
-  const ebook = useMemo(() => ebookData, [ebookData]);
+  const ebook = useMemo(() => {
+    const profileName =
+      routeUserData?.userName ||
+      routeUserData?.displayName ||
+      routeUserData?.name ||
+      '';
+    const profileImage =
+      routeUserData?.profileImage ||
+      routeUserData?.avatar ||
+      routeUserData?.image ||
+      routeUserData?.profilePic ||
+      '';
+    const profileUserId = routeUserData?.id || routeUserData?.userId || null;
+    return {
+      ...ebookData,
+      userName: ebookData?.userName || profileName || '',
+      userImage: ebookData?.userImage || ebookData?.avatar || profileImage || '',
+      userId: ebookData?.userId || profileUserId || ebookData?.user?.id || null,
+    };
+  }, [ebookData, routeUserData]);
   const fromRootNavigator = route?.params?.fromRootNavigator;
 
   useEffect(() => {
@@ -75,25 +148,48 @@ const EbookDetailScreen = () => {
 
   useEffect(() => {
     const fetchEbookDetail = async () => {
-      const ebookId = ebookData?.id || ebookData?._id;
+      const ebookId = String(
+        route?.params?.ebook?.id ||
+          route?.params?.ebook?._id ||
+          ebookData?.id ||
+          ebookData?._id ||
+          '',
+      ).trim();
       if (!ebookId) return;
 
+      const sourceItem = route?.params?.ebook || ebookData;
+      const preferMarketplace = isMarketplaceEbookItem(sourceItem);
+
       try {
-        const res = await getMarketplaceEbookById(String(ebookId));
-        console.log('getMarketplaceEbookById response:', res);
-        const resolvedEbook = res?.data?.ebook || res?.ebook || res?.data || res;
-        if (resolvedEbook && typeof resolvedEbook === 'object') {
-          setEbookData(resolvedEbook);
+        let resolvedEbook = null;
+
+        if (preferMarketplace) {
+          const marketplaceRes = await getMarketplaceEbookById(ebookId);
+          resolvedEbook = extractEbookFromResponse(marketplaceRes);
+        } else {
+          const postRes = await getMarketPlaceEbookById(ebookId);
+          resolvedEbook = extractEbookFromResponse(postRes);
+          if (!resolvedEbook) {
+            const marketplaceRes = await getMarketplaceEbookById(ebookId);
+            resolvedEbook = extractEbookFromResponse(marketplaceRes);
+          }
+        }
+
+        if (resolvedEbook) {
+          setEbookData(prev => ({
+            ...(prev && typeof prev === 'object' ? prev : {}),
+            ...resolvedEbook,
+          }));
         }
       } catch (error) {
-        console.log('Failed to fetch marketplace ebook by ID:', error);
+        console.log('Failed to fetch ebook by ID:', error);
       }
     };
 
     fetchEbookDetail();
   }, [route?.params?.ebook?.id, route?.params?.ebook?._id]);
   const routeLoggedInUserId = route?.params?.loggedInUserId;
-  const { bgStyle,text } = useAppTheme(route?.params?.userData?.profile);
+  const { bgStyle,text } = useAppTheme(routeUserData?.profile);
   const { t } = useLanguage();
   const toast = useToast();
   const [isDownloading, setIsDownloading] = useState(false);
@@ -109,10 +205,15 @@ const EbookDetailScreen = () => {
     }
     return require('../../assets/icons/pngicons/blackUser.png');
   }, [ebook]);
-  const description = getDescription(ebook.text);
+  const description = getDescription(ebook);
 
   const pdfUrl = useMemo(() => {
-    let rawPdf = ebook.ebookpdf;
+    let rawPdf =
+      ebook.ebookpdf ||
+      ebook.ebookPdf ||
+      ebook.pdfUrl ||
+      ebook.pdf ||
+      ebook.fileUrl;
     if (!rawPdf) {
       const mediaList = [
         ...(Array.isArray(ebook.images) ? ebook.images : []),
@@ -159,6 +260,61 @@ const EbookDetailScreen = () => {
     if (!viewerUserId || !ebook?.userId) return false;
     return String(viewerUserId) === String(ebook.userId);
   }, [viewerUserId, ebook?.userId]);
+
+  const handleBackPress = useCallback(() => {
+    const backTarget = route?.params?.returnTo;
+    const tabNav = navigation.getParent?.() || navigation;
+
+    // Prefer explicit returnTo from the profile that opened this screen.
+    if (backTarget?.tab && backTarget?.screen) {
+      tabNav.navigate(backTarget.tab, {
+        screen: backTarget.screen,
+        params: backTarget.params || {},
+      });
+      return;
+    }
+
+    if (backTarget) {
+      navigateClosetReturn(navigation, backTarget);
+      return;
+    }
+
+    const returnUserId = String(
+      route?.params?.returnUserId ||
+        routeUserData?.id ||
+        routeUserData?.userId ||
+        '',
+    ).trim();
+    const viewerId = String(routeLoggedInUserId || currentUserId || '').trim();
+
+    // Fallback: other user's profile → UsersProfile (not own Profile tab).
+    if (returnUserId && (!viewerId || returnUserId !== viewerId)) {
+      tabNav.navigate('HomeMain', {
+        screen: 'UsersProfile',
+        params: {
+          userId: returnUserId,
+          initialTab: route?.params?.fromProfileTab || 'privateContent',
+        },
+      });
+      return;
+    }
+
+    if (navigation.canGoBack?.()) {
+      navigation.goBack();
+      return;
+    }
+
+    tabNav.navigate('ProfileMain', { screen: 'Profile' });
+  }, [
+    navigation,
+    route?.params?.returnTo,
+    route?.params?.returnUserId,
+    route?.params?.fromProfileTab,
+    routeUserData?.id,
+    routeUserData?.userId,
+    routeLoggedInUserId,
+    currentUserId,
+  ]);
 
   useScreenshotProtection({
     enabled: !isOwner,
@@ -437,7 +593,7 @@ const EbookDetailScreen = () => {
     <View style={[styles.screen, bgStyle]}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.headerRow}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+          <TouchableOpacity onPress={handleBackPress} style={styles.backBtn}>
             <Ionicons name="arrow-back" size={20} color="#111827" />
           </TouchableOpacity>
           <View style={styles.authorWrap}>
