@@ -280,7 +280,7 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
   const [priorityBattles, setPriorityBattles] = useState([]);
   const [priorityBattlesLoading, setPriorityBattlesLoading] = useState(false);
 
-  const { bgStyle, textStyle, text, cardStyle } = useAppTheme(userData?.profile);
+  const { bgStyle, textStyle, text, cardStyle } = useAppTheme();
   const battleStats = useMemo(() => buildBattleStats(battlePerformance, t), [battlePerformance, t]);
 
   const dispatch = useDispatch();

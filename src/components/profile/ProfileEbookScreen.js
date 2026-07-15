@@ -96,7 +96,7 @@ const getDescription = (item) => {
   return item.description || 'No description available';
 };
 
-const EbookCard = memo(({ item, onPress }) => {
+const EbookCard = memo(({ item, onPress, text }) => {
   const coverImage = getCoverImage(item);
   const title = item.caption || item.title || 'E-book';
   const description = getDescription(item);
@@ -119,7 +119,7 @@ const EbookCard = memo(({ item, onPress }) => {
         <Text style={styles.desc} numberOfLines={2}>{description}</Text>
         <View style={styles.metaRow}>
           {/* <Text style={styles.meta}>📄 {item.pages} Pages</Text> */}
-          <Text style={styles.meta}>📚  {item?.tableContent?.length || 0} Chapters</Text>
+          <Text style={[styles.meta, {color: text}]}>📚  {item?.tableContent?.length || 0} Chapters</Text>
         </View>
       </View>
       <Ionicons name="chevron-forward" size={18} color="#6b7280" />
@@ -270,7 +270,7 @@ const ProfileEbookScreen = ({
         <FlatList
           data={data}
           keyExtractor={(item) => item.id?.toString() || item?.userId || Math.random().toString()}
-          renderItem={({ item }) => <EbookCard item={item} onPress={() => openEbook(item)} />}
+          renderItem={({ item }) => <EbookCard item={item} onPress={() => openEbook(item)} text={text}/>}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
         />
@@ -337,7 +337,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 15, fontWeight: '800', color: '#111827', marginBottom: 4 },
   desc: { fontSize: 12, color: '#6b7280', lineHeight: 16, marginBottom: 8 },
   metaRow: { flexDirection: 'row', flexWrap: 'wrap' },
-  meta: { fontSize: 11, color: '#5A2D82', fontWeight: '700', marginRight: 10, marginBottom: 2 },
+  meta: { fontSize: 11, fontWeight: '700', marginRight: 10, marginBottom: 2 },
   emptyWrapper: {
     flex: 1,
     justifyContent: 'center',

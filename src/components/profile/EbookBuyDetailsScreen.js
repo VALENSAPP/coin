@@ -52,7 +52,7 @@ const EbookBuyDetailsScreen = () => {
       try {
         const res = await getMarketplaceEbookById(ebookId);
         console.log("getMarketplaceEbookById-------------------", res)
-        const fetchedData = res?.data?.post || res?.data?.data?.post || res?.post || res?.data || res;
+        const fetchedData = res?.data?.ebook || res?.data?.data?.ebook || res?.ebook || res?.data || res;
         if (fetchedData) {
           setLoadedEbook(fetchedData);
         }
@@ -103,7 +103,7 @@ const EbookBuyDetailsScreen = () => {
             {coverImage ? (
               <Image source={{ uri: coverImage }} style={styles.coverImage} resizeMode="cover" />
             ) : (
-              <View style={[styles.fallbackCover, { backgroundColor: palette.bg }]}>
+              <View style={[styles.fallbackCover, { backgroundColor: text }]}>
                 <Text style={styles.fallbackTitle}>{title}</Text>
                 <Text style={styles.fallbackAuthor}>{author.toUpperCase()}</Text>
               </View>

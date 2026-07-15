@@ -694,6 +694,7 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
     loggedInUserId: loggedInUserId || currentUserId,
     isOwnProfile,
     closetId,
+    from: 'MyClosetShopFront'
   });
 
   const handleEbookPress = async (item) => {
@@ -706,18 +707,24 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
           ebook: item,
           userData,
           loggedInUserId: loggedInUserId || currentUserId,
+          from: 'MyClosetShopFront',
+          username: userData?.userName || userData?.username || item?.userName
         });
       } else {
         navigation?.navigate?.('EbookBuyDetails', {
           ebook: item,
           userData,
           loggedInUserId: loggedInUserId || currentUserId,
+          from: 'MyClosetShopFront',
+          username: userData?.userName || userData?.username || item?.userName
         });
       }
     } catch (err) {
       console.log('Error checking ebook purchase:', err);
     }
   };
+
+  console.log("userDatauserDatauserDatauserDatauserData", userData)
 
   return (
     <ScrollView style={[s.root, bgStyle]} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
@@ -845,8 +852,13 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
       {/* ── My Items ── */}
       <View style={s.section}>
         <View style={s.sectionHead}>
-          <Text style={s.sectionTitle}>{t('myClosetShopFront.myItemsTitle')}</Text>
-          {(isOwnProfile || tiles.length > 0) && (
+          <Text style={s.sectionTitle}>
+            {isOwnProfile
+              ? t('myClosetShopFront.myItemsTitle')
+              : t('myClosetShopFront.userItemsTitle', {
+                name: userData?.displayName || 'User',
+              })}
+          </Text>          {(isOwnProfile || tiles.length > 0) && (
             <TouchableOpacity onPress={goItems} activeOpacity={0.7}>
               <Text style={[s.seeAll, { color: accent }]}>{t('myClosetShopFront.seeAll')} ›</Text>
             </TouchableOpacity>

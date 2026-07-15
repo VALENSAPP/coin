@@ -189,15 +189,19 @@ const AllEbooksScreen = () => {
         ebook: item,
         userData,
         loggedInUserId,
+        from: route?.params?.from || 'MyClosetShopFront',
+        username: userData?.userName || userData?.username || item?.userName
       });
     } else {
       navigation.navigate('EbookBuyDetails', {
         ebook: item,
         userData,
         loggedInUserId,
+        from: route?.params?.from || 'MyClosetShopFront',
+        username: userData?.userName || userData?.username || item?.userName
       });
     }
-  }, [purchasedMap, isOwnProfile, navigation, userData, loggedInUserId]);
+  }, [purchasedMap, isOwnProfile, navigation, userData, loggedInUserId, route?.params?.from]);
 
   if (loading && ebooks.length === 0) {
     return (

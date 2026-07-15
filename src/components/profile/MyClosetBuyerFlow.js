@@ -354,18 +354,18 @@ const getFieldRules = t => ({
     patternMsg: t('myClosetBuyer.field.invalidPhone'),
   },
   alternateNumber: {
-    required: false,
+    required: true,
     label: t('myClosetBuyer.field.alternateNumber'),
     pattern: /^[+\d\s\-()]{7,20}$/,
     patternMsg: t('myClosetBuyer.field.invalidPhone'),
   },
   addressLine1: { required: true, label: t('myClosetBuyer.field.addressLine1') },
-  addressLine2: { required: false, label: t('myClosetBuyer.field.addressLine2') },
+  addressLine2: { required: true, label: t('myClosetBuyer.field.addressLine2') },
   city: { required: true, label: t('myClosetBuyer.field.city') },
-  state: { required: false, label: t('myClosetBuyer.field.state') },
-  country: { required: false, label: t('myClosetBuyer.field.country') },
+  state: { required: true, label: t('myClosetBuyer.field.state') },
+  country: { required: true, label: t('myClosetBuyer.field.country') },
   postalCode: {
-    required: false,
+    required: true,
     label: t('myClosetBuyer.field.postalCode'),
     pattern: /^\d{3,10}$/,
     patternMsg: t('myClosetBuyer.field.invalidPostalCode'),
@@ -633,7 +633,7 @@ const SellerCard = ({ seller, accentColor }) => {
   );
 };
 
-const OrderSummary = ({ cart, editable, compact, onEditCart, accentColor }) => {
+const OrderSummary = ({ cart, editable, compact, onEditCart, accentColor, bgStyle }) => {
   const { text: fallbackAccent } = useAppTheme();
   const text = accentColor || fallbackAccent;
   const { t } = useLanguage();
@@ -642,7 +642,7 @@ const OrderSummary = ({ cart, editable, compact, onEditCart, accentColor }) => {
     : null;
 
   return (
-    <View style={[styles.card, compact && styles.compactCard]}>
+    <View style={[styles.card, compact && styles.compactCard, bgStyle, {borderColor: text,}]}>
       <View style={styles.cardHeaderRow}>
         <Text style={styles.cardTitle}>{t('myClosetBuyer.orderSummary')}</Text>
         {editable ? (
@@ -669,7 +669,7 @@ const OrderSummary = ({ cart, editable, compact, onEditCart, accentColor }) => {
                   <Text style={styles.summaryItemQty}>{t('myClosetBuyer.qtyLabel', { qty })}</Text>
                 </View>
               </View>
-              {idx < lines.length - 1 ? <View style={styles.divider} /> : null}
+              {idx < lines.length - 1 ? <View style={[styles.divider, {backgroundColor: text}]} /> : null}
             </View>
           );
         })
@@ -684,7 +684,7 @@ const OrderSummary = ({ cart, editable, compact, onEditCart, accentColor }) => {
         </View>
       )}
 
-      <View style={styles.divider} />
+      <View style={[styles.divider, {backgroundColor: text}]} />
       <SummaryRow label={t('myClosetBuyer.itemTotal')} value={currency(cart.itemTotal)} accentColor={text} />
       {cart.shipping > 0 ? (
         <SummaryRow label={t('myClosetBuyer.shippingFee')} value={currency(cart.shipping)} accentColor={text} />
@@ -890,25 +890,25 @@ const AddAddressModal = ({ visible, onClose, onSaved, editAddress, accentColor }
             <Field label={`${t('myClosetBuyer.field.phoneNumber')} *`} fieldKey="phoneNumber" placeholder="+1 555 000 0000"
               keyboardType="phone-pad" value={form.phoneNumber} onChangeText={v => set('phoneNumber', v)}
               onBlur={() => handleBlur('phoneNumber')} error={errors.phoneNumber} />
-            <Field label={t('myClosetBuyer.field.alternateNumber')} fieldKey="alternateNumber"
+            <Field label={`${t('myClosetBuyer.field.alternateNumber')} *`} fieldKey="alternateNumber"
               keyboardType="phone-pad" value={form.alternateNumber} onChangeText={v => set('alternateNumber', v)}
               onBlur={() => handleBlur('alternateNumber')} error={errors.alternateNumber} />
             <Field label={`${t('myClosetBuyer.field.addressLine1')} *`} fieldKey="addressLine1" placeholder="123 Main Street"
               value={form.addressLine1} onChangeText={v => set('addressLine1', v)}
               onBlur={() => handleBlur('addressLine1')} error={errors.addressLine1} />
-            <Field label={t('myClosetBuyer.field.addressLine2')} fieldKey="addressLine2" placeholder="Apt, Suite, Floor…"
+            <Field label={`${t('myClosetBuyer.field.addressLine2')} *`} fieldKey="addressLine2" placeholder="Apt, Suite, Floor…"
               value={form.addressLine2} onChangeText={v => set('addressLine2', v)}
               onBlur={() => handleBlur('addressLine2')} error={errors.addressLine2} />
             <Field label={`${t('myClosetBuyer.field.city')} *`} fieldKey="city" placeholder="New York"
               value={form.city} onChangeText={v => set('city', v)}
               onBlur={() => handleBlur('city')} error={errors.city} />
-            <Field label={t('myClosetBuyer.field.state')} fieldKey="state" placeholder="NY"
+            <Field label={`${t('myClosetBuyer.field.state')} *`} fieldKey="state" placeholder="NY"
               value={form.state} onChangeText={v => set('state', v)}
               onBlur={() => handleBlur('state')} error={errors.state} />
-            <Field label={t('myClosetBuyer.field.country')} fieldKey="country" placeholder="United States"
+            <Field label={`${t('myClosetBuyer.field.country')} *`} fieldKey="country" placeholder="United States"
               value={form.country} onChangeText={v => set('country', v)}
               onBlur={() => handleBlur('country')} error={errors.country} />
-            <Field label={t('myClosetBuyer.field.postalCode')} fieldKey="postalCode" placeholder="10001"
+            <Field label={`${t('myClosetBuyer.field.postalCode')} *`} fieldKey="postalCode" placeholder="10001"
               keyboardType="numeric" value={form.postalCode} onChangeText={v => set('postalCode', v)}
               onBlur={() => handleBlur('postalCode')} error={errors.postalCode} />
 
@@ -1456,7 +1456,7 @@ const SHIPPING_CHOICE_META = {
 };
 
 const ShippingChoiceCard = ({ choice, selected, onPress, disabled, accentColor }) => {
-  const { text: fallbackAccent } = useAppTheme();
+  const { text: fallbackAccent, bgStyle } = useAppTheme();
   const text = accentColor || fallbackAccent;
   const { t } = useLanguage();
   const meta = SHIPPING_CHOICE_META[choice];
@@ -1467,7 +1467,8 @@ const ShippingChoiceCard = ({ choice, selected, onPress, disabled, accentColor }
       disabled={disabled}
       style={[
         styles.shipChoiceCard,
-        selected && { borderColor: text, backgroundColor: SURFACE },
+        selected && { borderColor: text },
+        // bgStyle
       ]}
     >
       <View style={styles.shipChoiceHeaderRow}>
@@ -1539,6 +1540,7 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
   // Per-item action loading (cartItemId being updated/deleted)
   const [itemActionLoading, setItemActionLoading] = useState(null);
   const [clearingCart, setClearingCart] = useState(false);
+  const [pickupAddressMap, setPickupAddressMap] = useState({});
 
   // ── GET /cart ─────────────────────────────────────────────────────────
   const fetchCart = useCallback(async () => {
@@ -1562,18 +1564,30 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
           console.log('[DEBUG] raw closet item sample:', JSON.stringify(closetItems[0], null, 2));
 
           const map = {};
+          const pickupMap = {};
           (Array.isArray(closetItems) ? closetItems : []).forEach(ci => {
             const pid = ci?.id || ci?._id;
-            if (pid) map[pid] = ci?.shippingOption ?? ci?.shippingOptions ?? SHIP_OPTION_SHIP;
+            if (pid) {
+              map[pid] = ci?.shippingOption ?? ci?.shippingOptions ?? SHIP_OPTION_SHIP;
+              pickupMap[pid] = {
+                pickupAddress: ci?.pickupAddress || '',
+                pickupAvailableHours: ci?.pickupAvailableHours || '',
+                sellerName: ci?.shopName || ci?.sellerName || '',
+                itemName: ci?.name || ci?.title || '',
+              };
+            }
           });
           console.log('[DEBUG] shippingOptionsMap:', map);
           console.log('[DEBUG] cartItems productIds:', cartItems.map(ci => ({ id: ci.id, productId: cartItemProductId(ci) })));
           setShippingOptionsMap(map);
+          setPickupAddressMap(pickupMap);
         } catch {
           setShippingOptionsMap({}); // non-fatal, falls back to ship-only per item
+          setPickupAddressMap({});
         }
       } else {
         setShippingOptionsMap({});
+        setPickupAddressMap({});
       }
     } catch (err) {
       setCartError(t('myClosetBuyer.cartLoadError'));
@@ -1856,6 +1870,7 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
       cartId,
       cartItemsSnapshot: cartItems,
       shippingOptionsMap,
+      pickupAddressMap,
       requiresShipping,
     }));
     // } catch (err) {
@@ -1875,6 +1890,7 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
         cartId,
         cartItemsSnapshot: cartItems,
         shippingOptionsMap,
+        pickupAddressMap,
         requiresShipping,
       }),
     );
@@ -2208,6 +2224,7 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
 
   const cartItemsSnapshot = route?.params?.cartItemsSnapshot || [];
   const shippingOptionsMap = route?.params?.shippingOptionsMap || {};
+  const pickupAddressMap = route?.params?.pickupAddressMap || {};
 
   const [shippingChoices, setShippingChoices] = useState(() => {
     const initial = {};
@@ -2235,6 +2252,33 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
 
   const allChoicesMade = itemsNeedingChoice.every(ci => !!shippingChoices[ci.id]);
   const requiresShipping = cartItemsSnapshot.some(ci => effectiveChoice(ci) === SHIP_OPTION_SHIP);
+  const pickupItems = cartItemsSnapshot.filter(ci => effectiveChoice(ci) === SHIP_OPTION_LOCAL);
+  const pickupLocations = useMemo(() => {
+    const seen = new Set();
+    return pickupItems
+      .map(ci => {
+        const product = ci?.product ?? ci ?? {};
+        const resolvedPickup = pickupAddressMap[cartItemProductId(ci)] || {};
+        const address = resolvedPickup.pickupAddress || product?.pickupAddress || ci?.pickupAddress || null;
+        const sellerName =
+          resolvedPickup.sellerName ||
+          product?.shopName ||
+          product?.sellerName ||
+          product?.user?.name ||
+          '';
+        const key = `${sellerName}::${address || ''}`;
+        if (!address || seen.has(key)) return null;
+        seen.add(key);
+        return {
+          id: ci.id,
+          name: resolvedPickup.itemName || product?.name || product?.title || t('myClosetBuyer.itemFallback'),
+          sellerName,
+          address,
+          hours: resolvedPickup.pickupAvailableHours || product?.pickupAvailableHours || ci?.pickupAvailableHours || null,
+        };
+      })
+      .filter(Boolean);
+  }, [pickupItems, pickupAddressMap, t]);
 
   const handleSelectChoice = async (cartItemId, choice) => {
     const previous = shippingChoices[cartItemId];
@@ -2551,6 +2595,22 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
           </>
         )}
 
+        {pickupLocations.length > 0 ? (
+          <>
+            <Text style={styles.sectionLabel}>{t('myClosetBuyer.pickupAddress')}</Text>
+            {pickupLocations.map(location => (
+              <View key={`${location.id}-${location.address}`} style={styles.reviewCard}>
+                {/* <Text style={styles.addressName}>{location.name}</Text> */}
+                {location.sellerName ? (
+                  <Text style={styles.addressPhone}>{location.sellerName}</Text>
+                ) : null}
+                <Text style={styles.addressText}>{location.address}</Text>
+                {location.hours ? <Text style={styles.addressText}>{location.hours}</Text> : null}
+              </View>
+            ))}
+          </>
+        ) : null}
+
         {/* <Text style={styles.sectionLabel}>{t('myClosetBuyer.shippingMethod')}</Text>
         {[
           { key: 'standard', label: t('myClosetBuyer.standardShipping'), price: 10 },
@@ -2722,7 +2782,7 @@ const MyClosetBuyerPaymentScreen = ({ navigation, route }) => {
             <Text style={styles.addressErrorText}>{breakdownError}</Text>
           </View>
         ) : (
-          <OrderSummary cart={cart} compact accentColor={text} />
+          <OrderSummary cart={cart} compact accentColor={text} bgStyle={bgStyle}/>
         )}
       </ScrollView>
       <View style={styles.bottomBar}>
@@ -2902,7 +2962,7 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
                 <Text style={[styles.editText, { color: text }]}>{t('myClosetBuyer.edit')}</Text>
               </TouchableOpacity>
             </View>
-            <View style={styles.reviewCard}>
+            <View style={[styles.reviewCard, bgStyle, {borderColor: text}]}>
               {addr ? (
                 <>
                   <Text style={styles.addressName}>{addr.fullName}</Text>
@@ -2920,7 +2980,7 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
             </View>
           </>
         ) : (
-          <View style={styles.reviewLineCard}>
+          <View style={[styles.reviewLineCard, bgStyle, {borderColor: text}]}>
             <Ionicons name="storefront-outline" size={18} color={text} />
             <Text style={styles.radioLabel}>{t('myClosetBuyer.localPickupSelected')}</Text>
           </View>
@@ -2941,11 +3001,11 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
         </View> */}
         <View style={styles.reviewSectionHeader}>
           <Text style={styles.sectionLabel}>{t('myClosetBuyer.paymentMethod')}</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('MyClosetBuyerPayment', withClosetNavParams(route))}>
+          {/* <TouchableOpacity onPress={() => navigation.navigate('MyClosetBuyerPayment', withClosetNavParams(route))}>
             <Text style={[styles.editText, { color: text }]}>{t('myClosetBuyer.edit')}</Text>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
         </View>
-        <View style={styles.reviewLineCard}>
+        <View style={[styles.reviewLineCard, {borderColor: text}]}>
           <Ionicons name="shield-checkmark-outline" size={18} color={text} />
           <Text style={styles.radioLabel}>{t('myClosetBuyer.secureCheckout')}</Text>
         </View>
@@ -3431,7 +3491,7 @@ const styles = StyleSheet.create({
   stepLabel: { marginTop: 6, fontSize: 10, color: MUTED, fontWeight: '700' },
   stepConnector: { flex: 1, height: 2, backgroundColor: '#e5ddf0', marginBottom: 14 },
 
-  card: { borderWidth: 1, borderColor: BORDER, borderRadius: 14, padding: 14, backgroundColor: SURFACE },
+  card: { borderWidth: 1, borderColor: BORDER, borderRadius: 14, padding: 14},
   compactCard: { marginTop: 14 },
   cardHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
   cardTitle: { fontSize: 14, color: '#21083f', fontWeight: '900' },
@@ -3446,9 +3506,9 @@ const styles = StyleSheet.create({
 
   addressCard: {
     borderWidth: 1, borderColor: BORDER, borderRadius: 13,
-    marginBottom: 10, backgroundColor: SURFACE, overflow: 'hidden',
+    marginBottom: 10, backgroundColor: '#fff', overflow: 'hidden',
   },
-  addressCardSelected: { backgroundColor: '#f5f0ff' },
+  addressCardSelected: { backgroundColor: '#fff' },
   addressCardContent: {
     flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between',
     padding: 14,
@@ -3502,20 +3562,20 @@ const styles = StyleSheet.create({
     minHeight: 58, borderWidth: 1, borderColor: BORDER, borderRadius: 13,
     paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', marginBottom: 12, backgroundColor: '#fff',
   },
-  radioCardSelected: { backgroundColor: SURFACE },
+  radioCardSelected: { backgroundColor: '#fff' },
   radioLabel: { flex: 1, marginLeft: 10, fontSize: 13, color: '#17072d', fontWeight: '800' },
   radioPrice: { fontSize: 12, color: '#17072d', fontWeight: '900' },
 
   paymentOption: {
-    minHeight: 58, borderWidth: 1, borderColor: BORDER, borderRadius: 13,
+    minHeight: 58, borderWidth: 1, borderColor: '#000', borderRadius: 13,
     padding: 12, flexDirection: 'row', alignItems: 'center', marginBottom: 10, backgroundColor: '#fff',
   },
   paymentCopy: { flex: 1 },
   paymentSub: { marginLeft: 10, marginTop: 2, fontSize: 11, color: MUTED, fontWeight: '700' },
 
   reviewSectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 },
-  reviewCard: { borderWidth: 1, borderColor: BORDER, borderRadius: 13, padding: 12, backgroundColor: SURFACE, marginBottom: 8 },
-  reviewLineCard: { minHeight: 48, borderWidth: 1, borderColor: BORDER, borderRadius: 13, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', marginBottom: 8, backgroundColor: SURFACE },
+  reviewCard: { borderWidth: 1, borderRadius: 13, padding: 12, backgroundColor: '#fff', marginBottom: 8 },
+  reviewLineCard: { minHeight: 48, borderWidth: 1, borderRadius: 13, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', marginBottom: 8},
   termsText: { marginTop: 12, fontSize: 11, lineHeight: 16, color: MUTED },
 
   // order received

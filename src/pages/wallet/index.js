@@ -870,7 +870,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
   };
 
   const handleEbookPress = () => {
-    navigation.navigate('EbookPublisher', { type: 'private', format: 'ebook' });
+    navigation.push('EbookPublisher', { type: 'private', format: 'ebook' });
   };
 
   const handleViewTotalTransactions = async () => {

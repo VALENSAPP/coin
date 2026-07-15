@@ -479,7 +479,12 @@ export function CreateBattleScreen({ navigation, route }) {
   const sellerId = route?.params?.sellerId;
   const headerTitle = route?.params?.headerTitle || t('battle.headerTitle');
   const nextRoute = route?.params?.nextRoute || 'BattleSetup';
-  const handleBack = useBattleBackHandler(navigation, route);
+  const handleBack = useCallback(() => {
+    navigation.navigate('MainApp', {
+      screen: 'wallet',
+      params: { screen: 'MyCloset' },
+    });
+  }, [navigation]);
 
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -813,12 +818,18 @@ export function BattlePreviewScreen({ navigation, route }) {
     try {
       const payload = buildBattlePayload();
       const response = await createMarketplaceBattle(payload);
+      console.log("createMarketplaceBattle-------------------", response)
       const data = response?.data?.data ?? response?.data ?? response;
       const battle = data?.battle ?? data;
       const battleId = battle?.id;
 
       const liveRoute = route?.params?.liveRoute || 'BattleLive';
-      navigation.navigate(liveRoute, { battleId, question: previewQuestion, selectedItems });
+      navigation.navigate(liveRoute, {
+        battleId,
+        question: previewQuestion,
+        selectedItems,
+        launchedFromPreview: true,
+      });
     } catch (err) {
       const status = err?.response?.status;
       const message = err?.response?.data?.message;
@@ -894,11 +905,19 @@ export function BattleLiveScreen({ navigation, route }) {
   const initialBattle = route?.params?.initialBattle || null;
   const returnTo = route?.params?.returnTo;
   const isOwnProfile = route?.params?.isOwnProfile ?? false;
+  const launchedFromPreview = route?.params?.launchedFromPreview ?? false;
   const cameFromCard = !!initialBattle;
   const handleBack = useBattleBackHandler(navigation, route);
   const handleDonePress = useCallback(() => {
     if (returnTo) {
       navigateClosetReturn(navigation, returnTo);
+      return;
+    }
+    if (launchedFromPreview) {
+      navigation.navigate('MainApp', {
+        screen: 'wallet',
+        params: { screen: 'MyCloset' },
+      });
       return;
     }
     if (isOwnProfile) {
@@ -911,7 +930,7 @@ export function BattleLiveScreen({ navigation, route }) {
     if (navigation.canGoBack?.()) {
       navigation.goBack();
     }
-  }, [navigation, returnTo, isOwnProfile]);
+  }, [navigation, returnTo, isOwnProfile, launchedFromPreview]);
 
   const handleBackPress = useCallback(() => {
     if (navigation.canGoBack?.()) {
@@ -1330,18 +1349,19 @@ export function BattleLiveScreen({ navigation, route }) {
         })}
       </View>
 
-      {/* Percentage split bar */}
-      <View style={liveStyles.splitWrap}>
-        <View style={liveStyles.splitTrack}>
-          <View style={[liveStyles.splitFillLeft, { flex: leftVotePercent || 1, backgroundColor: accent }]} />
-          <View style={[liveStyles.splitFillRight, { flex: rightVotePercent || 1, backgroundColor: '#D9CBEF' }]} />
+      {showResultsBar ? (
+        <View style={liveStyles.splitWrap}>
+          <View style={liveStyles.splitTrack}>
+            <View style={[liveStyles.splitFillLeft, { flex: leftVotePercent || 1, backgroundColor: accent }]} />
+            <View style={[liveStyles.splitFillRight, { flex: rightVotePercent || 1, backgroundColor: '#D9CBEF' }]} />
+          </View>
+          <View style={liveStyles.splitLabelsRow}>
+            <Text style={[liveStyles.splitPercentText, { color: accent }]}>{leftVotePercent}%</Text>
+            <Text style={liveStyles.splitVotesText}>{totalItemVotes} {t('battle.totalVotes') || 'total votes'}</Text>
+            <Text style={liveStyles.splitPercentText}>{rightVotePercent}%</Text>
+          </View>
         </View>
-        <View style={liveStyles.splitLabelsRow}>
-          <Text style={[liveStyles.splitPercentText, { color: accent }]}>{leftVotePercent}%</Text>
-          <Text style={liveStyles.splitVotesText}>{totalItemVotes} {t('battle.totalVotes') || 'total votes'}</Text>
-          <Text style={liveStyles.splitPercentText}>{rightVotePercent}%</Text>
-        </View>
-      </View>
+      ) : null}
 
       {/* Stats row: views / comments / likes */}
       <View style={liveStyles.statsRow}>
