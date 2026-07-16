@@ -1526,6 +1526,7 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
   const [cartId, setCartId] = useState(null);
   const [checkingOut, setCheckingOut] = useState(false);
   const { text, bgStyle } = useClosetTheme(route);
+  const toast = useToast();
   const { t } = useLanguage();
   const returnTo = route?.params?.returnTo;
   const localCart = buildCart(route, t); // fallback data from route params
@@ -1804,8 +1805,14 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
     if (!productId) return;
     const quantity = Math.max(1, Number(item?.quantity || 1));
     try {
-      await addCartItem({ productId, quantity });
-      await fetchCart();
+      const response = await addCartItem({ productId, quantity });
+      console.log('[DEBUG] addCartItem response:', response);
+      if (response?.statusCode === 200 || response?.statusCode === 201) {
+        await fetchCart();
+      }
+      else {
+        showToastMessage(toast, 'danger', response?.message || t('myClosetBuyer.addToCartError'));
+      }
     } catch (err) {
       Alert.alert(t('myClosetBuyer.errorTitle'), err?.response?.data?.message || t('myClosetBuyer.addToCartError'));
     }
