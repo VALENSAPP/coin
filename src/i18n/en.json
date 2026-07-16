@@ -4271,7 +4271,7 @@
     "retry": "Retry",
     "orderStatusUpdated": "Order status updated.",
     "unableToUpdateStatus": "Unable to update order status.",
-    "buyer": "Buyer",
+    "buyer": "Seller",
     "shippingAddress": "Shipping Address",
     "items": "Items ({{count}})",
     "itemsCount": "{{count}} item(s)",

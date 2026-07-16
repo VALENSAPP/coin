@@ -2220,7 +2220,7 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
       {!isEmpty && !cartLoading && !cartError && (
         <View style={styles.bottomBar}>
           <BottomButton
-            label={checkingOut ? t('myClosetBuyer.loading') : t('myClosetBuyer.proceedToCheckout')}
+            label={checkingOut ? t('myClosetBuyer.loading') : t('myClosetBuyer.continueShopping')}
             onPress={checkingOut ? undefined : handleProceed}
             accentColor={text}
           />
@@ -2472,7 +2472,7 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
                 });
               }
               else {
-                showToastMessage(toast, 'danger', response?.message || t('myClosetBuyer.deleteAddressError'));
+                Alert.alert(response?.message || t('myClosetBuyer.deleteAddressError'));
               }
             } catch (err) {
               Alert.alert(t('myClosetBuyer.errorTitle'), err?.response?.data?.message || t('myClosetBuyer.deleteAddressError'));

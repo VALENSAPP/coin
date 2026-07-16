@@ -357,7 +357,12 @@ const MyClosetItemsManagementScreen = ({ navigation, route }) => {
                 <View style={styles.itemButtonRow}>
                   <TouchableOpacity
                     activeOpacity={0.85}
-                    onPress={() => navigation.navigate('MyClosetItemEditor', { item: normalized })}
+                    onPress={() =>
+                      navigation.navigate('ProfileMain', {
+                        screen: 'MyClosetItemEditor',
+                        params: { item: normalized },
+                      })
+                    }
                     style={[styles.actionButton, { borderColor: text }]}
                   >
                     <Text style={[styles.actionButtonText, { color: text }]}>{t('myClosetItems.edit')}</Text>
@@ -391,6 +396,7 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
   const toast = useToast();
   const dispatch = useDispatch();
   const item = route?.params?.item || {};
+  const returnTo = route?.params?.returnTo;
   const [draft, setDraft] = useState(() => toEditableItem(item));
   const [saving, setSaving] = useState(false);
 
@@ -403,6 +409,18 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
     setDraft(toEditableItem(item));
   }, [item]);
 
+  const handleBack = useCallback(() => {
+    if (returnTo === 'MyClosetDashboard') {
+      navigation.navigate('MainApp', {
+        screen: 'wallet',
+        params: { screen: 'MyCloset' },
+      });
+      return;
+    }
+
+    navigation.goBack();
+  }, [navigation, returnTo]);
+
   const handleSave = useCallback(async () => {
     if (!draft.id) return;
     setSaving(true);
@@ -411,7 +429,7 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
       const response = await updateMyClosetItem(draft.id, buildPayload(draft));
       if (response?.statusCode === 200 || response?.statusCode === 201) {
         showToastMessage(toast, 'success', response?.message || t('myClosetItemEditor.updateSuccess'));
-        navigation.goBack();
+        handleBack();
         return;
       }
 
@@ -430,7 +448,7 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
       setSaving(false);
       dispatch(hideLoader());
     }
-  }, [draft, dispatch, navigation, toast, t]);
+  }, [draft, dispatch, handleBack, navigation, toast, t]);
 
   const handleDelete = useCallback(() => {
     if (!draft.id) return;
@@ -451,7 +469,7 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
               response == null;
             if (deleted) {
               showToastMessage(toast, 'success', t('myClosetItemEditor.deleteSuccess'));
-              navigation.goBack();
+              handleBack();
               return;
             }
 
@@ -473,7 +491,7 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
         },
       },
     ]);
-  }, [draft.id, dispatch, navigation, toast, t]);
+  }, [draft.id, dispatch, handleBack, navigation, toast, t]);
 
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
@@ -488,7 +506,7 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
         <ClosestHeader
           title={t('myClosetItemEditor.headerTitle')}
           // subtitle="/mycloset/items/{itemId}"
-          onBack={() => navigation.goBack()}
+          onBack={handleBack}
         />
 
         <View style={[styles.formCard, cardStyle]}>

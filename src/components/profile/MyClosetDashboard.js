@@ -279,6 +279,7 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
   const [battlePerformanceLoading, setBattlePerformanceLoading] = useState(false);
   const [priorityBattles, setPriorityBattles] = useState([]);
   const [priorityBattlesLoading, setPriorityBattlesLoading] = useState(false);
+  const [currentUserName, setCurrentUserName] = useState('');
 
   const { bgStyle, textStyle, text, cardStyle } = useAppTheme();
   const battleStats = useMemo(() => buildBattleStats(battlePerformance, t), [battlePerformance, t]);
@@ -290,6 +291,7 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
     const loadUsername = async () => {
       try {
         const value = await AsyncStorage.getItem('currentUsername');
+        setCurrentUserName(value)
         if (isMounted && value) setStoredUsername(value);
       } catch {
         // Ignore storage read issues
@@ -529,6 +531,22 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
     navigation?.navigate?.('ProfileMain', {
       screen: 'MyClosetItemsManagement',
       params: { section: 'items' },
+    });
+  };
+
+  const handleViewAllEbooks = () => {
+    const username = currentUserName;
+    navigation?.navigate?.('ProfileMain', {
+      screen: 'AllEbooks',
+      params: {
+        userData,
+        loggedInUserId: userData?.id || userData?._id,
+        isOwnProfile: true,
+        closetId: resolvedClosetId,
+        username,
+        from: 'MyClosetDashboard',
+        returnTo: 'MyClosetDashboard',
+      },
     });
   };
 
@@ -934,7 +952,10 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
                 onPress={() =>
                   navigation?.navigate?.('ProfileMain', {
                     screen: 'MyClosetItemEditor',
-                    params: { item: item.raw || item },
+                    params: {
+                      item: item.raw || item,
+                      returnTo: 'MyClosetDashboard',
+                    },
                   })
                 }
               >
@@ -962,6 +983,18 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
               <Ionicons name="add" size={28} color={text} />
             </View>
             <Text style={[styles.itemGridName, { color: text, fontWeight: '700' }]}>{t('myClosetDashboard.addNewItem')}</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <View style={[styles.sectionCard, cardStyle, { borderColor: withAlpha(text, 0.12) }]}>
+        <View style={[styles.sectionHeader, {marginBottom: 2}]}>
+          <View style={styles.ebooksCtaCopy}>
+            <Ionicons name="book-outline" size={18} color={text} style={{ marginRight: 8 }} />
+            <Text style={[styles.ebooksCtaTitle, textStyle]}>All E-books</Text>
+          </View>
+          <TouchableOpacity activeOpacity={0.8} onPress={handleViewAllEbooks}>
+            <Text style={styles.sectionMeta}>{t('myClosetDashboard.viewAll')} ›</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -1273,6 +1306,23 @@ const styles = StyleSheet.create({
   },
   itemGridName: { fontSize: 12, fontWeight: '700', textAlign: 'left' },
   itemGridPrice: { marginTop: 1, color: '#6b7280', fontSize: 11, fontWeight: '600' },
+  ebooksCta: {
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderTopWidth: 1,
+    borderTopColor: '#f3f4f6',
+    paddingTop: 12,
+  },
+  ebooksCtaCopy: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  ebooksCtaTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
   itemsLoadingWrap: {
     width: '100%',
     minHeight: 110,

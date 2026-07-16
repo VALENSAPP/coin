@@ -694,6 +694,7 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
     loggedInUserId: loggedInUserId || currentUserId,
     isOwnProfile,
     closetId,
+    username: userData?.userName || userData?.username || userData?.displayName || userData?.shopUsername || shopHandle || '',
     from: 'MyClosetShopFront'
   });
 
@@ -708,6 +709,7 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
           userData,
           loggedInUserId: loggedInUserId || currentUserId,
           from: 'MyClosetShopFront',
+          fromEbookPublisher: true,
           username: userData?.userName || userData?.username || item?.userName
         });
       } else {

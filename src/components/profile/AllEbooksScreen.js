@@ -86,9 +86,20 @@ const AllEbooksScreen = () => {
   const route = useRoute();
   const isFocused = useIsFocused();
   const { userData, loggedInUserId, isOwnProfile } = route.params || {};
+  const resolvedClosetId = route?.params?.closetId || null;
+  const resolvedUserId = loggedInUserId || userData?.id || userData?._id || null;
+  const returnTo = route?.params?.returnTo;
 
-  const { bgStyle, textStyle, text } = useAppTheme(userData?.profile);
+  const { bgStyle, textStyle, text } = useAppTheme();
   const accentColor = text || '#5A2D82';
+  const resolvedAuthorName =
+    route?.params?.username ||
+    userData?.userName ||
+    userData?.username ||
+    userData?.displayName ||
+    userData?.shopName ||
+    userData?.shopUsername ||
+    '';
 
   const [ebooks, setEbooks] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -98,22 +109,22 @@ const AllEbooksScreen = () => {
   const fetchEbooks = useCallback(async (id, cId = null) => {
     try {
       setLoading(true);
-      let resolvedClosetId = cId || route?.params?.closetId;
-      if (!resolvedClosetId && id) {
+      let closetIdToUse = cId || resolvedClosetId;
+      if (!closetIdToUse && id) {
         const byUserRes = await getMyClosetById({ userId: id }).catch(() => null);
         const closetData = byUserRes?.data ?? byUserRes;
         const closetRecord = closetData?.closetDetails || closetData;
-        resolvedClosetId = closetData?.closetId ?? closetRecord?.id ?? closetRecord?._id ?? null;
+        closetIdToUse = closetData?.closetId ?? closetRecord?.id ?? closetRecord?._id ?? null;
       }
 
-      if (!resolvedClosetId) {
+      if (!closetIdToUse) {
         setEbooks([]);
         setLoading(false);
         return;
       }
 
-      console.log('Fetching marketplace ebooks in AllEbooksScreen for closetId:', resolvedClosetId);
-      const response = await getMarketplaceEbooksByClosetId(resolvedClosetId);
+      console.log('Fetching marketplace ebooks in AllEbooksScreen for closetId:', closetIdToUse);
+      const response = await getMarketplaceEbooksByClosetId(closetIdToUse);
       const payload =
         response?.data?.ebooks ??
         response?.ebooks ??
@@ -163,13 +174,13 @@ const AllEbooksScreen = () => {
     } finally {
       setLoading(false);
     }
-  }, [route?.params?.closetId]);
+  }, [resolvedClosetId]);
 
   useEffect(() => {
-    if (userData?.id && isFocused) {
-      fetchEbooks(userData.id, route?.params?.closetId);
+    if (isFocused) {
+      fetchEbooks(resolvedUserId, resolvedClosetId);
     }
-  }, [userData?.id, isFocused, fetchEbooks, route?.params?.closetId]);
+  }, [resolvedUserId, resolvedClosetId, isFocused, fetchEbooks]);
 
   const filteredEbooks = useMemo(() => {
     if (!searchQuery.trim()) return ebooks;
@@ -190,7 +201,7 @@ const AllEbooksScreen = () => {
         userData,
         loggedInUserId,
         from: route?.params?.from || 'MyClosetShopFront',
-        username: userData?.userName || userData?.username || item?.userName
+        username: item?.userName || item?.username || item?.creator?.name || resolvedAuthorName,
       });
     } else {
       navigation.navigate('EbookBuyDetails', {
@@ -198,10 +209,22 @@ const AllEbooksScreen = () => {
         userData,
         loggedInUserId,
         from: route?.params?.from || 'MyClosetShopFront',
-        username: userData?.userName || userData?.username || item?.userName
+        username: item?.userName || item?.username || item?.creator?.name || resolvedAuthorName,
       });
     }
-  }, [purchasedMap, isOwnProfile, navigation, userData, loggedInUserId, route?.params?.from]);
+  }, [purchasedMap, isOwnProfile, navigation, userData, loggedInUserId, route?.params?.from, resolvedAuthorName]);
+
+  const handleBackPress = () => {
+    if (returnTo === 'MyClosetDashboard') {
+      navigation.navigate('MainApp', {
+        screen: 'wallet',
+        params: { screen: 'MyCloset' },
+      });
+      return;
+    }
+
+    navigation.goBack();
+  };
 
   if (loading && ebooks.length === 0) {
     return (
@@ -215,7 +238,7 @@ const AllEbooksScreen = () => {
     <View style={[styles.screen, bgStyle]}>
       {/* Header */}
       <View style={styles.headerRow}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+        <TouchableOpacity onPress={handleBackPress} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={22} color="#111827" />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, textStyle]}>E-books</Text>

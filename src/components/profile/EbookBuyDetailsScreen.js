@@ -51,7 +51,6 @@ const EbookBuyDetailsScreen = () => {
       if (!ebookId) return;
       try {
         const res = await getMarketplaceEbookById(ebookId);
-        console.log("getMarketplaceEbookById-------------------", res)
         const fetchedData = res?.data?.ebook || res?.data?.data?.ebook || res?.ebook || res?.data || res;
         if (fetchedData) {
           setLoadedEbook(fetchedData);
@@ -70,7 +69,19 @@ const EbookBuyDetailsScreen = () => {
 
   const coverImage = getCoverImage(currentEbook);
   const title = currentEbook?.caption || currentEbook?.title || 'E-book';
-  const author = currentEbook?.userName || userData?.displayName || 'Unknown Author';
+  const author =
+    currentEbook?.purchasedFrom ||
+    route?.params?.username ||
+    currentEbook?.userName ||
+    currentEbook?.username ||
+    currentEbook?.creator?.name ||
+    currentEbook?.creator?.username ||
+    currentEbook?.user?.name ||
+    currentEbook?.user?.username ||
+    userData?.shopName ||
+    userData?.shopUsername ||
+    userData?.displayName ||
+    'Unknown Author';
   const description = getDescription(currentEbook);
   const palette = themeStyles[currentEbook?.theme] || themeStyles.purple;
 
@@ -115,13 +126,6 @@ const EbookBuyDetailsScreen = () => {
         <View style={styles.infoWrapper}>
           <Text style={[styles.titleText, textStyle]}>{title}</Text>
           <Text style={styles.authorText}>by {author}</Text>
-
-          {/* Rating */}
-          <View style={styles.ratingRow}>
-            <Ionicons name="star" size={16} color="#F2C94C" />
-            <Text style={styles.ratingText}>4.8 </Text>
-            <Text style={styles.reviewsText}>(320 reviews)</Text>
-          </View>
 
           {/* Description */}
           <Text style={styles.descriptionText}>{description}</Text>

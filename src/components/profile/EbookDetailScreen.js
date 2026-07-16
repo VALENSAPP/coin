@@ -145,6 +145,7 @@ const EbookDetailScreen = () => {
     };
   }, [ebookData, routeUserData]);
   const fromRootNavigator = route?.params?.fromRootNavigator;
+  const fromEbookPublisher = route?.params?.fromEbookPublisher === true;
 
   useEffect(() => {
     if (route?.params?.ebook) {
@@ -203,7 +204,20 @@ const EbookDetailScreen = () => {
   const commentSheetRef = useRef(null);
 
   const title = ebook.caption || ebook.title || 'E-book';
-  const userName = formatDisplayName(ebook.purchasedFrom || route?.params?.username || ebook.userName || 'Unknown Author');
+  const userName = formatDisplayName(
+    ebook.purchasedFrom ||
+    route?.params?.username ||
+    ebook.userName ||
+    ebook.username ||
+    ebook.creator?.name ||
+    ebook.creator?.username ||
+    ebook.user?.name ||
+    ebook.user?.username ||
+    routeUserData?.shopName ||
+    routeUserData?.shopUsername ||
+    routeUserData?.displayName ||
+    'Unknown Author'
+  );
   const userAvatarSource = useMemo(() => {
     const uri = ebook.userImage || ebook.avatar || ebook.user?.avatar || ebook.user?.image || ebook.creator?.avatar || ebook.creator?.image;
     if (uri && typeof uri === 'string' && uri.trim().length > 0) {
@@ -323,7 +337,7 @@ const EbookDetailScreen = () => {
   ]);
 
   useScreenshotProtection({
-    enabled: !isOwner,
+    enabled: !isOwner && !fromEbookPublisher,
     holdProtection: holdScreenshotProtection,
     title: t('postView.screenshotWarningTitle'),
     message: t('postView.screenshotWarningMessage'),
@@ -620,9 +634,11 @@ const EbookDetailScreen = () => {
               </View>
               <Text style={styles.metaText}>{createdAt}</Text>
             </View>
-            <View style={[styles.subscriberPill, bgStyle, {borderColor: text}]}>
-              <Text style={[styles.subscriberPillText,{color:text}]}>Subscribers</Text>
-            </View>
+            {!fromEbookPublisher ? (
+              <View style={[styles.subscriberPill, bgStyle, {borderColor: text}]}>
+                <Text style={[styles.subscriberPillText,{color:text}]}>Subscribers</Text>
+              </View>
+            ) : null}
             {isOwner ? (
               <View>
                 <TouchableOpacity
@@ -691,34 +707,36 @@ const EbookDetailScreen = () => {
           <Text style={[styles.readButtonText,{color:text}]}>Read e-book</Text>
         </TouchableOpacity>
 
-        <View style={styles.actionsRow}>
-          <TouchableOpacity
-            style={styles.actionBtn}
-            onPress={handleLike}
-          >
-            <Ionicons
-              name={isLiked ? 'heart' : 'heart-outline'}
-              size={25}
-              color={isLiked ? '#ef4444' : '#6b7280'}
-            />
-            <Text style={styles.actionCount}>{likes}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionBtn} onPress={handleOpenComments}>
-            <Ionicons name="chatbubble-outline" size={25} color="#6b7280" />
-            <Text style={styles.actionCount}>{comments}</Text>
-          </TouchableOpacity>
-          <View style={styles.actionSpacer} />
-          <TouchableOpacity
-            style={styles.bookmarkBtn}
-            onPress={handleSave}
-          >
-            <Ionicons
-              name={isSaved ? 'bookmark' : 'bookmark-outline'}
-              size={25}
-              color={isSaved ? '#5A2D82' : '#6b7280'}
-            />
-          </TouchableOpacity>
-        </View>
+        {!fromEbookPublisher ? (
+          <View style={styles.actionsRow}>
+            <TouchableOpacity
+              style={styles.actionBtn}
+              onPress={handleLike}
+            >
+              <Ionicons
+                name={isLiked ? 'heart' : 'heart-outline'}
+                size={25}
+                color={isLiked ? '#ef4444' : '#6b7280'}
+              />
+              <Text style={styles.actionCount}>{likes}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionBtn} onPress={handleOpenComments}>
+              <Ionicons name="chatbubble-outline" size={25} color="#6b7280" />
+              <Text style={styles.actionCount}>{comments}</Text>
+            </TouchableOpacity>
+            <View style={styles.actionSpacer} />
+            <TouchableOpacity
+              style={styles.bookmarkBtn}
+              onPress={handleSave}
+            >
+              <Ionicons
+                name={isSaved ? 'bookmark' : 'bookmark-outline'}
+                size={25}
+                color={isSaved ? '#5A2D82' : '#6b7280'}
+              />
+            </TouchableOpacity>
+          </View>
+        ) : null}
       </ScrollView>
 
       <RBSheet

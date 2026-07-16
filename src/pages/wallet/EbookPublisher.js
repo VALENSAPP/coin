@@ -122,10 +122,35 @@ const EbookPublisher = ({ navigation }) => {
       setLibraryError('');
 
       try {
-        const res = fromRootNavigator ? await getPurchasedEbooks() : await getMyEbookLibrary();
-        console.log("response in fetchLibrary--------",res)
-        const payload = res?.data?.posts || res?.data?.post || res?.data?.data?.posts || res?.data?.data?.post || res?.ebooks || res?.data?.ebooks || res?.data || res;
-        const nextBooks = Array.isArray(payload) ? payload : Array.isArray(payload?.posts) ? payload.posts : Array.isArray(payload?.ebooks) ? payload.ebooks : [];
+        const responses = [
+          await getPurchasedEbooks(),
+          await getMyEbookLibrary(),
+        ];
+
+        const extractBooks = (res) => {
+          const payload =
+            res?.data?.posts ||
+            res?.data?.post ||
+            res?.data?.data?.posts ||
+            res?.data?.data?.post ||
+            res?.ebooks ||
+            res?.data?.ebooks ||
+            res?.data ||
+            res;
+          const nextBooks = Array.isArray(payload)
+            ? payload
+            : Array.isArray(payload?.posts)
+              ? payload.posts
+              : Array.isArray(payload?.ebooks)
+                ? payload.ebooks
+                : [];
+          return nextBooks;
+        };
+
+        const nextBooks = responses
+          .map(extractBooks)
+          .find((books) => Array.isArray(books) && books.length > 0) || [];
+
         setLibraryBooks(nextBooks);
       } catch (error) {
         setLibraryError(tf('ebookPublisher.libraryLoadFailed', 'We could not load your library right now.'));
@@ -135,7 +160,7 @@ const EbookPublisher = ({ navigation }) => {
     };
 
     fetchLibrary();
-  }, [stepOneTab, fromRootNavigator]);
+  }, [stepOneTab]);
 
   useEffect(() => {
     (async () => {
@@ -208,6 +233,7 @@ const EbookPublisher = ({ navigation }) => {
       userData: route?.params?.userData,
       loggedInUserId: loggedInUserId || currentUserId,
       fromRootNavigator: fromRootNavigator,
+      fromEbookPublisher: true,
       username: item?.userName || route?.params?.userData?.userName || route?.params?.userData?.username
     };
 
