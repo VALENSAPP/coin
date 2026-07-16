@@ -2092,6 +2092,23 @@
     "sumsubLaunchFailed": "Impossibile avviare la verifica. Riprova.",
     "loadFailed": "Impossibile caricare lo stato di verifica"
   },
+  "totalEarnings": {
+    "title": "Guadagni",
+    "totalEarnings": "Guadagni totali",
+    "allTimeEarnings": "Guadagni di sempre",
+    "bySource": "Guadagni per fonte",
+    "missionPost": "Mission Post",
+    "tip": "Mancia",
+    "walletToWallet": "Wallet a wallet",
+    "subscribedFans": "Fan abbonati",
+    "shop": "Negozio",
+    "campaigns": "Campagne",
+    "tips": "Mance",
+    "transactions": "Transazioni",
+    "subscribers": "Abbonati",
+    "sales": "Vendite",
+    "withdrawEarnings": "Preleva guadagni"
+  },
   "valensWallet": {
     "totalBalance": "Saldo totale",
     "overviewTitle": "Panoramica wallet",

@@ -102,6 +102,31 @@ export const getAllMissionPost = async (params) => {
 export const subscriptionEarningGraph = async (params) => {
   return axiosInstance.get('billing/subscription-earning/graph', { params });
 }
+
+/** 7-day pay-following (subscribed fans) graph + total + % of total earning */
+export const payFollowingGraph = async () => {
+  return axiosInstance.get('billing/pay-following-graph');
+};
+
+/** 7-day tip graph + total tip earning + % of total earning */
+export const tipGraph = async () => {
+  return axiosInstance.get('billing/tip-graph');
+};
+
+/** 7-day mission donations graph + total + % of total earning */
+export const missionDonationsGraph = async () => {
+  return axiosInstance.get('billing/mission-donations-graph');
+};
+
+/** 7-day shop earning graph (items + ebooks, excluding platform fee) */
+export const shopEarningGraph = async () => {
+  return axiosInstance.get('billing/shop-earning-graph');
+};
+
+/** 7-day USDT / wallet-to-wallet transfer graph + total + % of total earning */
+export const usdtTransferGraph = async () => {
+  return axiosInstance.get('billing/usdt-transfer-graph');
+};
 export const transationActivity = async (params) => {
   if (params && typeof params === 'object') {
     return axiosInstance.get('billing/received-transactions', { params });

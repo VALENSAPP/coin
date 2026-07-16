@@ -2092,6 +2092,23 @@
     "sumsubLaunchFailed": "Falha ao iniciar verificaÃ§Ã£o. Tente novamente.",
     "loadFailed": "Falha ao carregar status da verificaÃ§Ã£o"
   },
+  "totalEarnings": {
+    "title": "Ganhos",
+    "totalEarnings": "Ganhos totais",
+    "allTimeEarnings": "Ganhos de todos os tempos",
+    "bySource": "Ganhos por fonte",
+    "missionPost": "Mission Post",
+    "tip": "Gorjeta",
+    "walletToWallet": "Carteira para carteira",
+    "subscribedFans": "FÃ£s assinantes",
+    "shop": "Loja",
+    "campaigns": "Campanhas",
+    "tips": "Gorjetas",
+    "transactions": "TransaÃ§Ãµes",
+    "subscribers": "Assinantes",
+    "sales": "Vendas",
+    "withdrawEarnings": "Sacar ganhos"
+  },
   "valensWallet": {
     "totalBalance": "Saldo total",
     "overviewTitle": "VisÃ£o geral da carteira",

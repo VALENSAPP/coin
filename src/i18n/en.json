@@ -2106,6 +2106,23 @@
     "sumsubLaunchFailed": "Failed to start verification. Please try again.",
     "loadFailed": "Failed to load verification status"
   },
+  "totalEarnings": {
+    "title": "Earnings",
+    "totalEarnings": "Total Earnings",
+    "allTimeEarnings": "All time earnings",
+    "bySource": "Earnings by Source",
+    "missionPost": "Mission Post",
+    "tip": "Tip",
+    "walletToWallet": "Wallet to Wallet",
+    "subscribedFans": "Subscribed Fans",
+    "shop": "Shop",
+    "campaigns": "Campaigns",
+    "tips": "Tips",
+    "transactions": "Transactions",
+    "subscribers": "Subscribers",
+    "sales": "Sales",
+    "withdrawEarnings": "Withdraw Earnings"
+  },
   "valensWallet": {
     "totalBalance": "Total Balance",
     "overviewTitle": "Wallet Overview",
