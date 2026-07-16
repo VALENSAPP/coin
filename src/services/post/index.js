@@ -43,9 +43,15 @@ export const createPost = async data => {
   }
 
   if (data.hashtag != null) {
-    const hashtagValue =
-      Array.isArray(data.hashtag) ? JSON.stringify(data.hashtag) : String(data.hashtag);
-    formData.append('hashtag', hashtagValue);
+    const hashtags = Array.isArray(data.hashtag)
+      ? data.hashtag
+      : String(data.hashtag)
+          .split(',')
+          .map(item => item.trim())
+          .filter(Boolean);
+    if (hashtags.length > 0) {
+      formData.append('hashtag', JSON.stringify(hashtags));
+    }
   }
 
   if (data.taggedPeople) {
@@ -404,6 +410,16 @@ export async function editPost(postId, data = {}) {
     formData.append('location', String(data.location));
   }
 
+  if (data.hashtag != null) {
+    const hashtags = Array.isArray(data.hashtag)
+      ? data.hashtag
+      : String(data.hashtag)
+          .split(',')
+          .map(item => item.trim())
+          .filter(Boolean);
+    formData.append('hashtag', JSON.stringify(hashtags));
+  }
+
   if (data.taggedPeople != null) {
     formData.append('taggedPeople', data.taggedPeople);
   }
@@ -464,6 +480,7 @@ export async function editPost(postId, data = {}) {
       [
         'caption',
         'location',
+        'hashtag',
         'taggedPeople',
         'taggedPeopleIds',
         'taggedPeopleMeta',
@@ -516,6 +533,15 @@ export async function getHidePost() {
 
 export async function sharePost(body) {
   return axiosInstance.post('post/sharepost', body)
+}
+
+export async function searchHashtags(params = {}) {
+  const q = String(params?.q ?? '').trim();
+  const requestParams = { q };
+  if (params?.limit != null) {
+    requestParams.limit = params.limit;
+  }
+  return axiosInstance.get('post/hashtags/search', { params: requestParams });
 }
 
 export async function GetAllReels() {

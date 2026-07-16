@@ -573,7 +573,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
     { id: 'referralPoints', title: t('walletDashboard.kpi.referralPoints'), value: '-', icon: 'gift' },
     { id: 'metamask', title: t('walletDashboard.kpi.metamaskWallet'), value: '-', icon: 'logo-usd' },
     { id: 'tipPayout', title: t('walletDashboard.tipPayout.title'), value: '', icon: 'cash' },
-    { id: 'ebook', title: t('walletDashboard.ebook.title'), value: '', icon: 'book' },
+    // { id: 'ebook', title: t('walletDashboard.ebook.title'), value: '', icon: 'book' },
   ]);
   const [tipPayoutSetup, setTipPayoutSetup] = useState(null);
   const dispatch = useDispatch();
@@ -1278,10 +1278,10 @@ export const WalletDashboardScreen = ({ navigation }) => {
   const renderKPICard = (item) => {
     const isMetaMaskCard = item.id === 'metamask';
     const isTipPayoutCard = item.id === 'tipPayout';
-    const isEbookCard = item.id === 'ebook';
+    // const isEbookCard = item.id === 'ebook';
     const cellStyle = [
       styles.kpiCardCell,
-      (isMetaMaskCard || isTipPayoutCard || isEbookCard) && styles.kpiCardCellFull,
+      (isMetaMaskCard || isTipPayoutCard) && styles.kpiCardCellFull,
     ];
 
     if (item?.isPlaceholder) {
@@ -1433,41 +1433,41 @@ export const WalletDashboardScreen = ({ navigation }) => {
       );
     }
 
-    if (isEbookCard) {
-      return (
-        <View key={item.id} style={cellStyle}>
-          <TouchableOpacity
-            style={styles.kpiCardTouchable}
-            activeOpacity={0.86}
-            onPress={handleEbookPress}
-          >
-            <LinearGradient
-              colors={walletScreenGradient}
-              start={{ x: -5, y: -5 }}
-              end={{ x: 1, y: 1 }}
-              style={[styles.kpiCard, styles.kpiCardMetaMask, { shadowColor: text }]}
-            >
-              <View style={styles.kpiMetaMaskRow}>
-                <View style={styles.kpiMetaMaskLeft}>
-                  <View style={[styles.kpiTipIconWrap, { backgroundColor: '#EDE4FF' }]}>
-                    <Ionicons name="book" size={22} color={text} />
-                  </View>
-                  <View style={styles.kpiMetaMaskText}>
-                    <Text style={[styles.kpiTitle, { color: text }]} numberOfLines={1}>
-                      {item.title}
-                    </Text>
-                    <Text style={[styles.kpiTipDescription, { color: text }]} numberOfLines={2}>
-                      {t('walletDashboard.ebook.description')}
-                    </Text>
-                  </View>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color={text} style={styles.kpiChevron} />
-              </View>
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
-      );
-    }
+    // if (isEbookCard) {
+    //   return (
+    //     <View key={item.id} style={cellStyle}>
+    //       <TouchableOpacity
+    //         style={styles.kpiCardTouchable}
+    //         activeOpacity={0.86}
+    //         onPress={handleEbookPress}
+    //       >
+    //         <LinearGradient
+    //           colors={walletScreenGradient}
+    //           start={{ x: -5, y: -5 }}
+    //           end={{ x: 1, y: 1 }}
+    //           style={[styles.kpiCard, styles.kpiCardMetaMask, { shadowColor: text }]}
+    //         >
+    //           <View style={styles.kpiMetaMaskRow}>
+    //             <View style={styles.kpiMetaMaskLeft}>
+    //               <View style={[styles.kpiTipIconWrap, { backgroundColor: '#EDE4FF' }]}>
+    //                 <Ionicons name="book" size={22} color={text} />
+    //               </View>
+    //               <View style={styles.kpiMetaMaskText}>
+    //                 <Text style={[styles.kpiTitle, { color: text }]} numberOfLines={1}>
+    //                   {item.title}
+    //                 </Text>
+    //                 <Text style={[styles.kpiTipDescription, { color: text }]} numberOfLines={2}>
+    //                   {t('walletDashboard.ebook.description')}
+    //                 </Text>
+    //               </View>
+    //             </View>
+    //             <Ionicons name="chevron-forward" size={18} color={text} style={styles.kpiChevron} />
+    //           </View>
+    //         </LinearGradient>
+    //       </TouchableOpacity>
+    //     </View>
+    //   );
+    // }
 
     const cardContent = (
       <LinearGradient

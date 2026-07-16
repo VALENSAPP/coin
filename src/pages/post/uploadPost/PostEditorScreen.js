@@ -22,7 +22,7 @@ import { StackActions, useNavigation, useRoute } from '@react-navigation/native'
 import { SafeAreaView } from 'react-native-safe-area-context';
 import CustomButton from '../../../components/customButton/customButton';
 import { useToast } from 'react-native-toast-notifications';
-import { createPost, editPost } from '../../../services/post';
+import { createPost, editPost, searchHashtags } from '../../../services/post';
 import { getAllUser } from '../../../services/users';
 import {
   buildPostUploadPayloadFromImages,
@@ -49,6 +49,42 @@ const IMAGE_PREVIEW_WIDTH = screenWidth * 0.92;
 const MAX_SELECTED_PREVIEW_HEIGHT = screenHeight * 0.5;
 const IMAGE_PREVIEW_MIN_HEIGHT = IMAGE_PREVIEW_WIDTH * 0.35;
 const MEDIA_PREVIEW_MARGIN = 16;
+const MAX_HASHTAGS = 20;
+
+const normalizeHashtag = (value) =>
+  String(value || '')
+    .trim()
+    .replace(/^#+/, '')
+    .replace(/\s+/g, '');
+
+const extractHashtagSuggestions = (response) => {
+  const candidates = [
+    response?.data?.hashtags,
+    response?.data?.data?.hashtags,
+    response?.data?.result?.hashtags,
+    response?.data?.data,
+    response?.data?.result,
+    response?.data,
+    response?.hashtags,
+    response,
+  ];
+  let list = [];
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate)) {
+      list = candidate;
+      break;
+    }
+  }
+  return list
+    .map(item => {
+      if (typeof item === 'string') return normalizeHashtag(item);
+      if (item && typeof item === 'object') {
+        return normalizeHashtag(item?.name || item?.hashtag || item?.tag || item?.label);
+      }
+      return '';
+    })
+    .filter(Boolean);
+};
 
 const getPreviewHeightForMedia = (media) => {
   const mediaWidth = Number(media?.width);
@@ -128,6 +164,7 @@ const PostEditorScreen = () => {
     editSkipMediaEditor = false,
     initialCaption = '',
     initialLocation = '',
+    initialHashtags = [],
     isTrustPost = false,
     onSave,
     initialPostMeta = null,
@@ -147,6 +184,15 @@ const PostEditorScreen = () => {
   );
   const [locationModalVisible, setLocationModalVisible] = useState(false);
   const [link, setLink] = useState('');
+  const [selectedHashtags, setSelectedHashtags] = useState(() =>
+    (Array.isArray(initialHashtags) ? initialHashtags : [])
+      .map(normalizeHashtag)
+      .filter(Boolean)
+      .slice(0, MAX_HASHTAGS),
+  );
+  const [hashtagQuery, setHashtagQuery] = useState('');
+  const [hashtagSuggestions, setHashtagSuggestions] = useState([]);
+  const [isSearchingHashtags, setIsSearchingHashtags] = useState(false);
   const [isCommunityTrustPost, setIsCommunityTrustPost] = useState(
     isEditingPost ? isTrustPost : false,
   );
@@ -155,8 +201,11 @@ const PostEditorScreen = () => {
   const [iosKeyboardInset, setIosKeyboardInset] = useState(0);
   const iosScrollRef = useRef(null);
   const captionInputRef = useRef(null);
+  const hashtagInputRef = useRef(null);
   const linkInputRef = useRef(null);
   const iosFocusedFieldRef = useRef(null);
+  const hashtagSearchTimeoutRef = useRef(null);
+  const activeHashtagSearchIdRef = useRef(0);
   const { bgStyle, textStyle, text, card } = useAppTheme();
   const { t } = useLanguage();
 
@@ -263,6 +312,62 @@ const PostEditorScreen = () => {
     return () => sub.remove();
   }, [scrollIosFieldIntoView]);
 
+  useEffect(() => {
+    if (hashtagSearchTimeoutRef.current) {
+      clearTimeout(hashtagSearchTimeoutRef.current);
+    }
+    const query = hashtagQuery.trim();
+    if (!query) {
+      activeHashtagSearchIdRef.current = 0;
+      setHashtagSuggestions([]);
+      setIsSearchingHashtags(false);
+      return undefined;
+    }
+
+    hashtagSearchTimeoutRef.current = setTimeout(async () => {
+      const requestId = Date.now();
+      activeHashtagSearchIdRef.current = requestId;
+      setIsSearchingHashtags(true);
+      try {
+        const response = await searchHashtags({ q: query, limit: 20 });
+        if (activeHashtagSearchIdRef.current !== requestId) return;
+        const suggestions = extractHashtagSuggestions(response).filter(
+          tag => !selectedHashtags.includes(tag),
+        );
+        setHashtagSuggestions(suggestions.slice(0, 12));
+      } catch {
+        if (activeHashtagSearchIdRef.current === requestId) {
+          setHashtagSuggestions([]);
+        }
+      } finally {
+        if (activeHashtagSearchIdRef.current === requestId) {
+          setIsSearchingHashtags(false);
+        }
+      }
+    }, 400);
+
+    return () => {
+      if (hashtagSearchTimeoutRef.current) {
+        clearTimeout(hashtagSearchTimeoutRef.current);
+      }
+    };
+  }, [hashtagQuery, selectedHashtags]);
+
+  const addHashtag = useCallback((rawTag) => {
+    const tag = normalizeHashtag(rawTag);
+    if (!tag) return;
+    setSelectedHashtags(prev => {
+      if (prev.includes(tag) || prev.length >= MAX_HASHTAGS) return prev;
+      return [...prev, tag];
+    });
+    setHashtagQuery('');
+    setHashtagSuggestions([]);
+  }, []);
+
+  const removeHashtag = useCallback((tag) => {
+    setSelectedHashtags(prev => prev.filter(item => item !== tag));
+  }, []);
+
   const navigateAfterPostUpdated = useCallback(() => {
     if (navigation.canGoBack()) {
       navigation.pop(editSkipMediaEditor ? 1 : 2);
@@ -283,6 +388,7 @@ const PostEditorScreen = () => {
         caption,
         link,
         ...(supportsLocation && location.trim() ? { location: location.trim() } : {}),
+        ...(selectedHashtags.length ? { hashtag: selectedHashtags } : {}),
         taggedPeople,
         taggedPeopleIds,
         taggedPeopleMeta,
@@ -297,6 +403,7 @@ const PostEditorScreen = () => {
     const payload = {
       caption: caption.trim(),
       ...(supportsLocation && location.trim() ? { location: location.trim() } : {}),
+      ...(selectedHashtags.length ? { hashtag: selectedHashtags } : {}),
       taggedPeople: taggedPeopleIds,
       // Array.isArray(taggedPeople) ? taggedPeople.join(', ') : taggedPeople,
       // ...(Array.isArray(taggedPeopleIds) && taggedPeopleIds.length ? { taggedPeopleIds } : {}),
@@ -346,6 +453,7 @@ const PostEditorScreen = () => {
               ...(supportsLocation
                 ? (location.trim() ? { location: location.trim() } : { location: '' })
                 : {}),
+              hashtag: selectedHashtags,
               taggedPeople: taggedPeopleIds,
               isTrustPost: isCommunityTrustPost,
               ...(Array.isArray(taggedPeopleIds) && taggedPeopleIds.length
@@ -357,6 +465,7 @@ const PostEditorScreen = () => {
               ...(supportsLocation
                 ? (location.trim() ? { location: location.trim() } : { location: '' })
                 : {}),
+              hashtag: selectedHashtags,
               taggedPeople: taggedPeopleIds,
               ...(Array.isArray(taggedPeopleIds) && taggedPeopleIds.length
                 ? { taggedPeopleIds, taggedPeopleMeta }
@@ -717,6 +826,76 @@ const PostEditorScreen = () => {
         />
       </View>
 
+      <View style={styles.captionSection}>
+        <Text style={styles.captionLabel}>{t('postEditor.hashtagLabel')}</Text>
+        {selectedHashtags.length > 0 ? (
+          <View style={styles.hashtagChipsRow}>
+            {selectedHashtags.map(tag => (
+              <TouchableOpacity
+                key={tag}
+                style={[styles.hashtagChip, { borderColor: `${text}55` }]}
+                onPress={() => removeHashtag(tag)}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.hashtagChipText, { color: text }]}>#{tag}</Text>
+                <Icon name="close" size={14} color={text} />
+              </TouchableOpacity>
+            ))}
+          </View>
+        ) : null}
+        <View style={[styles.hashtagSearchRow, bgStyle]}>
+          <Icon name="search" size={18} color="#9CA3AF" />
+          <TextInput
+            ref={hashtagInputRef}
+            style={styles.hashtagSearchInput}
+            placeholder={t('postEditor.hashtagPlaceholder')}
+            value={hashtagQuery}
+            onChangeText={setHashtagQuery}
+            autoCapitalize="none"
+            autoCorrect={false}
+            placeholderTextColor="#9CA3AF"
+            returnKeyType="done"
+            onSubmitEditing={() => addHashtag(hashtagQuery)}
+            onFocus={() => {
+              if (Platform.OS === 'ios') {
+                iosFocusedFieldRef.current = hashtagInputRef;
+                scrollIosFieldIntoView(hashtagInputRef);
+              }
+            }}
+          />
+          {isSearchingHashtags ? (
+            <ActivityIndicator size="small" color={text} />
+          ) : null}
+          {normalizeHashtag(hashtagQuery) && !isSearchingHashtags ? (
+            <TouchableOpacity
+              onPress={() => addHashtag(hashtagQuery)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Text style={[styles.hashtagAddText, { color: text }]}>
+                {t('postEditor.hashtagAdd')}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+        {hashtagQuery.trim() && !isSearchingHashtags && hashtagSuggestions.length === 0 ? (
+          <Text style={styles.hashtagEmptyText}>{t('postEditor.hashtagEmpty')}</Text>
+        ) : null}
+        {hashtagSuggestions.length > 0 ? (
+          <View style={[styles.hashtagSuggestionsBox, { backgroundColor: card }]}>
+            {hashtagSuggestions.map(tag => (
+              <TouchableOpacity
+                key={tag}
+                style={styles.hashtagSuggestionRow}
+                onPress={() => addHashtag(tag)}
+                activeOpacity={0.75}
+              >
+                <Text style={[styles.hashtagSuggestionText, { color: text }]}>#{tag}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        ) : null}
+      </View>
+
       {postType == 'crowdfunding' && (
         <View style={[styles.captionSection, { marginTop: -5 }]}>
           <Text style={styles.captionLabel}>{t('postEditor.linkLabel')}</Text>
@@ -1009,6 +1188,68 @@ const styles = StyleSheet.create({
   },
   locationPickerPlaceholder: {
     color: '#9CA3AF',
+  },
+  hashtagChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 10,
+  },
+  hashtagChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: '#f8fafc',
+  },
+  hashtagChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  hashtagSearchRow: {
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: Platform.OS === 'ios' ? 12 : 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  hashtagSearchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: '#111827',
+    paddingVertical: Platform.OS === 'ios' ? 0 : 8,
+  },
+  hashtagAddText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  hashtagEmptyText: {
+    marginTop: 8,
+    fontSize: 13,
+    color: '#9CA3AF',
+  },
+  hashtagSuggestionsBox: {
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#eadff2',
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  hashtagSuggestionRow: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#e5e7eb',
+  },
+  hashtagSuggestionText: {
+    fontSize: 15,
+    fontWeight: '600',
   },
   linkInput: {
     borderWidth: 1,
