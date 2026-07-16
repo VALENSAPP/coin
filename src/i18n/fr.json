@@ -2092,6 +2092,23 @@
     "sumsubLaunchFailed": "Impossible de dÃ©marrer la vÃ©rification. Veuillez rÃ©essayer.",
     "loadFailed": "Ã‰chec du chargement du statut de vÃ©rification"
   },
+  "totalEarnings": {
+    "title": "Revenus",
+    "totalEarnings": "Revenus totaux",
+    "allTimeEarnings": "Revenus de tous les temps",
+    "bySource": "Revenus par source",
+    "missionPost": "Mission Post",
+    "tip": "Pourboire",
+    "walletToWallet": "Portefeuille Ã  portefeuille",
+    "subscribedFans": "Fans abonnÃ©s",
+    "shop": "Boutique",
+    "campaigns": "Campagnes",
+    "tips": "Pourboires",
+    "transactions": "Transactions",
+    "subscribers": "AbonnÃ©s",
+    "sales": "Ventes",
+    "withdrawEarnings": "Retirer les revenus"
+  },
   "valensWallet": {
     "totalBalance": "Solde total",
     "overviewTitle": "AperÃ§u du portefeuille",

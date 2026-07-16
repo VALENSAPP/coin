@@ -126,6 +126,7 @@ import RevenueFromSubscriptions from '../pages/wallet/MyRevenue';
 import MarketplaceAnalytics from '../pages/wallet/MarketplaceAnalytics';
 import ValensWallet from '../pages/wallet/ValensWallet';
 import TransactionActivityScreen from '../pages/wallet/TransactionActivityScreen';
+import TotalEarningsScreen from '../pages/wallet/TotalEarningsScreen';
 import ProfileShop from '../components/profile/Shop';
 import MyClosetDashboard from '../components/profile/MyClosetDashboard';
 import {
@@ -843,6 +844,11 @@ export default function MainTabNavigator() {
                 </TouchableOpacity>
               ),
             })}
+          />
+          <Stack.Screen
+            name="TotalEarnings"
+            component={TotalEarningsScreen}
+            options={{ headerShown: false }}
           />
           <Stack.Screen
             name="Market"

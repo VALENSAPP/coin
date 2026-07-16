@@ -2092,6 +2092,23 @@
     "sumsubLaunchFailed": "No se pudo iniciar la verificación. Por favor inténtalo nuevamente.",
     "loadFailed": "No se pudo cargar el estado de verificación"
   },
+  "totalEarnings": {
+    "title": "Ganancias",
+    "totalEarnings": "Ganancias totales",
+    "allTimeEarnings": "Ganancias de todos los tiempos",
+    "bySource": "Ganancias por fuente",
+    "missionPost": "Mission Post",
+    "tip": "Propina",
+    "walletToWallet": "Billetera a billetera",
+    "subscribedFans": "Fans suscritos",
+    "shop": "Tienda",
+    "campaigns": "Campañas",
+    "tips": "Propinas",
+    "transactions": "Transacciones",
+    "subscribers": "Suscriptores",
+    "sales": "Ventas",
+    "withdrawEarnings": "Retirar ganancias"
+  },
   "valensWallet": {
     "totalBalance": "Balance total",
     "overviewTitle": "Resumen de la billetera",
