@@ -57,6 +57,8 @@ import {
   useClosetTheme,
   withClosetNavParams,
 } from '../../utils/closetNavigation';
+import { useToast } from 'react-native-toast-notifications';
+import { showToastMessage } from '../displaytoastmessage';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const GRID_GAP = 12;
@@ -739,7 +741,7 @@ const OrderSummary = ({ cart, editable, compact, onEditCart, accentColor, bgStyl
     : null;
 
   return (
-    <View style={[styles.card, compact && styles.compactCard, bgStyle, {borderColor: text,}]}>
+    <View style={[styles.card, compact && styles.compactCard, bgStyle, { borderColor: text, }]}>
       <View style={styles.cardHeaderRow}>
         <Text style={styles.cardTitle}>{t('myClosetBuyer.orderSummary')}</Text>
         {editable ? (
@@ -766,7 +768,7 @@ const OrderSummary = ({ cart, editable, compact, onEditCart, accentColor, bgStyl
                   <Text style={styles.summaryItemQty}>{t('myClosetBuyer.qtyLabel', { qty })}</Text>
                 </View>
               </View>
-              {idx < lines.length - 1 ? <View style={[styles.divider, {backgroundColor: text}]} /> : null}
+              {idx < lines.length - 1 ? <View style={[styles.divider, { backgroundColor: text }]} /> : null}
             </View>
           );
         })
@@ -781,7 +783,7 @@ const OrderSummary = ({ cart, editable, compact, onEditCart, accentColor, bgStyl
         </View>
       )}
 
-      <View style={[styles.divider, {backgroundColor: text}]} />
+      <View style={[styles.divider, { backgroundColor: text }]} />
       <SummaryRow label={t('myClosetBuyer.itemTotal')} value={currency(cart.itemTotal)} accentColor={text} />
       {cart.shipping > 0 ? (
         <SummaryRow label={t('myClosetBuyer.shippingFee')} value={currency(cart.shipping)} accentColor={text} />
@@ -1621,6 +1623,7 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
   const [cartId, setCartId] = useState(null);
   const [checkingOut, setCheckingOut] = useState(false);
   const { text, bgStyle } = useClosetTheme(route);
+  const toast = useToast();
   const { t } = useLanguage();
   const returnTo = route?.params?.returnTo;
   const localCart = buildCart(route, t); // fallback data from route params
@@ -1897,8 +1900,14 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
     if (!productId) return;
     const quantity = Math.max(1, Number(item?.quantity || 1));
     try {
-      await addCartItem({ productId, quantity });
-      await fetchCart();
+      const response = await addCartItem({ productId, quantity });
+      console.log('[DEBUG] addCartItem response:', response);
+      if (response?.statusCode === 200 || response?.statusCode === 201) {
+        await fetchCart();
+      }
+      else {
+        showToastMessage(toast, 'danger', response?.message || t('myClosetBuyer.addToCartError'));
+      }
     } catch (err) {
       Alert.alert(t('myClosetBuyer.errorTitle'), err?.response?.data?.message || t('myClosetBuyer.addToCartError'));
     }
@@ -2299,6 +2308,7 @@ const MyClosetBuyerCheckoutScreen = ({ navigation, route }) => {
 const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
   const { text, bgStyle } = useClosetTheme(route);
   const { t } = useLanguage();
+  const toast = useToast();
   const returnTo = route?.params?.returnTo;
   const cart = buildCart(route, t);
   const [method, setMethod] = useState('standard');
@@ -2453,12 +2463,17 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
           onPress: async () => {
             setActionLoading(addr.id);
             try {
-              await deleteAddress(addr.id);
-              setAddresses(prev => {
-                const updated = prev.filter(a => a.id !== addr.id);
-                setSelectedAddressIndex(Math.max(0, updated.findIndex(a => a.isDefault)));
-                return updated;
-              });
+              const response = await deleteAddress(addr.id);
+              if (response?.statusCode === 200 || response?.statusCode === 201) {
+                setAddresses(prev => {
+                  const updated = prev.filter(a => a.id !== addr.id);
+                  setSelectedAddressIndex(Math.max(0, updated.findIndex(a => a.isDefault)));
+                  return updated;
+                });
+              }
+              else {
+                showToastMessage(toast, 'danger', response?.message || t('myClosetBuyer.deleteAddressError'));
+              }
             } catch (err) {
               Alert.alert(t('myClosetBuyer.errorTitle'), err?.response?.data?.message || t('myClosetBuyer.deleteAddressError'));
             } finally {
@@ -2878,7 +2893,7 @@ const MyClosetBuyerPaymentScreen = ({ navigation, route }) => {
             <Text style={styles.addressErrorText}>{breakdownError}</Text>
           </View>
         ) : (
-          <OrderSummary cart={cart} compact accentColor={text} bgStyle={bgStyle}/>
+          <OrderSummary cart={cart} compact accentColor={text} bgStyle={bgStyle} />
         )}
       </ScrollView>
       <View style={styles.bottomBar}>
@@ -3069,7 +3084,7 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
                 <Text style={[styles.editText, { color: text }]}>{t('myClosetBuyer.edit')}</Text>
               </TouchableOpacity>
             </View>
-            <View style={[styles.reviewCard, bgStyle, {borderColor: text}]}>
+            <View style={[styles.reviewCard, bgStyle, { borderColor: text }]}>
               {addr ? (
                 <>
                   <Text style={styles.addressName}>{addr.fullName}</Text>
@@ -3087,7 +3102,7 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
             </View>
           </>
         ) : (
-          <View style={[styles.reviewLineCard, bgStyle, {borderColor: text}]}>
+          <View style={[styles.reviewLineCard, bgStyle, { borderColor: text }]}>
             <Ionicons name="storefront-outline" size={18} color={text} />
             <Text style={styles.radioLabel}>{t('myClosetBuyer.localPickupSelected')}</Text>
           </View>
@@ -3112,7 +3127,7 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
             <Text style={[styles.editText, { color: text }]}>{t('myClosetBuyer.edit')}</Text>
           </TouchableOpacity> */}
         </View>
-        <View style={[styles.reviewLineCard, {borderColor: text}]}>
+        <View style={[styles.reviewLineCard, { borderColor: text }]}>
           <Ionicons name="shield-checkmark-outline" size={18} color={text} />
           <Text style={styles.radioLabel}>{t('myClosetBuyer.secureCheckout')}</Text>
         </View>
@@ -3638,7 +3653,7 @@ const styles = StyleSheet.create({
   stepLabel: { marginTop: 6, fontSize: 10, color: MUTED, fontWeight: '700' },
   stepConnector: { flex: 1, height: 2, backgroundColor: '#e5ddf0', marginBottom: 14 },
 
-  card: { borderWidth: 1, borderColor: BORDER, borderRadius: 14, padding: 14},
+  card: { borderWidth: 1, borderColor: BORDER, borderRadius: 14, padding: 14 },
   compactCard: { marginTop: 14 },
   cardHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
   cardTitle: { fontSize: 14, color: '#21083f', fontWeight: '900' },
@@ -3722,7 +3737,7 @@ const styles = StyleSheet.create({
 
   reviewSectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 },
   reviewCard: { borderWidth: 1, borderRadius: 13, padding: 12, backgroundColor: '#fff', marginBottom: 8 },
-  reviewLineCard: { minHeight: 48, borderWidth: 1, borderRadius: 13, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', marginBottom: 8},
+  reviewLineCard: { minHeight: 48, borderWidth: 1, borderRadius: 13, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   termsText: { marginTop: 12, fontSize: 11, lineHeight: 16, color: MUTED },
 
   // order received
