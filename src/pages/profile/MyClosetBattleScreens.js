@@ -947,6 +947,7 @@ export function BattleLiveScreen({ navigation, route }) {
   const [hasVoted, setHasVoted] = useState(false);
   const [votedParticipantId, setVotedParticipantId] = useState(null);
   const [votingParticipantId, setVotingParticipantId] = useState(null);
+  const [selectedParticipantId, setSelectedParticipantId] = useState(null);
   const [currentUserId, setCurrentUserId] = useState(null);
   const [checkingVote, setCheckingVote] = useState(false);
 
@@ -1060,7 +1061,8 @@ export function BattleLiveScreen({ navigation, route }) {
     }
   }, [battle?.createdBy, battleId, currentUserId, loadBattle]);
 
-  const handleVote = async (item) => {
+  const handleVote = async () => {
+    const item = [leftItem, rightItem].find(entry => entry?.participantId === selectedParticipantId);
     if (checkingVote || hasVoted || votedParticipantId) {
       Alert.alert(
         t('battle.errors.voteFailedTitle') || 'Could not submit vote',
@@ -1071,7 +1073,7 @@ export function BattleLiveScreen({ navigation, route }) {
     if (!battleId || !item?.participantId) {
       Alert.alert(
         t('battle.errors.voteFailedTitle') || 'Could not submit vote',
-        t('battle.errors.voteFailedGeneric') || 'Something went wrong. Please try again.',
+        t('battleInProgress.voteAlertSelectOption') || t('battle.errors.voteFailedGeneric') || 'Something went wrong. Please try again.',
       );
       return;
     }
@@ -1315,33 +1317,52 @@ export function BattleLiveScreen({ navigation, route }) {
 
       <BattleCard left={leftItem} right={rightItem} accent={accent} textColor={primaryText} />
 
-      {/* Vote pill buttons with live counts — mirrors the "Vote 128 / Vote 96" buttons in the design */}
+      {/* Vote choice buttons with live counts */}
       <View style={liveStyles.voteButtonsRow}>
         {[leftItem, rightItem].map((item, index) => {
           const isThisVoting = votingParticipantId === item?.participantId;
           const isThisVoted = votedParticipantId === item?.participantId;
           const voteCount = index === 0 ? leftVoteCount : rightVoteCount;
+          const isSelected = selectedParticipantId === item?.participantId;
           return (
             <TouchableOpacity
               key={item?.participantId || item?.id || index}
               activeOpacity={0.9}
               disabled={!canVote || isThisVoting}
-              onPress={() => handleVote(item)}
-              style={[liveStyles.voteButtonWrap, (!canVote || isThisVoting) && { opacity: 0.7 }]}
+              onPress={() => setSelectedParticipantId(item?.participantId)}
+              style={[
+                liveStyles.voteButtonWrap,
+                isSelected && liveStyles.voteButtonWrapSelected,
+                (!canVote || isThisVoting) && { opacity: 0.7 },
+              ]}
             >
               <LinearGradient
-                colors={isThisVoted ? ['#22C55E', '#16A34A'] : [accent, PURPLE_2]}
+                colors={isThisVoted ? ['#22C55E', '#16A34A'] : isSelected ? [accent, PURPLE_2] : ['#FFFFFF', '#FFFFFF']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
-                style={liveStyles.voteButtonInner}
+                style={[
+                  liveStyles.voteButtonInner,
+                  {
+                    borderWidth: 1,
+                    borderColor: isThisVoted ? '#16A34A' : isSelected ? accent : '#E5E7EB',
+                  },
+                ]}
               >
                 {isThisVoting ? (
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
                   <>
-                    <Ionicons name={isThisVoted ? 'checkmark-circle' : 'thumbs-up'} size={16} color="#fff" />
-                    <Text style={liveStyles.voteButtonText}>{t('battle.vote') || 'Vote'}</Text>
-                    <Text style={liveStyles.voteButtonCount}>{voteCount}</Text>
+                    <Ionicons
+                      name={isThisVoted ? 'checkmark-circle' : 'thumbs-up'}
+                      size={16}
+                      color={isThisVoted || isSelected ? '#fff' : accent}
+                    />
+                    <Text style={[liveStyles.voteButtonText, { color: isThisVoted || isSelected ? '#fff' : primaryText }]}>
+                      {t('battle.vote') || 'Vote'}
+                    </Text>
+                    <Text style={[liveStyles.voteButtonCount, { color: isThisVoted || isSelected ? '#fff' : accent }]}>
+                      {voteCount}
+                    </Text>
                   </>
                 )}
               </LinearGradient>
@@ -1350,16 +1371,60 @@ export function BattleLiveScreen({ navigation, route }) {
         })}
       </View>
 
+      {canVote && !hasVoted ? (
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={handleVote}
+          disabled={!selectedParticipantId || votingParticipantId}
+          style={[
+            liveStyles.submitVoteWrap,
+            (!selectedParticipantId || votingParticipantId) && { opacity: 0.5 },
+          ]}
+        >
+          <LinearGradient
+            colors={[accent, PURPLE_2]}
+            start={{ x: 0, y: 0.5 }}
+            end={{ x: 1, y: 0.5 }}
+            style={liveStyles.submitVoteButton}
+          >
+            {votingParticipantId ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <Text style={liveStyles.submitVoteText}>
+                {t('battleInProgress.voteInBattle') || t('battle.vote') || 'Vote in battle'}
+              </Text>
+            )}
+          </LinearGradient>
+        </TouchableOpacity>
+      ) : null}
+
       {showResultsBar ? (
-        <View style={liveStyles.splitWrap}>
-          <View style={liveStyles.splitTrack}>
-            <View style={[liveStyles.splitFillLeft, { flex: leftVotePercent || 1, backgroundColor: accent }]} />
-            <View style={[liveStyles.splitFillRight, { flex: rightVotePercent || 1, backgroundColor: '#D9CBEF' }]} />
+        <View style={liveStyles.progressCard}>
+          <View style={liveStyles.progressTopRow}>
+            <View>
+              <Text style={[liveStyles.progressPctLeft, { color: accent }]}>{leftVotePercent}%</Text>
+              <Text style={liveStyles.progressVotes}>
+                {leftVoteCount} {t('battleInProgress.votesLabel')}
+              </Text>
+            </View>
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={liveStyles.progressPctRight}>{rightVotePercent}%</Text>
+              <Text style={liveStyles.progressVotes}>
+                {rightVoteCount} {t('battleInProgress.votesLabel')}
+              </Text>
+            </View>
           </View>
-          <View style={liveStyles.splitLabelsRow}>
-            <Text style={[liveStyles.splitPercentText, { color: accent }]}>{leftVotePercent}%</Text>
-            <Text style={liveStyles.splitVotesText}>{totalItemVotes} {t('battle.totalVotes') || 'total votes'}</Text>
-            <Text style={liveStyles.splitPercentText}>{rightVotePercent}%</Text>
+          <View style={liveStyles.progressBarTrack}>
+            <View style={[liveStyles.progressBarLeft, { flex: leftVotePercent || 1, backgroundColor: accent }]} />
+            <View style={[liveStyles.progressBarRight, { flex: rightVotePercent || 1, backgroundColor: '#ef4444' }]} />
+          </View>
+          <View style={liveStyles.progressBottomRow}>
+            <View style={liveStyles.sideTagLeft}>
+              <Text style={liveStyles.sideTagText}>{leftItem?.name || leftItem?.label || 'Option 1'}</Text>
+            </View>
+            <View style={liveStyles.sideTagRight}>
+              <Text style={liveStyles.sideTagText}>{rightItem?.name || rightItem?.label || 'Option 2'}</Text>
+            </View>
           </View>
         </View>
       ) : null}
@@ -1559,17 +1624,26 @@ const liveStyles = StyleSheet.create({
 
   voteButtonsRow: { flexDirection: 'row', gap: 12, marginTop: 14, marginBottom: 4 },
   voteButtonWrap: { flex: 1, borderRadius: 16, overflow: 'hidden' },
+  voteButtonWrapSelected: { transform: [{ scale: 1.01 }] },
   voteButtonInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 46, paddingHorizontal: 10 },
-  voteButtonText: { color: '#fff', fontSize: 14, fontWeight: '800' },
-  voteButtonCount: { color: '#fff', fontSize: 14, fontWeight: '900', marginLeft: 2 },
+  voteButtonText: { fontSize: 14, fontWeight: '800' },
+  voteButtonCount: { fontSize: 14, fontWeight: '900', marginLeft: 2 },
+  submitVoteWrap: { marginTop: 12, borderRadius: 16, overflow: 'hidden' },
+  submitVoteButton: { minHeight: 46, alignItems: 'center', justifyContent: 'center' },
+  submitVoteText: { color: '#fff', fontSize: 15, fontWeight: '900' },
 
-  splitWrap: { marginTop: 18, marginBottom: 6 },
-  splitTrack: { height: 8, borderRadius: 99, overflow: 'hidden', flexDirection: 'row' },
-  splitFillLeft: { borderTopLeftRadius: 99, borderBottomLeftRadius: 99 },
-  splitFillRight: { borderTopRightRadius: 99, borderBottomRightRadius: 99 },
-  splitLabelsRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 },
-  splitPercentText: { fontSize: 13, fontWeight: '800', color: MUTED },
-  splitVotesText: { fontSize: 11, fontWeight: '600', color: MUTED },
+  progressCard: { borderRadius: 12, borderWidth: 1, borderColor: '#d3d1d1', padding: 12, marginTop: 14, marginBottom: 22, marginRight: 15, marginLeft: 5 },
+  progressTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 },
+  progressPctLeft: { fontSize: 18, fontWeight: '700' },
+  progressPctRight: { fontSize: 18, fontWeight: '700', color: '#ef4444' },
+  progressVotes: { fontSize: 10, color: MUTED, marginTop: 1 },
+  progressBarTrack: { height: 8, borderRadius: 99, overflow: 'hidden', flexDirection: 'row', gap: 1, marginBottom: 6 },
+  progressBarLeft: { backgroundColor: '#22c55e', borderTopLeftRadius: 99, borderBottomLeftRadius: 99 },
+  progressBarRight: { backgroundColor: '#ef4444', borderTopRightRadius: 99, borderBottomRightRadius: 99 },
+  progressBottomRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  sideTagLeft: { backgroundColor: '#e8f5e9', borderRadius: 20, paddingHorizontal: 8, paddingVertical: 2 },
+  sideTagRight: { backgroundColor: '#fde8e8', borderRadius: 20, paddingHorizontal: 8, paddingVertical: 2 },
+  sideTagText: { fontSize: 10, fontWeight: '600', color: '#374151' },
 
   statsRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F7F2FF', borderRadius: 16, paddingVertical: 12, marginTop: 18, marginBottom: 14 },
   statItem: { flex: 1, alignItems: 'center', gap: 3 },

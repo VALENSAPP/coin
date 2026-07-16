@@ -595,6 +595,7 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
     name: item?.name || item?.title || item?.itemName || t('myClosetDashboard.untitledItem'),
     price: formatPrice(item?.price ?? item?.amount ?? item?.salePrice),
     image: getItemImage(item),
+    raw: item,
   }));
   const pinnedItems = priorityBattles.slice(0, 3);
   const showPinnedViewAll = priorityBattles.length > pinnedItems.length;
@@ -926,7 +927,17 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
             </View>
           ) : displayItems.length ? (
             displayItems.map(item => (
-              <TouchableOpacity key={item.key} activeOpacity={0.85} style={styles.itemGridCard}>
+              <TouchableOpacity
+                key={item.key}
+                activeOpacity={0.85}
+                style={styles.itemGridCard}
+                onPress={() =>
+                  navigation?.navigate?.('ProfileMain', {
+                    screen: 'MyClosetItemEditor',
+                    params: { item: item.raw || item },
+                  })
+                }
+              >
                 <View style={[styles.itemGridThumb, { backgroundColor: withAlpha(text, 0.08) }]}>
                   {item.image ? (
                     <Image source={{ uri: item.image }} style={styles.itemGridImage} />

@@ -78,6 +78,21 @@ const allowedShippingChoices = shippingOption => {
   return [SHIP_OPTION_SHIP];
 };
 
+const resolveShippingOption = (shippingOptionsMap, item) =>
+  shippingOptionsMap[cartItemProductId(item)] ?? item?.selectedShippingChoice ?? SHIP_OPTION_SHIP;
+
+const cartRequiresShipping = (cartItemsSnapshot = [], shippingOptionsMap = {}) =>
+  (Array.isArray(cartItemsSnapshot) ? cartItemsSnapshot : []).some(item => {
+    const opt = resolveShippingOption(shippingOptionsMap, item);
+    return opt === SHIP_OPTION_SHIP || opt === SHIP_OPTION_BOTH;
+  });
+
+const getShipOnlyCartItems = (cartItemsSnapshot = [], shippingOptionsMap = {}) =>
+  (Array.isArray(cartItemsSnapshot) ? cartItemsSnapshot : []).filter(item => {
+    const opt = resolveShippingOption(shippingOptionsMap, item);
+    return opt === SHIP_OPTION_SHIP && item?.selectedShippingChoice !== SHIP_OPTION_SHIP;
+  });
+
 const cartItemProductId = ci => ci?.product?.id || ci?.product?._id || ci?.productId;
 const wishlistItemProductId = item => item?.product?.id || item?.product?._id || item?.productId || item?.id || item?._id;
 
@@ -453,6 +468,8 @@ const DetailImageCarousel = ({ images, onZoomChange, accentColor }) => {
   const { text: fallbackAccent } = useAppTheme();
   const text = accentColor || fallbackAccent;
   const [activeIndex, setActiveIndex] = useState(0);
+  const [fullScreenVisible, setFullScreenVisible] = useState(false);
+  const [fullScreenIndex, setFullScreenIndex] = useState(0);
   const [scrollEnabled, setScrollEnabled] = useState(true);
   const listRef = useRef(null);
   const galleryImages = images.length ? images : [null];
@@ -478,17 +495,26 @@ const DetailImageCarousel = ({ images, onZoomChange, accentColor }) => {
     onZoomChange?.(zoomed);
   }, [onZoomChange]);
 
-  const renderItem = useCallback(({ item }) => {
+  const openFullScreen = useCallback(index => {
+    setFullScreenIndex(index);
+    setFullScreenVisible(true);
+  }, []);
+
+  const closeFullScreen = useCallback(() => {
+    setFullScreenVisible(false);
+  }, []);
+
+  const renderItem = useCallback(({ item, index }) => {
     if (!item) {
       return (
-        <View style={styles.heroSlide}>
+        <TouchableOpacity activeOpacity={0.9} style={styles.heroSlide} onPress={() => openFullScreen(index)}>
           <ImageBox uri={null} style={styles.heroImage} iconSize={64} />
-        </View>
+        </TouchableOpacity>
       );
     }
 
     return (
-      <View style={styles.heroSlide}>
+      <TouchableOpacity activeOpacity={0.95} style={styles.heroSlide} onPress={() => openFullScreen(index)}>
         <InstagramZoomableImage
           uri={item}
           height={HERO_IMAGE_HEIGHT}
@@ -497,9 +523,38 @@ const DetailImageCarousel = ({ images, onZoomChange, accentColor }) => {
           onZoomChange={handleZoomChange}
           simultaneousHandlers={listRef}
         />
+      </TouchableOpacity>
+    );
+  }, [handleZoomChange, openFullScreen]);
+
+  const renderFullScreenItem = useCallback(({ item }) => {
+    if (!item) {
+      return (
+        <View style={styles.fullScreenSlide}>
+          <ImageBox uri={null} style={styles.fullScreenImageBox} iconSize={72} />
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.fullScreenSlide}>
+        <FastImage
+          source={fastImageSource(item)}
+          style={styles.fullScreenImage}
+          resizeMode={FastImage.resizeMode.contain}
+          fadeDuration={0}
+        />
       </View>
     );
-  }, [handleZoomChange]);
+  }, []);
+
+  const onFullScreenScroll = useCallback(event => {
+    const nextIndex = Math.round(event.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+    const clampedIndex = Math.max(0, Math.min(nextIndex, galleryImages.length - 1));
+    if (clampedIndex !== fullScreenIndex) {
+      setFullScreenIndex(clampedIndex);
+    }
+  }, [fullScreenIndex, galleryImages.length]);
 
   return (
     <View>
@@ -543,6 +598,48 @@ const DetailImageCarousel = ({ images, onZoomChange, accentColor }) => {
       ) : (
         <View style={styles.photoDotsSpacer} />
       )}
+      <Modal
+        visible={fullScreenVisible}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={closeFullScreen}>
+        <View style={styles.fullScreenModal}>
+          <View style={styles.fullScreenBackdrop} />
+          <TouchableOpacity
+            style={styles.fullScreenCloseButton}
+            onPress={closeFullScreen}
+            hitSlop={{ top: 12, right: 12, bottom: 12, left: 12 }}
+            accessibilityRole="button"
+            accessibilityLabel="Close full screen gallery">
+            <Ionicons name="close" size={22} color="#fff" />
+          </TouchableOpacity>
+          <GestureFlatList
+            style={styles.fullScreenFlatList}
+            data={galleryImages}
+            keyExtractor={(uri, index) => `fullscreen-${uri || 'placeholder'}-${index}`}
+            renderItem={renderFullScreenItem}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            initialScrollIndex={Math.min(fullScreenIndex, galleryImages.length - 1)}
+            getItemLayout={(_, index) => ({
+              length: SCREEN_WIDTH,
+              offset: SCREEN_WIDTH * index,
+              index,
+            })}
+            onScroll={onFullScreenScroll}
+            scrollEventThrottle={16}
+            decelerationRate="fast"
+            snapToInterval={SCREEN_WIDTH}
+            snapToAlignment="start"
+            disableIntervalMomentum
+            directionalLockEnabled
+            nestedScrollEnabled
+            removeClippedSubviews={false}
+          />
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -1735,9 +1832,7 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
     }
   };
 
-  const requiresShipping = cartItems.some(
-    ci => (ci.selectedShippingChoice || SHIP_OPTION_SHIP) === SHIP_OPTION_SHIP,
-  );
+  const requiresShipping = cartRequiresShipping(cartItems, shippingOptionsMap);
 
   // ── DELETE /cart/items/{cartItemId} — remove single item ─────────────
   const handleRemoveItem = cartItem => {
@@ -2131,7 +2226,8 @@ const MyClosetBuyerCheckoutScreen = ({ navigation, route }) => {
   const { bgStyle, text } = useClosetTheme(route);
   const returnTo = route?.params?.returnTo;
   const cart = buildCart(route, t);
-  const requiresShipping = route?.params?.requiresShipping ?? true;
+  const derivedRequiresShipping = cartRequiresShipping(route?.params?.cartItemsSnapshot, route?.params?.shippingOptionsMap);
+  const requiresShipping = derivedRequiresShipping || route?.params?.requiresShipping === true;
   const [continuing, setContinuing] = useState(false);
 
   const handleEditCart = () => navigation.navigate('MyClosetBuyerCart', withClosetNavParams(route));
@@ -2139,10 +2235,7 @@ const MyClosetBuyerCheckoutScreen = ({ navigation, route }) => {
   const handleContinue = async () => {
     const cartId = route?.params?.cartId;
     if (!cartId) {
-      navigation.navigate(
-        requiresShipping ? 'MyClosetBuyerShipping' : 'MyClosetBuyerPayment',
-        withClosetNavParams(route),
-      );
+      navigation.navigate('MyClosetBuyerShipping', withClosetNavParams(route));
       return;
     }
 
@@ -2160,7 +2253,7 @@ const MyClosetBuyerCheckoutScreen = ({ navigation, route }) => {
       const breakdown = checkout?.breakdown ?? null;
 
       navigation.navigate(
-        requiresShipping ? 'MyClosetBuyerShipping' : 'MyClosetBuyerPayment',
+        'MyClosetBuyerShipping',
         withClosetNavParams(route, {
           checkoutData: checkout,
           itemTotal: breakdown?.itemsSubtotal ?? route?.params?.itemTotal,
@@ -2182,7 +2275,7 @@ const MyClosetBuyerCheckoutScreen = ({ navigation, route }) => {
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
       <Header navigation={navigation} title={t('myClosetBuyer.checkoutTitle')} returnTo={returnTo} />
       <ScrollView contentContainerStyle={styles.checkoutContent} showsVerticalScrollIndicator={false}>
-        <CheckoutSteps current={0} includeShipping={requiresShipping} accentColor={text} />
+        <CheckoutSteps current={0} includeShipping={true} accentColor={text} />
         <OrderSummary cart={cart} editable onEditCart={handleEditCart} accentColor={text} />
       </ScrollView>
       <View style={styles.bottomBar}>
@@ -2190,9 +2283,7 @@ const MyClosetBuyerCheckoutScreen = ({ navigation, route }) => {
           label={
             continuing
               ? t('myClosetBuyer.loading')
-              : requiresShipping
-                ? t('myClosetBuyer.continueToShipping')
-                : t('myClosetBuyer.continueToPayment')
+              : t('myClosetBuyer.continueToShipping')
           }
           onPress={continuing ? undefined : handleContinue}
           accentColor={text}
@@ -2251,7 +2342,11 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
   };
 
   const allChoicesMade = itemsNeedingChoice.every(ci => !!shippingChoices[ci.id]);
-  const requiresShipping = cartItemsSnapshot.some(ci => effectiveChoice(ci) === SHIP_OPTION_SHIP);
+  const requiresShipping = cartItemsSnapshot.some(ci => {
+    const opt = shippingOptionsMap[cartItemProductId(ci)] ?? SHIP_OPTION_SHIP;
+    if (opt === SHIP_OPTION_BOTH) return shippingChoices[ci.id] === SHIP_OPTION_SHIP;
+    return opt === SHIP_OPTION_SHIP;
+  });
   const pickupItems = cartItemsSnapshot.filter(ci => effectiveChoice(ci) === SHIP_OPTION_LOCAL);
   const pickupLocations = useMemo(() => {
     const seen = new Set();
@@ -2707,7 +2802,8 @@ const MyClosetBuyerPaymentScreen = ({ navigation, route }) => {
   const { t } = useLanguage();
   const returnTo = route?.params?.returnTo;
   const [paymentMethod, setPaymentMethod] = useState('secure');
-  const requiresShipping = route?.params?.requiresShipping ?? true;
+  const derivedRequiresShipping = cartRequiresShipping(route?.params?.cartItemsSnapshot, route?.params?.shippingOptionsMap);
+  const requiresShipping = derivedRequiresShipping || route?.params?.requiresShipping === true;
   const cartId = route?.params?.cartId;
 
   // If we already have fresh checkout data (breakdown), use it as-is.
@@ -2744,7 +2840,7 @@ const MyClosetBuyerPaymentScreen = ({ navigation, route }) => {
         contentContainerStyle={styles.checkoutContent}
         showsVerticalScrollIndicator={false}
       >
-        <CheckoutSteps current={requiresShipping ? 2 : 1} includeShipping={requiresShipping} accentColor={text} />
+        <CheckoutSteps current={2} includeShipping={true} accentColor={text} />
         <Text style={styles.sectionLabel}>{t('myClosetBuyer.paymentMethod')}</Text>
         {[
           { key: 'secure', label: t('myClosetBuyer.secureCheckout'), sub: t('myClosetBuyer.secureCheckoutSub'), icon: 'shield-checkmark-outline' },
@@ -2809,7 +2905,12 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
   const [checking, setChecking] = useState(false);
   // shippingAddress passed from Shipping screen via nextCart
   const addr = route?.params?.shippingAddress ?? null;
-  const requiresShipping = route?.params?.requiresShipping ?? true;
+  const derivedRequiresShipping = cartRequiresShipping(route?.params?.cartItemsSnapshot, route?.params?.shippingOptionsMap);
+  const requiresShipping = derivedRequiresShipping || route?.params?.requiresShipping === true;
+  const shipOnlyItemsNeedingSync = useMemo(
+    () => getShipOnlyCartItems(route?.params?.cartItemsSnapshot, route?.params?.shippingOptionsMap),
+    [route?.params?.cartItemsSnapshot, route?.params?.shippingOptionsMap],
+  );
 
   const findPaymentId = useCallback(async (cartId) => {
     try {
@@ -2896,6 +2997,12 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
 
     setChecking(true);
     try {
+      if (shipOnlyItemsNeedingSync.length > 0) {
+        await Promise.all(
+          shipOnlyItemsNeedingSync.map(item => setCartItemShippingChoice(item.id, SHIP_OPTION_SHIP)),
+        );
+      }
+
       const response = await createPaymentSession({
         cartId,
         addressId,
@@ -2953,7 +3060,7 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
         contentContainerStyle={styles.checkoutContent}
         showsVerticalScrollIndicator={false}
       >
-        <CheckoutSteps current={requiresShipping ? 3 : 2} includeShipping={requiresShipping} accentColor={text} />
+        <CheckoutSteps current={3} includeShipping={true} accentColor={text} />
         {requiresShipping ? (
           <>
             <View style={styles.reviewSectionHeader}>
@@ -3308,6 +3415,46 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     overflow: 'hidden',
     backgroundColor: '#f3ede4',
+  },
+  fullScreenModal: {
+    flex: 1,
+    backgroundColor: '#000',
+    justifyContent: 'center',
+  },
+  fullScreenBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#000',
+  },
+  fullScreenSlide: {
+    width: SCREEN_WIDTH,
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#000',
+  },
+  fullScreenFlatList: {
+    flex: 1,
+  },
+  fullScreenImage: {
+    width: SCREEN_WIDTH,
+    height: '100%',
+  },
+  fullScreenImageBox: {
+    width: SCREEN_WIDTH,
+    height: '100%',
+    backgroundColor: '#000',
+  },
+  fullScreenCloseButton: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    zIndex: 1000,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: 20,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   photoDots: { flexDirection: 'row', justifyContent: 'center', gap: 7, marginTop: 18, marginBottom: 16 },
   photoDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#d7cce3' },
