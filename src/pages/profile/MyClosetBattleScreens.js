@@ -10,6 +10,7 @@ import {
   View,
   Share,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import FastImage from 'react-native-fast-image';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -1819,7 +1820,7 @@ const styles = StyleSheet.create({
   gridPrice: { fontSize: 12, fontWeight: '800', marginTop: 4 },
   primaryButton: { height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
   primaryButtonText: { color: '#fff', fontSize: 15, fontWeight: '900' },
-  footerActions: { flexDirection: 'row', gap: 10 },
+  footerActions: { flexDirection: 'row', gap: 10, paddingBottom: Platform.OS === 'android' ? 20 : 0 },
   footerActionFlex: { flex: 1 },
   stepper: { flexDirection: 'row', alignItems: 'center', marginVertical: 2 },
   stepItem: { alignItems: 'center', gap: 6 },
