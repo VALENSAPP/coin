@@ -709,7 +709,8 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
           userData,
           loggedInUserId: loggedInUserId || currentUserId,
           from: 'MyClosetShopFront',
-          fromEbookPublisher: true,
+          returnTo: navContext?.returnTo,
+          fromEbookPublisher: !isOwnProfile,
           username: userData?.userName || userData?.username || item?.userName
         });
       } else {

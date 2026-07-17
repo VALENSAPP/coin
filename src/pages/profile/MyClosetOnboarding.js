@@ -1455,7 +1455,10 @@ const MyClosetLiveScreen = ({ navigation, route }) => {
             label={userProfile == 'user' ? t('myClosetLive.goToCloset') : t('myClosetLive.goToShop')}
             text={text}
             onPress={() => {
-              navigation.navigate('Profile', { initialTab: 'closet' })
+              navigation.navigate('ProfileMain', {
+                screen: 'Profile',
+                params: { initialTab: 'closet' },
+              });
             }}
           />
           <PrimaryButton
@@ -2920,7 +2923,10 @@ const MyClosetAddItemPublishedScreen = ({ navigation, route }) => {
             label={t('myClosetLive.goToCloset')}
             text={text}
             onPress={() =>
-              navigation.navigate('Profile', { initialTab: 'closet' })
+              navigation.navigate('ProfileMain', {
+                screen: 'Profile',
+                params: { initialTab: 'closet' },
+              })
             }
           />
           <PrimaryButton

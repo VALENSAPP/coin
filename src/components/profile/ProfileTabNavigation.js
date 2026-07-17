@@ -328,6 +328,9 @@ const ProfileTabs = memo(({
                   ebook,
                   userData,
                   loggedInUserId,
+                  returnTo: isOwnProfile
+                    ? { tab: 'ProfileMain', screen: 'Profile', params: { initialTab: initialTab || 'privateContent' } }
+                    : { tab: 'HomeMain', screen: 'UsersProfile', params: { userId: targetUserId || userData?.id, initialTab: initialTab || 'privateContent' } },
                   username: userData?.userName || userData?.username || ebook?.userName
                 },
               });

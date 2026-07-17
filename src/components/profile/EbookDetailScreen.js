@@ -146,6 +146,7 @@ const EbookDetailScreen = () => {
   }, [ebookData, routeUserData]);
   const fromRootNavigator = route?.params?.fromRootNavigator;
   const fromEbookPublisher = route?.params?.fromEbookPublisher === true;
+  const fromMyClosetShopFront = route?.params?.from === 'MyClosetShopFront';
 
   useEffect(() => {
     if (route?.params?.ebook) {
@@ -285,6 +286,21 @@ const EbookDetailScreen = () => {
     const backTarget = route?.params?.returnTo;
     const tabNav = navigation.getParent?.() || navigation;
 
+    if (fromEbookPublisher) {
+      tabNav.navigate('wallet', {
+        screen: 'EbookPublisher',
+      });
+      return;
+    }
+
+    if (fromMyClosetShopFront) {
+      tabNav.navigate('ProfileMain', {
+        screen: 'Profile',
+        params: { initialTab: 'closet' },
+      });
+      return;
+    }
+
     // Prefer explicit returnTo from the profile that opened this screen.
     if (backTarget?.tab && backTarget?.screen) {
       tabNav.navigate(backTarget.tab, {
@@ -334,10 +350,12 @@ const EbookDetailScreen = () => {
     routeUserData?.userId,
     routeLoggedInUserId,
     currentUserId,
+    fromEbookPublisher,
+    fromMyClosetShopFront,
   ]);
 
   useScreenshotProtection({
-    enabled: !isOwner && !fromEbookPublisher,
+    enabled: !isOwner && !fromEbookPublisher && !fromMyClosetShopFront,
     holdProtection: holdScreenshotProtection,
     title: t('postView.screenshotWarningTitle'),
     message: t('postView.screenshotWarningMessage'),
@@ -634,7 +652,7 @@ const EbookDetailScreen = () => {
               </View>
               <Text style={styles.metaText}>{createdAt}</Text>
             </View>
-            {!fromEbookPublisher ? (
+            {!fromEbookPublisher && !fromMyClosetShopFront ? (
               <View style={[styles.subscriberPill, bgStyle, {borderColor: text}]}>
                 <Text style={[styles.subscriberPillText,{color:text}]}>Subscribers</Text>
               </View>
@@ -707,7 +725,7 @@ const EbookDetailScreen = () => {
           <Text style={[styles.readButtonText,{color:text}]}>Read e-book</Text>
         </TouchableOpacity>
 
-        {!fromEbookPublisher ? (
+        {!fromEbookPublisher && !fromMyClosetShopFront ? (
           <View style={styles.actionsRow}>
             <TouchableOpacity
               style={styles.actionBtn}
