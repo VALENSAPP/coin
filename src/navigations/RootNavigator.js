@@ -153,7 +153,7 @@ const CustomDrawerContent = (props) => {
       style={bgStyle}
       contentContainerStyle={{
         flexGrow: 1,
-        justifyContent: 'space-between',
+        // justifyContent: 'space-between',
       }}
     >
       {/* Drawer Header */}
@@ -275,6 +275,9 @@ const CustomDrawerContent = (props) => {
           {t('drawerNav.settings')}
         </Text>
       </TouchableOpacity>
+
+      {/* Spacer pushes the Dark Mode toggle to the bottom */}
+      <View style={{ flex: 1 }} />
 
       {/* Dark Mode Toggle */}
       <View
