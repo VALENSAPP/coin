@@ -4220,6 +4220,7 @@
     "orderStatusUpdated": "Status do pedido atualizado.",
     "unableToUpdateStatus": "Não foi possível atualizar o status do pedido.",
     "buyer": "Comprador",
+    "seller": "Vendedor",
     "shippingAddress": "Endereço de entrega",
     "items": "Itens ({{count}})",
     "itemsCount": "{{count}} item(ns)",

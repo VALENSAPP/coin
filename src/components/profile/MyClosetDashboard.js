@@ -627,6 +627,7 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
         orderId: order.raw?.id || order.raw?._id || order.id,
         orderPreview: order.raw,
         viewType: 'seller',
+        returnTo: 'MyClosetDashboard',
       },
     });
   };

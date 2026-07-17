@@ -4206,6 +4206,7 @@
     "orderStatusUpdated": "Statut de la commande mis à jour.",
     "unableToUpdateStatus": "Impossible de mettre à jour le statut de la commande.",
     "buyer": "Acheteur",
+    "seller": "Vendeur",
     "shippingAddress": "Adresse de livraison",
     "items": "Articles ({{count}})",
     "itemsCount": "{{count}} article(s)",

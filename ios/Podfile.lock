@@ -5,7 +5,7 @@ PODS:
   - AppAuth/Core (1.7.6)
   - AppAuth/ExternalUserAgent (1.7.6):
     - AppAuth/Core
-  - AppCheckCore (11.3.0):
+  - AppCheckCore (11.3.1):
     - GoogleUtilities/Environment (~> 8.0)
     - GoogleUtilities/UserDefaults (~> 8.0)
     - PromisesObjC (~> 2.4)
@@ -2017,6 +2017,8 @@ PODS:
     - SocketRocket
     - Yoga
     - YttriumWrapper (= 0.10.50)
+  - react-native-create-thumbnail (2.2.0):
+    - React-Core
   - react-native-date-picker (5.0.13):
     - boost
     - DoubleConversion
@@ -3854,6 +3856,7 @@ DEPENDENCIES:
   - react-native-capture-protection (from `../node_modules/react-native-capture-protection`)
   - react-native-color-matrix-image-filters (from `../node_modules/react-native-color-matrix-image-filters`)
   - "react-native-compat (from `../node_modules/@walletconnect/react-native-compat`)"
+  - react-native-create-thumbnail (from `../node_modules/react-native-create-thumbnail`)
   - react-native-date-picker (from `../node_modules/react-native-date-picker`)
   - "react-native-document-picker (from `../node_modules/@react-native-documents/picker`)"
   - react-native-geolocation-service (from `../node_modules/react-native-geolocation-service`)
@@ -4067,6 +4070,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native-color-matrix-image-filters"
   react-native-compat:
     :path: "../node_modules/@walletconnect/react-native-compat"
+  react-native-create-thumbnail:
+    :path: "../node_modules/react-native-create-thumbnail"
   react-native-date-picker:
     :path: "../node_modules/react-native-date-picker"
   react-native-document-picker:
@@ -4222,7 +4227,7 @@ EXTERNAL SOURCES:
 
 SPEC CHECKSUMS:
   AppAuth: d4f13a8fe0baf391b2108511793e4b479691fb73
-  AppCheckCore: 214137f5c378d1dec88a68425c467fe65aaff637
+  AppCheckCore: e215d35177a9cf469927863e69c13e220df32a8b
   AppsFlyerFramework: c1e1e4cd3b98ffdca2fe32b17ae93909e409b6ab
   boost: 7e761d76ca2ce687f7cc98e698152abd03a18f90
   BVLinearGradient: cb006ba232a1f3e4f341bb62c42d1098c284da70
@@ -4289,6 +4294,7 @@ SPEC CHECKSUMS:
   react-native-capture-protection: 116f67870d133be2cf0acdb87bdcf24d2f1de30b
   react-native-color-matrix-image-filters: ad2edafbd8feeca864ce98724d2cd4fbb29aaa87
   react-native-compat: 864fd40792e455ae4e0fd7f68b113c3c28e2b3fc
+  react-native-create-thumbnail: c15cedc37f3822777d44e6035be041f7961341ea
   react-native-date-picker: 64ccae6c3a8104a168cef950fea8e1fe616cda82
   react-native-document-picker: a0f219f1de355c2da4e4a7ce9de5f91e2d9df5a9
   react-native-geolocation-service: 32b2c2a3b91e70ce2a8d0c684801aaeb0a07e0ec
