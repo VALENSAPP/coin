@@ -413,6 +413,24 @@ export const displayFcmAsExpandable = async (remoteMessage) => {
             summary: body,
         };
 
+    } else if (type === 'like') {
+        // ── POST LIKED ────────────────────────────────────────────────────
+        const liker = data?.likerUserName ?? data?.likerDisplayName ?? 'Someone';
+        const postTitle = data?.postTitle ?? '';
+
+        title = fcmTitle ?? data?.title ?? '❤️ Post Liked';
+        body = fcmBody ?? data?.body ?? `${liker} liked your post.`;
+
+        androidStyle = {
+            type: AndroidStyle.INBOX,
+            lines: [
+                `${liker} liked your post.`,
+                ...(postTitle ? [`Post: "${postTitle}"`] : []),
+            ],
+            title: data?.expandedTitle ?? 'POST LIKED',
+            summary: body,
+        };
+
     } else if (type === 'mention') {
         // ── MENTION ───────────────────────────────────────────────────────
         const mentioner = data?.mentionerUserName ?? data?.mentionerDisplayName ?? 'Someone';

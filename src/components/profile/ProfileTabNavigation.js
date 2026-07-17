@@ -323,17 +323,14 @@ const ProfileTabs = memo(({
             refreshKey={`${refreshKey ?? 0}-${privateKey}`}
             isActiveTab={activeTab === PRIVATE_CONTENT_TAB_INDEX}
             onOpenEbook={(ebook) => {
-              navigation.navigate('ProfileMain', {
-                screen: 'EbookDetail',
-                params: {
-                  ebook,
-                  userData,
-                  loggedInUserId,
-                  returnTo: isOwnProfile
-                    ? { tab: 'ProfileMain', screen: 'Profile', params: { initialTab: initialTab || 'privateContent' } }
-                    : { tab: 'HomeMain', screen: 'UsersProfile', params: { userId: targetUserId || userData?.id, initialTab: initialTab || 'privateContent' } },
-                  username: userData?.userName || userData?.username || ebook?.userName
-                },
+              navigation.navigate('EbookDetail', {
+                ebook,
+                userData,
+                loggedInUserId,
+                returnTo: isOwnProfile
+                  ? { tab: 'ProfileMain', screen: 'Profile', params: { initialTab: initialTab || 'privateContent' } }
+                  : { tab: 'HomeMain', screen: 'UsersProfile', params: { userId: targetUserId || userData?.id, initialTab: initialTab || 'privateContent' } },
+                username: userData?.userName || userData?.username || ebook?.userName
               });
             }}
           />

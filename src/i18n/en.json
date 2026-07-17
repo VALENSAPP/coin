@@ -3689,7 +3689,9 @@
     "categoryShoesSneakers": "Shoes > Sneakers",
     "categoryHomeDecor": "Home > Decor",
     "categoryVintagePieces": "Vintage > Pieces",
-    "categoryOthers": "Others"
+    "categoryOthers": "Others",
+    "yes": "Yes",
+    "no": "No"
   },
   "myClosetItemEditor": {
     "headerTitle": "Edit Item",
@@ -3720,7 +3722,15 @@
     "updateSuccess": "Item updated successfully.",
     "updateError": "Unable to update item.",
     "deleteSuccess": "Item deleted successfully.",
-    "deleteError": "Unable to delete item."
+    "deleteError": "Unable to delete item.",
+    "shippingFeeLabel": "Shipping fee",
+    "shippingFeePlaceholder": "e.g. 5.00",
+    "pickupAddressLabel": "Pickup address",
+    "pickupAddressPlaceholder": "Enter pickup address",
+    "pickupAvailableHoursLabel": "Pickup available hours",
+    "pickupAvailableHoursPlaceholder": "e.g. Mon-Fri 09:00-17:00",
+    "buyerChatEnabledLabel": "Buyer chat enabled",
+    "buyerChatEnabledPlaceholder": "Select yes or no"
   },
   "myClosetOrders": {
     "headerSales": "My Sales",

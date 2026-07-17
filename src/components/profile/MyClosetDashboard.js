@@ -25,6 +25,8 @@ import {
   getClosetBattlesPriority,
   getbattlePerformance,
 } from '../../services/myCloset';
+import { getMarketplaceEbooksByClosetId } from '../../services/post';
+import { EbookCard } from './AllEbooksScreen';
 import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 
@@ -240,7 +242,7 @@ const normalizeBuyerOrder = (order, index, t) => {
     key: String(order?.id || order?._id || index),
     id: order?.id || order?._id,
     name: getOrderDisplayName(order, t),
-    buyerName: order?.buyerName || order?.buyer?.username || order?.buyer?.userName || t('myClosetDashboard.buyer'),
+    buyerName: order?.buyerName || order?.buyer?.username || order?.buyer?.userName || 'Buyer',
     order: t('myClosetDashboard.orderNumber', {
       number: order?.orderNumber || order?.orderId || order?.id || order?._id || index + 1,
     }),
@@ -284,6 +286,8 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
   const [priorityBattles, setPriorityBattles] = useState([]);
   const [priorityBattlesLoading, setPriorityBattlesLoading] = useState(false);
   const [currentUserName, setCurrentUserName] = useState('');
+  const [dashboardEbooks, setDashboardEbooks] = useState([]);
+  const [ebooksLoading, setEbooksLoading] = useState(false);
 
   const {
     bgStyle,
@@ -437,6 +441,54 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
     }
   }, [closetId, userData?.closetId, userData?.myClosetId, userData?.closet?.id, userData?.closet?._id]);
 
+  const loadEbooks = useCallback(async () => {
+    if (!resolvedClosetId) {
+      setDashboardEbooks([]);
+      return;
+    }
+    setEbooksLoading(true);
+    try {
+      const response = await getMarketplaceEbooksByClosetId(resolvedClosetId);
+      const payload =
+        response?.data?.ebooks ??
+        response?.ebooks ??
+        response?.data?.posts ??
+        response?.data?.data?.posts ??
+        response?.data?.data ??
+        response?.data ??
+        response;
+
+      const formattedData = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.posts)
+          ? payload.posts
+          : Array.isArray(payload?.ebooks)
+            ? payload.ebooks
+            : Array.isArray(payload?.data)
+              ? payload.data
+              : [];
+
+      const ebookData = formattedData.filter((post) => {
+        if (post?.ebookpdf) return true;
+        const formatValue = String(post?.format || post?.type || '').toLowerCase();
+        const imageUrl = String(post?.images?.[0] || post?.image || post?.video || '');
+        const isPdf = /\.pdf(\?|$)/i.test(imageUrl);
+
+        return (
+          !post?.visibleTo || post.visibleTo === ''
+        ) && (
+            formatValue === 'ebook' || formatValue === 'book' || isPdf || formatValue === 'private'
+          );
+      });
+      setDashboardEbooks(ebookData.slice(0, 3));
+    } catch (error) {
+      console.warn('Unable to load ebooks:', error);
+      setDashboardEbooks([]);
+    } finally {
+      setEbooksLoading(false);
+    }
+  }, [resolvedClosetId]);
+
   const loadClosetItems = useCallback(async () => {
     setItemsLoading(true);
     try {
@@ -494,7 +546,8 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
   useEffect(() => {
     if (!closetId) return;
     loadPriorityBattles();
-  }, [closetId, loadPriorityBattles]);
+    loadEbooks();
+  }, [closetId, loadPriorityBattles, loadEbooks]);
 
   const statCards = useMemo(() => buildStatCards(marketplaceOverview, t), [marketplaceOverview, t]);
   const overviewCards = useMemo(() => buildOverviewCards(dashboardData, t), [dashboardData, t]);
@@ -1003,14 +1056,47 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
       </View>
 
       <View style={[styles.sectionCard, cardStyle, { borderColor: withAlpha(text, 0.12) }]}>
-        <View style={[styles.sectionHeader, {marginBottom: 2}]}>
+        <View style={styles.sectionHeader}>
           <View style={styles.ebooksCtaCopy}>
             <Ionicons name="book-outline" size={18} color={text} style={{ marginRight: 8 }} />
-            <Text style={[styles.ebooksCtaTitle, textStyle]}>All E-books</Text>
+            <Text style={[styles.ebooksCtaTitle, textStyle]}>My E-books</Text>
           </View>
           <TouchableOpacity activeOpacity={0.8} onPress={handleViewAllEbooks}>
             <Text style={styles.sectionMeta}>{t('myClosetDashboard.viewAll')} ›</Text>
           </TouchableOpacity>
+        </View>
+
+        <View style={{ gap: 2, marginTop: 8 }}>
+          {ebooksLoading ? (
+            <View style={styles.itemsLoadingWrap}>
+              <ActivityIndicator color={text} />
+            </View>
+          ) : dashboardEbooks.length ? (
+            dashboardEbooks.map(item => (
+              <EbookCard
+                key={String(item.id || item._id)}
+                item={item}
+                isPurchased={true}
+                isOwnProfile={true}
+                accentColor={text}
+                onPress={() => {
+                  navigation?.navigate?.('EbookDetail', {
+                    ebook: item,
+                    userData,
+                    loggedInUserId: userData?.id || userData?._id,
+                    from: 'MyClosetDashboard',
+                    returnTo: 'MyClosetDashboard',
+                    username: currentUserName || userData?.userName || userData?.username || item?.userName || item?.creator?.name,
+                  })
+                }}
+              />
+            ))
+          ) : (
+            <View style={styles.emptyItemsCard}>
+              <Ionicons name="book-outline" size={24} color={text} />
+              <Text style={[styles.emptyItemsText, textStyle]}>No E-books yet</Text>
+            </View>
+          )}
         </View>
       </View>
 
