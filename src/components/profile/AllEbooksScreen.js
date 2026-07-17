@@ -89,6 +89,7 @@ const AllEbooksScreen = () => {
   const resolvedClosetId = route?.params?.closetId || null;
   const resolvedUserId = loggedInUserId || userData?.id || userData?._id || null;
   const returnTo = route?.params?.returnTo;
+  const fromScreen = route?.params?.from;
 
   const { bgStyle, textStyle, text } = useAppTheme();
   const accentColor = text || '#5A2D82';
@@ -195,24 +196,33 @@ const AllEbooksScreen = () => {
   const handleEbookPress = useCallback(async (item) => {
     const itemId = item.id || item._id;
     const isPurchased = purchasedMap[itemId] || isOwnProfile;
+    const returnTo = route?.params?.returnTo || {
+      tab: 'ProfileMain',
+      screen: 'AllEbooks',
+      params: {
+        ...route?.params,
+      },
+    };
+    const baseParams = {
+      ebook: item,
+      userData,
+      loggedInUserId,
+      from: fromScreen,
+      returnTo,
+      username: item?.userName || item?.username || item?.creator?.name || resolvedAuthorName,
+      sourceScreen: 'AllEbooks',
+      allEbooksParams: {
+        ...route?.params,
+      },
+    };
     if (isPurchased) {
-      navigation.navigate('EbookDetail', {
-        ebook: item,
-        userData,
-        loggedInUserId,
-        from: route?.params?.from || 'MyClosetShopFront',
-        username: item?.userName || item?.username || item?.creator?.name || resolvedAuthorName,
-      });
+      navigation.push('EbookDetail', baseParams);
     } else {
-      navigation.navigate('EbookBuyDetails', {
-        ebook: item,
-        userData,
-        loggedInUserId,
-        from: route?.params?.from || 'MyClosetShopFront',
-        username: item?.userName || item?.username || item?.creator?.name || resolvedAuthorName,
+      navigation.push('EbookBuyDetails', {
+        ...baseParams,
       });
     }
-  }, [purchasedMap, isOwnProfile, navigation, userData, loggedInUserId, route?.params?.from, resolvedAuthorName]);
+  }, [purchasedMap, isOwnProfile, navigation, userData, loggedInUserId, route?.params, resolvedAuthorName]);
 
   const handleBackPress = () => {
     if (returnTo === 'MyClosetDashboard') {

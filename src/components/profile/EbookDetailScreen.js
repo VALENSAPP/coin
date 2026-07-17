@@ -147,6 +147,7 @@ const EbookDetailScreen = () => {
   const fromRootNavigator = route?.params?.fromRootNavigator;
   const fromEbookPublisher = route?.params?.fromEbookPublisher === true;
   const fromMyClosetShopFront = route?.params?.from === 'MyClosetShopFront';
+  const fromAllEbooksScreen = route?.params?.from === 'AllEbooks' || route?.params?.sourceScreen === 'AllEbooks';
 
   useEffect(() => {
     if (route?.params?.ebook) {
@@ -286,6 +287,7 @@ const EbookDetailScreen = () => {
     const backTarget = route?.params?.returnTo;
     const tabNav = navigation.getParent?.() || navigation;
 
+    // Explicit cross-tab navigation back to EbookPublisher
     if (fromEbookPublisher) {
       tabNav.navigate('wallet', {
         screen: 'EbookPublisher',
@@ -293,15 +295,16 @@ const EbookDetailScreen = () => {
       return;
     }
 
-    if (fromMyClosetShopFront) {
-      tabNav.navigate('ProfileMain', {
-        screen: 'Profile',
-        params: { initialTab: 'closet' },
-      });
+    // If we have a standard navigation stack history, use it. This correctly
+    // returns to the previous screen (e.g. returning to another user's profile)
+    // without messing up the navigation state by forcing a new screen push.
+    if (navigation.canGoBack?.()) {
+      navigation.goBack();
       return;
     }
 
-    // Prefer explicit returnTo from the profile that opened this screen.
+    // Fallback logic for when there is no back stack (e.g. deep linking)
+
     if (backTarget?.tab && backTarget?.screen) {
       tabNav.navigate(backTarget.tab, {
         screen: backTarget.screen,
@@ -312,6 +315,14 @@ const EbookDetailScreen = () => {
 
     if (backTarget) {
       navigateClosetReturn(navigation, backTarget);
+      return;
+    }
+
+    if (fromMyClosetShopFront) {
+      tabNav.navigate('ProfileMain', {
+        screen: 'Profile',
+        params: { initialTab: 'closet' },
+      });
       return;
     }
 
@@ -335,11 +346,6 @@ const EbookDetailScreen = () => {
       return;
     }
 
-    if (navigation.canGoBack?.()) {
-      navigation.goBack();
-      return;
-    }
-
     tabNav.navigate('ProfileMain', { screen: 'Profile' });
   }, [
     navigation,
@@ -352,6 +358,7 @@ const EbookDetailScreen = () => {
     currentUserId,
     fromEbookPublisher,
     fromMyClosetShopFront,
+    fromAllEbooksScreen,
   ]);
 
   useScreenshotProtection({
