@@ -3597,7 +3597,9 @@
     "categoryShoesSneakers": "Chaussures > Baskets",
     "categoryHomeDecor": "Maison > Décoration",
     "categoryVintagePieces": "Vintage > Pièces",
-    "categoryOthers": "Autres"
+    "categoryOthers": "Autres",
+    "yes": "Oui",
+    "no": "Non"
   },
   "myClosetItemEditor": {
     "headerTitle": "Modifier l'article",
@@ -3628,7 +3630,15 @@
     "updateSuccess": "Article mis à jour avec succès.",
     "updateError": "Impossible de mettre à jour l'article.",
     "deleteSuccess": "Article supprimé avec succès.",
-    "deleteError": "Impossible de supprimer l'article."
+    "deleteError": "Impossible de supprimer l'article.",
+    "shippingFeeLabel": "Frais de port",
+    "shippingFeePlaceholder": "ex. 5.00",
+    "pickupAddressLabel": "Adresse de retrait",
+    "pickupAddressPlaceholder": "Entrez l'adresse",
+    "pickupAvailableHoursLabel": "Heures de retrait",
+    "pickupAvailableHoursPlaceholder": "ex. Lun-Ven 09:00-17:00",
+    "buyerChatEnabledLabel": "Chat acheteur activé",
+    "buyerChatEnabledPlaceholder": "Sélectionnez oui ou non"
   },
   "myClosetOrders": {
     "headerSales": "Mes ventes",

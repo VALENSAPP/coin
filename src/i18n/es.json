@@ -3597,7 +3597,9 @@
     "categoryShoesSneakers": "Calzado > Zapatillas",
     "categoryHomeDecor": "Hogar > Decoración",
     "categoryVintagePieces": "Vintage > Piezas",
-    "categoryOthers": "Otros"
+    "categoryOthers": "Otros",
+    "yes": "Sí",
+    "no": "No"
   },
   "myClosetItemEditor": {
     "headerTitle": "Editar artículo",
@@ -3628,7 +3630,15 @@
     "updateSuccess": "Artículo actualizado correctamente.",
     "updateError": "No se pudo actualizar el artículo.",
     "deleteSuccess": "Artículo eliminado correctamente.",
-    "deleteError": "No se pudo eliminar el artículo."
+    "deleteError": "No se pudo eliminar el artículo.",
+    "shippingFeeLabel": "Tarifa de envío",
+    "shippingFeePlaceholder": "ej. 5.00",
+    "pickupAddressLabel": "Dirección de recogida",
+    "pickupAddressPlaceholder": "Ingrese la dirección",
+    "pickupAvailableHoursLabel": "Horario de recogida",
+    "pickupAvailableHoursPlaceholder": "ej. Lun-Vie 09:00-17:00",
+    "buyerChatEnabledLabel": "Chat de comprador habilitado",
+    "buyerChatEnabledPlaceholder": "Seleccione sí o no"
   },
   "myClosetOrders": {
     "headerSales": "Mis ventas",
