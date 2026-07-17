@@ -90,6 +90,14 @@ const formatDate = value => {
     date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 };
 
+const toTitleCase = value =>
+  String(value || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+
 const imageUri = image => {
   if (!image) return null;
   if (typeof image === 'string') return image;
@@ -99,10 +107,10 @@ const imageUri = image => {
 const fastImageSource = uri =>
   uri
     ? {
-        uri,
-        priority: FastImage.priority.high,
-        cache: FastImage.cacheControl.immutable,
-      }
+      uri,
+      priority: FastImage.priority.high,
+      cache: FastImage.cacheControl.immutable,
+    }
     : null;
 
 const firstImage = value => {
@@ -151,7 +159,7 @@ const normalizeOrderDetail = (order, t) => {
     orderNumber: order?.orderNumber || order?.orderId || order?.id,
     status: normalizeStatus(order?.orderStatus ?? order?.status),
     createdAt: formatDate(order?.createdAt || order?.orderDate),
-    buyerName: order?.buyerName || order?.buyer?.username || order?.buyer?.userName || t('myClosetOrderDetail.buyer'),
+    buyerName: order?.seller?.userName || order?.buyer?.username || order?.buyer?.userName || t('myClosetOrderDetail.buyer'),
     buyerId: order?.buyerId || order?.buyer?.id,
     totalAmount: currency(order?.totalAmount ?? order?.amount ?? order?.total),
     totalItemCount: order?.totalItemCount ?? normalizedLines.length,
@@ -363,7 +371,7 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
   }, [canUpdateStatus, dispatch, loadOrder, order, t, toast]);
 
   const goBack = useCallback(() => {
-    console.log("return to -----------------",returnTo)
+    console.log("return to -----------------", returnTo)
 
     if (returnTo == 'MyClosetDashboard') {
       navigation.reset({
@@ -462,7 +470,7 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
             <View style={[styles.buyerAvatar, { backgroundColor: accent }]}>
               <Ionicons name="person" size={18} color="#fff" />
             </View>
-            <Text style={[styles.buyerName, textStyle]}>{order.buyerName}</Text>
+            <Text style={[styles.buyerName, textStyle]}>{toTitleCase(order.buyerName)}</Text>
           </View>
         </View>
 

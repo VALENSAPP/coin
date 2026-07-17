@@ -1066,6 +1066,7 @@ export default function PostView({ postData = [], userData = {} }) {
           ),
         })),
         caption: item.caption,
+        hashtag: item.hashtag ?? item.hashtags ?? [],
         PostsProfile: 'Support',
         link: item.link,
         raiseAmount: item.raiseAmount ?? 0,

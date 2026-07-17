@@ -1340,6 +1340,20 @@ export default function BattleInProgress() {
     const effectiveSelectedOptionKey = selectedOptionKey;
     const trimmedArgument = argumentText.trim();
 
+    const resolveSelectedBattleOption = (options = [], selectionKey = '') => {
+      const normalizedSelectionKey = String(selectionKey || '');
+      const found = (Array.isArray(options) ? options : []).find((option, index) => {
+        const optionKey = getOptionSelectionKey(option, index);
+        return (
+          optionKey === normalizedSelectionKey ||
+          String(option?.side || '') === normalizedSelectionKey ||
+          String(option?.label || '') === normalizedSelectionKey ||
+          String(option?.id || '') === normalizedSelectionKey
+        );
+      });
+      return found || null;
+    };
+
     if (!finalBattleId) {
       Alert.alert(t('battleInProgress.voteAlertMissingBattle'), t('battleInProgress.voteAlertMissingBattleMsg'));
       return;
@@ -1353,14 +1367,7 @@ export default function BattleInProgress() {
       );
       return;
     }
-    const selectedBattleOption = battle.options.find((option, index) => {
-      const optionSide = String(pickFirst(option?.side, option?.label, ''));
-      return (
-        getOptionSelectionKey(option, index) === effectiveSelectedOptionKey ||
-        optionSide === effectiveSelectedOptionKey ||
-        String(option?.id || '') === effectiveSelectedOptionKey
-      );
-    });
+    const selectedBattleOption = resolveSelectedBattleOption(battle.options, effectiveSelectedOptionKey);
     const finalSelectedOption = String(pickFirst(
       selectedBattleOption?.side,
       selectedBattleOption?.label,
@@ -1385,6 +1392,62 @@ export default function BattleInProgress() {
     }
     setSubmittingVote(true);
     try {
+      const applyLocalVoteUpdate = () => {
+        setBattle(prev => {
+          if (!prev) return prev;
+
+          const selectedEntry = resolveSelectedBattleOption(prev.options, effectiveSelectedOptionKey);
+
+          const nextOptions = (Array.isArray(prev.options) ? prev.options : []).map((option, index) => {
+            const isSelected = selectedEntry
+              ? String(option?.id || '') === String(selectedEntry?.id || '') &&
+                getOptionSelectionKey(option, index) === getOptionSelectionKey(selectedEntry, prev.options.indexOf(selectedEntry))
+              : false;
+
+            if (!isSelected) return option;
+
+            const currentVotes = Number(option?.votes || 0);
+            return {
+              ...option,
+              votes: currentVotes + 1,
+            };
+          });
+
+          const nextTotalVotes = Number(prev.totalVotes || 0) + 1;
+          const nextVoteCounts = { ...(prev.voteCounts || {}) };
+          const nextPredictionCounts = { ...(prev.predictionCounts || {}) };
+          const targetCounts = isPrediction ? nextPredictionCounts : nextVoteCounts;
+          const selectedKey = String(pickFirst(
+            selectedEntry?.side,
+            selectedEntry?.label,
+            effectiveSelectedOptionKey,
+          )).trim();
+
+          if (selectedKey) {
+            targetCounts[selectedKey] = Number(targetCounts[selectedKey] || 0) + 1;
+            if (selectedEntry?.id) targetCounts[String(selectedEntry.id)] = Number(targetCounts[String(selectedEntry.id)] || 0) + 1;
+            if (selectedEntry?.label) targetCounts[String(selectedEntry.label)] = Number(targetCounts[String(selectedEntry.label)] || 0) + 1;
+            if (selectedEntry?.side) targetCounts[String(selectedEntry.side)] = Number(targetCounts[String(selectedEntry.side)] || 0) + 1;
+          }
+
+          const recomputedOptions = nextOptions.map(option => ({
+            ...option,
+            percentage: nextTotalVotes > 0
+              ? Math.round((Number(option.votes || 0) / nextTotalVotes) * 100)
+              : Number(option.percentage || 0),
+          }));
+
+          return {
+            ...prev,
+            options: recomputedOptions,
+            totalVotes: nextTotalVotes,
+            primaryCount: nextTotalVotes,
+            voteCounts: nextVoteCounts,
+            predictionCounts: nextPredictionCounts,
+          };
+        });
+      };
+
       let response;
       if (isPrediction) response = await predictBattle(payload);
       else if (isHeadToHead && isHeadToHeadOpponent) {
@@ -1404,6 +1467,7 @@ export default function BattleInProgress() {
       setArgumentText('');
       setKeepActiveSelectedStyle(true);
       if (isHeadToHead && isHeadToHeadCreator) setCreatorSelectionLocked(true);
+      applyLocalVoteUpdate();
       await fetchBattle(true);
 
       Alert.alert(
@@ -2684,14 +2748,17 @@ export default function BattleInProgress() {
               const total = leftVotes + rightVotes;
               const leftPct = total > 0 ? Math.round((leftVotes / total) * 100) : 0;
               const rightPct = total > 0 ? 100 - leftPct : 0;
+              const hasVotes = total > 0;
 
               return (
                 <>
                   <View style={styles.progressTopRow}>
                     <View>
-                      <Text style={styles.progressPctLeft}>{leftPct}%</Text>
+                      <Text style={styles.progressPctLeft}>
+                        {hasVotes ? `${leftPct}%` : '—'}
+                      </Text>
                       <Text style={styles.progressVotes}>
-                        {leftVotes} {t('battleInProgress.votesLabel')}
+                        {hasVotes ? `${leftVotes} ${t('battleInProgress.votesLabel')}` : (t('battleInProgress.noVotesYet') || 'No votes yet')}
                       </Text>
                     </View>
                     {/* <View style={styles.progressMidCol}>
@@ -2700,9 +2767,11 @@ export default function BattleInProgress() {
                       )}
                     </View> */}
                     <View style={{ alignItems: 'flex-end' }}>
-                      <Text style={styles.progressPctRight}>{rightPct}%</Text>
+                      <Text style={styles.progressPctRight}>
+                        {hasVotes ? `${rightPct}%` : '—'}
+                      </Text>
                       <Text style={styles.progressVotes}>
-                        {rightVotes} {t('battleInProgress.votesLabel')}
+                        {hasVotes ? `${rightVotes} ${t('battleInProgress.votesLabel')}` : (t('battleInProgress.noVotesYet') || 'No votes yet')}
                       </Text>
                     </View>
                   </View>

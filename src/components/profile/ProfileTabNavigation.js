@@ -329,6 +329,10 @@ const ProfileTabs = memo(({
                   ebook,
                   userData,
                   loggedInUserId,
+                  returnTo: isOwnProfile
+                    ? { tab: 'ProfileMain', screen: 'Profile', params: { initialTab: initialTab || 'privateContent' } }
+                    : { tab: 'HomeMain', screen: 'UsersProfile', params: { userId: targetUserId || userData?.id, initialTab: initialTab || 'privateContent' } },
+                  username: userData?.userName || userData?.username || ebook?.userName
                 },
               });
             }}
@@ -522,8 +526,9 @@ const ProfileTabs = memo(({
 
     const timer = setTimeout(async () => {
       if (!loggedInUserId || isOwnProfile) return;
-      // Keep company shop-tab navigation free of the subscription modal.
-      // if (userData?.profile === 'company') return;
+      // Subscription popup is only for Private Content.
+      // Private Circle (invite/member access) must never trigger it.
+      if (initialTab !== 'privateContent') return;
       const hasActive = await getSubscriptionStatus(targetProfileId);
       if (!hasActive) {
         setPrivatKey(p => p + 1);

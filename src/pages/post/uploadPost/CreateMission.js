@@ -149,6 +149,7 @@ const CreateMission = () => {
     taggedPeopleIds = [],
     taggedPeopleMeta = [],
     isTrustPost = false,
+    hashtag = [],
   } = route.params || {};
 
   const getMediaUri = (media) =>
@@ -347,6 +348,7 @@ const CreateMission = () => {
     const payload = {
       caption: String(caption || '').trim(),
       ...(String(location || '').trim() ? { location: String(location).trim() } : {}),
+      ...(Array.isArray(hashtag) && hashtag.length ? { hashtag } : {}),
       taggedPeople: taggedPeopleIds,
       // ...(Array.isArray(taggedPeopleIds) && taggedPeopleIds.length
       //   ? {

@@ -633,8 +633,8 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
             </View>
           </LinearGradient>
 
-          <View style={styles.cardBody}>
-            <Text style={[styles.title, textStyle]}>{t('privateCircle.ownTitle')}</Text>
+            <View style={styles.cardBody}>
+              <Text style={[styles.title, textStyle]}>{t('privateCircle.ownTitle')}</Text>
             <Text style={[styles.paragraph, textStyle]}>{t('privateCircle.ownComingSoon')}</Text>
             <Text style={[styles.paragraph, textStyle]}>{t('privateCircle.ownChoose')}</Text>
             <Text style={[styles.paragraph, textStyle]}>{t('privateCircle.ownDescription')}</Text>
@@ -677,12 +677,10 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
               </View>
             </LinearGradient>
 
-            <View style={styles.cardBody}>
-              <View style={styles.statusHeader}>
+              <View style={styles.cardBody}>
+                <View style={styles.statusHeader}>
                 <Text style={[styles.title, styles.statusTitle, textStyle]}>
-                  {showOwnerDashboard
-                    ? t('privateCircle.ownTitle')
-                    : t('privateCircle.guestTitle')}
+                  {t('privateCircle.guestTitle')}
                 </Text>
                 <View
                   style={[
@@ -705,21 +703,8 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
                 </View>
               </View>
               <Text style={[styles.paragraph, textStyle]}>
-                {showOwnerDashboard
-                  ? t('privateCircle.ownYourSpace')
-                  : `${t('privateCircle.guestNotPublic')} ${t('privateCircle.guestNeedInvite')} ${t('privateCircle.guestAudience')}`}
+                {t('privateCircle.accessDescription')}
               </Text>
-              {!showOwnerDashboard && (
-                <>
-                  <Text style={[styles.paragraph, textStyle]}>
-                    {t('privateCircle.guestInviteOnly')}
-                  </Text>
-
-                  <Text style={[styles.paragraph, textStyle]}>
-                    {t('privateCircle.guestStayConnected')}
-                  </Text>
-                </>
-              )}
             </View>
           </View>
           <View style={styles.dashboardWrap}>
@@ -902,9 +887,9 @@ const styles = StyleSheet.create({
   },
   leftRail: {
     width: 92,
+    alignSelf: 'stretch',
     alignItems: 'center',
     justifyContent: 'center',
-    alignSelf: 'stretch',
   },
   railIconBubble: {
     height: 58,

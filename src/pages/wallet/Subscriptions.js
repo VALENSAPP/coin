@@ -585,7 +585,7 @@ const SubventionSetupScreen = () => {
             case 'posts': navigateToCreate({ postType: 'private', type: 'post' }); break;
             case 'reels': navigateToCreate({ postType: 'private', type: 'Flips' }); break;
             case 'videos': navigateToCreate({ postType: 'private', type: 'video' }); break;
-            case 'ebook': navigation.navigate('EbookPublisher', { type: 'private', format: 'ebook' }); break;
+            case 'ebook': navigation.push('EbookPublisher', { type: 'private', format: 'ebook' }); break;
             case 'stories': handleAddStory(); break;
             default: break;
         }

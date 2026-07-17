@@ -829,6 +829,7 @@ const SavedPostsScreen = ({ navigation }) => {
             params: {
               ebook: item,
               loggedInUserId: currentUserId,
+              username: item?.userName
             },
           });
         }}

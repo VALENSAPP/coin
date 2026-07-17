@@ -37,6 +37,9 @@ import {
   checkoutCart,
   getClosetItemsByClosetId,
   setCartItemShippingChoice,
+  getWishlist,
+  addWishlistItem,
+  deleteWishlistItem,
   createPaymentSession,
   getRecentPaymentDetails,
   getPaymentDetailsByPaymentId,
@@ -49,11 +52,14 @@ import InAppBrowser from 'react-native-inappbrowser-reborn';
 import { FlatList as GestureFlatList } from 'react-native-gesture-handler';
 import InstagramZoomableImage from '../shared/InstagramZoomableImage';
 import {
+  buildClosetReturnTo,
   navigateToBattleLive,
   navigateClosetReturn,
   useClosetTheme,
   withClosetNavParams,
 } from '../../utils/closetNavigation';
+import { useToast } from 'react-native-toast-notifications';
+import { showToastMessage } from '../displaytoastmessage';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const GRID_GAP = 12;
@@ -75,7 +81,40 @@ const allowedShippingChoices = shippingOption => {
   return [SHIP_OPTION_SHIP];
 };
 
+const resolveShippingOption = (shippingOptionsMap, item) =>
+  shippingOptionsMap[cartItemProductId(item)] ?? item?.selectedShippingChoice ?? SHIP_OPTION_SHIP;
+
+const cartRequiresShipping = (cartItemsSnapshot = [], shippingOptionsMap = {}) =>
+  (Array.isArray(cartItemsSnapshot) ? cartItemsSnapshot : []).some(item => {
+    const opt = resolveShippingOption(shippingOptionsMap, item);
+    return opt === SHIP_OPTION_SHIP || opt === SHIP_OPTION_BOTH;
+  });
+
+const getShipOnlyCartItems = (cartItemsSnapshot = [], shippingOptionsMap = {}) =>
+  (Array.isArray(cartItemsSnapshot) ? cartItemsSnapshot : []).filter(item => {
+    const opt = resolveShippingOption(shippingOptionsMap, item);
+    return opt === SHIP_OPTION_SHIP && item?.selectedShippingChoice !== SHIP_OPTION_SHIP;
+  });
+
 const cartItemProductId = ci => ci?.product?.id || ci?.product?._id || ci?.productId;
+const wishlistItemProductId = item => item?.product?.id || item?.product?._id || item?.productId || item?.id || item?._id;
+
+const getWishlistPayload = response => response?.data?.data ?? response?.data ?? response ?? {};
+
+const getWishlistsArray = response => {
+  const payload = getWishlistPayload(response);
+  if (Array.isArray(payload?.wishlists)) return payload.wishlists;
+  if (Array.isArray(payload?.wishlist)) return payload.wishlist;
+  if (Array.isArray(payload)) return payload;
+  return [];
+};
+
+const getWishlistRecordForSeller = (response, sellerId) => {
+  const wishlists = getWishlistsArray(response);
+  if (!wishlists.length) return null;
+  if (!sellerId) return wishlists[0] || null;
+  return wishlists.find(w => String(w?.sellerId) === String(sellerId)) || wishlists[0] || null;
+};
 
 const currency = value => {
   if (value == null || value === '') return '$0.00';
@@ -95,6 +134,8 @@ const imageUri = image => {
   if (typeof image === 'string') return image;
   return image?.uri || image?.url || image?.path || null;
 };
+
+const unwrapWishlistItems = response => getWishlistRecordForSeller(response)?.wishlistItems ?? [];
 
 const fastImageSource = uri =>
   uri
@@ -279,13 +320,19 @@ const buildCart = (route, t, overrides = {}) => {
   const cartItemsSnapshot = route?.params?.cartItemsSnapshot || null;
   const breakdown = route?.params?.checkoutData?.breakdown ?? null;
 
-  const fallbackItemTotal = item.priceValue * quantity;
+  let fallbackItemTotal = item.priceValue * quantity;
+  if (Array.isArray(cartItemsSnapshot) && cartItemsSnapshot.length > 0) {
+    fallbackItemTotal = cartItemsSnapshot.reduce((sum, ci) => {
+      const price = ci?.product?.price ?? ci?.price ?? item.priceValue;
+      return sum + price * (ci.quantity || 1);
+    }, 0);
+  }
   const itemTotal = breakdown?.itemsSubtotal ?? route?.params?.itemTotal ?? fallbackItemTotal;
   const shipping = breakdown?.shippingAmount ?? Number(route?.params?.shippingAmount ?? route?.params?.shipping ?? 0);
   const taxAmount = breakdown?.taxAmount ?? 0;
   const platformFee = breakdown?.platformFee ?? 0;
   const discountAmount = breakdown?.discountAmount ?? 0;
-  const total = breakdown?.totalAmountDue ?? route?.params?.total ?? itemTotal;
+  const total = breakdown?.totalAmountDue ?? route?.params?.total ?? (itemTotal + shipping + taxAmount + platformFee - discountAmount);
 
   return {
     item,
@@ -325,18 +372,18 @@ const getFieldRules = t => ({
     patternMsg: t('myClosetBuyer.field.invalidPhone'),
   },
   alternateNumber: {
-    required: false,
+    required: true,
     label: t('myClosetBuyer.field.alternateNumber'),
     pattern: /^[+\d\s\-()]{7,20}$/,
     patternMsg: t('myClosetBuyer.field.invalidPhone'),
   },
   addressLine1: { required: true, label: t('myClosetBuyer.field.addressLine1') },
-  addressLine2: { required: false, label: t('myClosetBuyer.field.addressLine2') },
+  addressLine2: { required: true, label: t('myClosetBuyer.field.addressLine2') },
   city: { required: true, label: t('myClosetBuyer.field.city') },
-  state: { required: false, label: t('myClosetBuyer.field.state') },
-  country: { required: false, label: t('myClosetBuyer.field.country') },
+  state: { required: true, label: t('myClosetBuyer.field.state') },
+  country: { required: true, label: t('myClosetBuyer.field.country') },
   postalCode: {
-    required: false,
+    required: true,
     label: t('myClosetBuyer.field.postalCode'),
     pattern: /^\d{3,10}$/,
     patternMsg: t('myClosetBuyer.field.invalidPostalCode'),
@@ -462,6 +509,8 @@ const DetailImageCarousel = ({ images, onZoomChange, accentColor }) => {
   const { text: fallbackAccent } = useAppTheme();
   const text = accentColor || fallbackAccent;
   const [activeIndex, setActiveIndex] = useState(0);
+  const [fullScreenVisible, setFullScreenVisible] = useState(false);
+  const [fullScreenIndex, setFullScreenIndex] = useState(0);
   const [scrollEnabled, setScrollEnabled] = useState(true);
   const listRef = useRef(null);
   const galleryImages = images.length ? images : [null];
@@ -487,17 +536,26 @@ const DetailImageCarousel = ({ images, onZoomChange, accentColor }) => {
     onZoomChange?.(zoomed);
   }, [onZoomChange]);
 
-  const renderItem = useCallback(({ item }) => {
+  const openFullScreen = useCallback(index => {
+    setFullScreenIndex(index);
+    setFullScreenVisible(true);
+  }, []);
+
+  const closeFullScreen = useCallback(() => {
+    setFullScreenVisible(false);
+  }, []);
+
+  const renderItem = useCallback(({ item, index }) => {
     if (!item) {
       return (
-        <View style={styles.heroSlide}>
+        <TouchableOpacity activeOpacity={0.9} style={styles.heroSlide} onPress={() => openFullScreen(index)}>
           <ImageBox uri={null} style={styles.heroImage} iconSize={64} />
-        </View>
+        </TouchableOpacity>
       );
     }
 
     return (
-      <View style={styles.heroSlide}>
+      <TouchableOpacity activeOpacity={0.95} style={styles.heroSlide} onPress={() => openFullScreen(index)}>
         <InstagramZoomableImage
           uri={item}
           height={HERO_IMAGE_HEIGHT}
@@ -506,9 +564,38 @@ const DetailImageCarousel = ({ images, onZoomChange, accentColor }) => {
           onZoomChange={handleZoomChange}
           simultaneousHandlers={listRef}
         />
+      </TouchableOpacity>
+    );
+  }, [handleZoomChange, openFullScreen]);
+
+  const renderFullScreenItem = useCallback(({ item }) => {
+    if (!item) {
+      return (
+        <View style={styles.fullScreenSlide}>
+          <ImageBox uri={null} style={styles.fullScreenImageBox} iconSize={72} />
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.fullScreenSlide}>
+        <FastImage
+          source={fastImageSource(item)}
+          style={styles.fullScreenImage}
+          resizeMode={FastImage.resizeMode.contain}
+          fadeDuration={0}
+        />
       </View>
     );
-  }, [handleZoomChange]);
+  }, []);
+
+  const onFullScreenScroll = useCallback(event => {
+    const nextIndex = Math.round(event.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+    const clampedIndex = Math.max(0, Math.min(nextIndex, galleryImages.length - 1));
+    if (clampedIndex !== fullScreenIndex) {
+      setFullScreenIndex(clampedIndex);
+    }
+  }, [fullScreenIndex, galleryImages.length]);
 
   return (
     <View>
@@ -552,6 +639,48 @@ const DetailImageCarousel = ({ images, onZoomChange, accentColor }) => {
       ) : (
         <View style={styles.photoDotsSpacer} />
       )}
+      <Modal
+        visible={fullScreenVisible}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={closeFullScreen}>
+        <View style={styles.fullScreenModal}>
+          <View style={styles.fullScreenBackdrop} />
+          <TouchableOpacity
+            style={styles.fullScreenCloseButton}
+            onPress={closeFullScreen}
+            hitSlop={{ top: 12, right: 12, bottom: 12, left: 12 }}
+            accessibilityRole="button"
+            accessibilityLabel="Close full screen gallery">
+            <Ionicons name="close" size={22} color="#fff" />
+          </TouchableOpacity>
+          <GestureFlatList
+            style={styles.fullScreenFlatList}
+            data={galleryImages}
+            keyExtractor={(uri, index) => `fullscreen-${uri || 'placeholder'}-${index}`}
+            renderItem={renderFullScreenItem}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            initialScrollIndex={Math.min(fullScreenIndex, galleryImages.length - 1)}
+            getItemLayout={(_, index) => ({
+              length: SCREEN_WIDTH,
+              offset: SCREEN_WIDTH * index,
+              index,
+            })}
+            onScroll={onFullScreenScroll}
+            scrollEventThrottle={16}
+            decelerationRate="fast"
+            snapToInterval={SCREEN_WIDTH}
+            snapToAlignment="start"
+            disableIntervalMomentum
+            directionalLockEnabled
+            nestedScrollEnabled
+            removeClippedSubviews={false}
+          />
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -642,7 +771,7 @@ const SellerCard = ({ seller, accentColor }) => {
   );
 };
 
-const OrderSummary = ({ cart, editable, compact, onEditCart, accentColor }) => {
+const OrderSummary = ({ cart, editable, compact, onEditCart, accentColor, bgStyle }) => {
   const { text: fallbackAccent } = useAppTheme();
   const text = accentColor || fallbackAccent;
   const { t } = useLanguage();
@@ -651,7 +780,7 @@ const OrderSummary = ({ cart, editable, compact, onEditCart, accentColor }) => {
     : null;
 
   return (
-    <View style={[styles.card, compact && styles.compactCard]}>
+    <View style={[styles.card, compact && styles.compactCard, bgStyle, { borderColor: text, }]}>
       <View style={styles.cardHeaderRow}>
         <Text style={styles.cardTitle}>{t('myClosetBuyer.orderSummary')}</Text>
         {editable ? (
@@ -678,7 +807,7 @@ const OrderSummary = ({ cart, editable, compact, onEditCart, accentColor }) => {
                   <Text style={styles.summaryItemQty}>{t('myClosetBuyer.qtyLabel', { qty })}</Text>
                 </View>
               </View>
-              {idx < lines.length - 1 ? <View style={styles.divider} /> : null}
+              {idx < lines.length - 1 ? <View style={[styles.divider, { backgroundColor: text }]} /> : null}
             </View>
           );
         })
@@ -693,7 +822,7 @@ const OrderSummary = ({ cart, editable, compact, onEditCart, accentColor }) => {
         </View>
       )}
 
-      <View style={styles.divider} />
+      <View style={[styles.divider, { backgroundColor: text }]} />
       <SummaryRow label={t('myClosetBuyer.itemTotal')} value={currency(cart.itemTotal)} accentColor={text} />
       {cart.shipping > 0 ? (
         <SummaryRow label={t('myClosetBuyer.shippingFee')} value={currency(cart.shipping)} accentColor={text} />
@@ -899,25 +1028,25 @@ const AddAddressModal = ({ visible, onClose, onSaved, editAddress, accentColor }
             <Field label={`${t('myClosetBuyer.field.phoneNumber')} *`} fieldKey="phoneNumber" placeholder="+1 555 000 0000"
               keyboardType="phone-pad" value={form.phoneNumber} onChangeText={v => set('phoneNumber', v)}
               onBlur={() => handleBlur('phoneNumber')} error={errors.phoneNumber} />
-            <Field label={t('myClosetBuyer.field.alternateNumber')} fieldKey="alternateNumber"
+            <Field label={`${t('myClosetBuyer.field.alternateNumber')} *`} fieldKey="alternateNumber"
               keyboardType="phone-pad" value={form.alternateNumber} onChangeText={v => set('alternateNumber', v)}
               onBlur={() => handleBlur('alternateNumber')} error={errors.alternateNumber} />
             <Field label={`${t('myClosetBuyer.field.addressLine1')} *`} fieldKey="addressLine1" placeholder="123 Main Street"
               value={form.addressLine1} onChangeText={v => set('addressLine1', v)}
               onBlur={() => handleBlur('addressLine1')} error={errors.addressLine1} />
-            <Field label={t('myClosetBuyer.field.addressLine2')} fieldKey="addressLine2" placeholder="Apt, Suite, Floor…"
+            <Field label={`${t('myClosetBuyer.field.addressLine2')} *`} fieldKey="addressLine2" placeholder="Apt, Suite, Floor…"
               value={form.addressLine2} onChangeText={v => set('addressLine2', v)}
               onBlur={() => handleBlur('addressLine2')} error={errors.addressLine2} />
             <Field label={`${t('myClosetBuyer.field.city')} *`} fieldKey="city" placeholder="New York"
               value={form.city} onChangeText={v => set('city', v)}
               onBlur={() => handleBlur('city')} error={errors.city} />
-            <Field label={t('myClosetBuyer.field.state')} fieldKey="state" placeholder="NY"
+            <Field label={`${t('myClosetBuyer.field.state')} *`} fieldKey="state" placeholder="NY"
               value={form.state} onChangeText={v => set('state', v)}
               onBlur={() => handleBlur('state')} error={errors.state} />
-            <Field label={t('myClosetBuyer.field.country')} fieldKey="country" placeholder="United States"
+            <Field label={`${t('myClosetBuyer.field.country')} *`} fieldKey="country" placeholder="United States"
               value={form.country} onChangeText={v => set('country', v)}
               onBlur={() => handleBlur('country')} error={errors.country} />
-            <Field label={t('myClosetBuyer.field.postalCode')} fieldKey="postalCode" placeholder="10001"
+            <Field label={`${t('myClosetBuyer.field.postalCode')} *`} fieldKey="postalCode" placeholder="10001"
               keyboardType="numeric" value={form.postalCode} onChangeText={v => set('postalCode', v)}
               onBlur={() => handleBlur('postalCode')} error={errors.postalCode} />
 
@@ -1102,15 +1231,13 @@ const MyClosetBattlesScreen = ({ navigation, route }) => {
       battleId: battle?.id,
       initialBattle: battle,
       selectedItems: [battle?.left, battle?.right].filter(Boolean),
-      returnToProfile: isOwnProfile
-        ? { screen: 'Profile' }
-        : {
-          tab: 'HomeMain',
-          screen: 'UsersProfile',
-          params: { userId: route?.params?.seller?.id || route?.params?.sellerId },
-        },
+      returnToProfile: buildClosetReturnTo({
+        isOwnProfile,
+        sellerProfile: route?.params?.seller?.profile || route?.params?.sellerProfile,
+        sellerId: route?.params?.seller?.id || route?.params?.sellerId,
+      }),
     }));
-  }, [navigation, isOwnProfile, route, route?.params?.seller?.id, route?.params?.sellerId]);
+  }, [navigation, isOwnProfile, route, route?.params?.seller?.id, route?.params?.seller?.profile, route?.params?.sellerId, route?.params?.sellerProfile]);
 
   useFocusEffect(
     useCallback(() => {
@@ -1174,8 +1301,51 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
   const isOwnProfile = route?.params?.isOwnProfile ?? false;
   const returnTo = route?.params?.returnTo;
   const [liked, setLiked] = useState(false);
+  const [wishlistLoading, setWishlistLoading] = useState(false);
   const [detailScrollEnabled, setDetailScrollEnabled] = useState(true);
   const isOutOfStock = Number(item.quantityAvailable) <= 0;
+  const productId = item.raw?.id || item.raw?._id || item.id;
+
+  useEffect(() => {
+    let active = true;
+    const loadWishlistState = async () => {
+      if (!productId) return;
+      try {
+        const response = await getWishlist(route?.params?.sellerId);
+        if (!active) return;
+        const wishlistItems = unwrapWishlistItems(response);
+        const match = wishlistItems.some(w => String(wishlistItemProductId(w)) === String(productId));
+        setLiked(match);
+      } catch {
+        if (active) setLiked(false);
+      }
+    };
+    loadWishlistState();
+    return () => { active = false; };
+  }, [productId, route?.params?.sellerId]);
+
+  const handleWishlistPress = async () => {
+    if (!productId || wishlistLoading) return;
+    setWishlistLoading(true);
+    try {
+      if (liked) {
+        const response = await getWishlist(route?.params?.sellerId);
+        const wishlistItems = unwrapWishlistItems(response);
+        const match = wishlistItems.find(w => String(wishlistItemProductId(w)) === String(productId));
+        if (match) {
+          await deleteWishlistItem(match.id || match._id || match.wishlistItemId || match.wishlistId);
+        }
+        setLiked(false);
+      } else {
+        await addWishlistItem(productId);
+        setLiked(true);
+      }
+    } catch (err) {
+      Alert.alert(t('myClosetBuyer.errorTitle'), err?.response?.data?.message || 'Could not update wishlist.');
+    } finally {
+      setWishlistLoading(false);
+    }
+  };
 
   const goOptions = () => {
     navigation.navigate('MyClosetBuyerOptions', withClosetNavParams(route, {
@@ -1192,7 +1362,7 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
         navigation={navigation}
         title={t('myClosetBuyer.myClosetTitle')}
         rightIcon={liked ? 'heart' : 'heart-outline'}
-        onRightPress={() => setLiked(prev => !prev)}
+        onRightPress={handleWishlistPress}
         returnTo={returnTo}
       />
       <ScrollView
@@ -1247,6 +1417,7 @@ const MyClosetBuyerOptionsScreen = ({ navigation, route }) => {
   const [note, setNote] = useState('');
   const [adding, setAdding] = useState(false);
   const [syncingQty, setSyncingQty] = useState(false);
+  const [existingCartItemId, setExistingCartItemId] = useState(null);
   const available = Math.max(1, item.quantityAvailable);
 
   const productId = item.raw?.id || item.raw?._id || item.id;
@@ -1262,7 +1433,7 @@ const MyClosetBuyerOptionsScreen = ({ navigation, route }) => {
           const response = await getCart(dataToSend);
           if (cancelled) return;
           const cartsArr = response?.data?.carts ?? [];
-          const cartObj = cartsArr[0] ?? null;   // sellerId filter means at most one match
+          const cartObj = cartsArr[0] ?? null;
           const cartItems = cartObj?.cartItems ?? [];
           const match = Array.isArray(cartItems)
             ? cartItems.find(ci => {
@@ -1272,6 +1443,9 @@ const MyClosetBuyerOptionsScreen = ({ navigation, route }) => {
             : null;
           if (match) {
             setQuantity(Math.max(1, Math.min(available, Number(match.quantity) || 1)));
+            setExistingCartItemId(match.id);
+          } else {
+            setExistingCartItemId(null);
           }
         } catch {
           // silently ignore — keep whatever quantity was set
@@ -1287,7 +1461,6 @@ const MyClosetBuyerOptionsScreen = ({ navigation, route }) => {
     setQuantity(prev => Math.min(available, Math.max(1, prev + delta)));
   };
 
-  // ── POST /cart/items — add item to server cart ───────────────────────────
   const goCart = async () => {
     if (!productId) {
       navigation.navigate('MyClosetBuyerCart', withClosetNavParams(route, {
@@ -1302,7 +1475,11 @@ const MyClosetBuyerOptionsScreen = ({ navigation, route }) => {
     }
     setAdding(true);
     try {
-      await addCartItem({ productId, quantity });
+      if (existingCartItemId) {
+        await updateCartItem(existingCartItemId, { quantity });
+      } else {
+        await addCartItem({ productId, quantity });
+      }
     } catch (err) {
       setAdding(false);
       Alert.alert(t('myClosetBuyer.errorTitle'), err?.response?.data?.message || t('myClosetBuyer.addToCartError'));
@@ -1417,7 +1594,7 @@ const SHIPPING_CHOICE_META = {
 };
 
 const ShippingChoiceCard = ({ choice, selected, onPress, disabled, accentColor }) => {
-  const { text: fallbackAccent } = useAppTheme();
+  const { text: fallbackAccent, bgStyle } = useAppTheme();
   const text = accentColor || fallbackAccent;
   const { t } = useLanguage();
   const meta = SHIPPING_CHOICE_META[choice];
@@ -1428,7 +1605,8 @@ const ShippingChoiceCard = ({ choice, selected, onPress, disabled, accentColor }
       disabled={disabled}
       style={[
         styles.shipChoiceCard,
-        selected && { borderColor: text, backgroundColor: SURFACE },
+        selected && { borderColor: text },
+        // bgStyle
       ]}
     >
       <View style={styles.shipChoiceHeaderRow}>
@@ -1484,6 +1662,7 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
   const [cartId, setCartId] = useState(null);
   const [checkingOut, setCheckingOut] = useState(false);
   const { text, bgStyle } = useClosetTheme(route);
+  const toast = useToast();
   const { t } = useLanguage();
   const returnTo = route?.params?.returnTo;
   const localCart = buildCart(route, t); // fallback data from route params
@@ -1492,10 +1671,15 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
   const [cartItems, setCartItems] = useState([]); // array of items from GET /cart
   const [cartLoading, setCartLoading] = useState(true);
   const [cartError, setCartError] = useState(null);
+  const [wishlistItems, setWishlistItems] = useState([]);
+  const [wishlistLoading, setWishlistLoading] = useState(true);
+  const [wishlistActionLoading, setWishlistActionLoading] = useState(null);
+  const [wishlistCountOverride, setWishlistCountOverride] = useState(null);
 
   // Per-item action loading (cartItemId being updated/deleted)
   const [itemActionLoading, setItemActionLoading] = useState(null);
   const [clearingCart, setClearingCart] = useState(false);
+  const [pickupAddressMap, setPickupAddressMap] = useState({});
 
   // ── GET /cart ─────────────────────────────────────────────────────────
   const fetchCart = useCallback(async () => {
@@ -1519,18 +1703,30 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
           console.log('[DEBUG] raw closet item sample:', JSON.stringify(closetItems[0], null, 2));
 
           const map = {};
+          const pickupMap = {};
           (Array.isArray(closetItems) ? closetItems : []).forEach(ci => {
             const pid = ci?.id || ci?._id;
-            if (pid) map[pid] = ci?.shippingOption ?? ci?.shippingOptions ?? SHIP_OPTION_SHIP;
+            if (pid) {
+              map[pid] = ci?.shippingOption ?? ci?.shippingOptions ?? SHIP_OPTION_SHIP;
+              pickupMap[pid] = {
+                pickupAddress: ci?.pickupAddress || '',
+                pickupAvailableHours: ci?.pickupAvailableHours || '',
+                sellerName: ci?.shopName || ci?.sellerName || '',
+                itemName: ci?.name || ci?.title || '',
+              };
+            }
           });
           console.log('[DEBUG] shippingOptionsMap:', map);
           console.log('[DEBUG] cartItems productIds:', cartItems.map(ci => ({ id: ci.id, productId: cartItemProductId(ci) })));
           setShippingOptionsMap(map);
+          setPickupAddressMap(pickupMap);
         } catch {
           setShippingOptionsMap({}); // non-fatal, falls back to ship-only per item
+          setPickupAddressMap({});
         }
       } else {
         setShippingOptionsMap({});
+        setPickupAddressMap({});
       }
     } catch (err) {
       setCartError(t('myClosetBuyer.cartLoadError'));
@@ -1539,10 +1735,63 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
     }
   }, [t, route?.params?.sellerId]);
 
+  const fetchWishlist = useCallback(async () => {
+    setWishlistLoading(true);
+    try {
+      const response = await getWishlist(route?.params?.sellerId);
+      const wishlistRecord = getWishlistRecordForSeller(response, route?.params?.sellerId);
+      const rawWishlistItems = wishlistRecord?.wishlistItems ?? [];
+      let populatedItems = [...rawWishlistItems];
+
+      if (rawWishlistItems.length > 0) {
+        try {
+          let closetItems = [];
+          if (wishlistRecord?.closetId) {
+            const closetRes = await getClosetItemsByClosetId(wishlistRecord.closetId);
+            closetItems = closetRes?.data?.data ?? closetRes?.data?.items ?? closetRes?.data ?? [];
+          }
+          if (!closetItems.length) {
+            const sellerIdToUse = route?.params?.sellerId || wishlistRecord?.sellerId;
+            if (sellerIdToUse) {
+              const closetRes = await getMyClosetItems(sellerIdToUse);
+              closetItems = closetRes?.data?.data ?? closetRes?.data?.items ?? closetRes?.data ?? [];
+            }
+          }
+
+          if (closetItems.length > 0) {
+            populatedItems = rawWishlistItems.map(item => {
+              const match = closetItems.find(
+                ci => String(ci?.id || ci?._id) === String(item?.productId)
+              );
+              if (match) {
+                return {
+                  ...item,
+                  product: match,
+                };
+              }
+              return item;
+            });
+          }
+        } catch (fetchErr) {
+          console.log('[DEBUG] Failed to fetch closet items for wishlist population', fetchErr);
+        }
+      }
+
+      setWishlistItems(populatedItems);
+      setWishlistCountOverride(null);
+    } catch (err) {
+      setWishlistItems([]);
+      setWishlistCountOverride(null);
+    } finally {
+      setWishlistLoading(false);
+    }
+  }, [route?.params?.sellerId]);
+
   useFocusEffect(
     useCallback(() => {
       fetchCart();
-    }, [fetchCart]),
+      fetchWishlist();
+    }, [fetchCart, fetchWishlist]),
   );
 
   // ── PATCH /cart/items/{cartItemId} — update quantity ──────────────────
@@ -1625,9 +1874,7 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
     }
   };
 
-  const requiresShipping = cartItems.some(
-    ci => (ci.selectedShippingChoice || SHIP_OPTION_SHIP) === SHIP_OPTION_SHIP,
-  );
+  const requiresShipping = cartRequiresShipping(cartItems, shippingOptionsMap);
 
   // ── DELETE /cart/items/{cartItemId} — remove single item ─────────────
   const handleRemoveItem = cartItem => {
@@ -1654,6 +1901,55 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
         },
       ],
     );
+  };
+
+  const handleWishlistToggle = async item => {
+    const productId = wishlistItemProductId(item);
+    if (!productId) return;
+    const existing = wishlistItems.find(w => String(wishlistItemProductId(w)) === String(productId));
+    setWishlistActionLoading(productId);
+    try {
+      if (existing) {
+        const prevItems = [...wishlistItems];
+        setWishlistCountOverride(prev => {
+          const currentCount = prev !== null ? prev : prevItems.length;
+          return Math.max(0, currentCount - 1);
+        });
+        setWishlistItems(prev => prev.filter(w => (w?.id || w?._id) !== (existing?.id || existing?._id)));
+        try {
+          await deleteWishlistItem(existing.id || existing._id || existing.wishlistItemId || existing.wishlistId);
+        } catch (apiErr) {
+          setWishlistItems(prevItems);
+          setWishlistCountOverride(prev => (prev !== null ? prev + 1 : null));
+          throw apiErr;
+        }
+      } else {
+        await addWishlistItem(productId);
+        await fetchWishlist();
+      }
+    } catch (err) {
+      Alert.alert(t('myClosetBuyer.errorTitle'), err?.response?.data?.message || t('myClosetBuyer.updateWishlistError'));
+    } finally {
+      setWishlistActionLoading(null);
+    }
+  };
+
+  const handleAddWishlistToCart = async item => {
+    const productId = wishlistItemProductId(item);
+    if (!productId) return;
+    const quantity = Math.max(1, Number(item?.quantity || 1));
+    try {
+      const response = await addCartItem({ productId, quantity });
+      console.log('[DEBUG] addCartItem response:', response);
+      if (response?.statusCode === 200 || response?.statusCode === 201) {
+        await fetchCart();
+      }
+      else {
+        showToastMessage(toast, 'danger', response?.message || t('myClosetBuyer.addToCartError'));
+      }
+    } catch (err) {
+      Alert.alert(t('myClosetBuyer.errorTitle'), err?.response?.data?.message || t('myClosetBuyer.addToCartError'));
+    }
   };
 
   // ── DELETE /cart — clear entire cart ─────────────────────────────────
@@ -1717,6 +2013,7 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
       cartId,
       cartItemsSnapshot: cartItems,
       shippingOptionsMap,
+      pickupAddressMap,
       requiresShipping,
     }));
     // } catch (err) {
@@ -1736,12 +2033,14 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
         cartId,
         cartItemsSnapshot: cartItems,
         shippingOptionsMap,
+        pickupAddressMap,
         requiresShipping,
       }),
     );
   };
 
   const isEmpty = !cartLoading && cartItems.length === 0;
+  const wishlistEmpty = !wishlistLoading && wishlistItems.length === 0;
 
   // ── Helper: resolve image + name from a cart item ────────────────────
   const cartItemImage = ci => imageUri(ci?.product?.images?.[0]) || imageUri(ci?.product?.image) || imageUri(ci?.image) || null;
@@ -1874,7 +2173,61 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
                   </View>
                 );
               })}
+            </>
+          )}
 
+          <View style={styles.wishlistBlock}>
+            <View style={styles.wishlistHeader}>
+              <Text style={styles.wishlistTitle}>{t('myClosetBuyer.wishlistTitle')}</Text>
+              <Text style={styles.wishlistCount}>
+                {wishlistLoading ? '...' : `${wishlistCountOverride !== null ? wishlistCountOverride : wishlistItems.length}`}
+              </Text>
+            </View>
+
+            {wishlistLoading ? (
+              <ActivityIndicator color={text} />
+            ) : wishlistEmpty ? (
+              <Text style={styles.wishlistEmptyText}>{t('myClosetBuyer.wishlistEmpty')}</Text>
+            ) : (
+              wishlistItems.map(item => {
+                const productId = wishlistItemProductId(item);
+                const title = item?.product?.name || item?.name || item?.product?.title || t('myClosetBuyer.itemFallback');
+                const price = currency(item?.product?.price ?? item?.price ?? 0);
+                const thumb = imageUri(item?.product?.images?.[0]) || imageUri(item?.product?.image) || imageUri(item?.image);
+                const inCart = cartItems.some(ci => String(cartItemProductId(ci)) === String(productId));
+                const busy = wishlistActionLoading === productId;
+
+                return (
+                  <View key={String(productId || item.id || item._id)} style={styles.wishlistCard}>
+                    <ImageBox uri={thumb} style={styles.wishlistThumb} iconSize={20} />
+                    <View style={styles.wishlistCopy}>
+                      <Text style={styles.wishlistItemName} numberOfLines={2}>{title}</Text>
+                      <Text style={[styles.wishlistPrice, { color: text }]}>{price}</Text>
+                    </View>
+                    <View style={styles.wishlistActions}>
+                      <TouchableOpacity
+                        style={styles.wishlistHeartBtn}
+                        onPress={() => handleWishlistToggle(item)}
+                        disabled={busy}
+                      >
+                        <Ionicons name="heart" size={18} color="#e11d48" />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.wishlistAddBtn, inCart && styles.wishlistAddBtnDisabled]}
+                        onPress={() => handleAddWishlistToCart(item)}
+                        disabled={inCart}
+                      >
+                        <Ionicons name="cart-outline" size={16} color={inCart ? '#9ca3af' : text} />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                );
+              })
+            )}
+          </View>
+
+          {!isEmpty && (
+            <>
               <View style={styles.summaryBlock}>
                 <SummaryRow
                   label={t('myClosetBuyer.itemTotal')}
@@ -1906,7 +2259,7 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
       {!isEmpty && !cartLoading && !cartError && (
         <BottomBar>
           <BottomButton
-            label={checkingOut ? t('myClosetBuyer.loading') : t('myClosetBuyer.proceedToCheckout')}
+            label={checkingOut ? t('myClosetBuyer.loading') : t('myClosetBuyer.continueShopping')}
             onPress={checkingOut ? undefined : handleProceed}
             accentColor={text}
           />
@@ -1921,7 +2274,8 @@ const MyClosetBuyerCheckoutScreen = ({ navigation, route }) => {
   const { bgStyle, text } = useClosetTheme(route);
   const returnTo = route?.params?.returnTo;
   const cart = buildCart(route, t);
-  const requiresShipping = route?.params?.requiresShipping ?? true;
+  const derivedRequiresShipping = cartRequiresShipping(route?.params?.cartItemsSnapshot, route?.params?.shippingOptionsMap);
+  const requiresShipping = derivedRequiresShipping || route?.params?.requiresShipping === true;
   const [continuing, setContinuing] = useState(false);
 
   const handleEditCart = () => navigation.navigate('MyClosetBuyerCart', withClosetNavParams(route));
@@ -1929,10 +2283,7 @@ const MyClosetBuyerCheckoutScreen = ({ navigation, route }) => {
   const handleContinue = async () => {
     const cartId = route?.params?.cartId;
     if (!cartId) {
-      navigation.navigate(
-        requiresShipping ? 'MyClosetBuyerShipping' : 'MyClosetBuyerPayment',
-        withClosetNavParams(route),
-      );
+      navigation.navigate('MyClosetBuyerShipping', withClosetNavParams(route));
       return;
     }
 
@@ -1950,7 +2301,7 @@ const MyClosetBuyerCheckoutScreen = ({ navigation, route }) => {
       const breakdown = checkout?.breakdown ?? null;
 
       navigation.navigate(
-        requiresShipping ? 'MyClosetBuyerShipping' : 'MyClosetBuyerPayment',
+        'MyClosetBuyerShipping',
         withClosetNavParams(route, {
           checkoutData: checkout,
           itemTotal: breakdown?.itemsSubtotal ?? route?.params?.itemTotal,
@@ -1972,7 +2323,7 @@ const MyClosetBuyerCheckoutScreen = ({ navigation, route }) => {
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
       <Header navigation={navigation} title={t('myClosetBuyer.checkoutTitle')} returnTo={returnTo} />
       <ScrollView contentContainerStyle={styles.checkoutContent} showsVerticalScrollIndicator={false}>
-        <CheckoutSteps current={0} includeShipping={requiresShipping} accentColor={text} />
+        <CheckoutSteps current={0} includeShipping={true} accentColor={text} />
         <OrderSummary cart={cart} editable onEditCart={handleEditCart} accentColor={text} />
       </ScrollView>
       <BottomBar>
@@ -1980,9 +2331,7 @@ const MyClosetBuyerCheckoutScreen = ({ navigation, route }) => {
           label={
             continuing
               ? t('myClosetBuyer.loading')
-              : requiresShipping
-                ? t('myClosetBuyer.continueToShipping')
-                : t('myClosetBuyer.continueToPayment')
+              : t('myClosetBuyer.continueToShipping')
           }
           onPress={continuing ? undefined : handleContinue}
           accentColor={text}
@@ -1998,6 +2347,7 @@ const MyClosetBuyerCheckoutScreen = ({ navigation, route }) => {
 const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
   const { text, bgStyle } = useClosetTheme(route);
   const { t } = useLanguage();
+  const toast = useToast();
   const returnTo = route?.params?.returnTo;
   const cart = buildCart(route, t);
   const [method, setMethod] = useState('standard');
@@ -2014,6 +2364,7 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
 
   const cartItemsSnapshot = route?.params?.cartItemsSnapshot || [];
   const shippingOptionsMap = route?.params?.shippingOptionsMap || {};
+  const pickupAddressMap = route?.params?.pickupAddressMap || {};
 
   const [shippingChoices, setShippingChoices] = useState(() => {
     const initial = {};
@@ -2040,7 +2391,38 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
   };
 
   const allChoicesMade = itemsNeedingChoice.every(ci => !!shippingChoices[ci.id]);
-  const requiresShipping = cartItemsSnapshot.some(ci => effectiveChoice(ci) === SHIP_OPTION_SHIP);
+  const requiresShipping = cartItemsSnapshot.some(ci => {
+    const opt = shippingOptionsMap[cartItemProductId(ci)] ?? SHIP_OPTION_SHIP;
+    if (opt === SHIP_OPTION_BOTH) return shippingChoices[ci.id] === SHIP_OPTION_SHIP;
+    return opt === SHIP_OPTION_SHIP;
+  });
+  const pickupItems = cartItemsSnapshot.filter(ci => effectiveChoice(ci) === SHIP_OPTION_LOCAL);
+  const pickupLocations = useMemo(() => {
+    const seen = new Set();
+    return pickupItems
+      .map(ci => {
+        const product = ci?.product ?? ci ?? {};
+        const resolvedPickup = pickupAddressMap[cartItemProductId(ci)] || {};
+        const address = resolvedPickup.pickupAddress || product?.pickupAddress || ci?.pickupAddress || null;
+        const sellerName =
+          resolvedPickup.sellerName ||
+          product?.shopName ||
+          product?.sellerName ||
+          product?.user?.name ||
+          '';
+        const key = `${sellerName}::${address || ''}`;
+        if (!address || seen.has(key)) return null;
+        seen.add(key);
+        return {
+          id: ci.id,
+          name: resolvedPickup.itemName || product?.name || product?.title || t('myClosetBuyer.itemFallback'),
+          sellerName,
+          address,
+          hours: resolvedPickup.pickupAvailableHours || product?.pickupAvailableHours || ci?.pickupAvailableHours || null,
+        };
+      })
+      .filter(Boolean);
+  }, [pickupItems, pickupAddressMap, t]);
 
   const handleSelectChoice = async (cartItemId, choice) => {
     const previous = shippingChoices[cartItemId];
@@ -2120,12 +2502,17 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
           onPress: async () => {
             setActionLoading(addr.id);
             try {
-              await deleteAddress(addr.id);
-              setAddresses(prev => {
-                const updated = prev.filter(a => a.id !== addr.id);
-                setSelectedAddressIndex(Math.max(0, updated.findIndex(a => a.isDefault)));
-                return updated;
-              });
+              const response = await deleteAddress(addr.id);
+              if (response?.statusCode === 200 || response?.statusCode === 201) {
+                setAddresses(prev => {
+                  const updated = prev.filter(a => a.id !== addr.id);
+                  setSelectedAddressIndex(Math.max(0, updated.findIndex(a => a.isDefault)));
+                  return updated;
+                });
+              }
+              else {
+                Alert.alert(response?.message || t('myClosetBuyer.deleteAddressError'));
+              }
             } catch (err) {
               Alert.alert(t('myClosetBuyer.errorTitle'), err?.response?.data?.message || t('myClosetBuyer.deleteAddressError'));
             } finally {
@@ -2357,6 +2744,22 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
           </>
         )}
 
+        {pickupLocations.length > 0 ? (
+          <>
+            <Text style={styles.sectionLabel}>{t('myClosetBuyer.pickupAddress')}</Text>
+            {pickupLocations.map(location => (
+              <View key={`${location.id}-${location.address}`} style={styles.reviewCard}>
+                {/* <Text style={styles.addressName}>{location.name}</Text> */}
+                {location.sellerName ? (
+                  <Text style={styles.addressPhone}>{location.sellerName}</Text>
+                ) : null}
+                <Text style={styles.addressText}>{location.address}</Text>
+                {location.hours ? <Text style={styles.addressText}>{location.hours}</Text> : null}
+              </View>
+            ))}
+          </>
+        ) : null}
+
         {/* <Text style={styles.sectionLabel}>{t('myClosetBuyer.shippingMethod')}</Text>
         {[
           { key: 'standard', label: t('myClosetBuyer.standardShipping'), price: 10 },
@@ -2453,7 +2856,8 @@ const MyClosetBuyerPaymentScreen = ({ navigation, route }) => {
   const { t } = useLanguage();
   const returnTo = route?.params?.returnTo;
   const [paymentMethod, setPaymentMethod] = useState('secure');
-  const requiresShipping = route?.params?.requiresShipping ?? true;
+  const derivedRequiresShipping = cartRequiresShipping(route?.params?.cartItemsSnapshot, route?.params?.shippingOptionsMap);
+  const requiresShipping = derivedRequiresShipping || route?.params?.requiresShipping === true;
   const cartId = route?.params?.cartId;
 
   // If we already have fresh checkout data (breakdown), use it as-is.
@@ -2490,7 +2894,7 @@ const MyClosetBuyerPaymentScreen = ({ navigation, route }) => {
         contentContainerStyle={styles.checkoutContent}
         showsVerticalScrollIndicator={false}
       >
-        <CheckoutSteps current={requiresShipping ? 2 : 1} includeShipping={requiresShipping} accentColor={text} />
+        <CheckoutSteps current={2} includeShipping={true} accentColor={text} />
         <Text style={styles.sectionLabel}>{t('myClosetBuyer.paymentMethod')}</Text>
         {[
           { key: 'secure', label: t('myClosetBuyer.secureCheckout'), sub: t('myClosetBuyer.secureCheckoutSub'), icon: 'shield-checkmark-outline' },
@@ -2528,7 +2932,7 @@ const MyClosetBuyerPaymentScreen = ({ navigation, route }) => {
             <Text style={styles.addressErrorText}>{breakdownError}</Text>
           </View>
         ) : (
-          <OrderSummary cart={cart} compact accentColor={text} />
+          <OrderSummary cart={cart} compact accentColor={text} bgStyle={bgStyle} />
         )}
       </ScrollView>
       <BottomBar>
@@ -2555,7 +2959,12 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
   const [checking, setChecking] = useState(false);
   // shippingAddress passed from Shipping screen via nextCart
   const addr = route?.params?.shippingAddress ?? null;
-  const requiresShipping = route?.params?.requiresShipping ?? true;
+  const derivedRequiresShipping = cartRequiresShipping(route?.params?.cartItemsSnapshot, route?.params?.shippingOptionsMap);
+  const requiresShipping = derivedRequiresShipping || route?.params?.requiresShipping === true;
+  const shipOnlyItemsNeedingSync = useMemo(
+    () => getShipOnlyCartItems(route?.params?.cartItemsSnapshot, route?.params?.shippingOptionsMap),
+    [route?.params?.cartItemsSnapshot, route?.params?.shippingOptionsMap],
+  );
 
   const findPaymentId = useCallback(async (cartId) => {
     try {
@@ -2642,6 +3051,12 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
 
     setChecking(true);
     try {
+      if (shipOnlyItemsNeedingSync.length > 0) {
+        await Promise.all(
+          shipOnlyItemsNeedingSync.map(item => setCartItemShippingChoice(item.id, SHIP_OPTION_SHIP)),
+        );
+      }
+
       const response = await createPaymentSession({
         cartId,
         addressId,
@@ -2699,7 +3114,7 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
         contentContainerStyle={styles.checkoutContent}
         showsVerticalScrollIndicator={false}
       >
-        <CheckoutSteps current={requiresShipping ? 3 : 2} includeShipping={requiresShipping} accentColor={text} />
+        <CheckoutSteps current={3} includeShipping={true} accentColor={text} />
         {requiresShipping ? (
           <>
             <View style={styles.reviewSectionHeader}>
@@ -2708,7 +3123,7 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
                 <Text style={[styles.editText, { color: text }]}>{t('myClosetBuyer.edit')}</Text>
               </TouchableOpacity>
             </View>
-            <View style={styles.reviewCard}>
+            <View style={[styles.reviewCard, bgStyle, { borderColor: text }]}>
               {addr ? (
                 <>
                   <Text style={styles.addressName}>{addr.fullName}</Text>
@@ -2726,7 +3141,7 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
             </View>
           </>
         ) : (
-          <View style={styles.reviewLineCard}>
+          <View style={[styles.reviewLineCard, bgStyle, { borderColor: text }]}>
             <Ionicons name="storefront-outline" size={18} color={text} />
             <Text style={styles.radioLabel}>{t('myClosetBuyer.localPickupSelected')}</Text>
           </View>
@@ -2747,11 +3162,11 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
         </View> */}
         <View style={styles.reviewSectionHeader}>
           <Text style={styles.sectionLabel}>{t('myClosetBuyer.paymentMethod')}</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('MyClosetBuyerPayment', withClosetNavParams(route))}>
+          {/* <TouchableOpacity onPress={() => navigation.navigate('MyClosetBuyerPayment', withClosetNavParams(route))}>
             <Text style={[styles.editText, { color: text }]}>{t('myClosetBuyer.edit')}</Text>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
         </View>
-        <View style={styles.reviewLineCard}>
+        <View style={[styles.reviewLineCard, { borderColor: text }]}>
           <Ionicons name="shield-checkmark-outline" size={18} color={text} />
           <Text style={styles.radioLabel}>{t('myClosetBuyer.secureCheckout')}</Text>
         </View>
@@ -3054,6 +3469,46 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: '#f3ede4',
   },
+  fullScreenModal: {
+    flex: 1,
+    backgroundColor: '#000',
+    justifyContent: 'center',
+  },
+  fullScreenBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#000',
+  },
+  fullScreenSlide: {
+    width: SCREEN_WIDTH,
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#000',
+  },
+  fullScreenFlatList: {
+    flex: 1,
+  },
+  fullScreenImage: {
+    width: SCREEN_WIDTH,
+    height: '100%',
+  },
+  fullScreenImageBox: {
+    width: SCREEN_WIDTH,
+    height: '100%',
+    backgroundColor: '#000',
+  },
+  fullScreenCloseButton: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    zIndex: 1000,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: 20,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   photoDots: { flexDirection: 'row', justifyContent: 'center', gap: 7, marginTop: 18, marginBottom: 16 },
   photoDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#d7cce3' },
   photoDotsSpacer: { height: 42 },
@@ -3139,7 +3594,7 @@ const styles = StyleSheet.create({
   },
   cartThumb: { width: 72, height: 58, borderRadius: 10 },
   cartCopy: { flex: 1, paddingHorizontal: 12 },
-  cartItemName: { fontSize: 13, color: '#17072d', fontWeight: '900' },
+  cartItemName: { fontSize: 13, color: '#17072d', fontWeight: '900', width: '45%' },
   cartPrice: { marginTop: 3, fontSize: 13, fontWeight: '900' },
   cartQtyRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 8 },
   cartQtyBtn: {
@@ -3156,6 +3611,52 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: BORDER,
   },
   cartClearingText: { fontSize: 13, fontWeight: '700' },
+  wishlistBlock: {
+    marginTop: 18,
+    borderWidth: 1,
+    borderColor: BORDER,
+    borderRadius: 14,
+    backgroundColor: '#fff',
+    padding: 14,
+  },
+  wishlistHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  wishlistTitle: { fontSize: 15, fontWeight: '900', color: '#17072d' },
+  wishlistCount: { fontSize: 12, fontWeight: '800', color: MUTED },
+  wishlistEmptyText: { fontSize: 13, color: MUTED, paddingVertical: 6 },
+  wishlistCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: BORDER,
+  },
+  wishlistThumb: { width: 54, height: 54, borderRadius: 12 },
+  wishlistCopy: { flex: 1, paddingHorizontal: 10 },
+  wishlistItemName: { fontSize: 13, fontWeight: '800', color: '#17072d' },
+  wishlistPrice: { marginTop: 3, fontSize: 13, fontWeight: '900' },
+  wishlistActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  wishlistHeartBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff1f3',
+  },
+  wishlistAddBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f4eefb',
+  },
+  wishlistAddBtnDisabled: { opacity: 0.4 },
 
   summaryBlock: { borderTopWidth: 1, borderTopColor: BORDER, paddingTop: 16 },
   summaryRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 13 },
@@ -3189,7 +3690,7 @@ const styles = StyleSheet.create({
   stepLabel: { marginTop: 6, fontSize: 10, color: MUTED, fontWeight: '700' },
   stepConnector: { flex: 1, height: 2, backgroundColor: '#e5ddf0', marginBottom: 14 },
 
-  card: { borderWidth: 1, borderColor: BORDER, borderRadius: 14, padding: 14, backgroundColor: SURFACE },
+  card: { borderWidth: 1, borderColor: BORDER, borderRadius: 14, padding: 14 },
   compactCard: { marginTop: 14 },
   cardHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
   cardTitle: { fontSize: 14, color: '#21083f', fontWeight: '900' },
@@ -3204,9 +3705,9 @@ const styles = StyleSheet.create({
 
   addressCard: {
     borderWidth: 1, borderColor: BORDER, borderRadius: 13,
-    marginBottom: 10, backgroundColor: SURFACE, overflow: 'hidden',
+    marginBottom: 10, backgroundColor: '#fff', overflow: 'hidden',
   },
-  addressCardSelected: { backgroundColor: '#f5f0ff' },
+  addressCardSelected: { backgroundColor: '#fff' },
   addressCardContent: {
     flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between',
     padding: 14,
@@ -3260,20 +3761,20 @@ const styles = StyleSheet.create({
     minHeight: 58, borderWidth: 1, borderColor: BORDER, borderRadius: 13,
     paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', marginBottom: 12, backgroundColor: '#fff',
   },
-  radioCardSelected: { backgroundColor: SURFACE },
+  radioCardSelected: { backgroundColor: '#fff' },
   radioLabel: { flex: 1, marginLeft: 10, fontSize: 13, color: '#17072d', fontWeight: '800' },
   radioPrice: { fontSize: 12, color: '#17072d', fontWeight: '900' },
 
   paymentOption: {
-    minHeight: 58, borderWidth: 1, borderColor: BORDER, borderRadius: 13,
+    minHeight: 58, borderWidth: 1, borderColor: '#000', borderRadius: 13,
     padding: 12, flexDirection: 'row', alignItems: 'center', marginBottom: 10, backgroundColor: '#fff',
   },
   paymentCopy: { flex: 1 },
   paymentSub: { marginLeft: 10, marginTop: 2, fontSize: 11, color: MUTED, fontWeight: '700' },
 
   reviewSectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 },
-  reviewCard: { borderWidth: 1, borderColor: BORDER, borderRadius: 13, padding: 12, backgroundColor: SURFACE, marginBottom: 8 },
-  reviewLineCard: { minHeight: 48, borderWidth: 1, borderColor: BORDER, borderRadius: 13, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', marginBottom: 8, backgroundColor: SURFACE },
+  reviewCard: { borderWidth: 1, borderRadius: 13, padding: 12, backgroundColor: '#fff', marginBottom: 8 },
+  reviewLineCard: { minHeight: 48, borderWidth: 1, borderRadius: 13, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   termsText: { marginTop: 12, fontSize: 11, lineHeight: 16, color: MUTED },
 
   // order received

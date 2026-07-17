@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import FastImage from 'react-native-fast-image';
 import { useFocusEffect } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
@@ -120,6 +121,15 @@ const formatCurrency = value => {
   const numericValue = Number(textValue);
   return Number.isNaN(numericValue) ? textValue : `$${numericValue.toFixed(0)}`;
 };
+
+const fastImageSource = uri =>
+  uri
+    ? {
+        uri,
+        priority: FastImage.priority.high,
+        cache: FastImage.cacheControl.immutable,
+      }
+    : null;
 
 const normalizePriorityBattle = battle => {
   const participants = Array.isArray(battle?.participants) ? [...battle.participants] : [];
@@ -273,10 +283,12 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
   const [battlePerformanceLoading, setBattlePerformanceLoading] = useState(false);
   const [priorityBattles, setPriorityBattles] = useState([]);
   const [priorityBattlesLoading, setPriorityBattlesLoading] = useState(false);
+  const [currentUserName, setCurrentUserName] = useState('');
 
   const {
     bgStyle,
     textStyle,
+    text,
     accent,
     cardStyle,
     border,
@@ -294,6 +306,7 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
     const loadUsername = async () => {
       try {
         const value = await AsyncStorage.getItem('currentUsername');
+        setCurrentUserName(value)
         if (isMounted && value) setStoredUsername(value);
       } catch {
         // Ignore storage read issues
@@ -536,6 +549,22 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
     });
   };
 
+  const handleViewAllEbooks = () => {
+    const username = currentUserName;
+    navigation?.navigate?.('ProfileMain', {
+      screen: 'AllEbooks',
+      params: {
+        userData,
+        loggedInUserId: userData?.id || userData?._id,
+        isOwnProfile: true,
+        closetId: resolvedClosetId,
+        username,
+        from: 'MyClosetDashboard',
+        returnTo: 'MyClosetDashboard',
+      },
+    });
+  };
+
   const handleViewAllOrders = () => {
     navigation?.navigate?.('ProfileMain', {
       screen: 'MyClosetOrders',
@@ -599,6 +628,7 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
     name: item?.name || item?.title || item?.itemName || t('myClosetDashboard.untitledItem'),
     price: formatPrice(item?.price ?? item?.amount ?? item?.salePrice),
     image: getItemImage(item),
+    raw: item,
   }));
   const pinnedItems = priorityBattles.slice(0, 3);
   const showPinnedViewAll = priorityBattles.length > pinnedItems.length;
@@ -688,7 +718,11 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
               <View key={item.id} style={styles.pinnedCard}>
                 <View style={styles.pinnedThumbWrap}>
                   {item.image ? (
-                    <Image source={{ uri: item.image }} style={styles.pinnedThumb} />
+                    <FastImage
+                      source={fastImageSource(item.image)}
+                      style={styles.pinnedThumb}
+                      resizeMode={FastImage.resizeMode.cover}
+                    />
                   ) : (
                     <View style={[styles.pinnedThumb, styles.pinnedThumbPlaceholder]}>
                       <Ionicons name="shirt-outline" size={26} color={accent} />
@@ -926,7 +960,20 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
             </View>
           ) : displayItems.length ? (
             displayItems.map(item => (
-              <TouchableOpacity key={item.key} activeOpacity={0.85} style={styles.itemGridCard}>
+              <TouchableOpacity
+                key={item.key}
+                activeOpacity={0.85}
+                style={styles.itemGridCard}
+                onPress={() =>
+                  navigation?.navigate?.('ProfileMain', {
+                    screen: 'MyClosetItemEditor',
+                    params: {
+                      item: item.raw || item,
+                      returnTo: 'MyClosetDashboard',
+                    },
+                  })
+                }
+              >
                 <View style={[styles.itemGridThumb, { backgroundColor: withAlpha(accent, 0.08) }]}>
                   {item.image ? (
                     <Image source={{ uri: item.image }} style={styles.itemGridImage} />
@@ -951,6 +998,18 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
               <Ionicons name="add" size={28} color={accent} />
             </View>
             <Text style={[styles.itemGridName, { color: accent, fontWeight: '700' }]}>{t('myClosetDashboard.addNewItem')}</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <View style={[styles.sectionCard, cardStyle, { borderColor: withAlpha(text, 0.12) }]}>
+        <View style={[styles.sectionHeader, {marginBottom: 2}]}>
+          <View style={styles.ebooksCtaCopy}>
+            <Ionicons name="book-outline" size={18} color={text} style={{ marginRight: 8 }} />
+            <Text style={[styles.ebooksCtaTitle, textStyle]}>All E-books</Text>
+          </View>
+          <TouchableOpacity activeOpacity={0.8} onPress={handleViewAllEbooks}>
+            <Text style={styles.sectionMeta}>{t('myClosetDashboard.viewAll')} ›</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -1263,6 +1322,23 @@ const styles = StyleSheet.create({
   },
   itemGridName: { fontSize: 12, fontWeight: '700', textAlign: 'left' },
   itemGridPrice: { marginTop: 1, fontSize: 11, fontWeight: '600' },
+  ebooksCta: {
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderTopWidth: 1,
+    borderTopColor: '#f3f4f6',
+    paddingTop: 12,
+  },
+  ebooksCtaCopy: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  ebooksCtaTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
   itemsLoadingWrap: {
     width: '100%',
     minHeight: 110,

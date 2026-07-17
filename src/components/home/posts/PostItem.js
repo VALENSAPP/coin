@@ -77,6 +77,8 @@ import {
 } from '../../../utils/feedMediaDimensions';
 import { useLanguage } from '../../../i18n';
 import { navigateToUserProfile } from '../../../utils/navigateToUserProfile';
+import { parseText } from '../../../utils/commentUtils';
+import { normalizePostHashtags } from '../../../utils/hashtagUtils';
 import TrustCommentModal from '../../modals/TrustCommentModal';
 import PostLocationModal from '../../modals/PostLocationModal';
 import { resolveIsTrustPost } from '../../../utils/trustPost';
@@ -659,12 +661,28 @@ function PostItem({
   const [locationSaving, setLocationSaving] = useState(false);
 
   const usernameText = item?.username || t('postItem.unknownUser');
-  const captionValue = item?.caption?.trim() || '';
+  const captionValue =
+    String(item?.caption || '')
+      .trim()
+      .replace(/^\*{3}$/, '') || '';
+  const postHashtags = useMemo(
+    () => normalizePostHashtags(item?.hashtag ?? item?.hashtags),
+    [item?.hashtag, item?.hashtags],
+  );
   const previewCaptionLength = Math.max(40, 120 - usernameText.length);
   const hasExpandableCaption = captionValue.length > previewCaptionLength;
   const collapsedCaption = hasExpandableCaption
     ? `${captionValue.slice(0, previewCaptionLength).trimEnd()}... `
     : captionValue;
+
+  const captionTextStyles = useMemo(
+    () => ({
+      hashtag: styles.inlineHashtagText,
+      mention: styles.inlineMentionText,
+      plain: styles.captionText,
+    }),
+    [],
+  );
 
   useEffect(() => {
     setExpanded(false);
@@ -2387,11 +2405,11 @@ function PostItem({
             </>
           )}
 
-        {/* Caption */}
+        {/* Caption + hashtags (Instagram-style) */}
         <View style={styles.captionSection}>
-          {!!captionValue && (
+          {(!!captionValue || postHashtags.length > 0) && (
             <>
-              {expanded ? (
+              {expanded || !hasExpandableCaption ? (
                 <Text style={styles.captionRow}>
                   <Text
                     onPress={() => handleUserProfile(item.UserId)}
@@ -2401,12 +2419,16 @@ function PostItem({
                     ]}>
                     {usernameText}{' '}
                   </Text>
-                  <Text style={[styles.captionText, { color: mutedText }]}>{captionValue}</Text>
+                  {!!captionValue ? (
+                    <Text style={[styles.captionText, { color: mutedText }]}>
+                      {parseText(captionValue, captionTextStyles)}
+                    </Text>
+                  ) : null}
                 </Text>
               ) : (
                 <TouchableOpacity
                   activeOpacity={0.8}
-                  onPress={hasExpandableCaption ? () => setExpanded(true) : undefined}
+                  onPress={() => setExpanded(true)}
                   disabled={!hasExpandableCaption}>
                   <Text
                     style={styles.captionRow}
@@ -2421,7 +2443,9 @@ function PostItem({
                       ]}>
                       {usernameText}{' '}
                     </Text>
-                    <Text style={[styles.captionText, { color: mutedText }]}>{collapsedCaption}</Text>
+                    <Text style={[styles.captionText, { color: mutedText }]}>
+                      {parseText(collapsedCaption, captionTextStyles)}
+                    </Text>
                     {hasExpandableCaption ? (
                       <Text style={[styles.captionMoreText, { color: mutedText }]}>{t('postItem.seeMore')}</Text>
                     ) : null}
@@ -2430,6 +2454,17 @@ function PostItem({
               )}
             </>
           )}
+
+          {postHashtags.length > 0 ? (
+            <Text style={styles.hashtagRow}>
+              {postHashtags.map((tag, index) => (
+                <Text key={`${tag}_${index}`} style={styles.hashtagText}>
+                  #{tag}
+                  {index < postHashtags.length - 1 ? '  ' : ''}
+                </Text>
+              ))}
+            </Text>
+          ) : null}
 
           {hasExpandableCaption && expanded && (
             <Text style={[styles.captionToggleText, { color: mutedText }]} onPress={() => setExpanded(false)}>
@@ -3183,6 +3218,28 @@ const styles = StyleSheet.create({
   captionText: {
     fontSize: 15,
     fontWeight: '400',
+    lineHeight: 20,
+  },
+  inlineHashtagText: {
+    fontSize: 15,
+    color: '#00376b',
+    fontWeight: '500',
+    lineHeight: 20,
+  },
+  inlineMentionText: {
+    fontSize: 15,
+    color: '#00376b',
+    fontWeight: '600',
+    lineHeight: 20,
+  },
+  hashtagRow: {
+    marginTop: 4,
+    lineHeight: 20,
+  },
+  hashtagText: {
+    fontSize: 15,
+    color: '#00376b',
+    fontWeight: '500',
     lineHeight: 20,
   },
   captionMoreText: {

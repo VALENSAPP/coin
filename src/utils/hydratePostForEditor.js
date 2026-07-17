@@ -445,6 +445,19 @@ export function hydratePostForEditor(post) {
   const initialImageEdits = buildImageEditsFromPost(mergedPost, selectedMedia.length);
   const { taggedPeople, taggedPeopleIds, taggedPeopleMeta } = normalizeTaggedPeople(mergedPost);
 
+  const rawHashtags = mergedPost?.hashtag ?? mergedPost?.hashtags ?? [];
+  const hashtags = (Array.isArray(rawHashtags) ? rawHashtags : [rawHashtags])
+    .map(item => {
+      if (typeof item === 'string') return item.trim().replace(/^#+/, '');
+      if (item && typeof item === 'object') {
+        return String(item?.name || item?.hashtag || item?.tag || '')
+          .trim()
+          .replace(/^#+/, '');
+      }
+      return '';
+    })
+    .filter(Boolean);
+
   return {
     selectedMedia,
     initialImageEdits,
@@ -458,6 +471,7 @@ export function hydratePostForEditor(post) {
     taggedPeople,
     taggedPeopleIds,
     taggedPeopleMeta,
+    hashtags,
     originalPost: mergedPost,
   };
 }

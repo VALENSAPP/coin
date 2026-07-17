@@ -570,7 +570,7 @@ export default function UserClosetChat({ route, navigation }) {
             <Text style={[styles.headerTitle, textStyle]}>{username}</Text>
             {orderInfo && (
               <Text style={styles.headerSubtitle} numberOfLines={1}>
-                Order: #{orderInfo.id || orderInfo.orderId || 'Info'} • {orderInfo.status || 'Active'}
+                Order: #{orderInfo.orderNumber || orderInfo.id || orderInfo.orderId || 'Info'} • {orderInfo.orderStatus || 'Active'}
               </Text>
             )}
           </View>

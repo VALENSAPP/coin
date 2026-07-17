@@ -60,6 +60,7 @@ export default function EditPostScreen() {
         editPostId: hydrated.editPostId,
         initialCaption: hydrated.caption,
         initialLocation: hydrated.location,
+        initialHashtags: hydrated.hashtags,
         isTrustPost: hydrated.isTrustPost,
         taggedPeople: hydrated.taggedPeople,
         taggedPeopleIds: hydrated.taggedPeopleIds,

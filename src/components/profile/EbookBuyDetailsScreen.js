@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image } from 'rea
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { getMarketPlaceEbookById } from '../../services/post';
+import { getMarketplaceEbookById } from '../../services/post';
 
 const themeStyles = {
   purple: { bg: '#5A2D82', tint: '#EDE3FA' },
@@ -50,9 +50,8 @@ const EbookBuyDetailsScreen = () => {
       const ebookId = String(ebook?.id || ebook?._id || '').trim();
       if (!ebookId) return;
       try {
-        const res = await getMarketPlaceEbookById(ebookId);
-        console.log("getMarketPlaceEbookById-------------------", res)
-        const fetchedData = res?.data?.post || res?.data?.data?.post || res?.post || res?.data || res;
+        const res = await getMarketplaceEbookById(ebookId);
+        const fetchedData = res?.data?.ebook || res?.data?.data?.ebook || res?.ebook || res?.data || res;
         if (fetchedData) {
           setLoadedEbook(fetchedData);
         }
@@ -70,7 +69,19 @@ const EbookBuyDetailsScreen = () => {
 
   const coverImage = getCoverImage(currentEbook);
   const title = currentEbook?.caption || currentEbook?.title || 'E-book';
-  const author = currentEbook?.userName || userData?.displayName || 'Unknown Author';
+  const author =
+    currentEbook?.purchasedFrom ||
+    route?.params?.username ||
+    currentEbook?.userName ||
+    currentEbook?.username ||
+    currentEbook?.creator?.name ||
+    currentEbook?.creator?.username ||
+    currentEbook?.user?.name ||
+    currentEbook?.user?.username ||
+    userData?.shopName ||
+    userData?.shopUsername ||
+    userData?.displayName ||
+    'Unknown Author';
   const description = getDescription(currentEbook);
   const palette = themeStyles[currentEbook?.theme] || themeStyles.purple;
 
@@ -103,7 +114,7 @@ const EbookBuyDetailsScreen = () => {
             {coverImage ? (
               <Image source={{ uri: coverImage }} style={styles.coverImage} resizeMode="cover" />
             ) : (
-              <View style={[styles.fallbackCover, { backgroundColor: palette.bg }]}>
+              <View style={[styles.fallbackCover, { backgroundColor: text }]}>
                 <Text style={styles.fallbackTitle}>{title}</Text>
                 <Text style={styles.fallbackAuthor}>{author.toUpperCase()}</Text>
               </View>
@@ -115,13 +126,6 @@ const EbookBuyDetailsScreen = () => {
         <View style={styles.infoWrapper}>
           <Text style={[styles.titleText, textStyle]}>{title}</Text>
           <Text style={styles.authorText}>by {author}</Text>
-
-          {/* Rating */}
-          <View style={styles.ratingRow}>
-            <Ionicons name="star" size={16} color="#F2C94C" />
-            <Text style={styles.ratingText}>4.8 </Text>
-            <Text style={styles.reviewsText}>(320 reviews)</Text>
-          </View>
 
           {/* Description */}
           <Text style={styles.descriptionText}>{description}</Text>

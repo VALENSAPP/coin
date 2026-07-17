@@ -3,7 +3,8 @@ import { View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator, 
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useIsFocused, useNavigation, useRoute } from '@react-navigation/native';
-import { getMarketPlaceEbook } from '../../services/post';
+import { getMarketPlaceEbook, getMarketplaceEbooksByClosetId } from '../../services/post';
+import { getMyClosetById } from '../../services/myCloset';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const themeStyles = {
@@ -85,20 +86,48 @@ const AllEbooksScreen = () => {
   const route = useRoute();
   const isFocused = useIsFocused();
   const { userData, loggedInUserId, isOwnProfile } = route.params || {};
+  const resolvedClosetId = route?.params?.closetId || null;
+  const resolvedUserId = loggedInUserId || userData?.id || userData?._id || null;
+  const returnTo = route?.params?.returnTo;
 
-  const { bgStyle, textStyle, text } = useAppTheme(userData?.profile);
+  const { bgStyle, textStyle, text } = useAppTheme();
   const accentColor = text || '#5A2D82';
+  const resolvedAuthorName =
+    route?.params?.username ||
+    userData?.userName ||
+    userData?.username ||
+    userData?.displayName ||
+    userData?.shopName ||
+    userData?.shopUsername ||
+    '';
 
   const [ebooks, setEbooks] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [purchasedMap, setPurchasedMap] = useState({});
 
-  const fetchEbooks = useCallback(async (id) => {
+  const fetchEbooks = useCallback(async (id, cId = null) => {
     try {
       setLoading(true);
-      const response = await getMarketPlaceEbook(id);
+      let closetIdToUse = cId || resolvedClosetId;
+      if (!closetIdToUse && id) {
+        const byUserRes = await getMyClosetById({ userId: id }).catch(() => null);
+        const closetData = byUserRes?.data ?? byUserRes;
+        const closetRecord = closetData?.closetDetails || closetData;
+        closetIdToUse = closetData?.closetId ?? closetRecord?.id ?? closetRecord?._id ?? null;
+      }
+
+      if (!closetIdToUse) {
+        setEbooks([]);
+        setLoading(false);
+        return;
+      }
+
+      console.log('Fetching marketplace ebooks in AllEbooksScreen for closetId:', closetIdToUse);
+      const response = await getMarketplaceEbooksByClosetId(closetIdToUse);
       const payload =
+        response?.data?.ebooks ??
+        response?.ebooks ??
         response?.data?.posts ??
         response?.data?.data?.posts ??
         response?.data?.data ??
@@ -109,11 +138,14 @@ const AllEbooksScreen = () => {
         ? payload
         : Array.isArray(payload?.posts)
           ? payload.posts
-          : Array.isArray(payload?.data)
-            ? payload.data
-            : [];
+          : Array.isArray(payload?.ebooks)
+            ? payload.ebooks
+            : Array.isArray(payload?.data)
+              ? payload.data
+              : [];
 
       const ebookData = formattedData.filter((post) => {
+        if (post?.ebookpdf) return true;
         const formatValue = String(post?.format || post?.type || '').toLowerCase();
         const imageUrl = String(post?.images?.[0] || post?.image || post?.video || '');
         const isPdf = /\.pdf(\?|$)/i.test(imageUrl);
@@ -121,7 +153,7 @@ const AllEbooksScreen = () => {
         return (
           !post?.visibleTo || post.visibleTo === ''
         ) && (
-            formatValue === 'ebook' || formatValue === 'book' || isPdf
+            formatValue === 'ebook' || formatValue === 'book' || isPdf || formatValue === 'private'
           );
       });
 
@@ -131,8 +163,8 @@ const AllEbooksScreen = () => {
       const map = {};
       for (const item of ebookData) {
         const itemId = item.id || item._id;
-        const purchased = await AsyncStorage.getItem(`purchased_ebook_${itemId}`);
-        map[itemId] = purchased === 'true';
+        const purchased = item.isPurchased ?? (await AsyncStorage.getItem(`purchased_ebook_${itemId}`) === 'true');
+        map[itemId] = !!purchased;
       }
       setPurchasedMap(map);
 
@@ -142,13 +174,13 @@ const AllEbooksScreen = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [resolvedClosetId]);
 
   useEffect(() => {
-    if (userData?.id && isFocused) {
-      fetchEbooks(userData.id);
+    if (isFocused) {
+      fetchEbooks(resolvedUserId, resolvedClosetId);
     }
-  }, [userData?.id, isFocused, fetchEbooks]);
+  }, [resolvedUserId, resolvedClosetId, isFocused, fetchEbooks]);
 
   const filteredEbooks = useMemo(() => {
     if (!searchQuery.trim()) return ebooks;
@@ -168,15 +200,31 @@ const AllEbooksScreen = () => {
         ebook: item,
         userData,
         loggedInUserId,
+        from: route?.params?.from || 'MyClosetShopFront',
+        username: item?.userName || item?.username || item?.creator?.name || resolvedAuthorName,
       });
     } else {
       navigation.navigate('EbookBuyDetails', {
         ebook: item,
         userData,
         loggedInUserId,
+        from: route?.params?.from || 'MyClosetShopFront',
+        username: item?.userName || item?.username || item?.creator?.name || resolvedAuthorName,
       });
     }
-  }, [purchasedMap, isOwnProfile, navigation, userData, loggedInUserId]);
+  }, [purchasedMap, isOwnProfile, navigation, userData, loggedInUserId, route?.params?.from, resolvedAuthorName]);
+
+  const handleBackPress = () => {
+    if (returnTo === 'MyClosetDashboard') {
+      navigation.navigate('MainApp', {
+        screen: 'wallet',
+        params: { screen: 'MyCloset' },
+      });
+      return;
+    }
+
+    navigation.goBack();
+  };
 
   if (loading && ebooks.length === 0) {
     return (
@@ -190,7 +238,7 @@ const AllEbooksScreen = () => {
     <View style={[styles.screen, bgStyle]}>
       {/* Header */}
       <View style={styles.headerRow}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+        <TouchableOpacity onPress={handleBackPress} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={22} color="#111827" />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, textStyle]}>E-books</Text>

@@ -11,10 +11,19 @@ import RNFS from 'react-native-fs';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 import RBSheet from 'react-native-raw-bottom-sheet';
 import CommentSheet from '../home/posts/CommentSheet';
-import { deletePost, getPostlikes, likePost, savePost, unSavePost } from '../../services/post';
+import {
+  deletePost,
+  getPostlikes,
+  likePost,
+  savePost,
+  unSavePost,
+  getMarketplaceEbookById,
+  getMarketPlaceEbookById,
+} from '../../services/post';
 import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../displaytoastmessage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { navigateClosetReturn } from '../../utils/closetNavigation';
 
 const chaptersFallback = [
   'Build your personal brand',
@@ -23,8 +32,52 @@ const chaptersFallback = [
   'Grow your audience',
 ];
 
+const isValidEbookObject = (value) => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  if (value.error === true) return false;
+  if (typeof value.statusCode === 'number' && value.statusCode >= 400) return false;
+  return Boolean(
+    value.id ||
+      value._id ||
+      value.caption ||
+      value.title ||
+      value.ebookpdf ||
+      value.ebookPdf ||
+      value.text ||
+      value.description ||
+      (Array.isArray(value.images) && value.images.length > 0),
+  );
+};
 
-const getDescription = (textField) => {
+const extractEbookFromResponse = (res) => {
+  const candidates = [
+    res?.data?.ebook,
+    res?.data?.post,
+    res?.data?.data?.ebook,
+    res?.data?.data?.post,
+    res?.ebook,
+    res?.post,
+    res?.data?.data,
+    res?.data,
+    res,
+  ];
+  for (const candidate of candidates) {
+    if (isValidEbookObject(candidate)) return candidate;
+  }
+  return null;
+};
+
+const isMarketplaceEbookItem = (item) => {
+  if (!item || typeof item !== 'object') return false;
+  if (item.closetId || item.marketplaceEbookId || item.marketplaceId) return true;
+  if (item.isMarketplace === true || item.isMarketplace === 'true') return true;
+  const source = String(item.source || '').toLowerCase();
+  if (source === 'marketplace' || source === 'closet') return true;
+  return false;
+};
+
+const getDescription = (ebookItem) => {
+  const textField = ebookItem?.text ?? ebookItem?.description;
   if (!textField) return 'No description available';
 
   if (typeof textField === 'string') {
@@ -62,17 +115,95 @@ const formatDate = (dateString) => {
 
 const VIEWED_PROFILE_THEME_EVENT = 'VIEWED_PROFILE_THEME';
 
+const formatDisplayName = (value) => {
+  const text = String(value || '').trim();
+  if (!text) return '';
+  return text.charAt(0).toUpperCase() + text.slice(1);
+};
+
 const EbookDetailScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
-  const ebook = useMemo(() => route?.params?.ebook || {}, [route?.params?.ebook]);
-  const userData = route?.params?.userData || {};
+  const routeUserData = route?.params?.userData;
+  const [ebookData, setEbookData] = useState(route?.params?.ebook || {});
+  const ebook = useMemo(() => {
+    const profileName =
+      routeUserData?.userName ||
+      routeUserData?.displayName ||
+      routeUserData?.name ||
+      '';
+    const profileImage =
+      routeUserData?.profileImage ||
+      routeUserData?.avatar ||
+      routeUserData?.image ||
+      routeUserData?.profilePic ||
+      '';
+    const profileUserId = routeUserData?.id || routeUserData?.userId || null;
+    return {
+      ...ebookData,
+      userName: ebookData?.userName || profileName || '',
+      userImage: ebookData?.userImage || ebookData?.avatar || profileImage || '',
+      userId: ebookData?.userId || profileUserId || ebookData?.user?.id || null,
+    };
+  }, [ebookData, routeUserData]);
+  const fromRootNavigator = route?.params?.fromRootNavigator;
+  const fromEbookPublisher = route?.params?.fromEbookPublisher === true;
+  const fromMyClosetShopFront = route?.params?.from === 'MyClosetShopFront';
+
+  useEffect(() => {
+    if (route?.params?.ebook) {
+      setEbookData(prev => ({ ...prev, ...route.params.ebook }));
+    }
+  }, [route?.params?.ebook]);
+
+  useEffect(() => {
+    const fetchEbookDetail = async () => {
+      const ebookId = String(
+        route?.params?.ebook?.id ||
+          route?.params?.ebook?._id ||
+          ebookData?.id ||
+          ebookData?._id ||
+          '',
+      ).trim();
+      if (!ebookId) return;
+
+      const sourceItem = route?.params?.ebook || ebookData;
+      const preferMarketplace = isMarketplaceEbookItem(sourceItem);
+
+      try {
+        let resolvedEbook = null;
+
+        if (preferMarketplace) {
+          const marketplaceRes = await getMarketplaceEbookById(ebookId);
+          resolvedEbook = extractEbookFromResponse(marketplaceRes);
+        } else {
+          const postRes = await getMarketPlaceEbookById(ebookId);
+          resolvedEbook = extractEbookFromResponse(postRes);
+          if (!resolvedEbook) {
+            const marketplaceRes = await getMarketplaceEbookById(ebookId);
+            resolvedEbook = extractEbookFromResponse(marketplaceRes);
+          }
+        }
+
+        if (resolvedEbook) {
+          setEbookData(prev => ({
+            ...(prev && typeof prev === 'object' ? prev : {}),
+            ...resolvedEbook,
+          }));
+        }
+      } catch (error) {
+        console.log('Failed to fetch ebook by ID:', error);
+      }
+    };
+
+    fetchEbookDetail();
+  }, [route?.params?.ebook?.id, route?.params?.ebook?._id]);
   const routeLoggedInUserId = route?.params?.loggedInUserId;
   const profileThemeType =
-    normalizeProfileType(userData?.profile || ebook?.profile) === 'company' ? 'company' : undefined;
+    normalizeProfileType(routeUserData?.profile || ebook?.profile) === 'company' ? 'company' : undefined;
   const {
     bgStyle,
-    text ,
+    text,
     textStyle,
     cardStyle,
     border,
@@ -88,7 +219,20 @@ const EbookDetailScreen = () => {
   const commentSheetRef = useRef(null);
 
   const title = ebook.caption || ebook.title || 'E-book';
-  const userName = ebook.userName || 'Unknown Author';
+  const userName = formatDisplayName(
+    ebook.purchasedFrom ||
+    route?.params?.username ||
+    ebook.userName ||
+    ebook.username ||
+    ebook.creator?.name ||
+    ebook.creator?.username ||
+    ebook.user?.name ||
+    ebook.user?.username ||
+    routeUserData?.shopName ||
+    routeUserData?.shopUsername ||
+    routeUserData?.displayName ||
+    'Unknown Author'
+  );
   const userAvatarSource = useMemo(() => {
     const uri = ebook.userImage || ebook.avatar || ebook.user?.avatar || ebook.user?.image || ebook.creator?.avatar || ebook.creator?.image;
     if (uri && typeof uri === 'string' && uri.trim().length > 0) {
@@ -96,10 +240,15 @@ const EbookDetailScreen = () => {
     }
     return require('../../assets/icons/pngicons/blackUser.png');
   }, [ebook]);
-  const description = getDescription(ebook.text);
+  const description = getDescription(ebook);
 
   const pdfUrl = useMemo(() => {
-    let rawPdf = ebook.ebookpdf;
+    let rawPdf =
+      ebook.ebookpdf ||
+      ebook.ebookPdf ||
+      ebook.pdfUrl ||
+      ebook.pdf ||
+      ebook.fileUrl;
     if (!rawPdf) {
       const mediaList = [
         ...(Array.isArray(ebook.images) ? ebook.images : []),
@@ -149,7 +298,7 @@ const EbookDetailScreen = () => {
 
   useFocusEffect(
     useCallback(() => {
-      const profileType = normalizeProfileType(userData?.profile || ebook?.profile);
+      const profileType = normalizeProfileType(routeUserData?.profile || ebook?.profile);
       if (profileType) {
         DeviceEventEmitter.emit(VIEWED_PROFILE_THEME_EVENT, { profileType });
       }
@@ -157,11 +306,83 @@ const EbookDetailScreen = () => {
       return () => {
         DeviceEventEmitter.emit(VIEWED_PROFILE_THEME_EVENT, { profileType: null });
       };
-    }, [userData?.profile, ebook?.profile]),
+    }, [routeUserData?.profile, ebook?.profile]),
   );
 
+  const handleBackPress = useCallback(() => {
+    const backTarget = route?.params?.returnTo;
+    const tabNav = navigation.getParent?.() || navigation;
+
+    if (fromEbookPublisher) {
+      tabNav.navigate('wallet', {
+        screen: 'EbookPublisher',
+      });
+      return;
+    }
+
+    if (fromMyClosetShopFront) {
+      tabNav.navigate('ProfileMain', {
+        screen: 'Profile',
+        params: { initialTab: 'closet' },
+      });
+      return;
+    }
+
+    // Prefer explicit returnTo from the profile that opened this screen.
+    if (backTarget?.tab && backTarget?.screen) {
+      tabNav.navigate(backTarget.tab, {
+        screen: backTarget.screen,
+        params: backTarget.params || {},
+      });
+      return;
+    }
+
+    if (backTarget) {
+      navigateClosetReturn(navigation, backTarget);
+      return;
+    }
+
+    const returnUserId = String(
+      route?.params?.returnUserId ||
+        routeUserData?.id ||
+        routeUserData?.userId ||
+        '',
+    ).trim();
+    const viewerId = String(routeLoggedInUserId || currentUserId || '').trim();
+
+    // Fallback: other user's profile → UsersProfile (not own Profile tab).
+    if (returnUserId && (!viewerId || returnUserId !== viewerId)) {
+      tabNav.navigate('HomeMain', {
+        screen: 'UsersProfile',
+        params: {
+          userId: returnUserId,
+          initialTab: route?.params?.fromProfileTab || 'privateContent',
+        },
+      });
+      return;
+    }
+
+    if (navigation.canGoBack?.()) {
+      navigation.goBack();
+      return;
+    }
+
+    tabNav.navigate('ProfileMain', { screen: 'Profile' });
+  }, [
+    navigation,
+    route?.params?.returnTo,
+    route?.params?.returnUserId,
+    route?.params?.fromProfileTab,
+    routeUserData?.id,
+    routeUserData?.userId,
+    routeLoggedInUserId,
+    currentUserId,
+    fromEbookPublisher,
+    fromMyClosetShopFront,
+  ]);
+
   useScreenshotProtection({
-    enabled: !isOwner,
+    enabled: !isOwner && !fromEbookPublisher && !fromMyClosetShopFront,
     holdProtection: holdScreenshotProtection,
     title: t('postView.screenshotWarningTitle'),
     message: t('postView.screenshotWarningMessage'),
@@ -321,7 +542,13 @@ const EbookDetailScreen = () => {
                 return;
               }
 
-              const res = await deletePost(postId, userId);
+              let res;
+              const fromNav = route?.params?.from;
+              if (fromNav === 'MyClosetShopFront' || fromNav === 'Shop') {
+                res = await deleteMarketplaceEbook(postId);
+              } else {
+                res = await deletePost(postId, userId);
+              }
               const ok = res?.statusCode === 200 && (res?.success ?? true);
 
               if (!ok) {
@@ -438,7 +665,7 @@ const EbookDetailScreen = () => {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.headerRow}>
           <TouchableOpacity
-            onPress={() => navigation.goBack()}
+            onPress={handleBackPress}
             style={[styles.backBtn, cardStyle, { borderColor: border, borderWidth: StyleSheet.hairlineWidth }]}
           >
             <Ionicons name="arrow-back" size={20} color={icon} />
@@ -453,9 +680,11 @@ const EbookDetailScreen = () => {
               </View>
               <Text style={[styles.metaText, mutedTextStyle]}>{createdAt}</Text>
             </View>
-            <View style={[styles.subscriberPill, { backgroundColor: `${accent}18`, borderColor: `${accent}40` }]}>
-              <Text style={[styles.subscriberPillText, { color: accent }]}>Subscribers</Text>
-            </View>
+            {!fromEbookPublisher && !fromMyClosetShopFront ? (
+              <View style={[styles.subscriberPill, { backgroundColor: `${accent}18`, borderColor: `${accent}40` }]}>
+                <Text style={[styles.subscriberPillText, { color: accent }]}>Subscribers</Text>
+              </View>
+            ) : null}
             {isOwner ? (
               <View>
                 <TouchableOpacity
@@ -526,34 +755,36 @@ const EbookDetailScreen = () => {
           <Text style={[styles.readButtonText, { color: accent }]}>Read e-book</Text>
         </TouchableOpacity>
 
-        <View style={styles.actionsRow}>
-          <TouchableOpacity
-            style={styles.actionBtn}
-            onPress={handleLike}
-          >
-            <Ionicons
-              name={isLiked ? 'heart' : 'heart-outline'}
-              size={25}
-              color={isLiked ? '#ef4444' : mutedText}
-            />
-            <Text style={[styles.actionCount, mutedTextStyle]}>{likes}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionBtn} onPress={handleOpenComments}>
-            <Ionicons name="chatbubble-outline" size={25} color={mutedText} />
-            <Text style={[styles.actionCount, mutedTextStyle]}>{comments}</Text>
-          </TouchableOpacity>
-          <View style={styles.actionSpacer} />
-          <TouchableOpacity
-            style={styles.bookmarkBtn}
-            onPress={handleSave}
-          >
-            <Ionicons
-              name={isSaved ? 'bookmark' : 'bookmark-outline'}
-              size={25}
-              color={isSaved ? accent : mutedText}
-            />
-          </TouchableOpacity>
-        </View>
+        {!fromEbookPublisher && !fromMyClosetShopFront ? (
+          <View style={styles.actionsRow}>
+            <TouchableOpacity
+              style={styles.actionBtn}
+              onPress={handleLike}
+            >
+              <Ionicons
+                name={isLiked ? 'heart' : 'heart-outline'}
+                size={25}
+                color={isLiked ? '#ef4444' : mutedText}
+              />
+              <Text style={[styles.actionCount, mutedTextStyle]}>{likes}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionBtn} onPress={handleOpenComments}>
+              <Ionicons name="chatbubble-outline" size={25} color={mutedText} />
+              <Text style={[styles.actionCount, mutedTextStyle]}>{comments}</Text>
+            </TouchableOpacity>
+            <View style={styles.actionSpacer} />
+            <TouchableOpacity
+              style={styles.bookmarkBtn}
+              onPress={handleSave}
+            >
+              <Ionicons
+                name={isSaved ? 'bookmark' : 'bookmark-outline'}
+                size={25}
+                color={isSaved ? accent : mutedText}
+              />
+            </TouchableOpacity>
+          </View>
+        ) : null}
       </ScrollView>
 
       <RBSheet

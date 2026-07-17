@@ -129,9 +129,11 @@ const CustomDrawerContent = (props) => {
       screen: 'wallet',
       params: {
         screen: 'EbookPublisher',
+        key: `EbookPublisher-${Date.now()}`,
         params: {
           type: 'private',
           format: 'ebook',
+          fromRootNavigator: true,
         },
       },
     });

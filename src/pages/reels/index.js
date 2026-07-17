@@ -72,6 +72,7 @@ import SupportCreatorModal from '../../components/modals/SupportCreatorModal';
 import { getUserTokenInfoByBlockChain } from '../../services/tokens';
 import { getSupportRecipientWalletAddress } from '../../utils/walletPaymentSupport';
 import { useWalletConnectSupport } from '../../context/WalletConnectSupportContext';
+import { normalizePostHashtags } from '../../utils/hashtagUtils';
 import {
   isSupportAllowed,
   normalizeProfileType,
@@ -654,6 +655,15 @@ const ReelItem = React.memo(
           <Text style={styles.caption} numberOfLines={2}>
             {item.caption}
           </Text>
+          {(() => {
+            const tags = normalizePostHashtags(item?.hashtag ?? item?.hashtags);
+            if (!tags.length) return null;
+            return (
+              <Text style={styles.hashtagRow} numberOfLines={2}>
+                {tags.map(tag => `#${tag}`).join('  ')}
+              </Text>
+            );
+          })()}
           <TouchableOpacity style={styles.likedBySection}>
             <Text style={styles.likedByText}>
               ❤️ {tFlips('flips.likedBy')}{' '}
@@ -984,7 +994,7 @@ export default function FlipsScreen() {
                 raw?.walletAddress || raw?.userWalletAddress ||
                 raw?.creatorWalletAddress || raw?.vendorWalletAddress ||
                 raw?.receiverWalletAddress || null,
-              hashtag: raw?.hashtag || [],
+              hashtag: raw?.hashtag ?? raw?.hashtags ?? [],
               location: raw?.location || null,
               taggedPeople: raw?.taggedPeople || [],
             };
@@ -2580,6 +2590,13 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     marginBottom: 4,
     marginLeft: 0,
+  },
+  hashtagRow: {
+    color: '#9FDAFF',
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '600',
+    marginBottom: 4,
   },
   likedBySection: { marginBottom: 0, marginLeft: 0 },
   likedByText: { color: 'rgba(255,255,255,0.8)', fontSize: 12 },

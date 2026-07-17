@@ -25,7 +25,7 @@ import { getLatestTransactions, getRecentActivities, getTokenHistory, getTopCrea
 import { useFocusEffect } from '@react-navigation/native';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
-import { getCreditsLeft, totalMission, totalSupport, totalamount, referPoints, metaMaskRecived, totalPoints, getTotalFollowers, subscriptionEarningGraph, totalTransactions } from '../../services/wallet';
+import { getCreditsLeft, totalMission, totalSupport, totalamount, referPoints, metaMaskRecived, totalPoints, getTotalFollowers, subscriptionEarningGraph } from '../../services/wallet';
 import { getUserCredentials, getUserDashboard } from '../../services/post';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import RBSheet from 'react-native-raw-bottom-sheet';
@@ -583,6 +583,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
   const [tokenAddress, setTokenAddress] = useState(null);
   const [isBusinessProfile, setIsBusinessProfile] = useState(false);
   const [missionDonationTotal, setMissionDonationTotal] = useState(0);
+  const [totalEarningAmount, setTotalEarningAmount] = useState(0);
   const [rewardSummary, setRewardSummary] = useState(DEFAULT_REWARD_POINTS);
   const [kpiData, setKpiData] = useState([
     { id: 'Total Earning', title: t('walletDashboard.kpi.totalEarning'), value: '-', icon: 'wallet' },
@@ -593,7 +594,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
     { id: 'referralPoints', title: t('walletDashboard.kpi.referralPoints'), value: '-', icon: 'gift' },
     { id: 'metamask', title: t('walletDashboard.kpi.metamaskWallet'), value: '-', icon: 'logo-usd' },
     { id: 'tipPayout', title: t('walletDashboard.tipPayout.title'), value: '', icon: 'cash' },
-    { id: 'ebook', title: t('walletDashboard.ebook.title'), value: '', icon: 'book' },
+    // { id: 'ebook', title: t('walletDashboard.ebook.title'), value: '', icon: 'book' },
   ]);
   const [tipPayoutSetup, setTipPayoutSetup] = useState(null);
   const dispatch = useDispatch();
@@ -897,26 +898,27 @@ export const WalletDashboardScreen = ({ navigation }) => {
   };
 
   const handleEbookPress = () => {
-    navigation.navigate('EbookPublisher', { type: 'private', format: 'ebook' });
+    navigation.push('EbookPublisher', { type: 'private', format: 'ebook' });
   };
 
-  const handleViewTotalTransactions = async () => {
+  const handleOpenTotalEarnings = useCallback(() => {
+    const params = {
+      totalAmount: totalEarningAmount,
+      profileType: isBusinessProfile ? 'company' : 'user',
+      returnTo: { tab: 'wallet', screen: 'Dashboard' },
+    };
+    // Prefer nested tab navigation so the route resolves even if the
+    // current navigation object is the parent drawer/tab navigator.
     try {
-      dispatch(showLoader());
-      const response = await totalTransactions({ page: 1, limit: 10 });
-      console.log(response,'dyta all trnsationn')
-      const raw = response?.data?.data?.transactions || response?.data?.transactions || response?.data?.data || response?.data || [];
-      navigation.navigate('TransactionActivity', {
-        transactionsRaw: raw,
-        returnTo: { tab: 'wallet', screen: 'WalletDashboard' },
+      navigation.navigate('wallet', {
+        screen: 'TotalEarnings',
+        params,
       });
-    } catch (e) {
-      console.error('Error loading total transactions', e);
-      showToastMessage(toast, 'danger', e?.response?.data?.message || e?.message || 'Failed to load transactions');
-    } finally {
-      dispatch(hideLoader());
+    } catch (error) {
+      console.log('TotalEarnings nested navigate failed, trying direct:', error);
+      navigation.navigate('TotalEarnings', params);
     }
-  };
+  }, [navigation, totalEarningAmount, isBusinessProfile]);
 
   useFocusEffect(
     useCallback(() => {
@@ -1177,6 +1179,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
         response?.data?.data?.amount ??
         0;
       const totalValue = Number(rawValue) || 0;
+      setTotalEarningAmount(totalValue);
 
       setKpiData(prevKpiData =>
         prevKpiData.map(item =>
@@ -1305,10 +1308,10 @@ export const WalletDashboardScreen = ({ navigation }) => {
   const renderKPICard = (item) => {
     const isMetaMaskCard = item.id === 'metamask';
     const isTipPayoutCard = item.id === 'tipPayout';
-    const isEbookCard = item.id === 'ebook';
+    // const isEbookCard = item.id === 'ebook';
     const cellStyle = [
       styles.kpiCardCell,
-      (isMetaMaskCard || isTipPayoutCard || isEbookCard) && styles.kpiCardCellFull,
+      (isMetaMaskCard || isTipPayoutCard) && styles.kpiCardCellFull,
     ];
 
     if (item?.isPlaceholder) {
@@ -1460,41 +1463,41 @@ export const WalletDashboardScreen = ({ navigation }) => {
       );
     }
 
-    if (isEbookCard) {
-      return (
-        <View key={item.id} style={cellStyle}>
-          <TouchableOpacity
-            style={styles.kpiCardTouchable}
-            activeOpacity={0.86}
-            onPress={handleEbookPress}
-          >
-            <LinearGradient
-              colors={walletScreenGradient}
-              start={{ x: -5, y: -5 }}
-              end={{ x: 1, y: 1 }}
-              style={[styles.kpiCard, styles.kpiCardMetaMask, { shadowColor: text }]}
-            >
-              <View style={styles.kpiMetaMaskRow}>
-                <View style={styles.kpiMetaMaskLeft}>
-                  <View style={[styles.kpiTipIconWrap, { backgroundColor: '#EDE4FF' }]}>
-                    <Ionicons name="book" size={22} color={text} />
-                  </View>
-                  <View style={styles.kpiMetaMaskText}>
-                    <Text style={[styles.kpiTitle, { color: text }]} numberOfLines={1}>
-                      {item.title}
-                    </Text>
-                    <Text style={[styles.kpiTipDescription, { color: text }]} numberOfLines={2}>
-                      {t('walletDashboard.ebook.description')}
-                    </Text>
-                  </View>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color={text} style={styles.kpiChevron} />
-              </View>
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
-      );
-    }
+    // if (isEbookCard) {
+    //   return (
+    //     <View key={item.id} style={cellStyle}>
+    //       <TouchableOpacity
+    //         style={styles.kpiCardTouchable}
+    //         activeOpacity={0.86}
+    //         onPress={handleEbookPress}
+    //       >
+    //         <LinearGradient
+    //           colors={walletScreenGradient}
+    //           start={{ x: -5, y: -5 }}
+    //           end={{ x: 1, y: 1 }}
+    //           style={[styles.kpiCard, styles.kpiCardMetaMask, { shadowColor: text }]}
+    //         >
+    //           <View style={styles.kpiMetaMaskRow}>
+    //             <View style={styles.kpiMetaMaskLeft}>
+    //               <View style={[styles.kpiTipIconWrap, { backgroundColor: '#EDE4FF' }]}>
+    //                 <Ionicons name="book" size={22} color={text} />
+    //               </View>
+    //               <View style={styles.kpiMetaMaskText}>
+    //                 <Text style={[styles.kpiTitle, { color: text }]} numberOfLines={1}>
+    //                   {item.title}
+    //                 </Text>
+    //                 <Text style={[styles.kpiTipDescription, { color: text }]} numberOfLines={2}>
+    //                   {t('walletDashboard.ebook.description')}
+    //                 </Text>
+    //               </View>
+    //             </View>
+    //             <Ionicons name="chevron-forward" size={18} color={text} style={styles.kpiChevron} />
+    //           </View>
+    //         </LinearGradient>
+    //       </TouchableOpacity>
+    //     </View>
+    //   );
+    // }
 
     const cardContent = (
       <LinearGradient
@@ -1658,7 +1661,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
           <TouchableOpacity
             style={styles.kpiCardTouchable}
             activeOpacity={0.86}
-            onPress={handleViewTotalTransactions}
+            onPress={handleOpenTotalEarnings}
           >
             {cardContent}
           </TouchableOpacity>

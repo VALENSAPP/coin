@@ -17,15 +17,20 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useThemeContext } from '../../theme/ThemeContext';
 import { useLanguage } from '../../i18n';
-import { getMarketPlaceEbook } from '../../services/post';
+import { getMarketPlaceEbook, getMarketplaceEbooksByClosetId } from '../../services/post';
 import {
   getClosetItemsByClosetId,
   getMyClosetById,
   getMyClosetItems,
   getClosetBattlesPriority,
+  getWishlist,
+  addWishlistItem,
+  deleteWishlistItem,
 } from '../../services/myCloset';
+import { Alert } from 'react-native';
 import {
   buildClosetNavContext,
+  buildClosetReturnTo,
   navigateToBattleLive,
   withClosetNavParams,
 } from '../../utils/closetNavigation';
@@ -44,6 +49,25 @@ const fmt = (v) => {
 };
 
 const thumb = (item) => item?.images?.[0] || item?.image || item?.thumbnail || null;
+
+const getWishlistPayload = response => response?.data?.data ?? response?.data ?? response ?? {};
+const getWishlistsArray = response => {
+  const payload = getWishlistPayload(response);
+  if (Array.isArray(payload?.wishlists)) return payload.wishlists;
+  if (Array.isArray(payload?.wishlist)) return payload.wishlist;
+  if (Array.isArray(payload)) return payload;
+  return [];
+};
+const findWishlistItemForProduct = (response, productId) => {
+  const wishlists = getWishlistsArray(response);
+  for (const wishlist of wishlists) {
+    const match = (wishlist?.wishlistItems || []).find(w =>
+      String(w?.product?.id || w?.product?._id || w?.productId || w?.id || w?._id) === String(productId),
+    );
+    if (match) return { match, wishlist };
+  }
+  return { match: null, wishlist: null };
+};
 
 const imageSource = (uri) =>
   uri
@@ -202,8 +226,56 @@ const BattleSlide = ({ battle, accent, t, onPress, card, border, textColor, mute
   </TouchableOpacity>
 );
 
-const ItemTile = ({ item, accent, onPress, card, border, textColor, mutedText, isDark }) => {
+const ItemTile = ({ item, accent, onPress, onToggleWishlist, sellerId, card, border, textColor, mutedText, isDark }) => {
   const [liked, setLiked] = useState(false);
+  const [updatingWishlist, setUpdatingWishlist] = useState(false);
+  const [wishlistItemId, setWishlistItemId] = useState(null);
+
+  useEffect(() => {
+    let mounted = true;
+    const loadWishlistState = async () => {
+      const productId = item.raw?.id || item.raw?._id || item.raw?.productId || item.key;
+      if (!productId) return;
+      try {
+        const response = await getWishlist(sellerId);
+        const { match } = findWishlistItemForProduct(response, productId);
+        if (mounted && match) {
+          setLiked(true);
+          setWishlistItemId(match.id || match._id || match.wishlistItemId || match.wishlistId || null);
+        }
+      } catch {
+        // Keep local state if wishlist lookup fails.
+      }
+    };
+    loadWishlistState();
+    return () => { mounted = false; };
+  }, [item.key, item.raw, sellerId]);
+
+  const handleToggleWishlist = async () => {
+    if (updatingWishlist) return;
+    const nextLiked = !liked;
+    setUpdatingWishlist(true);
+    try {
+      if (nextLiked) {
+        await addWishlistItem(item.raw?.id || item.raw?._id || item.raw?.productId || item.key);
+        const refresh = await getWishlist(sellerId);
+        const { match } = findWishlistItemForProduct(refresh, item.raw?.id || item.raw?._id || item.raw?.productId || item.key);
+        setWishlistItemId(match?.id || match?._id || match?.wishlistItemId || match?.wishlistId || null);
+      } else {
+        await deleteWishlistItem(wishlistItemId || item.raw?.wishlistItemId || item.raw?.wishlistId || item.raw?.wishlist_item_id || item.raw?.wishlistItem?.id);
+      }
+      setLiked(nextLiked);
+      onToggleWishlist?.(item, nextLiked);
+    } catch (err) {
+      Alert.alert(
+        'Wishlist',
+        err?.response?.data?.message || 'Could not update wishlist.',
+      );
+    } finally {
+      setUpdatingWishlist(false);
+    }
+  };
+
   return (
     <TouchableOpacity activeOpacity={0.85} style={s.tile} onPress={onPress}>
       <View style={[s.tileThumb, { backgroundColor: isDark ? border : '#f5f3ee' }]}>
@@ -216,8 +288,9 @@ const ItemTile = ({ item, accent, onPress, card, border, textColor, mutedText, i
         />
         <TouchableOpacity
           style={[s.heart, { backgroundColor: isDark ? `${card}cc` : '#ffffffcc' }]}
-          onPress={() => setLiked(l => !l)}
+          onPress={handleToggleWishlist}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          disabled={updatingWishlist}
         >
           <Ionicons
             name={liked ? 'heart' : 'heart-outline'}
@@ -328,15 +401,33 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
     });
   }, []);
 
-  const fetchEbooks = useCallback(async (userId) => {
-    if (!userId) {
+  const fetchEbooks = useCallback(async (userId, cId = null) => {
+    if (!userId && !cId) {
       setEbooks([]);
       return;
     }
     setEbooksLoading(true);
     try {
-      const response = await getMarketPlaceEbook(userId);
+      let resolvedClosetId = cId || closetId;
+      if (!resolvedClosetId && userId) {
+        const byUserRes = await getMyClosetById({ userId }).catch(() => null);
+        const closetData = byUserRes?.data ?? byUserRes;
+        const closetRecord = closetData?.closetDetails || closetData;
+        resolvedClosetId = closetData?.closetId ?? closetRecord?.id ?? closetRecord?._id ?? null;
+      }
+
+      if (!resolvedClosetId) {
+        setEbooks([]);
+        setEbooksLoading(false);
+        return;
+      }
+
+      console.log('Fetching marketplace ebooks for closetId:', resolvedClosetId);
+      const response = await getMarketplaceEbooksByClosetId(resolvedClosetId);
+      console.log("response of getMarketplaceEbooksByClosetId-----------", response);
       const payload =
+        response?.data?.ebooks ??
+        response?.ebooks ??
         response?.data?.posts ??
         response?.data?.data?.posts ??
         response?.data?.data ??
@@ -346,11 +437,14 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
         ? payload
         : Array.isArray(payload?.posts)
           ? payload.posts
-          : Array.isArray(payload?.data)
-            ? payload.data
-            : [];
+          : Array.isArray(payload?.ebooks)
+            ? payload.ebooks
+            : Array.isArray(payload?.data)
+              ? payload.data
+              : [];
 
       const ebookData = formattedData.filter((post) => {
+        if (post?.ebookpdf) return true;
         const formatValue = String(post?.format || post?.type || '').toLowerCase();
         const imageUrl = String(post?.images?.[0] || post?.image || post?.video || '');
         const isPdf = /\.pdf(\?|$)/i.test(imageUrl);
@@ -358,7 +452,7 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
         return (
           !post?.visibleTo || post.visibleTo === ''
         ) && (
-            formatValue === 'ebook' || formatValue === 'book' || isPdf
+            formatValue === 'ebook' || formatValue === 'book' || isPdf || formatValue === 'private'
           );
       });
       setEbooks(ebookData);
@@ -367,8 +461,8 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
       const map = {};
       for (const item of ebookData) {
         const itemId = item.id || item._id;
-        const purchased = await AsyncStorage.getItem(`purchased_ebook_${itemId}`);
-        map[itemId] = purchased === 'true';
+        const purchased = item.isPurchased ?? (await AsyncStorage.getItem(`purchased_ebook_${itemId}`) === 'true');
+        map[itemId] = !!purchased;
       }
       setPurchasedMap(map);
     } catch (err) {
@@ -377,7 +471,7 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
     } finally {
       setEbooksLoading(false);
     }
-  }, []);
+  }, [closetId]);
 
   // ── battles state ──
   const [battles, setBattles] = useState([]);
@@ -476,7 +570,7 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
       // ── fetch battle picks once we know the closetId, for either profile type ──
       await loadBattles(resolvedClosetId);
       // fetch ebooks
-      await fetchEbooks(targetUserId);
+      await fetchEbooks(targetUserId, resolvedClosetId);
     } catch {
       setItems([]);
       setClosetDetails(null);
@@ -591,13 +685,11 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
     battleId: battle?.id,
     initialBattle: battle,
     selectedItems: [battle?.left, battle?.right].filter(Boolean),
-    returnToProfile: isOwnProfile
-      ? { screen: 'Profile' }
-      : {
-        tab: 'HomeMain',
-        screen: 'UsersProfile',
-        params: { userId: userData?.id },
-      },
+    returnToProfile: buildClosetReturnTo({
+      isOwnProfile,
+      sellerProfile: userData?.profile,
+      sellerId: userData?.id,
+    }),
   });
   const goStorefront = () => navigation?.navigate?.('ProfileMain', { screen: 'MyClosetStorefront' });
   const goAddFirst = (isFirstItem = true) => navigation?.navigate?.('ProfileMain', {
@@ -608,6 +700,9 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
     userData,
     loggedInUserId: loggedInUserId || currentUserId,
     isOwnProfile,
+    closetId,
+    username: userData?.userName || userData?.username || userData?.displayName || userData?.shopUsername || shopHandle || '',
+    from: 'MyClosetShopFront'
   });
 
   const handleEbookPress = async (item) => {
@@ -620,18 +715,26 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
           ebook: item,
           userData,
           loggedInUserId: loggedInUserId || currentUserId,
+          from: 'MyClosetShopFront',
+          returnTo: navContext?.returnTo,
+          fromEbookPublisher: !isOwnProfile,
+          username: userData?.userName || userData?.username || item?.userName
         });
       } else {
         navigation?.navigate?.('EbookBuyDetails', {
           ebook: item,
           userData,
           loggedInUserId: loggedInUserId || currentUserId,
+          from: 'MyClosetShopFront',
+          username: userData?.userName || userData?.username || item?.userName
         });
       }
     } catch (err) {
       console.log('Error checking ebook purchase:', err);
     }
   };
+
+  console.log("userDatauserDatauserDatauserDatauserData", userData)
 
   return (
     <ScrollView style={[s.root, bgStyle]} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
@@ -775,7 +878,13 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
       {/* ── My Items ── */}
       <View style={s.section}>
         <View style={s.sectionHead}>
-          <Text style={[s.sectionTitle, textStyle]}>{t('myClosetShopFront.myItemsTitle')}</Text>
+          <Text style={[s.sectionTitle, textStyle]}>
+            {isOwnProfile
+              ? t('myClosetShopFront.myItemsTitle')
+              : t('myClosetShopFront.userItemsTitle', {
+                name: userData?.displayName || 'User',
+              })}
+          </Text>
           {(isOwnProfile || tiles.length > 0) && (
             <TouchableOpacity onPress={goItems} activeOpacity={0.7}>
               <Text style={[s.seeAll, { color: brand }]}>{t('myClosetShopFront.seeAll')} ›</Text>
@@ -811,6 +920,7 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
                 textColor={text}
                 mutedText={mutedText}
                 isDark={isDarkMode}
+                sellerId={targetUserId}
                 onPress={() => { openItem(it); }}
               />
             ))}

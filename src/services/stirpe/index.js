@@ -43,3 +43,7 @@ export const sendTip = async (data) => {
 export const payEbook = async (data) => {
   return axiosInstance.post('billing/ebook-payment', data);
 };
+
+export const payMarketplaceEbook = async (data) => {
+  return axiosInstance.post('billing/shop-ebook-payment', data);
+};
