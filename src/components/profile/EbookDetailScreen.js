@@ -147,7 +147,7 @@ const EbookDetailScreen = () => {
   const fromRootNavigator = route?.params?.fromRootNavigator;
   const fromEbookPublisher = route?.params?.fromEbookPublisher === true;
   const fromMyClosetShopFront = route?.params?.from === 'MyClosetShopFront';
-  const fromAllEbooksScreen = route?.params?.from === 'AllEbooks' || route?.params?.sourceScreen === 'AllEbooks';
+  const fromAllEbooksScreen = route?.params?.from === 'AllEbooks' || route?.params?.sourceScreen === 'AllEbooks' || route?.params?.from === 'MyClosetDashboard';
 
   useEffect(() => {
     if (route?.params?.ebook) {
@@ -362,7 +362,7 @@ const EbookDetailScreen = () => {
   ]);
 
   useScreenshotProtection({
-    enabled: !isOwner && !fromEbookPublisher && !fromMyClosetShopFront,
+    enabled: !isOwner && !fromEbookPublisher && !fromMyClosetShopFront && !fromAllEbooksScreen,
     holdProtection: holdScreenshotProtection,
     title: t('postView.screenshotWarningTitle'),
     message: t('postView.screenshotWarningMessage'),
@@ -659,7 +659,7 @@ const EbookDetailScreen = () => {
               </View>
               <Text style={styles.metaText}>{createdAt}</Text>
             </View>
-            {!fromEbookPublisher && !fromMyClosetShopFront ? (
+            {!fromEbookPublisher && !fromMyClosetShopFront && !fromAllEbooksScreen ? (
               <View style={[styles.subscriberPill, bgStyle, {borderColor: text}]}>
                 <Text style={[styles.subscriberPillText,{color:text}]}>Subscribers</Text>
               </View>
@@ -732,7 +732,7 @@ const EbookDetailScreen = () => {
           <Text style={[styles.readButtonText,{color:text}]}>Read e-book</Text>
         </TouchableOpacity>
 
-        {!fromEbookPublisher && !fromMyClosetShopFront ? (
+        {!fromEbookPublisher && !fromMyClosetShopFront && !fromAllEbooksScreen ? (
           <View style={styles.actionsRow}>
             <TouchableOpacity
               style={styles.actionBtn}

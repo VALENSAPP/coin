@@ -1322,8 +1322,8 @@ export function BattleLiveScreen({ navigation, route }) {
         {[leftItem, rightItem].map((item, index) => {
           const isThisVoting = votingParticipantId === item?.participantId;
           const isThisVoted = votedParticipantId === item?.participantId;
-          const voteCount = index === 0 ? leftVoteCount : rightVoteCount;
           const isSelected = selectedParticipantId === item?.participantId;
+          const sideLabel = index === 0 ? 'A' : 'B';
           return (
             <TouchableOpacity
               key={item?.participantId || item?.id || index}
@@ -1361,7 +1361,7 @@ export function BattleLiveScreen({ navigation, route }) {
                       {t('battle.vote') || 'Vote'}
                     </Text>
                     <Text style={[liveStyles.voteButtonCount, { color: isThisVoted || isSelected ? '#fff' : accent }]}>
-                      {voteCount}
+                      {sideLabel}
                     </Text>
                   </>
                 )}

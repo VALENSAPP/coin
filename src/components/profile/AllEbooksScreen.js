@@ -42,7 +42,7 @@ const getDescription = (item) => {
   return item.description || 'No description available';
 };
 
-const EbookCard = memo(({ item, isPurchased, isOwnProfile, onPress, accentColor }) => {
+export const EbookCard = memo(({ item, isPurchased, isOwnProfile, onPress, accentColor }) => {
   const coverImage = getCoverImage(item);
   const title = item.caption || item.title || 'E-book';
   const description = getDescription(item);

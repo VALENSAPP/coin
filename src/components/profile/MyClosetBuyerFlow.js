@@ -936,8 +936,9 @@ const AddAddressModal = ({ visible, onClose, onSaved, editAddress, accentColor }
       };
       if (isEdit) {
         // PATCH /address/updateAddress/{addressId}
-        await updateAddress(editAddress.id, payload);
-        onSaved?.({ ...payload, id: editAddress.id });
+        const addressId = editAddress.id || editAddress._id;
+        await updateAddress(addressId, payload);
+        onSaved?.({ ...payload, id: addressId, _id: addressId });
       } else {
         // POST /address/addAddress
         await postAddress(payload);
@@ -1906,7 +1907,7 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
         await fetchCart();
       }
       else {
-        showToastMessage(toast, 'danger', response?.message || t('myClosetBuyer.addToCartError'));
+        Alert.alert(response?.message || t('myClosetBuyer.addToCartError'));
       }
     } catch (err) {
       Alert.alert(t('myClosetBuyer.errorTitle'), err?.response?.data?.message || t('myClosetBuyer.addToCartError'));
@@ -2445,7 +2446,7 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
   // ── UPDATE: optimistic update after PATCH ─────────────────────────────────
   const handleAddressUpdated = updatedAddress => {
     setAddresses(prev =>
-      prev.map(a => (a.id === updatedAddress.id ? { ...a, ...updatedAddress } : a)),
+      prev.map(a => ((a.id || a._id) === (updatedAddress.id || updatedAddress._id) ? { ...a, ...updatedAddress } : a)),
     );
     fetchAddresses();
   };
@@ -2461,12 +2462,13 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
           text: t('myClosetBuyer.delete'),
           style: 'destructive',
           onPress: async () => {
-            setActionLoading(addr.id);
+            const addressId = addr.id || addr._id;
+            setActionLoading(addressId);
             try {
-              const response = await deleteAddress(addr.id);
+              const response = await deleteAddress(addressId);
               if (response?.statusCode === 200 || response?.statusCode === 201) {
                 setAddresses(prev => {
-                  const updated = prev.filter(a => a.id !== addr.id);
+                  const updated = prev.filter(a => (a.id || a._id) !== addressId);
                   setSelectedAddressIndex(Math.max(0, updated.findIndex(a => a.isDefault)));
                   return updated;
                 });
@@ -2488,14 +2490,15 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
   // ── MAKE DEFAULT: PATCH /address/makeAddressDefault/{addressId} ───────────
   const handleMakeDefault = async addr => {
     if (addr.isDefault) return; // already default
-    setActionLoading(addr.id);
+    const addressId = addr.id || addr._id;
+    setActionLoading(addressId);
     try {
-      await makeAddressDefault(addr.id);
+      await makeAddressDefault(addressId);
       // Update local state: unset old default, set new one
       setAddresses(prev =>
-        prev.map(a => ({ ...a, isDefault: a.id === addr.id })),
+        prev.map(a => ({ ...a, isDefault: (a.id || a._id) === addressId })),
       );
-      const newIdx = addresses.findIndex(a => a.id === addr.id);
+      const newIdx = addresses.findIndex(a => (a.id || a._id) === addressId);
       if (newIdx >= 0) setSelectedAddressIndex(newIdx);
     } catch (err) {
       Alert.alert(t('myClosetBuyer.errorTitle'), err?.response?.data?.message || t('myClosetBuyer.setDefaultAddressError'));
@@ -2592,11 +2595,12 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
               </View>
             ) : (
               addresses.map((addr, idx) => {
+                const addressId = addr.id || addr._id;
                 const isSelected = selectedAddressIndex === idx;
-                const isActing = actionLoading === addr.id;
+                const isActing = actionLoading === addressId;
                 return (
                   <View
-                    key={addr.id || idx}
+                    key={addressId || idx}
                     style={[
                       styles.addressCard,
                       isSelected && styles.addressCardSelected,

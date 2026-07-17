@@ -819,6 +819,11 @@ export default function MainTabNavigator() {
             options={{ headerShown: false }}
           />
           <Stack.Screen
+            name="EbookDetail"
+            component={EbookDetailScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
             name="Shop"
             component={ShopScreenWrapper}
             // ── TRANSLATION CHANGE ───────────────────────────────────────────
