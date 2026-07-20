@@ -5,12 +5,14 @@ import {
   TextInput,
   TouchableOpacity,
   Modal,
-  TouchableWithoutFeedback,
+  Pressable,
   ActivityIndicator,
   FlatList,
   Platform,
   PermissionsAndroid,
   StyleSheet,
+  KeyboardAvoidingView,
+  Keyboard,
 } from 'react-native';
 import Geolocation from 'react-native-geolocation-service';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -170,10 +172,22 @@ const PostLocationModal = ({
     };
   }, [draft, hasPlacesApi, t, visible]);
 
-  const handleSelectPrediction = useCallback(description => {
-    setDraft(description);
-    setPredictions([]);
-  }, []);
+  const handleSave = useCallback(() => {
+    Keyboard.dismiss();
+    onSave?.(draft.trim());
+  }, [draft, onSave]);
+
+  const handleSelectPrediction = useCallback(
+    description => {
+      const value = String(description || '').trim();
+      setDraft(value);
+      setPredictions([]);
+      Keyboard.dismiss();
+      // Selecting a result confirms the location — Save is often hidden under the iOS keyboard.
+      onSave?.(value);
+    },
+    [onSave],
+  );
 
   const handleUseCurrentLocation = useCallback(async () => {
     if (!hasPlacesApi || locating) return;
@@ -216,90 +230,65 @@ const PostLocationModal = ({
     }
   }, [hasPlacesApi, locating, t]);
 
-  const handleSave = useCallback(() => {
-    onSave?.(draft.trim());
-  }, [draft, onSave]);
+  const handleBackdropPress = useCallback(() => {
+    // Outside tap only dismisses the keyboard — Cancel is required to discard.
+    Keyboard.dismiss();
+  }, []);
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <TouchableWithoutFeedback onPress={onClose}>
+      <KeyboardAvoidingView
+        style={styles.keyboardRoot}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
+      >
         <View style={styles.backdrop}>
-          <TouchableWithoutFeedback>
-            <View style={[styles.card, cardStyle]}>
-              <Text style={[styles.title, textStyle]}>{t('postItem.editLocationTitle')}</Text>
-              <Text style={[styles.hint, mutedTextStyle]}>{t('postItem.editLocationHint')}</Text>
+          <Pressable style={StyleSheet.absoluteFillObject} onPress={handleBackdropPress} />
 
-              <TextInput
-                style={[styles.input, cardStyle, textStyle, { borderColor: withAlpha(accent, 0.25) }]}
-                value={draft}
-                onChangeText={setDraft}
-                placeholder={t('postItem.searchLocationPlaceholder')}
-                placeholderTextColor={mutedText}
-                autoFocus
-                maxLength={160}
-                returnKeyType="done"
-                onSubmitEditing={handleSave}
-              />
+          <View style={[styles.card, cardStyle]} pointerEvents="box-none">
+            <Text style={[styles.title, textStyle]}>{t('postItem.editLocationTitle')}</Text>
+            <Text style={[styles.hint, mutedTextStyle]}>{t('postItem.editLocationHint')}</Text>
 
-              {hasPlacesApi ? (
-                <TouchableOpacity
-                  style={styles.currentLocationBtn}
-                  onPress={handleUseCurrentLocation}
-                  disabled={locating || saving}>
-                  {locating ? (
-                    <ActivityIndicator size="small" color={accent} />
-                  ) : (
-                    <>
-                      <Icon name="navigate" size={16} color={accent} />
-                      <Text style={[styles.currentLocationText, { color: accent }]}>
-                        {t('postItem.useCurrentLocation')}
-                      </Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-              ) : (
-                <Text style={[styles.apiWarning, mutedTextStyle]}>{t('postItem.placesApiMissing')}</Text>
-              )}
+            <TextInput
+              style={[styles.input, cardStyle, textStyle, { borderColor: withAlpha(accent, 0.25) }]}
+              value={draft}
+              onChangeText={setDraft}
+              placeholder={t('postItem.searchLocationPlaceholder')}
+              placeholderTextColor={mutedText}
+              autoFocus
+              maxLength={160}
+              returnKeyType="done"
+              blurOnSubmit
+              onSubmitEditing={handleSave}
+            />
 
-              {searching ? (
-                <View style={styles.searchingRow}>
+            {hasPlacesApi ? (
+              <TouchableOpacity
+                style={styles.currentLocationBtn}
+                onPress={handleUseCurrentLocation}
+                disabled={locating || saving}
+              >
+                {locating ? (
                   <ActivityIndicator size="small" color={accent} />
-                </View>
-              ) : null}
+                ) : (
+                  <>
+                    <Icon name="navigate" size={16} color={accent} />
+                    <Text style={[styles.currentLocationText, { color: accent }]}>
+                      {t('postItem.useCurrentLocation')}
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            ) : (
+              <Text style={[styles.apiWarning, mutedTextStyle]}>{t('postItem.placesApiMissing')}</Text>
+            )}
 
-              {!!searchError && <Text style={styles.errorText}>{searchError}</Text>}
-
-              {predictions.length > 0 ? (
-                <FlatList
-                  data={predictions}
-                  keyExtractor={item => item.id}
-                  keyboardShouldPersistTaps="handled"
-                  style={[styles.predictionsList, cardStyle, { borderColor: withAlpha(accent, 0.2) }]}
-                  renderItem={({ item }) => (
-                    <TouchableOpacity
-                      style={[styles.predictionRow, { borderBottomColor: withAlpha(accent, 0.12) }]}
-                      onPress={() => handleSelectPrediction(item.description)}>
-                      <Icon
-                        name={
-                          item.types?.includes('establishment')
-                            ? 'storefront-outline'
-                            : 'location-outline'
-                        }
-                        size={16}
-                        color={icon}
-                      />
-                      <Text style={[styles.predictionText, textStyle]} numberOfLines={2}>
-                        {item.description}
-                      </Text>
-                    </TouchableOpacity>
-                  )}
-                />
-              ) : null}
-
+            <View style={styles.footer}>
               <TouchableOpacity
                 style={[styles.saveBtn, saving && styles.saveBtnDisabled, { backgroundColor: accent }]}
                 onPress={handleSave}
-                disabled={saving}>
+                disabled={saving}
+              >
                 {saving ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
@@ -307,29 +296,71 @@ const PostLocationModal = ({
                 )}
               </TouchableOpacity>
 
-              <TouchableOpacity onPress={onClose} style={styles.cancelBtn}>
-                <Text style={[styles.cancelText, { color: accent }]}>{t('postItem.cancelLocation')}</Text>
+              <TouchableOpacity onPress={onClose} style={styles.cancelBtn} disabled={saving}>
+                <Text style={[styles.cancelText, { color: accent }]}>
+                  {t('postItem.cancelLocation')}
+                </Text>
               </TouchableOpacity>
             </View>
-          </TouchableWithoutFeedback>
+
+            {searching ? (
+              <View style={styles.searchingRow}>
+                <ActivityIndicator size="small" color={accent} />
+              </View>
+            ) : null}
+
+            {!!searchError && <Text style={styles.errorText}>{searchError}</Text>}
+
+            {predictions.length > 0 ? (
+              <FlatList
+                data={predictions}
+                keyExtractor={item => item.id}
+                keyboardShouldPersistTaps="handled"
+                style={[styles.predictionsList, cardStyle, { borderColor: withAlpha(accent, 0.2) }]}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={[styles.predictionRow, { borderBottomColor: withAlpha(accent, 0.12) }]}
+                    onPress={() => handleSelectPrediction(item.description)}
+                  >
+                    <Icon
+                      name={
+                        item.types?.includes('establishment')
+                          ? 'storefront-outline'
+                          : 'location-outline'
+                      }
+                      size={16}
+                      color={icon}
+                    />
+                    <Text style={[styles.predictionText, textStyle]} numberOfLines={2}>
+                      {item.description}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              />
+            ) : null}
+          </View>
         </View>
-      </TouchableWithoutFeedback>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
+  keyboardRoot: {
+    flex: 1,
+  },
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.45)',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: 28,
+    paddingVertical: 24,
   },
   card: {
     width: '100%',
     maxWidth: 360,
-    maxHeight: '80%',
+    maxHeight: '88%',
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 20,
@@ -381,11 +412,12 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   predictionsList: {
-    maxHeight: 180,
-    marginBottom: 12,
+    maxHeight: 140,
+    marginTop: 4,
     borderWidth: 1,
     borderColor: '#F3F4F6',
     borderRadius: 10,
+    flexGrow: 0,
   },
   predictionRow: {
     flexDirection: 'row',
@@ -401,11 +433,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#374151',
   },
+  footer: {
+    marginTop: 4,
+    marginBottom: 4,
+  },
   saveBtn: {
     borderRadius: 10,
     paddingVertical: 12,
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   saveBtnDisabled: {
     opacity: 0.7,

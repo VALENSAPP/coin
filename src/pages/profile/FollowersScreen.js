@@ -415,37 +415,50 @@ export default function FollowersFollowingScreen({ navigation, route }) {
   );
 
   const handleBack = () => {
-    const screenParams = route?.params?.screenParams || route?.params?.params?.screenParams || route?.params?.params || {};
-    const returnTo = route?.params?.returnTo || route?.params?.params?.returnTo;
+    // Prefer real stack history — custom returnTo routes often break (e.g. own
+    // profile wrongly sent to CreatorProfile and never leaves this screen).
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
 
-    if (returnTo === 'UserProfile') {
-      if (screenParams?.userId) {
-        navigation.navigate('ProfileMain', {
-          screen: 'CreatorProfile',
-          params: {
-            userId: screenParams?.userId || '',
-            username: screenParams?.username || '',
-          },
-        });
-      } else {
-        navigation.navigate('ProfileMain', {
-          screen: 'Profile',
-        });
-      }
-    } else if (returnTo === 'Home') {
+    const nested = route?.params?.params || {};
+    const screenParams =
+      route?.params?.screenParams ||
+      nested?.screenParams ||
+      nested ||
+      {};
+    const returnTo = route?.params?.returnTo || nested?.returnTo;
+    const targetUserId =
+      screenParams?.userId ||
+      route?.params?.userId ||
+      nested?.userId ||
+      '';
+    const targetUsername =
+      screenParams?.username ||
+      screenParams?.userName ||
+      route?.params?.userName ||
+      nested?.userName ||
+      '';
+
+    if (returnTo === 'Home' && targetUserId) {
       navigation.navigate('HomeMain', {
         screen: 'UsersProfile',
         params: {
-          userId: screenParams?.userId || '',
-          username: screenParams?.username || '',
+          userId: targetUserId,
+          username: targetUsername,
           returnTo: screenParams?.returnTo || 'Home',
         },
       });
-    } else if (returnTo === 'Dashboard') {
-      navigation.navigate('wallet', { screen: 'Dashboard' });
-    } else {
-      navigation.goBack();
+      return;
     }
+
+    if (returnTo === 'Dashboard') {
+      navigation.navigate('wallet', { screen: 'Dashboard' });
+      return;
+    }
+
+    navigation.navigate('ProfileMain', { screen: 'Profile' });
   };
   const renderItem =
     tab =>
@@ -515,7 +528,13 @@ export default function FollowersFollowingScreen({ navigation, route }) {
     <SafeAreaView style={[styles.container, bgStyle]}>
       {/* Header */}
       <View style={styles.headerView}>
-        <TouchableOpacity onPress={handleBack}>
+        <TouchableOpacity
+          onPress={handleBack}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          style={styles.backBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+        >
           <Icon name="arrow-back" size={24} color={icon} />
         </TouchableOpacity>
         <Text style={[styles.usernameHeader, textStyle]}>{headerUsername}</Text>
@@ -643,6 +662,10 @@ export default function FollowersFollowingScreen({ navigation, route }) {
       flexDirection: 'row',
       alignItems: 'center',
       marginBottom: 12,
+      zIndex: 2,
+    },
+    backBtn: {
+      padding: 4,
     },
     usernameHeader: {
       fontSize: 20,

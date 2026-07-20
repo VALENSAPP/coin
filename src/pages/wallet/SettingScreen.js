@@ -224,12 +224,13 @@ export const SettingsScreen = ({ navigation }) => {
     {
       title: t('walletSettings.sectionSecurity'),
       items: [
-        {
-          label: t('walletSettings.twoFactorAuth'),
-          icon: 'shield',
-          action: () => { navigation.navigate('TwoFactorAuth'); },
-          status: t('walletSettings.twoFactorEnabled'),
-        },
+        // Two-Factor Authentication temporarily hidden
+        // {
+        //   label: t('walletSettings.twoFactorAuth'),
+        //   icon: 'shield',
+        //   action: () => { navigation.navigate('TwoFactorAuth'); },
+        //   status: t('walletSettings.twoFactorEnabled'),
+        // },
         {
           label: t('walletSettings.changePassword'),
           icon: 'key',

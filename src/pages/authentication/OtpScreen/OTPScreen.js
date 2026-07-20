@@ -26,12 +26,23 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getProfile } from '../../../services/createProfile';
 import { persistStripeCustomerId } from '../../../hooks/useStripeCustomer';
 import { useAppTheme } from '../../../theme/useApptheme';
+import { useThemeContext } from '../../../theme/ThemeContext';
 import { loggedIn } from '../../../redux/actions/LoginAction';
 import { ensureCurrentAccountSaved } from '../../../utils/accountSession';
 import { clearSignupFormData } from '../../../redux/actions/SignupFormAction';
 import { useLanguage } from '../../../i18n';
+import { normalizeProfileType } from '../../../utils/supportEligibility';
 
 const { height } = Dimensions.get('window');
+
+const withAlpha = (hex, alpha = 0.12) => {
+  const normalized = String(hex || '').replace('#', '');
+  if (normalized.length !== 6) return `rgba(90,45,130,${alpha})`;
+  const r = parseInt(normalized.slice(0, 2), 16);
+  const g = parseInt(normalized.slice(2, 4), 16);
+  const b = parseInt(normalized.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+};
 
 export default function OTPScreen() {
   const [otp, setOtp] = useState('');
@@ -43,8 +54,15 @@ export default function OTPScreen() {
   const toast = useToast();
   const dispatch = useDispatch();
   const { email, password, type, profile } = route.params || {};
-  const { bgStyle, textStyle, text, accent } = useAppTheme(profile);
+  // Auth OTP: company signup keeps gold; otherwise always regular (avoid leftover business theme).
+  const themeProfile =
+    type === 'signup' && normalizeProfileType(profile) === 'company' ? 'company' : 'user';
+  const { bgStyle, accent, card, border, mutedText } = useAppTheme(themeProfile);
+  const { isDarkMode } = useThemeContext();
   const { t } = useLanguage();
+  const surface = isDarkMode ? '#242424' : '#F9FAFB';
+  const infoSurface = isDarkMode ? withAlpha(accent, 0.12) : '#F0F9FF';
+  const foreground = isDarkMode ? '#F3F4F6' : '#1F2937';
 
   useEffect(() => {
     if (type === 'signup') {
@@ -242,35 +260,35 @@ export default function OTPScreen() {
           {/* Header */}
           <AuthHeader
             subtitle={t('otp.headerSubtitle')}
-            profileType={profile}
+            profileType={themeProfile}
             onBackPress={() => navigation.goBack()}
             isFirstLaunch={true}
           />
 
           <View style={styles.formWrapper}>
-            <View style={styles.card}>
+            <View style={[styles.card, { backgroundColor: card }]}>
 
               {/* Title */}
               <View style={styles.welcomeSection}>
-                <Text style={styles.welcomeTitle}>
+                <Text style={[styles.welcomeTitle, { color: foreground }]}>
                   {t('otp.title')}
                 </Text>
 
-                <Text style={styles.welcomeSubtitle}>
+                <Text style={[styles.welcomeSubtitle, { color: mutedText }]}>
                   {t('otp.subtitle').replace('{{email}}', email || 'your email')}
                 </Text>
               </View>
 
               {/* Info */}
               <View style={styles.infoSection}>
-                <View style={[styles.infoBox, { borderLeftColor: text }]}>
+                <View style={[styles.infoBox, { borderLeftColor: accent, backgroundColor: infoSurface }]}>
                   <Icon
                     name="mail"
                     size={20}
-                    color={text}
+                    color={accent}
                     style={styles.infoIcon}
                   />
-                  <Text style={styles.infoText}>
+                  <Text style={[styles.infoText, { color: mutedText }]}>
                     {t('otp.infoText')}
                   </Text>
                 </View>
@@ -278,7 +296,7 @@ export default function OTPScreen() {
 
               {/* OTP */}
               <View style={styles.otpSection}>
-                <Text style={styles.otpLabel}>
+                <Text style={[styles.otpLabel, { color: foreground }]}>
                   {t('otp.otpLabel')}
                 </Text>
 
@@ -286,11 +304,18 @@ export default function OTPScreen() {
                   ref={otpInput}
                   handleTextChange={setOtp}
                   containerStyle={styles.otpContainer}
-                  textInputStyle={[styles.otpInput, { shadowColor: text }]}
-                  tintColor={text}
-                  offTintColor="#E5E7EB"
+                  textInputStyle={[
+                    styles.otpInput,
+                    {
+                      shadowColor: accent,
+                      color: foreground,
+                      backgroundColor: surface,
+                      borderColor: border,
+                    },
+                  ]}
+                  tintColor={accent}
+                  offTintColor={border}
                   inputCount={6}
-                // keyboardType="default" 
                 />
               </View>
 
@@ -322,7 +347,7 @@ export default function OTPScreen() {
 
               {/* Resend */}
               <View style={styles.resendSection}>
-                <Text style={styles.resendPromptText}>
+                <Text style={[styles.resendPromptText, { color: mutedText }]}>
                   {t('otp.resendPrompt')}
                 </Text>
                 <TouchableOpacity
@@ -332,21 +357,21 @@ export default function OTPScreen() {
                 >
                   {resendLoading ? (
                     <View style={styles.resendLoadingContainer}>
-                      <ActivityIndicator color={text} size="small" />
-                      <Text style={[styles.resendLoadingText, textStyle]}>{t('otp.sending')}</Text>
+                      <ActivityIndicator color={accent} size="small" />
+                      <Text style={[styles.resendLoadingText, { color: accent }]}>{t('otp.sending')}</Text>
                     </View>
                   ) : (
-                    <Text style={[styles.resendText, textStyle]}>{t('otp.resend')}</Text>
+                    <Text style={[styles.resendText, { color: accent }]}>{t('otp.resend')}</Text>
                   )}
                 </TouchableOpacity>
               </View>
 
               {/* Back */}
               <View style={styles.backToLoginSection}>
-                <Text style={styles.backToLoginText}>
+                <Text style={[styles.backToLoginText, { color: mutedText }]}>
                   {t('otp.backToLoginText')}{' '}
                   <Text
-                    style={[styles.backToLoginLink, textStyle]}
+                    style={[styles.backToLoginLink, { color: accent }]}
                     onPress={() => navigation.navigate('Login')}
                   >
                     {t('otp.backToLoginLink')}
@@ -373,7 +398,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 7,
   },
   card: {
-    backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
     padding: 32,
@@ -392,13 +416,11 @@ const styles = StyleSheet.create({
   welcomeTitle: {
     fontSize: 26,
     fontWeight: '700',
-    color: '#1F2937',
     marginBottom: 12,
     textAlign: 'center',
   },
   welcomeSubtitle: {
     fontSize: 16,
-    color: '#6B7280',
     fontWeight: '400',
     textAlign: 'center',
     lineHeight: 24,
@@ -410,13 +432,12 @@ const styles = StyleSheet.create({
   },
   infoBox: {
     flexDirection: 'row',
-    backgroundColor: '#F0F9FF',
     borderRadius: 12,
     padding: 16,
     borderLeftWidth: 4,
   },
   infoIcon: { marginRight: 12, marginTop: 1 },
-  infoText: { flex: 1, fontSize: 14, color: '#374151', lineHeight: 20 },
+  infoText: { flex: 1, fontSize: 14, lineHeight: 20 },
 
   otpSection: {
     alignItems: 'center',
@@ -425,14 +446,12 @@ const styles = StyleSheet.create({
   otpLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#374151',
     marginBottom: 16,
     textAlign: 'center',
   },
   otpContainer: {
     marginBottom: 8,
     justifyContent: 'center',
-    // marginLeft removed so fields stay centered in smaller screens
     marginLeft: 20,
   },
   otpInput: {
@@ -442,8 +461,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     fontSize: 20,
     fontWeight: '700',
-    color: '#1F2937',
-    backgroundColor: '#F9FAFB',
     textAlign: 'center',
     marginHorizontal: 4,
     shadowOffset: { width: 0, height: 1 },
@@ -479,7 +496,6 @@ const styles = StyleSheet.create({
   },
   resendPromptText: {
     fontSize: 14,
-    color: '#6B7280',
     marginBottom: 8,
   },
   resendButton: {
@@ -507,7 +523,6 @@ const styles = StyleSheet.create({
   },
   backToLoginText: {
     fontSize: 16,
-    color: '#6B7280',
     fontWeight: '400',
   },
   backToLoginLink: {

@@ -8,7 +8,8 @@ const createStyles = () => {
       flex: 1,
       backgroundColor: bg,
       bottom: 0,
-      marginBottom: Platform.OS == "android" ? 60 : 25,
+      // padding (not margin) so theme bg fills the tab-bar clearance — margin left a white gap
+      paddingBottom: Platform.OS == 'android' ? 60 : 25,
     },
     headerLeft: {
       flexDirection: 'row',
@@ -99,7 +100,6 @@ const createStyles = () => {
       bottom: -8,
       right: -8,
       zIndex: 1000,
-      color: icon,
       backgroundColor: '#fff',
       borderRadius: 100,
     },

@@ -2,13 +2,14 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  SafeAreaView,
+  StatusBar,
   SectionList,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 
 import { useAppTheme } from '../../theme/useApptheme';
@@ -92,7 +93,7 @@ export default function BattleVoteDetails() {
     initialSelectedSideLabel,
   );
   const resolvedProfileType = normalizeProfileType(profile);
-  const { bgStyle, cardStyle, accent, card, border, mutedText } = useAppTheme(resolvedProfileType);
+  const { bgStyle, cardStyle, accent, card, border, mutedText, bg } = useAppTheme(resolvedProfileType);
   const { isDarkMode } = useThemeContext();
   const labelColor = isDarkMode ? '#ffffff' : '#111827';
   const inputSurface = isDarkMode ? 'rgba(255,255,255,0.08)' : card;
@@ -673,7 +674,13 @@ export default function BattleVoteDetails() {
         : t('battleVoteDetails.predictionsTitle', 'Predictions');
 
   return (
-    <SafeAreaView style={[styles.container, bgStyle]}>
+    <View style={[styles.root, { backgroundColor: bg }]}>
+      <StatusBar
+        translucent
+        backgroundColor="transparent"
+        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
+      />
+      <SafeAreaView style={[styles.container, { backgroundColor: bg }]} edges={['top', 'bottom']}>
       {/* HEADER */}
 
       <View
@@ -872,13 +879,16 @@ export default function BattleVoteDetails() {
         />
       )}
     </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
   container: {
     flex: 1,
-    marginTop: '5%',
   },
 
   header: {

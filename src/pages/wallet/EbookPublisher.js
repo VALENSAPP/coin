@@ -3,7 +3,8 @@ import { Alert, Image, Platform, ScrollView, StyleSheet, Switch, Text, TextInput
 import { pick, types as documentTypes } from '@react-native-documents/picker';
 import { launchImageLibrary } from 'react-native-image-picker';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { useAppTheme } from '../../theme/useApptheme';
+import { useBusinessProfileTheme } from '../../theme/useBusinessProfileTheme';
+import { useThemeContext } from '../../theme/ThemeContext';
 import { useLanguage } from '../../i18n';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { createPost, getMyEbookLibrary, createMarketplaceEbook, getPurchasedEbooks } from '../../services/post';
@@ -49,8 +50,41 @@ const normalizePickerUri = (uri) => {
   }
 };
 
+const getLibraryCoverImage = (item) => {
+  if (!item) return null;
+  const img = item.images?.[0] || item.image || item.thumbnail || item.coverImage || item.cover;
+  if (typeof img === 'string' && img && !/\.pdf(\?|$)/i.test(img)) return img;
+  if (img?.uri && !/\.pdf(\?|$)/i.test(img.uri)) return img.uri;
+  if (img?.url && !/\.pdf(\?|$)/i.test(img.url)) return img.url;
+  return null;
+};
+
 const EbookPublisher = ({ navigation }) => {
-  const { bgStyle, cardStyle, textStyle, text } = useAppTheme();
+  // Follow wallet screens: theme from logged-in profile (user purple / company gold)
+  const { bgStyle, cardStyle, textStyle, text, card, border, mutedText, icon, accent } =
+    useBusinessProfileTheme();
+  const { isDarkMode } = useThemeContext();
+  const palette = useMemo(
+    () => ({
+      isDarkMode,
+      card,
+      border,
+      mutedText,
+      text,
+      icon,
+      accent,
+      // Slightly elevated surface for inner panels (upload area, info box, etc.)
+      surface: isDarkMode ? '#242424' : '#F8FAFC',
+      surfaceAlt: isDarkMode ? '#1A1A1A' : '#F9FAFB',
+      infoSurface: isDarkMode ? '#242424' : '#EEF2FF',
+      // Neutral foreground text (kept brand-neutral so body copy stays readable)
+      foreground: isDarkMode ? '#F3F4F6' : '#111827',
+      foregroundSoft: isDarkMode ? '#D1D5DB' : '#374151',
+      placeholder: isDarkMode ? '#8A8A8A' : '#9CA3AF',
+    }),
+    [isDarkMode, card, border, mutedText, text, icon, accent],
+  );
+  const styles = useMemo(() => makeStyles(palette), [palette]);
   const { t } = useLanguage();
   const route = useRoute();
   const dispatch = useDispatch();
@@ -518,7 +552,7 @@ const EbookPublisher = ({ navigation }) => {
       <View style={styles.topToggle}>
         <TouchableOpacity
           onPress={() => setStepOneTab('upload')}
-          style={[styles.topToggleButton, stepOneTab === 'upload' && { backgroundColor: text }]}
+          style={[styles.topToggleButton, stepOneTab === 'upload' && { backgroundColor: accent }]}
           activeOpacity={0.85}
         >
           <Ionicons name="cloud-upload-outline" size={16} color={stepOneTab === 'upload' ? '#fff' : text} />
@@ -528,7 +562,7 @@ const EbookPublisher = ({ navigation }) => {
         </TouchableOpacity>
         <TouchableOpacity
           onPress={() => setStepOneTab('library')}
-          style={[styles.topToggleButton, stepOneTab === 'library' && { backgroundColor: text }]}
+          style={[styles.topToggleButton, stepOneTab === 'library' && { backgroundColor: accent }]}
           activeOpacity={0.85}
         >
           <Ionicons name="book-outline" size={16} color={stepOneTab === 'library' ? '#fff' : text} />
@@ -544,7 +578,7 @@ const EbookPublisher = ({ navigation }) => {
             <Ionicons name="cloud-upload-outline" size={44} color={text} />
             <Text style={styles.uploadPrimary}>{t('ebookPublisher.dragDrop')}</Text>
             <Text style={styles.uploadSecondary}>{t('ebookPublisher.or')}</Text>
-            <View style={[styles.uploadButton, { backgroundColor: text }]}>
+            <View style={[styles.uploadButton, { backgroundColor: accent }]}>
               <Text style={styles.uploadButtonText}>{t('ebookPublisher.choosePdf')}</Text>
             </View>
             <Text style={styles.limitText}>{t('ebookPublisher.maxLimit')}</Text>
@@ -576,16 +610,16 @@ const EbookPublisher = ({ navigation }) => {
           <Text style={styles.sectionText}>E-books you&apos;ve purchased from creators on Valens.</Text>
 
           <View style={styles.searchBar}>
-            <Ionicons name="search" size={16} color="#9CA3AF" />
+            <Ionicons name="search" size={16} color={mutedText} />
             <TextInput
               value={librarySearch}
               onChangeText={setLibrarySearch}
               placeholder="Search your library"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={mutedText}
               style={styles.searchInput}
               returnKeyType="search"
             />
-            <Ionicons name="options-outline" size={16} color="#9CA3AF" />
+            <Ionicons name="options-outline" size={16} color={mutedText} />
           </View>
 
           {libraryLoading ? (
@@ -603,7 +637,9 @@ const EbookPublisher = ({ navigation }) => {
               const libraryTitle = item?.caption || item?.title || item?.ebookTitle || 'Untitled e-book';
               const libraryAuthor = formatDisplayName(item?.purchasedFrom || item?.userName || item?.author || item?.displayName || 'Unknown Author');
               const coverLabel = String(libraryTitle).slice(0, 2).toUpperCase();
-              const tint = item?.themeColor || item?.color || text;
+              const coverImage = getLibraryCoverImage(item);
+              // Never fall back to `text` — in user dark mode text is white and covers become blank.
+              const tint = item?.themeColor || item?.color || accent;
 
               return (
                 <TouchableOpacity
@@ -613,13 +649,17 @@ const EbookPublisher = ({ navigation }) => {
                   onPress={() => handleOpenLibraryEbook(item)}
                 >
                   <View style={[styles.libraryCover, { backgroundColor: tint }]}>
-                    <Text style={styles.libraryCoverText}>{coverLabel}</Text>
+                    {coverImage ? (
+                      <Image source={{ uri: coverImage }} style={styles.libraryCoverImage} resizeMode="cover" />
+                    ) : (
+                      <Text style={styles.libraryCoverText}>{coverLabel}</Text>
+                    )}
                   </View>
                   <View style={styles.libraryMeta}>
                     <Text style={styles.libraryItemTitle} numberOfLines={1}>{libraryTitle}</Text>
                     <Text style={styles.libraryItemSubtitle}>by {libraryAuthor}</Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+                  <Ionicons name="chevron-forward" size={18} color={mutedText} />
                 </TouchableOpacity>
               );
             })
@@ -672,7 +712,7 @@ const EbookPublisher = ({ navigation }) => {
           </View>
 
           <TouchableOpacity
-            style={[styles.goClosetButton, { backgroundColor: text }]}
+            style={[styles.goClosetButton, { backgroundColor: accent }]}
             onPress={handleGoToCloset}
             activeOpacity={0.85}
           >
@@ -692,7 +732,7 @@ const EbookPublisher = ({ navigation }) => {
           {stepOneTab === 'upload' && (
             <View style={styles.footerActions}>
               <TouchableOpacity
-                style={[styles.footerButton, styles.footerButtonPrimary, { backgroundColor: text }]}
+                style={[styles.footerButton, styles.footerButtonPrimary, { backgroundColor: accent }]}
                 onPress={() => setRootStep(2)}
               >
                 <Text style={styles.footerButtonPrimaryText}>Continue</Text>
@@ -756,7 +796,7 @@ const EbookPublisher = ({ navigation }) => {
               onChangeText={setTitle}
               style={[styles.inputText, styles.inputField]}
               placeholder="Enter ebook title"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={mutedText}
             />
           </View>
 
@@ -767,7 +807,7 @@ const EbookPublisher = ({ navigation }) => {
               onChangeText={setDescription}
               style={[styles.inputText, styles.textAreaField]}
               placeholder="Add each description line on a new row"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={mutedText}
               multiline
               textAlignVertical="top"
             />
@@ -782,13 +822,13 @@ const EbookPublisher = ({ navigation }) => {
             ) : (
               chapters.map((chapter, index) => (
                 <View key={chapter.id} style={styles.chapterRow}>
-                  <Ionicons name="reorder-three-outline" size={22} color="#9CA3AF" />
+                  <Ionicons name="reorder-three-outline" size={22} color={mutedText} />
                   <Text style={styles.chapterText}>{index + 1}. {chapter.title}</Text>
                   <TouchableOpacity onPress={() => handleEditChapter(chapter)} style={styles.chapterAction}>
-                    <Ionicons name="pencil-outline" size={18} color="#6B7280" />
+                    <Ionicons name="pencil-outline" size={18} color={mutedText} />
                   </TouchableOpacity>
                   <TouchableOpacity onPress={() => handleDeleteChapter(chapter.id)} style={styles.chapterAction}>
-                    <Ionicons name="trash-outline" size={18} color="#6B7280" />
+                    <Ionicons name="trash-outline" size={18} color={mutedText} />
                   </TouchableOpacity>
                 </View>
               ))
@@ -800,7 +840,7 @@ const EbookPublisher = ({ navigation }) => {
                 onChangeText={setChapterDraft}
                 style={styles.chapterInput}
                 placeholder={editingChapterId ? 'Edit chapter title' : 'New chapter title'}
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={mutedText}
               />
               <TouchableOpacity style={[styles.addChapterButton, { borderColor: text }]} onPress={handleAddOrUpdateChapter}>
                 <Text style={[styles.addChapterButtonText, { color: text }]}>
@@ -815,7 +855,7 @@ const EbookPublisher = ({ navigation }) => {
               <Text style={[styles.footerButtonText, { color: text }]}>Back</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.footerButton, styles.footerButtonPrimary, { backgroundColor: text }]}
+              style={[styles.footerButton, styles.footerButtonPrimary, { backgroundColor: accent }]}
               onPress={() => setRootStep(3)}
             >
               <Text style={styles.footerButtonPrimaryText}>Continue</Text>
@@ -841,7 +881,7 @@ const EbookPublisher = ({ navigation }) => {
               onChangeText={val => setAmount(val.replace(/[^0-9.]/g, ''))}
               style={[styles.rootPriceInput, textStyle]}
               placeholder="19.99"
-              placeholderTextColor="#A8A0B8"
+              placeholderTextColor={mutedText}
               keyboardType={Platform.OS === 'android' ? 'numeric' : 'decimal-pad'}
             />
           </View>
@@ -900,7 +940,7 @@ const EbookPublisher = ({ navigation }) => {
         </View>
 
         <TouchableOpacity
-          style={[styles.rootPrimaryButton, { backgroundColor: text, opacity: isSubmitting ? 0.75 : 1 }]}
+          style={[styles.rootPrimaryButton, { backgroundColor: accent, opacity: isSubmitting ? 0.75 : 1 }]}
           onPress={handlePublish}
           disabled={isSubmitting}
         >
@@ -952,12 +992,12 @@ const EbookPublisher = ({ navigation }) => {
                 return (
                   <View key={item.key} style={styles.rootStepItem}>
                     <View style={styles.rootStepTopRow}>
-                      <View style={[styles.rootStepCircle, (active || done) && { backgroundColor: text, borderColor: text }]}>
+                      <View style={[styles.rootStepCircle, (active || done) && { backgroundColor: accent, borderColor: accent }]}>
                         <Text style={[styles.rootStepCircleText, (active || done) && styles.rootStepCircleTextActive]}>
                           {done || active ? '✓' : item.key}
                         </Text>
                       </View>
-                      {!isLast && <View style={[styles.rootStepLine, { backgroundColor: text }]} />}
+                      {!isLast && <View style={[styles.rootStepLine, { backgroundColor: accent }]} />}
                     </View>
                     <Text style={[styles.rootStepLabel, active && { color: text, fontWeight: '800' }]}>{item.label}</Text>
                   </View>
@@ -970,7 +1010,7 @@ const EbookPublisher = ({ navigation }) => {
         ) : (
           <>
             <View style={[styles.progressTrack, cardStyle]}>
-              <View style={[styles.progressFill, { width: `${progress}%`, backgroundColor: text }]} />
+              <View style={[styles.progressFill, { width: `${progress}%`, backgroundColor: accent }]} />
             </View>
 
             <View style={styles.stepRow}>
@@ -983,8 +1023,8 @@ const EbookPublisher = ({ navigation }) => {
                       style={[
                         styles.stepCircle,
                         { borderColor: text },
-                        active && { backgroundColor: text },
-                        done && { backgroundColor: text },
+                        active && { backgroundColor: accent },
+                        done && { backgroundColor: accent },
                       ]}
                     >
                       <Text style={[styles.stepNumber, (active || done) && styles.stepNumberActive]}>
@@ -1005,7 +1045,7 @@ const EbookPublisher = ({ navigation }) => {
           <View style={styles.topToggle}>
             <TouchableOpacity
               onPress={() => setStepOneTab('upload')}
-              style={[styles.topToggleButton, stepOneTab === 'upload' && { backgroundColor: text }]}
+              style={[styles.topToggleButton, stepOneTab === 'upload' && { backgroundColor: accent }]}
               activeOpacity={0.85}
             >
               <Ionicons name="cloud-upload-outline" size={16} color={stepOneTab === 'upload' ? '#fff' : text} />
@@ -1015,7 +1055,7 @@ const EbookPublisher = ({ navigation }) => {
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => setStepOneTab('library')}
-              style={[styles.topToggleButton, stepOneTab === 'library' && { backgroundColor: text }]}
+              style={[styles.topToggleButton, stepOneTab === 'library' && { backgroundColor: accent }]}
               activeOpacity={0.85}
             >
               <Ionicons name="book-outline" size={16} color={stepOneTab === 'library' ? '#fff' : text} />
@@ -1031,7 +1071,7 @@ const EbookPublisher = ({ navigation }) => {
                 <Ionicons name="cloud-upload-outline" size={44} color={text} />
                 <Text style={styles.uploadPrimary}>{t('ebookPublisher.dragDrop')}</Text>
                 <Text style={styles.uploadSecondary}>{t('ebookPublisher.or')}</Text>
-                <View style={[styles.uploadButton, { backgroundColor: text }]}>
+                <View style={[styles.uploadButton, { backgroundColor: accent }]}>
                   <Text style={styles.uploadButtonText}>{t('ebookPublisher.choosePdf')}</Text>
                 </View>
                 <Text style={styles.limitText}>{t('ebookPublisher.maxLimit')}</Text>
@@ -1063,16 +1103,16 @@ const EbookPublisher = ({ navigation }) => {
               <Text style={styles.sectionText}>E-books you&apos;ve purchased from creators on Valens.</Text>
 
               <View style={styles.searchBar}>
-                <Ionicons name="search" size={16} color="#9CA3AF" />
+                <Ionicons name="search" size={16} color={mutedText} />
                 <TextInput
                   value={librarySearch}
                   onChangeText={setLibrarySearch}
                   placeholder="Search your library"
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={mutedText}
                   style={styles.searchInput}
                   returnKeyType="search"
                 />
-                <Ionicons name="options-outline" size={16} color="#9CA3AF" />
+                <Ionicons name="options-outline" size={16} color={mutedText} />
               </View>
 
               {libraryLoading ? (
@@ -1092,7 +1132,9 @@ const EbookPublisher = ({ navigation }) => {
                   const libraryCategory = item?.category || item?.genre || item?.type || 'E-book';
                   const coverLabel = String(libraryTitle).slice(0, 2).toUpperCase();
                   const progress = Math.max(0, Math.min(Number(item?.progress ?? item?.readProgress ?? 0), 100));
-                  const tint = item?.themeColor || item?.color || text;
+                  const coverImage = getLibraryCoverImage(item);
+                  // Never fall back to `text` — in user dark mode text is white and covers become blank.
+                  const tint = item?.themeColor || item?.color || accent;
 
                   return (
                     <TouchableOpacity
@@ -1102,13 +1144,17 @@ const EbookPublisher = ({ navigation }) => {
                       onPress={() => handleOpenLibraryEbook(item)}
                     >
                       <View style={[styles.libraryCover, { backgroundColor: tint }]}>
-                        <Text style={styles.libraryCoverText}>{coverLabel}</Text>
+                        {coverImage ? (
+                          <Image source={{ uri: coverImage }} style={styles.libraryCoverImage} resizeMode="cover" />
+                        ) : (
+                          <Text style={styles.libraryCoverText}>{coverLabel}</Text>
+                        )}
                       </View>
                       <View style={styles.libraryMeta}>
                         <Text style={styles.libraryItemTitle} numberOfLines={1}>{libraryTitle}</Text>
                         <Text style={styles.libraryItemSubtitle}>by {libraryAuthor}</Text>
                       </View>
-                      <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+                      <Ionicons name="chevron-forward" size={18} color={mutedText} />
                     </TouchableOpacity>
                   );
                 })
@@ -1170,7 +1216,7 @@ const EbookPublisher = ({ navigation }) => {
                 onChangeText={setTitle}
                 style={[styles.inputText, styles.inputField]}
                 placeholder="Enter ebook title"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={mutedText}
               />
             </View>
 
@@ -1181,7 +1227,7 @@ const EbookPublisher = ({ navigation }) => {
                 onChangeText={setDescription}
                 style={[styles.inputText, styles.textAreaField]}
                 placeholder="Add each description line on a new row"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={mutedText}
                 multiline
                 textAlignVertical="top"
               />
@@ -1196,13 +1242,13 @@ const EbookPublisher = ({ navigation }) => {
               ) : (
                 chapters.map((chapter, index) => (
                   <View key={chapter.id} style={styles.chapterRow}>
-                    <Ionicons name="reorder-three-outline" size={22} color="#9CA3AF" />
+                    <Ionicons name="reorder-three-outline" size={22} color={mutedText} />
                     <Text style={styles.chapterText}>{index + 1}. {chapter.title}</Text>
                     <TouchableOpacity onPress={() => handleEditChapter(chapter)} style={styles.chapterAction}>
-                      <Ionicons name="pencil-outline" size={18} color="#6B7280" />
+                      <Ionicons name="pencil-outline" size={18} color={mutedText} />
                     </TouchableOpacity>
                     <TouchableOpacity onPress={() => handleDeleteChapter(chapter.id)} style={styles.chapterAction}>
-                      <Ionicons name="trash-outline" size={18} color="#6B7280" />
+                      <Ionicons name="trash-outline" size={18} color={mutedText} />
                     </TouchableOpacity>
                   </View>
                 ))
@@ -1214,7 +1260,7 @@ const EbookPublisher = ({ navigation }) => {
                   onChangeText={setChapterDraft}
                   style={styles.chapterInput}
                   placeholder={editingChapterId ? 'Edit chapter title' : 'New chapter title'}
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={mutedText}
                 />
                 <TouchableOpacity style={[styles.addChapterButton, { borderColor: text }]} onPress={handleAddOrUpdateChapter}>
                   <Text style={[styles.addChapterButtonText, { color: text }]}>
@@ -1345,7 +1391,7 @@ const EbookPublisher = ({ navigation }) => {
               )}
             </View>
             <TouchableOpacity
-              style={[styles.primaryButton, { backgroundColor: text, opacity: isSubmitting ? 0.75 : 1 }]}
+              style={[styles.primaryButton, { backgroundColor: accent, opacity: isSubmitting ? 0.75 : 1 }]}
               onPress={handlePublish}
               disabled={isSubmitting}
             >
@@ -1364,7 +1410,7 @@ const EbookPublisher = ({ navigation }) => {
               )}
               {stepOneTab === 'upload' && step < 3 && (
                 <TouchableOpacity
-                  style={[styles.footerButton, styles.footerButtonPrimary, { backgroundColor: text }]}
+                  style={[styles.footerButton, styles.footerButtonPrimary, { backgroundColor: accent }]}
                   onPress={() => setStep(prev => (prev === 1 && !selectedPdf ? prev : Math.min(3, prev + 1)))}
                 >
                   <Text style={styles.footerButtonPrimaryText}>
@@ -1382,7 +1428,21 @@ const EbookPublisher = ({ navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = ({
+  isDarkMode,
+  card,
+  border,
+  mutedText,
+  text,
+  icon,
+  accent,
+  surface,
+  surfaceAlt,
+  infoSurface,
+  foreground,
+  foregroundSoft,
+  placeholder,
+}) => StyleSheet.create({
   screen: { flex: 1, marginBottom: '5%' },
   header: {
     flexDirection: 'row',
@@ -1401,12 +1461,12 @@ const styles = StyleSheet.create({
   headerIconButton: { width: 40, alignItems: 'center', justifyContent: 'center' },
   headerCenter: { flex: 1, alignItems: 'center' },
   title: { fontSize: 20, fontWeight: '800' },
-  subtitle: { fontSize: 13, color: '#6B7280', marginTop: 4, textAlign: 'center' },
+  subtitle: { fontSize: 13, color: mutedText, marginTop: 4, textAlign: 'center' },
   content: { paddingHorizontal: 16, paddingBottom: 40 },
   topToggle: {
     flexDirection: 'row',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: border,
     borderRadius: 16,
     overflow: 'hidden',
     marginBottom: 14,
@@ -1418,15 +1478,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#fff',
+    backgroundColor: card,
   },
-  topToggleText: { fontWeight: '700', color: '#374151' },
+  topToggleText: { fontWeight: '700', color: foregroundSoft },
   topToggleTextActive: { color: '#fff' },
   progressTrack: {
     height: 8,
     borderRadius: 999,
     overflow: 'hidden',
-    backgroundColor: '#E5E7EB',
+    backgroundColor: border,
     marginBottom: 16,
   },
   progressFill: { height: '100%', borderRadius: 999 },
@@ -1439,11 +1499,11 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: card,
   },
-  stepNumber: { fontSize: 14, fontWeight: '700', color: '#6B7280' },
+  stepNumber: { fontSize: 14, fontWeight: '700', color: mutedText },
   stepNumberActive: { color: '#fff' },
-  stepLabel: { fontSize: 11, marginTop: 6, color: '#6B7280', textAlign: 'center' },
+  stepLabel: { fontSize: 11, marginTop: 6, color: mutedText, textAlign: 'center' },
   card: {
     borderRadius: 24,
     padding: 16,
@@ -1455,9 +1515,9 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   sectionTitle: { fontSize: 18, fontWeight: '800', marginBottom: 6 },
-  libraryTitle: { fontSize: 18, fontWeight: '800', marginBottom: 2, color: '#111827' },
-  sectionText: { fontSize: 13, color: '#6B7280', marginBottom: 14, lineHeight: 19 },
-  helperText: { fontSize: 12, color: '#6B7280', marginBottom: 8, fontWeight: '600' },
+  libraryTitle: { fontSize: 18, fontWeight: '800', marginBottom: 2, color: foreground },
+  sectionText: { fontSize: 13, color: mutedText, marginBottom: 14, lineHeight: 19 },
+  helperText: { fontSize: 12, color: mutedText, marginBottom: 8, fontWeight: '600' },
   uploadArea: {
     borderWidth: 1.5,
     borderStyle: 'dashed',
@@ -1465,10 +1525,10 @@ const styles = StyleSheet.create({
     paddingVertical: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: surface,
   },
-  uploadPrimary: { marginTop: 12, fontSize: 16, fontWeight: '700', color: '#374151' },
-  uploadSecondary: { marginTop: 8, fontSize: 13, color: '#6B7280' },
+  uploadPrimary: { marginTop: 12, fontSize: 16, fontWeight: '700', color: foregroundSoft },
+  uploadSecondary: { marginTop: 8, fontSize: 13, color: mutedText },
   uploadButton: {
     marginTop: 14,
     paddingHorizontal: 20,
@@ -1478,33 +1538,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   uploadButtonText: { color: '#fff', fontWeight: '700' },
-  limitText: { marginTop: 14, fontSize: 12, color: '#6B7280' },
+  limitText: { marginTop: 14, fontSize: 12, color: mutedText },
   libraryPanel: { gap: 12 },
-  libraryStateText: { fontSize: 14, color: '#6B7280', fontWeight: '600', paddingVertical: 8 },
+  libraryStateText: { fontSize: 14, color: mutedText, fontWeight: '600', paddingVertical: 8 },
   searchBar: {
     minHeight: 46,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: border,
     paddingHorizontal: 12,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: '#fff',
+    backgroundColor: card,
   },
-  searchInput: { flex: 1, color: '#111827', fontSize: 13, paddingVertical: 0, paddingHorizontal: 0 },
+  searchInput: { flex: 1, color: foreground, fontSize: 13, paddingVertical: 0, paddingHorizontal: 0 },
   filterRow: { gap: 10, paddingVertical: 2 },
   filterPill: {
     minHeight: 32,
     paddingHorizontal: 12,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#fff',
+    borderColor: border,
+    backgroundColor: card,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  filterText: { fontSize: 12, fontWeight: '600', color: '#6B7280' },
+  filterText: { fontSize: 12, fontWeight: '600', color: mutedText },
   libraryItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1512,8 +1572,8 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#fff',
+    borderColor: border,
+    backgroundColor: card,
   },
   libraryCover: {
     width: 52,
@@ -1521,27 +1581,32 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  libraryCoverImage: {
+    width: '100%',
+    height: '100%',
   },
   libraryCoverText: { color: '#fff', fontWeight: '900', fontSize: 12, textAlign: 'center' },
   libraryMeta: { flex: 1 },
-  libraryItemTitle: { fontSize: 14, fontWeight: '800', color: '#111827' },
-  libraryItemSubtitle: { marginTop: 2, fontSize: 12, color: '#6B7280' },
+  libraryItemTitle: { fontSize: 14, fontWeight: '800', color: foreground },
+  libraryItemSubtitle: { marginTop: 2, fontSize: 12, color: mutedText },
   libraryCategory: { marginTop: 4, fontSize: 12, fontWeight: '600' },
   progressLine: {
     height: 4,
     borderRadius: 999,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: border,
     overflow: 'hidden',
     marginTop: 8,
   },
   progressLineFill: { height: '100%', borderRadius: 999 },
-  progressLabel: { marginTop: 4, fontSize: 11, color: '#6B7280', fontWeight: '600' },
+  progressLabel: { marginTop: 4, fontSize: 11, color: mutedText, fontWeight: '600' },
   libraryActions: { alignItems: 'center', justifyContent: 'space-between', alignSelf: 'stretch', paddingVertical: 4 },
   fileRow: {
     marginTop: 14,
     padding: 14,
     borderRadius: 18,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: surface,
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -1557,50 +1622,50 @@ const styles = StyleSheet.create({
   fileBadgeText: { color: '#DC2626', fontWeight: '800', fontSize: 12 },
   fileMeta: { flex: 1 },
   fileName: { fontSize: 14, fontWeight: '700' },
-  fileSize: { fontSize: 12, color: '#6B7280', marginTop: 2 },
+  fileSize: { fontSize: 12, color: mutedText, marginTop: 2 },
   infoBox: {
     marginTop: 14,
     padding: 12,
     borderRadius: 16,
-    backgroundColor: '#EEF2FF',
+    backgroundColor: infoSurface,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  infoText: { flex: 1, fontSize: 12, color: '#4B5563', lineHeight: 18 },
-  fieldLabel: { marginTop: 16, marginBottom: 10, fontSize: 15, fontWeight: '700', color: '#374151' },
+  infoText: { flex: 1, fontSize: 12, color: foregroundSoft, lineHeight: 18 },
+  fieldLabel: { marginTop: 16, marginBottom: 10, fontSize: 15, fontWeight: '700', color: foregroundSoft },
   coverRow: { gap: 12, paddingRight: 8 },
   coverCard: {
     width: 156,
     padding: 12,
     borderRadius: 20,
     borderWidth: 1.2,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#fff',
+    borderColor: border,
+    backgroundColor: card,
   },
   coverPreview: { height: 108, borderRadius: 16, marginBottom: 12 },
   customCoverImage: { width: '100%', height: '100%', borderRadius: 16 },
-  coverTitle: { fontWeight: '800', color: '#111827' },
-  coverSubtitle: { fontSize: 12, color: '#6B7280', marginTop: 4, lineHeight: 16 },
+  coverTitle: { fontWeight: '800', color: foreground },
+  coverSubtitle: { fontSize: 12, color: mutedText, marginTop: 4, lineHeight: 16 },
   coverSelected: { marginTop: 8, fontSize: 12, fontWeight: '700' },
   uploadCoverCard: { alignItems: 'center', justifyContent: 'center', borderStyle: 'dashed' },
   inputLike: {
     minHeight: 52,
     borderRadius: 16,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: surfaceAlt,
     paddingHorizontal: 14,
     justifyContent: 'center',
   },
-  inputField: { paddingVertical: 0, color: '#111827' },
+  inputField: { paddingVertical: 0, color: foreground },
   textAreaLike: {
     minHeight: 92,
     borderRadius: 16,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: surfaceAlt,
     paddingHorizontal: 14,
     paddingVertical: 14,
   },
-  textAreaField: { minHeight: 64, color: '#111827' },
-  inputText: { fontSize: 14, color: '#111827', lineHeight: 20 },
+  textAreaField: { minHeight: 64, color: foreground },
+  inputText: { fontSize: 14, color: foreground, lineHeight: 20 },
   chapterList: {
     marginTop: 6,
     gap: 10,
@@ -1610,29 +1675,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: border,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: card,
   },
-  chapterText: { flex: 1, fontSize: 13, color: '#374151', fontWeight: '600' },
+  chapterText: { flex: 1, fontSize: 13, color: foregroundSoft, fontWeight: '600' },
   chapterAction: { paddingHorizontal: 6, paddingVertical: 8 },
   chapterEditor: {
     marginTop: 8,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: border,
     padding: 12,
-    backgroundColor: '#FBFBFD',
+    backgroundColor: surfaceAlt,
   },
   chapterInput: {
     minHeight: 44,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: border,
     paddingHorizontal: 12,
-    color: '#111827',
-    backgroundColor: '#fff',
+    color: foreground,
+    backgroundColor: card,
   },
   addChapterButton: {
     marginTop: 12,
@@ -1641,7 +1706,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: card,
   },
   addChapterButtonText: { fontWeight: '800' },
   previewCard: {
@@ -1650,7 +1715,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.2,
     overflow: 'hidden',
     marginTop: 8,
-    backgroundColor: '#fff',
+    backgroundColor: card,
   },
   previewCover: {
     width: 120,
@@ -1667,32 +1732,32 @@ const styles = StyleSheet.create({
   previewCoverFooter: { color: '#fff', fontSize: 11, fontWeight: '700' },
   previewMeta: { flex: 1, padding: 14 },
   previewTitle: { fontSize: 18, fontWeight: '900' },
-  previewAuthor: { fontSize: 13, color: '#6B7280', marginTop: 4 },
-  previewDescription: { fontSize: 13, color: '#374151', marginTop: 10, lineHeight: 19 },
+  previewAuthor: { fontSize: 13, color: mutedText, marginTop: 4 },
+  previewDescription: { fontSize: 13, color: foregroundSoft, marginTop: 10, lineHeight: 19 },
   previewStats: { marginTop: 14, gap: 10 },
   previewStat: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  previewStatText: { fontSize: 12, color: '#4B5563', flex: 1 },
+  previewStatText: { fontSize: 12, color: foregroundSoft, flex: 1 },
   priceCard: {
     marginTop: 12,
     borderWidth: 1,
     borderRadius: 12,
     padding: 12,
-    backgroundColor: '#fff',
+    backgroundColor: card,
   },
   priceLabel: { fontSize: 13, fontWeight: '700', marginBottom: 8 },
   priceInputRow: { flexDirection: 'row', alignItems: 'center' },
-  priceDollar: { width: 44, height: 44, borderWidth: 1, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginRight: 8, backgroundColor: '#fff' },
+  priceDollar: { width: 44, height: 44, borderWidth: 1, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginRight: 8, backgroundColor: card },
   priceDollarText: { fontSize: 18, fontWeight: '800' },
   priceInput: { flex: 1, fontSize: 16, paddingVertical: 8 },
-  priceHint: { fontSize: 12, color: '#6B7280', marginTop: 8 },
+  priceHint: { fontSize: 12, color: mutedText, marginTop: 8 },
   promoRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 16 },
   promoLeft: { flex: 1, paddingRight: 8 },
   promoRight: { width: 64, alignItems: 'flex-end' },
-  promoInputWrap: { marginTop: 12, borderWidth: 1, borderRadius: 10, backgroundColor: '#fff', paddingHorizontal: 12 },
+  promoInputWrap: { marginTop: 12, borderWidth: 1, borderRadius: 10, backgroundColor: card, paddingHorizontal: 12 },
   promoInput: { minHeight: 44, paddingVertical: 10 },
-  settingsCard: { marginTop: 16, padding: 14, borderRadius: 18, backgroundColor: '#F8FAFC' },
+  settingsCard: { marginTop: 16, padding: 14, borderRadius: 18, backgroundColor: surface },
   settingsRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
-  settingLabel: { fontSize: 13, color: '#6B7280' },
+  settingLabel: { fontSize: 13, color: mutedText },
   settingValue: { fontSize: 13, fontWeight: '700', flexShrink: 1, textAlign: 'right' },
   primaryButton: {
     marginTop: 16,
@@ -1709,7 +1774,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: card,
   },
   footerButtonPrimary: { borderWidth: 0 },
   footerButtonText: { fontWeight: '800' },
@@ -1718,12 +1783,12 @@ const styles = StyleSheet.create({
   settingTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#111827',
+    color: foreground,
   },
 
   settingSubtitle: {
     fontSize: 12,
-    color: '#6B7280',
+    color: mutedText,
     marginTop: 4,
     maxWidth: '85%',
   },
@@ -1765,15 +1830,15 @@ const styles = StyleSheet.create({
     height: 28,
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: '#D1D5DB',
+    borderColor: border,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: card,
   },
   rootStepCircleText: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#8E8AA3',
+    color: mutedText,
   },
   rootStepCircleTextActive: {
     color: '#fff',
@@ -1787,7 +1852,7 @@ const styles = StyleSheet.create({
   },
   rootStepLabel: {
     fontSize: 12,
-    color: '#8E8AA3',
+    color: mutedText,
     fontWeight: '700',
     marginLeft: -10
   },
@@ -1797,12 +1862,12 @@ const styles = StyleSheet.create({
   rootSectionTitle: {
     fontSize: 28,
     fontWeight: '900',
-    color: '#111827',
+    color: foreground,
     marginTop: 6,
   },
   rootSectionSubtitle: {
     fontSize: 14,
-    color: '#6B7280',
+    color: mutedText,
     marginBottom: 4,
   },
   rootCard: {
@@ -1821,7 +1886,7 @@ const styles = StyleSheet.create({
   },
   rootCardBody: {
     fontSize: 13,
-    color: '#6B7280',
+    color: mutedText,
     marginBottom: 14,
     lineHeight: 18,
   },
@@ -1831,13 +1896,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1.5,
     borderRadius: 14,
-    backgroundColor: '#fff',
+    backgroundColor: card,
     paddingHorizontal: 12,
   },
   rootCurrency: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#4B2A8F',
+    color: accent,
     marginRight: 10,
   },
   rootPriceInput: {
@@ -1849,7 +1914,7 @@ const styles = StyleSheet.create({
   rootHint: {
     marginTop: 10,
     fontSize: 12,
-    color: '#6B7280',
+    color: mutedText,
   },
   earningsRow: {
     flexDirection: 'row',
@@ -1859,21 +1924,21 @@ const styles = StyleSheet.create({
   },
   earningsLabel: {
     fontSize: 13,
-    color: '#374151',
+    color: foregroundSoft,
     fontWeight: '600',
   },
   earningsValue: {
     fontSize: 13,
-    color: '#111827',
+    color: foreground,
     fontWeight: '800',
   },
   earningsDivider: {
     height: 1,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: border,
     marginVertical: 8,
   },
   earningsTotalLabel: {
-    color: '#4B2A8F',
+    color: accent,
     fontWeight: '800',
   },
   earningsTotalValue: {
@@ -1885,7 +1950,7 @@ const styles = StyleSheet.create({
   },
   rootPromoSubtitle: {
     fontSize: 12,
-    color: '#6B7280',
+    color: mutedText,
     marginTop: 4,
     maxWidth: '90%',
   },
@@ -1941,12 +2006,12 @@ const styles = StyleSheet.create({
   successTitle: {
     fontSize: 24,
     fontWeight: '900',
-    color: '#111827',
+    color: foreground,
     marginBottom: 8,
   },
   successSubtitle: {
     fontSize: 14,
-    color: '#6B7280',
+    color: mutedText,
     textAlign: 'center',
     marginBottom: 18,
   },
@@ -1955,10 +2020,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: border,
     borderRadius: 18,
     padding: 12,
-    backgroundColor: '#fff',
+    backgroundColor: card,
   },
   successBookCover: {
     width: 72,
@@ -1990,13 +2055,13 @@ const styles = StyleSheet.create({
   successBookTitle: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#111827',
+    color: foreground,
   },
   successBookPrice: {
     marginTop: 4,
     fontSize: 15,
     fontWeight: '900',
-    color: '#111827',
+    color: foreground,
   },
   publishedPill: {
     alignSelf: 'flex-start',

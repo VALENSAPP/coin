@@ -580,7 +580,6 @@ function PostItem({
   const [userProfile, setUserProfile] = useState('');
   const [currentUserProfileType, setCurrentUserProfileType] = useState('user');
   const isCompanyProfile = userProfile === 'company';
-  const DragonflyIcon = getDragonflyIcon(totalFollowers, isCompanyProfile);
   const [donation, setDonation] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [videoStates, setVideoStates] = useState({});
@@ -729,6 +728,10 @@ function PostItem({
   const { isDarkMode } = useThemeContext();
   const viewerThemeProfile = isBusinessProfile ? 'company' : undefined;
   const { bgStyle, textStyle, cardStyle, border, mutedText, accent, icon, text, card } = useAppTheme(viewerThemeProfile);
+  const DragonflyIcon = useMemo(
+    () => getDragonflyIcon(totalFollowers, isCompanyProfile, isDarkMode),
+    [totalFollowers, isCompanyProfile, isDarkMode],
+  );
   const getPostProfileTextColor = useCallback(
     profile => {
       if (!isDarkMode) {

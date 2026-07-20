@@ -848,8 +848,8 @@ export const WalletDashboardScreen = ({ navigation }) => {
   );
   const isMetaMaskConnected = isWalletConnected || !!connectedWallet;
   const DragonflyIcon = useMemo(
-    () => getDragonflyIcon(followersCount),
-    [followersCount],
+    () => getDragonflyIcon(followersCount, false, isDarkMode),
+    [followersCount, isDarkMode],
   );
   const headerNameLabel = useMemo(() => {
     const name = String(userProfile.name || t('walletDashboard.headerDefaultUser')).trim();
@@ -2199,34 +2199,37 @@ export const WalletDashboardScreen = ({ navigation }) => {
           animationType="fade"
           onRequestClose={closeReferPointsInfo}
         >
-          <View style={styles.modalOverlay}>
+          <View style={styles.referPointsInfoOverlay}>
             <TouchableOpacity
-              style={styles.modalOverlay}
+              style={StyleSheet.absoluteFillObject}
               activeOpacity={1}
               onPress={closeReferPointsInfo}
             />
-            <View style={[styles.modalContent, bgStyle]}>
-              <View style={styles.referPointsInfoInner}>
-                <Text style={[styles.referPointsInfoTitle, textStyle]}>
-                  {t('walletDashboard.battlePoints.referPointsInfoTitle')}
-                </Text>
-                <Text style={[styles.referPointsInfoText, textStyle]}>
-                  {t('walletDashboard.battlePoints.referPointsInfoBody1')}
-                </Text>
-                <Text style={[styles.referPointsInfoText, textStyle]}>
-                  {t('walletDashboard.battlePoints.referPointsInfoBody2', { points: '1,000' })}
-                </Text>
+            <View
+              style={[
+                styles.referPointsInfoCard,
+                { backgroundColor: card, borderColor: border },
+              ]}
+            >
+              <Text style={[styles.referPointsInfoTitle, textStyle]}>
+                {t('walletDashboard.battlePoints.referPointsInfoTitle')}
+              </Text>
+              <Text style={[styles.referPointsInfoText, textStyle]}>
+                {t('walletDashboard.battlePoints.referPointsInfoBody1')}
+              </Text>
+              <Text style={[styles.referPointsInfoText, textStyle]}>
+                {t('walletDashboard.battlePoints.referPointsInfoBody2', { points: '1,000' })}
+              </Text>
 
-                <TouchableOpacity
-                  style={[styles.referPointsInfoCta, { backgroundColor: accent }]}
-                  onPress={closeReferPointsInfo}
-                  activeOpacity={0.85}
-                >
-                  <Text style={styles.referPointsInfoCtaText}>
-                    {t('walletDashboard.battlePoints.referPointsInfoCta')}
-                  </Text>
-                </TouchableOpacity>
-              </View>
+              <TouchableOpacity
+                style={[styles.referPointsInfoCta, { backgroundColor: accent }]}
+                onPress={closeReferPointsInfo}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.referPointsInfoCtaText}>
+                  {t('walletDashboard.battlePoints.referPointsInfoCta')}
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
         </Modal>
@@ -2674,10 +2677,21 @@ const styles = StyleSheet.create({
   pointsInfoIcon: {
     marginTop: 1,
   },
-  referPointsInfoInner: {
-    paddingHorizontal: 20,
-    paddingTop: 18,
-    paddingBottom: 16,
+  referPointsInfoOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 28,
+  },
+  referPointsInfoCard: {
+    width: '100%',
+    maxWidth: 340,
+    borderRadius: 20,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 22,
+    paddingTop: 22,
+    paddingBottom: 18,
   },
   referPointsInfoTitle: {
     fontSize: 18,
@@ -2696,7 +2710,7 @@ const styles = StyleSheet.create({
   referPointsInfoCta: {
     marginTop: 6,
     borderRadius: 999,
-    paddingVertical: 10,
+    paddingVertical: 12,
     paddingHorizontal: 16,
     alignItems: 'center',
     justifyContent: 'center',

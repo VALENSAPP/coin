@@ -66,8 +66,7 @@ const Usersprofile = () => {
   const dispatch = useDispatch();
   const purchaseSheetRef = useRef(null);
   const sellSheetRef = useRef(null);
-  const profileThemeType =
-    normalizeProfileType(userData?.profile) === 'company' ? 'company' : undefined;
+  const profileThemeType = normalizeProfileType(userData?.profile);
   const { bgStyle, textStyle, accent } = useAppTheme(profileThemeType);
 
   const fetchLoggedInUserId = useCallback(async () => {

@@ -15,7 +15,7 @@ import {
   Keyboard,
   Modal,
   Platform,
-  SafeAreaView,
+  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -25,6 +25,7 @@ import {
   View,
   DeviceEventEmitter,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import Svg, { ClipPath, Polygon, Image as SvgImage, Defs } from 'react-native-svg';
 import LinearGradient from 'react-native-linear-gradient';
@@ -646,7 +647,7 @@ export default function BattleInProgress() {
   const { t } = useLanguage();
   const { profile } = route.params || {};
   const resolvedProfileType = normalizeProfileType(profile);
-  const { bgStyle, textStyle, cardStyle, accent, card, border, mutedText } = useAppTheme(resolvedProfileType);
+  const { bgStyle, textStyle, cardStyle, accent, card, border, mutedText, bg } = useAppTheme(resolvedProfileType);
   const { isDarkMode } = useThemeContext();
   const labelColor = isDarkMode ? '#ffffff' : '#111827';
   const inputSurface = isDarkMode ? 'rgba(255,255,255,0.08)' : card;
@@ -1267,12 +1268,20 @@ export default function BattleInProgress() {
   }, [hasUserVoted, keepActiveSelectedStyle]);
 
   useFocusEffect(useCallback(() => {
+    const barStyle = isDarkMode ? 'light-content' : 'dark-content';
+    StatusBar.setBarStyle(barStyle, true);
+    if (Platform.OS === 'android') {
+      // RN 0.76+ / Android 15 edge-to-edge ignores opaque statusBarColor —
+      // draw the themed screen behind a transparent status bar instead.
+      StatusBar.setTranslucent(true);
+      StatusBar.setBackgroundColor('transparent', true);
+    }
     setExpandedReplies({});
     if (battleId) {
       fetchBattle(true);
     }
     return () => setExpandedReplies({});
-  }, [battleId, fetchBattle]));
+  }, [battleId, fetchBattle, isDarkMode]));
 
   useEffect(() => { setExpandedReplies({}); }, [resolvedBattleId]);
 
@@ -2758,7 +2767,7 @@ export default function BattleInProgress() {
                         {hasVotes ? `${leftPct}%` : '—'}
                       </Text>
                       <Text style={styles.progressVotes}>
-                        {hasVotes ? `${leftVotes} ${t('battleInProgress.votesLabel')}` : (t('battleInProgress.noVotesYet') || 'No votes yet')}
+                        {hasVotes ? `${leftVotes} ${t('battleInProgress.votesLabel')}` : (t('battleInProgress.noVotesYet', 'No votes yet'))}
                       </Text>
                     </View>
                     {/* <View style={styles.progressMidCol}>
@@ -2771,7 +2780,7 @@ export default function BattleInProgress() {
                         {hasVotes ? `${rightPct}%` : '—'}
                       </Text>
                       <Text style={styles.progressVotes}>
-                        {hasVotes ? `${rightVotes} ${t('battleInProgress.votesLabel')}` : (t('battleInProgress.noVotesYet') || 'No votes yet')}
+                        {hasVotes ? `${rightVotes} ${t('battleInProgress.votesLabel')}` : (t('battleInProgress.noVotesYet', 'No votes yet'))}
                       </Text>
                     </View>
                   </View>
@@ -2832,7 +2841,13 @@ export default function BattleInProgress() {
   // ─── main render ──────────────────────────────────────────────────────────
 
   return (
-    <SafeAreaView style={[styles.safeArea, bgStyle]}>
+    <View style={[styles.root, { backgroundColor: bg || '#121212' }]}>
+      <StatusBar
+        translucent
+        backgroundColor="transparent"
+        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
+      />
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: bg || '#121212' }]} edges={['top', 'bottom']}>
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
         <KeyboardAwareScrollView
           style={[styles.container, bgStyle]}
@@ -3243,11 +3258,13 @@ export default function BattleInProgress() {
         </Pressable>
       </Modal>
     </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, marginTop: '10%' },
+  root: { flex: 1 },
+  safeArea: { flex: 1 },
   loaderWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   container: { flex: 1 },
   contentContainer: { paddingHorizontal: 18, paddingTop: 12, paddingBottom: 34 },

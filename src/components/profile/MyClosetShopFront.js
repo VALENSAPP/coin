@@ -16,6 +16,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useThemeContext } from '../../theme/ThemeContext';
+import { normalizeProfileType } from '../../utils/supportEligibility';
 import { useLanguage } from '../../i18n';
 import { getMarketPlaceEbook, getMarketplaceEbooksByClosetId } from '../../services/post';
 import {
@@ -342,7 +343,17 @@ const getDescription = (item) => {
   return item.description || 'No description available';
 };
 
-const EbookRowItem = React.memo(({ item, isPurchased, isOwnProfile, accent, onPress }) => {
+const EbookRowItem = React.memo(({
+  item,
+  isPurchased,
+  isOwnProfile,
+  accent,
+  text,
+  mutedText,
+  card,
+  border,
+  onPress,
+}) => {
   const coverImage = getCoverImage(item);
   const title = item.caption || item.title || 'E-book';
   const description = getDescription(item);
@@ -351,8 +362,12 @@ const EbookRowItem = React.memo(({ item, isPurchased, isOwnProfile, accent, onPr
   const showPurchasedBadge = isOwnProfile || isPurchased;
 
   return (
-    <TouchableOpacity activeOpacity={0.88} onPress={onPress} style={s.ebookCard}>
-      <View style={s.ebookCoverContainer}>
+    <TouchableOpacity
+      activeOpacity={0.88}
+      onPress={onPress}
+      style={[s.ebookCard, { backgroundColor: card, borderColor: border }]}
+    >
+      <View style={[s.ebookCoverContainer, { backgroundColor: border }]}>
         {coverImage ? (
           <Image source={{ uri: coverImage }} style={s.ebookCoverImage} resizeMode="cover" />
         ) : (
@@ -362,20 +377,20 @@ const EbookRowItem = React.memo(({ item, isPurchased, isOwnProfile, accent, onPr
         )}
       </View>
       <View style={s.ebookCardBody}>
-        <Text style={s.ebookTitle} numberOfLines={1}>{title}</Text>
-        <Text style={s.ebookDesc} numberOfLines={2}>{description}</Text>
+        <Text style={[s.ebookTitle, { color: text }]} numberOfLines={1}>{title}</Text>
+        <Text style={[s.ebookDesc, { color: mutedText }]} numberOfLines={2}>{description}</Text>
         <View style={s.ebookMetaRow}>
-          <Text style={[s.ebookMeta, { color: accent }]}>📚 {item?.tableContent?.length || 0} Chapters</Text>
+          <Text style={[s.ebookMeta, { color: text }]}>📚 {item?.tableContent?.length || 0} Chapters</Text>
           {showPurchasedBadge ? (
             <View style={s.ebookOwnedBadge}>
               <Text style={s.ebookOwnedBadgeText}>{isOwnProfile ? 'Owned' : 'Purchased'}</Text>
             </View>
           ) : (
-            <Text style={[s.ebookPriceTag, { color: accent }]}>{priceLabel}</Text>
+            <Text style={[s.ebookPriceTag, { color: text }]}>{priceLabel}</Text>
           )}
         </View>
       </View>
-      <Ionicons name="chevron-forward" size={18} color="#6b7280" />
+      <Ionicons name="chevron-forward" size={18} color={mutedText} />
     </TouchableOpacity>
   );
 });
@@ -488,7 +503,7 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
     border,
     mutedText,
     cardStyle,
-  } = useAppTheme(userData?.profile);
+  } = useAppTheme(normalizeProfileType(userData?.profile) === 'company' ? 'company' : 'user');
   const { isDarkMode } = useThemeContext();
   const brand = accent || text;
 
@@ -753,7 +768,7 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
             </View>
           )}
           <View style={s.bannerBody}>
-            <Text style={[s.bannerTitle, { color: brand }]}>{shopName}</Text>
+            <Text style={[s.bannerTitle, { color: text }]}>{shopName}</Text>
             <Text style={[s.bannerSub, { color: mutedText }]}>
               {shopDescription ? shopDescription : t('myClosetShopFront.shopOwnerBannerSubtitle')}
             </Text>
@@ -773,7 +788,7 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
             </View>
           )}
           <View style={s.bannerBody}>
-            <Text style={[s.bannerTitle, { color: brand }]}>{shopName}</Text>
+            <Text style={[s.bannerTitle, { color: text }]}>{shopName}</Text>
             <Text style={[s.bannerSub, { color: mutedText }]}>
               {shopDescription ? shopDescription : t('myClosetShopFront.userBannerSubtitle')}
             </Text>
@@ -808,6 +823,10 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
                     isPurchased={purchased}
                     isOwnProfile={isOwnProfile}
                     accent={accent}
+                    text={text}
+                    mutedText={mutedText}
+                    card={card}
+                    border={border}
                     onPress={() => handleEbookPress(item)}
                   />
                 );
@@ -1048,12 +1067,10 @@ const s = StyleSheet.create({
   ebookCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
     borderRadius: 16,
     padding: 12,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#f0ece8',
     shadowColor: '#000',
     shadowOpacity: 0.03,
     shadowRadius: 8,
@@ -1066,7 +1083,6 @@ const s = StyleSheet.create({
     borderRadius: 10,
     overflow: 'hidden',
     marginRight: 12,
-    backgroundColor: '#f5f3ee',
   },
   ebookCoverImage: {
     width: '100%',
@@ -1089,12 +1105,10 @@ const s = StyleSheet.create({
   ebookTitle: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#111827',
     marginBottom: 4,
   },
   ebookDesc: {
     fontSize: 11,
-    color: '#6b7280',
     lineHeight: 15,
     marginBottom: 6,
   },

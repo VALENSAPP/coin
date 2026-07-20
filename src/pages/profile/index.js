@@ -47,8 +47,7 @@ const ProfileScreen = () => {
 
   const toast = useToast();
   const dispatch = useDispatch();
-  const profileThemeType =
-    normalizeProfileType(userData?.profile) === 'company' ? 'company' : undefined;
+  const profileThemeType = normalizeProfileType(userData?.profile);
   const { bgStyle, accent } = useAppTheme(profileThemeType);
   const { t } = useLanguage();
 

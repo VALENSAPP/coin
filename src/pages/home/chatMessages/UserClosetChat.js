@@ -8,15 +8,17 @@ import {
   Alert,
   Platform,
   KeyboardAvoidingView,
-  SafeAreaView,
   ActivityIndicator,
   RefreshControl,
   StyleSheet,
+  StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
 import { useAppTheme } from '../../../theme/useApptheme';
+import { useThemeContext } from '../../../theme/ThemeContext';
 import {
   getSocket,
   getClosetChatMessages,
@@ -89,7 +91,12 @@ export default function UserClosetChat({ route, navigation }) {
   const { threadId, otherUser, orderInfo } = routeParams;
 
   const { t } = useLanguage();
-  const { bgStyle, textStyle, text } = useAppTheme();
+  const { bgStyle, textStyle, text, bg, card, border, mutedText, accent, icon } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const styles = React.useMemo(
+    () => createStyles({ card, border, mutedText, text, accent, bg, isDarkMode }),
+    [card, border, mutedText, text, accent, bg, isDarkMode],
+  );
 
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
@@ -506,7 +513,7 @@ export default function UserClosetChat({ route, navigation }) {
                 uri={otherUser?.avatar || otherUser?.image || ONLINE_PLACEHOLDER}
                 size={32}
                 borderWidth={2}
-                borderColor={text}
+                borderColor={border}
               />
             </View>
           )}
@@ -514,7 +521,7 @@ export default function UserClosetChat({ route, navigation }) {
             <View style={[
               styles.msgBubble,
               isMe ? styles.msgBubbleMe : styles.msgBubblePeer,
-              isMe && { backgroundColor: text },
+              isMe && { backgroundColor: accent },
               item.isPending && styles.tempMessage
             ]}>
               <Text style={[styles.msgText, isMe ? styles.msgTextMe : styles.msgTextPeer]}>
@@ -526,7 +533,7 @@ export default function UserClosetChat({ route, navigation }) {
                 <SafeIcon
                   name="checkmark-done"
                   size={16}
-                  color={item.isSeen || item.seen === true ? '#3b82f6' : '#9ca3af'}
+                  color={item.isSeen || item.seen === true ? accent : mutedText}
                   style={styles.seenIcon}
                 />
                 <Text style={styles.statusText}>
@@ -552,11 +559,12 @@ export default function UserClosetChat({ route, navigation }) {
   );
 
   return (
-    <SafeAreaView style={[styles.container, bgStyle]}>
+    <SafeAreaView style={[styles.container, bgStyle]} edges={['top', 'bottom']}>
+      <StatusBar backgroundColor={bg} barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
       {/* Header */}
-      <View style={[styles.header, bgStyle]}>
+      <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <SafeIcon name="arrow-back" size={24} color="#000" />
+          <SafeIcon name="arrow-back" size={24} color={icon} />
         </TouchableOpacity>
 
         <View style={styles.headerInfo}>
@@ -564,7 +572,7 @@ export default function UserClosetChat({ route, navigation }) {
             uri={avatarUrl}
             size={38}
             borderWidth={1}
-            borderColor="#dbdbdb"
+            borderColor={border}
           />
           <View style={styles.headerTextContainer}>
             <Text style={[styles.headerTitle, textStyle]}>{username}</Text>
@@ -586,7 +594,7 @@ export default function UserClosetChat({ route, navigation }) {
         ) : error && messages.length === 0 ? (
           <View style={styles.centered}>
             <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity onPress={fetchInitialMessages} style={[styles.retryBtn, { backgroundColor: text }]}>
+            <TouchableOpacity onPress={fetchInitialMessages} style={[styles.retryBtn, { backgroundColor: accent }]}>
               <Text style={styles.retryBtnText}>Retry</Text>
             </TouchableOpacity>
           </View>
@@ -603,8 +611,8 @@ export default function UserClosetChat({ route, navigation }) {
               <RefreshControl
                 refreshing={isRefreshing}
                 onRefresh={handleRefreshOlder}
-                colors={[text]}
-                tintColor={text}
+                colors={[accent]}
+                tintColor={accent}
               />
             }
             ListEmptyComponent={emptyComponent}
@@ -622,7 +630,7 @@ export default function UserClosetChat({ route, navigation }) {
             <TextInput
               style={styles.input}
               placeholder="Type a message..."
-              placeholderTextColor="#9ca3af"
+              placeholderTextColor={mutedText}
               value={inputText}
               onChangeText={setInputText}
               multiline
@@ -635,7 +643,7 @@ export default function UserClosetChat({ route, navigation }) {
             disabled={!inputText.trim()}
           >
             <LinearGradient
-              colors={inputText.trim() ? [text, text] : ['#d1d5db', '#9ca3af']}
+              colors={inputText.trim() ? [accent, accent] : [border, border]}
               style={styles.sendButtonGradient}
             >
               <Text style={styles.sendIcon}>➤</Text>
@@ -647,10 +655,11 @@ export default function UserClosetChat({ route, navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = ({ card, border, mutedText, text: textColor, accent, bg, isDarkMode }) =>
+  StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: bg,
   },
   header: {
     flexDirection: 'row',
@@ -658,7 +667,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderBottomWidth: 0.5,
-    borderBottomColor: '#dbdbdb',
+    borderBottomColor: border,
+    backgroundColor: bg,
   },
   backButton: {
     padding: 6,
@@ -679,7 +689,7 @@ const styles = StyleSheet.create({
   },
   headerSubtitle: {
     fontSize: 12,
-    color: '#6b7280',
+    color: mutedText,
     marginTop: 1,
   },
   chatArea: {
@@ -719,7 +729,7 @@ const styles = StyleSheet.create({
     marginTop: 80,
   },
   emptyText: {
-    color: '#6b7280',
+    color: mutedText,
     fontSize: 15,
     textAlign: 'center',
     lineHeight: 22,
@@ -729,14 +739,14 @@ const styles = StyleSheet.create({
     marginVertical: 10,
   },
   systemMsgBubble: {
-    backgroundColor: '#f3f4f6',
+    backgroundColor: isDarkMode ? border : '#f3f4f6',
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 6,
     maxWidth: '85%',
   },
   systemMsgText: {
-    color: '#4b5563',
+    color: mutedText,
     fontSize: 13,
     textAlign: 'center',
     fontWeight: '500',
@@ -773,9 +783,9 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 6,
   },
   msgBubblePeer: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: isDarkMode ? card : '#F3F4F6',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: border,
     borderBottomLeftRadius: 6,
   },
   msgText: {
@@ -786,7 +796,7 @@ const styles = StyleSheet.create({
     color: '#ffffff',
   },
   msgTextPeer: {
-    color: '#1F2937',
+    color: textColor,
   },
   messageWrapper: {
     marginBottom: 12,
@@ -794,7 +804,7 @@ const styles = StyleSheet.create({
   },
   timeContainer: {
     alignSelf: 'center',
-    backgroundColor: '#E5E7EB',
+    backgroundColor: isDarkMode ? border : '#E5E7EB',
     borderRadius: 10,
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -802,7 +812,7 @@ const styles = StyleSheet.create({
   },
   messageTime: {
     fontSize: 11,
-    color: '#6B7280',
+    color: mutedText,
   },
   messageStatus: {
     flexDirection: 'row',
@@ -812,7 +822,7 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: 12,
-    color: '#9CA3AF',
+    color: mutedText,
   },
   seenIcon: {
     marginRight: 4,
@@ -821,21 +831,21 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   inputContainer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: card,
     paddingHorizontal: 12,
     paddingVertical: 8,
     flexDirection: 'row',
     alignItems: 'flex-end',
     borderTopWidth: 0.5,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: border,
   },
   inputWrapper: {
     flex: 1,
     flexDirection: 'row',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: bg,
     borderRadius: 24,
     borderWidth: 1.5,
-    borderColor: '#E5E7EB',
+    borderColor: border,
     paddingHorizontal: 12,
     paddingVertical: 4,
     marginRight: 8,
@@ -846,7 +856,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 15,
-    color: '#1F2937',
+    color: textColor,
     paddingVertical: 10,
     paddingHorizontal: 8,
     maxHeight: 100,

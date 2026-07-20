@@ -21,9 +21,19 @@ import { showToastMessage } from '../../../components/displaytoastmessage';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { AuthHeader } from '../../../components/auth';
 import { useAppTheme } from '../../../theme/useApptheme';
+import { useThemeContext } from '../../../theme/ThemeContext';
 import { useLanguage } from '../../../i18n';
 
 const { width, height } = Dimensions.get('window');
+
+const withAlpha = (hex, alpha = 0.12) => {
+  const normalized = String(hex || '').replace('#', '');
+  if (normalized.length !== 6) return `rgba(90,45,130,${alpha})`;
+  const r = parseInt(normalized.slice(0, 2), 16);
+  const g = parseInt(normalized.slice(2, 4), 16);
+  const b = parseInt(normalized.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+};
 
 const NewPasswordScreen = () => {
   const [password, setPassword] = useState('');
@@ -35,8 +45,12 @@ const NewPasswordScreen = () => {
   const toast = useToast();
   const navigation = useNavigation();
   const route = useRoute();
-  const { bgStyle, textStyle, text, accent } = useAppTheme();
+  const { bgStyle, accent, card, border, mutedText } = useAppTheme('user');
+  const { isDarkMode } = useThemeContext();
   const { t } = useLanguage(); // i18n
+  const surface = isDarkMode ? '#242424' : '#F9FAFB';
+  const infoSurface = isDarkMode ? withAlpha(accent, 0.12) : '#F0F9FF';
+  const foreground = isDarkMode ? '#F3F4F6' : '#1F2937';
 
   const { email, otp } = route.params || {};
 
@@ -109,15 +123,18 @@ const NewPasswordScreen = () => {
         <AuthHeader
           subtitle={t('newPassword.screenTitle')}
           onBackPress={() => navigation.goBack()}
+          profileType="user"
           isFirstLaunch={true}
         />
 
         {/* Enhanced Form Card */}
         <View style={styles.formWrapper}>
-          <View style={styles.card}>
+          <View style={[styles.card, { backgroundColor: card }]}>
             <View style={styles.welcomeSection}>
-              <Text style={styles.welcomeTitle}>{t('newPassword.cardTitle')}</Text>
-              <Text style={styles.welcomeSubtitle}>
+              <Text style={[styles.welcomeTitle, { color: foreground }]}>
+                {t('newPassword.cardTitle')}
+              </Text>
+              <Text style={[styles.welcomeSubtitle, { color: mutedText }]}>
                 {t('newPassword.cardSubtitle')}
               </Text>
             </View>
@@ -125,14 +142,14 @@ const NewPasswordScreen = () => {
             <View style={styles.inputContainer}>
               {/* Password Requirements Info */}
               <View style={styles.infoSection}>
-                <View style={[styles.infoBox, { borderLeftColor: text }]}>
+                <View style={[styles.infoBox, { borderLeftColor: accent, backgroundColor: infoSurface }]}>
                   <Ionicons
                     name="shield-checkmark"
                     size={20}
-                    color={text}
+                    color={accent}
                     style={styles.infoIcon}
                   />
-                  <Text style={styles.infoText}>
+                  <Text style={[styles.infoText, { color: mutedText }]}>
                     {t('newPassword.infoBoxText')}
                   </Text>
                 </View>
@@ -140,17 +157,20 @@ const NewPasswordScreen = () => {
 
               {/* New Password Input */}
               <View style={styles.inputWrapper}>
-                <Text style={styles.inputLabel}>{t('newPassword.newPasswordLabel')}</Text>
+                <Text style={[styles.inputLabel, { color: foreground }]}>
+                  {t('newPassword.newPasswordLabel')}
+                </Text>
                 <View
                   style={[
                     styles.inputGroup,
+                    { backgroundColor: surface, borderColor: border },
                     errors.password && styles.inputError,
                   ]}
                 >
                   <TextInput
-                    style={styles.textInput}
+                    style={[styles.textInput, { color: foreground }]}
                     placeholder={t('newPassword.newPasswordPlaceholder')}
-                    placeholderTextColor="#9CA3AF"
+                    placeholderTextColor={mutedText}
                     secureTextEntry={secureTextEntry}
                     autoCapitalize="none"
                     value={password}
@@ -170,7 +190,7 @@ const NewPasswordScreen = () => {
                     <Ionicons
                       name={secureTextEntry ? 'eye-off' : 'eye'}
                       size={20}
-                      color="#9CA3AF"
+                      color={mutedText}
                     />
                   </TouchableOpacity>
                 </View>
@@ -181,17 +201,20 @@ const NewPasswordScreen = () => {
 
               {/* Confirm Password Input */}
               <View style={styles.inputWrapper}>
-                <Text style={styles.inputLabel}>{t('newPassword.confirmPasswordLabel')}</Text>
+                <Text style={[styles.inputLabel, { color: foreground }]}>
+                  {t('newPassword.confirmPasswordLabel')}
+                </Text>
                 <View
                   style={[
                     styles.inputGroup,
+                    { backgroundColor: surface, borderColor: border },
                     errors.confirmPassword && styles.inputError,
                   ]}
                 >
                   <TextInput
-                    style={styles.textInput}
+                    style={[styles.textInput, { color: foreground }]}
                     placeholder={t('newPassword.confirmPasswordPlaceholder')}
-                    placeholderTextColor="#9CA3AF"
+                    placeholderTextColor={mutedText}
                     secureTextEntry={secureTextEntryConfirm}
                     autoCapitalize="none"
                     value={confirmPassword}
@@ -213,7 +236,7 @@ const NewPasswordScreen = () => {
                     <Ionicons
                       name={secureTextEntryConfirm ? 'eye-off' : 'eye'}
                       size={20}
-                      color="#9CA3AF"
+                      color={mutedText}
                     />
                   </TouchableOpacity>
                 </View>
@@ -233,10 +256,10 @@ const NewPasswordScreen = () => {
 
             {/* Back to Login */}
             <View style={styles.backToLoginSection}>
-              <Text style={styles.backToLoginText}>
+              <Text style={[styles.backToLoginText, { color: mutedText }]}>
                 {t('newPassword.rememberPassword')}{' '}
                 <Text
-                  style={[styles.backToLoginLink, textStyle]}
+                  style={[styles.backToLoginLink, { color: accent }]}
                   onPress={() => navigation.navigate('Login')}
                 >
                   {t('newPassword.backToLogin')}
@@ -264,7 +287,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 7,
   },
   card: {
-    backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
     padding: 32,
@@ -282,13 +304,11 @@ const styles = StyleSheet.create({
   welcomeTitle: {
     fontSize: 26,
     fontWeight: '700',
-    color: '#1F2937',
     marginBottom: 12,
     textAlign: 'center',
   },
   welcomeSubtitle: {
     fontSize: 16,
-    color: '#6B7280',
     fontWeight: '400',
     textAlign: 'center',
     lineHeight: 24,
@@ -303,23 +323,19 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#374151',
     marginBottom: 8,
   },
   inputGroup: {
     flexDirection: 'row',
     alignItems: 'center',
     height: 52,
-    backgroundColor: '#F9FAFB',
     borderRadius: 16,
     borderWidth: 1.5,
-    borderColor: '#E5E7EB',
     paddingHorizontal: 16,
   },
   textInput: {
     flex: 1,
     fontSize: 16,
-    color: '#1F2937',
     fontWeight: '400',
   },
   eyeIcon: {
@@ -341,7 +357,6 @@ const styles = StyleSheet.create({
   },
   infoBox: {
     flexDirection: 'row',
-    backgroundColor: '#F0F9FF',
     borderRadius: 12,
     padding: 16,
     borderLeftWidth: 4,
@@ -353,7 +368,6 @@ const styles = StyleSheet.create({
   infoText: {
     flex: 1,
     fontSize: 14,
-    color: '#374151',
     lineHeight: 20,
   },
   resetButton: {
@@ -379,7 +393,6 @@ const styles = StyleSheet.create({
   },
   backToLoginText: {
     fontSize: 16,
-    color: '#6B7280',
     fontWeight: '400',
     textAlign: 'center'
   },

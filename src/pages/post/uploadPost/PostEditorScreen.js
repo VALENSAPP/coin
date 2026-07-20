@@ -829,33 +829,39 @@ const PostEditorScreen = () => {
       </View>
 
       <View style={styles.captionSection}>
-        <Text style={styles.captionLabel}>{t('postEditor.hashtagLabel')}</Text>
+        <Text style={[styles.captionLabel, textStyle]}>{t('postEditor.hashtagLabel')}</Text>
         {selectedHashtags.length > 0 ? (
           <View style={styles.hashtagChipsRow}>
             {selectedHashtags.map(tag => (
               <TouchableOpacity
                 key={tag}
-                style={[styles.hashtagChip, { borderColor: `${text}55` }]}
+                style={[
+                  styles.hashtagChip,
+                  {
+                    backgroundColor: `${accent}18`,
+                    borderColor: `${accent}55`,
+                  },
+                ]}
                 onPress={() => removeHashtag(tag)}
                 activeOpacity={0.8}
               >
-                <Text style={[styles.hashtagChipText, { color: text }]}>#{tag}</Text>
-                <Icon name="close" size={14} color={text} />
+                <Text style={[styles.hashtagChipText, { color: accent }]}>#{tag}</Text>
+                <Icon name="close" size={14} color={accent} />
               </TouchableOpacity>
             ))}
           </View>
         ) : null}
-        <View style={[styles.hashtagSearchRow, bgStyle]}>
-          <Icon name="search" size={18} color="#9CA3AF" />
+        <View style={[styles.hashtagSearchRow, bgStyle, { borderColor: border }]}>
+          <Icon name="search" size={18} color={mutedText} />
           <TextInput
             ref={hashtagInputRef}
-            style={styles.hashtagSearchInput}
+            style={[styles.hashtagSearchInput, { color: text }]}
             placeholder={t('postEditor.hashtagPlaceholder')}
             value={hashtagQuery}
             onChangeText={setHashtagQuery}
             autoCapitalize="none"
             autoCorrect={false}
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={mutedText}
             returnKeyType="done"
             onSubmitEditing={() => addHashtag(hashtagQuery)}
             onFocus={() => {
@@ -866,28 +872,35 @@ const PostEditorScreen = () => {
             }}
           />
           {isSearchingHashtags ? (
-            <ActivityIndicator size="small" color={text} />
+            <ActivityIndicator size="small" color={accent} />
           ) : null}
           {normalizeHashtag(hashtagQuery) && !isSearchingHashtags ? (
             <TouchableOpacity
               onPress={() => addHashtag(hashtagQuery)}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Text style={[styles.hashtagAddText, { color: text }]}>
+              <Text style={[styles.hashtagAddText, { color: accent }]}>
                 {t('postEditor.hashtagAdd')}
               </Text>
             </TouchableOpacity>
           ) : null}
         </View>
         {hashtagQuery.trim() && !isSearchingHashtags && hashtagSuggestions.length === 0 ? (
-          <Text style={styles.hashtagEmptyText}>{t('postEditor.hashtagEmpty')}</Text>
+          <Text style={[styles.hashtagEmptyText, { color: mutedText }]}>
+            {t('postEditor.hashtagEmpty')}
+          </Text>
         ) : null}
         {hashtagSuggestions.length > 0 ? (
-          <View style={[styles.hashtagSuggestionsBox, { backgroundColor: card }]}>
+          <View
+            style={[
+              styles.hashtagSuggestionsBox,
+              { backgroundColor: card, borderColor: border },
+            ]}
+          >
             {hashtagSuggestions.map(tag => (
               <TouchableOpacity
                 key={tag}
-                style={styles.hashtagSuggestionRow}
+                style={[styles.hashtagSuggestionRow, { borderBottomColor: border }]}
                 onPress={() => addHashtag(tag)}
                 activeOpacity={0.75}
               >
@@ -1205,7 +1218,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    backgroundColor: '#f8fafc',
   },
   hashtagChipText: {
     fontSize: 13,
@@ -1213,7 +1225,6 @@ const styles = StyleSheet.create({
   },
   hashtagSearchRow: {
     borderWidth: 1,
-    borderColor: '#e0e0e0',
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: Platform.OS === 'ios' ? 12 : 4,
@@ -1224,7 +1235,6 @@ const styles = StyleSheet.create({
   hashtagSearchInput: {
     flex: 1,
     fontSize: 15,
-    color: '#111827',
     paddingVertical: Platform.OS === 'ios' ? 0 : 8,
   },
   hashtagAddText: {
@@ -1234,12 +1244,10 @@ const styles = StyleSheet.create({
   hashtagEmptyText: {
     marginTop: 8,
     fontSize: 13,
-    color: '#9CA3AF',
   },
   hashtagSuggestionsBox: {
     marginTop: 8,
     borderWidth: 1,
-    borderColor: '#eadff2',
     borderRadius: 12,
     overflow: 'hidden',
   },
@@ -1247,7 +1255,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e5e7eb',
   },
   hashtagSuggestionText: {
     fontSize: 15,

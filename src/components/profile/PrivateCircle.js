@@ -19,6 +19,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSelector } from 'react-redux';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useLanguage } from '../../i18n';
+import { normalizeProfileType } from '../../utils/supportEligibility';
 import { BASE_URL } from '../../config/urls';
 import useScreenshotProtection, {
   SCREENSHOT_PROTECTED_SOURCES,
@@ -219,10 +220,12 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
   const [loggedInProfileType, setLoggedInProfileType] = useState(null);
 
   const resolvedThemeProfile = useMemo(() => {
-    const fromUser = userData?.profile;
+    // Prefer the *viewed* profile so a business viewer doesn't paint a simple profile gold.
+    if (userData?.profile) {
+      return normalizeProfileType(userData.profile);
+    }
     const fromViewer = reduxProfile && reduxProfile !== 'normal' ? reduxProfile : loggedInProfileType;
-    const resolved = fromUser || fromViewer || 'user';
-    return String(resolved).toLowerCase() !== 'user' ? 'company' : undefined;
+    return normalizeProfileType(fromViewer || 'user');
   }, [userData?.profile, reduxProfile, loggedInProfileType]);
 
   const { bgStyle, textStyle, text, cardStyle, accent, mutedText, border, card, icon } = useAppTheme(

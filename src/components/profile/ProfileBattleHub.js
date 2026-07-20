@@ -352,7 +352,10 @@ export default function ProfileBattleHub({
     }
   }, [battlePointSummary.level]);
 
-  const DragonflyIcon = useMemo(() => getDragonflyIcon(followerCount), [followerCount]);
+  const DragonflyIcon = useMemo(
+    () => getDragonflyIcon(followerCount, false, isDarkMode),
+    [followerCount, isDarkMode],
+  );
 
   return (
     <KeyboardAwareScrollView

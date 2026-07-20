@@ -15,6 +15,7 @@ import {
     Platform,
 } from 'react-native';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useThemeContext } from '../../theme/ThemeContext';
 import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { addMissionDonation, purchaseTokenWithUSD } from '../../services/tokens';
@@ -30,8 +31,24 @@ import {
 } from '../../utils/stripeOnboarding';
 import { useLanguage } from '../../i18n';
 
+const withAlpha = (hex, alpha = 0.18) => {
+    const normalized = String(hex || '').replace('#', '');
+    if (normalized.length !== 6) return `rgba(90,45,130,${alpha})`;
+    const r = parseInt(normalized.slice(0, 2), 16);
+    const g = parseInt(normalized.slice(2, 4), 16);
+    const b = parseInt(normalized.slice(4, 6), 16);
+    return `rgba(${r},${g},${b},${alpha})`;
+};
+
 export default function MissionSupportScreen({ visible, onClose, item, onDonationSuccess }) {
-    const { bgStyle, textStyle, bg } = useAppTheme();
+    const { bgStyle, textStyle, text, card, border, mutedText, accent } = useAppTheme();
+    const { isDarkMode } = useThemeContext();
+    const foreground = isDarkMode ? '#F3F4F6' : '#333';
+    // Selected amount follows the active profile theme: gold for business, purple for regular.
+    const selectedAmountStyle = {
+        borderColor: accent,
+        backgroundColor: withAlpha(accent, isDarkMode ? 0.18 : 0.12),
+    };
     const dispatch = useDispatch();
     const toast = useToast();
     const { t } = useLanguage();
@@ -277,34 +294,34 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
                 style={{ flex: 1 }}
             >
                 <View style={styles.overlay}>
-                    <View style={styles.modalBox}>
+                    <View style={[styles.modalBox, { backgroundColor: card }]}>
                         <ScrollView contentContainerStyle={[styles.container, bgStyle]}>
 
                             <Text style={[styles.title, textStyle]}>
                                 {t('missionSupportScreen.title')}
                             </Text>
 
-                            <Text style={styles.heading}>
+                            <Text style={[styles.heading, { color: foreground }]}>
                                 {t('missionSupportScreen.heading')}
                             </Text>
 
-                            <Text style={styles.description}>
+                            <Text style={[styles.description, { color: mutedText }]}>
                                 {t('missionSupportScreen.description')}
                             </Text>
 
-                            <Text style={styles.label}>
+                            <Text style={[styles.label, { color: foreground }]}>
                                 {t('missionSupportScreen.noteLabel')}
                             </Text>
                             <TextInput
-                                style={styles.noteInput}
+                                style={[styles.noteInput, { borderColor: border, color: foreground }]}
                                 placeholder={t('missionSupportScreen.notePlaceholder')}
-                                placeholderTextColor="#999"
+                                placeholderTextColor={mutedText}
                                 multiline
                                 value={note}
                                 onChangeText={setNote}
                             />
 
-                            <Text style={styles.label}>
+                            <Text style={[styles.label, { color: foreground }]}>
                                 {t('missionSupportScreen.amountLabel')}
                             </Text>
 
@@ -314,35 +331,36 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
                                         key={amt}
                                         style={[
                                             styles.amountBox,
-                                            selectedAmount === amt && styles.amountSelected,
+                                            { borderColor: border },
+                                            selectedAmount === amt && selectedAmountStyle,
                                         ]}
                                         onPress={() => {
                                             setSelectedAmount(amt);
                                             setCustomAmount('');
                                         }}
                                     >
-                                        <Text style={styles.amountText}>${amt}</Text>
+                                        <Text style={[styles.amountText, { color: foreground }]}>${amt}</Text>
                                     </TouchableOpacity>
                                 ))}
 
-                                <View style={[styles.customBox, customAmount && styles.amountSelected]}>
+                                <View style={[styles.customBox, { borderColor: border }, customAmount && selectedAmountStyle]}>
                                     <TextInput
                                         keyboardType="numeric"
-                                        style={styles.customInput}
+                                        style={[styles.customInput, { color: foreground }]}
                                         value={customAmount}
                                         onChangeText={(val) => {
                                             setCustomAmount(val);
                                             setSelectedAmount(null);
                                         }}
                                         placeholder={t('missionSupportScreen.customAmountPlaceholder')}
-                                        placeholderTextColor="#000"
-                                        cursorColor="#000"
-                                        selectionColor="#000"
+                                        placeholderTextColor={mutedText}
+                                        cursorColor={text}
+                                        selectionColor={text}
                                     />
                                 </View>
                             </View>
 
-                            <Text style={styles.secureText}>
+                            <Text style={[styles.secureText, { color: mutedText, borderLeftColor: border }]}>
                                 {t('missionSupportScreen.secureText')}
                             </Text>
 
@@ -350,7 +368,7 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
                                 <TouchableOpacity
                                     style={[
                                         styles.confirmBtn,
-                                        bg,
+                                        { backgroundColor: accent },
                                         (isButtonLoading || !isAmountValid) && styles.confirmBtnDisabled,
                                     ]}
                                     onPress={handleConfirm}
@@ -371,14 +389,14 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
                                 </TouchableOpacity>
 
                                 <TouchableOpacity
-                                    style={styles.cancelBtn}
+                                    style={[styles.cancelBtn, { borderColor: border }]}
                                     onPress={() => {
                                         setIsButtonLoading(false);
                                         dispatch(hideLoader());
                                         onClose();
                                     }}
                                 >
-                                    <Text style={styles.cancelText}>
+                                    <Text style={[styles.cancelText, { color: foreground }]}>
                                         {t('missionSupportScreen.cancelButton')}
                                     </Text>
                                 </TouchableOpacity>
@@ -448,10 +466,6 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         marginRight: 10,
         marginBottom: 10,
-    },
-    amountSelected: {
-        borderColor: '#7F3DFF',
-        backgroundColor: '#EDE4FF',
     },
     amountText: {
         fontSize: 16,

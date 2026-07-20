@@ -14,6 +14,7 @@ import {
 import Video from 'react-native-video';
 import { useFocusEffect, useIsFocused, useNavigation } from '@react-navigation/native';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useThemeContext } from '../../theme/ThemeContext';
 import { getPostByUser } from '../../services/post';
 import { getFansubscriptionStatus } from '../../services/stirpe';
 import { getMyClosetMe, getMyClosetById } from '../../services/myCloset';
@@ -180,12 +181,12 @@ const BusinessShopScreen = ({
   const isCompanyProfile = normalizedProfileThemeType === 'company';
   const showIdentityVerified = isProfileFullyIdentityVerified(userData);
 
-  const DragonflyIcon = getDragonflyIcon(dashboard?.totalFollowers, isCompanyProfile);
-
   const navigation = useNavigation();
   const isFocused = useIsFocused();
   const scrollY = useRef(new Animated.Value(0)).current;
   const { bgStyle, textStyle, text, cardStyle } = useAppTheme(userData?.profile);
+  const { isDarkMode } = useThemeContext();
+  const DragonflyIcon = getDragonflyIcon(dashboard?.totalFollowers, isCompanyProfile, isDarkMode);
   const { t } = useLanguage();
 
   const shopCardMarginTop = scrollY.interpolate({

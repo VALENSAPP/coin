@@ -200,8 +200,9 @@ const EbookDetailScreen = () => {
     fetchEbookDetail();
   }, [route?.params?.ebook?.id, route?.params?.ebook?._id]);
   const routeLoggedInUserId = route?.params?.loggedInUserId;
-  const profileThemeType =
-    normalizeProfileType(routeUserData?.profile || ebook?.profile) === 'company' ? 'company' : undefined;
+  const profileThemeType = normalizeProfileType(
+    routeUserData?.profile || ebook?.profile,
+  );
   const {
     bgStyle,
     text,
@@ -212,7 +213,7 @@ const EbookDetailScreen = () => {
     mutedTextStyle,
     accent,
     icon,
-  } = useAppTheme(profileThemeType);
+  } = useAppTheme(profileThemeType === 'company' ? 'company' : 'user');
   const { t } = useLanguage();
   const toast = useToast();
   const [isDownloading, setIsDownloading] = useState(false);
@@ -732,7 +733,7 @@ const EbookDetailScreen = () => {
               {description}
             </Text>
             <View style={styles.metricsRow}>
-              <Text style={[styles.metric, { color: accent }]}>📚 {chapters.length} Chapters</Text>
+              <Text style={[styles.metric, { color: text }]}>📚 {chapters.length} Chapters</Text>
             </View>
           </View>
         </View>
@@ -755,11 +756,11 @@ const EbookDetailScreen = () => {
         )}
 
         <TouchableOpacity
-          style={[styles.readButton, { borderColor: accent, backgroundColor: `${accent}18` }]}
+          style={[styles.readButton, { backgroundColor: accent, borderColor: accent }]}
           onPress={handleReadBook}
         >
-          <Ionicons name="book-outline" size={16} color={accent} />
-          <Text style={[styles.readButtonText, { color: accent }]}>Read e-book</Text>
+          <Ionicons name="book-outline" size={16} color="#fff" />
+          <Text style={[styles.readButtonText, { color: '#fff' }]}>Read e-book</Text>
         </TouchableOpacity>
 
         {!fromEbookPublisher && !fromMyClosetShopFront && !fromAllEbooksScreen ? (

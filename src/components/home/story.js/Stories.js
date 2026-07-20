@@ -2356,12 +2356,12 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
     >
       <View style={[item.isUser && (sidebarMode ? sidebarStyles.verticalUserBorder : styles.userBorder)]}>
         {item.isUser && item.stories.length === 0 && (
-          <Icon
-            name="add-circle"
-            size={sidebarMode ? 20 : 28}
-            color={icon}
-            style={sidebarMode ? sidebarStyles.verticalAddIcon : styles.addIcon}
-          />
+            <Icon
+              name="add-circle"
+              size={sidebarMode ? 20 : 28}
+              color="#4da3ff"
+              style={sidebarMode ? sidebarStyles.verticalAddIcon : styles.addIcon}
+            />
         )}
         <View style={styles.positiom}>
           <View style={styles.avatarContainer}>
@@ -2487,9 +2487,25 @@ const sidebarStyles = StyleSheet.create({
   verticalStoriesContainer: { flex: 1, backgroundColor: 'transparent' },
   verticalStoryItem: { alignItems: 'center', marginVertical: -8, width: '100%' },
   verticalUserBorder: { position: 'relative' },
-  verticalAddIcon: { position: 'absolute', bottom: 0, right: 0, zIndex: 10, backgroundColor: '#fff', borderRadius: 14 },
+  verticalAddIcon: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    zIndex: 10,
+    backgroundColor: '#fff',
+    borderRadius: 14,
+  },
   verticalAddStoryOverlay: { position: 'absolute', bottom: -2, right: -2, zIndex: 10 },
-  verticalAddStoryButton: { backgroundColor: '#4da3ff', borderRadius: 10, width: 20, height: 20, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#fff' },
+  verticalAddStoryButton: {
+    backgroundColor: '#4da3ff',
+    borderRadius: 10,
+    width: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
   verticalDropsText: { marginTop: 2, fontSize: 12, fontWeight: '600', textAlign: 'center' },
   sidebarStoryLabel: { maxWidth: 72, fontSize: 12, textAlign: 'center' },
 });

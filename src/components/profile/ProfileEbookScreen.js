@@ -156,8 +156,7 @@ const ProfileEbookScreen = ({
   const [resolvedIsSubscribed, setResolvedIsSubscribed] = useState(false);
   const navigation = useNavigation();
   const isFocused = useIsFocused();
-  const profileThemeType =
-    normalizeProfileType(userData?.profile) === 'company' ? 'company' : undefined;
+  const profileThemeType = normalizeProfileType(userData?.profile);
   const isCompanyProfile = profileThemeType === 'company';
   const { bgStyle, textStyle, text, cardStyle, border, mutedTextStyle, accent } =
     useAppTheme(profileThemeType);

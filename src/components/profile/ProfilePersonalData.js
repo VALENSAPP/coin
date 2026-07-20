@@ -74,6 +74,7 @@ import { metaMaskRecived } from '../../services/wallet';
 import { battleByUserId } from '../../services/battle';
 import { isBattleLive } from '../../utils/battleCardUtils';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useThemeContext } from '../../theme/ThemeContext';
 import { getSupportRecipientWalletAddress } from '../../utils/walletPaymentSupport';
 import { useWalletConnectSupport } from '../../context/WalletConnectSupportContext';
 import { isSupportAllowed, normalizeProfileType } from '../../utils/supportEligibility';
@@ -94,15 +95,20 @@ function isProfileFullyIdentityVerified(user) {
   return true;
 }
 
-export function getDragonflyIcon(followers) {
+/**
+ * KYC badge icon by follower tier.
+ * White/SoftGray assets are dark navy PNGs and disappear on dark surfaces —
+ * use Lilac (brand purple) in dark mode for those tiers.
+ */
+export function getDragonflyIcon(followers, _isCompanyProfile, isDarkMode = false) {
   const parsedFollowers = Number(followers);
   const safeFollowers = Number.isFinite(parsedFollowers) ? Math.max(0, parsedFollowers) : 0;
-  if (safeFollowers <= 50) return WhiteDragonfly;
-  if (safeFollowers <= 10000) return SoftGrayDragonfly;
+  if (safeFollowers <= 50) return isDarkMode ? LilacDragonfly : WhiteDragonfly;
+  if (safeFollowers <= 10000) return isDarkMode ? LilacDragonfly : SoftGrayDragonfly;
   if (safeFollowers <= 500000) return LilacDragonfly;
   if (safeFollowers <= 1000000) return GoldDragonfly;
   if (safeFollowers >= 10000000) return GoldLavenderDragonfly;
-  return WhiteDragonfly;
+  return isDarkMode ? LilacDragonfly : WhiteDragonfly;
 }
 
 const ProfilePersonData = ({
@@ -261,7 +267,10 @@ const ProfilePersonData = ({
   const profileThemeIsCompany = fromUsersProfile
     ? isCompanyProfile
     : isCompanyProfile || isBusinessProfile || isViewerCompanyProfile;
-  const uiThemeType = profileThemeIsCompany ? 'company' : undefined;
+  // Always pass an explicit profile type — `undefined` falls back to the logged-in
+  // theme (e.g. business gold while viewing a simple profile).
+  const uiThemeType = profileThemeIsCompany ? 'company' : 'user';
+  const { isDarkMode } = useThemeContext();
   const { bgStyle, textStyle, text, card, bg, icon, mutedText, accent, border, cardStyle } =
     useAppTheme(uiThemeType);
   const profileActionGradient = profileThemeIsCompany
@@ -1077,7 +1086,7 @@ const ProfilePersonData = ({
     }
   };
 
-  const DragonflyIcon = getDragonflyIcon(Userdata.Followers, isCompanyProfile);
+  const DragonflyIcon = getDragonflyIcon(Userdata.Followers, isCompanyProfile, isDarkMode);
   const totalSupportCardHeight = totalSupportAnim.interpolate({
     inputRange: [0, 1], outputRange: [0, TOTAL_SUPPORT_CARD_HEIGHT],
   });
@@ -1171,7 +1180,7 @@ const ProfilePersonData = ({
               )}
               <View style={styles.userRow}>
                 <Text
-                  style={[styles.headerText, { color: accent }]}
+                  style={[styles.headerText, { color: text }]}
                   numberOfLines={1}
                   ellipsizeMode="tail">
                   {Userdata.Username}
@@ -1473,7 +1482,7 @@ const ProfilePersonData = ({
               )}
             </Animated.View>
 
-            <Text style={[styles.displaynamee, { color: accent }]} numberOfLines={2}>
+            <Text style={[styles.displaynamee, { color: text }]} numberOfLines={2}>
               {Userdata.Displayname}
             </Text>
           </View>
@@ -1584,10 +1593,10 @@ const ProfilePersonData = ({
                 if (fromUsersProfile) {
                   navigation.navigate('ProfileMain', {
                     screen: 'FollowersFollowingScreen',
-                    tab: 'followers',
                     params: {
+                      tab: 'followers',
                       userName: Userdata.Username,
-                      userId: fromUsersProfile ? targetUserId : userId,
+                      userId: targetUserId,
                       returnTo: 'Home',
                       screenParams,
                     },
@@ -1595,7 +1604,9 @@ const ProfilePersonData = ({
                 } else {
                   navigation.navigate('FollowersFollowingScreen', {
                     tab: 'followers',
-                    params: { userName: Userdata.Username, userId, returnTo: 'UserProfile' },
+                    userName: Userdata.Username,
+                    userId,
+                    returnTo: 'UserProfile',
                   });
                 }
               }}
@@ -1612,10 +1623,10 @@ const ProfilePersonData = ({
                 if (fromUsersProfile) {
                   navigation.navigate('ProfileMain', {
                     screen: 'FollowersFollowingScreen',
-                    tab: 'following',
                     params: {
+                      tab: 'following',
                       userName: displayName,
-                      userId: fromUsersProfile ? targetUserId : userId,
+                      userId: targetUserId,
                       returnTo: 'Home',
                       screenParams,
                     },
@@ -1623,7 +1634,9 @@ const ProfilePersonData = ({
                 } else {
                   navigation.navigate('FollowersFollowingScreen', {
                     tab: 'following',
-                    params: { userName: displayName, userId, returnTo: 'UserProfile' },
+                    userName: displayName,
+                    userId,
+                    returnTo: 'UserProfile',
                   });
                 }
               }}

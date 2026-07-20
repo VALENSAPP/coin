@@ -554,21 +554,6 @@ export default function Notifications() {
     setPopupVisible(true);
   };
 
-  const splitNotificationMessage = useCallback(message => {
-    const safeMessage = String(message || '');
-    const actionRegex =
-      /\b(?:unfollow(?:ed|ing|s)?|follow(?:ed|ing|s)?|started|buy(?:ing|s)?|bought|purchase(?:d|s|ing)?|subscribe(?:d|s|ing)?|subscribed)\b/i;
-
-    const match = safeMessage.match(actionRegex);
-    const splitIndex = match?.index ?? -1;
-    const usernameText =
-      splitIndex > 0 ? safeMessage.slice(0, splitIndex).trimEnd() : '';
-    const restText =
-      splitIndex >= 0 ? safeMessage.slice(splitIndex).trimStart() : safeMessage;
-
-    return { usernameText, restText };
-  }, []);
-
   const getNotificationTargetUserId = useCallback(notification => {
     const data = notification?.raw?.data ?? {};
 
@@ -1113,7 +1098,6 @@ export default function Notifications() {
 
     const renderItem = ({ item, index }) => {
       const message = item.message || '';
-      const { usernameText, restText } = splitNotificationMessage(message);
       // In renderItem's handlePress:
       const handlePress = async () => {
         markAsRead(item.id);
@@ -1348,12 +1332,7 @@ export default function Notifications() {
               <View style={styles.textContent}>
                 <Text style={[styles.notificationTitle, textStyle]}>{item.title}</Text>
                 <Text style={[styles.notificationMessage, { color: mutedText }]}>
-                  {!!usernameText && (
-                    <Text style={[styles.notificationMessageHighlight, { color: accent }]}>
-                      {`${usernameText} `}
-                    </Text>
-                  )}
-                  <Text style={{ color: mutedText }}>{restText}</Text>
+                  {message}
                 </Text>
                 <Text style={[styles.timeText, { color: mutedText }]}>{item.time}</Text>
               </View>
@@ -1860,9 +1839,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 20,
     marginBottom: 6,
-  },
-  notificationMessageHighlight: {
-    fontWeight: '700',
   },
   timeText: {
     fontSize: 11,

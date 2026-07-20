@@ -18,10 +18,20 @@ import { useToast } from 'react-native-toast-notifications';
 import { AuthHeader } from '../../../components/auth';
 import { showToastMessage } from '../../../components/displaytoastmessage';
 import { useAppTheme } from '../../../theme/useApptheme';
+import { useThemeContext } from '../../../theme/ThemeContext';
 import { useLanguage } from '../../../i18n';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const { width, height } = Dimensions.get('window');
+
+const withAlpha = (hex, alpha = 0.12) => {
+  const normalized = String(hex || '').replace('#', '');
+  if (normalized.length !== 6) return `rgba(90,45,130,${alpha})`;
+  const r = parseInt(normalized.slice(0, 2), 16);
+  const g = parseInt(normalized.slice(2, 4), 16);
+  const b = parseInt(normalized.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+};
 
 const ForgetPassword = () => {
   const [email, setEmail] = useState('');
@@ -30,8 +40,12 @@ const ForgetPassword = () => {
   const dispatch = useDispatch();
   const [isEmailMode, setIsEmailMode] = useState(true);
   const toast = useToast();
-  const { bgStyle, textStyle, text, accent } = useAppTheme();
+  const { bgStyle, accent, card, border, mutedText } = useAppTheme('user');
+  const { isDarkMode } = useThemeContext();
   const { t } = useLanguage();
+  const surface = isDarkMode ? '#242424' : '#F9FAFB';
+  const infoSurface = isDarkMode ? withAlpha(accent, 0.12) : '#F0F9FF';
+  const foreground = isDarkMode ? '#F3F4F6' : '#1F2937';
 
   const handleContinue = async () => {
     if (!EMAIL_REGEX.test(email.trim())) {
@@ -68,35 +82,42 @@ const ForgetPassword = () => {
         title={t('forgotPassword.headerTitle')}
         subtitle={t('forgotPassword.headerSubtitle')}
         onBackPress={() => navigation.goBack()}
+        profileType="user"
         isFirstLaunch={true}
       />
 
       {/* Form Card */}
       <View style={styles.formWrapper}>
-        <View style={styles.card}>
+        <View style={[styles.card, { backgroundColor: card }]}>
           <View style={styles.welcomeSection}>
-            <Text style={styles.welcomeTitle}>{t('forgotPassword.cardTitle')}</Text>
-            <Text style={styles.welcomeSubtitle}>
+            <Text style={[styles.welcomeTitle, { color: foreground }]}>
+              {t('forgotPassword.cardTitle')}
+            </Text>
+            <Text style={[styles.welcomeSubtitle, { color: mutedText }]}>
               {t('forgotPassword.cardSubtitle')}
             </Text>
           </View>
 
           <View style={styles.inputContainer}>
             <View style={styles.inputWrapper}>
-              <Text style={styles.inputLabel}>
+              <Text style={[styles.inputLabel, { color: foreground }]}>
                 {isEmailMode
                   ? t('forgotPassword.emailLabel')
                   : t('forgotPassword.phonelabel')}
               </Text>
-              <View style={[styles.inputGroup, error && styles.inputError]}>
+              <View style={[
+                styles.inputGroup,
+                { backgroundColor: surface, borderColor: border },
+                error && styles.inputError,
+              ]}>
                 <TextInput
-                  style={styles.textInput}
+                  style={[styles.textInput, { color: foreground }]}
                   placeholder={
                     isEmailMode
                       ? t('forgotPassword.emailPlaceholder')
                       : t('forgotPassword.phonePlaceholder')
                   }
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={mutedText}
                   keyboardType={isEmailMode ? 'email-address' : 'phone-pad'}
                   autoCapitalize="none"
                   value={email}
@@ -110,14 +131,14 @@ const ForgetPassword = () => {
             </View>
 
             <View style={styles.infoSection}>
-              <View style={[styles.infoBox, { borderLeftColor: text }]}>
+              <View style={[styles.infoBox, { borderLeftColor: accent, backgroundColor: infoSurface }]}>
                 <Icon
                   name="information-circle"
                   size={20}
-                  color={text}
+                  color={accent}
                   style={styles.infoIcon}
                 />
-                <Text style={styles.infoText}>
+                <Text style={[styles.infoText, { color: mutedText }]}>
                   {isEmailMode
                     ? t('forgotPassword.infoTextEmail')
                     : t('forgotPassword.infoTextPhone')}
@@ -138,10 +159,10 @@ const ForgetPassword = () => {
 
           {/* Back to Login */}
           <View style={styles.backToLoginSection}>
-            <Text style={styles.backToLoginText}>
+            <Text style={[styles.backToLoginText, { color: mutedText }]}>
               {t('forgotPassword.rememberPassword')}{' '}
               <Text
-                style={[styles.backToLoginLink, textStyle]}
+                style={[styles.backToLoginLink, { color: accent }]}
                 onPress={() => navigation.goBack()}
               >
                 {t('forgotPassword.backToLogin')}
@@ -169,7 +190,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 7,
   },
   card: {
-    backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
     padding: 32,
@@ -187,13 +207,11 @@ const styles = StyleSheet.create({
   welcomeTitle: {
     fontSize: 26,
     fontWeight: '700',
-    color: '#1F2937',
     marginBottom: 12,
     textAlign: 'center',
   },
   welcomeSubtitle: {
     fontSize: 16,
-    color: '#6B7280',
     fontWeight: '400',
     textAlign: 'center',
     lineHeight: 24,
@@ -208,23 +226,19 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#374151',
     marginBottom: 8,
   },
   inputGroup: {
     flexDirection: 'row',
     alignItems: 'center',
     height: 52,
-    backgroundColor: '#F9FAFB',
     borderRadius: 16,
     borderWidth: 1.5,
-    borderColor: '#E5E7EB',
     paddingHorizontal: 16,
   },
   textInput: {
     flex: 1,
     fontSize: 16,
-    color: '#1F2937',
     fontWeight: '400',
   },
   inputError: {
@@ -243,7 +257,6 @@ const styles = StyleSheet.create({
   },
   infoBox: {
     flexDirection: 'row',
-    backgroundColor: '#F0F9FF',
     borderRadius: 12,
     padding: 16,
     borderLeftWidth: 4,
@@ -255,7 +268,6 @@ const styles = StyleSheet.create({
   infoText: {
     flex: 1,
     fontSize: 14,
-    color: '#374151',
     lineHeight: 20,
   },
   continueButton: {
@@ -280,7 +292,6 @@ const styles = StyleSheet.create({
   },
   backToLoginText: {
     fontSize: 16,
-    color: '#6B7280',
     fontWeight: '400',
   },
   backToLoginLink: {

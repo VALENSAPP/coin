@@ -1,17 +1,18 @@
 import { useNavigation, useRoute } from '@react-navigation/native';
 import React from 'react';
 import {
-  Platform,
-  SafeAreaView,
+  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useLanguage } from '../../i18n';
 import ProfileBattleHub from '../../components/profile/ProfileBattleHub';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useThemeContext } from '../../theme/ThemeContext';
 
 export default function ProfileBattleScreen() {
   const navigation = useNavigation();
@@ -19,7 +20,8 @@ export default function ProfileBattleScreen() {
   const { t } = useLanguage();
   const returnTo = route?.params?.returnTo;
   const { profile } = route.params || {};
-  const { bgStyle, accent } = useAppTheme(profile);
+  const { bgStyle, accent, bg } = useAppTheme(profile);
+  const { isDarkMode } = useThemeContext();
   const viewedUserId = route?.params?.viewedUserId || '';
   const isOwner = Boolean(route?.params?.isOwner);
   const title = route?.params?.title || t('profileBattle.defaultTitle');
@@ -37,36 +39,40 @@ export default function ProfileBattleScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.safeArea, bgStyle]}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={handleBack}
-          style={styles.headerIconBtn}
-        >
-          <Icon name="arrow-back-ios-new" size={20} color={accent} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: accent }]}>{title}</Text>
-        <View style={styles.headerIconBtn} />
-      </View>
-
-      <ProfileBattleHub
-        viewedUserId={String(viewedUserId)}
-        isOwner={isOwner}
-        openBattleRoute="OpenBattle"
-        profile={profile}
-        returnTo={returnTo}
+    <View style={[styles.root, { backgroundColor: bg }]}>
+      <StatusBar
+        translucent
+        backgroundColor="transparent"
+        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
       />
-    </SafeAreaView>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: bg }]} edges={['top', 'bottom']}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={handleBack} style={styles.headerIconBtn}>
+            <Icon name="arrow-back-ios-new" size={20} color={accent} />
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, { color: accent }]}>{title}</Text>
+          <View style={styles.headerIconBtn} />
+        </View>
+
+        <ProfileBattleHub
+          viewedUserId={String(viewedUserId)}
+          isOwner={isOwner}
+          openBattleRoute="OpenBattle"
+          profile={profile}
+          returnTo={returnTo}
+        />
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
   safeArea: {
     flex: 1,
     paddingHorizontal: 16,
-    paddingTop: 12,
-    marginTop: Platform.OS === 'android' ? '5%' : 0,
-    marginBottom:'10%'
   },
   header: {
     flexDirection: 'row',

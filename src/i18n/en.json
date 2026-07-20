@@ -994,6 +994,7 @@
     "primaryLabelParticipants": "participants",
     "tiedLabel": "It's tied!",
     "votesLabel": "votes",
+    "noVotesYet": "No votes yet",
     "howToWinTitle": "How to win",
     "howToWinVoteLabel": "Vote",
     "howToWinVoteDesc": "Tap your pick and cast your vote",

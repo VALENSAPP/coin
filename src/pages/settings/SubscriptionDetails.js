@@ -20,6 +20,7 @@ import InAppBrowser from 'react-native-inappbrowser-reborn';
 import { cancelSubscription, checkSubscription, createCheckoutSession } from '../../services/stirpe';
 import { createOnboardingLink, getOnboardingStatus } from '../../services/profile';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useThemeContext } from '../../theme/ThemeContext';
 import { useLanguage } from '../../i18n';
 import SubscriptionActivationPopup from '../../components/modals/SubscriptionActivationPopUp';
 import { LogoIcon } from '../../assets/icons';
@@ -82,7 +83,8 @@ const formatMoney = (value) => `$${Number(value).toFixed(2)}`;
 const SubscriptionDetails = () => {
   const navigation = useNavigation();
   const { width } = useWindowDimensions();
-  const { bgStyle, textStyle, bg, text, card, cardStyle } = useAppTheme();
+  const { bgStyle, textStyle, bg, text, card, cardStyle, mutedText, border, accent, icon } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
   const { t } = useLanguage();
 
   const [subscriptionData, setSubscriptionData] = useState(null);
@@ -98,14 +100,17 @@ const SubscriptionDetails = () => {
   const themeColors = useMemo(() => ({
     bg,
     text,
+    accent,
     card,
-    border: `${text}22`,
-    subText: '#6B7280',
-    bodyText: '#111827',
+    border: border || `${text}22`,
+    subText: mutedText || '#6B7280',
+    // Readable foreground: white in dark mode, near-black in light mode
+    bodyText: isDarkMode ? '#F3F4F6' : '#111827',
     success: '#22C55E',
     warning: '#FF6B35',
-    warningBg: '#FFF4EA',
-  }), [bg, text, card]);
+    warningBg: isDarkMode ? 'rgba(255,107,53,0.16)' : '#FFF4EA',
+    icon: icon || (isDarkMode ? '#FFFFFF' : '#111111'),
+  }), [bg, text, accent, card, border, mutedText, isDarkMode, icon]);
 
   const loadSubscriptionData = useCallback(async ({ silent = false } = {}) => {
     try {
@@ -323,7 +328,7 @@ const SubscriptionDetails = () => {
         style={[styles.backButton, { backgroundColor: bg, borderColor: themeColors.border }]}
         onPress={() => navigation?.goBack()}
       >
-        <Ionicons name="arrow-back" size={22} color={text} />
+        <Ionicons name="arrow-back" size={22} color={themeColors.icon} />
       </TouchableOpacity>
       <Text style={[styles.headerTitle, { color: themeColors.bodyText }]}>
         {t('subscription.headerTitle')}
@@ -356,13 +361,13 @@ const SubscriptionDetails = () => {
     >
       <View style={styles.heroContent}>
         <View style={styles.heroCopy}>
-          <View style={[styles.premiumBadge, { backgroundColor: withAlpha(text, 0.12) }]}>
-            <Text style={[styles.premiumBadgeText, { color: text }]}>{t('subscription.premiumBadge')}</Text>
+          <View style={[styles.premiumBadge, { backgroundColor: withAlpha(accent, 0.12) }]}>
+            <Text style={[styles.premiumBadgeText, { color: accent }]}>{t('subscription.premiumBadge')}</Text>
           </View>
           <Text style={[styles.heroTitle, { color: themeColors.bodyText }]}>
             {isActive ? t('subscription.activeTitle') : t('subscription.notActiveTitle')}
           </Text>
-          <Text style={styles.heroSubtitle}>
+          <Text style={[styles.heroSubtitle, { color: themeColors.subText }]}>
             {isActive ? t('subscription.activeSubtitle') : t('subscription.notActiveSubtitle')}
           </Text>
           {!isActive && (
@@ -394,11 +399,11 @@ const SubscriptionDetails = () => {
         { width: benefitCardWidth, borderColor: withAlpha(text, 0.12) },
       ]}
     >
-      <View style={[styles.benefitIconWrap, { backgroundColor: withAlpha(text, 0.1) }]}>
-        <MaterialCommunityIcons name={benefit.icon} size={22} color={text} />
+      <View style={[styles.benefitIconWrap, { backgroundColor: withAlpha(accent, 0.1) }]}>
+        <MaterialCommunityIcons name={benefit.icon} size={22} color={accent} />
       </View>
-      <Text style={[styles.benefitTitle, { color: text }]}>{t(`subscription.${benefit.titleKey}`)}</Text>
-      <Text style={styles.benefitDesc}>{t(`subscription.${benefit.descKey}`)}</Text>
+      <Text style={[styles.benefitTitle, { color: accent }]}>{t(`subscription.${benefit.titleKey}`)}</Text>
+      <Text style={[styles.benefitDesc, { color: themeColors.subText }]}>{t(`subscription.${benefit.descKey}`)}</Text>
     </View>
   );
 
@@ -409,9 +414,9 @@ const SubscriptionDetails = () => {
           {isActive ? t('subscription.premiumAccessTitle') : t('subscription.whatYouGetTitle')}
         </Text>
         {isActive && (
-          <View style={[styles.memberBadge, { backgroundColor: withAlpha(text, 0.1) }]}>
-            <Ionicons name="diamond-outline" size={14} color={text} />
-            <Text style={[styles.memberBadgeText, { color: text }]}>{t('subscription.premiumMember')}</Text>
+          <View style={[styles.memberBadge, { backgroundColor: withAlpha(accent, 0.1) }]}>
+            <Ionicons name="diamond-outline" size={14} color={accent} />
+            <Text style={[styles.memberBadgeText, { color: accent }]}>{t('subscription.premiumMember')}</Text>
           </View>
         )}
       </View>
@@ -420,8 +425,10 @@ const SubscriptionDetails = () => {
       </ScrollView>
       {isActive && (
         <View style={styles.unlimitedRow}>
-          <Ionicons name="checkmark-circle" size={16} color={text} />
-          <Text style={styles.unlimitedText}>{t('subscription.unlimitedAccessNote')}</Text>
+          <Ionicons name="checkmark-circle" size={16} color={accent} />
+          <Text style={[styles.unlimitedText, { color: themeColors.subText }]}>
+            {t('subscription.unlimitedAccessNote')}
+          </Text>
         </View>
       )}
     </View>
@@ -438,20 +445,20 @@ const SubscriptionDetails = () => {
         style={[
           styles.planCard,
           cardStyle,
-          { borderColor: selected ? text : withAlpha(text, 0.12) },
-          selected && { backgroundColor: withAlpha(text, 0.04) },
+          { borderColor: selected ? accent : withAlpha(accent, 0.12) },
+          selected && { backgroundColor: withAlpha(accent, 0.04) },
         ]}
       >
         <View style={styles.planTopRow}>
-          <View style={[styles.radioOuter, { borderColor: selected ? text : '#D1D5DB' }]}>
-            {selected && <View style={[styles.radioInner, { backgroundColor: text }]} />}
+          <View style={[styles.radioOuter, { borderColor: selected ? accent : themeColors.border }]}>
+            {selected && <View style={[styles.radioInner, { backgroundColor: accent }]} />}
           </View>
           <View style={[styles.planBadge, {
-            backgroundColor: plan.badgeTone === 'success' ? withAlpha(themeColors.success, 0.12) : withAlpha(text, 0.12),
+            backgroundColor: plan.badgeTone === 'success' ? withAlpha(themeColors.success, 0.12) : withAlpha(accent, 0.12),
           }]}
           >
             <Text style={[styles.planBadgeText, {
-              color: plan.badgeTone === 'success' ? themeColors.success : text,
+              color: plan.badgeTone === 'success' ? themeColors.success : accent,
             }]}
             >
               {t(`subscription.${plan.badgeKey}`)}
@@ -459,16 +466,18 @@ const SubscriptionDetails = () => {
           </View>
         </View>
         <View style={styles.planTitleRow}>
-          <MaterialCommunityIcons name="crown-outline" size={18} color={text} />
+          <MaterialCommunityIcons name="crown-outline" size={18} color={accent} />
           <Text style={[styles.planTitle, { color: themeColors.bodyText }]}>{t(`subscription.${plan.titleKey}`)}</Text>
         </View>
-        <Text style={styles.planDesc}>{t(`subscription.${plan.descKey}`)}</Text>
+        <Text style={[styles.planDesc, { color: themeColors.subText }]}>{t(`subscription.${plan.descKey}`)}</Text>
         <View style={styles.planPriceRow}>
           <Text style={[styles.planPrice, { color: themeColors.bodyText }]}>{formatMoney(plan.price)}</Text>
-          <Text style={styles.planPeriod}>{t(`subscription.${plan.periodKey}`)}</Text>
+          <Text style={[styles.planPeriod, { color: themeColors.subText }]}>{t(`subscription.${plan.periodKey}`)}</Text>
         </View>
         {plan.originalPrice ? (
-          <Text style={styles.planOriginalPrice}>{formatMoney(plan.originalPrice)}</Text>
+          <Text style={[styles.planOriginalPrice, { color: themeColors.subText }]}>
+            {formatMoney(plan.originalPrice)}
+          </Text>
         ) : null}
       </TouchableOpacity>
     );
@@ -477,7 +486,9 @@ const SubscriptionDetails = () => {
   const renderPlanPicker = () => (
     <View style={styles.section}>
       <Text style={[styles.sectionTitle, { color: themeColors.bodyText }]}>{t('subscription.choosePlanTitle')}</Text>
-      <Text style={styles.sectionSubtitle}>{t('subscription.choosePlanSubtitle')}</Text>
+      <Text style={[styles.sectionSubtitle, { color: themeColors.subText }]}>
+        {t('subscription.choosePlanSubtitle')}
+      </Text>
       {renderPlanOption('monthly')}
       {renderPlanOption('annual')}
     </View>
@@ -488,7 +499,7 @@ const SubscriptionDetails = () => {
       <View style={[styles.detailIconWrap, { backgroundColor: withAlpha(text, 0.08) }]}>
         <Ionicons name={icon} size={16} color={text} />
       </View>
-      <Text style={styles.detailLabel}>{label}</Text>
+      <Text style={[styles.detailLabel, { color: themeColors.subText }]}>{label}</Text>
       <Text style={[styles.detailValue, { color: valueColor || themeColors.bodyText }]} numberOfLines={2}>
         {value}
       </Text>
@@ -539,7 +550,9 @@ const SubscriptionDetails = () => {
               <Text style={[styles.timeRemainingValue, { color: themeColors.bodyText }]}>
                 {getTimeRemaining(subscription?.currentPeriodEnd)}
               </Text>
-              <Text style={styles.timeRemainingNote}>{t('subscription.autoRenewNote')}</Text>
+              <Text style={[styles.timeRemainingNote, { color: themeColors.subText }]}>
+                {t('subscription.autoRenewNote')}
+              </Text>
             </View>
           </View>
         )}
@@ -561,7 +574,9 @@ const SubscriptionDetails = () => {
           {['whySubscribe1', 'whySubscribe2', 'whySubscribe3', 'whySubscribe4'].map((key) => (
             <View key={key} style={styles.whyItem}>
               <Ionicons name="checkmark-circle" size={16} color={text} />
-              <Text style={styles.whyItemText}>{t(`subscription.${key}`)}</Text>
+              <Text style={[styles.whyItemText, { color: themeColors.subText }]}>
+                {t(`subscription.${key}`)}
+              </Text>
             </View>
           ))}
         </View>
@@ -577,7 +592,7 @@ const SubscriptionDetails = () => {
       >
         <Ionicons name="document-text-outline" size={18} color={text} />
         <Text style={[styles.legalText, { color: themeColors.bodyText }]}>{t('subscription.termsConditions')}</Text>
-        <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+        <Ionicons name="chevron-forward" size={18} color={themeColors.subText} />
       </TouchableOpacity>
       <TouchableOpacity
         style={[styles.legalRow, cardStyle, { borderColor: withAlpha(text, 0.1) }]}
@@ -585,9 +600,9 @@ const SubscriptionDetails = () => {
       >
         <Ionicons name="shield-checkmark-outline" size={18} color={text} />
         <Text style={[styles.legalText, { color: themeColors.bodyText }]}>{t('subscription.privacyPolicy')}</Text>
-        <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+        <Ionicons name="chevron-forward" size={18} color={themeColors.subText} />
       </TouchableOpacity>
-      <Text style={styles.legalNote}>{t('subscription.legalNote')}</Text>
+      <Text style={[styles.legalNote, { color: themeColors.subText }]}>{t('subscription.legalNote')}</Text>
     </View>
   );
 
@@ -596,11 +611,15 @@ const SubscriptionDetails = () => {
     return (
       <View style={[styles.footerBar, cardStyle, { borderTopColor: withAlpha(text, 0.1) }]}>
         <View style={styles.footerPriceBlock}>
-          <Text style={styles.footerPriceLabel}>{t('subscription.totalToday')}</Text>
-          <Text style={[styles.footerPriceValue, { color: text }]}>{formatMoney(selected.price)}</Text>
+          <Text style={[styles.footerPriceLabel, { color: themeColors.subText }]}>
+            {t('subscription.totalToday')}
+          </Text>
+          <Text style={[styles.footerPriceValue, { color: themeColors.bodyText }]}>
+            {formatMoney(selected.price)}
+          </Text>
         </View>
         <TouchableOpacity
-          style={[styles.subscribeButton, { backgroundColor: text }]}
+          style={[styles.subscribeButton, { backgroundColor: accent }]}
           onPress={() => setShowActivationPopup(true)}
           disabled={activating}
         >
@@ -611,8 +630,10 @@ const SubscriptionDetails = () => {
           )}
         </TouchableOpacity>
         <View style={styles.secureRow}>
-          <Ionicons name="lock-closed-outline" size={14} color="#6B7280" />
-          <Text style={styles.secureText}>{t('subscription.securePayment')}</Text>
+          <Ionicons name="lock-closed-outline" size={14} color={themeColors.subText} />
+          <Text style={[styles.secureText, { color: themeColors.subText }]}>
+            {t('subscription.securePayment')}
+          </Text>
         </View>
       </View>
     );
@@ -624,18 +645,20 @@ const SubscriptionDetails = () => {
         <Ionicons name="shield-checkmark-outline" size={22} color={text} />
         <View style={styles.safeSecureCopy}>
           <Text style={[styles.safeSecureTitle, { color: themeColors.bodyText }]}>{t('subscription.safeSecure')}</Text>
-          <Text style={styles.safeSecureDesc}>{t('subscription.safeSecureDesc')}</Text>
+          <Text style={[styles.safeSecureDesc, { color: themeColors.subText }]}>
+            {t('subscription.safeSecureDesc')}
+          </Text>
         </View>
       </View>
       <TouchableOpacity
-        style={[styles.manageButton, { borderColor: text }]}
+        style={[styles.manageButton, { borderColor: accent }]}
         onPress={() => loadSubscriptionData({ silent: true })}
         disabled={refreshing}
       >
         {refreshing ? (
-          <ActivityIndicator color={text} />
+          <ActivityIndicator color={accent} />
         ) : (
-          <Text style={[styles.manageButtonText, { color: text }]}>{t('subscription.manageSubscription')}</Text>
+          <Text style={[styles.manageButtonText, { color: accent }]}>{t('subscription.manageSubscription')}</Text>
         )}
       </TouchableOpacity>
       <TouchableOpacity
@@ -672,7 +695,7 @@ const SubscriptionDetails = () => {
         <View style={styles.errorWrap}>
           <Ionicons name="alert-circle-outline" size={56} color={text} />
           <Text style={[styles.errorText, { color: themeColors.bodyText }]}>{t('subscription.noDataFound')}</Text>
-          <TouchableOpacity style={[styles.retryButton, { backgroundColor: text }]} onPress={loadSubscriptionData}>
+          <TouchableOpacity style={[styles.retryButton, { backgroundColor: accent }]} onPress={loadSubscriptionData}>
             <Text style={styles.retryButtonText}>{t('subscription.retry')}</Text>
           </TouchableOpacity>
         </View>
@@ -717,7 +740,7 @@ const SubscriptionDetails = () => {
         {isCancelledSubscription && isSubscriptionActive && (
           <View style={[styles.cancelledBanner, { backgroundColor: themeColors.warningBg, borderColor: themeColors.warning }]}>
             <Ionicons name="warning-outline" size={18} color={themeColors.warning} />
-            <Text style={[styles.cancelledBannerText, { color: '#8A4B16' }]}>
+            <Text style={[styles.cancelledBannerText, { color: isDarkMode ? '#FFB38A' : '#8A4B16' }]}>
               {t('subscription.cancelledWarningText')}
             </Text>
           </View>

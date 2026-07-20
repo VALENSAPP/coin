@@ -15,6 +15,7 @@ import { getUserCredentials } from '../../services/post';
 import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { useBusinessProfileTheme } from '../../theme/useBusinessProfileTheme';
+import { useThemeContext } from '../../theme/ThemeContext';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { startVerification } from '../../services/companyProfile';
 import SNSMobileSDK from '@sumsub/react-native-mobilesdk-module';
@@ -33,7 +34,10 @@ const VerificationStatusScreen = () => {
     const toast = useToast();
     const allVerified = Object.values(verificationData).every(v => v === true);
     const { bgStyle, textStyle, text, accent, mutedText, border, cardStyle } = useBusinessProfileTheme();
+    const { isDarkMode } = useThemeContext();
     const { t } = useLanguage();
+
+    const cardThemeStyle = [cardStyle, { borderWidth: 1, borderColor: border }];
 
     const launchSumsub = async () => {
         if (sumsubLaunchLockRef.current || isLaunchingSumsub) return;
@@ -103,18 +107,18 @@ const VerificationStatusScreen = () => {
 
     return (
         <SafeAreaView style={[styles.container, bgStyle]}>
-            <StatusBar barStyle="dark-content" />
+            <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
             <ScrollView style={styles.content}>
-                <View style={styles.verificationCard}>
+                <View style={[styles.verificationCard, cardThemeStyle]}>
                     <View style={[styles.verificationBadge, !allVerified && styles.verificationBadgePartial]}>
                         <Text style={styles.verificationIcon}>
                             {allVerified ? '✓' : '⚠'}
                         </Text>
                     </View>
-                    <Text style={styles.verificationTitle}>
+                    <Text style={[styles.verificationTitle, { color: text }]}>
                         {allVerified ? t('verification.accountVerified') : t('verification.verificationIncomplete')}
                     </Text>
-                    <Text style={styles.verificationSubtitle}>
+                    <Text style={[styles.verificationSubtitle, { color: mutedText }]}>
                         {allVerified
                             ? t('verification.fullyVerifiedSubtitle')
                             : t('verification.incompleteSubtitle')}
@@ -123,12 +127,12 @@ const VerificationStatusScreen = () => {
 
                 <View style={styles.section}>
                     {/* Email Verification Row */}
-                    <View style={styles.verificationItem}>
+                    <View style={[styles.verificationItem, cardThemeStyle]}>
                         <View style={styles.verificationItemLeft}>
                             <Text style={styles.verificationItemIcon}>📧</Text>
                             <View>
-                                <Text style={styles.verificationItemTitle}>{t('verification.emailVerificationTitle')}</Text>
-                                <Text style={styles.verificationItemSubtitle}>{data?.email}</Text>
+                                <Text style={[styles.verificationItemTitle, { color: text }]}>{t('verification.emailVerificationTitle')}</Text>
+                                <Text style={[styles.verificationItemSubtitle, { color: mutedText }]}>{data?.email}</Text>
                             </View>
                         </View>
                         {verificationData.emailVerified ? (
@@ -143,7 +147,7 @@ const VerificationStatusScreen = () => {
                     </View>
 
                     {/* KYC / KYB Verification Row */}
-                    <View style={styles.verificationItem}>
+                    <View style={[styles.verificationItem, cardThemeStyle]}>
                         <TouchableOpacity
                             onPress={() => {
                                 if (data?.profile === 'company') {
@@ -156,12 +160,12 @@ const VerificationStatusScreen = () => {
                         >
                             <Text style={styles.verificationItemIcon}>🆔</Text>
                             <View>
-                                <Text style={styles.verificationItemTitle}>
+                                <Text style={[styles.verificationItemTitle, { color: text }]}>
                                     {data?.profile === 'company'
                                         ? t('verification.kybTitle')
                                         : t('verification.kycTitle')}
                                 </Text>
-                                <Text style={styles.verificationItemSubtitle}>
+                                <Text style={[styles.verificationItemSubtitle, { color: mutedText }]}>
                                     {t('verification.governmentIdSubtitle')}
                                 </Text>
                             </View>

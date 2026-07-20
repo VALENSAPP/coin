@@ -14,6 +14,7 @@ import { LockKey, ProfileReelIcon } from '../../assets/icons';
 import { Image } from 'react-native';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useLanguage } from '../../i18n';
+import { normalizeProfileType } from '../../utils/supportEligibility';
 import SubscribeModal from '../modals/SubscriptionModal';
 import { getFansubscriptionStatus } from '../../services/stirpe';
 import {
@@ -62,7 +63,7 @@ const ProfileTabs = memo(({
   // { id, userId, shopName, shopUsername, shopLogo, description, ... }
   const [closetData, setClosetData] = useState(null);
 
-  const effectiveProfileType = profileType || userData?.profile;
+  const effectiveProfileType = normalizeProfileType(profileType || userData?.profile);
   const { bg, border, accent, mutedText } = useAppTheme(effectiveProfileType);
   const inactiveTabColor = mutedText;
   const { t } = useLanguage();

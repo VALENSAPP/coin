@@ -87,8 +87,8 @@ export default function WalletComponent() {
             userData?.followerCount ??
             0
         );
-        return getDragonflyIcon(followerCount);
-    }, [userData?.followerCount, userData?.followers, userData?.totalFollowers]);
+        return getDragonflyIcon(followerCount, false, isDarkMode);
+    }, [userData?.followerCount, userData?.followers, userData?.totalFollowers, isDarkMode]);
     const referPoints = useMemo(() => {
         const rawPoints =
             userData?.referPoints ?? userData?.referralPoints ?? userData?.referPoint ?? 0;

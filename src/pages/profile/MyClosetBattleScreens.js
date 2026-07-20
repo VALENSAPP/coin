@@ -16,6 +16,7 @@ import FastImage from 'react-native-fast-image';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useThemeContext } from '../../theme/ThemeContext';
 import { useLanguage } from '../../i18n';
 import {
   navigateClosetReturn,
@@ -898,10 +899,17 @@ export function BattlePreviewScreen({ navigation, route }) {
 }
 
 export function BattleLiveScreen({ navigation, route }) {
-  const { bgStyle, text, card, bg } = useClosetTheme(route);
+  const { bgStyle, text, card, bg, border, mutedText, accent: themeAccent } = useClosetTheme(route);
+  const { isDarkMode } = useThemeContext();
   const { t } = useLanguage();
-  const accent = text || PURPLE;
+  const brandAccent = themeAccent || PURPLE;
+  // Label/price color: profile text (purple/gold in light, white/gold in dark)
+  const accent = text || brandAccent;
   const primaryText = text || TEXT;
+  const subtleMuted = mutedText || MUTED;
+  const surface = card || (isDarkMode ? '#1E1E1E' : '#fff');
+  const voteIdleColors = isDarkMode ? [surface, surface] : ['#FFFFFF', '#FFFFFF'];
+  const voteIdleBorder = isDarkMode ? (border || '#333') : '#E5E7EB';
   const battleId = route?.params?.battleId;
   const initialBattle = route?.params?.initialBattle || null;
   const returnTo = route?.params?.returnTo;
@@ -1307,13 +1315,13 @@ export function BattleLiveScreen({ navigation, route }) {
           <Text style={[liveStyles.categoryPillText, { color: accent }]}>{battle?.category || t('battle.opinionBattle')}</Text>
         </View>
         <View style={liveStyles.daysLeftRow}>
-          <Ionicons name="time-outline" size={13} color={MUTED} />
-          <Text style={liveStyles.daysLeftText}>{t('battle.daysLeft', { count: battle?.daysLeft ?? 0 })}</Text>
+          <Ionicons name="time-outline" size={13} color={subtleMuted} />
+          <Text style={[liveStyles.daysLeftText, { color: subtleMuted }]}>{t('battle.daysLeft', { count: battle?.daysLeft ?? 0 })}</Text>
         </View>
       </View>
 
       <Text style={[liveStyles.question, { color: primaryText }]}>{question}</Text>
-      <Text style={liveStyles.questionSub}>{t('battle.voteSwipeHint') || 'Your vote swipe others decide'}</Text>
+      <Text style={[liveStyles.questionSub, { color: subtleMuted }]}>{t('battle.voteSwipeHint') || 'Your vote swipe others decide'}</Text>
 
       <BattleCard left={leftItem} right={rightItem} accent={accent} textColor={primaryText} />
 
@@ -1337,14 +1345,14 @@ export function BattleLiveScreen({ navigation, route }) {
               ]}
             >
               <LinearGradient
-                colors={isThisVoted ? ['#22C55E', '#16A34A'] : isSelected ? [accent, PURPLE_2] : ['#FFFFFF', '#FFFFFF']}
+                colors={isThisVoted ? ['#22C55E', '#16A34A'] : isSelected ? [brandAccent, PURPLE_2] : voteIdleColors}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={[
                   liveStyles.voteButtonInner,
                   {
                     borderWidth: 1,
-                    borderColor: isThisVoted ? '#16A34A' : isSelected ? accent : '#E5E7EB',
+                    borderColor: isThisVoted ? '#16A34A' : isSelected ? brandAccent : voteIdleBorder,
                   },
                 ]}
               >
@@ -1382,7 +1390,7 @@ export function BattleLiveScreen({ navigation, route }) {
           ]}
         >
           <LinearGradient
-            colors={[accent, PURPLE_2]}
+            colors={[brandAccent, PURPLE_2]}
             start={{ x: 0, y: 0.5 }}
             end={{ x: 1, y: 0.5 }}
             style={liveStyles.submitVoteButton}
@@ -1399,59 +1407,59 @@ export function BattleLiveScreen({ navigation, route }) {
       ) : null}
 
       {showResultsBar ? (
-        <View style={liveStyles.progressCard}>
+        <View style={[liveStyles.progressCard, { borderColor: border || BORDER, backgroundColor: surface }]}>
           <View style={liveStyles.progressTopRow}>
             <View>
               <Text style={[liveStyles.progressPctLeft, { color: accent }]}>{leftVotePercent}%</Text>
-              <Text style={liveStyles.progressVotes}>
+              <Text style={[liveStyles.progressVotes, { color: subtleMuted }]}>
                 {leftVoteCount} {t('battleInProgress.votesLabel')}
               </Text>
             </View>
             <View style={{ alignItems: 'flex-end' }}>
               <Text style={liveStyles.progressPctRight}>{rightVotePercent}%</Text>
-              <Text style={liveStyles.progressVotes}>
+              <Text style={[liveStyles.progressVotes, { color: subtleMuted }]}>
                 {rightVoteCount} {t('battleInProgress.votesLabel')}
               </Text>
             </View>
           </View>
           <View style={liveStyles.progressBarTrack}>
-            <View style={[liveStyles.progressBarLeft, { flex: leftVotePercent || 1, backgroundColor: accent }]} />
+            <View style={[liveStyles.progressBarLeft, { flex: leftVotePercent || 1, backgroundColor: brandAccent }]} />
             <View style={[liveStyles.progressBarRight, { flex: rightVotePercent || 1, backgroundColor: '#ef4444' }]} />
           </View>
           <View style={liveStyles.progressBottomRow}>
-            <View style={liveStyles.sideTagLeft}>
-              <Text style={liveStyles.sideTagText}>{leftItem?.name || leftItem?.label || 'Option 1'}</Text>
+            <View style={[liveStyles.sideTagLeft, isDarkMode && { backgroundColor: 'rgba(34,197,94,0.22)' }]}>
+              <Text style={[liveStyles.sideTagText, isDarkMode && { color: '#86EFAC' }]}>{leftItem?.name || leftItem?.label || 'Option 1'}</Text>
             </View>
-            <View style={liveStyles.sideTagRight}>
-              <Text style={liveStyles.sideTagText}>{rightItem?.name || rightItem?.label || 'Option 2'}</Text>
+            <View style={[liveStyles.sideTagRight, isDarkMode && { backgroundColor: 'rgba(239,68,68,0.22)' }]}>
+              <Text style={[liveStyles.sideTagText, isDarkMode && { color: '#FCA5A5' }]}>{rightItem?.name || rightItem?.label || 'Option 2'}</Text>
             </View>
           </View>
         </View>
       ) : null}
 
       {/* Stats row: views / comments / likes */}
-      <View style={liveStyles.statsRow}>
+      <View style={[liveStyles.statsRow, { backgroundColor: surface, borderColor: border || BORDER, borderWidth: StyleSheet.hairlineWidth }]}>
         <View style={liveStyles.statItem}>
-          <Ionicons name="eye-outline" size={16} color={MUTED} />
-          <Text style={liveStyles.statValue}>{battle?.totalViews ?? 0}</Text>
-          <Text style={liveStyles.statLabel}>{t('battle.stats.views') || 'Views'}</Text>
+          <Ionicons name="eye-outline" size={16} color={subtleMuted} />
+          <Text style={[liveStyles.statValue, { color: primaryText }]}>{battle?.totalViews ?? 0}</Text>
+          <Text style={[liveStyles.statLabel, { color: subtleMuted }]}>{t('battle.stats.views') || 'Views'}</Text>
         </View>
-        <View style={liveStyles.statDivider} />
+        <View style={[liveStyles.statDivider, { backgroundColor: border || BORDER }]} />
         <View style={liveStyles.statItem}>
-          <Ionicons name="chatbubble-outline" size={16} color={MUTED} />
-          <Text style={liveStyles.statValue}>{battle?.totalComments ?? comments.length}</Text>
-          <Text style={liveStyles.statLabel}>{t('battle.stats.comments') || 'Comments'}</Text>
+          <Ionicons name="chatbubble-outline" size={16} color={subtleMuted} />
+          <Text style={[liveStyles.statValue, { color: primaryText }]}>{battle?.totalComments ?? comments.length}</Text>
+          <Text style={[liveStyles.statLabel, { color: subtleMuted }]}>{t('battle.stats.comments') || 'Comments'}</Text>
         </View>
-        <View style={liveStyles.statDivider} />
+        <View style={[liveStyles.statDivider, { backgroundColor: border || BORDER }]} />
         <View style={liveStyles.statItem}>
-          <Ionicons name="heart-outline" size={16} color={MUTED} />
-          <Text style={liveStyles.statValue}>{battle?.totalLikes ?? 0}</Text>
-          <Text style={liveStyles.statLabel}>{t('battle.stats.likes') || 'Likes'}</Text>
+          <Ionicons name="heart-outline" size={16} color={subtleMuted} />
+          <Text style={[liveStyles.statValue, { color: primaryText }]}>{battle?.totalLikes ?? 0}</Text>
+          <Text style={[liveStyles.statLabel, { color: subtleMuted }]}>{t('battle.stats.likes') || 'Likes'}</Text>
         </View>
       </View>
 
       {/* Comments section — GET/POST/DELETE /marketplace-battles/{battleId}/comments */}
-      <View style={liveStyles.commentsCard}>
+      <View style={[liveStyles.commentsCard, { backgroundColor: surface, borderColor: border || BORDER }]}>
         <View style={liveStyles.commentsHeaderRow}>
           <Text style={[liveStyles.commentsTitle, { color: primaryText }]}>
             {t('battle.commentsTitle') || 'Comments'} ({battle?.totalComments ?? comments.length})
@@ -1468,7 +1476,7 @@ export function BattleLiveScreen({ navigation, route }) {
             </TouchableOpacity>
           </View>
         ) : comments.length === 0 ? (
-          <Text style={liveStyles.emptyCommentsText}>
+          <Text style={[liveStyles.emptyCommentsText, { color: subtleMuted }]}>
             {t('battle.noCommentsYet') || 'Be the first to share your thoughts.'}
           </Text>
         ) : (
@@ -1482,15 +1490,16 @@ export function BattleLiveScreen({ navigation, route }) {
                     <Text style={[liveStyles.commentAuthor, { color: primaryText }]} numberOfLines={1}>
                       {comment.authorName}
                     </Text>
-                    <Text style={liveStyles.commentTime}>{comment.timeAgo}</Text>
+                    <Text style={[liveStyles.commentTime, { color: subtleMuted }]}>{comment.timeAgo}</Text>
                   </View>
-                  <Text style={liveStyles.commentMessage}>{comment.message}</Text>
+                  <Text style={[liveStyles.commentMessage, { color: primaryText }]}>{comment.message}</Text>
                   <View style={liveStyles.commentActionsRow}>
                     <TouchableOpacity
                       activeOpacity={0.75}
                       onPress={() => handleReactToComment(comment, 'LIKE')}
                       style={[
                         liveStyles.commentReactionChip,
+                        { backgroundColor: isDarkMode ? (border || '#333') : '#F7F2FF' },
                         comment.userReaction === 'LIKE' && liveStyles.commentReactionChipActive,
                       ]}
                     >
@@ -1513,6 +1522,7 @@ export function BattleLiveScreen({ navigation, route }) {
                       onPress={() => handleReactToComment(comment, 'DISLIKE')}
                       style={[
                         liveStyles.commentReactionChip,
+                        { backgroundColor: isDarkMode ? (border || '#333') : '#F7F2FF' },
                         comment.userReaction === 'DISLIKE' && liveStyles.commentReactionChipActive,
                       ]}
                     >
@@ -1551,17 +1561,19 @@ export function BattleLiveScreen({ navigation, route }) {
         )}
 
         {/* Comment composer */}
-        <View style={[liveStyles.composerRow, { borderColor: BORDER }]}>
+        <View style={[liveStyles.composerRow, { borderColor: border || BORDER }]}>
           <TextInput
             value={commentText}
             onChangeText={setCommentText}
             placeholder={t('battle.shareYourThoughts') || 'Share your thoughts...'}
-            placeholderTextColor={isBattleExpired ? '#9CA3AF' : '#B6ABCF'}
+            placeholderTextColor={subtleMuted}
             style={[
               liveStyles.composerInput,
               {
-                color: isBattleExpired ? '#9CA3AF' : primaryText,
-                backgroundColor: isBattleExpired ? '#F3F4F6' : '#F7F2FF',
+                color: isBattleExpired ? subtleMuted : primaryText,
+                backgroundColor: isBattleExpired
+                  ? (isDarkMode ? border : '#F3F4F6')
+                  : (isDarkMode ? (border || '#333') : '#F7F2FF'),
               },
             ]}
             multiline
@@ -1574,9 +1586,8 @@ export function BattleLiveScreen({ navigation, route }) {
             style={[
               liveStyles.composerSendBtn,
               {
-                backgroundColor: accent,
                 opacity: (!commentText.trim() || postingComment || isBattleExpired) ? 0.5 : 1,
-                backgroundColor: isBattleExpired ? '#D1D5DB' : accent,
+                backgroundColor: isBattleExpired ? (isDarkMode ? border : '#D1D5DB') : brandAccent,
               },
             ]}
           >
@@ -1591,7 +1602,7 @@ export function BattleLiveScreen({ navigation, route }) {
 
       <View style={styles.footerActions}>
         <TouchableOpacity activeOpacity={0.9} onPress={handleDonePress} style={styles.footerActionFlex}>
-          <LinearGradient colors={[accent, PURPLE_2]} style={styles.primaryButton}>
+          <LinearGradient colors={[brandAccent, PURPLE_2]} style={styles.primaryButton}>
             <Text style={styles.primaryButtonText}>{t('battle.done') || 'Done'}</Text>
           </LinearGradient>
         </TouchableOpacity>
@@ -1601,7 +1612,7 @@ export function BattleLiveScreen({ navigation, route }) {
             onPress={() => navigation.navigate('BattleResultsScreen', { battleId })}
             style={styles.footerActionFlex}
           >
-            <LinearGradient colors={[accent, PURPLE_2]} style={styles.primaryButton}>
+            <LinearGradient colors={[brandAccent, PURPLE_2]} style={styles.primaryButton}>
               <Text style={styles.primaryButtonText}>{t('battle.viewResults') || 'View Results'}</Text>
             </LinearGradient>
           </TouchableOpacity>
@@ -1645,13 +1656,13 @@ const liveStyles = StyleSheet.create({
   sideTagRight: { backgroundColor: '#fde8e8', borderRadius: 20, paddingHorizontal: 8, paddingVertical: 2 },
   sideTagText: { fontSize: 10, fontWeight: '600', color: '#374151' },
 
-  statsRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F7F2FF', borderRadius: 16, paddingVertical: 12, marginTop: 18, marginBottom: 14 },
+  statsRow: { flexDirection: 'row', alignItems: 'center', borderRadius: 16, paddingVertical: 12, marginTop: 18, marginBottom: 14 },
   statItem: { flex: 1, alignItems: 'center', gap: 3 },
-  statDivider: { width: 1, height: 28, backgroundColor: BORDER },
-  statValue: { fontSize: 14, fontWeight: '800', color: TEXT },
-  statLabel: { fontSize: 10, fontWeight: '600', color: MUTED },
+  statDivider: { width: 1, height: 28 },
+  statValue: { fontSize: 14, fontWeight: '800' },
+  statLabel: { fontSize: 10, fontWeight: '600' },
 
-  commentsCard: { backgroundColor: '#fff', borderRadius: 18, borderWidth: 1, borderColor: BORDER, padding: 14, marginBottom: 16 },
+  commentsCard: { borderRadius: 18, borderWidth: 1, padding: 14, marginBottom: 16 },
   commentsHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
   commentsTitle: { fontSize: 15, fontWeight: '800' },
   commentsNotice: { alignItems: 'center', paddingVertical: 12, gap: 8 },
@@ -1680,10 +1691,16 @@ const liveStyles = StyleSheet.create({
 });
 
 export function BattleResultsScreen({ navigation, route }) {
-  const { bgStyle, text, card, bg } = useClosetTheme(route);
+  const { bgStyle, text, card, bg, border, mutedText, accent: themeAccent } = useClosetTheme(route);
+  const { isDarkMode } = useThemeContext();
   const { t } = useLanguage();
-  const accent = text || PURPLE;
+  const brandAccent = themeAccent || PURPLE;
+  const accent = text || brandAccent;
   const primaryText = text || TEXT;
+  const subtleMuted = mutedText || MUTED;
+  const surface = card || (isDarkMode ? '#1E1E1E' : '#fff');
+  const winnerSurface = isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.55)';
+  const loserSurface = isDarkMode ? (border || '#333') : '#fff';
   const battleId = route?.params?.battleId;
   const handleBack = useBattleBackHandler(navigation, route);
 
@@ -1808,13 +1825,13 @@ export function BattleResultsScreen({ navigation, route }) {
       />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {winnerDeclared ? (
-          <View style={[styles.resultsHero, { backgroundColor: card || '#fff' }]}>
+          <View style={[styles.resultsHero, { backgroundColor: surface, borderColor: border || BORDER }]}>
             <View style={styles.confettiDotA} />
             <View style={styles.confettiDotB} />
             <View style={styles.confettiDotC} />
             <View style={styles.confettiDotD} />
             <Text style={[styles.winnerBadge, { color: primaryText }]}>🏆 {t('battle.winner')}</Text>
-            <View style={styles.resultsWinnerCard}>
+            <View style={[styles.resultsWinnerCard, { backgroundColor: winnerSurface }]}>
               <FastImage source={fastImageSource(winnerItem.image)} style={styles.resultsThumb} resizeMode={FastImage.resizeMode.cover} />
               <View style={styles.resultsCopy}>
                 <Text style={[styles.resultsName, { color: primaryText }]} numberOfLines={2}>{winnerItem.name}</Text>
@@ -1824,30 +1841,30 @@ export function BattleResultsScreen({ navigation, route }) {
                 <Text style={styles.resultsPercentText}>{winnerVotePercent != null ? `${winnerVotePercent}%` : '—'}</Text>
               </View>
             </View>
-            <View style={styles.resultsLoserCard}>
+            <View style={[styles.resultsLoserCard, { backgroundColor: loserSurface, borderColor: border || BORDER }]}>
               <FastImage source={fastImageSource(runnerUpItem.image)} style={styles.resultsThumbSmall} resizeMode={FastImage.resizeMode.cover} />
               <View style={styles.resultsCopy}>
                 <Text style={[styles.resultsNameSmall, { color: primaryText }]} numberOfLines={2}>{runnerUpItem.name}</Text>
                 <Text style={[styles.resultsPriceSmall, { color: primaryText }]}>{runnerUpItem.price}</Text>
               </View>
-              <View style={styles.resultsPercentPillMuted}>
-                <Text style={styles.resultsPercentTextMuted}>{Math.max(0, 100 - (winnerVotePercent ?? 0))}%</Text>
+              <View style={[styles.resultsPercentPillMuted, isDarkMode && { backgroundColor: border || '#333' }]}>
+                <Text style={[styles.resultsPercentTextMuted, { color: subtleMuted }]}>{Math.max(0, 100 - (winnerVotePercent ?? 0))}%</Text>
               </View>
             </View>
           </View>
         ) : null}
-        <View style={[styles.resultsBlock, { backgroundColor: card || '#fff' }]}>
+        <View style={[styles.resultsBlock, { backgroundColor: surface, borderColor: border || BORDER }]}>
           <Text style={[styles.sectionTitle, { color: primaryText }]}>{t('battle.battleInsights') || 'Battle Insights'}</Text>
-          <View style={styles.resultsRow}><Text style={styles.resultsLabel}>{t('battle.stats.totalVotes') || 'Total Votes'}</Text><Text style={[styles.resultsValue, { color: primaryText }]}>{totalVotes}</Text></View>
-          <View style={styles.resultsRow}><Text style={styles.resultsLabel}>{t('battle.stats.totalViews') || 'Total Views'}</Text><Text style={[styles.resultsValue, { color: primaryText }]}>{totalViews}</Text></View>
-          <View style={[styles.resultsRow, styles.resultsRowLast]}><Text style={styles.resultsLabel}>{t('battle.stats.comments') || 'Comments'}</Text><Text style={[styles.resultsValue, { color: primaryText }]}>{totalComments}</Text></View>
+          <View style={[styles.resultsRow, { borderBottomColor: border || '#F1E8FB' }]}><Text style={[styles.resultsLabel, { color: subtleMuted }]}>{t('battle.stats.totalVotes') || 'Total Votes'}</Text><Text style={[styles.resultsValue, { color: primaryText }]}>{totalVotes}</Text></View>
+          <View style={[styles.resultsRow, { borderBottomColor: border || '#F1E8FB' }]}><Text style={[styles.resultsLabel, { color: subtleMuted }]}>{t('battle.stats.totalViews') || 'Total Views'}</Text><Text style={[styles.resultsValue, { color: primaryText }]}>{totalViews}</Text></View>
+          <View style={[styles.resultsRow, styles.resultsRowLast]}><Text style={[styles.resultsLabel, { color: subtleMuted }]}>{t('battle.stats.comments') || 'Comments'}</Text><Text style={[styles.resultsValue, { color: primaryText }]}>{totalComments}</Text></View>
           {/* <View style={[styles.resultsRow, styles.resultsRowLast]}><Text style={styles.resultsLabel}>{t('battle.stats.shares') || 'Shares'}</Text><Text style={[styles.resultsValue, { color: primaryText }]}>{insights?.shareCount ?? 12}</Text></View> */}
         </View>
         {isCreator ? (
           <>
-            <View style={[styles.aboutCard, { backgroundColor: card || '#fff' }]}>
+            <View style={[styles.aboutCard, { backgroundColor: surface, borderColor: border || BORDER }]}>
               <Text style={[styles.aboutTitle, { color: primaryText }]}>{t('battle.useInsightsTitle')}</Text>
-              <Text style={styles.aboutText}>{useInsightsCopy}</Text>
+              <Text style={[styles.aboutText, { color: subtleMuted }]}>{useInsightsCopy}</Text>
             </View>
             <View style={styles.actionRow}>
               {/* <TouchableOpacity activeOpacity={0.9} style={[styles.outlineBtn, { borderColor: accent }]} onPress={() => Share.share({ message: t('battle.shareResultsMessage') }).catch(() => { })}>
@@ -1855,7 +1872,7 @@ export function BattleResultsScreen({ navigation, route }) {
           </TouchableOpacity> */}
               <TouchableOpacity
                 activeOpacity={0.9}
-                style={[styles.actionBtn, { backgroundColor: accent }]}
+                style={[styles.actionBtn, { backgroundColor: brandAccent }]}
                 onPress={() => navigation.navigate('BattleInsightsActions', { battleId, winnerItem, runnerUpItem })}
               >
                 <Text style={styles.actionBtnText}>{t('battle.useInsights') || 'Use Insights'}</Text>
@@ -2010,8 +2027,8 @@ const styles = StyleSheet.create({
   confettiDotB: { position: 'absolute', top: 28, right: 26, width: 6, height: 6, borderRadius: 3, backgroundColor: '#FFD7A8', opacity: 0.7 },
   confettiDotC: { position: 'absolute', top: 60, right: 68, width: 7, height: 7, borderRadius: 3.5, backgroundColor: '#F7A9D6', opacity: 0.6 },
   confettiDotD: { position: 'absolute', top: 86, left: 74, width: 6, height: 6, borderRadius: 3, backgroundColor: '#B9E3FF', opacity: 0.6 },
-  resultsWinnerCard: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 16, padding: 10, backgroundColor: 'rgba(255,255,255,0.55)' },
-  resultsLoserCard: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 16, padding: 10, backgroundColor: '#fff', borderWidth: 1, borderColor: '#EEE7FB' },
+  resultsWinnerCard: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 16, padding: 10 },
+  resultsLoserCard: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 16, padding: 10, borderWidth: 1 },
   resultsThumb: { width: 78, height: 92, borderRadius: 12, backgroundColor: '#F3F0FA' },
   resultsThumbSmall: { width: 56, height: 68, borderRadius: 10, backgroundColor: '#F3F0FA' },
   resultsCopy: { flex: 1, gap: 4 },

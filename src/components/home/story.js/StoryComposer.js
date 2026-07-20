@@ -323,8 +323,18 @@ export default function StoryComposer({
   const [waveformViewportW, setWaveformViewportW] = useState(SCREEN_WIDTH - 48);
   const [audioTrimPerIndex, setAudioTrimPerIndex] = useState({});
   const [audioTrimConfirmedPerIndex, setAudioTrimConfirmedPerIndex] = useState({});
-  const { bgStyle, textStyle, cardStyle, text: themeText, bg } = useAppTheme();
+  const {
+    bgStyle,
+    textStyle,
+    cardStyle,
+    text: themeText,
+    bg,
+    icon,
+    mutedText,
+    border,
+  } = useAppTheme();
   const { isDarkMode } = useThemeContext();
+  const toolbarInactiveColor = isDarkMode ? mutedText : '#555';
   const insets = useSafeAreaInsets();
   const trashZoneRef = useRef(null);
   const [trashRect, setTrashRect] = useState(null);
@@ -1277,9 +1287,11 @@ export default function StoryComposer({
           {/* ── Top bar ── */}
           <View style={styles.topBar}>
             <TouchableOpacity onPress={onCancel} style={styles.topBtn}>
-              <Icon name="close" size={26} color="#000" />
+              <Icon name="close" size={26} color={icon} />
             </TouchableOpacity>
-            <Text style={styles.topTitle}>{t('storyComposer.topBarTitle')}</Text>
+            <Text style={[styles.topTitle, { color: themeText }]}>
+              {t('storyComposer.topBarTitle')}
+            </Text>
             <TouchableOpacity onPress={handleExport} style={styles.nextBtn}>
               <Text style={styles.nextText}>{t('storyComposer.postButton')}</Text>
             </TouchableOpacity>
@@ -1607,6 +1619,7 @@ export default function StoryComposer({
                       <Text
                         style={[
                           styles.filterLabel,
+                          { color: mutedText },
                           currentFilterKey === f.key && styles.filterLabelActive,
                         ]}
                       >
@@ -1622,7 +1635,7 @@ export default function StoryComposer({
             {(activeTab === 'stickers' || activeTab === 'overlay') && (
               <View style={[styles.bottomTools, bgStyle]}>
                 {activeTab === 'overlay' ? (
-                  <Text style={styles.overlayHint}>
+                  <Text style={[styles.overlayHint, { color: mutedText }]}>
                     {t('storyComposer.overlayHint')}
                   </Text>
                 ) : null}
@@ -1649,7 +1662,7 @@ export default function StoryComposer({
           {/* ── Bottom toolbar ── */}
           <SafeAreaView
             edges={['bottom']}
-            style={[styles.tabs, bgStyle, { borderTopColor: bg }]}
+            style={[styles.tabs, bgStyle, { borderTopColor: border || bg }]}
           >
             <ScrollView
               horizontal
@@ -1674,9 +1687,17 @@ export default function StoryComposer({
                     onPress={() => handleToolPress(item.key)}
                     activeOpacity={0.75}
                   >
-                    <Icon name={item.icon} size={17} color={active ? '#4da3ff' : '#555'} />
+                    <Icon
+                      name={item.icon}
+                      size={17}
+                      color={active ? '#4da3ff' : toolbarInactiveColor}
+                    />
                     <Text
-                      style={[styles.tabLabel, active && styles.tabLabelActive]}
+                      style={[
+                        styles.tabLabel,
+                        { color: toolbarInactiveColor },
+                        active && styles.tabLabelActive,
+                      ]}
                       numberOfLines={1}
                       adjustsFontSizeToFit
                       minimumFontScale={0.85}

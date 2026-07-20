@@ -31,6 +31,7 @@ const ChangePassword = () => {
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const { bgStyle, textStyle, text, border, card, mutedText } = useBusinessProfileTheme();
     const { isDarkMode } = useThemeContext();
+    const eyeIconColor = text;
     const navigation = useNavigation();
     const dispatch = useDispatch();
     const toast = useToast();
@@ -153,7 +154,11 @@ const ChangePassword = () => {
                                         style={styles.eyeIcon}
                                         onPress={() => setShowOldPassword(!showOldPassword)}
                                     >
-                                        {showOldPassword ? <Eyeopen /> : <Eyeclosed />}
+                                        {showOldPassword ? (
+                                            <Eyeopen color={eyeIconColor} />
+                                        ) : (
+                                            <Eyeclosed color={eyeIconColor} />
+                                        )}
                                     </TouchableOpacity>
                                 </View>
                                 {touched.oldPassword && errors.oldPassword && (
@@ -182,7 +187,11 @@ const ChangePassword = () => {
                                         style={styles.eyeIcon}
                                         onPress={() => setShowNewPassword(!showNewPassword)}
                                     >
-                                        {showNewPassword ? <Eyeopen /> : <Eyeclosed />}
+                                        {showNewPassword ? (
+                                            <Eyeopen color={eyeIconColor} />
+                                        ) : (
+                                            <Eyeclosed color={eyeIconColor} />
+                                        )}
                                     </TouchableOpacity>
                                 </View>
                                 {touched.newPassword && errors.newPassword && (
@@ -213,7 +222,11 @@ const ChangePassword = () => {
                                         style={styles.eyeIcon}
                                         onPress={() => setShowConfirmPassword(!showConfirmPassword)}
                                     >
-                                        {showConfirmPassword ? <Eyeopen /> : <Eyeclosed />}
+                                        {showConfirmPassword ? (
+                                            <Eyeopen color={eyeIconColor} />
+                                        ) : (
+                                            <Eyeclosed color={eyeIconColor} />
+                                        )}
                                     </TouchableOpacity>
                                 </View>
                                 {touched.confirmPassword && errors.confirmPassword && (

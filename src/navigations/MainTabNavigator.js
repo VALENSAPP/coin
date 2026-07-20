@@ -365,7 +365,10 @@ export default function MainTabNavigator() {
   const HomeStack = useMemo(() => {
     return () => (
       <Stack.Navigator
-        screenOptions={{ headerShown: false }}
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: bg },
+        }}
         initialRouteName="Home"
       >
         <Stack.Screen name="Home" component={HomeScreen} />
@@ -450,12 +453,15 @@ export default function MainTabNavigator() {
         />
       </Stack.Navigator>
     );
-  }, []);
+  }, [bg]);
 
   const ProfileStack = useMemo(() => {
     return () => (
       <Stack.Navigator
-        screenOptions={{ headerShown: false }}
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: bg },
+        }}
         initialRouteName="Profile"
       >
         <Stack.Screen name="Profile" component={ProfileScreen} />
@@ -1068,8 +1074,11 @@ export default function MainTabNavigator() {
     () => ({
       display: 'flex',
       backgroundColor: bg,
-      borderTopWidth: 1.5,
-      borderTopColor: border,
+      borderTopWidth: 0,
+      elevation: 0,
+      shadowOpacity: 0,
+      shadowOffset: { width: 0, height: 0 },
+      shadowRadius: 0,
       height: 50,
       position: 'absolute',
       bottom: Platform.OS == 'android' ? 0 : 25,
@@ -1077,7 +1086,7 @@ export default function MainTabNavigator() {
       right: 0,
       paddingTop: 5,
     }),
-    [bg, border],
+    [bg],
   );
 
   const reelsTabBarStyle = useMemo(

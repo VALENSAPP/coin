@@ -30,6 +30,14 @@ import {
 } from '../../utils/stripeOnboarding';
 import { useNavigation } from '@react-navigation/native';
 import { useLanguage } from '../../i18n';
+import { useThemeContext } from '../../theme/ThemeContext';
+
+const normalizeThemeProfile = profile => {
+    const value = String(profile || '').toLowerCase().trim();
+    if (value === 'company' || value === 'business') return 'company';
+    if (value === 'user' || value === 'normal') return 'user';
+    return undefined;
+};
 
 const SubscribeFlowModal = ({
     visible,
@@ -52,11 +60,35 @@ const SubscribeFlowModal = ({
     const toast = useToast();
     const dispatch = useDispatch();
     const navigation = useNavigation();
-    const { bgStyle, textStyle, bg, text } = useAppTheme(userData?.profile);
+    // Theme follows the *viewed* profile (simple → purple, business → gold), not the logged-in viewer.
+    const profileOverride =
+        normalizeThemeProfile(userData?.profile) ||
+        normalizeThemeProfile(userProfile);
+    const {
+        textStyle,
+        text,
+        accent,
+        card,
+        border,
+        mutedText,
+    } = useAppTheme(profileOverride);
+    const { isDarkMode } = useThemeContext();
     const { t } = useLanguage();
     const stripeErrorMessages = getStripeErrorMessages(t);
 
-    const isCompanyProfile = userProfile === 'company';
+    const isCompanyProfile =
+        profileOverride === 'company' || userProfile === 'company';
+    const sheetStyle = [styles.sheetContainer, { backgroundColor: card }];
+    const primaryBtnStyle = [styles.btn, { backgroundColor: accent }];
+    const cancelBtnStyle = [
+        styles.btn,
+        styles.cancelBtn,
+        {
+            backgroundColor: isDarkMode ? card : '#fff',
+            borderColor: border,
+        },
+    ];
+    const cancelTextColor = { color: text };
 
     const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
     const isBrowserCancelled = (result) => result?.type === 'cancel' || result?.type === 'dismiss';
@@ -290,7 +322,7 @@ const SubscribeFlowModal = ({
         if (supported) await Linking.openURL(url);
     };
 
-    const DragonflyIcon = getDragonflyIcon(dashboard?.totalFollowers, isCompanyProfile);
+    const DragonflyIcon = getDragonflyIcon(dashboard?.totalFollowers, isCompanyProfile, isDarkMode);
 
     return (
         <>
@@ -299,7 +331,7 @@ const SubscribeFlowModal = ({
                 ref={step1Ref}
                 height={420}
                 closeOnPressMask={false}
-                customStyles={{ container: [styles.sheetContainer, bgStyle] }}
+                customStyles={{ container: sheetStyle }}
             >
                 <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
                     <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 10 }}>
@@ -311,7 +343,7 @@ const SubscribeFlowModal = ({
                         {t('subscribeFlow.step1Subtitle')}
                     </Text>
 
-                    <Text style={styles.bodyText}>
+                    <Text style={[styles.bodyText, { color: mutedText }]}>
                         {t('subscribeFlow.step1Body')}
                     </Text>
 
@@ -320,17 +352,17 @@ const SubscribeFlowModal = ({
                     </Text>
 
                     <TouchableOpacity
-                        style={[styles.btn, { backgroundColor: text }]}
+                        style={primaryBtnStyle}
                         onPress={handleConfirm}
                     >
                         <Text style={styles.confirmTextBtn}>{t('subscribeFlow.yesButton')}</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                        style={[styles.btn, styles.cancelBtn]}
+                        style={cancelBtnStyle}
                         onPress={closeAllModals}
                     >
-                        <Text style={[styles.cancelTextBtn, textStyle]}>
+                        <Text style={[styles.cancelTextBtn, cancelTextColor]}>
                             {t('subscribeFlow.notNow')}
                         </Text>
                     </TouchableOpacity>
@@ -342,20 +374,28 @@ const SubscribeFlowModal = ({
                 ref={step2Ref}
                 height={370}
                 closeOnPressMask={false}
-                customStyles={{ container: styles.sheetContainer }}
+                customStyles={{ container: sheetStyle }}
             >
                 <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-                    <View style={styles.priceBox}>
-                        <Text style={styles.priceLabel}>{t('subscribeFlow.membershipLabel')}</Text>
+                    <View style={[
+                        styles.priceBox,
+                        {
+                            backgroundColor: isDarkMode ? '#242424' : '#fff',
+                            borderColor: border,
+                        },
+                    ]}>
+                        <Text style={[styles.priceLabel, { color: mutedText }]}>
+                            {t('subscribeFlow.membershipLabel')}
+                        </Text>
                         <Text style={[styles.priceValue, textStyle]}>
                             ${subscriptionAmount} {t('subscribeFlow.perMonth')}
                         </Text>
                     </View>
 
                     {comment ? (
-                        <Text style={styles.comment}>
+                        <Text style={[styles.comment, { color: mutedText }]}>
                             {t('subscribeFlow.commentLabel')}{' '}
-                            <Text style={styles.comments}>{comment}</Text>
+                            <Text style={[styles.comments, { color: text }]}>{comment}</Text>
                         </Text>
                     ) : null}
 
@@ -366,12 +406,12 @@ const SubscribeFlowModal = ({
                         <Ionicons
                             name={acceptedTerms ? 'checkbox-outline' : 'square-outline'}
                             size={22}
-                            color={acceptedTerms ? '#000' : '#aaa'}
+                            color={acceptedTerms ? accent : mutedText}
                             style={styles.checkboxIcon}
                         />
-                        <Text style={styles.checkboxText}>
+                        <Text style={[styles.checkboxText, { color: mutedText }]}>
                             {t('subscribeFlow.termsPrefix')}{' '}
-                            <Text style={styles.linkText} onPress={openTerms}>
+                            <Text style={[styles.linkText, { color: accent }]} onPress={openTerms}>
                                 {t('subscribeFlow.termsLink')}
                             </Text>{' '}
                             {t('subscribeFlow.termsSuffix')}
@@ -381,7 +421,7 @@ const SubscribeFlowModal = ({
                     <TouchableOpacity
                         style={[
                             styles.btn,
-                            { opacity: acceptedTerms ? 1 : 0.4, backgroundColor: text },
+                            { backgroundColor: accent, opacity: acceptedTerms ? 1 : 0.4 },
                         ]}
                         onPress={getSubscription}
                         disabled={!acceptedTerms}
@@ -392,10 +432,12 @@ const SubscribeFlowModal = ({
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                        style={[styles.btn, styles.cancelBtn]}
+                        style={cancelBtnStyle}
                         onPress={closeAllModals}
                     >
-                        <Text style={styles.cancelTextBtn}>{t('subscribeFlow.notNow')}</Text>
+                        <Text style={[styles.cancelTextBtn, cancelTextColor]}>
+                            {t('subscribeFlow.notNow')}
+                        </Text>
                     </TouchableOpacity>
                 </ScrollView>
             </RBSheet>
@@ -429,7 +471,6 @@ const styles = StyleSheet.create({
     },
     bodyText: {
         textAlign: 'center',
-        color: '#333',
         fontSize: 15,
         lineHeight: 22,
         marginBottom: 20,
@@ -452,29 +493,23 @@ const styles = StyleSheet.create({
     },
     cancelBtn: {
         borderWidth: 1,
-        borderColor: '#d3c1e0',
-        backgroundColor: '#fff',
     },
     cancelTextBtn: {
         fontSize: 16,
         fontWeight: '600',
     },
     paymentNote: {
-        color: '#555',
         fontSize: 13,
         marginBottom: 15,
         textAlign: 'center',
     },
     input: {
-        backgroundColor: '#fff',
         borderWidth: 1,
-        borderColor: '#ddd',
         borderRadius: 10,
         paddingHorizontal: 12,
         paddingVertical: 10,
         marginBottom: 10,
         fontSize: 15,
-        color: '#333',
     },
     row: {
         flexDirection: 'row',
@@ -484,21 +519,19 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         marginVertical: 14,
-        backgroundColor: '#fff',
         borderRadius: 10,
         padding: 12,
         borderWidth: 1,
-        borderColor: '#ddd',
     },
-    priceLabel: { fontSize: 15, color: '#555' },
+    priceLabel: { fontSize: 15 },
     priceValue: { fontSize: 16, fontWeight: '700' },
     checkboxRow: {
         flexDirection: 'row',
-        alignItems: 'center',
+        alignItems: 'flex-start',
+        marginTop: 12,
         marginBottom: 18,
     },
     termsText: {
-        color: '#333',
         marginLeft: 8,
         fontSize: 14,
     },
@@ -508,51 +541,36 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
     termsContent: {
-        color: '#444',
         fontSize: 13,
         lineHeight: 20,
         textAlign: 'left',
     },
     termsContainer: {
         marginVertical: 10,
-        backgroundColor: '#fff',
         borderRadius: 10,
         borderWidth: 1,
-        borderColor: '#ddd',
         padding: 10,
     },
-    checkboxRow: {
-        flexDirection: 'row',
-        alignItems: 'flex-start',
-        marginTop: 12,
-    },
-
     checkboxIcon: {
         marginTop: 3,
         marginRight: 10,
     },
-
     checkboxText: {
         flex: 1,
         fontSize: 14,
         lineHeight: 20,
-        color: '#000',
     },
-
     linkText: {
-        color: '#5a2d82',
         fontWeight: '600',
         textDecorationLine: 'underline',
     },
     comment: {
         fontSize: 14,
-        color: '#6b7280',
         marginTop: 10,
-        fontWeight: 600
+        fontWeight: '600',
     },
     comments: {
-        fontWeight: 100,
+        fontWeight: '400',
         fontSize: 14,
-        color: '#000'
-    }
+    },
 });

@@ -250,14 +250,28 @@ const mapBattle = (battle, index) => {
   };
 };
 
-const BattleSlide = ({ battle, accent, t, onPress }) => (
-  <TouchableOpacity activeOpacity={0.9} onPress={onPress} style={styles.battleCard}>
-    <Text style={styles.battleTitle} numberOfLines={1}>
-      {battle.title || t('myClosetShopFront.battlePicksTitle')}
+const BattleSlide = ({
+  battle,
+  accent,
+  t,
+  onPress,
+  card,
+  border,
+  textColor,
+  mutedText,
+  isDark,
+}) => (
+  <TouchableOpacity
+    activeOpacity={0.9}
+    onPress={onPress}
+    style={[styles.battleCard, { backgroundColor: card, borderColor: border }]}
+  >
+    <Text style={[styles.battleTitle, { color: textColor }]} numberOfLines={1}>
+      {battle.title || t('myClosetShopFront.defaultQuestion') || t('myClosetShopFront.battlePicksTitle')}
     </Text>
     <View style={styles.slide}>
       <View style={styles.fighter}>
-        <View style={styles.fighterThumb}>
+        <View style={[styles.fighterThumb, { backgroundColor: isDark ? border : '#f6f0ee' }]}>
           <CachedImageBox
             uri={battle.left.image}
             style={styles.fighterImgWrap}
@@ -265,17 +279,17 @@ const BattleSlide = ({ battle, accent, t, onPress }) => (
             iconName="bag-outline"
           />
         </View>
-        <Text style={styles.fighterName} numberOfLines={2}>{battle.left.name}</Text>
-        <Text style={styles.fighterPrice}>{battle.left.price}</Text>
+        <Text style={[styles.fighterName, { color: textColor }]} numberOfLines={2}>{battle.left.name}</Text>
+        <Text style={[styles.fighterPrice, { color: textColor }]}>{battle.left.price}</Text>
         <Text style={[styles.pct, { color: accent }]}>{battle.left.pct}%</Text>
       </View>
 
-      <View style={styles.vsBubble}>
-        <Text style={styles.vsText}>{t('myClosetShopFront.vs')}</Text>
+      <View style={[styles.vsBubble, { backgroundColor: isDark ? border : '#f4ecfb', borderColor: border }]}>
+        <Text style={[styles.vsText, { color: textColor }]}>{t('myClosetShopFront.vs')}</Text>
       </View>
 
       <View style={styles.fighter}>
-        <View style={styles.fighterThumb}>
+        <View style={[styles.fighterThumb, { backgroundColor: isDark ? border : '#f0eeec' }]}>
           <CachedImageBox
             uri={battle.right.image}
             style={styles.fighterImgWrap}
@@ -283,8 +297,8 @@ const BattleSlide = ({ battle, accent, t, onPress }) => (
             iconName="bag-handle-outline"
           />
         </View>
-        <Text style={styles.fighterName} numberOfLines={2}>{battle.right.name}</Text>
-        <Text style={styles.fighterPrice}>{battle.right.price}</Text>
+        <Text style={[styles.fighterName, { color: textColor }]} numberOfLines={2}>{battle.right.name}</Text>
+        <Text style={[styles.fighterPrice, { color: textColor }]}>{battle.right.price}</Text>
         <Text style={styles.pctRed}>{battle.right.pct}%</Text>
       </View>
     </View>
@@ -1199,7 +1213,8 @@ const MyClosetBuyerItemsScreen = ({ navigation, route }) => {
 };
 
 const MyClosetBattlesScreen = ({ navigation, route }) => {
-  const { bgStyle, text: accent } = useClosetTheme(route);
+  const { bgStyle, text, accent, card, border, mutedText } = useClosetTheme(route);
+  const { isDarkMode } = useThemeContext();
   const { t } = useLanguage();
   const closetId = route?.params?.closetId;
   const isOwnProfile = route?.params?.isOwnProfile ?? false;
@@ -1270,7 +1285,17 @@ const MyClosetBattlesScreen = ({ navigation, route }) => {
           keyExtractor={b => b.id}
           renderItem={({ item }) => (
             <View style={{ marginBottom: 16 }}>
-              <BattleSlide battle={item} accent={accent} t={t} onPress={() => openBattle(item)} />
+              <BattleSlide
+                battle={item}
+                accent={accent}
+                t={t}
+                onPress={() => openBattle(item)}
+                card={card}
+                border={border}
+                textColor={text}
+                mutedText={mutedText}
+                isDark={isDarkMode}
+              />
             </View>
           )}
           contentContainerStyle={{ padding: 16 }}
@@ -1284,8 +1309,8 @@ const MyClosetBattlesScreen = ({ navigation, route }) => {
           ) : null}
           ListEmptyComponent={(
             <View style={styles.emptyState}>
-              <Ionicons name="flash-outline" size={34} color="#c4b5d4" />
-              <Text style={styles.emptyTitle}>{t('battleHub.noBattlesYet') || 'No battles yet'}</Text>
+              <Ionicons name="flash-outline" size={34} color={mutedText} />
+              <Text style={[styles.emptyTitle, { color: text }]}>{t('battleHub.noBattlesYet') || 'No battles yet'}</Text>
             </View>
           )}
         />
@@ -3347,9 +3372,7 @@ const styles = StyleSheet.create({
 
   battleCard: {
     borderWidth: 1,
-    borderColor: BORDER,
     borderRadius: 20,
-    backgroundColor: '#fff',
     padding: 14,
     shadowColor: '#000',
     shadowOpacity: 0.04,
@@ -3361,7 +3384,6 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     fontSize: 14,
     fontWeight: '900',
-    color: '#17072d',
   },
   slide: {
     flexDirection: 'row',
@@ -3379,7 +3401,6 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 14,
-    backgroundColor: '#f6f0ee',
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
@@ -3403,7 +3424,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
     fontWeight: '900',
-    color: '#17072d',
     textAlign: 'center',
     minHeight: 36,
   },
@@ -3411,7 +3431,6 @@ const styles = StyleSheet.create({
     marginTop: -10,
     fontSize: 14,
     fontWeight: '900',
-    color: '#17072d',
   },
   userRow: {
     marginTop: 8,
@@ -3436,16 +3455,13 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#f4ecfb',
     borderWidth: 1,
-    borderColor: BORDER,
     alignSelf: 'center',
     marginHorizontal: 4,
   },
   vsText: {
     fontSize: 11,
     fontWeight: '900',
-    color: '#21083f',
   },
 
   imageBox: { backgroundColor: '#f6f0ee', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },

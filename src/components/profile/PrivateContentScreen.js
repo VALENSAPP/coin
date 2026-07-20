@@ -167,8 +167,7 @@ const PrivateContentScreen = ({
   const navigation = useNavigation();
   const isFocused = useIsFocused();
   const scrollY = useRef(new Animated.Value(0)).current;
-  const profileThemeType =
-    normalizeProfileType(userData?.profile) === 'company' ? 'company' : undefined;
+  const profileThemeType = normalizeProfileType(userData?.profile);
   const { bgStyle, textStyle, text, cardStyle, card, border, mutedTextStyle, accent } =
     useAppTheme(profileThemeType);
   const { t } = useLanguage();
