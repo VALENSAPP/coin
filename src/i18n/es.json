@@ -59,7 +59,7 @@
     "passwordMismatch": "Las contraseñas no coinciden"
   },
   "selectAccountType": {
-    "subtitle": "Las redes sociales acaban de mejorar",
+    "subtitle": "Construye tu reputación, gana credibilidad",
     "alreadyHaveAccount": "¿Ya tienes una cuenta? ",
     "login": "Inicia sesión",
     "personaTitle": "Soy Persona",
@@ -4080,6 +4080,15 @@
     "previewChat": "Vista previa del chat",
     "returnPolicyLabel": "Política de devoluciones",
     "selectReturnPolicyPlaceholder": "Selecciona una política de devoluciones",
+    "pickupCity": "Ciudad de recogida",
+    "searchCity": "Buscar ciudad",
+    "selectCity": "Seleccione una ciudad",
+    "pickupSpot": "Punto de recogida",
+    "availableHours": "Horas disponibles",
+    "weekdays": "Días laborables",
+    "weekends": "Fines de semana",
+    "enableBuyerChat": "Habilitar chat de comprador",
+    "enableBuyerChatDesc": "Permitir a los compradores chatear contigo",
     "errors": {
       "deliveryRequired": "Selecciona al menos un método de entrega.",
       "shippingTimeRequired": "El tiempo estimado de envío es obligatorio.",
@@ -4101,7 +4110,8 @@
     "paymentMethodLabel": "Método de pago",
     "publishButton": "Publicar artículo",
     "publishing": "Publicando...",
-    "publishFailure": "No se pudo publicar el artículo."
+    "publishFailure": "No se pudo publicar el artículo.",
+    "copyItemText": "Descubre mi producto en {{shopName}} en Valens.\n{{link}}"
   },
   "myClosetAddItemPublished": {
     "title": "¡Tu artículo ya está publicado! 🎉",
@@ -4518,6 +4528,7 @@
     "durationLabel": "Duración",
     "messageLabel": "Mensaje (opcional)",
     "defaultMessage": "¡Gracias por votar! Disfruta de un 10 % de descuento en nuestro ganador de la batalla durante solo 24 horas.",
+    "defaultFreeShippingMessage": "¡Gracias por votar! Disfruta de envío gratis en nuestro ganador de la batalla.",
     "preview": "Vista previa de la promoción",
     "previewTitle": "Vista previa de la promoción",
     "bannerTag": "OFERTA DEL GANADOR DE LA BATALLA",

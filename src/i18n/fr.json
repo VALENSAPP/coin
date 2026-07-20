@@ -59,7 +59,7 @@
     "passwordMismatch": "Les mots de passe ne correspondent pas"
   },
   "selectAccountType": {
-    "subtitle": "Les rÃ©seaux sociaux Ã©voluent",
+    "subtitle": "Développez votre réputation, gagnez en crédibilité",
     "alreadyHaveAccount": "Vous avez dÃ©jÃ  un compte ? ",
     "login": "Connectez-vous",
     "personaTitle": "Je suis un utilisateur",
@@ -4080,6 +4080,15 @@
     "previewChat": "Aperçu de la discussion",
     "returnPolicyLabel": "Politique de retour",
     "selectReturnPolicyPlaceholder": "Sélectionnez une politique de retour",
+    "pickupCity": "Ville de retrait",
+    "searchCity": "Rechercher une ville",
+    "selectCity": "Sélectionnez une ville",
+    "pickupSpot": "Point de retrait",
+    "availableHours": "Heures disponibles",
+    "weekdays": "Jours de semaine",
+    "weekends": "Week-ends",
+    "enableBuyerChat": "Activer le chat acheteur",
+    "enableBuyerChatDesc": "Permettre aux acheteurs de discuter avec vous",
     "errors": {
       "deliveryRequired": "Sélectionnez au moins un mode de livraison.",
       "shippingTimeRequired": "Le délai de livraison estimé est obligatoire.",
@@ -4101,7 +4110,8 @@
     "paymentMethodLabel": "Mode de paiement",
     "publishButton": "Publier l'article",
     "publishing": "Publication en cours...",
-    "publishFailure": "Impossible de publier l'article."
+    "publishFailure": "Impossible de publier l'article.",
+    "copyItemText": "Découvrez mon produit chez {{shopName}} sur Valens.\n{{link}}"
   },
   "myClosetAddItemPublished": {
     "title": "Votre article est en ligne ! 🎉",
@@ -4518,6 +4528,7 @@
     "durationLabel": "Durée",
     "messageLabel": "Message (facultatif)",
     "defaultMessage": "Merci d'avoir voté ! Profitez de 10 % de réduction sur le gagnant de notre bataille pendant seulement 24 heures.",
+    "defaultFreeShippingMessage": "Merci d'avoir voté ! Profitez de la livraison gratuite sur le gagnant de notre bataille.",
     "preview": "Aperçu de la promotion",
     "previewTitle": "Aperçu de la promotion",
     "bannerTag": "PROMOTION DU GAGNANT DE LA BATAILLE",

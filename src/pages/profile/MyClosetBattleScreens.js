@@ -298,9 +298,12 @@ export const Header = ({ title, onBack, rightIcon, subtitle, onShare, accentColo
       <Text style={[styles.screenTitle, { color: titleColor || TEXT }]}>{title}</Text>
       {subtitle ? <Text style={styles.screenSubtitle}>{subtitle}</Text> : null}
     </View>
-    <TouchableOpacity onPress={onShare} activeOpacity={0.8} style={styles.iconBtn}>
+    <View>
+      <Text>      </Text>
+    </View>
+    {/* <TouchableOpacity onPress={onShare} activeOpacity={0.8} style={styles.iconBtn}>
       <Ionicons name={rightIcon || 'share-social-outline'} size={20} color={accentColor || titleColor || TEXT} />
-    </TouchableOpacity>
+    </TouchableOpacity> */}
   </View>
 );
 

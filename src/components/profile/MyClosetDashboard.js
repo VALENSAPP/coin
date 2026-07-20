@@ -8,6 +8,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Share,
 } from 'react-native';
 import FastImage from 'react-native-fast-image';
 import { useFocusEffect } from '@react-navigation/native';
@@ -28,6 +29,7 @@ import { getMarketplaceEbooksByClosetId } from '../../services/post';
 import { EbookCard } from './AllEbooksScreen';
 import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
+import { buildProfileSharePayload } from '../../utils/profileShare';
 
 const mixWithWhite = (hex, amount = 0.88) => {
   const normalized = String(hex || '').replace('#', '');
@@ -558,11 +560,16 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
     });
   };
 
-  const handleSharePress = () => {
-    navigation?.navigate?.('ProfileMain', {
-      screen: 'ShareProfile',
-      params: { userData, initialTab: 'closet', shopHandle },
-    });
+  const handleSharePress = async () => {
+    try {
+      const { shareMessage } = buildProfileSharePayload({
+        username: shopHandle || userData?.username || userData?.userName,
+        userId: userData?.id || userData?._id
+      });
+      await Share.share({ message: shareMessage });
+    } catch (error) {
+      console.log('Share error', error);
+    }
   };
 
   // sellerId is threaded through to CreateBattleScreen so it can call

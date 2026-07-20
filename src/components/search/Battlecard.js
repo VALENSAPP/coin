@@ -540,21 +540,21 @@ const AUTO_SCROLL_SPEED_PX_PER_MS = 0.04;
 const START_DELAY_MS = 300;
 const ROW_PADDING_LEFT = 10;
 
-const AndroidBattleRow = ({ children, style }) => {
+const AndroidBattleRow = ({ children, style, cardWidth = CARD_WIDTH, cardGap = CARD_GAP, rowPaddingLeft = ROW_PADDING_LEFT }) => {
     const allChildren = React.Children.toArray(children);
 
     if (allChildren.length === 0) return null;
 
     if (allChildren.length === 1) {
         return (
-            <View style={[{ flexDirection: 'row', paddingHorizontal: ROW_PADDING_LEFT }, style]}>
+            <View style={[{ flexDirection: 'row', paddingHorizontal: rowPaddingLeft }, style]}>
                 {allChildren}
             </View>
         );
     }
 
     const loopedChildren = [...allChildren, ...allChildren];
-    const totalWidth = allChildren.length * (CARD_WIDTH + CARD_GAP);
+    const totalWidth = allChildren.length * (cardWidth + cardGap);
 
     const translateX = useRef(new Animated.Value(0)).current;
     const animRef = useRef(null);
@@ -576,7 +576,7 @@ const AndroidBattleRow = ({ children, style }) => {
         if (isDraggingRef.current) return;
         animRef.current?.stop();
 
-        const stepSize = CARD_WIDTH + CARD_GAP;
+        const stepSize = cardWidth + cardGap;
 
         // snap fromX to nearest card boundary
         const snapped = Math.round(fromX / stepSize) * stepSize;
@@ -676,25 +676,42 @@ const AndroidBattleRow = ({ children, style }) => {
 
     return (
         <View
-            style={[{ overflow: 'hidden', paddingLeft: ROW_PADDING_LEFT }, style]}
+            style={[{ overflow: 'hidden', paddingLeft: rowPaddingLeft }, style]}
             collapsable={false}
+            onTouchStart={() => {
+                isDraggingRef.current = true;
+                animRef.current?.stop();
+                if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+            }}
+            onTouchEnd={() => {
+                isDraggingRef.current = false;
+                resumeTimerRef.current = setTimeout(() => {
+                    startStepScroll(animOffsetRef.current);
+                }, RESUME_DELAY_MS);
+            }}
+            onTouchCancel={() => {
+                isDraggingRef.current = false;
+                resumeTimerRef.current = setTimeout(() => {
+                    startStepScroll(animOffsetRef.current);
+                }, RESUME_DELAY_MS);
+            }}
             {...panResponder.panHandlers}
         >
             <Animated.View
                 style={{
                     flexDirection: 'row',
-                    gap: CARD_GAP,
+                    gap: cardGap,
                     transform: [{ translateX }],
                 }}
             >
                 {loopedChildren.map((child, i) => (
                     <View
                         key={`android-card-${i}`}
-                        style={{ width: CARD_WIDTH }}
+                        style={{ width: cardWidth }}
                         renderToHardwareTextureAndroid
                         collapsable={false}
                     >
-                        {child}
+                        {React.cloneElement(child, { key: `android-inner-${i}` })}
                     </View>
                 ))}
             </Animated.View>
@@ -704,7 +721,7 @@ const AndroidBattleRow = ({ children, style }) => {
 
 // ─── iOS: original ScrollView implementation (untouched) ──────────────────────
 
-const IOSBattleRow = ({ children, style }) => {
+const IOSBattleRow = ({ children, style, cardWidth = CARD_WIDTH, cardGap = CARD_GAP, rowPaddingLeft = ROW_PADDING_LEFT }) => {
     const scrollViewRef = useRef(null);
     const autoScrollFrameRef = useRef(null);
     const resumeTimeoutRef = useRef(null);
@@ -796,7 +813,7 @@ const IOSBattleRow = ({ children, style }) => {
 
     if (!isCarouselEnabled) {
         return (
-            <View style={[{ flexDirection: 'row', gap: CARD_GAP, paddingHorizontal: ROW_PADDING_LEFT }, style]}>
+            <View style={[{ flexDirection: 'row', gap: cardGap, paddingHorizontal: rowPaddingLeft }, style]}>
                 {allChildren}
             </View>
         );
@@ -824,18 +841,19 @@ const IOSBattleRow = ({ children, style }) => {
             onMomentumScrollEnd={handleInteractionEnd}
             onTouchEnd={handleInteractionEnd}
             contentContainerStyle={[
-                { flexDirection: 'row', gap: CARD_GAP, paddingLeft: ROW_PADDING_LEFT },
-                style,
+                { flexDirection: 'row', gap: cardGap, paddingLeft: rowPaddingLeft },
             ]}
         >
-            {allChildren}
-            {allChildren}
+            {[
+                ...allChildren.map((child, i) => React.cloneElement(child, { key: `ios-child1-${i}` })),
+                ...allChildren.map((child, i) => React.cloneElement(child, { key: `ios-child2-${i}` }))
+            ]}
         </ScrollView>
     );
 };
 
-// ✅ Android gets HeroCarousel, iOS keeps original — evaluated once at module load
-export const AutoScrollBattleRow = Platform.OS === 'android' ? AndroidBattleRow : IOSBattleRow;
+// ✅ Use Animated.timing (AndroidBattleRow) for both platforms to prevent iOS UIScrollView from blocking global touches during continuous scroll.
+export const AutoScrollBattleRow = AndroidBattleRow;
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
