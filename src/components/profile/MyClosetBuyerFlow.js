@@ -3867,7 +3867,7 @@ const styles = StyleSheet.create({
     minHeight: 30,
   },
   fighterPrice: {
-    marginTop: -10,
+    marginTop: Platform.OS == "android" ? 7 : -10,
     fontSize: 14,
     fontWeight: '900',
     color: '#17072d',

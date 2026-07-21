@@ -790,11 +790,12 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
 
   const goBattles = () => navigation?.navigate?.('ProfileMain', {
     screen: 'MyClosetBattles', // or whatever route name you register MyClosetBattlesScreen under
-    params: { closetId },
+    params: { closetId, userProfile: userData?.profile },
   });
   const openBattle = battle => navigateToBattleLive(navigation, {
     battleId: battle?.id,
     initialBattle: battle,
+    userProfile: userData?.profile,
     selectedItems: [battle?.left, battle?.right].filter(Boolean),
     returnToProfile: buildClosetReturnTo({
       isOwnProfile,

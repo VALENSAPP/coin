@@ -43,7 +43,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // Fallback palette — used only when the theme doesn't provide a value,
 // so screens still look right before useAppTheme() resolves.
 const PURPLE = '#5B2FB5';
-const PURPLE_2 = '#7A49D6';
 const BORDER = '#E7DDF7';
 const SOFT_BG = '#FBF7FF';
 const TEXT = '#2F2259';
@@ -1344,7 +1343,7 @@ export function BattleLiveScreen({ navigation, route }) {
               ]}
             >
               <LinearGradient
-                colors={isThisVoted ? ['#22C55E', '#16A34A'] : isSelected ? [accent, PURPLE_2] : ['#FFFFFF', '#FFFFFF']}
+                colors={isThisVoted ? ['#22C55E', '#16A34A'] : isSelected ? [accent, text] : ['#FFFFFF', '#FFFFFF']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={[
@@ -1389,7 +1388,7 @@ export function BattleLiveScreen({ navigation, route }) {
           ]}
         >
           <LinearGradient
-            colors={[accent, PURPLE_2]}
+            colors={[accent, text]}
             start={{ x: 0, y: 0.5 }}
             end={{ x: 1, y: 0.5 }}
             style={liveStyles.submitVoteButton}
@@ -1563,12 +1562,12 @@ export function BattleLiveScreen({ navigation, route }) {
             value={commentText}
             onChangeText={setCommentText}
             placeholder={t('battle.shareYourThoughts') || 'Share your thoughts...'}
-            placeholderTextColor={isBattleExpired ? '#9CA3AF' : '#B6ABCF'}
+            placeholderTextColor={isBattleExpired ? '#9CA3AF' : text}
             style={[
               liveStyles.composerInput,
               {
                 color: isBattleExpired ? '#9CA3AF' : primaryText,
-                backgroundColor: isBattleExpired ? '#F3F4F6' : '#F7F2FF',
+                backgroundColor: isBattleExpired ? '#F3F4F6' : `${text}18`,
               },
             ]}
             multiline
@@ -1581,9 +1580,9 @@ export function BattleLiveScreen({ navigation, route }) {
             style={[
               liveStyles.composerSendBtn,
               {
-                backgroundColor: accent,
+                backgroundColor: text,
                 opacity: (!commentText.trim() || postingComment || isBattleExpired) ? 0.5 : 1,
-                backgroundColor: isBattleExpired ? '#D1D5DB' : accent,
+                backgroundColor: isBattleExpired ? '#D1D5DB' : text,
               },
             ]}
           >
@@ -1598,7 +1597,7 @@ export function BattleLiveScreen({ navigation, route }) {
 
       <View style={styles.footerActions}>
         <TouchableOpacity activeOpacity={0.9} onPress={handleDonePress} style={styles.footerActionFlex}>
-          <LinearGradient colors={[accent, PURPLE_2]} style={styles.primaryButton}>
+          <LinearGradient colors={[accent, text]} style={styles.primaryButton}>
             <Text style={styles.primaryButtonText}>{t('battle.done') || 'Done'}</Text>
           </LinearGradient>
         </TouchableOpacity>
@@ -1608,7 +1607,7 @@ export function BattleLiveScreen({ navigation, route }) {
             onPress={() => navigation.navigate('BattleResultsScreen', { battleId })}
             style={styles.footerActionFlex}
           >
-            <LinearGradient colors={[accent, PURPLE_2]} style={styles.primaryButton}>
+            <LinearGradient colors={[accent, text]} style={styles.primaryButton}>
               <Text style={styles.primaryButtonText}>{t('battle.viewResults') || 'View Results'}</Text>
             </LinearGradient>
           </TouchableOpacity>
@@ -1652,7 +1651,7 @@ const liveStyles = StyleSheet.create({
   sideTagRight: { backgroundColor: '#fde8e8', borderRadius: 20, paddingHorizontal: 8, paddingVertical: 2 },
   sideTagText: { fontSize: 10, fontWeight: '600', color: '#374151' },
 
-  statsRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F7F2FF', borderRadius: 16, paddingVertical: 12, marginTop: 18, marginBottom: 14 },
+  statsRow: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: BORDER, borderRadius: 16, paddingVertical: 12, marginTop: 18, marginBottom: 14 },
   statItem: { flex: 1, alignItems: 'center', gap: 3 },
   statDivider: { width: 1, height: 28, backgroundColor: BORDER },
   statValue: { fontSize: 14, fontWeight: '800', color: TEXT },
@@ -1674,7 +1673,7 @@ const liveStyles = StyleSheet.create({
   commentTime: { fontSize: 10, fontWeight: '600', color: MUTED },
   commentMessage: { fontSize: 12.5, color: TEXT, marginTop: 2, lineHeight: 17 },
   commentActionsRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 },
-  commentReactionChip: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999, backgroundColor: '#F7F2FF' },
+  commentReactionChip: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999, borderWidth: 1, borderColor: BORDER },
   commentReactionChipActive: { backgroundColor: '#E8F0FF' },
   commentReactionText: { fontSize: 11, fontWeight: '700', color: MUTED },
   commentReactionTextActive: { color: '#1D4ED8' },
