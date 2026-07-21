@@ -2311,7 +2311,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingBottom: 40,
-    marginBottom: Platform.OS == "ios" ? 60 : 0
+    // marginBottom: Platform.OS == "ios" ? 60 : 0
   },
   scrollContent: {
     paddingBottom: 32,

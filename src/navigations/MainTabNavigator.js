@@ -1353,7 +1353,10 @@ export default function MainTabNavigator() {
 
   return (
     <View style={[{ flex: 1 }, bgStyle]}>
-      <Tab.Navigator screenOptions={getScreenOptions}>
+      <Tab.Navigator
+        screenOptions={getScreenOptions}
+        sceneContainerStyle={bgStyle}
+      >
         <Tab.Screen
           name="HomeMain"
           component={HomeStack}

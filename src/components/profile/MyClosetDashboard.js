@@ -676,11 +676,12 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
   const showPinnedViewAll = priorityBattles.length > pinnedItems.length;
 
   return (
-    <ScrollView
-      style={[styles.container, bgStyle]}
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
-    >
+    <View style={[styles.container, bgStyle]}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
       {/* ── Hero Profile Card ── */}
       <View style={[styles.heroCard, cardStyle, { borderColor: border }]}>
         <View style={styles.heroTop}>
@@ -1106,12 +1107,14 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
           <Text style={styles.battleCtaButtonText}>{t('myClosetDashboard.createBattleButton')}</Text>
         </View>
       </TouchableOpacity>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, marginBottom: 50 },
+  container: { flex: 1 },
+  scroll: { flex: 1, marginBottom: 50 },
   content: { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 100 },
 
   // Hero

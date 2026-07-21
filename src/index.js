@@ -1,16 +1,16 @@
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import MainStack from './navigations/RootNavigator';
 import { loggedOut, loggedIn } from './redux/actions/LoginAction';
 import { useDispatch, useSelector } from 'react-redux';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Linking, AppState, DeviceEventEmitter } from 'react-native';
-import React, { useEffect, useRef, useState } from 'react';
+import { Linking, AppState, DeviceEventEmitter, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Splash from './pages/splashSceen/Splash';
 import { hideLoader } from './redux/actions/LoaderAction';
 import { showToastMessage } from './components/displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
 import { refreshToken, markAppPermissionsReady, requestAppLocationPermission } from './services/authentication';
-import { ThemeProvider } from './theme/ThemeContext';
+import { ThemeProvider, useThemeContext } from './theme/ThemeContext';
 import { setUserProfile } from './redux/actions/UserProfileAction';
 import { setStripeCustomerId } from './redux/actions/UserAction';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
@@ -35,6 +35,38 @@ import { BASE_URL } from './config/urls';
 
 const KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShownEver';
 const LEGACY_KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShown';
+
+/** Keeps React Navigation's root canvas (incl. iOS home-indicator) on the app theme bg. */
+const ThemedNavigationContainer = React.forwardRef(function ThemedNavigationContainer(
+  { children, ...props },
+  ref,
+) {
+  const { theme, isDarkMode } = useThemeContext();
+  const navigationTheme = useMemo(() => {
+    const base = isDarkMode ? DarkTheme : DefaultTheme;
+    return {
+      ...base,
+      dark: isDarkMode,
+      colors: {
+        ...base.colors,
+        primary: theme?.accent || base.colors.primary,
+        background: theme?.bg || base.colors.background,
+        card: theme?.bg || base.colors.card,
+        text: theme?.text || base.colors.text,
+        border: theme?.border || base.colors.border,
+        notification: theme?.accent || base.colors.notification,
+      },
+    };
+  }, [theme, isDarkMode]);
+
+  return (
+    <View style={{ flex: 1, backgroundColor: theme?.bg || (isDarkMode ? '#121212' : '#ffffff') }}>
+      <NavigationContainer ref={ref} theme={navigationTheme} {...props}>
+        {children}
+      </NavigationContainer>
+    </View>
+  );
+});
 
 const linking = {
   prefixes: [
@@ -665,7 +697,7 @@ export default function Main() {
 
   return (
     <ThemeProvider activeProfile={userProfile}>
-      <NavigationContainer
+      <ThemedNavigationContainer
         ref={navigationRef}
         linking={linking}
         onReady={() => {
@@ -675,7 +707,7 @@ export default function Main() {
         }}
       >
         <MainStack isFirstLaunch={isFirstLaunch} />
-      </NavigationContainer>
+      </ThemedNavigationContainer>
       <WelcomeValensModal
         visible={welcomeModalVisible}
         onClose={handleWelcomeModalClose}
