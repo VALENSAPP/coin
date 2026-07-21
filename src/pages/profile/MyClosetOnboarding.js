@@ -12,6 +12,7 @@ import {
   PermissionsAndroid,
   Linking,
   ActivityIndicator,
+  Share,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -27,10 +28,11 @@ import { useAppTheme } from '../../theme/useApptheme';
 import { useThemeContext } from '../../theme/ThemeContext';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
-import { createMyCloset, createMyClosetItem } from '../../services/myCloset';
+import { createMyCloset, createMyClosetItem, getMyClosetById } from '../../services/myCloset';
 import ShareModal from '../../components/modals/ShareModal';
 import PostLocationModal from '../../components/modals/PostLocationModal';
 import { getPlaceDetails, isGooglePlacesConfigured, searchPlacePredictions, searchCityPredictions } from '../../services/googlePlaces';
+import { BASE_URL } from '../../config/urls';
 
 const mixWithWhite = (hex, amount = 0.86) => {
   const normalized = String(hex || '').replace('#', '');
@@ -58,6 +60,17 @@ const formSurfaces = isDarkMode => ({
 });
 
 const isBlank = value => !String(value || '').trim();
+
+const unwrapMyClosetResponse = (source) => {
+  const level1 = source?.data ?? source;
+  if (level1 && typeof level1 === 'object' && !Array.isArray(level1)) {
+    if (level1.data && typeof level1.data === 'object') {
+      return level1.data;
+    }
+    return level1;
+  }
+  return {};
+};
 
 const InlineError = ({ message }) =>
   message ? <Text style={styles.inlineError}>{message}</Text> : null;
@@ -2914,6 +2927,7 @@ const MyClosetAddItemPublishedScreen = ({ navigation, route }) => {
   const { accent, textStyle, mutedTextStyle, cardStyle, border, icon, bgStyle, mutedText } = useAppTheme();
   const text = accent;
   const { t } = useLanguage();
+  const [publishedShopName, setPublishedShopName] = useState(item?.shopName || draft.shopName || '');
   const heroPhoto = draft.photos?.[0];
   const publishedName = item?.name || draft.itemName || t('myClosetAddItemReview.placeholderItemName');
   const publishedPrice =
@@ -2922,8 +2936,47 @@ const MyClosetAddItemPublishedScreen = ({ navigation, route }) => {
     item?.quantity ?? draft.quantity ?? 1;
   const shareRef = useRef(null);
 
-  const handleShareItem = () => {
-    shareRef.current?.open?.();
+  useEffect(() => {
+    let alive = true;
+
+    const loadShopName = async () => {
+      try {
+        const cachedUserId = await AsyncStorage.getItem('userId');
+        if (!cachedUserId) return;
+
+        const closetRes = await getMyClosetById({ userId: cachedUserId }).catch(() => null);
+        const apiCloset = unwrapMyClosetResponse(closetRes);
+        const closetRecord = apiCloset?.closetDetails || apiCloset || null;
+        const fetchedShopName = closetRecord?.shopName || '';
+
+        if (alive && fetchedShopName) {
+          setPublishedShopName(fetchedShopName);
+        }
+      } catch (error) {
+        console.log('loadShopName error', error);
+      }
+    };
+
+    loadShopName();
+
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const handleShareItem = async () => {
+    try {
+      const id = item?.id || draft?.id;
+      if (!id) return;
+      const link = `${BASE_URL}/postshare/${encodeURIComponent(String(id))}`;
+      const message = t('myClosetAddItemReview.copyItemText', {
+        link,
+        shopName: publishedShopName,
+      }) || link;
+      await Share.share({ message });
+    } catch (error) {
+      console.log('Share error', error);
+    }
   };
 
   return (

@@ -59,7 +59,7 @@
     "passwordMismatch": "Le password non coincidono"
   },
   "selectAccountType": {
-    "subtitle": "I social media si sono evoluti",
+    "subtitle": "Costruisci la tua reputazione, guadagna credibilità",
     "alreadyHaveAccount": "Hai giÃ  un account? ",
     "login": "Accedi",
     "personaTitle": "Sono un Utente",
@@ -4080,6 +4080,15 @@
     "previewChat": "Anteprima chat",
     "returnPolicyLabel": "Politica di reso",
     "selectReturnPolicyPlaceholder": "Seleziona una politica di reso",
+    "pickupCity": "Città di ritiro",
+    "searchCity": "Cerca città",
+    "selectCity": "Seleziona una città",
+    "pickupSpot": "Punto di ritiro",
+    "availableHours": "Ore disponibili",
+    "weekdays": "Giorni feriali",
+    "weekends": "Fine settimana",
+    "enableBuyerChat": "Abilita chat acquirente",
+    "enableBuyerChatDesc": "Consenti agli acquirenti di chattare con te",
     "errors": {
       "deliveryRequired": "Seleziona almeno un metodo di consegna.",
       "shippingTimeRequired": "Il tempo di spedizione stimato è obbligatorio.",
@@ -4101,7 +4110,8 @@
     "paymentMethodLabel": "Metodo di pagamento",
     "publishButton": "Pubblica articolo",
     "publishing": "Pubblicazione in corso...",
-    "publishFailure": "Impossibile pubblicare l'articolo."
+    "publishFailure": "Impossibile pubblicare l'articolo.",
+    "copyItemText": "Scopri il mio prodotto su {{shopName}} su Valens.\n{{link}}"
   },
   "myClosetAddItemPublished": {
     "title": "Il tuo articolo è online! 🎉",
@@ -4218,7 +4228,8 @@
     "retry": "Réessayer",
     "orderStatusUpdated": "Statut de la commande mis à jour.",
     "unableToUpdateStatus": "Impossible de mettre à jour le statut de la commande.",
-    "buyer": "Acheteur",
+    "buyer": "Acquirente",
+    "seller": "Venditore",
     "shippingAddress": "Adresse de livraison",
     "items": "Articles ({{count}})",
     "itemsCount": "{{count}} article(s)",
@@ -4517,6 +4528,7 @@
     "durationLabel": "Durée",
     "messageLabel": "Message (facultatif)",
     "defaultMessage": "Merci d'avoir voté ! Profitez de 10 % de réduction sur le gagnant de notre bataille pendant seulement 24 heures.",
+    "defaultFreeShippingMessage": "Grazie per aver votato! Approfitta della spedizione gratuita sul vincitore della nostra battaglia.",
     "preview": "Aperçu de la promotion",
     "previewTitle": "Aperçu de la promotion",
     "bannerTag": "PROMOTION DU GAGNANT DE LA BATAILLE",

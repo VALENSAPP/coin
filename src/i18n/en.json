@@ -59,7 +59,7 @@
     "passwordMismatch": "Passwords do not match"
   },
   "selectAccountType": {
-    "subtitle": "Social media just got an upgrade",
+    "subtitle": "Build Your Reputation, Earn Credibility",
     "alreadyHaveAccount": "Already have an account? ",
     "login": "Log in",
     "personaTitle": "I'm a Persona",
@@ -4174,6 +4174,15 @@
     "previewChat": "Preview chat",
     "returnPolicyLabel": "Return policy",
     "selectReturnPolicyPlaceholder": "Select return policy",
+    "pickupCity": "Pickup city",
+    "searchCity": "Search city",
+    "selectCity": "Select a city",
+    "pickupSpot": "Pickup spot",
+    "availableHours": "Available hours",
+    "weekdays": "Weekdays",
+    "weekends": "Weekends",
+    "enableBuyerChat": "Enable buyer chat",
+    "enableBuyerChatDesc": "Allow buyers to chat with you",
     "errors": {
       "deliveryRequired": "Select at least one delivery method.",
       "shippingTimeRequired": "Estimated shipping time is required.",
@@ -4195,7 +4204,8 @@
     "paymentMethodLabel": "Payment method",
     "publishButton": "Publish Item",
     "publishing": "Publishing...",
-    "publishFailure": "Failed to publish your item."
+    "publishFailure": "Failed to publish your item.",
+    "copyItemText": "Check out my product item at {{shopName}} on Valens. \n{{link}}"
   },
   "myClosetAddItemPublished": {
     "title": "Your item is live! 🎉",
@@ -4299,7 +4309,8 @@
     "retry": "Retry",
     "orderStatusUpdated": "Order status updated.",
     "unableToUpdateStatus": "Unable to update order status.",
-    "buyer": "Seller",
+    "buyer": "Buyer",
+    "seller": "Seller",
     "shippingAddress": "Shipping Address",
     "items": "Items ({{count}})",
     "itemsCount": "{{count}} item(s)",
@@ -4611,6 +4622,7 @@
     "durationLabel": "Duration",
     "messageLabel": "Message (optional)",
     "defaultMessage": "Thank you for voting! Enjoy 10% off our battle winner for 24 hours only.",
+    "defaultFreeShippingMessage": "Thank you for voting! Enjoy free shipping on our battle winner.",
     "preview": "Preview Promotion",
     "previewTitle": "Preview Promotion",
     "bannerTag": "BATTLE WINNER SALE",

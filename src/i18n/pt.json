@@ -59,7 +59,7 @@
     "passwordMismatch": "As senhas nÃ£o coincidem"
   },
   "selectAccountType": {
-    "subtitle": "As redes sociais acabaram de evoluir",
+    "subtitle": "Construa sua reputação, conquiste credibilidade",
     "alreadyHaveAccount": "JÃ¡ tem uma conta? ",
     "login": "Entrar",
     "personaTitle": "Sou um UsuÃ¡rio",
@@ -4081,6 +4081,15 @@
     "previewChat": "Visualizar chat",
     "returnPolicyLabel": "Política de devolução",
     "selectReturnPolicyPlaceholder": "Selecione uma política de devolução",
+    "pickupCity": "Cidade de retirada",
+    "searchCity": "Pesquisar cidade",
+    "selectCity": "Selecione uma cidade",
+    "pickupSpot": "Ponto de retirada",
+    "availableHours": "Horários disponíveis",
+    "weekdays": "Dias úteis",
+    "weekends": "Finais de semana",
+    "enableBuyerChat": "Ativar chat do comprador",
+    "enableBuyerChatDesc": "Permita que os compradores conversem com você",
     "errors": {
       "deliveryRequired": "Selecione pelo menos um método de entrega.",
       "shippingTimeRequired": "O prazo estimado de envio é obrigatório.",
@@ -4102,7 +4111,8 @@
     "paymentMethodLabel": "Método de pago",
     "publishButton": "Publicar artículo",
     "publishing": "Publicando...",
-    "publishFailure": "No se pudo publicar el artículo."
+    "publishFailure": "No se pudo publicar el artículo.",
+    "copyItemText": "Confira meu produto em {{shopName}} no Valens.\n{{link}}"
   },
   "myClosetAddItemPublished": {
     "title": "¡Tu artículo ya está publicado! 🎉",
@@ -4220,6 +4230,7 @@
     "orderStatusUpdated": "Status do pedido atualizado.",
     "unableToUpdateStatus": "Não foi possível atualizar o status do pedido.",
     "buyer": "Comprador",
+    "seller": "Vendedor",
     "shippingAddress": "Endereço de entrega",
     "items": "Itens ({{count}})",
     "itemsCount": "{{count}} item(ns)",
@@ -4518,6 +4529,7 @@
     "durationLabel": "Duração",
     "messageLabel": "Mensagem (opcional)",
     "defaultMessage": "Obrigado por votar! Aproveite 10% de desconto no vencedor da nossa batalha por apenas 24 horas.",
+    "defaultFreeShippingMessage": "Obrigado por votar! Aproveite o frete grátis no vencedor da nossa batalha.",
     "preview": "Prévia da promoção",
     "previewTitle": "Prévia da promoção",
     "bannerTag": "PROMOÇÃO DO VENCEDOR DA BATALHA",

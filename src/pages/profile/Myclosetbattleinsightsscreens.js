@@ -478,9 +478,15 @@ export function PromotionDetailsScreen({ navigation, route }) {
   const { t } = useLanguage();
   const accent = text || PURPLE;
   const { winnerItem, promotionType, battleId } = route?.params || {};
+  const isFreeShipping = promotionType === 'freeShipping';
+  const defaultFreeShippingMsg = 'Thank you for voting! Enjoy free shipping on our battle winner.';
+  const defaultMsg = isFreeShipping 
+    ? (t('promotion.defaultFreeShippingMessage') || defaultFreeShippingMsg)
+    : t('promotion.defaultMessage');
+
   const [discount, setDiscount] = useState('10');
   const [duration, setDuration] = useState('24 HOURS');
-  const [message, setMessage] = useState(t('promotion.defaultMessage'));
+  const [message, setMessage] = useState(defaultMsg);
 
   return (
     <View style={[styles.screen, bgStyle, { backgroundColor: bg || SOFT_BG }]}>
@@ -496,17 +502,19 @@ export function PromotionDetailsScreen({ navigation, route }) {
           </View>
         </View>
 
-        <View style={styles.field}>
-          <Text style={[styles.fieldLabel, { color: text || TEXT }]}>{t('promotion.discountLabel')}</Text>
-          <View style={[styles.inputCard, { backgroundColor: card || '#fff' }]}>
-            <TextInput
-              value={discount}
-              onChangeText={setDiscount}
-              keyboardType="number-pad"
-              style={[styles.inputText, { color: text || TEXT }]}
-            />
+        {promotionType !== 'freeShipping' ? (
+          <View style={styles.field}>
+            <Text style={[styles.fieldLabel, { color: text || TEXT }]}>{t('promotion.discountLabel')}</Text>
+            <View style={[styles.inputCard, { backgroundColor: card || '#fff' }]}>
+              <TextInput
+                value={discount}
+                onChangeText={setDiscount}
+                keyboardType="number-pad"
+                style={[styles.inputText, { color: text || TEXT }]}
+              />
+            </View>
           </View>
-        </View>
+        ) : null}
 
         <View style={styles.field}>
           <Text style={[styles.fieldLabel, { color: text || TEXT }]}>{t('promotion.durationLabel')}</Text>
@@ -564,6 +572,7 @@ export function PreviewPromotionScreen({ navigation, route }) {
   const toast = useToast();
   const accent = text || PURPLE;
   const { winnerItem, discount, duration, message, promotionType, battleId } = route?.params || {};
+  const isFreeShipping = promotionType === 'freeShipping';
   const promoImage = getPromoImage(winnerItem);
   const promoPrice = getPromoPrice(winnerItem);
   const promoDiscount = `${String(discount ?? '').replace('%', '')}%`;
@@ -578,6 +587,8 @@ export function PreviewPromotionScreen({ navigation, route }) {
       setLaunching(true);
       const response = await createMarketplaceBattleWinnerPromotion(battleId, {
         promoType: PROMO_TYPE_API_MAP[promotionType] || String(promotionType || '').toUpperCase(),
+        discount: isFreeShipping ? undefined : discount,
+        duration,
         message: message || t('promotion.defaultMessage'),
       });
       const status = response?.status || response?.statusCode;
@@ -602,10 +613,16 @@ export function PreviewPromotionScreen({ navigation, route }) {
           <View style={styles.promoBannerGlowA} />
           <View style={styles.promoBannerGlowB} />
           <Text style={styles.promoBannerTag}>{t('promotion.bannerTag')}</Text>
-          <Text style={styles.promoBannerDiscount}>
-            <Text style={styles.promoBannerDiscountValue}>{promoDiscount}</Text>
-            <Text style={styles.promoBannerDiscountSuffix}> OFF</Text>
-          </Text>
+          {isFreeShipping ? (
+            <Text style={styles.promoBannerDiscount}>
+              <Text style={[styles.promoBannerDiscountValue, { fontSize: 32 }]}>{t('promotion.types.freeShipping.title')}</Text>
+            </Text>
+          ) : (
+            <Text style={styles.promoBannerDiscount}>
+              <Text style={styles.promoBannerDiscountValue}>{promoDiscount}</Text>
+              <Text style={styles.promoBannerDiscountSuffix}> OFF</Text>
+            </Text>
+          )}
           <Text style={styles.promoBannerSub}>{t('promotion.bannerSub', { duration: duration?.toLowerCase?.() || duration })}</Text>
           <View style={styles.promoBannerItemRow}>
             {promoImage ? <FastImage source={fastImageSource(promoImage)} style={styles.promoBannerImage} resizeMode={FastImage.resizeMode.cover} /> : <View style={styles.promoBannerImagePlaceholder} />}

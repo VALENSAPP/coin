@@ -637,7 +637,6 @@ const PrivateContentScreen = ({
           updateCellsBatchingPeriod={50}
           disableVirtualization={false}
         />
-      {/* )} */}
     </View>
   );
 };

@@ -371,9 +371,7 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
   }, [canUpdateStatus, dispatch, loadOrder, order, t, toast]);
 
   const goBack = useCallback(() => {
-    console.log("return to -----------------", returnTo)
-
-    if (returnTo == 'MyClosetDashboard') {
+    if (returnTo === 'MyClosetDashboard') {
       navigation.reset({
         index: 0,
         routes: [
@@ -465,7 +463,9 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
         {order.status !== 'cancelled' && <StatusTimeline status={order.status} />}
 
         <View style={[styles.card, cardStyle, { borderColor: border, backgroundColor: surface }]}>
-          <Text style={[styles.cardTitle, textStyle]}>{t('myClosetOrderDetail.buyer')}</Text>
+          <Text style={[styles.cardTitle, textStyle]}>
+            {canUpdateStatus ? t('myClosetOrderDetail.buyer') : t('myClosetOrderDetail.seller')}
+          </Text>
           <View style={styles.buyerRow}>
             <View style={[styles.buyerAvatar, { backgroundColor: accent }]}>
               <Ionicons name="person" size={18} color="#fff" />

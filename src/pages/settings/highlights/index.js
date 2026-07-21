@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   ActivityIndicator,
   Alert,
@@ -273,16 +274,21 @@ const HighlightsScreen = ({ navigation, route }) => {
     }
   }, [readOnly, routeUserId]);
 
-  useEffect(() => {
-    fetchHighlights();
-  }, [fetchHighlights]);
+  const hasLoadedRef = useRef(false);
 
-  useEffect(() => {
-    if (route?.params?.refreshOnFocus) {
-      fetchHighlights(true);
-      navigation.setParams({ refreshOnFocus: undefined });
-    }
-  }, [fetchHighlights, navigation, route?.params?.refreshOnFocus]);
+  // Refetch every time the screen regains focus (e.g. returning from the
+  // Archive screen after adding a Drop to a highlight). The first focus shows
+  // the loading state; subsequent focuses refresh silently in the background.
+  useFocusEffect(
+    useCallback(() => {
+      fetchHighlights(hasLoadedRef.current);
+      hasLoadedRef.current = true;
+
+      if (route?.params?.refreshOnFocus) {
+        navigation.setParams({ refreshOnFocus: undefined });
+      }
+    }, [fetchHighlights, navigation, route?.params?.refreshOnFocus]),
+  );
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);

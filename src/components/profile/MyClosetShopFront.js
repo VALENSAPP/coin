@@ -3,7 +3,6 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
-  FlatList,
   ScrollView,
   StyleSheet,
   Text,
@@ -35,6 +34,7 @@ import {
   navigateToBattleLive,
   withClosetNavParams,
 } from '../../utils/closetNavigation';
+import { AutoScrollBattleRow } from '../search/Battlecard';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const CARD_W = (SCREEN_W - 48) / 3;
@@ -400,7 +400,6 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
   const [storedUsername, setStoredUsername] = useState('');
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [dotIdx, setDotIdx] = useState(0);
   const [closetDetails, setClosetDetails] = useState(null);
   const [closetId, setClosetId] = useState(null);
 
@@ -602,7 +601,6 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
     setItems([]);
     setClosetDetails(null);
     setClosetId(null);
-    setDotIdx(0);
     setBattles([]);
     setEbooks([]);
     setPurchasedMap({});
@@ -649,10 +647,6 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
       FastImage.preload([...new Set(urls)].map(uri => imageSource(uri)));
     }
   }, [displayBattles, tiles]);
-
-  const onScroll = (e) => {
-    setDotIdx(Math.round(e.nativeEvent.contentOffset.x / (SCREEN_W - 24)));
-  };
 
   const seller = useMemo(() => ({
     id: userData?.id,
@@ -751,7 +745,12 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
   console.log("userDatauserDatauserDatauserDatauserData", userData)
 
   return (
-    <ScrollView style={[s.root, bgStyle]} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+    <ScrollView 
+      style={[s.root, bgStyle]} 
+      contentContainerStyle={s.content} 
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+    >
 
       {/* ── Banner ── */}
       {userData?.profile !== 'user' ? (
@@ -852,17 +851,11 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
           {battlesLoading && battles.length === 0 ? (
             <View style={s.center}><ActivityIndicator color={brand} /></View>
           ) : (
-            <>
-              <FlatList
-                data={displayBattles}
-                keyExtractor={b => b.id}
-                horizontal
-                pagingEnabled
-                showsHorizontalScrollIndicator={false}
-                onScroll={onScroll}
-                scrollEventThrottle={16}
-                renderItem={({ item }) => (
+            <View style={{ marginBottom: 12 }}>
+              <AutoScrollBattleRow cardWidth={SCREEN_W - 12} cardGap={0} rowPaddingLeft={0}>
+                {displayBattles.map((item) => (
                   <BattleSlide
+                    key={item.id}
                     battle={item}
                     accent={brand}
                     t={t}
@@ -873,22 +866,9 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
                     mutedText={mutedText}
                     isDark={isDarkMode}
                   />
-                )}
-              />
-              <View style={s.dots}>
-                {displayBattles.map((_, i) => (
-                  <View
-                    key={i}
-                    style={[
-                      s.dot,
-                      i === dotIdx
-                        ? { backgroundColor: brand, width: 16 }
-                        : { backgroundColor: border },
-                    ]}
-                  />
                 ))}
-              </View>
-            </>
+              </AutoScrollBattleRow>
+            </View>
           )}
         </View>
       )}
