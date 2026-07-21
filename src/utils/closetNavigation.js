@@ -12,7 +12,8 @@ export const getClosetRouteProfile = route =>
     route?.params?.sellerProfile ||
     route?.params?.seller?.profile ||
     route?.params?.profileType ||
-    route?.params?.profile,
+    route?.params?.profile ||
+    route?.params?.userProfile,
   );
 
 export const useClosetTheme = route => {

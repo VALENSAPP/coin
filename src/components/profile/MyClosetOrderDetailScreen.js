@@ -212,6 +212,7 @@ const ImageBox = ({ uri, style, iconSize = 22, resizeMode = FastImage.resizeMode
             onError={() => setLoading(false)}
           />
           {loading ? (
+
             <View style={[styles.imageLoaderOverlay, { backgroundColor: loaderOverlay }]}>
               <ActivityIndicator size="small" color={accent} />
             </View>
@@ -223,6 +224,7 @@ const ImageBox = ({ uri, style, iconSize = 22, resizeMode = FastImage.resizeMode
     </View>
   );
 };
+
 
 const SummaryRow = ({ label, value, bold }) => {
   const { textStyle, mutedTextStyle, accent } = useAppTheme();
@@ -267,6 +269,7 @@ const StatusTimeline = ({ status }) => {
         return (
           <React.Fragment key={step}>
             <View style={styles.timelineItem}>
+
               <View style={[styles.timelineDot, { backgroundColor: inactiveDot }, (done || active) && { backgroundColor: accent }]}>
                 {done ? <Ionicons name="checkmark" size={11} color="#fff" /> : null}
               </View>
@@ -275,6 +278,7 @@ const StatusTimeline = ({ status }) => {
               </Text>
             </View>
             {index < TIMELINE_STEPS.length - 1 && (
+
               <View
                 style={[
                   styles.timelineConnector,
@@ -398,6 +402,7 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
       <SafeAreaView style={[styles.safeArea, bgStyle]}>
         <Header onBack={goBack} title={t('myClosetOrderDetail.headerTitle')} />
         <View style={styles.loaderWrap}>
+
           <ActivityIndicator color={accent} />
         </View>
       </SafeAreaView>
@@ -432,6 +437,7 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
       <Header onBack={goBack} title={t('myClosetOrderDetail.orderNumberTitle', { orderNumber: order.orderNumber })} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.topRow}>
+
           <Text style={[styles.orderDate, mutedTextStyle]}>{order.createdAt}</Text>
           <View style={[styles.statusBadge, { backgroundColor: meta.bg }]}>
             <Text style={[styles.statusText, { color: meta.color }]}>{t(meta.labelKey)}</Text>
@@ -439,6 +445,7 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
         </View>
 
         <View style={styles.metaRow}>
+
           <View style={[styles.metaPill, { backgroundColor: withAlpha(accent, 0.1) }]}>
             <Text style={[styles.metaLabel, mutedTextStyle]}>{t('myClosetOrderDetail.orderNumberLabel')}</Text>
             <Text style={[styles.metaValue, textStyle]}>#{order.orderNumber}</Text>
@@ -455,6 +462,7 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
 
         {order.status !== 'cancelled' && <StatusTimeline status={order.status} />}
 
+
         <View style={[styles.card, cardStyle, { borderColor: border, backgroundColor: surface }]}>
           <Text style={[styles.cardTitle, textStyle]}>
             {canUpdateStatus ? t('myClosetOrderDetail.buyer') : t('myClosetOrderDetail.seller')}
@@ -468,6 +476,7 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
         </View>
 
         {order.address ? (
+
           <View style={[styles.card, cardStyle, { borderColor: border, backgroundColor: surface }]}>
             <Text style={[styles.cardTitle, textStyle]}>{t('myClosetOrderDetail.shippingAddress')}</Text>
             <Text style={[styles.addressText, textStyle]}>{order.address.fullName}</Text>
@@ -485,6 +494,7 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
             </Text>
           </View>
         ) : null}
+
 
         <View style={[styles.card, cardStyle, { borderColor: border, backgroundColor: surface }]}>
           <Text style={[styles.cardTitle, textStyle]}>{t('myClosetOrderDetail.items', { count: order.totalItemCount })}</Text>
@@ -506,6 +516,7 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
                   <Text style={[styles.lineName, textStyle]} numberOfLines={2}>
                     {line.name}
                   </Text>
+
                   <Text style={[styles.linePrice, { color: accent }]}>{line.price}</Text>
                   <Text style={[styles.lineQty, mutedTextStyle]}>{t('myClosetOrderDetail.qty', { count: line.quantity })}</Text>
                 </View>
@@ -516,6 +527,7 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
             <Text style={[styles.addressSub, mutedTextStyle]}>{t('myClosetOrderDetail.noItemDetails')}</Text>
           )}
         </View>
+
 
         <View style={[styles.card, cardStyle, { borderColor: border, backgroundColor: surface }]}>
           <SummaryRow label={t('myClosetOrderDetail.orderTotal')} value={order.totalAmount} bold />
@@ -534,6 +546,7 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
       {canUpdateStatus ? (
         <ShippingDetailsModal
           visible={shippingModalVisible}
+
           text={accent}
           onCancel={() => setShippingModalVisible(false)}
           onSubmit={(payload) => handleAdvance(payload)}
@@ -591,6 +604,7 @@ const styles = StyleSheet.create({
   statusText: { fontSize: 11, fontWeight: '800' },
   metaRow: { flexDirection: 'row', gap: 8, marginBottom: 16, flexWrap: 'wrap' },
   metaPill: { flexGrow: 1, minWidth: '31%', borderRadius: 12, padding: 10 },
+
   metaLabel: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase', marginBottom: 2 },
   metaValue: { fontSize: 13, fontWeight: '800' },
 
@@ -657,6 +671,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   lineCopy: { flex: 1 },
+
   lineName: { fontSize: 13, fontWeight: '800' },
   linePrice: { marginTop: 2, fontSize: 12, fontWeight: '800' },
   lineQty: { marginTop: 1, fontSize: 11, fontWeight: '600' },

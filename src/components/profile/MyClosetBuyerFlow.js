@@ -62,7 +62,7 @@ import { formSurfaces, themedCard } from '../../utils/closetTheme';
 import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../displaytoastmessage';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const GRID_GAP = 12;
 const GRID_ITEM_WIDTH = (SCREEN_WIDTH - 48) / 2;
 const HERO_IMAGE_WIDTH = SCREEN_WIDTH - 40;
@@ -261,50 +261,86 @@ const BattleSlide = ({
   textColor,
   mutedText,
   isDark,
-}) => (
-  <TouchableOpacity
-    activeOpacity={0.9}
-    onPress={onPress}
-    style={[styles.battleCard, { backgroundColor: card, borderColor: border }]}
-  >
-    <Text style={[styles.battleTitle, { color: textColor }]} numberOfLines={1}>
-      {battle.title || t('myClosetShopFront.defaultQuestion') || t('myClosetShopFront.battlePicksTitle')}
-    </Text>
-    <View style={styles.slide}>
-      <View style={styles.fighter}>
-        <View style={[styles.fighterThumb, { backgroundColor: isDark ? border : '#f6f0ee' }]}>
-          <CachedImageBox
-            uri={battle.left.image}
-            style={styles.fighterImgWrap}
-            placeholderStyle={styles.fighterThumbPlaceholder}
-            iconName="bag-outline"
-          />
-        </View>
-        <Text style={[styles.fighterName, { color: textColor }]} numberOfLines={2}>{battle.left.name}</Text>
-        <Text style={[styles.fighterPrice, { color: textColor }]}>{battle.left.price}</Text>
-        <Text style={[styles.pct, { color: accent }]}>{battle.left.pct}%</Text>
-      </View>
+}) => {
+  let winnerSide = battle?.left?.isWinner ? 'left' : battle?.right?.isWinner ? 'right' : null;
+  if (!winnerSide) {
+    if (battle?.winnerParticipantId) {
+      if (battle.winnerParticipantId === battle?.left?.participantId) winnerSide = 'left';
+      else if (battle.winnerParticipantId === battle?.right?.participantId) winnerSide = 'right';
+    } else if (battle?.left?.pct !== undefined && battle?.right?.pct !== undefined) {
+      if (battle.left.pct > battle.right.pct) winnerSide = 'left';
+      else if (battle.right.pct > battle.left.pct) winnerSide = 'right';
+    }
+  }
+  const showWinnerBadge = side => winnerSide === side;
+  const winnerName = winnerSide === 'left' ? battle?.left?.name : battle?.right?.name;
 
-      <View style={[styles.vsBubble, { backgroundColor: isDark ? border : '#f4ecfb', borderColor: border }]}>
-        <Text style={[styles.vsText, { color: textColor }]}>{t('myClosetShopFront.vs')}</Text>
-      </View>
+  const renderWinnerBadge = (side) => {
+    if (!winnerSide) return null;
+    const isWinner = showWinnerBadge(side);
+    const pct = side === 'left' ? battle?.left?.pct : battle?.right?.pct;
+    return (
+      <TouchableOpacity
+        activeOpacity={isWinner ? 0.85 : 1}
+        disabled={!isWinner}
+        style={[styles.winnerBadge, !isWinner && { opacity: 0 }]}
+        onPress={() => isWinner && Alert.alert(
+          t('myClosetShopFront.battleWinnerTitle') || 'Battle Winner',
+          `${winnerName || 'This item'} won with ${pct}% of the votes.`,
+        )}
+      >
+        <Text style={styles.winnerBadgeText}>🏆 Winner</Text>
+      </TouchableOpacity>
+    );
+  };
 
-      <View style={styles.fighter}>
-        <View style={[styles.fighterThumb, { backgroundColor: isDark ? border : '#f0eeec' }]}>
-          <CachedImageBox
-            uri={battle.right.image}
-            style={styles.fighterImgWrap}
-            placeholderStyle={styles.fighterThumbPlaceholder}
-            iconName="bag-handle-outline"
-          />
+  return (
+    <TouchableOpacity
+      activeOpacity={0.9}
+      onPress={onPress}
+      style={[styles.battleCard, { backgroundColor: card, borderColor: border }]}
+    >
+      <Text style={[styles.battleTitle, { color: textColor }]} numberOfLines={1}>
+        {battle.title || t('myClosetShopFront.defaultQuestion') || t('myClosetShopFront.battlePicksTitle')}
+      </Text>
+      <View style={styles.slide}>
+        <View style={styles.fighter}>
+          <View style={[styles.fighterThumb, { backgroundColor: isDark ? border : '#f6f0ee' }]}>
+            <CachedImageBox
+              uri={battle.left.image}
+              style={styles.fighterImgWrap}
+              placeholderStyle={styles.fighterThumbPlaceholder}
+              iconName="bag-outline"
+            />
+          </View>
+          <Text style={[styles.fighterName, { color: textColor }]} numberOfLines={2}>{battle.left.name}</Text>
+          <Text style={[styles.fighterPrice, { color: textColor }]}>{battle.left.price}</Text>
+          <Text style={[styles.pct, { color: accent }]}>{battle.left.pct}%</Text>
+          {renderWinnerBadge('left')}
         </View>
-        <Text style={[styles.fighterName, { color: textColor }]} numberOfLines={2}>{battle.right.name}</Text>
-        <Text style={[styles.fighterPrice, { color: textColor }]}>{battle.right.price}</Text>
-        <Text style={styles.pctRed}>{battle.right.pct}%</Text>
+
+        <View style={[styles.vsBubble, { backgroundColor: isDark ? border : '#f4ecfb', borderColor: border }]}>
+          <Text style={[styles.vsText, { color: textColor }]}>{t('myClosetShopFront.vs')}</Text>
+        </View>
+
+        <View style={styles.fighter}>
+          <View style={[styles.fighterThumb, { backgroundColor: isDark ? border : '#f0eeec' }]}>
+            <CachedImageBox
+              uri={battle.right.image}
+              style={styles.fighterImgWrap}
+              placeholderStyle={styles.fighterThumbPlaceholder}
+              iconName="bag-handle-outline"
+            />
+          </View>
+          <Text style={[styles.fighterName, { color: textColor }]} numberOfLines={2}>{battle.right.name}</Text>
+          <Text style={[styles.fighterPrice, { color: textColor }]}>{battle.right.price}</Text>
+          <Text style={styles.pctRed}>{battle.right.pct}%</Text>
+          {renderWinnerBadge('right')}
+        </View>
       </View>
-    </View>
-  </TouchableOpacity>
-);
+    </TouchableOpacity>
+  );
+};
 
 // `description`/`brand`/`condition` fall back to translated defaults when the API omits them.
 const normalizeItem = (item = {}, index = 0, t) => ({
@@ -321,6 +357,7 @@ const normalizeItem = (item = {}, index = 0, t) => ({
   description: item?.description || t('myClosetBuyer.defaultDescription'),
   quantityAvailable: Number(item?.quantity ?? item?.availableQuantity ?? 1) || 0,
   sellerName: item?.sellerName || item?.userName || item?.ownerName || '',
+  createdAt: item?.createdAt || item?.created_at || item?.postedAt || item?.dateAdded || null,
 });
 
 const normalizeItems = (items, t) =>
@@ -328,6 +365,48 @@ const normalizeItems = (items, t) =>
 
 const getRouteItems = (route, t) =>
   normalizeItems(route?.params?.items || route?.params?.initialItems || [], t);
+
+const findWishlistItemForProduct = (response, productId) => {
+  const wishlists = getWishlistsArray(response);
+  for (const wishlist of wishlists) {
+    const match = (wishlist?.wishlistItems || []).find(w =>
+      String(wishlistItemProductId(w)) === String(productId),
+    );
+    if (match) return { match, wishlist };
+  }
+  return { match: null, wishlist: null };
+};
+
+const normalizeCategoryValue = value => {
+  if (!value) return '';
+  return String(value)
+    .split('>')
+    .map(part => part.trim())
+    .filter(Boolean)[0] || String(value).trim();
+};
+
+const categoryKeyFromValue = value => normalizeCategoryValue(value).toLowerCase();
+
+const getCategoryIcon = (label = '') => {
+  const normalized = String(label).trim().toLowerCase();
+  if (!normalized) return 'pricetag-outline';
+  if (normalized.includes('cloth') || normalized.includes('wear') || normalized.includes('shirt') || normalized.includes('jacket') || normalized.includes('top') || normalized.includes('dress')) return 'shirt-outline';
+  if (normalized.includes('bag') || normalized.includes('purse') || normalized.includes('wallet')) return 'bag-outline';
+  if (normalized.includes('shoe') || normalized.includes('boot') || normalized.includes('sneaker')) return 'walk-outline';
+  if (normalized.includes('home') || normalized.includes('decor') || normalized.includes('furnitur') || normalized.includes('room')) return 'home-outline';
+  if (normalized.includes('book') || normalized.includes('novel') || normalized.includes('magazine')) return 'book-outline';
+  if (normalized.includes('accessor') || normalized.includes('jewelry') || normalized.includes('watch') || normalized.includes('belt') || normalized.includes('glasse')) return 'color-palette-outline';
+  if (normalized.includes('other')) return 'apps-outline';
+  return 'pricetag-outline';
+};
+
+const isNewItem = createdAt => {
+  if (!createdAt) return false;
+  const createdTime = new Date(createdAt).getTime();
+  if (Number.isNaN(createdTime)) return false;
+  const twoDaysInMs = 2 * 24 * 60 * 60 * 1000;
+  return Date.now() - createdTime <= twoDaysInMs;
+};
 
 const buildCart = (route, t, overrides = {}) => {
   const item = normalizeItem(route?.params?.item || {}, 0, t);
@@ -550,7 +629,9 @@ const DetailImageCarousel = ({ images, onZoomChange, accentColor }) => {
   const [fullScreenVisible, setFullScreenVisible] = useState(false);
   const [fullScreenIndex, setFullScreenIndex] = useState(0);
   const [scrollEnabled, setScrollEnabled] = useState(true);
+  const [fullScreenScrollEnabled, setFullScreenScrollEnabled] = useState(true);
   const listRef = useRef(null);
+  const fullScreenListRef = useRef(null);
   const galleryImages = images.length ? images : [null];
 
   useEffect(() => {
@@ -573,6 +654,10 @@ const DetailImageCarousel = ({ images, onZoomChange, accentColor }) => {
     setScrollEnabled(!zoomed);
     onZoomChange?.(zoomed);
   }, [onZoomChange]);
+
+  const handleFullScreenZoomChange = useCallback(zoomed => {
+    setFullScreenScrollEnabled(!zoomed);
+  }, []);
 
   const openFullScreen = useCallback(index => {
     setFullScreenIndex(index);
@@ -617,15 +702,17 @@ const DetailImageCarousel = ({ images, onZoomChange, accentColor }) => {
 
     return (
       <View style={styles.fullScreenSlide}>
-        <FastImage
-          source={fastImageSource(item)}
-          style={styles.fullScreenImage}
+        <InstagramZoomableImage
+          uri={item}
+          width={SCREEN_WIDTH}
+          height={SCREEN_HEIGHT}
           resizeMode={FastImage.resizeMode.contain}
-          fadeDuration={0}
+          onZoomChange={handleFullScreenZoomChange}
+          simultaneousHandlers={fullScreenListRef}
         />
       </View>
     );
-  }, []);
+  }, [handleFullScreenZoomChange]);
 
   const onFullScreenScroll = useCallback(event => {
     const nextIndex = Math.round(event.nativeEvent.contentOffset.x / SCREEN_WIDTH);
@@ -694,6 +781,7 @@ const DetailImageCarousel = ({ images, onZoomChange, accentColor }) => {
             <Ionicons name="close" size={22} color="#fff" />
           </TouchableOpacity>
           <GestureFlatList
+            ref={fullScreenListRef}
             style={styles.fullScreenFlatList}
             data={galleryImages}
             keyExtractor={(uri, index) => `fullscreen-${uri || 'placeholder'}-${index}`}
@@ -701,6 +789,7 @@ const DetailImageCarousel = ({ images, onZoomChange, accentColor }) => {
             horizontal
             pagingEnabled
             showsHorizontalScrollIndicator={false}
+            scrollEnabled={fullScreenScrollEnabled && galleryImages.length > 1}
             initialScrollIndex={Math.min(fullScreenIndex, galleryImages.length - 1)}
             getItemLayout={(_, index) => ({
               length: SCREEN_WIDTH,
@@ -1217,10 +1306,73 @@ const MyClosetBuyerItemsScreen = ({ navigation, route }) => {
   const { t } = useLanguage();
   const [items, setItems] = useState(() => getRouteItems(route, t));
   const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [sortKey, setSortKey] = useState('newest');
   const seller = useMemo(() => route?.params?.seller || {}, [route?.params?.seller]);
   const sellerId = route?.params?.sellerId || seller?.id;
+  const isOwnProfile = route?.params?.isOwnProfile ?? false;
   const accent = text;
   const returnTo = route?.params?.returnTo;
+  const sellerName = seller?.displayName || seller?.userName || t('myClosetBuyer.closetFallback');
+
+  const categoryCounts = useMemo(() => {
+    const counts = items.reduce((acc, item) => {
+      const rawCategory = normalizeCategoryValue(item?.category || t('myClosetBuyer.defaultCategory'));
+      const key = rawCategory.trim().toLowerCase();
+      acc[key] = acc[key] || { label: rawCategory, count: 0 };
+      acc[key].count += 1;
+      return acc;
+    }, {});
+
+    const dynamicCategories = Object.keys(counts)
+      .sort((a, b) => {
+        const aIsOther = a.includes('other');
+        const bIsOther = b.includes('other');
+        if (aIsOther !== bIsOther) return aIsOther ? 1 : -1;
+        return counts[b].count - counts[a].count;
+      })
+      .map(key => ({
+        key,
+        label: counts[key].label,
+        count: counts[key].count,
+        icon: getCategoryIcon(counts[key].label),
+      }));
+
+    return [
+      { key: 'all', label: t('myClosetBuyer.categoryAll') || 'All', count: items.length, icon: 'apps' },
+      ...dynamicCategories,
+    ];
+  }, [items, t]);
+
+  const filteredItems = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    const matchesSearch = item => {
+      if (!query) return true;
+      return [item.name, item.brand, item.category, item.condition, item.description]
+        .filter(Boolean)
+        .some(value => String(value).toLowerCase().includes(query));
+    };
+
+    const matchesCategory = item => {
+      if (selectedCategory === 'all') return true;
+      return categoryKeyFromValue(item.category || '') === selectedCategory;
+    };
+
+    const next = items.filter(item => matchesSearch(item) && matchesCategory(item));
+    if (sortKey === 'price_low') return [...next].sort((a, b) => a.priceValue - b.priceValue);
+    if (sortKey === 'price_high') return [...next].sort((a, b) => b.priceValue - a.priceValue);
+    return [...next];
+  }, [items, search, selectedCategory, sortKey]);
+
+  const onToggleWishlist = useCallback((item, nextLiked) => {
+    setItems(prev =>
+      prev.map(entry => {
+        if (entry.id !== item.id) return entry;
+        return { ...entry, liked: nextLiked };
+      }),
+    );
+  }, []);
 
   const loadItems = useCallback(async () => {
     if (items.length) return;
@@ -1266,32 +1418,42 @@ const MyClosetBuyerItemsScreen = ({ navigation, route }) => {
   );
 
   const renderItem = ({ item }) => (
-    <TouchableOpacity
-      activeOpacity={0.88}
-      style={[styles.gridCard, card && { backgroundColor: card, borderRadius: 16, padding: 8, borderWidth: 1, borderColor: border }]}
+    <BuyerItemCard
+      item={item}
+      accent={accent}
+      t={t}
       onPress={() => openItem(item)}
-    >
-      <ImageBox uri={item.image} style={styles.gridImage} />
-      <Text style={[styles.gridTitle, { color: text }]} numberOfLines={2}>
-        {item.name}
-      </Text>
-      <Text style={[styles.gridPrice, { color: accent }]}>{item.price}</Text>
-      <Text style={[styles.gridMeta, { color: mutedText || surfaces.mutedColor }]} numberOfLines={1}>
-        {item.condition}
-      </Text>
-    </TouchableOpacity>
+      onToggleWishlist={onToggleWishlist}
+      sellerId={sellerId}
+      text={text}
+      card={card}
+      border={border}
+      mutedText={mutedText || surfaces.mutedColor}
+    />
   );
+
+  console.log("filteredItems------------------------",filteredItems)
 
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
-      <Header navigation={navigation} title={t('myClosetBuyer.myClosetTitle')} returnTo={returnTo} />
+      <View style={styles.shopHeader}>
+        <TouchableOpacity
+          onPress={() => goBack(navigation, returnTo)}
+          style={styles.iconButton}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="chevron-back" size={22} color="#17072d" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>{t('myClosetBuyer.myClosetTitle')}</Text>
+        <View style={styles.iconButton} />
+      </View>
       {loading ? (
         <View style={styles.loaderWrap}>
           <ActivityIndicator color={accent} />
         </View>
       ) : (
         <FlatList
-          data={items}
+          data={filteredItems}
           keyExtractor={item => item.id}
           renderItem={renderItem}
           numColumns={2}
@@ -1303,15 +1465,114 @@ const MyClosetBuyerItemsScreen = ({ navigation, route }) => {
           windowSize={5}
           removeClippedSubviews
           ListHeaderComponent={(
-            <View style={styles.listIntro}>
-              <Text style={[styles.listTitle, { color: text }]}>
-                {t('myClosetBuyer.closetItemsHeading', {
-                  name: seller?.displayName || seller?.userName || t('myClosetBuyer.closetFallback'),
-                })}
-              </Text>
-              <Text style={[styles.listSubtitle, { color: mutedText || surfaces.mutedColor }]}>
-                {t('myClosetBuyer.itemsAvailable', { count: items.length })}
-              </Text>
+            <View>
+              <View style={styles.heroCard}>
+                <View style={styles.heroTopRow}>
+                  <View style={styles.identityRow}>
+                    <View style={[styles.avatarWrap, { backgroundColor: text, borderColor: text }]}>
+                      <Text style={styles.avatarInitials}>
+                        {sellerName
+                          .split(' ')
+                          .filter(Boolean)
+                          .slice(0, 2)
+                          .map(part => part[0])
+                          .join('')
+                          .toUpperCase() || 'MC'}
+                      </Text>
+                    </View>
+                    <View style={styles.identityCopy}>
+                      <View style={styles.nameRow}>
+                        <Text style={[styles.sellerName, { color: text }]} numberOfLines={1}>{sellerName} items</Text>
+                        <Ionicons name="checkmark-circle" size={15} color={accent} />
+                      </View>
+                      <Text style={[styles.availableText, { color: mutedText || surfaces.mutedColor }]}>
+                        {t('myClosetBuyer.itemsAvailable', { count: items.length })}
+                      </Text>
+                    </View>
+                  </View>
+                  {isOwnProfile ? (
+                    <TouchableOpacity
+                      activeOpacity={0.88}
+                      style={[styles.manageButton, { borderColor: accent, backgroundColor: card || '#fff' }]}
+                      onPress={() => navigation.navigate('MainApp', {
+                        screen: 'wallet',
+                        params: { screen: 'MyCloset' }
+                      })}
+                    >
+                      <Ionicons name="settings-outline" size={14} color={accent} />
+                      <Text style={[styles.manageButtonText, { color: accent }]}>
+                        {t('myClosetBuyer.manageCloset') || 'Manage Closet'}
+                      </Text>
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
+                <View style={styles.searchRow}>
+                  <View style={[styles.searchBox, card && { backgroundColor: card, borderColor: border }]}>
+                    <Ionicons name="search-outline" size={18} color={mutedText || '#a39bb0'} />
+                    <TextInput
+                      value={search}
+                      onChangeText={setSearch}
+                      placeholder={t('myClosetBuyer.searchPlaceholder') || 'Search items in my closet...'}
+                      placeholderTextColor={mutedText || '#aa9eb8'}
+                      style={[styles.searchInput, { color: text }]}
+                    />
+                  </View>
+                </View>
+              </View>
+
+              <View style={styles.sectionRow}>
+                <Text style={[styles.sectionTitle, { color: text }]}>{t('myClosetBuyer.categories') || 'Categories'}</Text>
+              </View>
+
+              <FlatList
+                data={categoryCounts}
+                keyExtractor={item => item.key}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.categoriesRow}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={() => setSelectedCategory(item.key)}
+                    style={[
+                      styles.categoryCard,
+                      card && { backgroundColor: card, borderColor: border },
+                      selectedCategory === item.key && [styles.categoryCardActive, { borderColor: accent }],
+                    ]}
+                  >
+                    <View style={[styles.categoryIconWrap, selectedCategory === item.key && { backgroundColor: `${accent}18` }]}>
+                      <Ionicons name={item.icon} size={18} color={selectedCategory === item.key ? accent : (mutedText || '#6b6281')} />
+                    </View>
+                    <Text style={[styles.categoryLabel, { color: text }]} numberOfLines={1}>{item.label}</Text>
+                    <Text style={[styles.categoryCount, { color: mutedText || surfaces.mutedColor }]}>{item.count}</Text>
+                  </TouchableOpacity>
+                )}
+              />
+
+              <View style={styles.sortRow}>
+                <TouchableOpacity
+                  activeOpacity={0.86}
+                  style={styles.sortLabelWrap}
+                  onPress={() => setSortKey(prev => (prev === 'newest' ? 'price_low' : prev === 'price_low' ? 'price_high' : 'newest'))}
+                >
+                  <Text style={[styles.sortLabel, { color: mutedText || surfaces.mutedColor }]}>
+                    {t('myClosetBuyer.sortBy') || 'Sort by:'}{' '}
+                    <Text style={[styles.sortValue, { color: text }]}>
+                      {sortKey === 'newest'
+                        ? (t('myClosetBuyer.newest') || 'Newest')
+                        : sortKey === 'price_low'
+                          ? 'Price: Low'
+                          : 'Price: High'}
+                    </Text>
+                  </Text>
+                  <Ionicons name="chevron-down" size={14} color={mutedText || '#746b85'} />
+                </TouchableOpacity>
+                <View style={styles.viewToggle}>
+                  <View style={[styles.toggleButton, styles.toggleButtonActive, { backgroundColor: accent }]}>
+                    <Ionicons name="grid" size={15} color="#fff" />
+                  </View>
+                </View>
+              </View>
             </View>
           )}
           ListEmptyComponent={(
@@ -1326,6 +1587,100 @@ const MyClosetBuyerItemsScreen = ({ navigation, route }) => {
         />
       )}
     </SafeAreaView>
+  );
+};
+
+const BuyerItemCard = ({ item, accent, t, onPress, onToggleWishlist, sellerId, text, card, border, mutedText }) => {
+  const [liked, setLiked] = useState(Boolean(item?.liked));
+  const [updatingWishlist, setUpdatingWishlist] = useState(false);
+  const [wishlistItemId, setWishlistItemId] = useState(null);
+
+  useEffect(() => {
+    let mounted = true;
+    const loadWishlistState = async () => {
+      const productId = item.raw?.id || item.raw?._id || item.raw?.productId || item.id;
+      if (!productId || !sellerId) return;
+      try {
+        const response = await getWishlist(sellerId);
+        const { match } = findWishlistItemForProduct(response, productId);
+        if (mounted && match) {
+          setLiked(true);
+          setWishlistItemId(match.id || match._id || match.wishlistItemId || match.wishlistId || null);
+        }
+      } catch {
+        // Keep local state if wishlist lookup fails.
+      }
+    };
+    loadWishlistState();
+    return () => { mounted = false; };
+  }, [item.id, item.raw, sellerId]);
+
+  const handleToggleWishlist = async () => {
+    if (updatingWishlist) return;
+    const productId = item.raw?.id || item.raw?._id || item.raw?.productId || item.id;
+    if (!productId) return;
+
+    const nextLiked = !liked;
+    setUpdatingWishlist(true);
+    try {
+      if (nextLiked) {
+        await addWishlistItem(productId);
+        const refresh = await getWishlist(sellerId);
+        const { match } = findWishlistItemForProduct(refresh, productId);
+        setWishlistItemId(match?.id || match?._id || match?.wishlistItemId || match?.wishlistId || null);
+      } else {
+        await deleteWishlistItem(wishlistItemId || item.raw?.wishlistItemId || item.raw?.wishlistId || item.raw?.wishlist_item_id || item.raw?.wishlistItem?.id);
+      }
+      setLiked(nextLiked);
+      onToggleWishlist?.(item, nextLiked);
+    } catch (err) {
+      Alert.alert(
+        t('myClosetBuyer.errorTitle'),
+        err?.response?.data?.message || 'Could not update wishlist.',
+      );
+    } finally {
+      setUpdatingWishlist(false);
+    }
+  };
+
+  return (
+    <TouchableOpacity
+      activeOpacity={0.88}
+      style={[
+        styles.gridCard,
+        card && { backgroundColor: card, borderWidth: 1, borderColor: border },
+      ]}
+      onPress={onPress}
+    >
+      <View style={styles.gridImageWrap}>
+        <ImageBox uri={item.image} style={styles.gridImage} />
+        {isNewItem(item?.raw?.createdAt) ? (
+          <View style={[styles.newBadge, { backgroundColor: text }]}>
+            <Text style={styles.newBadgeText}>{t('myClosetBuyer.newBadge') || 'New'}</Text>
+          </View>
+        ) : null}
+        <TouchableOpacity
+          style={styles.favoriteBadge}
+          onPress={handleToggleWishlist}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          disabled={updatingWishlist}
+          activeOpacity={0.85}
+        >
+          <Ionicons
+            name={liked ? 'heart' : 'heart-outline'}
+            size={18}
+            color={liked ? accent : (mutedText || '#9b8c7a')}
+          />
+        </TouchableOpacity>
+      </View>
+      <Text style={[styles.gridTitle, { color: text }]} numberOfLines={2}>
+        {item.name}
+      </Text>
+      <Text style={[styles.gridPrice, { color: accent }]}>{item.price}</Text>
+      <Text style={[styles.gridMeta, { color: mutedText }]} numberOfLines={1}>
+        {item.condition}
+      </Text>
+    </TouchableOpacity>
   );
 };
 
@@ -3509,16 +3864,149 @@ const styles = StyleSheet.create({
   },
 
   // grid
-  gridContent: { paddingHorizontal: 18, paddingBottom: 110 },
+  shopHeader: {
+    height: 54,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+  },
+  gridContent: { paddingHorizontal: 14, paddingBottom: 110 },
   gridRow: { gap: GRID_GAP },
-  listIntro: { paddingTop: 8, paddingBottom: 14 },
-  listTitle: { fontSize: 22, fontWeight: '900', color: '#17072d' },
-  listSubtitle: { marginTop: 4, fontSize: 13, color: MUTED, fontWeight: '600' },
-  gridCard: { width: GRID_ITEM_WIDTH, marginBottom: 18 },
-  gridImage: { width: '100%', aspectRatio: 1, borderRadius: 16 },
-  gridTitle: { marginTop: 8, minHeight: 36, fontSize: 14, lineHeight: 18, color: '#17072d', fontWeight: '800' },
-  gridPrice: { marginTop: 4, fontSize: 15, fontWeight: '900' },
-  gridMeta: { marginTop: 3, fontSize: 12, color: MUTED },
+  heroCard: {
+    paddingHorizontal: 2,
+    paddingTop: 8,
+    paddingBottom: 12,
+  },
+  heroTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  identityRow: { flexDirection: 'row', alignItems: 'center', flex: 1, gap: 10 },
+  avatarWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  avatarInitials: { color: '#fff', fontSize: 13, fontWeight: '900' },
+  identityCopy: { flex: 1 },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  sellerName: { fontSize: 16, fontWeight: '900', color: '#1d102a', maxWidth: '92%' },
+  availableText: { marginTop: 2, fontSize: 12, color: MUTED, fontWeight: '600' },
+  manageButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    backgroundColor: '#fff',
+  },
+  manageButtonText: { fontSize: 12, fontWeight: '800' },
+  searchRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 14 },
+  searchBox: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderRadius: 14,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#eee6f7',
+    paddingHorizontal: 14,
+    height: 46,
+  },
+  searchInput: { flex: 1, fontSize: 13, color: '#20112d' },
+  filterButton: {
+    height: 46,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#eee6f7',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  filterButtonText: { fontSize: 12, color: '#5d4b90', fontWeight: '800' },
+  sectionRow: { marginTop: 14, marginBottom: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  sectionTitle: { fontSize: 15, color: '#221233', fontWeight: '900' },
+  viewAllText: { fontSize: 12, fontWeight: '800', flexDirection: 'row', alignItems: 'center' },
+  categoriesRow: { paddingRight: 14, paddingBottom: 8 },
+  categoryCard: {
+    width: 70,
+    height: 86,
+    borderRadius: 14,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#eee6f7',
+    marginRight: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+  },
+  categoryCardActive: { backgroundColor: '#faf6ff' },
+  categoryIconWrap: {
+    width: 30,
+    height: 30,
+    borderRadius: 10,
+    backgroundColor: '#f6f1fb',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+  },
+  categoryLabel: { fontSize: 11, fontWeight: '800', color: '#221233' },
+  categoryCount: { marginTop: 2, fontSize: 10, color: MUTED, fontWeight: '700' },
+  sortRow: { marginTop: 8, marginBottom: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  sortLabelWrap: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  sortLabel: { fontSize: 12, color: MUTED, fontWeight: '700' },
+  sortValue: { color: '#1e1230', fontWeight: '800' },
+  viewToggle: { flexDirection: 'row', gap: 6 },
+  toggleButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#eee6f7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  toggleButtonActive: { borderColor: 'transparent' },
+  gridCard: {
+    width: GRID_ITEM_WIDTH,
+    marginBottom: 18,
+    padding: 8,
+    backgroundColor: '#fff',
+    borderRadius: 18,
+    overflow: 'hidden',
+  },
+  gridImageWrap: { position: 'relative' },
+  gridImage: { width: '100%', aspectRatio: 1, borderRadius: 18 },
+  newBadge: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    borderRadius: 999,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+  },
+  newBadgeText: { color: '#fff', fontSize: 10, fontWeight: '900' },
+  favoriteBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  gridTitle: { marginTop: 8, minHeight: 15, fontSize: 14, lineHeight: 18, color: '#17072d', fontWeight: '800', paddingHorizontal: 2 },
+  gridPrice: { marginTop: 4, fontSize: 15, fontWeight: '900', paddingHorizontal: 2 },
+  gridMeta: { marginTop: 3, fontSize: 12, color: MUTED, paddingHorizontal: 2 },
 
   battleCard: {
     borderWidth: 1,
@@ -3564,6 +4052,14 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
+  winnerBadge: {
+    backgroundColor: '#fbbf24',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    marginTop: 6,
+  },
+  winnerBadgeText: { fontSize: 10, fontWeight: '900', color: '#111827', letterSpacing: 0.2 },
   fighterThumbPlaceholder: {
     width: '100%',
     height: '100%',
@@ -3575,10 +4071,10 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     fontWeight: '900',
     textAlign: 'center',
-    minHeight: 36,
+    minHeight: 30,
   },
   fighterPrice: {
-    marginTop: -10,
+    marginTop: Platform.OS == "android" ? 7 : -10,
     fontSize: 14,
     fontWeight: '900',
   },
