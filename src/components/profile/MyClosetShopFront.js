@@ -50,6 +50,47 @@ const fmt = (v) => {
 
 const thumb = (item) => item?.images?.[0] || item?.image || item?.thumbnail || null;
 
+const withAlpha = (hex, amount = 0.12) => {
+  const normalized = String(hex || '').replace('#', '');
+  if (normalized.length !== 6) return hex;
+  const num = Math.round(Math.min(Math.max(0, amount), 1) * 255);
+  const hexAlpha = num.toString(16).padStart(2, '0').toUpperCase();
+  return `#${normalized}${hexAlpha}`;
+};
+
+const fastImageSource = uri =>
+  uri
+    ? {
+      uri,
+      priority: FastImage.priority.high,
+      cache: FastImage.cacheControl.immutable,
+    }
+    : null;
+
+const normalizePriorityBattle = battle => {
+  const participants = Array.isArray(battle?.participants) ? [...battle.participants] : [];
+  participants.sort((a, b) => Number(a?.position ?? 0) - Number(b?.position ?? 0));
+  const [left, right] = participants;
+  const winnerParticipant = participants.find(participant => participant?.isWinner) || null;
+  const winnerProduct = battle?.winner?.product ?? battle?.winner?.item ?? winnerParticipant?.product ?? null;
+  const primaryProduct = winnerProduct || left?.product || right?.product || null;
+
+  return {
+    id: String(battle?.id || battle?._id || ''),
+    title: battle?.title || 'Pinned Item',
+    price: fmt(primaryProduct?.price ?? battle?.price ?? 0),
+    image: primaryProduct?.images?.[0] || primaryProduct?.image || null,
+    badge: battle?.hasWinnerBadge ? 'Winner' : null,
+    promoLabel: battle?.hasTenPercentOffPromotion
+      ? '10% OFF + 2 GM'
+      : battle?.hasFreeShippingPromotion
+        ? 'Free Shipping'
+        : null,
+    pinLabel: battle?.isPinnedOnTop ? 'Pin' : null,
+    raw: battle,
+  };
+};
+
 const getWishlistPayload = response => response?.data?.data ?? response?.data ?? response ?? {};
 const getWishlistsArray = response => {
   const payload = getWishlistPayload(response);
@@ -136,7 +177,10 @@ const unwrapBattlesResponse = (source) => {
 const mapParticipant = (p = {}, closet) => {
   const product = p.product ?? {};
   return {
+    id: p.id,
     participantId: p.id,
+    productId: product?.id || product?._id || p.productId || null,
+    raw: p,
     name: product.name || '',
     price: fmt(product.price),
     image: thumb(product), // product.images[0]
@@ -149,11 +193,21 @@ const mapParticipant = (p = {}, closet) => {
 const mapBattle = (b, i) => {
   const sorted = [...(b.participants ?? [])].sort((a, c) => (a.position ?? 0) - (c.position ?? 0));
   const [p1, p2] = sorted;
+  const winner = b?.winner || sorted.find(p => p?.isWinner) || null;
   return {
     id: String(b.id ?? i),
     title: b.title,
     left: mapParticipant(p1, b.closet),
     right: mapParticipant(p2, b.closet),
+    participants: sorted,
+    winnerParticipantId: winner?.id || null,
+    winnerProductId:
+      winner?.product?.id ||
+      winner?.product?._id ||
+      winner?.productId ||
+      winner?.raw?.productId ||
+      null,
+    winnerPct: Number(winner?.votePercentage ?? winner?.voteCount ?? winner?.pct ?? 0),
   };
 };
 
@@ -172,65 +226,101 @@ const BATTLES_FALLBACK = [
   },
 ];
 
-const BattleSlide = ({ battle, accent, t, onPress }) => (
-  <TouchableOpacity activeOpacity={0.9} style={s.slide} onPress={onPress}>
-    <View style={s.battleHeader}>
-      <Text style={s.battleTitle} numberOfLines={1}>
-        {battle.title || t('myClosetShopFront.battlePicksTitle')}
-      </Text>
-    </View>
+const BattleSlide = ({ battle, accent, t, onPress }) => {
+  let winnerSide = battle?.left?.isWinner ? 'left' : battle?.right?.isWinner ? 'right' : null;
+  if (!winnerSide) {
+    if (battle?.winnerParticipantId) {
+      if (battle.winnerParticipantId === battle?.left?.participantId) winnerSide = 'left';
+      else if (battle.winnerParticipantId === battle?.right?.participantId) winnerSide = 'right';
+    } else if (battle?.left?.pct !== undefined && battle?.right?.pct !== undefined) {
+      if (battle.left.pct > battle.right.pct) winnerSide = 'left';
+      else if (battle.right.pct > battle.left.pct) winnerSide = 'right';
+    }
+  }
+  const showWinnerBadge = side => winnerSide === side;
+  const winnerName = winnerSide === 'left' ? battle?.left?.name : battle?.right?.name;
 
-    <View style={s.battleBody}>
-      {/* left */}
-      <View style={s.fighter}>
-        <View style={s.fighterThumb}>
-          <CachedImageBox
-            uri={battle.left.image}
-            style={s.fighterImgWrap}
-            placeholderStyle={s.fighterThumbPlaceholder}
-            iconName="bag-outline"
-            iconSize={34}
-          />
-        </View>
-        <Text style={s.fighterName} numberOfLines={2}>{battle.left.name}</Text>
-        <Text style={s.fighterPrice}>{battle.left.price}</Text>
-        <View style={s.userRow}>
-          {/* <View style={s.avatar} />
-          <Text style={s.username}>{battle.left.user}</Text> */}
-          <Text style={[s.pct, { color: accent }]}>{battle.left.pct}%</Text>
-        </View>
+  const renderWinnerBadge = (side) => {
+    if (!winnerSide) return null;
+    const isWinner = showWinnerBadge(side);
+    const pct = side === 'left' ? battle?.left?.pct : battle?.right?.pct;
+    return (
+      <TouchableOpacity
+        activeOpacity={isWinner ? 0.85 : 1}
+        disabled={!isWinner}
+        style={[s.winnerBadge, !isWinner && { opacity: 0 }]}
+        onPress={() => isWinner && Alert.alert(
+          t('myClosetShopFront.battleWinnerTitle') || 'Battle Winner',
+          `${winnerName || 'This item'} won with ${pct}% of the votes.`,
+        )}
+      >
+        <Text style={s.winnerBadgeText}>🏆 Winner</Text>
+      </TouchableOpacity>
+    );
+  };
+
+  return (
+    <TouchableOpacity activeOpacity={0.9} style={s.slide} onPress={onPress}>
+      <View style={s.battleHeader}>
+        <Text style={s.battleTitle} numberOfLines={1}>
+          {battle.title || t('myClosetShopFront.battlePicksTitle')}
+        </Text>
       </View>
 
-      {/* VS */}
-      <View style={s.vsBubble}>
-        <Text style={s.vsText}>{t('myClosetShopFront.vs')}</Text>
-      </View>
+      <View style={s.battleBody}>
+        {/* left */}
+        <View style={s.fighter}>
+          <View style={s.fighterThumb}>
+            <CachedImageBox
+              uri={battle.left.image}
+              style={s.fighterImgWrap}
+              placeholderStyle={s.fighterThumbPlaceholder}
+              iconName="bag-outline"
+              iconSize={34}
+            />
+          </View>
+          <Text style={s.fighterName} numberOfLines={2}>{battle.left.name}</Text>
+          <Text style={s.fighterPrice}>{battle.left.price}</Text>
+          <View style={s.userRow}>
+            {/* <View style={s.avatar} />
+            <Text style={s.username}>{battle.left.user}</Text> */}
+            <Text style={[s.pct, { color: accent }]}>{battle.left.pct}%</Text>
+          </View>
+          {renderWinnerBadge('left')}
+        </View>
 
-      {/* right */}
-      <View style={s.fighter}>
-        <View style={[s.fighterThumb, { backgroundColor: '#f0eeec' }]}>
-          <CachedImageBox
-            uri={battle.right.image}
-            style={s.fighterImgWrap}
-            placeholderStyle={s.fighterThumbPlaceholder}
-            iconName="bag-handle-outline"
-            iconSize={34}
-          />
+        {/* VS */}
+        <View style={s.vsBubble}>
+          <Text style={s.vsText}>{t('myClosetShopFront.vs')}</Text>
         </View>
-        <Text style={s.fighterName} numberOfLines={2}>{battle.right.name}</Text>
-        <Text style={s.fighterPrice}>{battle.right.price}</Text>
-        <View style={s.userRow}>
-          {/* <View style={s.avatar} />
-          <Text style={s.username}>{battle.right.user}</Text> */}
-          <Text style={s.pctRed}>{battle.right.pct}%</Text>
+
+        {/* right */}
+        <View style={s.fighter}>
+          <View style={[s.fighterThumb, { backgroundColor: '#f0eeec' }]}>
+            <CachedImageBox
+              uri={battle.right.image}
+              style={s.fighterImgWrap}
+              placeholderStyle={s.fighterThumbPlaceholder}
+              iconName="bag-handle-outline"
+              iconSize={34}
+            />
+          </View>
+          <Text style={s.fighterName} numberOfLines={2}>{battle.right.name}</Text>
+          <Text style={s.fighterPrice}>{battle.right.price}</Text>
+          <View style={s.userRow}>
+            {/* <View style={s.avatar} />
+            <Text style={s.username}>{battle.right.user}</Text> */}
+            <Text style={s.pctRed}>{battle.right.pct}%</Text>
+          </View>
+          {renderWinnerBadge('right')}
         </View>
       </View>
-    </View>
-  </TouchableOpacity>
-);
+    </TouchableOpacity>
+  );
+};
 // ── ItemTile ──────────────────────────────────────────────────────────────────
 
-const ItemTile = ({ item, accent, onPress, onToggleWishlist, sellerId }) => {
+const ItemTile = ({ item, accent, onPress, onToggleWishlist, sellerId, winnerMeta, onWinnerPress }) => {
   const [liked, setLiked] = useState(false);
   const [updatingWishlist, setUpdatingWishlist] = useState(false);
   const [wishlistItemId, setWishlistItemId] = useState(null);
@@ -238,7 +328,7 @@ const ItemTile = ({ item, accent, onPress, onToggleWishlist, sellerId }) => {
   useEffect(() => {
     let mounted = true;
     const loadWishlistState = async () => {
-      const productId = item.raw?.id || item.raw?._id || item.raw?.productId || item.key;
+      const productId = item.raw?.productId || item.raw?.product?.id || item.raw?.id || item.raw?._id || item.key;
       if (!productId) return;
       try {
         const response = await getWishlist(sellerId);
@@ -260,10 +350,11 @@ const ItemTile = ({ item, accent, onPress, onToggleWishlist, sellerId }) => {
     const nextLiked = !liked;
     setUpdatingWishlist(true);
     try {
+      const productId = item.raw?.productId || item.raw?.product?.id || item.raw?.id || item.raw?._id || item.key;
       if (nextLiked) {
-        await addWishlistItem(item.raw?.id || item.raw?._id || item.raw?.productId || item.key);
+        await addWishlistItem(productId);
         const refresh = await getWishlist(sellerId);
-        const { match } = findWishlistItemForProduct(refresh, item.raw?.id || item.raw?._id || item.raw?.productId || item.key);
+        const { match } = findWishlistItemForProduct(refresh, productId);
         setWishlistItemId(match?.id || match?._id || match?.wishlistItemId || match?.wishlistId || null);
       } else {
         await deleteWishlistItem(wishlistItemId || item.raw?.wishlistItemId || item.raw?.wishlistId || item.raw?.wishlist_item_id || item.raw?.wishlistItem?.id);
@@ -290,6 +381,15 @@ const ItemTile = ({ item, accent, onPress, onToggleWishlist, sellerId }) => {
           iconName="shirt-outline"
           iconSize={28}
         />
+        {winnerMeta ? (
+          <TouchableOpacity
+            activeOpacity={0.85}
+            style={s.winnerChip}
+            onPress={onWinnerPress}
+          >
+            <Text style={s.winnerChipText}>🏆 Winner</Text>
+          </TouchableOpacity>
+        ) : null}
         <TouchableOpacity
           style={s.heart}
           onPress={handleToggleWishlist}
@@ -479,6 +579,7 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
   // ── battles state ──
   const [battles, setBattles] = useState([]);
   const [battlesLoading, setBattlesLoading] = useState(false);
+  const [pinnedItems, setPinnedItems] = useState([]);
 
   const targetUserId = userData?.id;
 
@@ -504,6 +605,7 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
       console.log('getClosetBattlesPriority response:', JSON.stringify(res, null, 2));
       const raw = unwrapBattlesResponse(res);
       setBattles(raw.map(mapBattle));
+      setPinnedItems(raw.filter(b => b?.isPinnedOnTop).map(normalizePriorityBattle).filter(b => b.id));
     } catch (err) {
       console.log('getClosetBattlesPriority error:', err);
       setBattles([]);
@@ -616,6 +718,27 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
     ? battles
     : (battlesLoading ? BATTLES_FALLBACK : battles);
 
+  const battleWinnerMap = useMemo(() => {
+    const map = new Map();
+    battles.forEach(battle => {
+      const winner = battle?.left?.isWinner ? battle.left : battle?.right?.isWinner ? battle.right : null;
+      const pct = Number(battle?.winnerPct ?? winner?.pct ?? 0);
+      const ids = [
+        battle?.winnerProductId,
+        winner?.productId,
+        winner?.raw?.productId,
+        winner?.raw?.product?.id,
+        winner?.raw?.product?._id,
+        winner?.participantId,
+        winner?.id,
+      ].filter(Boolean);
+      ids.forEach(id => {
+        map.set(String(id), { pct, battleId: battle.id });
+      });
+    });
+    return map;
+  }, [battles]);
+
   useEffect(() => {
     const urls = [
       ...tiles.map(t => t.image),
@@ -721,12 +844,13 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
     }
   };
 
-  console.log("userDatauserDatauserDatauserDatauserData", userData)
+  console.log("displayBattlesdisplayBattlesdisplayBattlesdisplayBattlesdisplayBattles", displayBattles)
+  console.log("tilestilestilestilestilestilestilestiles", tiles)
 
   return (
-    <ScrollView 
-      style={[s.root, bgStyle]} 
-      contentContainerStyle={s.content} 
+    <ScrollView
+      style={[s.root, bgStyle]}
+      contentContainerStyle={s.content}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
     >
@@ -772,7 +896,7 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
 
       {/* ── E-books Section ── */}
       {(ebooksLoading || ebooks.length > 0) && (
-        <View style={s.section}>
+        <View style={[s.section, {marginTop: 12}]}>
           <View style={s.sectionHead}>
             <View style={s.sectionLeft}>
               <Text style={s.sectionEmoji}>📚</Text>
@@ -804,6 +928,81 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
             </View>
           )}
         </View>
+      )}
+
+      {/* ── Pinned Item ── */}
+      {(battlesLoading || pinnedItems.length > 0) && (
+        <>
+          <View style={[s.sectionHead, {marginTop: -15}]}>
+            <Text style={s.sectionTitle}>
+              {t('myClosetDashboard.pinnedItemTitle') || 'Pinned Item'}
+            </Text>
+             {(pinnedItems.length > 3) && (
+                <TouchableOpacity activeOpacity={0.8} onPress={goBattles}>
+                  <Text style={[s.seeAll, { color: accent }]}>{t('myClosetShopFront.seeAll')} ›</Text>
+                </TouchableOpacity>
+              )}
+          </View>
+          <View style={[s.pinnedSection, { backgroundColor: '#fff' }, { borderColor: withAlpha(text, 0.12) }]}>
+            {battlesLoading && pinnedItems.length === 0 ? (
+              <View style={s.itemsLoadingWrap}>
+                <ActivityIndicator color={text} />
+              </View>
+            ) : (
+              pinnedItems.slice(0, 3).map(item => (
+                <TouchableOpacity
+                  key={item.id}
+                  activeOpacity={0.8}
+                  onPress={() => openBattle(item)}
+                >
+                  <View style={s.pinnedCard}>
+                    <View style={s.pinnedThumbWrap}>
+                      {item.image ? (
+                        <FastImage
+                          source={fastImageSource(item.image)}
+                          style={s.pinnedThumb}
+                          resizeMode={FastImage.resizeMode.cover}
+                        />
+                      ) : (
+                        <View style={[s.pinnedThumb, s.pinnedThumbPlaceholder]}>
+                          <Ionicons name="shirt-outline" size={26} color={text} />
+                        </View>
+                      )}
+                    </View>
+
+                    <View style={s.pinnedBody}>
+                      <View style={s.pinnedTopRow}>
+                        <Text style={[s.pinnedTitle, { color: text }]} numberOfLines={1}>{item.title}</Text>
+                        {item.badge ? (
+                          <View style={s.pinnedWinnerBadge}>
+                            <Text style={s.pinnedWinnerBadgeText}>🏆 {item.badge}</Text>
+                          </View>
+                        ) : null}
+                      </View>
+
+                      <Text style={[s.pinnedPrice, { color: text }]}>{item.price}</Text>
+
+                      <View style={s.pinnedBottomRow}>
+                        {item.promoLabel ? (
+                          <View style={s.promoPill}>
+                            <Text style={s.promoPillText}>{item.promoLabel}</Text>
+                          </View>
+                        ) : <View />}
+
+                        {item.pinLabel ? (
+                          <View style={s.pinPill}>
+                            <Ionicons name="pin-outline" size={14} color={text} />
+                            <Text style={[s.pinPillText, { color: text }]}>{item.pinLabel}</Text>
+                          </View>
+                        ) : null}
+                      </View>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              ))
+            )}
+          </View>
+        </>
       )}
 
       {/* ── Battle Picks ── */}
@@ -868,15 +1067,27 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
           )
         ) : (
           <View style={s.grid}>
-            {tiles.map(it => (
-              <ItemTile
-                key={it.key}
-                item={it}
-                accent={accent}
-                onPress={() => { openItem(it) }}
-                sellerId={targetUserId}
-              />
-            ))}
+            {tiles.map(it => {
+              const itemId = String(it.raw?.productId || it.raw?.product?.id || it.raw?.id || it.raw?._id || it.key);
+              const winnerMeta = battleWinnerMap.get(itemId) || null;
+              return (
+                <ItemTile
+                  key={it.key}
+                  item={it}
+                  accent={accent}
+                  onPress={() => { openItem(it) }}
+                  sellerId={targetUserId}
+                  winnerMeta={winnerMeta}
+                  onWinnerPress={() => {
+                    if (!winnerMeta) return;
+                    Alert.alert(
+                      t('myClosetShopFront.battleWinnerTitle') || 'Battle Winner',
+                      `${it.name} won with ${winnerMeta.pct}% of the votes.`,
+                    );
+                  }}
+                />
+              );
+            })}
             {isOwnProfile && (
               <TouchableOpacity activeOpacity={0.85} style={s.tile} onPress={() => goAddFirst(false)}>
                 <View style={[s.tileThumb, s.addTile]}>
@@ -900,6 +1111,107 @@ export default MyClosetShopFront;
 // ── styles ────────────────────────────────────────────────────────────────────
 
 const s = StyleSheet.create({
+  pinnedSection: {
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 14,
+    marginBottom: 30,
+    marginHorizontal: 12,
+  },
+  pinnedCard: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+  },
+  pinnedThumbWrap: {
+    width: 84,
+    height: 84,
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: '#f5f3ef',
+  },
+  pinnedThumb: {
+    width: '100%',
+    height: '100%',
+  },
+  pinnedThumbPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pinnedBody: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  pinnedTopRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  pinnedTitle: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  pinnedPrice: {
+    marginTop: 4,
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  pinnedWinnerBadge: {
+    backgroundColor: '#fde68a',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  pinnedWinnerBadgeText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#7c2d12',
+  },
+  pinnedBottomRow: {
+    marginTop: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  promoPill: {
+    backgroundColor: '#f97316',
+    borderRadius: 9,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  promoPillText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  pinPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#f5f3ff',
+    borderRadius: 9,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  pinPillText: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  sectionTitle: { fontSize: 16, fontWeight: '800' },
+  sectionMeta: { fontSize: 12, color: '#6b7280', fontWeight: '600' },
+  itemsLoadingWrap: { padding: 20, alignItems: 'center', justifyContent: 'center' },
   root: { flex: 1 },
   content: { paddingBottom: 60 },
 
@@ -951,6 +1263,14 @@ const s = StyleSheet.create({
   fighter: { flex: 1, alignItems: 'center' },
   fighterThumb: { width: 100, height: 100, borderRadius: 14, backgroundColor: '#f5f3ee', alignItems: 'center', justifyContent: 'center', marginBottom: 8, overflow: 'hidden' },
   fighterImg: { width: '100%', height: '100%', borderRadius: 12 },
+  winnerBadge: {
+    backgroundColor: '#fbbf24',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    marginTop: 6,
+  },
+  winnerBadgeText: { fontSize: 10, fontWeight: '900', color: '#111827', letterSpacing: 0.2 },
   fighterName: { fontSize: 12, fontWeight: '700', color: '#111827', textAlign: 'center', marginBottom: 2 },
   fighterPrice: { fontSize: 14, fontWeight: '800', color: '#111827', marginBottom: 6 },
   userRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
@@ -979,6 +1299,20 @@ const s = StyleSheet.create({
   },
   tileImgWrap: { width: '100%', height: '100%' },
   tileImgPlaceholder: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f5f3ee' },
+  winnerChip: {
+    position: 'absolute',
+    width: '100%',
+    bottom: 0,
+    zIndex: 5,
+    backgroundColor: '#fbbf24',
+    paddingVertical: 6,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  winnerChipText: { fontSize: 9, fontWeight: '900', color: '#111827', letterSpacing: 0.2 },
   fighterImgWrap: { width: '100%', height: '100%' },
   fighterThumbPlaceholder: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' },
   heart: { position: 'absolute', top: 7, right: 7, backgroundColor: '#ffffffcc', borderRadius: 20, padding: 4 },

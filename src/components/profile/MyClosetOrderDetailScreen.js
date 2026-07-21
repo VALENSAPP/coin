@@ -185,7 +185,7 @@ const Header = ({ onBack, title }) => (
   </View>
 );
 
-const ImageBox = ({ uri, style, iconSize = 22, resizeMode = FastImage.resizeMode.cover }) => {
+const ImageBox = ({ uri, style, iconSize = 22, resizeMode = FastImage.resizeMode.cover, text }) => {
   const [loading, setLoading] = useState(Boolean(uri));
   const source = fastImageSource(uri);
 
@@ -203,7 +203,7 @@ const ImageBox = ({ uri, style, iconSize = 22, resizeMode = FastImage.resizeMode
           />
           {loading ? (
             <View style={styles.imageLoaderOverlay}>
-              <ActivityIndicator size="small" color={ACCENT} />
+              <ActivityIndicator size="small" color={text} />
             </View>
           ) : null}
         </>
@@ -214,25 +214,25 @@ const ImageBox = ({ uri, style, iconSize = 22, resizeMode = FastImage.resizeMode
   );
 };
 
-const SummaryRow = ({ label, value, bold }) => (
+const SummaryRow = ({ label, value, bold, text }) => (
   <View style={styles.summaryRow}>
-    <Text style={[styles.summaryLabel, bold && styles.summaryStrong]}>{label}</Text>
-    <Text style={[styles.summaryValue, bold && styles.summaryTotal]}>{value}</Text>
+    <Text style={[styles.summaryLabel, {color: text}, bold && styles.summaryStrong]}>{label}</Text>
+    <Text style={[styles.summaryValue, bold && styles.summaryTotal, {color: text}]}>{value}</Text>
   </View>
 );
 
-const BottomButton = ({ label, onPress, disabled }) => (
+const BottomButton = ({ label, onPress, disabled, text }) => (
   <TouchableOpacity
     activeOpacity={0.9}
     onPress={disabled ? undefined : onPress}
-    style={[styles.bottomButton, disabled && { opacity: 0.6 }]}
+    style={[styles.bottomButton, {backgroundColor: text},disabled && { opacity: 0.6, backgroundColor: text }]}
   >
     <Text style={styles.bottomButtonText}>{label}</Text>
   </TouchableOpacity>
 );
 
 // Small horizontal progress tracker: Pending → Processing → Shipped → Delivered
-const StatusTimeline = ({ status }) => {
+const StatusTimeline = ({ status, text }) => {
   const { t } = useLanguage();
   const currentIndex = TIMELINE_STEPS.indexOf(status === 'cancelled' ? 'pending' : status);
   return (
@@ -244,15 +244,15 @@ const StatusTimeline = ({ status }) => {
         return (
           <React.Fragment key={step}>
             <View style={styles.timelineItem}>
-              <View style={[styles.timelineDot, (done || active) && { backgroundColor: ACCENT }]}>
-                {done ? <Ionicons name="checkmark" size={11} color="#fff" /> : null}
+              <View style={[styles.timelineDot, {backgroundColor: `${text}18`}, (done || active) && { backgroundColor: text }]}>
+                {done ? <Ionicons name="checkmark" size={12} color='#fff' /> : null}
               </View>
-              <Text style={[styles.timelineLabel, active && { color: ACCENT, fontWeight: '900' }]}>
+              <Text style={[styles.timelineLabel, active && { color: text, fontWeight: '900' }]}>
                 {t(meta.labelKey)}
               </Text>
             </View>
             {index < TIMELINE_STEPS.length - 1 && (
-              <View style={[styles.timelineConnector, index < currentIndex && { backgroundColor: ACCENT }]} />
+              <View style={[styles.timelineConnector, index < currentIndex && { backgroundColor: `${text}18` }]} />
             )}
           </React.Fragment>
         );
@@ -367,7 +367,7 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
       <SafeAreaView style={styles.safeArea}>
         <Header onBack={goBack} title={t('myClosetOrderDetail.headerTitle')} />
         <View style={styles.loaderWrap}>
-          <ActivityIndicator color={ACCENT} />
+          <ActivityIndicator color={text} />
         </View>
       </SafeAreaView>
     );
@@ -398,32 +398,32 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.topRow}>
           <Text style={styles.orderDate}>{order.createdAt}</Text>
-          <View style={[styles.statusBadge, { backgroundColor: meta.bg }]}>
-            <Text style={[styles.statusText, { color: meta.color }]}>{t(meta.labelKey)}</Text>
+          <View style={[styles.statusBadge, { backgroundColor: `${text}18` }]}>
+            <Text style={[styles.statusText, { color: text }]}>{t(meta.labelKey)}</Text>
           </View>
         </View>
 
         <View style={styles.metaRow}>
-          <View style={styles.metaPill}>
+          <View style={[styles.metaPill, {backgroundColor: `${text}18`}]}>
             <Text style={styles.metaLabel}>{t('myClosetOrderDetail.orderNumberLabel')}</Text>
             <Text style={styles.metaValue}>#{order.orderNumber}</Text>
           </View>
-          <View style={styles.metaPill}>
+          <View style={[styles.metaPill, {backgroundColor: `${text}18`}]}>
             <Text style={styles.metaLabel}>{t('myClosetOrderDetail.itemsLabel')}</Text>
             <Text style={styles.metaValue}>{t('myClosetOrderDetail.itemsCount', { count: order.totalItemCount })}</Text>
           </View>
-          <View style={styles.metaPill}>
+          <View style={[styles.metaPill, {backgroundColor: `${text}18`}]}>
             <Text style={styles.metaLabel}>{t('myClosetOrderDetail.totalLabel')}</Text>
             <Text style={styles.metaValue}>{order.totalAmount}</Text>
           </View>
         </View>
 
-        {order.status !== 'cancelled' && <StatusTimeline status={order.status} />}
+        {order.status !== 'cancelled' && <StatusTimeline status={order.status} text={text}/>}
 
-        <View style={styles.card}>
+        <View style={[styles.card, {backgroundColor: `${text}18`, borderColor: text}]}>
           <Text style={styles.cardTitle}>{canUpdateStatus ? t('myClosetOrderDetail.buyer') : t('myClosetOrderDetail.seller')}</Text>
           <View style={styles.buyerRow}>
-            <View style={styles.buyerAvatar}>
+            <View style={[styles.buyerAvatar, {backgroundColor: text}]}>
               <Ionicons name="person" size={18} color="#fff" />
             </View>
             <Text style={styles.buyerName}>{toTitleCase(order.buyerName)}</Text>
@@ -431,7 +431,7 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
         </View>
 
         {order.address ? (
-          <View style={styles.card}>
+          <View style={[styles.card, {backgroundColor: `${text}18`, borderColor: text}]}>
             <Text style={styles.cardTitle}>{t('myClosetOrderDetail.shippingAddress')}</Text>
             <Text style={styles.addressText}>{order.address.fullName}</Text>
             {order.address.phoneNumber ? (
@@ -449,7 +449,7 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
           </View>
         ) : null}
 
-        <View style={styles.card}>
+        <View style={[styles.card, {backgroundColor: `${text}18`, borderColor: text}]}>
           <Text style={styles.cardTitle}>{t('myClosetOrderDetail.items', { count: order.totalItemCount })}</Text>
           {order.coverImage ? (
             <View style={styles.coverWrap}>
@@ -458,18 +458,19 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
                 style={styles.coverThumb}
                 iconSize={28}
                 resizeMode={FastImage.resizeMode.contain}
+                text={text}
               />
             </View>
           ) : null}
           {order.lines.length ? (
             order.lines.map(line => (
               <View key={line.id} style={styles.lineRow}>
-                <ImageBox uri={line.image} style={styles.lineThumb} />
+                <ImageBox uri={line.image} style={styles.lineThumb} text={text}/>
                 <View style={styles.lineCopy}>
                   <Text style={styles.lineName} numberOfLines={2}>
                     {line.name}
                   </Text>
-                  <Text style={styles.linePrice}>{line.price}</Text>
+                  <Text style={[styles.linePrice, {color: text}]}>{line.price}</Text>
                   <Text style={styles.lineQty}>{t('myClosetOrderDetail.qty', { count: line.quantity })}</Text>
                 </View>
                 <Text style={styles.lineTotal}>{line.lineTotal}</Text>
@@ -480,8 +481,8 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
           )}
         </View>
 
-        <View style={styles.card}>
-          <SummaryRow label={t('myClosetOrderDetail.orderTotal')} value={order.totalAmount} bold />
+        <View style={[styles.card, {backgroundColor: `${text}18`, borderColor: text}]}>
+          <SummaryRow label={t('myClosetOrderDetail.orderTotal')} value={order.totalAmount} bold text={text}/>
         </View>
 
         {canUpdateStatus && flowStep ? (
@@ -490,6 +491,7 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
               label={advancing ? t('myClosetOrderDetail.updating') : t(flowStep.labelKey)}
               onPress={() => handleAdvance()}
               disabled={advancing}
+              text={text}
             />
           </View>
         ) : null}
@@ -497,7 +499,7 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
       {canUpdateStatus ? (
         <ShippingDetailsModal
           visible={shippingModalVisible}
-          text={ACCENT}
+          text={text}
           onCancel={() => setShippingModalVisible(false)}
           onSubmit={(payload) => handleAdvance(payload)}
         />
@@ -553,7 +555,7 @@ const styles = StyleSheet.create({
   statusBadge: { borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
   statusText: { fontSize: 11, fontWeight: '800' },
   metaRow: { flexDirection: 'row', gap: 8, marginBottom: 16, flexWrap: 'wrap' },
-  metaPill: { flexGrow: 1, minWidth: '31%', borderRadius: 12, padding: 10, backgroundColor: '#f6f0ff' },
+  metaPill: { flexGrow: 1, minWidth: '31%', borderRadius: 12, padding: 10 },
   metaLabel: { fontSize: 10, color: MUTED, fontWeight: '700', textTransform: 'uppercase', marginBottom: 2 },
   metaValue: { fontSize: 13, color: '#17072d', fontWeight: '800' },
 
@@ -577,10 +579,8 @@ const styles = StyleSheet.create({
 
   card: {
     borderWidth: 1,
-    borderColor: BORDER,
     borderRadius: 14,
     padding: 14,
-    backgroundColor: SURFACE,
     marginBottom: 14,
   },
   cardTitle: { fontSize: 13, fontWeight: '900', color: '#21083f', marginBottom: 10 },
@@ -592,7 +592,6 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: ACCENT,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
@@ -627,15 +626,15 @@ const styles = StyleSheet.create({
   },
   lineCopy: { flex: 1 },
   lineName: { fontSize: 13, fontWeight: '800', color: '#17072d' },
-  linePrice: { marginTop: 2, fontSize: 12, color: ACCENT, fontWeight: '800' },
+  linePrice: { marginTop: 2, fontSize: 12, fontWeight: '800' },
   lineQty: { marginTop: 1, fontSize: 11, color: MUTED, fontWeight: '600' },
   lineTotal: { fontSize: 13, fontWeight: '900', color: '#17072d' },
 
   summaryRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  summaryLabel: { fontSize: 13, color: '#43324f' },
+  summaryLabel: { fontSize: 13 },
   summaryValue: { fontSize: 13, color: '#17072d', fontWeight: '700' },
   summaryStrong: { fontSize: 16, fontWeight: '900', color: '#17072d' },
-  summaryTotal: { fontSize: 18, fontWeight: '900', color: ACCENT },
+  summaryTotal: { fontSize: 18, fontWeight: '900' },
 
   bottomBar: {
     position: 'absolute',

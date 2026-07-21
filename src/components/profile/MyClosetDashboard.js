@@ -915,8 +915,8 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
                   </Text>
                 </View>
                 <View style={styles.orderRight}>
-                  <View style={[styles.statusBadge, { backgroundColor: `${item.statusColor}18` }]}>
-                    <Text style={[styles.statusText, { color: item.statusColor }]}>{item.status}</Text>
+                  <View style={[styles.statusBadge, { backgroundColor: `${text}18` }]}>
+                    <Text style={[styles.statusText, { color: text }]}>{item.status}</Text>
                   </View>
                   <Text style={[styles.orderPrice, textStyle]}>{item.totalAmount}</Text>
                   <Text style={styles.orderCount}>{item.totalItemCount} item{item.totalItemCount === 1 ? '' : 's'}</Text>
@@ -973,8 +973,8 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
                   </Text>
                 </View>
                 <View style={styles.orderRight}>
-                  <View style={[styles.statusBadge, { backgroundColor: `${item.statusColor}18` }]}>
-                    <Text style={[styles.statusText, { color: item.statusColor }]}>{item.status}</Text>
+                  <View style={[styles.statusBadge, { backgroundColor: `${text}18` }]}>
+                    <Text style={[styles.statusText, { color: text }]}>{item.status}</Text>
                   </View>
                   <Text style={[styles.orderPrice, textStyle]}>{item.totalAmount}</Text>
                   <Text style={styles.orderCount}>{item.totalItemCount} item{item.totalItemCount === 1 ? '' : 's'}</Text>

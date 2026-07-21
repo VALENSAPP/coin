@@ -127,10 +127,10 @@ const prefetchImageUrls = async items => {
 const fastImageSource = uri =>
   uri
     ? {
-        uri,
-        priority: FastImage.priority.high,
-        cache: FastImage.cacheControl.immutable,
-      }
+      uri,
+      priority: FastImage.priority.high,
+      cache: FastImage.cacheControl.immutable,
+    }
     : null;
 
 const CachedImageBox = ({ uri, style, placeholderStyle, iconName, iconSize = 26 }) => {
@@ -546,7 +546,7 @@ export function CreateBattleScreen({ navigation, route }) {
 
   return (
     <View style={[styles.screen, bgStyle]}>
-      <Header title={headerTitle} onBack={handleBack} onShare={handleShare} accentColor={accent} titleColor={primaryText} />
+      <Header title={headerTitle} onBack={handleBack} onShare={handleShare} accentColor={accent} titleColor={text} />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <Text style={[styles.sectionTitle, { color: primaryText }]}>{t('battle.chooseItemsTitle')}</Text>
         <Text style={styles.sectionHint}>{t('battle.chooseItemsHint')}</Text>
@@ -602,7 +602,7 @@ export function CreateBattleScreen({ navigation, route }) {
           disabled={selectedItems.length < 2}
           onPress={() => navigation.navigate(nextRoute, { selectedItems, ...route?.params })}
         >
-          <LinearGradient colors={[accent, PURPLE_2]} style={[styles.primaryButton, selectedItems.length < 2 && { opacity: 0.5 }]}>
+          <LinearGradient colors={[accent, text]} style={[styles.primaryButton, selectedItems.length < 2 && { opacity: 0.5 }]}>
             <Text style={styles.primaryButtonText}>{t('battle.next')}</Text>
           </LinearGradient>
         </TouchableOpacity>
@@ -654,7 +654,7 @@ export function BattleSetupScreen({ navigation, route }) {
         title={t('battle.headerTitle')}
         onBack={handleBack}
         accentColor={accent}
-        titleColor={primaryText}
+        titleColor={text}
         onShare={async () => {
           try {
             await Share.share({ message: t('battle.shareSetupMessage', { question }) });
@@ -758,7 +758,7 @@ export function BattleSetupScreen({ navigation, route }) {
           </TouchableOpacity>
         </View>
         <TouchableOpacity activeOpacity={0.9} onPress={handlePreview}>
-          <LinearGradient colors={[accent, PURPLE_2]} style={styles.primaryButton}>
+          <LinearGradient colors={[accent, text]} style={styles.primaryButton}>
             <Text style={styles.primaryButtonText}>{t('battle.previewBattle')}</Text>
           </LinearGradient>
         </TouchableOpacity>
@@ -791,7 +791,7 @@ export function BattlePreviewScreen({ navigation, route }) {
     // Defensive guard: this screen requires two real closet items with ids.
     return (
       <View style={[styles.screen, bgStyle, { backgroundColor: bg || SOFT_BG }]}>
-        <Header title={t('battle.previewTitle')} onBack={handleBack} titleColor={primaryText} />
+        <Header title={t('battle.previewTitle')} onBack={handleBack} titleColor={text} />
         <View style={styles.centeredNotice}>
           <Text style={styles.errorText}>{t('battle.errors.missingItems') || 'Missing selected items.'}</Text>
         </View>
@@ -828,12 +828,16 @@ export function BattlePreviewScreen({ navigation, route }) {
       const battleId = battle?.id;
 
       const liveRoute = route?.params?.liveRoute || 'BattleLive';
-      navigation.navigate(liveRoute, {
-        battleId,
-        question: previewQuestion,
-        selectedItems,
-        launchedFromPreview: true,
-      });
+      // navigation.navigate(liveRoute, {
+      //   battleId,
+      //   question: previewQuestion,
+      //   selectedItems,
+      //   launchedFromPreview: true,
+      // });
+      navigation.navigate('MainApp', {
+        screen: 'wallet',
+        params: { screen: 'MyCloset' }
+      })
     } catch (err) {
       const status = err?.response?.status;
       const message = err?.response?.data?.message;
@@ -860,7 +864,7 @@ export function BattlePreviewScreen({ navigation, route }) {
         title={t('battle.previewTitle')}
         onBack={handleBack}
         accentColor={accent}
-        titleColor={primaryText}
+        titleColor={text}
         onShare={async () => {
           try {
             await Share.share({ message: t('battle.sharePreviewQuestionMessage', { question: previewQuestion }) });
@@ -887,7 +891,7 @@ export function BattlePreviewScreen({ navigation, route }) {
           { label: t('battle.stats.comments'), value: '0', icon: 'chatbubble-outline' },
         ]} />
         <TouchableOpacity activeOpacity={0.9} disabled={launching} onPress={handleLaunch}>
-          <LinearGradient colors={[accent, PURPLE_2]} style={[styles.primaryButton, launching && { opacity: 0.6 }]}>
+          <LinearGradient colors={[accent, text]} style={[styles.primaryButton, launching && { opacity: 0.6 }]}>
             {launching ? (
               <ActivityIndicator color="#fff" />
             ) : (
@@ -1206,17 +1210,17 @@ export function BattleLiveScreen({ navigation, route }) {
 
     try {
       const response = await reactToMarketplaceBattleComment(battleId, comment.id, nextReaction);
-      console.log("-----------reactToMarketplaceBattleComment----------",response)
+      console.log("-----------reactToMarketplaceBattleComment----------", response)
       const data = response?.data?.data ?? response?.data ?? response;
       setComments(prev =>
         prev.map(item =>
           item.id === comment.id
             ? {
-                ...item,
-                likes: Number(data?.likeCount ?? item.likes ?? 0) || 0,
-                dislikes: Number(data?.dislikeCount ?? item.dislikes ?? 0) || 0,
-                userReaction: data?.userReaction ?? item.userReaction ?? null,
-              }
+              ...item,
+              likes: Number(data?.likeCount ?? item.likes ?? 0) || 0,
+              dislikes: Number(data?.dislikeCount ?? item.dislikes ?? 0) || 0,
+              userReaction: data?.userReaction ?? item.userReaction ?? null,
+            }
             : item,
         ),
       );
@@ -1268,7 +1272,7 @@ export function BattleLiveScreen({ navigation, route }) {
   if (loadError || selectedItems.length < 2) {
     return (
       <View style={[styles.screen, bgStyle, { backgroundColor: bg || SOFT_BG }]}>
-        <Header title={liveScreenTitle} onBack={handleBack} titleColor={primaryText} />
+        <Header title={liveScreenTitle} onBack={handleBack} titleColor={text} />
         <View style={styles.centeredNotice}>
           <Text style={styles.errorText}>{loadError || t('battle.errors.missingItems')}</Text>
           {battleId ? (
@@ -1283,7 +1287,7 @@ export function BattleLiveScreen({ navigation, route }) {
 
   return (
     <KeyboardAwareScrollView
-      style={[styles.screen, bgStyle, { backgroundColor: bg || SOFT_BG }]}
+      style={[styles.screen, bgStyle]}
       contentContainerStyle={styles.scrollContent}
       showsVerticalScrollIndicator={false}
       enableOnAndroid
@@ -1294,8 +1298,8 @@ export function BattleLiveScreen({ navigation, route }) {
         title={liveScreenTitle}
         onBack={handleBack}
         rightIcon="share-outline"
-        accentColor={accent}
-        titleColor={primaryText}
+        accentColor={text}
+        titleColor={text}
         onShare={async () => {
           try {
             await Share.share({ message: t('battle.shareLiveMessage') });
@@ -1781,7 +1785,7 @@ export function BattleResultsScreen({ navigation, route }) {
   if (loadError || !winnerItem || !runnerUpItem) {
     return (
       <View style={[styles.screen, bgStyle, { backgroundColor: bg || SOFT_BG }]}>
-        <Header title={t('battle.resultsTitle')} onBack={handleBack} titleColor={primaryText} />
+        <Header title={t('battle.resultsTitle')} onBack={handleBack} titleColor={text} />
         <View style={styles.centeredNotice}>
           <Text style={styles.errorText}>{loadError || t('battle.errors.missingItems')}</Text>
           {battleId ? (
@@ -1800,7 +1804,7 @@ export function BattleResultsScreen({ navigation, route }) {
         title={t('battle.resultsTitle')}
         onBack={handleBack}
         accentColor={accent}
-        titleColor={primaryText}
+        titleColor={text}
         onShare={async () => {
           try {
             await Share.share({ message: t('battle.shareResultsMessage') });
