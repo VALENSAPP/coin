@@ -24,6 +24,7 @@ import {
   withClosetNavParams,
   themeGradient,
 } from '../../utils/closetNavigation';
+import { formSurfaces, selectedSurface, themedCard } from '../../utils/closetTheme';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { useFocusEffect } from '@react-navigation/native';
 import {
@@ -135,8 +136,11 @@ const fastImageSource = uri =>
     : null;
 
 const CachedImageBox = ({ uri, style, placeholderStyle, iconName, iconSize = 26 }) => {
+  const { isDarkMode } = useThemeContext();
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
+  const iconColor = isDarkMode ? '#aaaaaa' : '#9b8c7a';
+  const overlayBg = isDarkMode ? 'rgba(30,30,30,0.72)' : 'rgba(246,240,238,0.72)';
 
   useEffect(() => {
     setLoaded(false);
@@ -145,8 +149,8 @@ const CachedImageBox = ({ uri, style, placeholderStyle, iconName, iconSize = 26 
 
   if (!uri || failed) {
     return (
-      <View style={[style, placeholderStyle]}>
-        <Ionicons name={iconName} size={iconSize} color="#9b8c7a" />
+      <View style={[style, placeholderStyle, isDarkMode && { backgroundColor: 'rgba(255,255,255,0.08)' }]}>
+        <Ionicons name={iconName} size={iconSize} color={iconColor} />
       </View>
     );
   }
@@ -154,8 +158,8 @@ const CachedImageBox = ({ uri, style, placeholderStyle, iconName, iconSize = 26 
   return (
     <View style={style}>
       {!loaded && (
-        <View style={styles.imageLoadingOverlay}>
-          <ActivityIndicator size="small" color="#9b8c7a" />
+        <View style={[styles.imageLoadingOverlay, { backgroundColor: overlayBg }]}>
+          <ActivityIndicator size="small" color={iconColor} />
         </View>
       )}
       <FastImage
@@ -290,14 +294,14 @@ const CommentAvatarCircle = ({ uri, size = 32 }) => {
   );
 };
 
-export const Header = ({ title, onBack, rightIcon, subtitle, onShare, accentColor, titleColor }) => (
+export const Header = ({ title, onBack, rightIcon, subtitle, onShare, accentColor, titleColor, mutedColor }) => (
   <View style={styles.headerRow}>
     <TouchableOpacity onPress={onBack} activeOpacity={0.8} style={styles.iconBtn}>
       <Ionicons name="arrow-back" size={22} color={titleColor || TEXT} />
     </TouchableOpacity>
     <View style={styles.headerCenter}>
       <Text style={[styles.screenTitle, { color: titleColor || TEXT }]}>{title}</Text>
-      {subtitle ? <Text style={styles.screenSubtitle}>{subtitle}</Text> : null}
+      {subtitle ? <Text style={[styles.screenSubtitle, mutedColor && { color: mutedColor }]}>{subtitle}</Text> : null}
     </View>
     <View>
       <Text>      </Text>
@@ -343,26 +347,40 @@ const useBattleBackHandler = (navigation, route) =>
     navigation.goBack();
   }, [navigation, route?.params?.returnToProfile]);
 
-export const PhoneFrame = ({ children }) => (
-  <View style={[styles.phone, phoneBorder]}>
-    <View style={styles.statusRow}>
-      <Text style={styles.statusText}>{phoneStatus}</Text>
-      <View style={styles.statusIcons}>
-        <Ionicons name="cellular" size={10} color="#111" />
-        <Ionicons name="wifi" size={10} color="#111" />
-        <View style={styles.batteryPill}><Text style={styles.batteryText}>90</Text></View>
+export const PhoneFrame = ({ children }) => {
+  const { card, border } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  return (
+    <View
+      style={[
+        styles.phone,
+        phoneBorder,
+        {
+          backgroundColor: isDarkMode ? card || '#1E1E1E' : '#fff',
+          borderColor: isDarkMode ? border || '#333333' : '#EEE5FB',
+        },
+      ]}
+    >
+      <View style={styles.statusRow}>
+        <Text style={[styles.statusText, isDarkMode && { color: '#fff' }]}>{phoneStatus}</Text>
+        <View style={styles.statusIcons}>
+          <Ionicons name="cellular" size={10} color={isDarkMode ? '#fff' : '#111'} />
+          <Ionicons name="wifi" size={10} color={isDarkMode ? '#fff' : '#111'} />
+          <View style={styles.batteryPill}><Text style={styles.batteryText}>90</Text></View>
+        </View>
       </View>
+      {children}
     </View>
-    {children}
-  </View>
-);
+  );
+};
 
-export const BattleCard = ({ left, right, showWinner = false, winnerPercent, accent = PURPLE, textColor = TEXT }) => {
+export const BattleCard = ({ left, right, showWinner = false, winnerPercent, accent = PURPLE, textColor = TEXT, isDarkMode = false, card, border }) => {
   const { t } = useLanguage();
+  const confettiBg = isDarkMode ? (card || 'rgba(255,255,255,0.08)') : '#FBF3FF';
   return (
     <View style={styles.cardBlock}>
       {showWinner ? (
-        <View style={styles.confettiCard}>
+        <View style={[styles.confettiCard, { backgroundColor: confettiBg, borderColor: border || BORDER }]}>
           <Text style={[styles.winnerBadge, { color: textColor }]}>🏆 {t('battle.winner')}</Text>
           <View style={styles.winnerRow}>
             <View style={styles.heroThumb}>
@@ -375,7 +393,7 @@ export const BattleCard = ({ left, right, showWinner = false, winnerPercent, acc
             </View>
             <View style={styles.winnerCopy}>
               <Text style={[styles.winnerTitle, { color: textColor }]}>{left.name}</Text>
-              <Text style={styles.winnerPrice}>{left.price}</Text>
+              <Text style={[styles.winnerPrice, { color: textColor }]}>{left.price}</Text>
             </View>
             <View style={[styles.percentPill, { backgroundColor: '#22C55E' }]}>
               <Text style={styles.percentText}>{winnerPercent != null ? `${winnerPercent}%` : '—'}</Text>
@@ -410,18 +428,19 @@ export const BattleCard = ({ left, right, showWinner = false, winnerPercent, acc
   );
 };
 
-export const VoteSplitBar = ({ leftPercent = 50, accent = PURPLE, totalVotes, leftLabel, rightLabel }) => {
+export const VoteSplitBar = ({ leftPercent = 50, accent = PURPLE, totalVotes, leftLabel, rightLabel, isDarkMode = false, border }) => {
   const { t } = useLanguage();
   const rightPercent = 100 - leftPercent;
+  const rightFill = isDarkMode ? (border || '#333333') : '#D9CBEF';
   return (
     <View style={styles.splitBarWrap}>
       <View style={styles.splitBarTrack}>
         <View style={[styles.splitBarFill, { width: `${leftPercent}%`, backgroundColor: accent }]} />
-        <View style={[styles.splitBarFill, { width: `${rightPercent}%`, backgroundColor: '#D9CBEF' }]} />
+        <View style={[styles.splitBarFill, { width: `${rightPercent}%`, backgroundColor: rightFill }]} />
       </View>
       <View style={styles.splitBarLabels}>
         <Text style={[styles.splitBarLabelText, { color: accent }]}>{leftLabel} {leftPercent}%</Text>
-        <Text style={styles.splitBarLabelText}>{rightPercent}% {rightLabel}</Text>
+        <Text style={[styles.splitBarLabelText, isDarkMode && { color: '#aaaaaa' }]}>{rightPercent}% {rightLabel}</Text>
       </View>
       {typeof totalVotes === 'number' ? (
         <Text style={styles.splitBarTotal}>{t('battle.totalVotesCount', { count: totalVotes })}</Text>
@@ -430,13 +449,21 @@ export const VoteSplitBar = ({ leftPercent = 50, accent = PURPLE, totalVotes, le
   );
 };
 
-export const Stepper = ({ active = 1, labels, accent = PURPLE }) => {
+export const Stepper = ({ active = 1, labels, accent = PURPLE, isDarkMode = false }) => {
   const { t } = useLanguage();
+  const surfaces = formSurfaces(isDarkMode);
   const stepLabels = labels || [
     t('battle.stepper.items'),
     t('battle.stepper.setup'),
     t('battle.stepper.preview'),
   ];
+  // In dark mode accent is often white — use dark digits on the filled circle,
+  // and bright digits/borders on idle circles so numbers stay readable.
+  const activeNumberColor = isDarkMode ? '#111111' : '#ffffff';
+  const idleNumberColor = isDarkMode ? '#ffffff' : '#8B7AAE';
+  const idleBorder = isDarkMode ? 'rgba(255,255,255,0.45)' : '#D6C8EF';
+  const idleLine = isDarkMode ? 'rgba(255,255,255,0.22)' : '#D6C8EF';
+
   return (
     <View style={styles.stepper}>
       {stepLabels.map((label, index) => {
@@ -445,12 +472,41 @@ export const Stepper = ({ active = 1, labels, accent = PURPLE }) => {
         return (
           <React.Fragment key={label}>
             <View style={styles.stepItem}>
-              <View style={[styles.stepCircle, focused && { backgroundColor: accent, borderColor: accent }]}>
-                <Text style={[styles.stepCircleText, focused && styles.stepCircleTextActive]}>{step}</Text>
+              <View
+                style={[
+                  styles.stepCircle,
+                  focused
+                    ? { backgroundColor: accent, borderColor: accent }
+                    : { backgroundColor: 'transparent', borderColor: idleBorder },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.stepCircleText,
+                    { color: focused ? activeNumberColor : idleNumberColor },
+                  ]}
+                >
+                  {step}
+                </Text>
               </View>
-              <Text style={[styles.stepLabel, focused && { color: accent }]}>{label}</Text>
+              <Text
+                style={[
+                  styles.stepLabel,
+                  {
+                    color: focused
+                      ? accent
+                      : isDarkMode
+                        ? surfaces.mutedColor
+                        : MUTED,
+                  },
+                ]}
+              >
+                {label}
+              </Text>
             </View>
-            {index < stepLabels.length - 1 ? <View style={styles.stepLine} /> : null}
+            {index < stepLabels.length - 1 ? (
+              <View style={[styles.stepLine, { backgroundColor: idleLine }]} />
+            ) : null}
           </React.Fragment>
         );
       })}
@@ -458,13 +514,13 @@ export const Stepper = ({ active = 1, labels, accent = PURPLE }) => {
   );
 };
 
-export const StatRow = ({ items }) => (
+export const StatRow = ({ items, card, border, textColor, mutedColor }) => (
   <View style={styles.statsRow}>
     {items.map(item => (
-      <View key={item.label} style={styles.statCard}>
-        {item.icon ? <Ionicons name={item.icon} size={18} color={MUTED} style={{ marginBottom: 4 }} /> : null}
-        <Text style={styles.statValue}>{item.value}</Text>
-        <Text style={styles.statLabel}>{item.label}</Text>
+      <View key={item.label} style={[styles.statCard, themedCard(card, border)]}>
+        {item.icon ? <Ionicons name={item.icon} size={18} color={mutedColor || MUTED} style={{ marginBottom: 4 }} /> : null}
+        <Text style={[styles.statValue, textColor && { color: textColor }]}>{item.value}</Text>
+        <Text style={[styles.statLabel, mutedColor && { color: mutedColor }]}>{item.label}</Text>
       </View>
     ))}
   </View>
@@ -474,10 +530,15 @@ export const StatRow = ({ items }) => (
 // CreateBattleScreen — now loads real closet items from GET /mycloset/items
 // ---------------------------------------------------------------------
 export function CreateBattleScreen({ navigation, route }) {
-  const { bgStyle, text, card, bg } = useAppTheme();
+  const { bgStyle, text, card, bg, border, mutedText } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const surfaces = formSurfaces(isDarkMode);
+  const idleSurface = card || surfaces.listSurface;
   const { t } = useLanguage();
   const accent = text || PURPLE;
   const primaryText = text || TEXT;
+  const subtleMuted = mutedText || surfaces.mutedColor;
+  const ghostBorder = isDarkMode ? 'rgba(255,255,255,0.45)' : '#D8CBEF';
 
   // Passed from MyClosetDashboard's "Create Battle" CTA — falls back to
   // undefined, in which case getMyClosetItems() just omits the userId query param.
@@ -546,11 +607,12 @@ export function CreateBattleScreen({ navigation, route }) {
   };
 
   return (
-    <View style={[styles.screen, bgStyle]}>
+    <View style={[styles.screen, bgStyle, { backgroundColor: bg || SOFT_BG }]}>
       <Header title={headerTitle} onBack={handleBack} onShare={handleShare} accentColor={accent} titleColor={primaryText} />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <Stepper active={1} accent={accent} isDarkMode={isDarkMode} />
         <Text style={[styles.sectionTitle, { color: primaryText }]}>{t('battle.chooseItemsTitle')}</Text>
-        <Text style={styles.sectionHint}>{t('battle.chooseItemsHint')}</Text>
+        <Text style={[styles.sectionHint, { color: subtleMuted }]}>{t('battle.chooseItemsHint')}</Text>
 
         {loading ? (
           <ActivityIndicator style={{ marginTop: 24 }} color={accent} />
@@ -562,7 +624,7 @@ export function CreateBattleScreen({ navigation, route }) {
             </TouchableOpacity>
           </View>
         ) : items.length === 0 ? (
-          <Text style={styles.sectionHint}>{t('battle.noItems') || 'No closet items found yet.'}</Text>
+          <Text style={[styles.sectionHint, { color: subtleMuted }]}>{t('battle.noItems') || 'No closet items found yet.'}</Text>
         ) : (
           <View style={styles.grid}>
             {items.map(item => (
@@ -579,20 +641,28 @@ export function CreateBattleScreen({ navigation, route }) {
                 }}
                 style={[
                   styles.gridCard,
-                  { backgroundColor: card || '#fff', borderColor: BORDER },
+                  { backgroundColor: idleSurface, borderColor: border || surfaces.listBorder },
                   selectedIds.includes(item.id) && [styles.gridCardSelected, { borderColor: accent }],
                 ]}
               >
                 {selectedIds.includes(item.id) ? (
                   <View style={[styles.selectionDot, { backgroundColor: accent }]}>
-                    <Ionicons name="checkmark" size={12} color="#fff" />
+                    <Ionicons name="checkmark" size={12} color={isDarkMode ? '#111' : '#fff'} />
                   </View>
                 ) : (
-                  <View style={styles.selectionDotGhost} />
+                  <View
+                    style={[
+                      styles.selectionDotGhost,
+                      {
+                        backgroundColor: isDarkMode ? 'rgba(0,0,0,0.35)' : 'transparent',
+                        borderColor: ghostBorder,
+                      },
+                    ]}
+                  />
                 )}
                 <FastImage source={fastImageSource(item.image)} style={styles.gridImage} resizeMode={FastImage.resizeMode.cover} />
                 <Text style={[styles.gridName, { color: primaryText }]}>{item.name}</Text>
-                <Text style={[styles.gridPrice, { color: accent }]}>{item.price}</Text>
+                <Text style={[styles.gridPrice, { color: subtleMuted }]}>{item.price}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -613,10 +683,14 @@ export function CreateBattleScreen({ navigation, route }) {
 }
 
 export function BattleSetupScreen({ navigation, route }) {
-  const { bgStyle, text, card, bg } = useAppTheme();
+  const { bgStyle, text, card, bg, border, mutedText } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const surfaces = formSurfaces(isDarkMode);
+  const idleSurface = card || surfaces.listSurface;
   const { t } = useLanguage();
   const accent = text || PURPLE;
   const primaryText = text || TEXT;
+  const subtleMuted = mutedText || surfaces.mutedColor;
   const initialQuestion = route?.params?.defaultQuestion || t('battle.defaultQuestion');
   const handleBack = useBattleBackHandler(navigation, route);
   const [question, setQuestion] = useState(initialQuestion);
@@ -671,10 +745,16 @@ export function BattleSetupScreen({ navigation, route }) {
         extraScrollHeight={20}
         keyboardShouldPersistTaps="handled"
       >
-        <Stepper active={2} accent={accent} />
+        <Stepper active={2} accent={accent} isDarkMode={isDarkMode} />
         <View style={styles.field}>
           <Text style={[styles.fieldLabel, { color: primaryText }]}>{t('battle.questionLabel')}</Text>
-          <View style={[styles.inputCard, { backgroundColor: card || '#fff' }, errors.question && styles.inputCardError]}>
+          <View
+            style={[
+              styles.inputCard,
+              { backgroundColor: idleSurface, borderColor: border || surfaces.listBorder },
+              errors.question && styles.inputCardError,
+            ]}
+          >
             <TextInput
               value={question}
               onChangeText={val => {
@@ -682,8 +762,8 @@ export function BattleSetupScreen({ navigation, route }) {
                 if (errors.question) setErrors(prev => ({ ...prev, question: '' }));
               }}
               placeholder={t('battle.defaultQuestion')}
-              placeholderTextColor="#ccc"
-              style={[styles.inputText, { color: primaryText }]}
+              placeholderTextColor={surfaces.placeholderColor}
+              style={[styles.inputText, { color: surfaces.inputText }]}
             />
           </View>
           {errors.question ? <Text style={styles.errorText}>{errors.question}</Text> : null}
@@ -694,28 +774,36 @@ export function BattleSetupScreen({ navigation, route }) {
           <TouchableOpacity
             onPress={() => setBattleType('OPINION')}
             activeOpacity={0.9}
-            style={[styles.optionCard, battleType === 'OPINION' && { borderColor: accent, backgroundColor: card || '#F7F2FF' }]}
+            style={[
+              styles.optionCard,
+              { backgroundColor: idleSurface, borderColor: border || surfaces.listBorder },
+              battleType === 'OPINION' && { borderColor: accent, backgroundColor: selectedSurface(accent, isDarkMode) },
+            ]}
           >
-            <View style={[styles.radioOuter, { borderColor: battleType === 'OPINION' ? accent : '#D6C8EF' }]}>
+            <View style={[styles.radioOuter, { borderColor: battleType === 'OPINION' ? accent : (isDarkMode ? 'rgba(255,255,255,0.45)' : '#D6C8EF') }]}>
               {battleType === 'OPINION' ? <View style={[styles.radioInner, { backgroundColor: accent }]} /> : null}
             </View>
             <View style={styles.optionTextWrap}>
               <Text style={[styles.optionTitle, { color: primaryText }]}>{t('battle.opinionBattle')}</Text>
-              <Text style={styles.optionSub}>{t('battle.opinionBattleSub')}</Text>
+              <Text style={[styles.optionSub, { color: subtleMuted }]}>{t('battle.opinionBattleSub')}</Text>
             </View>
           </TouchableOpacity>
 
           <TouchableOpacity
             onPress={() => setBattleType('STYLE')}
             activeOpacity={0.9}
-            style={[styles.optionCard, battleType === 'STYLE' && { borderColor: accent, backgroundColor: card || '#F7F2FF' }]}
+            style={[
+              styles.optionCard,
+              { backgroundColor: idleSurface, borderColor: border || surfaces.listBorder },
+              battleType === 'STYLE' && { borderColor: accent, backgroundColor: selectedSurface(accent, isDarkMode) },
+            ]}
           >
-            <View style={[styles.radioOuter, { borderColor: battleType === 'STYLE' ? accent : '#D6C8EF' }]}>
+            <View style={[styles.radioOuter, { borderColor: battleType === 'STYLE' ? accent : (isDarkMode ? 'rgba(255,255,255,0.45)' : '#D6C8EF') }]}>
               {battleType === 'STYLE' ? <View style={[styles.radioInner, { backgroundColor: accent }]} /> : null}
             </View>
             <View style={styles.optionTextWrap}>
               <Text style={[styles.optionTitle, { color: primaryText }]}>{t('battle.styleBattle')}</Text>
-              <Text style={styles.optionSub}>{t('battle.styleBattleSub')}</Text>
+              <Text style={[styles.optionSub, { color: subtleMuted }]}>{t('battle.styleBattleSub')}</Text>
             </View>
           </TouchableOpacity>
 
@@ -728,9 +816,13 @@ export function BattleSetupScreen({ navigation, route }) {
               <TouchableOpacity
                 key={value}
                 onPress={() => setDuration(value)}
-                style={[styles.pill, duration === value && [styles.pillActive, { borderColor: accent, backgroundColor: card || '#F7F2FF' }]]}
+                style={[
+                  styles.pill,
+                  { backgroundColor: idleSurface, borderColor: border || surfaces.listBorder },
+                  duration === value && [styles.pillActive, { borderColor: accent, backgroundColor: selectedSurface(accent, isDarkMode) }],
+                ]}
               >
-                <Text style={[styles.pillText, duration === value && { color: accent, fontWeight: '800' }]}>{label}</Text>
+                <Text style={[styles.pillText, { color: primaryText }, duration === value && { color: accent, fontWeight: '800' }]}>{label}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -740,7 +832,7 @@ export function BattleSetupScreen({ navigation, route }) {
           <Text style={[styles.fieldLabel, { color: primaryText }]}>{t('battle.whoCanVote')}</Text>
           <TouchableOpacity
             onPress={() => setWhoCanVote(prev => (prev === t('battle.public') ? t('battle.followersOnly') : t('battle.public')))}
-            style={styles.inlineRow}
+            style={[styles.inlineRow, { borderBottomColor: border || surfaces.listBorder }]}
           >
             <Text style={[styles.inlineValue, { color: primaryText }]}>{whoCanVote}</Text>
             <Text style={[styles.inlineLink, { color: accent }]}>{t('battle.change')}</Text>
@@ -752,7 +844,7 @@ export function BattleSetupScreen({ navigation, route }) {
           <Text style={[styles.fieldLabel, { color: primaryText }]}>{t('battle.visibilityLabel')}</Text>
           <TouchableOpacity
             onPress={() => setVisibility(prev => (prev === t('battle.public') ? t('battle.private') : t('battle.public')))}
-            style={styles.inlineRow}
+            style={[styles.inlineRow, { borderBottomColor: border || surfaces.listBorder }]}
           >
             <Text style={[styles.inlineValue, { color: primaryText }]}>{visibility}</Text>
             <Text style={[styles.inlineLink, { color: accent }]}>{t('battle.change')}</Text>
@@ -772,10 +864,14 @@ export function BattleSetupScreen({ navigation, route }) {
 // BattlePreviewScreen — "Launch Battle" now calls POST /marketplace-battles
 // ---------------------------------------------------------------------
 export function BattlePreviewScreen({ navigation, route }) {
-  const { bgStyle, text, card, bg } = useAppTheme();
+  const { bgStyle, text, card, bg, border, mutedText } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const surfaces = formSurfaces(isDarkMode);
   const { t } = useLanguage();
   const accent = text || PURPLE;
   const primaryText = text || TEXT;
+  const subtleMuted = mutedText || surfaces.mutedColor;
+  const surface = card || surfaces.listSurface;
   const previewQuestion = route?.params?.question || t('battle.defaultQuestion');
   const selectedItems = route?.params?.selectedItems;
   const { duration, whoCanVote } = route?.params || {};
@@ -871,18 +967,31 @@ export function BattlePreviewScreen({ navigation, route }) {
         }}
       />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <Stepper active={3} accent={accent} />
+        <Stepper active={3} accent={accent} isDarkMode={isDarkMode} />
         <Text style={[styles.sectionTitle, { color: primaryText }]}>{previewQuestion}</Text>
-        <BattleCard left={selectedItems[0]} right={selectedItems[1]} accent={accent} textColor={primaryText} />
+        <BattleCard
+          left={selectedItems[0]}
+          right={selectedItems[1]}
+          accent={accent}
+          textColor={primaryText}
+          isDarkMode={isDarkMode}
+          card={surface}
+          border={border || surfaces.listBorder}
+        />
         <View style={styles.infoRow}>
-          <Text style={styles.infoText}>{t('battle.daysLeft', { count: daysLeft })}</Text>
-          <Text style={styles.infoText}>{voteAudienceText}</Text>
+          <Text style={[styles.infoText, { color: subtleMuted }]}>{t('battle.daysLeft', { count: daysLeft })}</Text>
+          <Text style={[styles.infoText, { color: subtleMuted }]}>{voteAudienceText}</Text>
         </View>
-        <View style={[styles.aboutCard, { backgroundColor: card || '#fff' }]}>
+        <View style={[styles.aboutCard, themedCard(surface, border || surfaces.listBorder)]}>
           <Text style={[styles.aboutTitle, { color: primaryText }]}>{t('battle.aboutTitle')}</Text>
-          <Text style={styles.aboutText}>{t('battle.aboutTextPreview')}</Text>
+          <Text style={[styles.aboutText, { color: subtleMuted }]}>{t('battle.aboutTextPreview')}</Text>
         </View>
-        <StatRow items={[
+        <StatRow
+          card={surface}
+          border={border || surfaces.listBorder}
+          textColor={primaryText}
+          mutedColor={subtleMuted}
+          items={[
           { label: t('battle.stats.votes'), value: '0', icon: 'checkmark-done-outline' },
           { label: t('battle.stats.views'), value: '0', icon: 'eye-outline' },
           { label: t('battle.stats.comments'), value: '0', icon: 'chatbubble-outline' },
@@ -1326,7 +1435,7 @@ export function BattleLiveScreen({ navigation, route }) {
       <Text style={[liveStyles.question, { color: primaryText }]}>{question}</Text>
       <Text style={[liveStyles.questionSub, { color: subtleMuted }]}>{t('battle.voteSwipeHint') || 'Your vote swipe others decide'}</Text>
 
-      <BattleCard left={leftItem} right={rightItem} accent={accent} textColor={primaryText} />
+      <BattleCard left={leftItem} right={rightItem} accent={accent} textColor={primaryText} isDarkMode={isDarkMode} card={surface} border={border || BORDER} />
 
       {/* Vote choice buttons with live counts */}
       <View style={liveStyles.voteButtonsRow}>
@@ -1430,11 +1539,11 @@ export function BattleLiveScreen({ navigation, route }) {
             <View style={[liveStyles.progressBarRight, { flex: rightVotePercent || 1, backgroundColor: '#ef4444' }]} />
           </View>
           <View style={liveStyles.progressBottomRow}>
-            <View style={[liveStyles.sideTagLeft, isDarkMode && { backgroundColor: 'rgba(34,197,94,0.22)' }]}>
-              <Text style={[liveStyles.sideTagText, isDarkMode && { color: '#86EFAC' }]}>{leftItem?.name || leftItem?.label || 'Option 1'}</Text>
+            <View style={[liveStyles.sideTagLeft, !isDarkMode && { backgroundColor: '#e8f5e9' }, isDarkMode && { backgroundColor: 'rgba(34,197,94,0.22)' }]}>
+              <Text style={[liveStyles.sideTagText, isDarkMode ? { color: '#86EFAC' } : { color: '#374151' }]}>{leftItem?.name || leftItem?.label || 'Option 1'}</Text>
             </View>
-            <View style={[liveStyles.sideTagRight, isDarkMode && { backgroundColor: 'rgba(239,68,68,0.22)' }]}>
-              <Text style={[liveStyles.sideTagText, isDarkMode && { color: '#FCA5A5' }]}>{rightItem?.name || rightItem?.label || 'Option 2'}</Text>
+            <View style={[liveStyles.sideTagRight, !isDarkMode && { backgroundColor: '#fde8e8' }, isDarkMode && { backgroundColor: 'rgba(239,68,68,0.22)' }]}>
+              <Text style={[liveStyles.sideTagText, isDarkMode ? { color: '#FCA5A5' } : { color: '#374151' }]}>{rightItem?.name || rightItem?.label || 'Option 2'}</Text>
             </View>
           </View>
         </View>
@@ -1502,19 +1611,32 @@ export function BattleLiveScreen({ navigation, route }) {
                       onPress={() => handleReactToComment(comment, 'LIKE')}
                       style={[
                         liveStyles.commentReactionChip,
-                        { backgroundColor: isDarkMode ? (border || '#333') : '#F7F2FF' },
-                        comment.userReaction === 'LIKE' && liveStyles.commentReactionChipActive,
+                        {
+                          backgroundColor:
+                            comment.userReaction === 'LIKE'
+                              ? selectedSurface(brandAccent, isDarkMode)
+                              : isDarkMode
+                                ? 'rgba(255,255,255,0.08)'
+                                : (card || surface),
+                        },
                       ]}
                     >
                       <Ionicons
                         name={comment.userReaction === 'LIKE' ? 'thumbs-up' : 'thumbs-up-outline'}
                         size={13}
-                        color={comment.userReaction === 'LIKE' ? '#2563EB' : MUTED}
+                        color={comment.userReaction === 'LIKE' ? (isDarkMode ? '#93C5FD' : '#2563EB') : subtleMuted}
                       />
                       <Text
                         style={[
                           liveStyles.commentReactionText,
-                          comment.userReaction === 'LIKE' && liveStyles.commentReactionTextActive,
+                          {
+                            color:
+                              comment.userReaction === 'LIKE'
+                                ? isDarkMode
+                                  ? '#93C5FD'
+                                  : '#1D4ED8'
+                                : subtleMuted,
+                          },
                         ]}
                       >
                         {comment.likes}
@@ -1525,19 +1647,32 @@ export function BattleLiveScreen({ navigation, route }) {
                       onPress={() => handleReactToComment(comment, 'DISLIKE')}
                       style={[
                         liveStyles.commentReactionChip,
-                        { backgroundColor: isDarkMode ? (border || '#333') : '#F7F2FF' },
-                        comment.userReaction === 'DISLIKE' && liveStyles.commentReactionChipActive,
+                        {
+                          backgroundColor:
+                            comment.userReaction === 'DISLIKE'
+                              ? selectedSurface(brandAccent, isDarkMode)
+                              : isDarkMode
+                                ? 'rgba(255,255,255,0.08)'
+                                : (card || surface),
+                        },
                       ]}
                     >
                       <Ionicons
                         name={comment.userReaction === 'DISLIKE' ? 'thumbs-down' : 'thumbs-down-outline'}
                         size={13}
-                        color={comment.userReaction === 'DISLIKE' ? '#DC2626' : MUTED}
+                        color={comment.userReaction === 'DISLIKE' ? (isDarkMode ? '#FCA5A5' : '#DC2626') : subtleMuted}
                       />
                       <Text
                         style={[
                           liveStyles.commentReactionText,
-                          comment.userReaction === 'DISLIKE' && liveStyles.commentReactionTextActive,
+                          {
+                            color:
+                              comment.userReaction === 'DISLIKE'
+                                ? isDarkMode
+                                  ? '#FCA5A5'
+                                  : '#DC2626'
+                                : subtleMuted,
+                          },
                         ]}
                       >
                         {comment.dislikes}
@@ -1575,8 +1710,8 @@ export function BattleLiveScreen({ navigation, route }) {
               {
                 color: isBattleExpired ? subtleMuted : primaryText,
                 backgroundColor: isBattleExpired
-                  ? (isDarkMode ? border : '#F3F4F6')
-                  : (isDarkMode ? (border || '#333') : '#F7F2FF'),
+                  ? (isDarkMode ? (border || '#333') : '#F3F4F6')
+                  : (card || surface),
               },
             ]}
             multiline
@@ -1681,7 +1816,7 @@ const liveStyles = StyleSheet.create({
   commentTime: { fontSize: 10, fontWeight: '600', color: MUTED },
   commentMessage: { fontSize: 12.5, color: TEXT, marginTop: 2, lineHeight: 17 },
   commentActionsRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 },
-  commentReactionChip: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999, backgroundColor: '#F7F2FF' },
+  commentReactionChip: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 },
   commentReactionChipActive: { backgroundColor: '#E8F0FF' },
   commentReactionText: { fontSize: 11, fontWeight: '700', color: MUTED },
   commentReactionTextActive: { color: '#1D4ED8' },
@@ -1704,6 +1839,7 @@ export function BattleResultsScreen({ navigation, route }) {
   const surface = card || (isDarkMode ? '#1E1E1E' : '#fff');
   const winnerSurface = isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.55)';
   const loserSurface = isDarkMode ? (border || '#333') : '#fff';
+  const insightRowBorder = isDarkMode ? (border || '#333') : '#F1E8FB';
   const battleId = route?.params?.battleId;
   const handleBack = useBattleBackHandler(navigation, route);
 
@@ -1835,7 +1971,11 @@ export function BattleResultsScreen({ navigation, route }) {
             <View style={styles.confettiDotD} />
             <Text style={[styles.winnerBadge, { color: primaryText }]}>🏆 {t('battle.winner')}</Text>
             <View style={[styles.resultsWinnerCard, { backgroundColor: winnerSurface }]}>
-              <FastImage source={fastImageSource(winnerItem.image)} style={styles.resultsThumb} resizeMode={FastImage.resizeMode.cover} />
+              <FastImage
+                source={fastImageSource(winnerItem.image)}
+                style={[styles.resultsThumb, isDarkMode && { backgroundColor: 'rgba(255,255,255,0.08)' }]}
+                resizeMode={FastImage.resizeMode.cover}
+              />
               <View style={styles.resultsCopy}>
                 <Text style={[styles.resultsName, { color: primaryText }]} numberOfLines={2}>{winnerItem.name}</Text>
                 <Text style={[styles.resultsPrice, { color: primaryText }]}>{winnerItem.price}</Text>
@@ -1845,7 +1985,11 @@ export function BattleResultsScreen({ navigation, route }) {
               </View>
             </View>
             <View style={[styles.resultsLoserCard, { backgroundColor: loserSurface, borderColor: border || BORDER }]}>
-              <FastImage source={fastImageSource(runnerUpItem.image)} style={styles.resultsThumbSmall} resizeMode={FastImage.resizeMode.cover} />
+              <FastImage
+                source={fastImageSource(runnerUpItem.image)}
+                style={[styles.resultsThumbSmall, isDarkMode && { backgroundColor: 'rgba(255,255,255,0.08)' }]}
+                resizeMode={FastImage.resizeMode.cover}
+              />
               <View style={styles.resultsCopy}>
                 <Text style={[styles.resultsNameSmall, { color: primaryText }]} numberOfLines={2}>{runnerUpItem.name}</Text>
                 <Text style={[styles.resultsPriceSmall, { color: primaryText }]}>{runnerUpItem.price}</Text>
@@ -1858,8 +2002,8 @@ export function BattleResultsScreen({ navigation, route }) {
         ) : null}
         <View style={[styles.resultsBlock, { backgroundColor: surface, borderColor: border || BORDER }]}>
           <Text style={[styles.sectionTitle, { color: primaryText }]}>{t('battle.battleInsights') || 'Battle Insights'}</Text>
-          <View style={[styles.resultsRow, { borderBottomColor: border || '#F1E8FB' }]}><Text style={[styles.resultsLabel, { color: subtleMuted }]}>{t('battle.stats.totalVotes') || 'Total Votes'}</Text><Text style={[styles.resultsValue, { color: primaryText }]}>{totalVotes}</Text></View>
-          <View style={[styles.resultsRow, { borderBottomColor: border || '#F1E8FB' }]}><Text style={[styles.resultsLabel, { color: subtleMuted }]}>{t('battle.stats.totalViews') || 'Total Views'}</Text><Text style={[styles.resultsValue, { color: primaryText }]}>{totalViews}</Text></View>
+          <View style={[styles.resultsRow, { borderBottomColor: insightRowBorder }]}><Text style={[styles.resultsLabel, { color: subtleMuted }]}>{t('battle.stats.totalVotes') || 'Total Votes'}</Text><Text style={[styles.resultsValue, { color: primaryText }]}>{totalVotes}</Text></View>
+          <View style={[styles.resultsRow, { borderBottomColor: insightRowBorder }]}><Text style={[styles.resultsLabel, { color: subtleMuted }]}>{t('battle.stats.totalViews') || 'Total Views'}</Text><Text style={[styles.resultsValue, { color: primaryText }]}>{totalViews}</Text></View>
           <View style={[styles.resultsRow, styles.resultsRowLast]}><Text style={[styles.resultsLabel, { color: subtleMuted }]}>{t('battle.stats.comments') || 'Comments'}</Text><Text style={[styles.resultsValue, { color: primaryText }]}>{totalComments}</Text></View>
           {/* <View style={[styles.resultsRow, styles.resultsRowLast]}><Text style={styles.resultsLabel}>{t('battle.stats.shares') || 'Shares'}</Text><Text style={[styles.resultsValue, { color: primaryText }]}>{insights?.shareCount ?? 12}</Text></View> */}
         </View>
@@ -1908,7 +2052,7 @@ const styles = StyleSheet.create({
   gridCard: { width: '48%', borderRadius: 18, borderWidth: 1, padding: 10 },
   gridCardSelected: { transform: [{ translateY: -2 }] },
   selectionDot: { position: 'absolute', top: 10, left: 10, width: 18, height: 18, borderRadius: 9, alignItems: 'center', justifyContent: 'center', zIndex: 1 },
-  selectionDotGhost: { position: 'absolute', top: 10, left: 10, width: 18, height: 18, borderRadius: 9, borderWidth: 1, borderColor: '#D8CBEF', backgroundColor: '#fff', zIndex: 1 },
+  selectionDotGhost: { position: 'absolute', top: 10, left: 10, width: 18, height: 18, borderRadius: 9, borderWidth: 1, borderColor: '#D8CBEF', zIndex: 1 },
   gridImage: { height: 120, borderRadius: 14, marginBottom: 8 },
   gridName: { fontSize: 12, fontWeight: '700' },
   gridPrice: { fontSize: 12, fontWeight: '800', marginTop: 4 },
@@ -1928,14 +2072,14 @@ const styles = StyleSheet.create({
   inputCard: { borderWidth: 1, borderColor: BORDER, borderRadius: 14, padding: 14 },
   inputCardError: { borderColor: '#ef4444' },
   inputText: { fontWeight: '600' },
-  optionCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, borderWidth: 1, borderColor: BORDER, borderRadius: 16, padding: 14, backgroundColor: '#fff', marginTop: 10 },
+  optionCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, borderWidth: 1, borderColor: BORDER, borderRadius: 16, padding: 14, marginTop: 10 },
   optionTitle: { fontWeight: '800' },
   optionTextWrap: { flex: 1 },
   radioOuter: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
   radioInner: { width: 10, height: 10, borderRadius: 5 },
   optionSub: { color: MUTED, fontSize: 12, marginTop: 3 },
   pillRow: { flexDirection: 'row', gap: 10, flexWrap: 'wrap' },
-  pill: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14, borderWidth: 1, borderColor: BORDER, backgroundColor: '#fff' },
+  pill: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14, borderWidth: 1, borderColor: BORDER },
   pillActive: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14, borderWidth: 1 },
   pillText: { color: TEXT, fontWeight: '800', fontSize: 12 },
   inlineRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: BORDER, paddingVertical: 12 },
@@ -1985,15 +2129,15 @@ const styles = StyleSheet.create({
   },
   infoRow: { flexDirection: 'row', justifyContent: 'space-between' },
   infoText: { color: MUTED, fontSize: 12, fontWeight: '700' },
-  aboutCard: { backgroundColor: '#fff', borderRadius: 18, borderWidth: 1, borderColor: BORDER, padding: 14, gap: 4 },
+  aboutCard: { borderRadius: 18, borderWidth: 1, borderColor: BORDER, padding: 14, gap: 4 },
   aboutTitle: { fontWeight: '900', fontSize: 14 },
   aboutText: { color: MUTED, fontSize: 12, lineHeight: 18, fontWeight: '600' },
   statsRow: { flexDirection: 'row', gap: 10 },
-  statCard: { flex: 1, backgroundColor: '#fff', borderRadius: 16, borderWidth: 1, borderColor: BORDER, padding: 12, alignItems: 'center' },
+  statCard: { flex: 1, borderRadius: 16, borderWidth: 1, borderColor: BORDER, padding: 12, alignItems: 'center' },
   statValue: { color: TEXT, fontWeight: '900', fontSize: 18 },
   statLabel: { color: MUTED, fontWeight: '700', fontSize: 11, marginTop: 2 },
   liveTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  pillOutline: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, borderWidth: 1, borderColor: BORDER, backgroundColor: '#fff' },
+  pillOutline: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, borderWidth: 1, borderColor: BORDER },
   pillOutlineText: { fontSize: 11, fontWeight: '800' },
   liveMuted: { color: MUTED, fontWeight: '700', fontSize: 12 },
   voteCopy: { gap: 4 },
@@ -2003,12 +2147,12 @@ const styles = StyleSheet.create({
   voteChoicesWrap: { gap: 10, marginTop: 8, borderWidth: 1, borderColor: BORDER, borderRadius: 18, padding: 16 },
   voteActionWrap: { borderRadius: 14, overflow: 'hidden' },
   voteActionPrimaryWrap: { borderWidth: 0 },
-  voteActionSecondaryWrap: { borderWidth: 2, borderColor: '#C8B6E9', backgroundColor: '#fff' },
+  voteActionSecondaryWrap: { borderWidth: 2, borderColor: '#C8B6E9' },
   voteActionInner: { minHeight: 50, alignItems: 'center', justifyContent: 'center', borderRadius: 14 },
   voteActionPrimaryText: { color: '#fff', fontSize: 16, fontWeight: '900', textAlign: 'center' },
   voteActionSecondaryText: { fontSize: 16, fontWeight: '900', textAlign: 'center' },
   statsWrap: { marginTop: 6 },
-  secondaryButton: { height: 46, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' },
+  secondaryButton: { height: 46, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   secondaryButtonText: { fontWeight: '900' },
   splitBarWrap: { gap: 6 },
   splitBarTrack: { flexDirection: 'row', height: 10, borderRadius: 6, overflow: 'hidden' },
@@ -2043,13 +2187,13 @@ const styles = StyleSheet.create({
   resultsPercentPillMuted: { minWidth: 46, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F2EEF8', paddingHorizontal: 10 },
   resultsPercentText: { color: '#fff', fontWeight: '900', fontSize: 12 },
   resultsPercentTextMuted: { color: '#8B7AAE', fontWeight: '900', fontSize: 12 },
-  resultsBlock: { gap: 2, backgroundColor: '#fff', borderRadius: 18, borderWidth: 1, borderColor: BORDER, padding: 14 },
+  resultsBlock: { gap: 2, borderRadius: 18, borderWidth: 1, borderColor: BORDER, padding: 14 },
   resultsRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F1E8FB' },
   resultsRowLast: { borderBottomWidth: 0, paddingBottom: 0 },
   resultsLabel: { color: MUTED, fontWeight: '700' },
   resultsValue: { fontWeight: '900' },
   actionRow: { flexDirection: 'row', gap: 10, marginTop: 2 },
-  outlineBtn: { flex: 1, height: 46, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', shadowColor: '#A788E6', shadowOpacity: 0.08, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 1 },
+  outlineBtn: { flex: 1, height: 46, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center', shadowColor: '#A788E6', shadowOpacity: 0.08, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 1 },
   outlineBtnText: { fontWeight: '900' },
   actionBtn: { flex: 1, height: 46, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   actionBtnText: { color: '#fff', fontWeight: '900' },

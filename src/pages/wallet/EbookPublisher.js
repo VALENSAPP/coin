@@ -14,8 +14,20 @@ import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import RNFS from 'react-native-fs';
 import { useFocusEffect, useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { withAlpha } from '../../utils/closetTheme';
 
 const MAX_PDF_SIZE_BYTES = 100 * 1024 * 1024;
+
+const isLightColor = (hex) => {
+  const normalized = String(hex || '').replace('#', '');
+  if (normalized.length !== 6) return false;
+  const r = parseInt(normalized.slice(0, 2), 16);
+  const g = parseInt(normalized.slice(2, 4), 16);
+  const b = parseInt(normalized.slice(4, 6), 16);
+  return 0.299 * r + 0.587 * g + 0.114 * b > 186;
+};
+
+const contrastOn = (background) => (isLightColor(background) ? '#111111' : '#ffffff');
 
 const createChapter = (title, index) => ({
   id: `${Date.now()}-${index}`,
@@ -73,6 +85,7 @@ const EbookPublisher = ({ navigation }) => {
       text,
       icon,
       accent,
+      onAccent: contrastOn(accent),
       // Slightly elevated surface for inner panels (upload area, info box, etc.)
       surface: isDarkMode ? '#242424' : '#F8FAFC',
       surfaceAlt: isDarkMode ? '#1A1A1A' : '#F9FAFB',
@@ -81,9 +94,17 @@ const EbookPublisher = ({ navigation }) => {
       foreground: isDarkMode ? '#F3F4F6' : '#111827',
       foregroundSoft: isDarkMode ? '#D1D5DB' : '#374151',
       placeholder: isDarkMode ? '#8A8A8A' : '#9CA3AF',
+      errorSurface: isDarkMode ? withAlpha('#DC2626', 0.18) : '#FEE2E2',
+      errorRed: '#DC2626',
+      successSurface: isDarkMode ? withAlpha('#2FB344', 0.18) : '#E7F8EA',
+      successGreen: '#2FB344',
+      stepActiveText: contrastOn(accent),
+      stepIdleBorder: isDarkMode ? 'rgba(255,255,255,0.45)' : border,
+      switchTrackOff: isDarkMode ? '#444444' : '#D1D5DB',
     }),
     [isDarkMode, card, border, mutedText, text, icon, accent],
   );
+  const { onAccent, stepActiveText, stepIdleBorder, switchTrackOff } = palette;
   const styles = useMemo(() => makeStyles(palette), [palette]);
   const { t } = useLanguage();
   const route = useRoute();
@@ -555,7 +576,7 @@ const EbookPublisher = ({ navigation }) => {
           style={[styles.topToggleButton, stepOneTab === 'upload' && { backgroundColor: accent }]}
           activeOpacity={0.85}
         >
-          <Ionicons name="cloud-upload-outline" size={16} color={stepOneTab === 'upload' ? '#fff' : text} />
+          <Ionicons name="cloud-upload-outline" size={16} color={stepOneTab === 'upload' ? onAccent : text} />
           <Text style={[styles.topToggleText, stepOneTab === 'upload' && styles.topToggleTextActive]}>
             {tf('ebookPublisher.uploadMyBook', 'Upload My Book')}
           </Text>
@@ -565,7 +586,7 @@ const EbookPublisher = ({ navigation }) => {
           style={[styles.topToggleButton, stepOneTab === 'library' && { backgroundColor: accent }]}
           activeOpacity={0.85}
         >
-          <Ionicons name="book-outline" size={16} color={stepOneTab === 'library' ? '#fff' : text} />
+          <Ionicons name="book-outline" size={16} color={stepOneTab === 'library' ? onAccent : text} />
           <Text style={[styles.topToggleText, stepOneTab === 'library' && styles.topToggleTextActive]}>
             {tf('ebookPublisher.myLibrary', 'My Library')}
           </Text>
@@ -681,7 +702,7 @@ const EbookPublisher = ({ navigation }) => {
           </View>
 
           <View style={styles.successBadge}>
-            <Ionicons name="checkmark" size={42} color="#2FB344" />
+            <Ionicons name="checkmark" size={42} color={palette.successGreen} />
           </View>
 
           <Text style={[styles.successTitle, textStyle]}>Congratulations!</Text>
@@ -919,7 +940,7 @@ const EbookPublisher = ({ navigation }) => {
               <Switch
                 value={promoEnabled}
                 onValueChange={setPromoEnabled}
-                trackColor={{ false: '#D1D5DB', true: text }}
+                trackColor={{ false: switchTrackOff, true: text }}
                 thumbColor="#FFFFFF"
               />
             </View>
@@ -992,8 +1013,8 @@ const EbookPublisher = ({ navigation }) => {
                 return (
                   <View key={item.key} style={styles.rootStepItem}>
                     <View style={styles.rootStepTopRow}>
-                      <View style={[styles.rootStepCircle, (active || done) && { backgroundColor: accent, borderColor: accent }]}>
-                        <Text style={[styles.rootStepCircleText, (active || done) && styles.rootStepCircleTextActive]}>
+                      <View style={[styles.rootStepCircle, (active || done) && { backgroundColor: accent, borderColor: accent }, !active && !done && { borderColor: stepIdleBorder }]}>
+                        <Text style={[styles.rootStepCircleText, (active || done) && { color: stepActiveText }]}>
                           {done || active ? '✓' : item.key}
                         </Text>
                       </View>
@@ -1022,12 +1043,11 @@ const EbookPublisher = ({ navigation }) => {
                     <View
                       style={[
                         styles.stepCircle,
-                        { borderColor: text },
-                        active && { backgroundColor: accent },
-                        done && { backgroundColor: accent },
+                        { borderColor: active || done ? accent : stepIdleBorder },
+                        (active || done) && { backgroundColor: accent },
                       ]}
                     >
-                      <Text style={[styles.stepNumber, (active || done) && styles.stepNumberActive]}>
+                      <Text style={[styles.stepNumber, (active || done) && { color: stepActiveText }]}>
                         {done ? '✓' : item.key}
                       </Text>
                     </View>
@@ -1048,7 +1068,7 @@ const EbookPublisher = ({ navigation }) => {
               style={[styles.topToggleButton, stepOneTab === 'upload' && { backgroundColor: accent }]}
               activeOpacity={0.85}
             >
-              <Ionicons name="cloud-upload-outline" size={16} color={stepOneTab === 'upload' ? '#fff' : text} />
+              <Ionicons name="cloud-upload-outline" size={16} color={stepOneTab === 'upload' ? onAccent : text} />
               <Text style={[styles.topToggleText, stepOneTab === 'upload' && styles.topToggleTextActive]}>
                 {tf('ebookPublisher.uploadMyBook', 'Upload My Book')}
               </Text>
@@ -1058,7 +1078,7 @@ const EbookPublisher = ({ navigation }) => {
               style={[styles.topToggleButton, stepOneTab === 'library' && { backgroundColor: accent }]}
               activeOpacity={0.85}
             >
-              <Ionicons name="book-outline" size={16} color={stepOneTab === 'library' ? '#fff' : text} />
+              <Ionicons name="book-outline" size={16} color={stepOneTab === 'library' ? onAccent : text} />
               <Text style={[styles.topToggleText, stepOneTab === 'library' && styles.topToggleTextActive]}>
                 {tf('ebookPublisher.myLibrary', 'My Library')}
               </Text>
@@ -1335,7 +1355,7 @@ const EbookPublisher = ({ navigation }) => {
                 <Switch
                   value={allowDownload}
                   onValueChange={setAllowDownload}
-                  trackColor={{ false: '#D1D5DB', true: text }}
+                  trackColor={{ false: switchTrackOff, true: text }}
                   thumbColor="#FFFFFF"
                 />
               </View>
@@ -1371,7 +1391,7 @@ const EbookPublisher = ({ navigation }) => {
                   <Switch
                     value={promoEnabled}
                     onValueChange={setPromoEnabled}
-                    trackColor={{ false: '#D1D5DB', true: text }}
+                    trackColor={{ false: switchTrackOff, true: text }}
                     thumbColor="#FFFFFF"
                   />
                 </View>
@@ -1436,12 +1456,17 @@ const makeStyles = ({
   text,
   icon,
   accent,
+  onAccent,
   surface,
   surfaceAlt,
   infoSurface,
   foreground,
   foregroundSoft,
   placeholder,
+  errorSurface,
+  errorRed,
+  successSurface,
+  successGreen,
 }) => StyleSheet.create({
   screen: { flex: 1, marginBottom: '5%' },
   header: {
@@ -1481,7 +1506,7 @@ const makeStyles = ({
     backgroundColor: card,
   },
   topToggleText: { fontWeight: '700', color: foregroundSoft },
-  topToggleTextActive: { color: '#fff' },
+  topToggleTextActive: { color: onAccent },
   progressTrack: {
     height: 8,
     borderRadius: 999,
@@ -1502,7 +1527,6 @@ const makeStyles = ({
     backgroundColor: card,
   },
   stepNumber: { fontSize: 14, fontWeight: '700', color: mutedText },
-  stepNumberActive: { color: '#fff' },
   stepLabel: { fontSize: 11, marginTop: 6, color: mutedText, textAlign: 'center' },
   card: {
     borderRadius: 24,
@@ -1537,7 +1561,7 @@ const makeStyles = ({
     minWidth: 140,
     alignItems: 'center',
   },
-  uploadButtonText: { color: '#fff', fontWeight: '700' },
+  uploadButtonText: { color: onAccent, fontWeight: '700' },
   limitText: { marginTop: 14, fontSize: 12, color: mutedText },
   libraryPanel: { gap: 12 },
   libraryStateText: { fontSize: 14, color: mutedText, fontWeight: '600', paddingVertical: 8 },
@@ -1614,12 +1638,12 @@ const makeStyles = ({
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: '#FEE2E2',
+    backgroundColor: errorSurface,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
   },
-  fileBadgeText: { color: '#DC2626', fontWeight: '800', fontSize: 12 },
+  fileBadgeText: { color: errorRed, fontWeight: '800', fontSize: 12 },
   fileMeta: { flex: 1 },
   fileName: { fontSize: 14, fontWeight: '700' },
   fileSize: { fontSize: 12, color: mutedText, marginTop: 2 },
@@ -1765,7 +1789,7 @@ const makeStyles = ({
     paddingVertical: 14,
     alignItems: 'center',
   },
-  primaryButtonText: { color: '#fff', fontWeight: '900', fontSize: 16 },
+  primaryButtonText: { color: onAccent, fontWeight: '900', fontSize: 16 },
   footerActions: { flexDirection: 'row', gap: 12, marginBottom: 4 },
   footerButton: {
     flex: 1,
@@ -1778,7 +1802,7 @@ const makeStyles = ({
   },
   footerButtonPrimary: { borderWidth: 0 },
   footerButtonText: { fontWeight: '800' },
-  footerButtonPrimaryText: { color: '#fff', fontWeight: '900' },
+  footerButtonPrimaryText: { color: onAccent, fontWeight: '900' },
   bottomSpacer: { height: 24 },
   settingTitle: {
     fontSize: 14,
@@ -1839,9 +1863,6 @@ const makeStyles = ({
     fontSize: 12,
     fontWeight: '800',
     color: mutedText,
-  },
-  rootStepCircleTextActive: {
-    color: '#fff',
   },
   rootStepLine: {
     flex: 1,
@@ -1942,7 +1963,7 @@ const makeStyles = ({
     fontWeight: '800',
   },
   earningsTotalValue: {
-    color: '#2FB344',
+    color: successGreen,
     fontSize: 16,
   },
   rootPromoTitle: {
@@ -1963,7 +1984,7 @@ const makeStyles = ({
     marginBottom: 4,
   },
   rootPrimaryButtonText: {
-    color: '#fff',
+    color: onAccent,
     fontWeight: '900',
     fontSize: 16,
   },
@@ -1996,12 +2017,12 @@ const makeStyles = ({
     height: 88,
     borderRadius: 44,
     borderWidth: 4,
-    borderColor: '#2FB344',
+    borderColor: successGreen,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 22,
     marginBottom: 18,
-    backgroundColor: '#fff',
+    backgroundColor: card,
   },
   successTitle: {
     fontSize: 24,
@@ -2031,7 +2052,7 @@ const makeStyles = ({
     borderRadius: 10,
     overflow: 'hidden',
     marginRight: 12,
-    backgroundColor: '#4B2A8F',
+    backgroundColor: accent,
   },
   successBookCoverImage: {
     width: '100%',
@@ -2069,10 +2090,10 @@ const makeStyles = ({
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: 999,
-    backgroundColor: '#E7F8EA',
+    backgroundColor: successSurface,
   },
   publishedPillText: {
-    color: '#2FB344',
+    color: successGreen,
     fontWeight: '800',
     fontSize: 12,
   },
@@ -2086,7 +2107,7 @@ const makeStyles = ({
     alignSelf: 'stretch',
   },
   goClosetButtonText: {
-    color: '#fff',
+    color: onAccent,
     fontSize: 15,
     fontWeight: '900',
   },

@@ -2,19 +2,13 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image, ActivityIndicator, Linking, Alert } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useThemeContext } from '../../theme/ThemeContext';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { InAppBrowser } from 'react-native-inappbrowser-reborn';
 import { getPaymentSessionUrl, STRIPE_BROWSER_OPTIONS } from '../../utils/stripeOnboarding';
 import { payMarketplaceEbook } from '../../services/stirpe';
-
-const themeStyles = {
-  purple: { bg: '#5A2D82', tint: '#EDE3FA' },
-  sand: { bg: '#C08B47', tint: '#FFF1D9' },
-  forest: { bg: '#274C3A', tint: '#DDEFE3' },
-  gold: { bg: '#8A6B1C', tint: '#F8EBC2' },
-  ink: { bg: '#1F2937', tint: '#E5E7EB' },
-};
+import { formSurfaces, selectedSurface, themedCard } from '../../utils/closetTheme';
 
 const getCoverImage = (item) => {
   if (!item) return null;
@@ -29,33 +23,33 @@ const EbookCheckoutScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const { ebook, userData, loggedInUserId } = route.params || {};
-  console.log("-----------------ebook------------------",ebook)
-  const { bgStyle, textStyle, text } = useAppTheme(userData?.profile);
-  const accentColor = text || '#5A2D82';
+  const { bgStyle, text, card, border, mutedText, accent, bg } = useAppTheme(userData?.profile);
+  const { isDarkMode } = useThemeContext();
+  const surfaces = formSurfaces(isDarkMode);
+  const brandAccent = accent || '#5A2D82';
+  const primaryText = text || (isDarkMode ? '#ffffff' : '#111827');
+  const muted = mutedText || surfaces.mutedColor;
+  const surface = card || surfaces.listSurface;
+  const surfaceBorder = border || surfaces.listBorder;
 
   const [paying, setPaying] = useState(false);
 
   const coverImage = getCoverImage(ebook);
   const title = ebook?.caption || ebook?.title || 'E-book';
   const author = ebook?.userName || userData?.displayName || 'Unknown Author';
-  const palette = themeStyles[ebook?.theme] || themeStyles.purple;
 
   const price = Number(ebook?.amount || 0);
-  const fee = price * 0.10; // 10% platform fee deducted from the seller share
   const total = price;
 
   const handlePay = async () => {
     setPaying(true);
-    console.log("ebook data-----------------------",ebook)
     try {
       const payload = {
         amount: price,
         closetId: ebook?.closetId || ebook?.closet?._id || ebook?.closet?.id || route?.params?.closetId || userData?.closetId || userData?.myClosetId || userData?.closetDetails?.id || userData?.closetDetails?._id,
         ebookId: ebook.id || ebook._id,
       };
- console.log("payload for payMarketplaceEbook----------------",payload)
       const response = await payMarketplaceEbook(payload);
-      console.log("response for payMarketplaceEbook----------------",response)
       const url = getPaymentSessionUrl(response);
 
       if (!url) {
@@ -70,7 +64,6 @@ const EbookCheckoutScreen = () => {
         await Linking.openURL(url);
       }
 
-      // Save purchase status locally as fallback/simulated state
       const itemId = ebook.id || ebook._id;
       await AsyncStorage.setItem(`purchased_ebook_${itemId}`, 'true');
 
@@ -89,72 +82,88 @@ const EbookCheckoutScreen = () => {
 
   return (
     <View style={[styles.screen, bgStyle]}>
-      {/* Header */}
       <View style={styles.headerRow}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={22} color="#111827" />
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} hitSlop={10}>
+          <Ionicons name="arrow-back" size={22} color={primaryText} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, textStyle]}>Checkout</Text>
+        <Text style={[styles.headerTitle, { color: primaryText }]}>Checkout</Text>
         <View style={styles.placeholder} />
       </View>
 
       <View style={styles.content}>
-        {/* Ebook Summary Card */}
-        <View style={styles.summaryCard}>
-          <View style={styles.coverContainer}>
+        <View style={[styles.summaryCard, themedCard(surface, surfaceBorder)]}>
+          <View style={[styles.coverContainer, { backgroundColor: isDarkMode ? surfaces.inputSurface : '#f3f4f6' }]}>
             {coverImage ? (
               <Image source={{ uri: coverImage }} style={styles.coverImage} resizeMode="cover" />
             ) : (
-              <View style={[styles.fallbackCover, { backgroundColor: text }]}>
+              <View style={[styles.fallbackCover, { backgroundColor: brandAccent }]}>
                 <Text style={styles.fallbackText}>{title.charAt(0).toUpperCase()}</Text>
               </View>
             )}
           </View>
           <View style={styles.summaryDetails}>
-            <Text style={[styles.summaryTitle, textStyle]} numberOfLines={1}>{title}</Text>
-            <Text style={styles.summaryAuthor} numberOfLines={1}>by {author}</Text>
-            <Text style={[styles.summaryPrice, { color: accentColor }]}>${price.toFixed(2)}</Text>
+            <Text style={[styles.summaryTitle, { color: primaryText }]} numberOfLines={1}>{title}</Text>
+            <Text style={[styles.summaryAuthor, { color: muted }]} numberOfLines={1}>by {author}</Text>
+            <Text style={[styles.summaryPrice, { color: brandAccent }]}>${price.toFixed(2)}</Text>
           </View>
         </View>
 
-        {/* Pricing Breakdown */}
-        <View style={styles.invoiceSection}>
+        <View
+          style={[
+            styles.invoiceSection,
+            {
+              backgroundColor: isDarkMode ? surfaces.inputSurface : '#FAF9FC',
+              borderColor: surfaceBorder,
+            },
+          ]}
+        >
           <View style={styles.invoiceRow}>
-            <Text style={styles.invoiceLabel}>Price</Text>
-            <Text style={[styles.invoiceValue, textStyle]}>${price.toFixed(2)}</Text>
+            <Text style={[styles.invoiceLabel, { color: muted }]}>Price</Text>
+            <Text style={[styles.invoiceValue, { color: primaryText }]}>${price.toFixed(2)}</Text>
           </View>
-          {/* <View style={styles.invoiceRow}>
-            <Text style={styles.invoiceLabel}>Platform Fee (10% deducted)</Text>
-            <Text style={[styles.invoiceValue, textStyle]}>${fee.toFixed(2)}</Text>
-          </View> */}
-          <View style={[styles.invoiceRow, styles.totalRow]}>
-            <Text style={[styles.totalLabel, textStyle]}>Total</Text>
-            <Text style={[styles.totalValue, { color: accentColor }]}>${total.toFixed(2)}</Text>
+          <View style={[styles.invoiceRow, styles.totalRow, { borderTopColor: surfaceBorder }]}>
+            <Text style={[styles.totalLabel, { color: primaryText }]}>Total</Text>
+            <Text style={[styles.totalValue, { color: primaryText }]}>${total.toFixed(2)}</Text>
           </View>
         </View>
 
-        {/* Payment Methods */}
-        <Text style={[styles.sectionTitle, textStyle]}>Payment Method</Text>
+        <Text style={[styles.sectionTitle, { color: primaryText }]}>Payment Method</Text>
         <View style={styles.paymentMethods}>
-          {/* Valens Secure Checkout */}
           <View
-            style={[styles.methodItem, styles.methodSelected]}
+            style={[
+              styles.methodItem,
+              themedCard(surface, surfaceBorder),
+              {
+                borderColor: brandAccent,
+                backgroundColor: selectedSurface(brandAccent, isDarkMode),
+              },
+            ]}
           >
             <View style={styles.methodLeft}>
-              <Ionicons name="shield-checkmark-outline" size={22} color={accentColor} />
-              <Text style={[styles.methodText, styles.methodTextSelected]}>Valens Secure Checkout</Text>
+              <Ionicons name="shield-checkmark-outline" size={22} color={brandAccent} />
+              <Text style={[styles.methodText, { color: primaryText, fontWeight: '800' }]}>
+                Valens Secure Checkout
+              </Text>
             </View>
-            <View style={[styles.radioCircle, { borderColor: accentColor }]}>
-              <View style={[styles.radioInner, { backgroundColor: accentColor }]} />
+            <View style={[styles.radioCircle, { borderColor: brandAccent }]}>
+              <View style={[styles.radioInner, { backgroundColor: brandAccent }]} />
             </View>
           </View>
         </View>
       </View>
 
-      {/* Pay Button */}
-      <View style={styles.bottomBar}>
+      <View
+        style={[
+          styles.bottomBar,
+          {
+            backgroundColor: isDarkMode ? bg || '#121212' : '#fff',
+            borderTopColor: surfaceBorder,
+            borderTopWidth: StyleSheet.hairlineWidth,
+          },
+        ]}
+      >
         <TouchableOpacity
-          style={[styles.payBtn, { backgroundColor: accentColor }]}
+          style={[styles.payBtn, { backgroundColor: brandAccent }]}
           onPress={handlePay}
           disabled={paying}
           activeOpacity={0.88}
@@ -166,8 +175,8 @@ const EbookCheckoutScreen = () => {
           )}
         </TouchableOpacity>
         <View style={styles.securedRow}>
-          <Ionicons name="lock-closed" size={12} color="#9ca3af" />
-          <Text style={styles.securedText}> Secured by Valens</Text>
+          <Ionicons name="lock-closed" size={12} color={muted} />
+          <Text style={[styles.securedText, { color: muted }]}> Secured by Valens</Text>
         </View>
       </View>
     </View>
@@ -177,7 +186,7 @@ const EbookCheckoutScreen = () => {
 export default EbookCheckoutScreen;
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#fff', paddingTop: '10%' },
+  screen: { flex: 1, paddingTop: '10%' },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -186,15 +195,13 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   backBtn: { padding: 4 },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: '#111827' },
+  headerTitle: { fontSize: 20, fontWeight: '800' },
   placeholder: { width: 30 },
   content: { padding: 16 },
   summaryCard: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E8E1F3',
     padding: 12,
     marginBottom: 24,
   },
@@ -203,7 +210,6 @@ const styles = StyleSheet.create({
     height: 84,
     borderRadius: 8,
     overflow: 'hidden',
-    backgroundColor: '#f3f4f6',
   },
   coverImage: {
     width: '100%',
@@ -227,12 +233,10 @@ const styles = StyleSheet.create({
   summaryTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#111827',
     marginBottom: 4,
   },
   summaryAuthor: {
     fontSize: 12,
-    color: '#6b7280',
     fontWeight: '600',
     marginBottom: 6,
   },
@@ -241,12 +245,10 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   invoiceSection: {
-    backgroundColor: '#FAF9FC',
     borderRadius: 16,
     padding: 16,
     marginBottom: 24,
     borderWidth: 1,
-    borderColor: '#f3f4f6',
   },
   invoiceRow: {
     flexDirection: 'row',
@@ -255,24 +257,20 @@ const styles = StyleSheet.create({
   },
   invoiceLabel: {
     fontSize: 13,
-    color: '#6b7280',
     fontWeight: '600',
   },
   invoiceValue: {
     fontSize: 13,
-    color: '#111827',
     fontWeight: '700',
   },
   totalRow: {
     borderTopWidth: 1,
-    borderTopColor: '#E8E1F3',
     marginTop: 8,
     paddingTop: 12,
   },
   totalLabel: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#111827',
   },
   totalValue: {
     fontSize: 17,
@@ -281,7 +279,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#111827',
     marginBottom: 12,
   },
   paymentMethods: {
@@ -295,12 +292,6 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E8E1F3',
-    backgroundColor: '#fff',
-  },
-  methodSelected: {
-    borderColor: '#111827',
-    backgroundColor: '#FAF9FC',
   },
   methodLeft: {
     flexDirection: 'row',
@@ -309,7 +300,6 @@ const styles = StyleSheet.create({
   },
   methodText: {
     fontSize: 13,
-    color: '#4b5563',
     fontWeight: '600',
   },
   radioCircle: {
@@ -317,7 +307,6 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 10,
     borderWidth: 2,
-    borderColor: '#d1d5db',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -334,7 +323,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 24,
     paddingTop: 12,
-    backgroundColor: '#fff',
   },
   payBtn: {
     height: 48,
@@ -355,11 +343,6 @@ const styles = StyleSheet.create({
   },
   securedText: {
     fontSize: 11,
-    color: '#9ca3af',
     fontWeight: '600',
-  },
-  methodTextSelected: {
-    fontWeight: '800',
-    color: '#111827',
   },
 });

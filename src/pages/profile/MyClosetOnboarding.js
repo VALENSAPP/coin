@@ -57,7 +57,17 @@ const withAlpha = (hex, alpha = 0.12) => {
 const formSurfaces = isDarkMode => ({
   inputSurface: isDarkMode ? 'rgba(255,255,255,0.08)' : '#ffffff',
   labelColor: isDarkMode ? '#ffffff' : '#3f3f46',
+  inputText: isDarkMode ? '#ffffff' : '#111827',
+  placeholderColor: isDarkMode ? '#9ca3af' : '#a1a1aa',
+  listSurface: isDarkMode ? '#1E1E1E' : '#ffffff',
+  listBorder: isDarkMode ? '#333333' : '#e5e7eb',
+  itemBorder: isDarkMode ? '#333333' : '#f3f4f6',
+  mutedColor: isDarkMode ? '#aaaaaa' : '#6b7280',
+  iconBubble: isDarkMode ? 'rgba(255,255,255,0.12)' : '#f5f3ff',
 });
+
+const selectedSurface = (accent, isDarkMode) =>
+  isDarkMode ? withAlpha(accent, 0.22) : mixWithWhite(accent, 0.93);
 
 const isBlank = value => !String(value || '').trim();
 
@@ -499,7 +509,8 @@ const PrimaryButton = ({ label, onPress, text, accent, disabled = false }) => {
   );
 };
 
-const SecondaryButton = ({ label, onPress, text, accent, cardStyle, textStyle }) => {
+const SecondaryButton = ({ label, onPress, text, accent, cardStyle: cardStyleProp }) => {
+  const { cardStyle: themeCardStyle } = useAppTheme();
   const color = accent || text;
   return (
   <TouchableOpacity
@@ -507,11 +518,11 @@ const SecondaryButton = ({ label, onPress, text, accent, cardStyle, textStyle })
     onPress={onPress}
     style={[
       styles.secondaryButton,
-      cardStyle,
+      cardStyleProp || themeCardStyle,
       { borderColor: withAlpha(color, 0.35) },
     ]}
   >
-    <Text style={[styles.secondaryButtonText, textStyle, { color }]}>{label}</Text>
+    <Text style={[styles.secondaryButtonText, { color }]}>{label}</Text>
   </TouchableOpacity>
   );
 };
@@ -527,30 +538,44 @@ const Field = ({
   height,
   error,
   keyboardType,
-}) => (
-  <View style={styles.fieldBlock}>
-    <Text style={styles.fieldLabel}>{label}</Text>
-    <View
-      style={[
-        styles.fieldWrap,
-        { borderColor: error ? '#dc2626' : withAlpha(text, 0.16) },
-      ]}
-    >
-      {prefix ? <Text style={styles.fieldPrefix}>{prefix}</Text> : null}
-      <TextInput
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        placeholderTextColor="#a1a1aa"
-        multiline={multiline}
-        keyboardType={keyboardType}
-        textAlignVertical={multiline ? 'top' : 'center'}
-        style={[styles.fieldInput, multiline && { minHeight: height || 92 }]}
-      />
+}) => {
+  const { isDarkMode } = useThemeContext();
+  const surfaces = formSurfaces(isDarkMode);
+
+  return (
+    <View style={styles.fieldBlock}>
+      <Text style={[styles.fieldLabel, { color: surfaces.labelColor }]}>{label}</Text>
+      <View
+        style={[
+          styles.fieldWrap,
+          {
+            backgroundColor: surfaces.inputSurface,
+            borderColor: error ? '#dc2626' : withAlpha(text, isDarkMode ? 0.35 : 0.16),
+          },
+        ]}
+      >
+        {prefix ? (
+          <Text style={[styles.fieldPrefix, { color: surfaces.mutedColor }]}>{prefix}</Text>
+        ) : null}
+        <TextInput
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          placeholderTextColor={surfaces.placeholderColor}
+          multiline={multiline}
+          keyboardType={keyboardType}
+          textAlignVertical={multiline ? 'top' : 'center'}
+          style={[
+            styles.fieldInput,
+            { color: surfaces.inputText },
+            multiline && { minHeight: height || 92 },
+          ]}
+        />
+      </View>
+      <InlineError message={error} />
     </View>
-    <InlineError message={error} />
-  </View>
-);
+  );
+};
 
 const PlaceFieldRow = ({
   icon,
@@ -571,98 +596,124 @@ const PlaceFieldRow = ({
   searching,
   onSelectPrediction,
   t,
-}) => (
-  <View style={styles.placeFieldBlock}>
-    <View style={styles.placeFieldTopRow}>
-      <View style={styles.placeFieldIconWrap}>
-        <Ionicons name={icon} size={17} color="#5A2386" />
+}) => {
+  const { isDarkMode } = useThemeContext();
+  const surfaces = formSurfaces(isDarkMode);
+  const borderColor = error ? '#dc2626' : withAlpha(text, isDarkMode ? 0.35 : 0.16);
+
+  return (
+    <View style={styles.placeFieldBlock}>
+      <View style={styles.placeFieldTopRow}>
+        <View style={[styles.placeFieldIconWrap, { backgroundColor: surfaces.iconBubble }]}>
+          <Ionicons name={icon} size={17} color={text} />
+        </View>
+        <Text style={[styles.placeFieldLabel, { color: surfaces.labelColor }]} numberOfLines={1}>
+          {label}
+        </Text>
+
+        {expanded ? (
+          <View
+            style={[
+              styles.placeFieldValueBox,
+              styles.placeFieldValueBoxActive,
+              { borderColor, backgroundColor: surfaces.inputSurface },
+            ]}
+          >
+            <TextInput
+              value={query}
+              onChangeText={onQueryChange}
+              placeholder={t('myClosetShared.searchPlaceholder', { label: label.toLowerCase() })}
+              placeholderTextColor={surfaces.placeholderColor}
+              autoFocus
+              style={[styles.placeFieldSearchInline, { color: surfaces.inputText }]}
+            />
+            <TouchableOpacity onPress={onCollapse} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Ionicons name="chevron-up" size={16} color={surfaces.mutedColor} />
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={disabled ? undefined : onToggle}
+            style={[
+              styles.placeFieldValueBox,
+              disabled && styles.placeFieldValueBoxDisabled,
+              { borderColor, backgroundColor: surfaces.inputSurface },
+            ]}
+          >
+            <Text
+              style={[
+                styles.placeFieldValueText,
+                { color: value ? surfaces.inputText : surfaces.placeholderColor },
+              ]}
+              numberOfLines={1}
+            >
+              {value || placeholder}
+            </Text>
+            <Ionicons name="chevron-down" size={16} color={surfaces.mutedColor} />
+          </TouchableOpacity>
+        )}
+
+        {loading ? (
+          <ActivityIndicator size="small" color={text} style={styles.placeFieldCheck} />
+        ) : filled && !expanded ? (
+          <View style={styles.placeFieldCheck}>
+            <Ionicons name="checkmark-circle" size={22} color="#22c55e" />
+          </View>
+        ) : (
+          <View style={styles.placeFieldCheck} />
+        )}
       </View>
-      <Text style={styles.placeFieldLabel} numberOfLines={1}>
-        {label}
-      </Text>
 
       {expanded ? (
         <View
           style={[
-            styles.placeFieldValueBox,
-            styles.placeFieldValueBoxActive,
-            { borderColor: error ? '#dc2626' : withAlpha(text, 0.16) },
+            styles.placeFieldPredictionsBox,
+            {
+              backgroundColor: surfaces.listSurface,
+              borderColor: surfaces.listBorder,
+            },
           ]}
         >
-          <TextInput
-            value={query}
-            onChangeText={onQueryChange}
-            placeholder={t('myClosetShared.searchPlaceholder', { label: label.toLowerCase() })}
-            placeholderTextColor="#a1a1aa"
-            autoFocus
-            style={styles.placeFieldSearchInline}
-          />
-          <TouchableOpacity onPress={onCollapse} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Ionicons name="chevron-up" size={16} color="#6b7280" />
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <TouchableOpacity
-          activeOpacity={0.85}
-          onPress={disabled ? undefined : onToggle}
-          style={[
-            styles.placeFieldValueBox,
-            disabled && styles.placeFieldValueBoxDisabled,
-            { borderColor: error ? '#dc2626' : withAlpha(text, 0.16) },
-          ]}
-        >
-          <Text
-            style={[styles.placeFieldValueText, !value && { color: '#a1a1aa' }]}
-            numberOfLines={1}
-          >
-            {value || placeholder}
-          </Text>
-          <Ionicons name="chevron-down" size={16} color="#6b7280" />
-        </TouchableOpacity>
-      )}
-
-      {loading ? (
-        <ActivityIndicator size="small" color={text} style={styles.placeFieldCheck} />
-      ) : filled && !expanded ? (
-        <View style={styles.placeFieldCheck}>
-          <Ionicons name="checkmark-circle" size={22} color="#22c55e" />
-        </View>
-      ) : (
-        <View style={styles.placeFieldCheck} />
-      )}
-    </View>
-
-    {expanded ? (
-      <View style={styles.placeFieldPredictionsBox}>
-        {searching ? (
-          <View style={styles.placeFieldSearchingRow}>
-            <ActivityIndicator size="small" color="#5A2386" />
-          </View>
-        ) : null}
-        {predictions.map((item, index) => (
-          <TouchableOpacity
-            key={item.id}
-            activeOpacity={0.8}
-            onPress={() => onSelectPrediction(item)}
-            style={[
-              styles.dropdownItem,
-              index !== predictions.length - 1 && styles.dropdownItemBorder,
-            ]}
-          >
-            <Text style={styles.dropdownItemText} numberOfLines={2}>
-              {item.description}
+          {searching ? (
+            <View style={styles.placeFieldSearchingRow}>
+              <ActivityIndicator size="small" color={text} />
+            </View>
+          ) : null}
+          {predictions.map((item, index) => (
+            <TouchableOpacity
+              key={item.id}
+              activeOpacity={0.8}
+              onPress={() => onSelectPrediction(item)}
+              style={[
+                styles.dropdownItem,
+                { backgroundColor: surfaces.listSurface },
+                index !== predictions.length - 1 && [
+                  styles.dropdownItemBorder,
+                  { borderBottomColor: surfaces.itemBorder },
+                ],
+              ]}
+            >
+              <Text
+                style={[styles.dropdownItemText, { color: surfaces.inputText }]}
+                numberOfLines={2}
+              >
+                {item.description}
+              </Text>
+            </TouchableOpacity>
+          ))}
+          {!searching && query.trim().length >= 2 && predictions.length === 0 ? (
+            <Text style={[styles.placeFieldNoResults, { color: surfaces.mutedColor }]}>
+              {t('myClosetShared.noMatchesFound')}
             </Text>
-          </TouchableOpacity>
-        ))}
-        {!searching && query.trim().length >= 2 && predictions.length === 0 ? (
-          <Text style={styles.placeFieldNoResults}>{t('myClosetShared.noMatchesFound')}</Text>
-        ) : null}
-      </View>
-    ) : null}
+          ) : null}
+        </View>
+      ) : null}
 
-    <InlineError message={error} />
-  </View>
-);
+      <InlineError message={error} />
+    </View>
+  );
+};
 
 const DropdownRow = ({
   label,
@@ -675,22 +726,32 @@ const DropdownRow = ({
   text,
   error,
 }) => {
+  const { isDarkMode } = useThemeContext();
+  const surfaces = formSurfaces(isDarkMode);
   const selectedOption = options.find(item => getOptionValue(item) === value);
   const displayValue = selectedOption ? getOptionLabel(selectedOption) : value;
 
   return (
     <View style={styles.fieldBlock}>
-      <Text style={styles.fieldLabel}>{label}</Text>
+      <Text style={[styles.fieldLabel, { color: surfaces.labelColor }]}>{label}</Text>
       <TouchableOpacity
         activeOpacity={0.85}
         onPress={onToggle}
         style={[
           styles.dropdownRow,
           expanded && styles.dropdownRowActive,
-          { borderColor: error ? '#dc2626' : withAlpha(text, 0.16) },
+          {
+            backgroundColor: surfaces.inputSurface,
+            borderColor: error ? '#dc2626' : withAlpha(text, isDarkMode ? 0.35 : 0.16),
+          },
         ]}
       >
-        <Text style={[styles.dropdownText, !value && { color: '#a1a1aa' }]}>
+        <Text
+          style={[
+            styles.dropdownText,
+            { color: displayValue ? surfaces.inputText : surfaces.placeholderColor },
+          ]}
+        >
           {displayValue || placeholder}
         </Text>
         <Ionicons
@@ -701,7 +762,13 @@ const DropdownRow = ({
       </TouchableOpacity>
       {expanded ? (
         <ScrollView
-          style={styles.dropdownList}
+          style={[
+            styles.dropdownList,
+            {
+              backgroundColor: surfaces.listSurface,
+              borderColor: surfaces.listBorder,
+            },
+          ]}
           contentContainerStyle={styles.dropdownListContent}
           nestedScrollEnabled
           showsVerticalScrollIndicator
@@ -719,20 +786,27 @@ const DropdownRow = ({
                 onPress={() => onSelect(itemValue)}
                 style={[
                   styles.dropdownItem,
-                  index !== options.length - 1 && styles.dropdownItemBorder,
-                  selected && styles.dropdownItemSelected,
+                  {
+                    backgroundColor: selected
+                      ? selectedSurface(text, isDarkMode)
+                      : surfaces.listSurface,
+                  },
+                  index !== options.length - 1 && [
+                    styles.dropdownItemBorder,
+                    { borderBottomColor: surfaces.itemBorder },
+                  ],
                 ]}
               >
                 <Text
                   style={[
                     styles.dropdownItemText,
-                    selected && styles.dropdownItemTextSelected,
+                    { color: selected ? text : surfaces.inputText },
                   ]}
                 >
                   {itemLabel}
                 </Text>
                 {selected ? (
-                  <Ionicons name="checkmark" size={16} color="#4f46e5" />
+                  <Ionicons name="checkmark" size={16} color={text} />
                 ) : null}
               </TouchableOpacity>
             );
@@ -744,32 +818,41 @@ const DropdownRow = ({
   );
 };
 
-const OptionCard = ({ label, description, selected, onPress, text, icon }) => (
-  <TouchableOpacity
-    activeOpacity={0.9}
-    onPress={onPress}
-    style={[
-      styles.optionCard,
-      {
-        borderColor: selected ? text : withAlpha(text, 0.14),
-        backgroundColor: selected ? mixWithWhite(text, 0.93) : '#fff',
-      },
-    ]}
-  >
-    <View style={styles.optionIconWrap}>
-      <Ionicons name={icon} size={18} color={text} />
-    </View>
-    <View style={styles.optionCopy}>
-      <Text style={styles.optionLabel}>{label}</Text>
-      <Text style={styles.optionDescription}>{description}</Text>
-    </View>
-    <Ionicons
-      name={selected ? 'radio-button-on' : 'radio-button-off'}
-      size={20}
-      color={text}
-    />
-  </TouchableOpacity>
-);
+const OptionCard = ({ label, description, selected, onPress, text, icon }) => {
+  const { isDarkMode } = useThemeContext();
+  const surfaces = formSurfaces(isDarkMode);
+
+  return (
+    <TouchableOpacity
+      activeOpacity={0.9}
+      onPress={onPress}
+      style={[
+        styles.optionCard,
+        {
+          borderColor: selected ? text : withAlpha(text, isDarkMode ? 0.28 : 0.14),
+          backgroundColor: selected
+            ? selectedSurface(text, isDarkMode)
+            : surfaces.inputSurface,
+        },
+      ]}
+    >
+      <View style={[styles.optionIconWrap, { backgroundColor: surfaces.iconBubble }]}>
+        <Ionicons name={icon} size={18} color={text} />
+      </View>
+      <View style={styles.optionCopy}>
+        <Text style={[styles.optionLabel, { color: surfaces.inputText }]}>{label}</Text>
+        <Text style={[styles.optionDescription, { color: surfaces.mutedColor }]}>
+          {description}
+        </Text>
+      </View>
+      <Ionicons
+        name={selected ? 'radio-button-on' : 'radio-button-off'}
+        size={20}
+        color={text}
+      />
+    </TouchableOpacity>
+  );
+};
 
 // ── multi-select delivery method card with checkbox + inline bullet list
 const DeliveryOptionCard = ({
@@ -780,61 +863,82 @@ const DeliveryOptionCard = ({
   onPress,
   text,
   icon,
-}) => (
-  <TouchableOpacity
-    activeOpacity={0.9}
-    onPress={onPress}
-    style={[
-      styles.deliveryCard,
-      {
-        borderColor: selected ? text : withAlpha(text, 0.14),
-        backgroundColor: selected ? mixWithWhite(text, 0.94) : '#fff',
-      },
-    ]}
-  >
-    <View style={styles.deliveryCardTopRow}>
-      <View style={styles.optionIconWrap}>
-        <Ionicons name={icon} size={18} color={text} />
+}) => {
+  const { isDarkMode } = useThemeContext();
+  const surfaces = formSurfaces(isDarkMode);
+
+  return (
+    <TouchableOpacity
+      activeOpacity={0.9}
+      onPress={onPress}
+      style={[
+        styles.deliveryCard,
+        {
+          borderColor: selected ? text : withAlpha(text, isDarkMode ? 0.28 : 0.14),
+          backgroundColor: selected
+            ? selectedSurface(text, isDarkMode)
+            : surfaces.inputSurface,
+        },
+      ]}
+    >
+      <View style={styles.deliveryCardTopRow}>
+        <View style={[styles.optionIconWrap, { backgroundColor: surfaces.iconBubble }]}>
+          <Ionicons name={icon} size={18} color={text} />
+        </View>
+        <View
+          style={[
+            styles.checkboxBadge,
+            selected
+              ? { backgroundColor: text }
+              : {
+                  backgroundColor: surfaces.inputSurface,
+                  borderWidth: 1,
+                  borderColor: withAlpha(text, 0.3),
+                },
+          ]}
+        >
+          {selected ? <Ionicons name="checkmark" size={13} color="#fff" /> : null}
+        </View>
       </View>
-      <View
-        style={[
-          styles.checkboxBadge,
-          selected
-            ? { backgroundColor: text }
-            : { backgroundColor: '#fff', borderWidth: 1, borderColor: withAlpha(text, 0.3) },
-        ]}
-      >
-        {selected ? <Ionicons name="checkmark" size={13} color="#fff" /> : null}
-      </View>
-    </View>
-    <Text style={styles.deliveryLabel}>{label}</Text>
-    <Text style={styles.deliveryDescription}>{description}</Text>
-    {bullets?.length ? (
-      <View style={styles.deliveryBulletList}>
-        {bullets.map(bullet => (
-          <View key={bullet} style={styles.deliveryBulletRow}>
-            <Ionicons name={bullet.icon || 'ellipse'} size={4} color="#9ca3af" />
-            <Text style={styles.deliveryBulletText}>{bullet}</Text>
-          </View>
-        ))}
-      </View>
-    ) : null}
-  </TouchableOpacity>
-);
+      <Text style={[styles.deliveryLabel, { color: surfaces.inputText }]}>{label}</Text>
+      <Text style={[styles.deliveryDescription, { color: surfaces.mutedColor }]}>
+        {description}
+      </Text>
+      {bullets?.length ? (
+        <View style={styles.deliveryBulletList}>
+          {bullets.map(bullet => {
+            const bulletText = typeof bullet === 'string' ? bullet : bullet?.label || '';
+            return (
+              <View key={bulletText} style={styles.deliveryBulletRow}>
+                <Ionicons name="ellipse" size={4} color={surfaces.mutedColor} />
+                <Text style={[styles.deliveryBulletText, { color: surfaces.mutedColor }]}>
+                  {bulletText}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+      ) : null}
+    </TouchableOpacity>
+  );
+};
 
 // ── pill-style toggle switch, mirrors the buyer chat toggle
-const ToggleSwitch = ({ value, onValueChange, accent }) => (
-  <TouchableOpacity
-    activeOpacity={0.85}
-    onPress={() => onValueChange(!value)}
-    style={[
-      styles.toggleTrack,
-      { backgroundColor: value ? accent : '#e5e7eb' },
-    ]}
-  >
-    <View style={[styles.toggleThumb, value && styles.toggleThumbActive]} />
-  </TouchableOpacity>
-);
+const ToggleSwitch = ({ value, onValueChange, accent }) => {
+  const { isDarkMode } = useThemeContext();
+  return (
+    <TouchableOpacity
+      activeOpacity={0.85}
+      onPress={() => onValueChange(!value)}
+      style={[
+        styles.toggleTrack,
+        { backgroundColor: value ? accent : isDarkMode ? '#333333' : '#e5e7eb' },
+      ]}
+    >
+      <View style={[styles.toggleThumb, value && styles.toggleThumbActive]} />
+    </TouchableOpacity>
+  );
+};
 
 // ── labelled section header used inside the shipping & return step
 const SectionHeader = ({ icon, title, badge, text }) => {
@@ -945,15 +1049,21 @@ const MyClosetCreateShopScreen = ({ navigation, route }) => {
           <View style={styles.featureList}>
             <View style={styles.featureRow}>
               <Ionicons name="bulb-outline" size={18} color={text} />
-              <Text style={styles.featureText}>{t('myClosetCreateShop.featureEasyToFind')}</Text>
+              <Text style={[styles.featureText, mutedTextStyle]}>
+                {t('myClosetCreateShop.featureEasyToFind')}
+              </Text>
             </View>
             <View style={styles.featureRow}>
               <Ionicons name="pricetag-outline" size={18} color={text} />
-              <Text style={styles.featureText}>{t('myClosetCreateShop.featureBuildBrand')}</Text>
+              <Text style={[styles.featureText, mutedTextStyle]}>
+                {t('myClosetCreateShop.featureBuildBrand')}
+              </Text>
             </View>
             <View style={styles.featureRow}>
               <Ionicons name="people-outline" size={18} color={text} />
-              <Text style={styles.featureText}>{t('myClosetCreateShop.featureGrowCommunity')}</Text>
+              <Text style={[styles.featureText, mutedTextStyle]}>
+                {t('myClosetCreateShop.featureGrowCommunity')}
+              </Text>
             </View>
           </View>
 
@@ -974,6 +1084,8 @@ const MyClosetUploadLogoScreen = ({ navigation, route }) => {
   const [logo, setLogo] = useState(draft.logo || null);
   const [error, setError] = useState('');
   const { accent, textStyle, mutedTextStyle, cardStyle, border, icon, bgStyle, mutedText } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const surfaces = formSurfaces(isDarkMode);
   const text = accent;
   const { t } = useLanguage();
 
@@ -1051,8 +1163,10 @@ const MyClosetUploadLogoScreen = ({ navigation, route }) => {
               style={[
                 styles.logoHero,
                 {
-                  borderColor: withAlpha(text, 0.35),
-                  backgroundColor: mixWithWhite(text, 0.94),
+                  borderColor: withAlpha(text, isDarkMode ? 0.45 : 0.35),
+                  backgroundColor: isDarkMode
+                    ? surfaces.inputSurface
+                    : mixWithWhite(text, 0.94),
                 },
               ]}
             >
@@ -1069,7 +1183,9 @@ const MyClosetUploadLogoScreen = ({ navigation, route }) => {
                 </>
               )}
             </TouchableOpacity>
-            <Text style={styles.orText}>{t('myClosetShared.or')}</Text>
+            <Text style={[styles.orText, { color: surfaces.mutedColor }]}>
+              {t('myClosetShared.or')}
+            </Text>
           </View>
           <SecondaryButton
             label={t('myClosetUploadLogo.chooseFromLibrary')}
@@ -1077,7 +1193,7 @@ const MyClosetUploadLogoScreen = ({ navigation, route }) => {
             onPress={pickFromLibrary}
           />
           <InlineError message={error} />
-          <Text style={styles.helperText}>
+          <Text style={[styles.helperText, { color: surfaces.mutedColor }]}>
             {t('myClosetUploadLogo.recommendationHint')}
           </Text>
 
@@ -1101,6 +1217,8 @@ const MyClosetTellUsScreen = ({ navigation, route }) => {
   const [expandedField, setExpandedField] = useState(null);
   const [errors, setErrors] = useState({});
   const { accent, textStyle, mutedTextStyle, cardStyle, border, icon, bgStyle, mutedText } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const surfaces = formSurfaces(isDarkMode);
   const text = accent;
   const { t } = useLanguage();
   const categoryOptions = useMemo(() => getCategoryOptions(t), [t]);
@@ -1169,13 +1287,18 @@ const MyClosetTellUsScreen = ({ navigation, route }) => {
             error={errors.category}
           />
           <View style={styles.fieldBlock}>
-            <Text style={styles.fieldLabel}>{t('myClosetTellUs.locationLabel')}</Text>
+            <Text style={[styles.fieldLabel, { color: surfaces.labelColor }]}>
+              {t('myClosetTellUs.locationLabel')}
+            </Text>
             <TouchableOpacity
               activeOpacity={0.85}
               onPress={() => setLocationModalVisible(true)}
               style={[
                 styles.dropdownRow,
-                { borderColor: withAlpha(text, 0.16) },
+                {
+                  backgroundColor: surfaces.inputSurface,
+                  borderColor: withAlpha(text, isDarkMode ? 0.35 : 0.16),
+                },
               ]}
             >
               <Ionicons
@@ -1187,7 +1310,11 @@ const MyClosetTellUsScreen = ({ navigation, route }) => {
               <Text
                 style={[
                   styles.dropdownText,
-                  !location.trim() && { color: '#a1a1aa' },
+                  {
+                    color: location.trim()
+                      ? surfaces.inputText
+                      : surfaces.placeholderColor,
+                  },
                 ]}
                 numberOfLines={1}
               >
@@ -1231,6 +1358,8 @@ const MyClosetPreferencesScreen = ({ navigation, route }) => {
   const dispatch = useDispatch();
   const toast = useToast();
   const { accent, textStyle, mutedTextStyle, cardStyle, border, icon, bgStyle, mutedText } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const surfaces = formSurfaces(isDarkMode);
   const text = accent;
   const { t } = useLanguage();
   const userProfile = useSelector(state => state.userProfile.userProfile);
@@ -1333,7 +1462,9 @@ const MyClosetPreferencesScreen = ({ navigation, route }) => {
     <Shell navigation={navigation} activeStep={4}>
       {() => (
         <>
-          <Text style={styles.sectionLabel}>{t('myClosetPreferences.shippingOptionsLabel')}</Text>
+          <Text style={[styles.sectionLabel, { color: surfaces.labelColor }]}>
+            {t('myClosetPreferences.shippingOptionsLabel')}
+          </Text>
           <View style={styles.shippingGrid}>
             {shippingChoices.map(choice => {
               const isSelected = shipping.includes(choice.value);
@@ -1386,12 +1517,16 @@ const MyClosetPreferencesScreen = ({ navigation, route }) => {
             style={[
               styles.paymentCard,
               {
-                borderColor: withAlpha(text, 0.16),
-                backgroundColor: mixWithWhite(text, 0.95),
+                borderColor: withAlpha(text, isDarkMode ? 0.35 : 0.16),
+                backgroundColor: isDarkMode
+                  ? selectedSurface(text, isDarkMode)
+                  : mixWithWhite(text, 0.95),
               },
             ]}
           >
-            <View style={styles.paymentIcon}>
+            <View
+              style={[styles.paymentIcon, { backgroundColor: surfaces.inputSurface }]}
+            >
               <Ionicons
                 name="shield-checkmark-outline"
                 size={20}
@@ -1399,8 +1534,10 @@ const MyClosetPreferencesScreen = ({ navigation, route }) => {
               />
             </View>
             <View style={styles.paymentCopy}>
-              <Text style={styles.paymentTitle}>{t('myClosetPreferences.paymentTitle')}</Text>
-              <Text style={styles.paymentSubtitle}>
+              <Text style={[styles.paymentTitle, { color: surfaces.inputText }]}>
+                {t('myClosetPreferences.paymentTitle')}
+              </Text>
+              <Text style={[styles.paymentSubtitle, { color: surfaces.mutedColor }]}>
                 {t('myClosetPreferences.paymentSubtitle')}
               </Text>
             </View>
@@ -1443,6 +1580,8 @@ const MyClosetLiveScreen = ({ navigation, route }) => {
   const draft = route?.params?.draft || {};
   const isFirstItem = route?.params?.isFirstItem ?? true;
   const { accent, textStyle, mutedTextStyle, cardStyle, border, icon, bgStyle, mutedText } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const surfaces = formSurfaces(isDarkMode);
   const text = accent;
   const { t } = useLanguage();
   const toast = useToast();
@@ -1493,7 +1632,10 @@ const MyClosetLiveScreen = ({ navigation, route }) => {
           <View
             style={[
               styles.successAvatar,
-              { borderColor: withAlpha(text, 0.18), backgroundColor: '#fff' },
+              {
+                borderColor: withAlpha(text, 0.18),
+                backgroundColor: surfaces.inputSurface,
+              },
             ]}
           >
             <Ionicons name="bag-handle-outline" size={28} color={text} />
@@ -1506,19 +1648,29 @@ const MyClosetLiveScreen = ({ navigation, route }) => {
         <Text style={[styles.successTitle, { color: text }]}>
           {userProfile == 'user' ? t('myClosetLive.closetLiveTitle') : t('myClosetLive.shopLiveTitle')}
         </Text>
-        <Text style={styles.successSubtitle}>
+        <Text style={[styles.successSubtitle, mutedTextStyle]}>
           {t('myClosetLive.subtitle')}
         </Text>
 
-        <View style={[styles.linkCard, { borderColor: withAlpha(text, 0.16) }]}>
+        <View
+          style={[
+            styles.linkCard,
+            cardStyle,
+            { borderColor: withAlpha(text, isDarkMode ? 0.35 : 0.16) },
+          ]}
+        >
           <View style={styles.linkCopy}>
-            <Text style={styles.linkLabel}>{t('myClosetLive.shopLinkLabel')}</Text>
-            <Text style={styles.linkValue}>{shopLink}</Text>
+            <Text style={[styles.linkLabel, { color: surfaces.mutedColor }]}>
+              {t('myClosetLive.shopLinkLabel')}
+            </Text>
+            <Text style={[styles.linkValue, { color: surfaces.inputText }]}>
+              {shopLink}
+            </Text>
           </View>
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={copyShopLink}
-            style={styles.copyButton}
+            style={[styles.copyButton, { backgroundColor: surfaces.iconBubble }]}
           >
             <Ionicons name="copy-outline" size={18} color={text} />
           </TouchableOpacity>
@@ -1573,33 +1725,49 @@ const PhotoTile = ({ photo, onRemove }) => (
   </View>
 );
 
-const QuantityStepper = ({ value, onMinus, onPlus, text, bgStyle }) => (
-  <View style={styles.quantityStepper}>
-    <TouchableOpacity
-      activeOpacity={0.8}
-      onPress={onMinus}
-      style={[styles.quantityBtn, bgStyle]}
+const QuantityStepper = ({ value, onMinus, onPlus, text, bgStyle }) => {
+  const { isDarkMode } = useThemeContext();
+  const surfaces = formSurfaces(isDarkMode);
+
+  return (
+    <View
+      style={[
+        styles.quantityStepper,
+        {
+          backgroundColor: surfaces.inputSurface,
+          borderColor: withAlpha(text, isDarkMode ? 0.35 : 0.16),
+        },
+      ]}
     >
-      <Text style={[styles.quantityBtnText, { color: text }]}>-</Text>
-    </TouchableOpacity>
-    <Text style={styles.quantityValue}>{value}</Text>
-    <TouchableOpacity
-      activeOpacity={0.8}
-      onPress={onPlus}
-      style={[styles.quantityBtn, bgStyle]}
-    >
-      <Text style={[styles.quantityBtnText, { color: text }]}>+</Text>
-    </TouchableOpacity>
-  </View>
-);
+      <TouchableOpacity
+        activeOpacity={0.8}
+        onPress={onMinus}
+        style={[styles.quantityBtn, bgStyle]}
+      >
+        <Text style={[styles.quantityBtnText, { color: text }]}>-</Text>
+      </TouchableOpacity>
+      <Text style={[styles.quantityValue, { color: surfaces.inputText }]}>{value}</Text>
+      <TouchableOpacity
+        activeOpacity={0.8}
+        onPress={onPlus}
+        style={[styles.quantityBtn, bgStyle]}
+      >
+        <Text style={[styles.quantityBtnText, { color: text }]}>+</Text>
+      </TouchableOpacity>
+    </View>
+  );
+};
 
 const MyClosetAddItemPhotosScreen = ({ navigation, route }) => {
   const draft = route?.params?.draft || {};
   const isFirstItem = route?.params?.isFirstItem ?? true;  // add
   const [photos, setPhotos] = useState(draft.photos || []);
   const [error, setError] = useState('');
-  const { accent, textStyle, mutedTextStyle, cardStyle, border, icon, bgStyle, mutedText } = useAppTheme();
+  const { accent, textStyle, mutedTextStyle, cardStyle, border, icon, bgStyle, mutedText, card } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
   const text = accent;
+  const surfaces = formSurfaces(isDarkMode);
+  const tipColor = mutedText || (isDarkMode ? '#aaaaaa' : '#374151');
   const { t } = useLanguage();
   const itemTitle = isFirstItem ? t('myClosetLive.addFirstItem') : t('myClosetLive.addNewItem');
   const ITEM_STEPS = useMemo(() => getItemSteps(t), [t]);
@@ -1699,15 +1867,30 @@ const MyClosetAddItemPhotosScreen = ({ navigation, route }) => {
               <TouchableOpacity
                 activeOpacity={0.9}
                 onPress={addPhotos}
-                style={[styles.photoUploadCard, { borderColor: text }]}
+                style={[
+                  styles.photoUploadCard,
+                  {
+                    borderColor: withAlpha(text, isDarkMode ? 0.55 : 1),
+                    backgroundColor: surfaces.inputSurface,
+                  },
+                ]}
               >
-                <View style={styles.photoHeroIconWrap}>
+                <View
+                  style={[
+                    styles.photoHeroIconWrap,
+                    {
+                      backgroundColor: isDarkMode
+                        ? withAlpha(text, 0.18)
+                        : withAlpha(text, 0.08),
+                    },
+                  ]}
+                >
                   <Ionicons name="images-outline" size={40} color={text} />
                 </View>
                 <Text style={[styles.photoHeroLabel, { color: text }]}>
                   {t('myClosetAddItem.addPhotos')}
                 </Text>
-                <Text style={styles.photoHeroSubLabel}>
+                <Text style={[styles.photoHeroSubLabel, { color: tipColor }]}>
                   {t('myClosetAddItem.upToPhotos')}
                 </Text>
               </TouchableOpacity>
@@ -1715,20 +1898,20 @@ const MyClosetAddItemPhotosScreen = ({ navigation, route }) => {
 
               <View style={styles.photoTips}>
                 <View style={styles.tipRow}>
-                  <Ionicons name="sunny-outline" size={16} color={text} />
-                  <Text style={styles.tipText}>
+                  <Ionicons name="sunny-outline" size={16} color={tipColor} />
+                  <Text style={[styles.tipText, { color: tipColor }]}>
                     {t('myClosetAddItem.tipNaturalLight')}
                   </Text>
                 </View>
                 <View style={styles.tipRow}>
-                  <Ionicons name="camera-outline" size={16} color={text} />
-                  <Text style={styles.tipText}>
+                  <Ionicons name="camera-outline" size={16} color={tipColor} />
+                  <Text style={[styles.tipText, { color: tipColor }]}>
                     {t('myClosetAddItem.tipAngles')}
                   </Text>
                 </View>
                 <View style={styles.tipRow}>
-                  <Ionicons name="scan-outline" size={16} color={text} />
-                  <Text style={styles.tipText}>
+                  <Ionicons name="scan-outline" size={16} color={tipColor} />
+                  <Text style={[styles.tipText, { color: tipColor }]}>
                     {t('myClosetAddItem.tipCloseUps')}
                   </Text>
                 </View>
@@ -1739,10 +1922,10 @@ const MyClosetAddItemPhotosScreen = ({ navigation, route }) => {
           {photos.length ? (
             <View style={styles.selectedPhotosSection}>
               <View style={styles.selectedPhotosHeader}>
-                <Text style={styles.selectedPhotosTitle}>
+                <Text style={[styles.selectedPhotosTitle, { color: surfaces.labelColor }]}>
                   {t('myClosetAddItem.selectedPhotos')}
                 </Text>
-                <Text style={styles.selectedPhotosCount}>
+                <Text style={[styles.selectedPhotosCount, { color: tipColor }]}>
                   {photos.length}/10
                 </Text>
               </View>
@@ -1769,20 +1952,32 @@ const MyClosetAddItemPhotosScreen = ({ navigation, route }) => {
                 <TouchableOpacity
                   activeOpacity={0.85}
                   onPress={pickFromGallery}
-                  style={styles.addMoreMiniButton}
+                  style={[
+                    styles.addMoreMiniButton,
+                    {
+                      backgroundColor: surfaces.inputSurface,
+                      borderColor: border || (isDarkMode ? '#333333' : '#e5e7eb'),
+                    },
+                  ]}
                 >
                   <Ionicons name="images-outline" size={18} color={text} />
-                  <Text style={styles.addMoreMiniText}>
+                  <Text style={[styles.addMoreMiniText, { color: surfaces.labelColor }]}>
                     {t('myClosetAddItem.addFromGallery')}
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   activeOpacity={0.85}
                   onPress={pickFromCamera}
-                  style={styles.addMoreMiniButton}
+                  style={[
+                    styles.addMoreMiniButton,
+                    {
+                      backgroundColor: surfaces.inputSurface,
+                      borderColor: border || (isDarkMode ? '#333333' : '#e5e7eb'),
+                    },
+                  ]}
                 >
                   <Ionicons name="camera-outline" size={18} color={text} />
-                  <Text style={styles.addMoreMiniText}>
+                  <Text style={[styles.addMoreMiniText, { color: surfaces.labelColor }]}>
                     {t('myClosetAddItem.addFromCamera')}
                   </Text>
                 </TouchableOpacity>
@@ -1939,7 +2134,9 @@ const MyClosetAddItemPriceScreen = ({ navigation, route }) => {
   const draft = route?.params?.draft || {};
   const isFirstItem = route?.params?.isFirstItem ?? true;
   const { accent, textStyle, mutedTextStyle, cardStyle, border, icon, bgStyle, mutedText } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
   const text = accent;
+  const surfaces = formSurfaces(isDarkMode);
   const { t } = useLanguage();
   const userProfile = useSelector(state => state.userProfile.userProfile);
   const itemTitle = isFirstItem ? t('myClosetLive.addFirstItem') : t('myClosetLive.addNewItem');
@@ -1994,7 +2191,9 @@ const MyClosetAddItemPriceScreen = ({ navigation, route }) => {
             keyboardType="numeric"
           />
           <View style={styles.quantityBlock}>
-            <Text style={styles.fieldLabel}>{t('myClosetAddItemPrice.quantityLabel')}</Text>
+            <Text style={[styles.fieldLabel, { color: surfaces.labelColor }]}>
+              {t('myClosetAddItemPrice.quantityLabel')}
+            </Text>
             <QuantityStepper
               value={quantity}
               onMinus={() => setQuantity(prev => Math.max(1, prev - 1))}
@@ -2002,7 +2201,7 @@ const MyClosetAddItemPriceScreen = ({ navigation, route }) => {
               text={text}
               bgStyle={bgStyle}
             />
-            <Text style={styles.helperLine}>
+            <Text style={[styles.helperLine, { color: surfaces.mutedColor }]}>
               {t('myClosetAddItemPrice.quantityHelper')}
             </Text>
           </View>
@@ -2010,17 +2209,19 @@ const MyClosetAddItemPriceScreen = ({ navigation, route }) => {
           <View style={[styles.feeCard, bgStyle, { borderColor: text }]}>
             <View style={styles.feeHeader}>
               <Text style={[styles.feeTitle, { color: text }]}>{t('myClosetAddItemPrice.feesTitle')}</Text>
-              <Ionicons name="information-circle-outline" size={16} color="#6b7280" />
+              <Ionicons name="information-circle-outline" size={16} color={surfaces.mutedColor} />
             </View>
-            <Text style={styles.feeMain}>
+            <Text style={[styles.feeMain, { color: surfaces.inputText }]}>
               {t('myClosetAddItemPrice.feeKeepPercent', { percent: sellerKeepsPercent })}
             </Text>
-            <Text style={styles.feeText}>
+            <Text style={[styles.feeText, { color: surfaces.mutedColor }]}>
               {!isRegularProfile
                 ? t('myClosetAddItemPrice.feeExplainerBusiness', { fee: valensFeePercent })
                 : t('myClosetAddItemPrice.feeExplainerPersonal', { fee: valensFeePercent })}
             </Text>
-            <Text style={styles.feeText}>{t('myClosetAddItemPrice.feeSecure')}</Text>
+            <Text style={[styles.feeText, { color: surfaces.mutedColor }]}>
+              {t('myClosetAddItemPrice.feeSecure')}
+            </Text>
           </View>
 
           <PrimaryButton
@@ -2046,7 +2247,9 @@ const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
   const draft = route?.params?.draft || {};
   const isFirstItem = route?.params?.isFirstItem ?? true;
   const { accent, textStyle, mutedTextStyle, cardStyle, border, icon, bgStyle, mutedText } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
   const text = accent;
+  const surfaces = formSurfaces(isDarkMode);
   const { t } = useLanguage();
   const itemTitle = isFirstItem ? t('myClosetLive.addFirstItem') : t('myClosetLive.addNewItem');
   const ITEM_STEPS = useMemo(() => getItemSteps(t), [t]);
@@ -2385,13 +2588,21 @@ const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
           <InlineError message={errors.delivery} />
 
           {shippingEnabled && pickupEnabled ? (
-            <View style={styles.bothSelectedBanner}>
+            <View
+              style={[
+                styles.bothSelectedBanner,
+                isDarkMode && {
+                  backgroundColor: 'rgba(34,197,94,0.15)',
+                  borderColor: 'rgba(34,197,94,0.35)',
+                },
+              ]}
+            >
               <Ionicons name="checkmark-circle" size={18} color="#16a34a" />
               <View>
-                <Text style={styles.bothSelectedBoldText}>
+                <Text style={[styles.bothSelectedBoldText, { color: surfaces.inputText }]}>
                   {t('myClosetAddItemShipping.bothSelectedTitle')}
                 </Text>
-                <Text style={styles.bothSelectedText}>
+                <Text style={[styles.bothSelectedText, { color: surfaces.mutedColor }]}>
                   {t('myClosetAddItemShipping.bothSelectedSubtitle')}
                 </Text>
               </View>
@@ -2551,15 +2762,23 @@ const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
               <TouchableOpacity
                 activeOpacity={0.85}
                 onPress={() => setHoursExpanded(prev => !prev)}
-                style={styles.hoursRow}
+                style={[
+                  styles.hoursRow,
+                  {
+                    backgroundColor: surfaces.inputSurface,
+                    borderColor: withAlpha(text, isDarkMode ? 0.35 : 0.16),
+                  },
+                ]}
               >
                 <Ionicons name="time-outline" size={16} color={text} />
                 <View style={styles.hoursCopy}>
-                  <Text style={styles.hoursLabel}>{t('myClosetAddItemShipping.availableHoursLabel')}</Text>
-                  <Text style={styles.hoursValue}>
+                  <Text style={[styles.hoursLabel, { color: surfaces.labelColor }]}>
+                    {t('myClosetAddItemShipping.availableHoursLabel')}
+                  </Text>
+                  <Text style={[styles.hoursValue, { color: surfaces.mutedColor }]}>
                     {t('myClosetAddItemShipping.weekdaysAbbrev')} {pickupHours.weekdayStart} - {pickupHours.weekdayEnd}
                   </Text>
-                  <Text style={styles.hoursValue}>
+                  <Text style={[styles.hoursValue, { color: surfaces.mutedColor }]}>
                     {t('myClosetAddItemShipping.weekendsAbbrev')} {pickupHours.weekendStart} - {pickupHours.weekendEnd}
                   </Text>
                 </View>
@@ -2571,8 +2790,18 @@ const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
               </TouchableOpacity>
 
               {hoursExpanded ? (
-                <View style={styles.hoursEditor}>
-                  <Text style={styles.hoursEditorLabel}>{t('myClosetAddItemShipping.weekdaysLabel')}</Text>
+                <View
+                  style={[
+                    styles.hoursEditor,
+                    {
+                      backgroundColor: isDarkMode ? 'rgba(255,255,255,0.04)' : '#fafafa',
+                      borderColor: surfaces.listBorder,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.hoursEditorLabel, { color: surfaces.labelColor }]}>
+                    {t('myClosetAddItemShipping.weekdaysLabel')}
+                  </Text>
                   <View style={styles.hoursEditorRow}>
                     <View style={styles.hoursEditorField}>
                       <DropdownRow
@@ -2609,7 +2838,9 @@ const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
                       />
                     </View>
                   </View>
-                  <Text style={styles.hoursEditorLabel}>{t('myClosetAddItemShipping.weekendsLabel')}</Text>
+                  <Text style={[styles.hoursEditorLabel, { color: surfaces.labelColor }]}>
+                    {t('myClosetAddItemShipping.weekendsLabel')}
+                  </Text>
                   <View style={styles.hoursEditorRow}>
                     <View style={styles.hoursEditorField}>
                       <DropdownRow
@@ -2649,11 +2880,21 @@ const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
                 </View>
               ) : null}
 
-              <View style={styles.chatToggleRow}>
+              <View
+                style={[
+                  styles.chatToggleRow,
+                  {
+                    backgroundColor: surfaces.inputSurface,
+                    borderColor: withAlpha(text, isDarkMode ? 0.28 : 0.14),
+                  },
+                ]}
+              >
                 <Ionicons name="chatbubble-ellipses-outline" size={18} color={text} />
                 <View style={styles.chatToggleCopy}>
-                  <Text style={styles.chatToggleLabel}>{t('myClosetAddItemShipping.buyerChatTitle')}</Text>
-                  <Text style={styles.chatToggleSubtext}>
+                  <Text style={[styles.chatToggleLabel, { color: surfaces.inputText }]}>
+                    {t('myClosetAddItemShipping.buyerChatTitle')}
+                  </Text>
+                  <Text style={[styles.chatToggleSubtext, { color: surfaces.mutedColor }]}>
                     {t('myClosetAddItemShipping.buyerChatSubtitle')}
                   </Text>
                 </View>
@@ -2711,7 +2952,9 @@ const MyClosetAddItemReviewScreen = ({ navigation, route }) => {
   const draft = route?.params?.draft || {};
   const isFirstItem = route?.params?.isFirstItem ?? true;  // add
   const { accent, textStyle, mutedTextStyle, cardStyle, border, icon, bgStyle, mutedText } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
   const text = accent;
+  const surfaces = formSurfaces(isDarkMode);
   const { t } = useLanguage();
   const itemTitle = isFirstItem ? t('myClosetLive.addFirstItem') : t('myClosetLive.addNewItem');
   const ITEM_STEPS = useMemo(() => getItemSteps(t), [t]);
@@ -2833,7 +3076,15 @@ const MyClosetAddItemReviewScreen = ({ navigation, route }) => {
     >
       {() => (
         <>
-          <View style={styles.reviewHeroCard}>
+          <View
+            style={[
+              styles.reviewHeroCard,
+              {
+                backgroundColor: surfaces.inputSurface,
+                borderColor: surfaces.listBorder,
+              },
+            ]}
+          >
             {heroPhoto ? (
               <Image
                 source={{ uri: heroPhoto.uri }}
@@ -2841,21 +3092,21 @@ const MyClosetAddItemReviewScreen = ({ navigation, route }) => {
               />
             ) : null}
             <View style={styles.reviewHeroCopy}>
-              <Text style={styles.reviewHeroTitle}>
+              <Text style={[styles.reviewHeroTitle, { color: surfaces.inputText }]}>
                 {draft.itemName || t('myClosetAddItemReview.placeholderItemName')}
               </Text>
               {draft.brand &&
-                <Text style={styles.reviewHeroText}>
+                <Text style={[styles.reviewHeroText, { color: surfaces.mutedColor }]}>
                   {draft.brand}
                 </Text>
               }
-              <Text style={styles.reviewHeroText}>
+              <Text style={[styles.reviewHeroText, { color: surfaces.mutedColor }]}>
                 {getConditionLabel(draft.condition, t) || t('myClosetOptions.condition.goodCondition')}
               </Text>
-              <Text style={styles.reviewHeroText}>
+              <Text style={[styles.reviewHeroText, { color: surfaces.mutedColor }]}>
                 ${draft.price || '120.00'}
               </Text>
-              <Text style={styles.reviewHeroText}>
+              <Text style={[styles.reviewHeroText, { color: surfaces.mutedColor }]}>
                 {t('myClosetAddItemReview.quantityLabel')}: {draft.quantity || 1}
               </Text>
             </View>
@@ -2863,49 +3114,68 @@ const MyClosetAddItemReviewScreen = ({ navigation, route }) => {
 
           <View style={styles.reviewRows}>
             <View style={styles.reviewRow}>
-              <Text style={styles.reviewLabel}>{t('myClosetAddItemReview.categoryLabel')}</Text>
-              <Text style={styles.reviewValue}>
+              <Text style={[styles.reviewLabel, { color: surfaces.mutedColor }]}>
+                {t('myClosetAddItemReview.categoryLabel')}
+              </Text>
+              <Text style={[styles.reviewValue, { color: surfaces.inputText }]}>
                 {draft.category || t('myClosetOptions.itemCategory.womenJackets')}
               </Text>
             </View>
             <View style={styles.reviewRow}>
-              <Text style={styles.reviewLabel}>{t('myClosetAddItemReview.descriptionLabel')}</Text>
-              <Text style={styles.reviewValue}>
+              <Text style={[styles.reviewLabel, { color: surfaces.mutedColor }]}>
+                {t('myClosetAddItemReview.descriptionLabel')}
+              </Text>
+              <Text style={[styles.reviewValue, { color: surfaces.inputText }]}>
                 {draft.description ||
                   t('myClosetAddItemReview.placeholderDescription')}
               </Text>
             </View>
             <View style={styles.reviewRow}>
-              <Text style={styles.reviewLabel}>{t('myClosetAddItemReview.deliveryLabel')}</Text>
+              <Text style={[styles.reviewLabel, { color: surfaces.mutedColor }]}>
+                {t('myClosetAddItemReview.deliveryLabel')}
+              </Text>
               <View style={styles.reviewValueStack}>
                 {deliverySummaryLines.length ? (
                   deliverySummaryLines.map((line, index) => (
-                    <Text key={`${line}-${index}`} style={styles.reviewValue}>
+                    <Text
+                      key={`${line}-${index}`}
+                      style={[styles.reviewValue, { color: surfaces.inputText }]}
+                    >
                       {line}
                     </Text>
                   ))
                 ) : (
-                  <Text style={styles.reviewValue}>{t('myClosetOptions.shippingMethod.shipItems')}</Text>
+                  <Text style={[styles.reviewValue, { color: surfaces.inputText }]}>
+                    {t('myClosetOptions.shippingMethod.shipItems')}
+                  </Text>
                 )}
               </View>
             </View>
             {pickupEnabled ? (
               <View style={styles.reviewRow}>
-                <Text style={styles.reviewLabel}>{t('myClosetAddItemShipping.buyerChatTitle')}</Text>
-                <Text style={styles.reviewValue}>
+                <Text style={[styles.reviewLabel, { color: surfaces.mutedColor }]}>
+                  {t('myClosetAddItemShipping.buyerChatTitle')}
+                </Text>
+                <Text style={[styles.reviewValue, { color: surfaces.inputText }]}>
                   {(draft.buyerChatEnabled ?? true) ? t('myClosetShared.enabled') : t('myClosetShared.disabled')}
                 </Text>
               </View>
             ) : null}
             <View style={styles.reviewRow}>
-              <Text style={styles.reviewLabel}>{t('myClosetAddItemReview.returnPolicyLabel')}</Text>
-              <Text style={styles.reviewValue}>
+              <Text style={[styles.reviewLabel, { color: surfaces.mutedColor }]}>
+                {t('myClosetAddItemReview.returnPolicyLabel')}
+              </Text>
+              <Text style={[styles.reviewValue, { color: surfaces.inputText }]}>
                 {draft.returnPolicy || t('myClosetOptions.returnPolicy.noReturns')}
               </Text>
             </View>
             <View style={styles.reviewRow}>
-              <Text style={styles.reviewLabel}>{t('myClosetAddItemReview.paymentMethodLabel')}</Text>
-              <Text style={styles.reviewValue}>{t('myClosetPreferences.paymentTitle')}</Text>
+              <Text style={[styles.reviewLabel, { color: surfaces.mutedColor }]}>
+                {t('myClosetAddItemReview.paymentMethodLabel')}
+              </Text>
+              <Text style={[styles.reviewValue, { color: surfaces.inputText }]}>
+                {t('myClosetPreferences.paymentTitle')}
+              </Text>
             </View>
           </View>
 
@@ -2925,7 +3195,9 @@ const MyClosetAddItemPublishedScreen = ({ navigation, route }) => {
   const draft = route?.params?.draft || {};
   const item = route?.params?.item || {};
   const { accent, textStyle, mutedTextStyle, cardStyle, border, icon, bgStyle, mutedText } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
   const text = accent;
+  const surfaces = formSurfaces(isDarkMode);
   const { t } = useLanguage();
   const [publishedShopName, setPublishedShopName] = useState(item?.shopName || draft.shopName || '');
   const heroPhoto = draft.photos?.[0];
@@ -2994,17 +3266,33 @@ const MyClosetAddItemPublishedScreen = ({ navigation, route }) => {
         </View>
 
         <View style={styles.itemLiveIconWrap}>
-          <View style={[styles.itemLiveIcon, { borderColor: text }]}>
+          <View
+            style={[
+              styles.itemLiveIcon,
+              {
+                borderColor: text,
+                backgroundColor: surfaces.inputSurface,
+              },
+            ]}
+          >
             <Ionicons name="bag-handle-outline" size={36} color={text} />
           </View>
         </View>
 
         <Text style={[styles.successTitle, { color: text }]}>{t('myClosetAddItemPublished.title')}</Text>
-        <Text style={styles.successSubtitle}>
+        <Text style={[styles.successSubtitle, { color: surfaces.mutedColor }]}>
           {t('myClosetAddItemPublished.subtitle')}
         </Text>
 
-        <View style={styles.publishedCard}>
+        <View
+          style={[
+            styles.publishedCard,
+            {
+              backgroundColor: surfaces.inputSurface,
+              borderColor: surfaces.listBorder,
+            },
+          ]}
+        >
           {heroPhoto ? (
             <Image
               source={{ uri: heroPhoto.uri }}
@@ -3012,16 +3300,16 @@ const MyClosetAddItemPublishedScreen = ({ navigation, route }) => {
             />
           ) : null}
           <View style={styles.publishedCopy}>
-            <Text style={styles.publishedTitle}>
+            <Text style={[styles.publishedTitle, { color: surfaces.inputText }]}>
               {publishedName}
             </Text>
-            <Text style={styles.publishedSubtitle}>
+            <Text style={[styles.publishedSubtitle, { color: surfaces.mutedColor }]}>
               ${publishedPrice}
             </Text>
-            <Text style={styles.publishedSubtitle}>
+            <Text style={[styles.publishedSubtitle, { color: surfaces.mutedColor }]}>
               {t('myClosetAddItemReview.quantityLabel')}: {publishedQuantity}
             </Text>
-            <Text style={styles.publishedSubtitle}>
+            <Text style={[styles.publishedSubtitle, { color: surfaces.mutedColor }]}>
               {getConditionLabel(draft.condition, t) || t('myClosetOptions.condition.goodCondition')}
             </Text>
           </View>
@@ -3031,10 +3319,18 @@ const MyClosetAddItemPublishedScreen = ({ navigation, route }) => {
           <TouchableOpacity
             activeOpacity={0.85}
             onPress={handleShareItem}
-            style={styles.nextActionCard}
+            style={[
+              styles.nextActionCard,
+              {
+                backgroundColor: surfaces.inputSurface,
+                borderColor: surfaces.listBorder,
+              },
+            ]}
           >
             <Ionicons name="share-social-outline" size={18} color={text} />
-            <Text style={styles.nextActionText}>{t('myClosetAddItemPublished.shareItem')}</Text>
+            <Text style={[styles.nextActionText, { color: surfaces.inputText }]}>
+              {t('myClosetAddItemPublished.shareItem')}
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -3112,7 +3408,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#fff',
   },
   headerTitle: {
     fontSize: 18,
@@ -3134,12 +3429,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#fff',
   },
   stepCircleText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#6b7280',
   },
   stepCircleTextActive: {
     color: '#fff',
@@ -3156,18 +3449,15 @@ const styles = StyleSheet.create({
   heroTitle: {
     fontSize: 25,
     fontWeight: '900',
-    color: '#111827',
     marginBottom: 6,
   },
   heroSubtitle: {
     fontSize: 14,
     lineHeight: 20,
-    color: '#4b5563',
   },
   card: {
     borderRadius: 26,
     borderWidth: 1,
-    backgroundColor: '#fff',
     padding: 16,
   },
   fieldBlock: {
@@ -3184,13 +3474,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
     marginBottom: 8,
-    color: '#3f3f46',
   },
   fieldWrap: {
     minHeight: 48,
     borderRadius: 16,
     borderWidth: 1,
-    backgroundColor: '#fff',
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
@@ -3198,7 +3486,6 @@ const styles = StyleSheet.create({
   placeFieldSearchInline: {
     flex: 1,
     fontSize: 14,
-    color: '#111827',
     paddingVertical: 0,
     marginRight: 6,
   },
@@ -3206,14 +3493,11 @@ const styles = StyleSheet.create({
     marginTop: 4,
     marginLeft: 44,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
     borderRadius: 12,
-    backgroundColor: '#fff',
     overflow: 'hidden',
   },
   placeFieldNoResults: {
     fontSize: 12,
-    color: '#9ca3af',
     paddingVertical: 10,
     paddingHorizontal: 14,
     textAlign: 'center',
@@ -3229,7 +3513,6 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: '#f5f3ff',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
@@ -3237,7 +3520,6 @@ const styles = StyleSheet.create({
   placeFieldLabel: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#374151',
     marginRight: 8,
   },
   placeFieldValueBox: {
@@ -3245,7 +3527,6 @@ const styles = StyleSheet.create({
     minHeight: 44,
     borderRadius: 22,
     borderWidth: 1,
-    backgroundColor: '#fff',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -3261,7 +3542,6 @@ const styles = StyleSheet.create({
   placeFieldValueText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#111827',
     flex: 1,
     marginRight: 8,
   },
@@ -3300,19 +3580,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     marginRight: 6,
-    color: '#71717a',
   },
   fieldInput: {
     flex: 1,
     fontSize: 15,
-    color: '#111827',
     paddingVertical: Platform.OS === 'ios' ? 14 : 10,
   },
   dropdownRow: {
     minHeight: 48,
     borderRadius: 16,
     borderWidth: 1,
-    backgroundColor: '#fff',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -3324,16 +3601,13 @@ const styles = StyleSheet.create({
   },
   dropdownText: {
     fontSize: 15,
-    color: '#111827',
     flex: 1,
     marginRight: 10,
   },
   dropdownList: {
     maxHeight: 150,
-    backgroundColor: '#fff',
     borderWidth: 1,
     borderTopWidth: 0,
-    borderColor: '#e5e7eb',
     borderBottomLeftRadius: 16,
     borderBottomRightRadius: 16,
   },
@@ -3346,18 +3620,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#fff',
   },
   dropdownItemBorder: {
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
   },
   dropdownItemSelected: {
     backgroundColor: '#f5f3ff',
   },
   dropdownItemText: {
     fontSize: 14,
-    color: '#111827',
     fontWeight: '600',
   },
   dropdownItemTextSelected: {
@@ -3373,7 +3644,6 @@ const styles = StyleSheet.create({
   },
   featureText: {
     marginLeft: 10,
-    color: '#374151',
     fontSize: 14,
     fontWeight: '600',
   },
@@ -3398,7 +3668,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    backgroundColor: '#fff',
     marginTop: 10,
     marginBottom: 6,
   },
@@ -3431,11 +3700,9 @@ const styles = StyleSheet.create({
   },
   orText: {
     fontSize: 13,
-    color: '#6b7280',
     marginBottom: 12,
   },
   helperText: {
-    color: '#6b7280',
     fontSize: 12,
     lineHeight: 18,
     textAlign: 'center',
@@ -3445,7 +3712,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
     marginBottom: 10,
-    color: '#3f3f46',
   },
   shippingGrid: {
     flexDirection: 'row',
@@ -3457,7 +3723,6 @@ const styles = StyleSheet.create({
     minHeight: 108,
     borderRadius: 18,
     borderWidth: 1,
-    backgroundColor: '#fff',
     padding: 12,
     justifyContent: 'space-between',
   },
@@ -3467,7 +3732,6 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#f5f3ff',
     marginBottom: 8,
   },
   optionCopy: {
@@ -3477,13 +3741,11 @@ const styles = StyleSheet.create({
   optionLabel: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#111827',
     marginBottom: 4,
   },
   optionDescription: {
     fontSize: 12,
     lineHeight: 16,
-    color: '#6b7280',
   },
   // ── New: delivery method multi-select cards ─────────────────────────────
   sectionHeaderRow: {
@@ -3494,23 +3756,19 @@ const styles = StyleSheet.create({
   sectionHeaderTitle: {
     fontSize: 14,
     fontWeight: '900',
-    color: '#111827',
   },
   sectionHeaderBadge: {
     marginLeft: 8,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 8,
-    backgroundColor: '#f5f3ff',
   },
   sectionHeaderBadgeText: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#5A2386',
   },
   helperLineTop: {
     fontSize: 12,
-    color: '#6b7280',
     marginBottom: 12,
   },
   deliveryGrid: {
@@ -3522,7 +3780,6 @@ const styles = StyleSheet.create({
     width: '48%',
     borderRadius: 18,
     borderWidth: 1,
-    backgroundColor: '#fff',
     padding: 12,
   },
   deliveryCardTopRow: {
@@ -3541,12 +3798,10 @@ const styles = StyleSheet.create({
   deliveryLabel: {
     fontSize: 13,
     fontWeight: '900',
-    color: '#111827',
     marginBottom: 2,
   },
   deliveryDescription: {
     fontSize: 11,
-    color: '#6b7280',
     marginBottom: 8,
   },
   deliveryBulletList: {
@@ -3560,7 +3815,6 @@ const styles = StyleSheet.create({
   deliveryBulletText: {
     marginLeft: 6,
     fontSize: 11,
-    color: '#6b7280',
   },
   bothSelectedBanner: {
     flexDirection: 'row',
@@ -3610,8 +3864,6 @@ const styles = StyleSheet.create({
     minHeight: 58,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    backgroundColor: '#fff',
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
@@ -3625,12 +3877,10 @@ const styles = StyleSheet.create({
   hoursLabel: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#3f3f46',
     marginBottom: 3,
   },
   hoursValue: {
     fontSize: 12,
-    color: '#6b7280',
   },
   hoursEditor: {
     marginTop: -6,
@@ -3638,13 +3888,10 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    backgroundColor: '#fafafa',
   },
   hoursEditorLabel: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#3f3f46',
     marginBottom: 8,
   },
   hoursEditorRow: {
@@ -3661,8 +3908,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    backgroundColor: '#fff',
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
@@ -3674,12 +3919,10 @@ const styles = StyleSheet.create({
   chatToggleLabel: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#111827',
     marginBottom: 2,
   },
   chatToggleSubtext: {
     fontSize: 11,
-    color: '#6b7280',
     lineHeight: 15,
   },
   toggleTrack: {
@@ -3722,7 +3965,6 @@ const styles = StyleSheet.create({
   paymentCard: {
     borderRadius: 18,
     borderWidth: 1,
-    backgroundColor: '#fff',
     padding: 14,
     flexDirection: 'row',
     alignItems: 'center',
@@ -3732,7 +3974,6 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -3743,12 +3984,10 @@ const styles = StyleSheet.create({
   paymentTitle: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#111827',
     marginBottom: 3,
   },
   paymentSubtitle: {
     fontSize: 12,
-    color: '#6b7280',
   },
   successContent: {
     paddingHorizontal: 18,
@@ -3825,7 +4064,6 @@ const styles = StyleSheet.create({
   successSubtitle: {
     fontSize: 15,
     lineHeight: 22,
-    color: '#4b5563',
     textAlign: 'center',
     marginBottom: 20,
   },
@@ -3833,7 +4071,6 @@ const styles = StyleSheet.create({
     width: '100%',
     borderRadius: 18,
     borderWidth: 1,
-    backgroundColor: '#fff',
     padding: 14,
     flexDirection: 'row',
     alignItems: 'center',
@@ -3845,13 +4082,11 @@ const styles = StyleSheet.create({
   },
   linkLabel: {
     fontSize: 12,
-    color: '#6b7280',
     marginBottom: 4,
   },
   linkValue: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#111827',
   },
   copyButton: {
     width: 40,
@@ -3859,7 +4094,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#f5f3ff',
   },
   successActions: {
     width: '100%',
@@ -3885,7 +4119,6 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#fff',
     overflow: 'hidden',
   },
   photoHeroImage: {
@@ -3899,7 +4132,6 @@ const styles = StyleSheet.create({
     borderRadius: 38,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#fff',
     marginBottom: 10,
   },
   photoHeroLabel: {
@@ -3909,7 +4141,6 @@ const styles = StyleSheet.create({
   },
   photoHeroSubLabel: {
     fontSize: 13,
-    color: '#6b7280',
   },
   photoTips: {
     marginTop: 14,
@@ -3922,7 +4153,6 @@ const styles = StyleSheet.create({
   },
   tipText: {
     marginLeft: 8,
-    color: '#374151',
     fontSize: 13,
     fontWeight: '600',
   },
@@ -3939,12 +4169,10 @@ const styles = StyleSheet.create({
   selectedPhotosTitle: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#3f3f46',
   },
   selectedPhotosCount: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#6b7280',
   },
   selectedPhotosScroll: {
     maxHeight: 330,
@@ -3974,8 +4202,6 @@ const styles = StyleSheet.create({
     minHeight: 46,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    backgroundColor: '#fff',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -3985,7 +4211,6 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     fontSize: 12,
     fontWeight: '700',
-    color: '#111827',
   },
   photoTileImage: {
     width: '100%',
@@ -4009,12 +4234,10 @@ const styles = StyleSheet.create({
     minHeight: 48,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 10,
-    backgroundColor: '#fff',
   },
   quantityBtn: {
     width: 36,
@@ -4030,12 +4253,10 @@ const styles = StyleSheet.create({
   quantityValue: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#111827',
   },
   helperLine: {
     marginTop: 6,
     fontSize: 12,
-    color: '#6b7280',
   },
   feeCard: {
     borderRadius: 18,
@@ -4056,22 +4277,18 @@ const styles = StyleSheet.create({
   feeMain: {
     fontSize: 16,
     fontWeight: '900',
-    color: '#111827',
     marginBottom: 4,
   },
   feeText: {
     fontSize: 12,
     lineHeight: 18,
-    color: '#6b7280',
   },
   reviewHeroCard: {
     flexDirection: 'row',
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
     overflow: 'hidden',
     marginBottom: 14,
-    backgroundColor: '#fff',
   },
   reviewHeroImage: {
     width: 100,
@@ -4085,12 +4302,10 @@ const styles = StyleSheet.create({
   reviewHeroTitle: {
     fontSize: 14,
     fontWeight: '900',
-    color: '#111827',
     marginBottom: 4,
   },
   reviewHeroText: {
     fontSize: 12,
-    color: '#4b5563',
     marginBottom: 2,
   },
   reviewRows: {
@@ -4105,7 +4320,6 @@ const styles = StyleSheet.create({
   reviewLabel: {
     width: '32%',
     fontSize: 12,
-    color: '#6b7280',
     fontWeight: '700',
   },
   reviewValue: {
@@ -4125,7 +4339,6 @@ const styles = StyleSheet.create({
     width: 96,
     height: 96,
     borderRadius: 48,
-    backgroundColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
@@ -4135,9 +4348,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 16,
-    backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#e5e7eb',
     overflow: 'hidden',
     marginBottom: 14,
   },
@@ -4153,12 +4364,10 @@ const styles = StyleSheet.create({
   publishedTitle: {
     fontSize: 14,
     fontWeight: '900',
-    color: '#111827',
     marginBottom: 4,
   },
   publishedSubtitle: {
     fontSize: 12,
-    color: '#4b5563',
     marginBottom: 2,
   },
   nextActions: {
@@ -4169,8 +4378,6 @@ const styles = StyleSheet.create({
     minHeight: 50,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    backgroundColor: '#fff',
     paddingHorizontal: 14,
     flexDirection: 'row',
     alignItems: 'center',
@@ -4180,6 +4387,5 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     fontSize: 13,
     fontWeight: '700',
-    color: '#111827',
   },
 });

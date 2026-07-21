@@ -79,7 +79,7 @@ const imageSource = (uri) =>
     }
     : null;
 
-const CachedImageBox = ({ uri, style, placeholderStyle, iconName, iconSize = 28 }) => {
+const CachedImageBox = ({ uri, style, placeholderStyle, iconName, iconSize = 28, mutedColor = '#9b8c7a', loadingOverlayColor = 'rgba(245,243,238,0.72)' }) => {
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
 
@@ -91,7 +91,7 @@ const CachedImageBox = ({ uri, style, placeholderStyle, iconName, iconSize = 28 
   if (!uri || failed) {
     return (
       <View style={[style, placeholderStyle]}>
-        <Ionicons name={iconName} size={iconSize} color="#9b8c7a" />
+        <Ionicons name={iconName} size={iconSize} color={mutedColor} />
       </View>
     );
   }
@@ -99,8 +99,8 @@ const CachedImageBox = ({ uri, style, placeholderStyle, iconName, iconSize = 28 
   return (
     <View style={style}>
       {!loaded && (
-        <View style={s.imageLoadingOverlay}>
-          <ActivityIndicator size="small" color="#9b8c7a" />
+        <View style={[s.imageLoadingOverlay, { backgroundColor: loadingOverlayColor }]}>
+          <ActivityIndicator size="small" color={mutedColor} />
         </View>
       )}
       <FastImage
@@ -173,7 +173,7 @@ const BATTLES_FALLBACK = [
   },
 ];
 
-const BattleSlide = ({ battle, accent, t, onPress, card, border, textColor, mutedText, isDark }) => (
+const BattleSlide = ({ battle, accent, t, onPress, card, border, textColor, mutedText, isDark, thumbSurface, mutedColor, loadingOverlayColor }) => (
   <TouchableOpacity
     activeOpacity={0.9}
     style={[s.slide, { backgroundColor: card, borderColor: border }]}
@@ -187,13 +187,15 @@ const BattleSlide = ({ battle, accent, t, onPress, card, border, textColor, mute
 
     <View style={s.battleBody}>
       <View style={s.fighter}>
-        <View style={[s.fighterThumb, { backgroundColor: isDark ? border : '#f5f3ee' }]}>
+        <View style={[s.fighterThumb, { backgroundColor: thumbSurface }]}>
           <CachedImageBox
             uri={battle.left.image}
             style={s.fighterImgWrap}
             placeholderStyle={s.fighterThumbPlaceholder}
             iconName="bag-outline"
             iconSize={34}
+            mutedColor={mutedColor}
+            loadingOverlayColor={loadingOverlayColor}
           />
         </View>
         <Text style={[s.fighterName, { color: textColor }]} numberOfLines={2}>{battle.left.name}</Text>
@@ -208,13 +210,15 @@ const BattleSlide = ({ battle, accent, t, onPress, card, border, textColor, mute
       </View>
 
       <View style={s.fighter}>
-        <View style={[s.fighterThumb, { backgroundColor: isDark ? border : '#f0eeec' }]}>
+        <View style={[s.fighterThumb, { backgroundColor: thumbSurface }]}>
           <CachedImageBox
             uri={battle.right.image}
             style={s.fighterImgWrap}
             placeholderStyle={s.fighterThumbPlaceholder}
             iconName="bag-handle-outline"
             iconSize={34}
+            mutedColor={mutedColor}
+            loadingOverlayColor={loadingOverlayColor}
           />
         </View>
         <Text style={[s.fighterName, { color: textColor }]} numberOfLines={2}>{battle.right.name}</Text>
@@ -227,7 +231,7 @@ const BattleSlide = ({ battle, accent, t, onPress, card, border, textColor, mute
   </TouchableOpacity>
 );
 
-const ItemTile = ({ item, accent, onPress, onToggleWishlist, sellerId, card, border, textColor, mutedText, isDark }) => {
+const ItemTile = ({ item, accent, onPress, onToggleWishlist, sellerId, card, border, textColor, mutedText, isDark, thumbSurface, mutedColor, loadingOverlayColor }) => {
   const [liked, setLiked] = useState(false);
   const [updatingWishlist, setUpdatingWishlist] = useState(false);
   const [wishlistItemId, setWishlistItemId] = useState(null);
@@ -279,13 +283,15 @@ const ItemTile = ({ item, accent, onPress, onToggleWishlist, sellerId, card, bor
 
   return (
     <TouchableOpacity activeOpacity={0.85} style={s.tile} onPress={onPress}>
-      <View style={[s.tileThumb, { backgroundColor: isDark ? border : '#f5f3ee' }]}>
+      <View style={[s.tileThumb, { backgroundColor: thumbSurface }]}>
         <CachedImageBox
           uri={item.image}
           style={s.tileImgWrap}
-          placeholderStyle={[s.tileImgPlaceholder, { backgroundColor: isDark ? border : '#f5f3ee' }]}
+          placeholderStyle={[s.tileImgPlaceholder, { backgroundColor: thumbSurface }]}
           iconName="shirt-outline"
           iconSize={28}
+          mutedColor={mutedColor}
+          loadingOverlayColor={loadingOverlayColor}
         />
         <TouchableOpacity
           style={[s.heart, { backgroundColor: isDark ? `${card}cc` : '#ffffffcc' }]}
@@ -505,6 +511,9 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
   } = useAppTheme(normalizeProfileType(userData?.profile) === 'company' ? 'company' : 'user');
   const { isDarkMode } = useThemeContext();
   const brand = accent || text;
+  const thumbSurface = isDarkMode ? border : '#f5f3ee';
+  const loadingOverlayColor = isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(245,243,238,0.72)';
+  const logoSurface = isDarkMode ? 'rgba(255,255,255,0.08)' : '#f5f3ff';
 
   useEffect(() => {
     let ok = true;
@@ -760,7 +769,7 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
           onPress={goStorefront}
         >
           {shopLogo ? (
-            <Image source={{ uri: shopLogo }} style={s.previewLogo} />
+            <Image source={{ uri: shopLogo }} style={[s.previewLogo, { backgroundColor: logoSurface }]} />
           ) : (
             <View style={[s.bannerIcon, { backgroundColor: `${brand}18` }]}>
               <Ionicons name="storefront-outline" size={26} color={brand} />
@@ -780,7 +789,7 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
           onPress={goStorefront}
         >
           {shopLogo ? (
-            <Image source={{ uri: shopLogo }} style={s.previewLogo} />
+            <Image source={{ uri: shopLogo }} style={[s.previewLogo, { backgroundColor: logoSurface }]} />
           ) : (
             <View style={[s.bannerIcon, { backgroundColor: `${brand}18` }]}>
               <Ionicons name="bag-handle" size={26} color={brand} />
@@ -865,6 +874,9 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
                     textColor={text}
                     mutedText={mutedText}
                     isDark={isDarkMode}
+                    thumbSurface={thumbSurface}
+                    mutedColor={mutedText}
+                    loadingOverlayColor={loadingOverlayColor}
                   />
                 ))}
               </AutoScrollBattleRow>
@@ -918,13 +930,16 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
                 textColor={text}
                 mutedText={mutedText}
                 isDark={isDarkMode}
+                thumbSurface={thumbSurface}
+                mutedColor={mutedText}
+                loadingOverlayColor={loadingOverlayColor}
                 sellerId={targetUserId}
                 onPress={() => { openItem(it); }}
               />
             ))}
             {isOwnProfile && (
               <TouchableOpacity activeOpacity={0.85} style={s.tile} onPress={() => goAddFirst(false)}>
-                <View style={[s.tileThumb, s.addTile, { borderColor: border, backgroundColor: isDarkMode ? card : '#fafafa' }]}>
+                <View style={[s.tileThumb, s.addTile, { borderColor: border, backgroundColor: isDarkMode ? 'rgba(255,255,255,0.06)' : '#fafafa' }]}>
                   <Ionicons name="add" size={28} color={brand} />
                 </View>
                 <Text style={[s.tileName, { color: brand }]} numberOfLines={1}>
@@ -954,7 +969,6 @@ const s = StyleSheet.create({
     height: 64,
     borderRadius: 20,
     overflow: 'hidden',
-    backgroundColor: '#f5f3ff',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10
@@ -1019,7 +1033,7 @@ const s = StyleSheet.create({
     borderStyle: 'dashed',
   },
   tileImgWrap: { width: '100%', height: '100%' },
-  tileImgPlaceholder: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f5f3ee' },
+  tileImgPlaceholder: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' },
   fighterImgWrap: { width: '100%', height: '100%' },
   fighterThumbPlaceholder: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' },
   heart: { position: 'absolute', top: 7, right: 7, borderRadius: 20, padding: 4 },
@@ -1032,7 +1046,6 @@ const s = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(245,243,238,0.72)',
     zIndex: 2,
   },
   emptyTxt: { fontSize: 14, fontWeight: '600' },

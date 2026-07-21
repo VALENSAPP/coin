@@ -2,6 +2,8 @@ import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator, Image, TextInput } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useThemeContext } from '../../theme/ThemeContext';
+import { formSurfaces, selectedSurface, themedCard } from '../../utils/closetTheme';
 import { useIsFocused, useNavigation, useRoute } from '@react-navigation/native';
 import { getMarketPlaceEbook, getMarketplaceEbooksByClosetId } from '../../services/post';
 import { getMyClosetById } from '../../services/myCloset';
@@ -42,7 +44,17 @@ const getDescription = (item) => {
   return item.description || 'No description available';
 };
 
-export const EbookCard = memo(({ item, isPurchased, isOwnProfile, onPress, accentColor }) => {
+const SUCCESS_ACCENT = '#22c55e';
+
+export const EbookCard = memo(({ item, isPurchased, isOwnProfile, onPress }) => {
+  const { text, card, border, mutedText, icon, accent } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const surfaces = formSurfaces(isDarkMode);
+  const brandAccent = accent || '#5A2D82';
+  const primaryText = text || (isDarkMode ? '#ffffff' : '#111827');
+  const muted = mutedText || surfaces.mutedColor;
+  const surface = card || surfaces.listSurface;
+  const surfaceBorder = border || surfaces.listBorder;
   const coverImage = getCoverImage(item);
   const title = item.caption || item.title || 'E-book';
   const description = getDescription(item);
@@ -52,8 +64,12 @@ export const EbookCard = memo(({ item, isPurchased, isOwnProfile, onPress, accen
   const showPurchasedBadge = isOwnProfile || isPurchased;
 
   return (
-    <TouchableOpacity activeOpacity={0.88} onPress={onPress} style={styles.card}>
-      <View style={styles.coverContainer}>
+    <TouchableOpacity
+      activeOpacity={0.88}
+      onPress={onPress}
+      style={[styles.card, themedCard(surface, surfaceBorder)]}
+    >
+      <View style={[styles.coverContainer, { backgroundColor: isDarkMode ? surfaces.inputSurface : surfaceBorder }]}>
         {coverImage ? (
           <Image source={{ uri: coverImage }} style={styles.coverImage} resizeMode="cover" />
         ) : (
@@ -63,20 +79,22 @@ export const EbookCard = memo(({ item, isPurchased, isOwnProfile, onPress, accen
         )}
       </View>
       <View style={styles.cardBody}>
-        <Text style={styles.title} numberOfLines={1}>{title}</Text>
-        <Text style={styles.desc} numberOfLines={2}>{description}</Text>
+        <Text style={[styles.title, { color: primaryText }]} numberOfLines={1}>{title}</Text>
+        <Text style={[styles.desc, { color: muted }]} numberOfLines={2}>{description}</Text>
         <View style={styles.metaRow}>
-          <Text style={[styles.meta, { color: accentColor }]}>📚 {item?.tableContent?.length || 0} Chapters</Text>
+          <Text style={[styles.meta, { color: brandAccent }]}>📚 {item?.tableContent?.length || 0} Chapters</Text>
           {showPurchasedBadge ? (
-            <View style={styles.ownedBadge}>
-              <Text style={styles.ownedBadgeText}>{isOwnProfile ? 'Owned' : 'Purchased'}</Text>
+            <View style={[styles.ownedBadge, { backgroundColor: selectedSurface(SUCCESS_ACCENT, isDarkMode) }]}>
+              <Text style={[styles.ownedBadgeText, { color: isDarkMode ? '#86efac' : '#03543F' }]}>
+                {isOwnProfile ? 'Owned' : 'Purchased'}
+              </Text>
             </View>
           ) : (
-            <Text style={[styles.priceTag, { color: accentColor }]}>{priceLabel}</Text>
+            <Text style={[styles.priceTag, { color: brandAccent }]}>{priceLabel}</Text>
           )}
         </View>
       </View>
-      <Ionicons name="chevron-forward" size={18} color="#6b7280" />
+      <Ionicons name="chevron-forward" size={18} color={muted || icon} />
     </TouchableOpacity>
   );
 });
@@ -91,8 +109,14 @@ const AllEbooksScreen = () => {
   const returnTo = route?.params?.returnTo;
   const fromScreen = route?.params?.from;
 
-  const { bgStyle, textStyle, text } = useAppTheme();
-  const accentColor = text || '#5A2D82';
+  const { bgStyle, text, card, border, mutedText, icon, accent } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const surfaces = formSurfaces(isDarkMode);
+  const brandAccent = accent || '#5A2D82';
+  const primaryText = text || (isDarkMode ? '#ffffff' : '#111827');
+  const muted = mutedText || surfaces.mutedColor;
+  const surface = card || surfaces.listSurface;
+  const surfaceBorder = border || surfaces.listBorder;
   const resolvedAuthorName =
     route?.params?.username ||
     userData?.userName ||
@@ -239,7 +263,7 @@ const AllEbooksScreen = () => {
   if (loading && ebooks.length === 0) {
     return (
       <View style={[styles.screen, bgStyle, styles.loaderContainer]}>
-        <ActivityIndicator size="large" color={accentColor} />
+        <ActivityIndicator size="large" color={brandAccent} />
       </View>
     );
   }
@@ -249,41 +273,49 @@ const AllEbooksScreen = () => {
       {/* Header */}
       <View style={styles.headerRow}>
         <TouchableOpacity onPress={handleBackPress} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={22} color="#111827" />
+          <Ionicons name="arrow-back" size={22} color={icon || primaryText} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, textStyle]}>E-books</Text>
+        <Text style={[styles.headerTitle, { color: primaryText }]}>E-books</Text>
         <Text style={styles.cartBadgeText}></Text>
       </View>
 
       {/* Search Bar */}
       <View style={styles.searchContainer}>
-        <View style={styles.searchBar}>
-          <Ionicons name="search" size={18} color="#9CA3AF" style={styles.searchIcon} />
+        <View
+          style={[
+            styles.searchBar,
+            themedCard(isDarkMode ? surfaces.inputSurface : surface, surfaceBorder),
+            { borderWidth: StyleSheet.hairlineWidth },
+          ]}
+        >
+          <Ionicons name="search" size={18} color={muted} style={styles.searchIcon} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: primaryText }]}
             placeholder="Search e-books"
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={surfaces.placeholderColor}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
           {searchQuery ? (
             <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Ionicons name="close-circle" size={18} color="#9CA3AF" style={styles.clearIcon} />
+              <Ionicons name="close-circle" size={18} color={muted} style={styles.clearIcon} />
             </TouchableOpacity>
           ) : null}
         </View>
       </View>
 
-      <View style={styles.sectionHeaderRow}>
-        <Text style={[styles.sectionTitle, textStyle]}>All E-books</Text>
-        <Text style={styles.sectionCount}>{filteredEbooks.length} items</Text>
+      <View style={[styles.sectionHeaderRow, { borderBottomColor: surfaceBorder }]}>
+        <Text style={[styles.sectionTitle, { color: primaryText }]}>All E-books</Text>
+        <Text style={[styles.sectionCount, { color: muted }]}>{filteredEbooks.length} items</Text>
       </View>
 
       {filteredEbooks.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyEmoji}>📚</Text>
-          <Text style={[styles.emptyTitle, textStyle]}>No E-books Found</Text>
-          <Text style={styles.emptySubtitle}>We couldn't find any e-books matching your search.</Text>
+          <Text style={[styles.emptyTitle, { color: primaryText }]}>No E-books Found</Text>
+          <Text style={[styles.emptySubtitle, { color: muted }]}>
+            We couldn't find any e-books matching your search.
+          </Text>
         </View>
       ) : (
         <FlatList
@@ -295,7 +327,6 @@ const AllEbooksScreen = () => {
               isPurchased={purchasedMap[item.id || item._id]}
               isOwnProfile={isOwnProfile}
               onPress={() => handleEbookPress(item)}
-              accentColor={accentColor}
             />
           )}
           contentContainerStyle={styles.listContent}
@@ -309,7 +340,7 @@ const AllEbooksScreen = () => {
 export default AllEbooksScreen;
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#fff', paddingTop: '10%' },
+  screen: { flex: 1, paddingTop: '10%' },
   loaderContainer: { justifyContent: 'center', alignItems: 'center' },
   headerRow: {
     flexDirection: 'row',
@@ -321,7 +352,7 @@ const styles = StyleSheet.create({
   backBtn: {
     padding: 4,
   },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: '#111827' },
+  headerTitle: { fontSize: 20, fontWeight: '800' },
   cartBtn: {
     padding: 4,
     position: 'relative',
@@ -348,7 +379,6 @@ const styles = StyleSheet.create({
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F3F4F6',
     borderRadius: 12,
     paddingHorizontal: 12,
     height: 44,
@@ -359,7 +389,6 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 14,
-    color: '#1f2937',
     padding: 0,
   },
   clearIcon: {
@@ -372,21 +401,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
     marginBottom: 8,
   },
-  sectionTitle: { fontSize: 16, fontWeight: '800', color: '#111827' },
-  sectionCount: { fontSize: 12, color: '#6b7280', fontWeight: '700' },
+  sectionTitle: { fontSize: 16, fontWeight: '800' },
+  sectionCount: { fontSize: 12, fontWeight: '700' },
   listContent: { paddingHorizontal: 16, paddingBottom: 24 },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
     borderRadius: 16,
     padding: 12,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#E8E1F3',
     shadowColor: '#000',
     shadowOpacity: 0.02,
     shadowRadius: 8,
@@ -399,7 +425,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     overflow: 'hidden',
     marginRight: 12,
-    backgroundColor: '#f3f4f6',
   },
   coverImage: {
     width: '100%',
@@ -417,19 +442,17 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   cardBody: { flex: 1 },
-  title: { fontSize: 15, fontWeight: '800', color: '#111827', marginBottom: 4 },
-  desc: { fontSize: 12, color: '#6b7280', lineHeight: 16, marginBottom: 8 },
+  title: { fontSize: 15, fontWeight: '800', marginBottom: 4 },
+  desc: { fontSize: 12, lineHeight: 16, marginBottom: 8 },
   metaRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   meta: { fontSize: 11, fontWeight: '700' },
   priceTag: { fontSize: 13, fontWeight: '800' },
   ownedBadge: {
     paddingHorizontal: 8,
     paddingVertical: 3,
-    backgroundColor: '#DEF7EC',
     borderRadius: 6,
   },
   ownedBadgeText: {
-    color: '#03543F',
     fontSize: 10,
     fontWeight: '800',
   },
@@ -447,7 +470,6 @@ const styles = StyleSheet.create({
   },
   emptySubtitle: {
     fontSize: 14,
-    color: '#6b7280',
     textAlign: 'center',
     lineHeight: 20,
   },

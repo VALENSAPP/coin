@@ -2,15 +2,9 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useThemeContext } from '../../theme/ThemeContext';
 import { useNavigation, useRoute } from '@react-navigation/native';
-
-const themeStyles = {
-  purple: { bg: '#5A2D82', tint: '#EDE3FA' },
-  sand: { bg: '#C08B47', tint: '#FFF1D9' },
-  forest: { bg: '#274C3A', tint: '#DDEFE3' },
-  gold: { bg: '#8A6B1C', tint: '#F8EBC2' },
-  ink: { bg: '#1F2937', tint: '#E5E7EB' },
-};
+import { formSurfaces, themedCard } from '../../utils/closetTheme';
 
 const getCoverImage = (item) => {
   if (!item) return null;
@@ -26,73 +20,82 @@ const EbookPaymentSuccessScreen = () => {
   const route = useRoute();
   const { ebook, userData, loggedInUserId } = route.params || {};
 
-  const { bgStyle, textStyle, text } = useAppTheme(userData?.profile);
-  const accentColor = text || '#5A2D82';
+  const { bgStyle, text, card, border, mutedText, accent, bg } = useAppTheme(userData?.profile);
+  const { isDarkMode } = useThemeContext();
+  const surfaces = formSurfaces(isDarkMode);
+  const brandAccent = accent || '#5A2D82';
+  const primaryText = text || (isDarkMode ? '#ffffff' : '#111827');
+  const muted = mutedText || surfaces.mutedColor;
+  const surface = card || surfaces.listSurface;
+  const surfaceBorder = border || surfaces.listBorder;
 
   const coverImage = getCoverImage(ebook);
   const title = ebook?.caption || ebook?.title || 'E-book';
   const author = ebook?.userName || userData?.displayName || 'Unknown Author';
-  const palette = themeStyles[ebook?.theme] || themeStyles.purple;
-
   const price = Number(ebook?.amount || 0);
 
   const handleGoToLibrary = () => {
-    // Navigate directly to EbookDetail so they can read immediately
     navigation.navigate('EbookDetail', {
       ebook,
       userData,
       loggedInUserId,
-      username: userData?.userName || userData?.username || ebook?.userName
+      username: userData?.userName || userData?.username || ebook?.userName,
     });
   };
 
   const handleContinueShopping = () => {
-    // Pop back or navigate back to MyClosetShopFront
     navigation.navigate('ProfileMain', { screen: 'MyClosetStorefront' });
   };
 
   return (
     <View style={[styles.screen, bgStyle]}>
-      {/* Header */}
       <View style={styles.headerRow}>
-        <TouchableOpacity onPress={handleContinueShopping} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={22} color="#111827" />
+        <TouchableOpacity onPress={handleContinueShopping} style={styles.backBtn} hitSlop={10}>
+          <Ionicons name="arrow-back" size={22} color={primaryText} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, textStyle]}>Payment</Text>
+        <Text style={[styles.headerTitle, { color: primaryText }]}>Payment</Text>
         <View style={styles.placeholder} />
       </View>
 
       <View style={styles.content}>
-        {/* Success Icon & Info */}
         <View style={styles.successWrapper}>
           <Ionicons name="checkmark-circle" size={80} color="#22c55e" />
-          <Text style={[styles.successTitle, textStyle]}>Payment Successful!</Text>
-          <Text style={styles.successSubtitle}>Your e-book has been purchased successfully.</Text>
+          <Text style={[styles.successTitle, { color: primaryText }]}>Payment Successful!</Text>
+          <Text style={[styles.successSubtitle, { color: muted }]}>
+            Your e-book has been purchased successfully.
+          </Text>
         </View>
 
-        {/* Ebook Summary Card */}
-        <View style={styles.summaryCard}>
-          <View style={styles.coverContainer}>
+        <View style={[styles.summaryCard, themedCard(surface, surfaceBorder)]}>
+          <View style={[styles.coverContainer, { backgroundColor: isDarkMode ? surfaces.inputSurface : '#f3f4f6' }]}>
             {coverImage ? (
               <Image source={{ uri: coverImage }} style={styles.coverImage} resizeMode="cover" />
             ) : (
-              <View style={[styles.fallbackCover, { backgroundColor: palette.bg }]}>
+              <View style={[styles.fallbackCover, { backgroundColor: brandAccent }]}>
                 <Text style={styles.fallbackText}>{title.charAt(0).toUpperCase()}</Text>
               </View>
             )}
           </View>
           <View style={styles.summaryDetails}>
-            <Text style={[styles.summaryTitle, textStyle]} numberOfLines={1}>{title}</Text>
-            <Text style={styles.summaryAuthor} numberOfLines={1}>by {author}</Text>
-            <Text style={[styles.summaryPrice, { color: accentColor }]}>${price.toFixed(2)}</Text>
+            <Text style={[styles.summaryTitle, { color: primaryText }]} numberOfLines={1}>{title}</Text>
+            <Text style={[styles.summaryAuthor, { color: muted }]} numberOfLines={1}>by {author}</Text>
+            <Text style={[styles.summaryPrice, { color: brandAccent }]}>${price.toFixed(2)}</Text>
           </View>
         </View>
       </View>
 
-      {/* Buttons */}
-      <View style={styles.bottomBar}>
+      <View
+        style={[
+          styles.bottomBar,
+          {
+            backgroundColor: isDarkMode ? bg || '#121212' : '#fff',
+            borderTopColor: surfaceBorder,
+            borderTopWidth: StyleSheet.hairlineWidth,
+          },
+        ]}
+      >
         <TouchableOpacity
-          style={[styles.libraryBtn, { backgroundColor: accentColor }]}
+          style={[styles.libraryBtn, { backgroundColor: brandAccent }]}
           onPress={handleGoToLibrary}
           activeOpacity={0.88}
         >
@@ -104,7 +107,7 @@ const EbookPaymentSuccessScreen = () => {
           onPress={handleContinueShopping}
           activeOpacity={0.7}
         >
-          <Text style={[styles.continueBtnText, { color: accentColor }]}>Continue Shopping</Text>
+          <Text style={[styles.continueBtnText, { color: brandAccent }]}>Continue Shopping</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -114,7 +117,7 @@ const EbookPaymentSuccessScreen = () => {
 export default EbookPaymentSuccessScreen;
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#fff', paddingTop: '10%' },
+  screen: { flex: 1, paddingTop: '10%' },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -123,7 +126,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   backBtn: { padding: 4 },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: '#111827' },
+  headerTitle: { fontSize: 20, fontWeight: '800' },
   placeholder: { width: 30 },
   content: { padding: 16, alignItems: 'center' },
   successWrapper: {
@@ -133,14 +136,12 @@ const styles = StyleSheet.create({
   successTitle: {
     fontSize: 22,
     fontWeight: '900',
-    color: '#111827',
     marginTop: 16,
     marginBottom: 8,
     textAlign: 'center',
   },
   successSubtitle: {
     fontSize: 14,
-    color: '#6b7280',
     fontWeight: '600',
     textAlign: 'center',
     paddingHorizontal: 24,
@@ -148,10 +149,8 @@ const styles = StyleSheet.create({
   },
   summaryCard: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E8E1F3',
     padding: 12,
     width: '100%',
     marginTop: 12,
@@ -161,7 +160,6 @@ const styles = StyleSheet.create({
     height: 84,
     borderRadius: 8,
     overflow: 'hidden',
-    backgroundColor: '#f3f4f6',
   },
   coverImage: {
     width: '100%',
@@ -185,12 +183,10 @@ const styles = StyleSheet.create({
   summaryTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#111827',
     marginBottom: 4,
   },
   summaryAuthor: {
     fontSize: 12,
-    color: '#6b7280',
     fontWeight: '600',
     marginBottom: 6,
   },
@@ -206,7 +202,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 24,
     paddingTop: 12,
-    backgroundColor: '#fff',
     alignItems: 'center',
   },
   libraryBtn: {

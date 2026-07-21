@@ -187,6 +187,7 @@ const OrderThumb = ({ uri, accent }) => {
   const [loading, setLoading] = useState(Boolean(uri));
   const { isDarkMode } = useThemeContext();
   const thumbSurface = isDarkMode ? 'rgba(255,255,255,0.06)' : '#f5f3ff';
+  const loaderOverlay = isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(245,243,255,0.35)';
   const source = fastImageSource(uri);
 
   return (
@@ -202,7 +203,7 @@ const OrderThumb = ({ uri, accent }) => {
             onError={() => setLoading(false)}
           />
           {loading ? (
-            <View style={styles.orderThumbLoader}>
+            <View style={[styles.orderThumbLoader, { backgroundColor: loaderOverlay }]}>
               <ActivityIndicator size="small" color={accent} />
             </View>
           ) : null}
@@ -716,7 +717,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: 14,
     marginBottom: 12,
-    backgroundColor: '#fff',
   },
   orderCardTop: {
     flexDirection: 'row',
@@ -752,7 +752,6 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(245,243,255,0.35)',
   },
   orderCopy: { flex: 1 },
   orderItemName: { fontSize: 14, fontWeight: '800' },
@@ -775,11 +774,9 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
     borderStyle: 'dashed',
-    borderColor: '#e5e7eb',
     padding: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#fff',
     marginTop: 8,
   },
   emptyTitle: { fontSize: 15, fontWeight: '800', marginTop: 8 },

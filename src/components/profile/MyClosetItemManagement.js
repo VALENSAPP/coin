@@ -38,8 +38,7 @@ import {
   updateMyClosetItem,
 } from '../../services/myCloset';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
-
-// Option lists are functions of `t` so they stay in sync when the language changes.
+import { formSurfaces, withAlpha } from '../../utils/closetTheme';
 // NOTE: `value` stays a fixed English identifier — only `label` is translated —
 // so the payload sent to the API never changes with locale.
 const getConditionOptions = t => [
@@ -125,20 +124,6 @@ const parseFee = feeLabel => {
 
 const extractItemImage = item => item?.images?.[0] || item?.image || item?.thumbnail || null;
 
-const withAlpha = (hex, alpha = 0.12) => {
-  const normalized = String(hex || '').replace('#', '');
-  if (normalized.length !== 6) return `rgba(201,161,90,${alpha})`;
-  const r = parseInt(normalized.slice(0, 2), 16);
-  const g = parseInt(normalized.slice(2, 4), 16);
-  const b = parseInt(normalized.slice(4, 6), 16);
-  return `rgba(${r},${g},${b},${alpha})`;
-};
-
-const formSurfaces = isDarkMode => ({
-  inputSurface: isDarkMode ? 'rgba(255,255,255,0.08)' : '#ffffff',
-  labelColor: isDarkMode ? '#ffffff' : '#3f3f46',
-});
-
 const Field = ({
   label,
   value,
@@ -150,17 +135,17 @@ const Field = ({
 }) => {
   const { isDarkMode } = useThemeContext();
   const { textStyle } = useAppTheme();
-  const { inputSurface, labelColor } = formSurfaces(isDarkMode);
+  const surfaces = formSurfaces(isDarkMode);
 
   return (
     <View style={styles.fieldBlock}>
-      <Text style={[styles.fieldLabel, { color: labelColor }]}>{label}</Text>
-      <View style={[styles.fieldWrap, { backgroundColor: inputSurface, borderColor: withAlpha(accent, 0.16) }]}>
+      <Text style={[styles.fieldLabel, { color: surfaces.labelColor }]}>{label}</Text>
+      <View style={[styles.fieldWrap, { backgroundColor: surfaces.inputSurface, borderColor: withAlpha(accent, isDarkMode ? 0.35 : 0.16) }]}>
         <TextInput
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
-          placeholderTextColor="#a1a1aa"
+          placeholderTextColor={surfaces.placeholderColor}
           multiline={multiline}
           keyboardType={keyboardType}
           textAlignVertical={multiline ? 'top' : 'center'}
@@ -175,25 +160,25 @@ const DropdownRow = ({ label, value, options, onSelect, placeholder, accent }) =
   const [expanded, setExpanded] = useState(false);
   const { isDarkMode } = useThemeContext();
   const { textStyle } = useAppTheme();
-  const { inputSurface, labelColor } = formSurfaces(isDarkMode);
+  const surfaces = formSurfaces(isDarkMode);
   const selectedOption = options.find(option => getOptionValue(option) === value);
   const displayValue = selectedOption ? getOptionLabel(selectedOption) : value;
 
   return (
     <View style={styles.fieldBlock}>
-      <Text style={[styles.fieldLabel, { color: labelColor }]}>{label}</Text>
+      <Text style={[styles.fieldLabel, { color: surfaces.labelColor }]}>{label}</Text>
       <TouchableOpacity
         activeOpacity={0.85}
         onPress={() => setExpanded(prev => !prev)}
-        style={[styles.dropdownRow, { backgroundColor: inputSurface, borderColor: withAlpha(accent, 0.16) }]}
+        style={[styles.dropdownRow, { backgroundColor: surfaces.inputSurface, borderColor: withAlpha(accent, isDarkMode ? 0.35 : 0.16) }]}
       >
-        <Text style={[styles.dropdownValue, textStyle, !value && { color: '#a1a1aa' }]}>
+        <Text style={[styles.dropdownValue, textStyle, !value && { color: surfaces.placeholderColor }]}>
           {displayValue || placeholder}
         </Text>
         <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={18} color={accent} />
       </TouchableOpacity>
       {expanded ? (
-        <View style={[styles.dropdownList, { backgroundColor: inputSurface, borderColor: withAlpha(accent, 0.16) }]}>
+        <View style={[styles.dropdownList, { backgroundColor: surfaces.listSurface, borderColor: surfaces.listBorder }]}>
           {options.map((option, index) => {
             const optionValue = getOptionValue(option);
             const optionLabel = getOptionLabel(option);
@@ -208,9 +193,8 @@ const DropdownRow = ({ label, value, options, onSelect, placeholder, accent }) =
                 }}
                 style={[
                   styles.dropdownItem,
-                  { backgroundColor: inputSurface },
-                  index !== options.length - 1 && styles.dropdownItemBorder,
-                  selected && { backgroundColor: withAlpha(accent, 0.12) },
+                  { backgroundColor: selected ? withAlpha(accent, isDarkMode ? 0.22 : 0.12) : surfaces.listSurface },
+                  index !== options.length - 1 && [styles.dropdownItemBorder, { borderBottomColor: surfaces.itemBorder }],
                 ]}
               >
                 <Text style={[styles.dropdownItemText, textStyle, selected && { color: accent, fontWeight: '800' }]}>
@@ -333,7 +317,8 @@ const ClosestHeader = ({ title, subtitle, onBack, accent, textStyle, mutedTextSt
 };
 
 const MyClosetItemsManagementScreen = ({ navigation, route }) => {
-  const { accent, bgStyle, cardStyle, textStyle, mutedTextStyle } = useAppTheme();
+  const { accent, bgStyle, cardStyle, textStyle, mutedTextStyle, border, card } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
   const { t } = useLanguage();
   const toast = useToast();
   const dispatch = useDispatch();
@@ -475,7 +460,7 @@ const MyClosetItemsManagementScreen = ({ navigation, route }) => {
                         params: { item: normalized },
                       })
                     }
-                    style={[styles.actionButton, { borderColor: withAlpha(accent, 0.35) }]}
+                    style={[styles.actionButton, { borderColor: withAlpha(accent, 0.35), backgroundColor: isDarkMode ? 'rgba(255,255,255,0.06)' : card }]}
                   >
                     <Text style={[styles.actionButtonText, { color: accent }]}>{t('myClosetItems.edit')}</Text>
                   </TouchableOpacity>
@@ -503,7 +488,9 @@ const MyClosetItemsManagementScreen = ({ navigation, route }) => {
 };
 
 const MyClosetItemEditorScreen = ({ navigation, route }) => {
-  const { accent, bgStyle, cardStyle, textStyle, mutedTextStyle } = useAppTheme();
+  const { accent, bgStyle, cardStyle, textStyle, mutedTextStyle, border, card, text } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const surfaces = formSurfaces(isDarkMode);
   const { t } = useLanguage();
   const toast = useToast();
   const dispatch = useDispatch();
@@ -913,12 +900,12 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
 
           {draft.pickupAddress ? (
             <View style={{ marginLeft: 44, marginTop: -4, marginBottom: 14 }}>
-              <Text style={{ fontSize: 12, color: '#6b7280', lineHeight: 16, marginBottom: 4 }}>
+              <Text style={[styles.pickupAddressText, mutedTextStyle]}>
                 {draft.pickupAddress}
               </Text>
               <TouchableOpacity activeOpacity={0.8} onPress={openInMaps} style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Ionicons name="map-outline" size={14} color="#5A2386" />
-                <Text style={{ marginLeft: 5, fontSize: 12, fontWeight: '700', color: '#5A2386', textDecorationLine: 'underline' }}>
+                <Ionicons name="map-outline" size={14} color={accent} />
+                <Text style={{ marginLeft: 5, fontSize: 12, fontWeight: '700', color: accent, textDecorationLine: 'underline' }}>
                   {t('myClosetAddItemShipping.viewOnMap') || 'View on Map'}
                 </Text>
               </TouchableOpacity>
@@ -934,8 +921,8 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
                 minHeight: 58,
                 borderRadius: 16,
                 borderWidth: 1,
-                borderColor: '#e5e7eb',
-                backgroundColor: '#fff',
+                borderColor: surfaces.listBorder,
+                backgroundColor: surfaces.inputSurface,
                 flexDirection: 'row',
                 alignItems: 'center',
                 paddingHorizontal: 14,
@@ -947,25 +934,25 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
                 width: 34,
                 height: 34,
                 borderRadius: 17,
-                backgroundColor: '#f5f3ff',
+                backgroundColor: surfaces.iconBubble,
                 alignItems: 'center',
                 justifyContent: 'center'
               }}>
-                <Ionicons name="time-outline" size={17} color="#5A2386" />
+                <Ionicons name="time-outline" size={17} color={accent} />
               </View>
               <View style={{ flex: 1, marginLeft: 10 }}>
-                <Text style={{ fontSize: 12, fontWeight: '800', color: '#3f3f46', marginBottom: 3 }}>
+                <Text style={{ fontSize: 12, fontWeight: '800', color: surfaces.labelColor, marginBottom: 3 }}>
                   {t('myClosetAddItemShipping.availableHours') || 'Available Hours'}
                 </Text>
-                <Text style={{ fontSize: 12, color: '#6b7280' }}>
+                <Text style={{ fontSize: 12, color: surfaces.mutedColor }}>
                   {draft.pickupHours?.weekdayStart} - {draft.pickupHours?.weekdayEnd}
                 </Text>
               </View>
-              <Ionicons name={hoursExpanded ? 'chevron-up' : 'chevron-down'} size={18} color={text} />
+              <Ionicons name={hoursExpanded ? 'chevron-up' : 'chevron-down'} size={18} color={textStyle?.color || accent} />
             </TouchableOpacity>
             {hoursExpanded ? (
-              <View style={{ marginTop: -6, marginBottom: 14, padding: 12, borderRadius: 16, borderWidth: 1, borderColor: '#e5e7eb', backgroundColor: '#fafafa' }}>
-                <Text style={{ fontSize: 12, fontWeight: '800', color: '#3f3f46', marginBottom: 8 }}>
+              <View style={{ marginTop: -6, marginBottom: 14, padding: 12, borderRadius: 16, borderWidth: 1, borderColor: surfaces.listBorder, backgroundColor: isDarkMode ? 'rgba(255,255,255,0.04)' : '#fafafa' }}>
+                <Text style={{ fontSize: 12, fontWeight: '800', color: surfaces.labelColor, marginBottom: 8 }}>
                   {t('myClosetAddItemShipping.weekdays') || 'Weekdays (Mon-Fri)'}
                 </Text>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 10, marginBottom: 6 }}>
@@ -992,7 +979,7 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
                     />
                   </View>
                 </View>
-                <Text style={{ fontSize: 12, fontWeight: '800', color: '#3f3f46', marginBottom: 8, marginTop: 4 }}>
+                <Text style={{ fontSize: 12, fontWeight: '800', color: surfaces.labelColor, marginBottom: 8, marginTop: 4 }}>
                   {t('myClosetAddItemShipping.weekends') || 'Weekends (Sat-Sun)'}
                 </Text>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 10 }}>
@@ -1024,15 +1011,15 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
           </View>
 
           {/* Chat Toggle */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', borderRadius: 16, borderWidth: 1, borderColor: '#e5e7eb', backgroundColor: '#fff', paddingHorizontal: 14, paddingVertical: 12, marginBottom: 16 }}>
-            <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: '#f0fdfa', alignItems: 'center', justifyContent: 'center' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', borderRadius: 16, borderWidth: 1, borderColor: surfaces.listBorder, backgroundColor: surfaces.inputSurface, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 16 }}>
+            <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: isDarkMode ? 'rgba(13,148,136,0.2)' : '#f0fdfa', alignItems: 'center', justifyContent: 'center' }}>
               <Ionicons name="chatbubbles-outline" size={17} color="#0d9488" />
             </View>
             <View style={{ flex: 1, marginLeft: 10, marginRight: 10 }}>
-              <Text style={{ fontSize: 13, fontWeight: '800', color: '#111827', marginBottom: 2 }}>
+              <Text style={[textStyle, { fontSize: 13, fontWeight: '800', marginBottom: 2 }]}>
                 {t('myClosetAddItemShipping.enableBuyerChat') || 'Enable Buyer Chat'}
               </Text>
-              <Text style={{ fontSize: 11, color: '#6b7280', lineHeight: 15 }}>
+              <Text style={[mutedTextStyle, { fontSize: 11, lineHeight: 15 }]}>
                 {t('myClosetAddItemShipping.enableBuyerChatDesc') || 'Allow buyers to message you before purchase.'}
               </Text>
             </View>
@@ -1101,7 +1088,6 @@ const styles = StyleSheet.create({
     borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#fff',
   },
   headerCopy: {
     flex: 1,
@@ -1128,7 +1114,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: 14,
     marginBottom: 12,
-    backgroundColor: '#fff',
   },
   itemRowTop: {
     flexDirection: 'row',
@@ -1173,7 +1158,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#fff',
   },
   actionButtonText: {
     fontSize: 14,
@@ -1197,11 +1181,9 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
     borderStyle: 'dashed',
-    borderColor: '#e5e7eb',
     padding: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#fff',
   },
   emptyTitle: {
     fontSize: 16,
@@ -1217,7 +1199,11 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     borderWidth: 1,
     padding: 14,
-    backgroundColor: '#fff',
+  },
+  pickupAddressText: {
+    fontSize: 12,
+    lineHeight: 16,
+    marginBottom: 4,
   },
   fieldBlock: {
     marginBottom: 12,
@@ -1225,21 +1211,17 @@ const styles = StyleSheet.create({
   fieldLabel: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#374151',
     marginBottom: 8,
   },
   fieldWrap: {
     minHeight: 48,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
     borderRadius: 14,
-    backgroundColor: '#fff',
     paddingHorizontal: 12,
     justifyContent: 'center',
   },
   fieldInput: {
     fontSize: 15,
-    color: '#111827',
     paddingVertical: Platform.OS === 'ios' ? 14 : 10,
   },
   fieldInputMultiline: {
@@ -1248,9 +1230,7 @@ const styles = StyleSheet.create({
   dropdownRow: {
     minHeight: 48,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
     borderRadius: 14,
-    backgroundColor: '#fff',
     paddingHorizontal: 12,
     flexDirection: 'row',
     alignItems: 'center',
@@ -1259,16 +1239,13 @@ const styles = StyleSheet.create({
   dropdownValue: {
     flex: 1,
     fontSize: 15,
-    color: '#111827',
     marginRight: 10,
   },
   dropdownList: {
     marginTop: 8,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
     borderRadius: 14,
     overflow: 'hidden',
-    backgroundColor: '#fff',
   },
   dropdownItem: {
     minHeight: 46,
@@ -1276,18 +1253,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#fff',
   },
   dropdownItemBorder: {
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
   },
   dropdownItemSelected: {
     backgroundColor: '#ecfeff',
   },
   dropdownItemText: {
     fontSize: 14,
-    color: '#111827',
     fontWeight: '600',
   },
   dropdownItemTextSelected: {

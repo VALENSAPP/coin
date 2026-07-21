@@ -31,26 +31,7 @@ import { EbookCard } from './AllEbooksScreen';
 import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { buildProfileSharePayload } from '../../utils/profileShare';
-
-const mixWithWhite = (hex, amount = 0.88) => {
-  const normalized = String(hex || '').replace('#', '');
-  if (normalized.length !== 6) return '#f5f3ff';
-  const r = parseInt(normalized.slice(0, 2), 16);
-  const g = parseInt(normalized.slice(2, 4), 16);
-  const b = parseInt(normalized.slice(4, 6), 16);
-  const mix = channel => Math.round(channel + (255 - channel) * amount);
-  const toHex = channel => mix(channel).toString(16).padStart(2, '0');
-  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-};
-
-const withAlpha = (hex, alpha = 0.12) => {
-  const normalized = String(hex || '').replace('#', '');
-  if (normalized.length !== 6) return `rgba(201,161,90,${alpha})`;
-  const r = parseInt(normalized.slice(0, 2), 16);
-  const g = parseInt(normalized.slice(2, 4), 16);
-  const b = parseInt(normalized.slice(4, 6), 16);
-  return `rgba(${r},${g},${b},${alpha})`;
-};
+import { mixWithWhite, withAlpha } from '../../utils/closetTheme';
 
 const nestedSurface = (isDarkMode, accent) =>
   isDarkMode ? withAlpha(accent, 0.14) : mixWithWhite(accent, 0.92);
@@ -776,8 +757,8 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
             </View>
           ) : (
             pinnedItems.map(item => (
-              <View key={item.id} style={styles.pinnedCard}>
-                <View style={styles.pinnedThumbWrap}>
+              <View key={item.id} style={[styles.pinnedCard, { borderTopColor: isDarkMode ? border : '#f3f4f6' }]}>
+                <View style={[styles.pinnedThumbWrap, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.06)' : '#f5f3ef' }]}>
                   {item.image ? (
                     <FastImage
                       source={fastImageSource(item.image)}
@@ -811,7 +792,7 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
                     ) : <View />}
 
                     {item.pinLabel ? (
-                      <View style={styles.pinPill}>
+                      <View style={[styles.pinPill, { backgroundColor: isDarkMode ? withAlpha(accent, 0.15) : '#f5f3ff' }]}>
                         <Ionicons name="pin-outline" size={14} color={accent} />
                         <Text style={[styles.pinPillText, { color: accent }]}>{item.pinLabel}</Text>
                       </View>
@@ -1070,11 +1051,11 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
             <Text style={[styles.ebooksCtaTitle, textStyle]}>My E-books</Text>
           </View>
           <TouchableOpacity activeOpacity={0.8} onPress={handleViewAllEbooks}>
-            <Text style={styles.sectionMeta}>{t('myClosetDashboard.viewAll')} ›</Text>
+            <Text style={[styles.sectionMeta, mutedTextStyle]}>{t('myClosetDashboard.viewAll')} ›</Text>
           </TouchableOpacity>
         </View>
 
-        <View style={{ gap: 2, marginTop: 8 }}>
+        <View style={[styles.ebooksCta, { borderTopColor: border }]}>
           {ebooksLoading ? (
             <View style={styles.itemsLoadingWrap}>
               <ActivityIndicator color={text} />
@@ -1100,7 +1081,7 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
               />
             ))
           ) : (
-            <View style={styles.emptyItemsCard}>
+            <View style={[styles.emptyItemsCard, { borderColor: border }]}>
               <Ionicons name="book-outline" size={24} color={text} />
               <Text style={[styles.emptyItemsText, textStyle]}>No E-books yet</Text>
             </View>
@@ -1216,14 +1197,12 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#f3f4f6',
   },
   pinnedThumbWrap: {
     width: 84,
     height: 84,
     borderRadius: 16,
     overflow: 'hidden',
-    backgroundColor: '#f5f3ef',
   },
   pinnedThumb: {
     width: '100%',
@@ -1286,7 +1265,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#f5f3ff',
     borderRadius: 9,
     paddingHorizontal: 10,
     paddingVertical: 6,
@@ -1409,7 +1387,6 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: '#fff',
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1417,12 +1394,9 @@ const styles = StyleSheet.create({
   itemGridName: { fontSize: 12, fontWeight: '700', textAlign: 'left' },
   itemGridPrice: { marginTop: 1, fontSize: 11, fontWeight: '600' },
   ebooksCta: {
-    marginTop: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    marginTop: 8,
+    gap: 2,
     borderTopWidth: 1,
-    borderTopColor: '#f3f4f6',
     paddingTop: 12,
   },
   ebooksCtaCopy: {
@@ -1445,7 +1419,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     borderStyle: 'dashed',
-    borderColor: '#ddd',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,

@@ -26,17 +26,7 @@ import { useAppTheme } from '../../theme/useApptheme';
 import { useThemeContext } from '../../theme/ThemeContext';
 import { useLanguage } from '../../i18n';
 import ShippingDetailsModal from '../modals/ShippingDetailsModal';
-
-const MUTED = '#6b7280';
-
-const withAlpha = (hex, alpha = 0.12) => {
-  const normalized = String(hex || '').replace('#', '');
-  if (normalized.length !== 6) return `rgba(90,35,134,${alpha})`;
-  const r = parseInt(normalized.slice(0, 2), 16);
-  const g = parseInt(normalized.slice(2, 4), 16);
-  const b = parseInt(normalized.slice(4, 6), 16);
-  return `rgba(${r},${g},${b},${alpha})`;
-};
+import { withAlpha } from '../../utils/closetTheme';
 
 // ── Status meta + flow (kept in sync with the orders list screen) ─────────
 // Labels are stored as i18n keys and resolved with t() inside the components
@@ -203,9 +193,10 @@ const Header = ({ onBack, title }) => {
 
 const ImageBox = ({ uri, style, iconSize = 22, resizeMode = FastImage.resizeMode.cover }) => {
   const [loading, setLoading] = useState(Boolean(uri));
-  const { accent } = useAppTheme();
+  const { accent, mutedText } = useAppTheme();
   const { isDarkMode } = useThemeContext();
   const imageSurface = isDarkMode ? 'rgba(255,255,255,0.06)' : '#f6f0ee';
+  const loaderOverlay = isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(251,248,255,0.35)';
   const source = fastImageSource(uri);
 
   return (
@@ -221,13 +212,13 @@ const ImageBox = ({ uri, style, iconSize = 22, resizeMode = FastImage.resizeMode
             onError={() => setLoading(false)}
           />
           {loading ? (
-            <View style={styles.imageLoaderOverlay}>
+            <View style={[styles.imageLoaderOverlay, { backgroundColor: loaderOverlay }]}>
               <ActivityIndicator size="small" color={accent} />
             </View>
           ) : null}
         </>
       ) : (
-        <Ionicons name="shirt-outline" size={iconSize} color="#9b8c7a" />
+        <Ionicons name="shirt-outline" size={iconSize} color={mutedText || '#9b8c7a'} />
       )}
     </View>
   );
@@ -262,8 +253,10 @@ const BottomButton = ({ label, onPress, disabled }) => {
 const StatusTimeline = ({ status }) => {
   const { t } = useLanguage();
   const { accent, mutedTextStyle } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
   const currentIndex = TIMELINE_STEPS.indexOf(status === 'cancelled' ? 'pending' : status);
   const connectorColor = withAlpha(accent, 0.25);
+  const inactiveDot = isDarkMode ? 'rgba(255,255,255,0.12)' : '#e5ddf0';
 
   return (
     <View style={styles.timelineWrap}>
@@ -274,7 +267,7 @@ const StatusTimeline = ({ status }) => {
         return (
           <React.Fragment key={step}>
             <View style={styles.timelineItem}>
-              <View style={[styles.timelineDot, (done || active) && { backgroundColor: accent }]}>
+              <View style={[styles.timelineDot, { backgroundColor: inactiveDot }, (done || active) && { backgroundColor: accent }]}>
                 {done ? <Ionicons name="checkmark" size={11} color="#fff" /> : null}
               </View>
               <Text style={[styles.timelineLabel, mutedTextStyle, active && { color: accent, fontWeight: '900' }]}>
@@ -302,9 +295,9 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
   const returnTo = route?.params?.returnTo;
   const toast = useToast();
   const dispatch = useDispatch();
-  const { accent, bgStyle, cardStyle, textStyle, mutedTextStyle, border } = useAppTheme();
+  const { accent, bgStyle, cardStyle, textStyle, mutedTextStyle, border, card } = useAppTheme();
   const { isDarkMode } = useThemeContext();
-  const surface = isDarkMode ? withAlpha(accent, 0.1) : '#fbf8ff';
+  const surface = isDarkMode ? card : '#fbf8ff';
   const { t } = useLanguage();
 
   const [order, setOrder] = useState(null);
@@ -612,12 +605,11 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#e5ddf0',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  timelineLabel: { marginTop: 6, fontSize: 10, color: MUTED, fontWeight: '700', textAlign: 'center' },
-  timelineConnector: { flex: 1, height: 2, backgroundColor: '#e5ddf0', marginTop: 11 },
+  timelineLabel: { marginTop: 6, fontSize: 10, fontWeight: '700', textAlign: 'center' },
+  timelineConnector: { flex: 1, height: 2, marginTop: 11 },
 
   card: {
     borderWidth: 1,
@@ -663,7 +655,6 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(251,248,255,0.35)',
   },
   lineCopy: { flex: 1 },
   lineName: { fontSize: 13, fontWeight: '800' },

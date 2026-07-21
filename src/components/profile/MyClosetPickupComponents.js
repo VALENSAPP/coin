@@ -1,6 +1,20 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, StyleSheet, ScrollView, Platform } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  TextInput,
+  ActivityIndicator,
+  StyleSheet,
+  ScrollView,
+} from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import { useThemeContext } from '../../theme/ThemeContext';
+import {
+  formSurfaces,
+  selectedSurface,
+  withAlpha,
+} from '../../utils/closetTheme';
 
 export const PICKUP_CITY_OPTIONS = [
   'Los Angeles, CA',
@@ -49,15 +63,7 @@ export const getOptionValue = option =>
 export const getOptionLabel = option =>
   typeof option === 'string' ? option : option?.label || option?.value || '';
 
-export const withAlpha = (hex, alpha = 0.12) => {
-  if (!hex) return 'transparent';
-  let hexCode = hex.replace('#', '');
-  if (hexCode.length === 3) {
-    hexCode = hexCode.split('').map(c => c + c).join('');
-  }
-  const a = Math.round(alpha * 255).toString(16).padStart(2, '0');
-  return `#${hexCode}${a}`;
-};
+export { withAlpha };
 
 export const InlineError = ({ message }) => {
   if (!message) return null;
@@ -69,18 +75,21 @@ export const InlineError = ({ message }) => {
   );
 };
 
-export const ToggleSwitch = ({ value, onValueChange, accent }) => (
-  <TouchableOpacity
-    activeOpacity={0.85}
-    onPress={() => onValueChange(!value)}
-    style={[
-      styles.toggleTrack,
-      { backgroundColor: value ? accent : '#e5e7eb' },
-    ]}
-  >
-    <View style={[styles.toggleThumb, value && styles.toggleThumbActive]} />
-  </TouchableOpacity>
-);
+export const ToggleSwitch = ({ value, onValueChange, accent }) => {
+  const { isDarkMode } = useThemeContext();
+  return (
+    <TouchableOpacity
+      activeOpacity={0.85}
+      onPress={() => onValueChange(!value)}
+      style={[
+        styles.toggleTrack,
+        { backgroundColor: value ? accent : isDarkMode ? '#333333' : '#e5e7eb' },
+      ]}
+    >
+      <View style={[styles.toggleThumb, value && styles.toggleThumbActive]} />
+    </TouchableOpacity>
+  );
+};
 
 export const AdvancedDropdownRow = ({
   label,
@@ -93,22 +102,32 @@ export const AdvancedDropdownRow = ({
   text,
   error,
 }) => {
+  const { isDarkMode } = useThemeContext();
+  const surfaces = formSurfaces(isDarkMode);
   const selectedOption = options.find(item => getOptionValue(item) === value);
   const displayValue = selectedOption ? getOptionLabel(selectedOption) : value;
 
   return (
     <View style={styles.fieldBlock}>
-      <Text style={styles.fieldLabel}>{label}</Text>
+      <Text style={[styles.fieldLabel, { color: surfaces.labelColor }]}>{label}</Text>
       <TouchableOpacity
         activeOpacity={0.85}
         onPress={onToggle}
         style={[
           styles.dropdownRow,
           expanded && styles.dropdownRowActive,
-          { borderColor: error ? '#dc2626' : withAlpha(text, 0.16) },
+          {
+            backgroundColor: surfaces.inputSurface,
+            borderColor: error ? '#dc2626' : withAlpha(text, isDarkMode ? 0.35 : 0.16),
+          },
         ]}
       >
-        <Text style={[styles.dropdownText, !value && { color: '#a1a1aa' }]}>
+        <Text
+          style={[
+            styles.dropdownText,
+            { color: displayValue ? surfaces.inputText : surfaces.placeholderColor },
+          ]}
+        >
           {displayValue || placeholder}
         </Text>
         <Ionicons
@@ -119,7 +138,13 @@ export const AdvancedDropdownRow = ({
       </TouchableOpacity>
       {expanded ? (
         <ScrollView
-          style={styles.dropdownList}
+          style={[
+            styles.dropdownList,
+            {
+              backgroundColor: surfaces.listSurface,
+              borderColor: surfaces.listBorder,
+            },
+          ]}
           contentContainerStyle={styles.dropdownListContent}
           nestedScrollEnabled
           showsVerticalScrollIndicator
@@ -137,20 +162,27 @@ export const AdvancedDropdownRow = ({
                 onPress={() => onSelect(itemValue)}
                 style={[
                   styles.dropdownItem,
-                  index !== options.length - 1 && styles.dropdownItemBorder,
-                  selected && styles.dropdownItemSelected,
+                  {
+                    backgroundColor: selected
+                      ? selectedSurface(text, isDarkMode)
+                      : surfaces.listSurface,
+                  },
+                  index !== options.length - 1 && [
+                    styles.dropdownItemBorder,
+                    { borderBottomColor: surfaces.itemBorder },
+                  ],
                 ]}
               >
                 <Text
                   style={[
                     styles.dropdownItemText,
-                    selected && styles.dropdownItemTextSelected,
+                    { color: selected ? text : surfaces.inputText },
                   ]}
                 >
                   {itemLabel}
                 </Text>
                 {selected ? (
-                  <Ionicons name="checkmark" size={16} color="#4f46e5" />
+                  <Ionicons name="checkmark" size={16} color={text} />
                 ) : null}
               </TouchableOpacity>
             );
@@ -181,98 +213,127 @@ export const PlaceFieldRow = ({
   searching,
   onSelectPrediction,
   t,
-}) => (
-  <View style={styles.placeFieldBlock}>
-    <View style={styles.placeFieldTopRow}>
-      <View style={styles.placeFieldIconWrap}>
-        <Ionicons name={icon} size={17} color="#5A2386" />
+}) => {
+  const { isDarkMode } = useThemeContext();
+  const surfaces = formSurfaces(isDarkMode);
+  const borderColor = error ? '#dc2626' : withAlpha(text, isDarkMode ? 0.35 : 0.16);
+
+  return (
+    <View style={styles.placeFieldBlock}>
+      <View style={styles.placeFieldTopRow}>
+        <View style={[styles.placeFieldIconWrap, { backgroundColor: surfaces.iconBubble }]}>
+          <Ionicons name={icon} size={17} color={text} />
+        </View>
+        <Text style={[styles.placeFieldLabel, { color: surfaces.labelColor }]} numberOfLines={1}>
+          {label}
+        </Text>
+
+        {expanded ? (
+          <View
+            style={[
+              styles.placeFieldValueBox,
+              styles.placeFieldValueBoxActive,
+              { borderColor, backgroundColor: surfaces.inputSurface },
+            ]}
+          >
+            <TextInput
+              value={query}
+              onChangeText={onQueryChange}
+              placeholder={
+                t?.('myClosetShared.searchPlaceholder', { label: label.toLowerCase() }) ||
+                'Search...'
+              }
+              placeholderTextColor={surfaces.placeholderColor}
+              autoFocus
+              style={[styles.placeFieldSearchInline, { color: surfaces.inputText }]}
+            />
+            <TouchableOpacity onPress={onCollapse} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Ionicons name="chevron-up" size={16} color={surfaces.mutedColor} />
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={disabled ? undefined : onToggle}
+            style={[
+              styles.placeFieldValueBox,
+              disabled && styles.placeFieldValueBoxDisabled,
+              { borderColor, backgroundColor: surfaces.inputSurface },
+            ]}
+          >
+            <Text
+              style={[
+                styles.placeFieldValueText,
+                { color: value ? surfaces.inputText : surfaces.placeholderColor },
+              ]}
+              numberOfLines={1}
+            >
+              {value || placeholder}
+            </Text>
+            <Ionicons name="chevron-down" size={16} color={surfaces.mutedColor} />
+          </TouchableOpacity>
+        )}
+
+        {loading ? (
+          <ActivityIndicator size="small" color={text} style={styles.placeFieldCheck} />
+        ) : filled && !expanded ? (
+          <View style={styles.placeFieldCheck}>
+            <Ionicons name="checkmark-circle" size={22} color="#22c55e" />
+          </View>
+        ) : (
+          <View style={styles.placeFieldCheck} />
+        )}
       </View>
-      <Text style={styles.placeFieldLabel} numberOfLines={1}>
-        {label}
-      </Text>
 
       {expanded ? (
         <View
           style={[
-            styles.placeFieldValueBox,
-            styles.placeFieldValueBoxActive,
-            { borderColor: error ? '#dc2626' : withAlpha(text, 0.16) },
+            styles.placeFieldPredictionsBox,
+            {
+              backgroundColor: surfaces.listSurface,
+              borderColor: surfaces.listBorder,
+            },
           ]}
         >
-          <TextInput
-            value={query}
-            onChangeText={onQueryChange}
-            placeholder={t('myClosetShared.searchPlaceholder', { label: label.toLowerCase() }) || 'Search...'}
-            placeholderTextColor="#a1a1aa"
-            autoFocus
-            style={styles.placeFieldSearchInline}
-          />
-          <TouchableOpacity onPress={onCollapse} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Ionicons name="chevron-up" size={16} color="#6b7280" />
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <TouchableOpacity
-          activeOpacity={0.85}
-          onPress={disabled ? undefined : onToggle}
-          style={[
-            styles.placeFieldValueBox,
-            disabled && styles.placeFieldValueBoxDisabled,
-            { borderColor: error ? '#dc2626' : withAlpha(text, 0.16) },
-          ]}
-        >
-          <Text
-            style={[styles.placeFieldValueText, !value && { color: '#a1a1aa' }]}
-            numberOfLines={1}
-          >
-            {value || placeholder}
-          </Text>
-          <Ionicons name="chevron-down" size={16} color="#6b7280" />
-        </TouchableOpacity>
-      )}
-
-      {loading ? (
-        <ActivityIndicator size="small" color={text} style={styles.placeFieldCheck} />
-      ) : filled && !expanded ? (
-        <View style={styles.placeFieldCheck}>
-          <Ionicons name="checkmark-circle" size={22} color="#22c55e" />
-        </View>
-      ) : (
-        <View style={styles.placeFieldCheck} />
-      )}
-    </View>
-
-    {expanded ? (
-      <View style={styles.placeFieldPredictionsBox}>
-        {searching ? (
-          <View style={styles.placeFieldSearchingRow}>
-            <ActivityIndicator size="small" color="#5A2386" />
-          </View>
-        ) : null}
-        {predictions.map((item, index) => (
-          <TouchableOpacity
-            key={item.id}
-            activeOpacity={0.8}
-            onPress={() => onSelectPrediction(item)}
-            style={[
-              styles.dropdownItem,
-              index !== predictions.length - 1 && styles.dropdownItemBorder,
-            ]}
-          >
-            <Text style={styles.dropdownItemText} numberOfLines={2}>
-              {item.description}
+          {searching ? (
+            <View style={styles.placeFieldSearchingRow}>
+              <ActivityIndicator size="small" color={text} />
+            </View>
+          ) : null}
+          {predictions.map((item, index) => (
+            <TouchableOpacity
+              key={item.id}
+              activeOpacity={0.8}
+              onPress={() => onSelectPrediction(item)}
+              style={[
+                styles.dropdownItem,
+                { backgroundColor: surfaces.listSurface },
+                index !== predictions.length - 1 && [
+                  styles.dropdownItemBorder,
+                  { borderBottomColor: surfaces.itemBorder },
+                ],
+              ]}
+            >
+              <Text
+                style={[styles.dropdownItemText, { color: surfaces.inputText }]}
+                numberOfLines={2}
+              >
+                {item.description}
+              </Text>
+            </TouchableOpacity>
+          ))}
+          {!searching && query.trim().length >= 2 && predictions.length === 0 ? (
+            <Text style={[styles.placeFieldNoResults, { color: surfaces.mutedColor }]}>
+              {t?.('myClosetShared.noMatchesFound') || 'No matches found.'}
             </Text>
-          </TouchableOpacity>
-        ))}
-        {!searching && query.trim().length >= 2 && predictions.length === 0 ? (
-          <Text style={styles.placeFieldNoResults}>{t('myClosetShared.noMatchesFound') || 'No matches found.'}</Text>
-        ) : null}
-      </View>
-    ) : null}
+          ) : null}
+        </View>
+      ) : null}
 
-    <InlineError message={error} />
-  </View>
-);
+      <InlineError message={error} />
+    </View>
+  );
+};
 
 const styles = StyleSheet.create({
   fieldBlock: {
@@ -281,7 +342,6 @@ const styles = StyleSheet.create({
   fieldLabel: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#374151',
     marginBottom: 8,
   },
   placeFieldBlock: {
@@ -295,7 +355,6 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: '#f5f3ff',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
@@ -303,7 +362,6 @@ const styles = StyleSheet.create({
   placeFieldLabel: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#374151',
     marginRight: 8,
   },
   placeFieldValueBox: {
@@ -311,7 +369,6 @@ const styles = StyleSheet.create({
     minHeight: 44,
     borderRadius: 22,
     borderWidth: 1,
-    backgroundColor: '#fff',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -327,7 +384,6 @@ const styles = StyleSheet.create({
   placeFieldValueText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#111827',
     flex: 1,
     marginRight: 8,
   },
@@ -340,14 +396,11 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 40,
     fontSize: 14,
-    color: '#111827',
   },
   placeFieldPredictionsBox: {
     marginLeft: 44,
     marginTop: -1,
-    backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#e5e7eb',
     borderTopWidth: 0,
     borderBottomLeftRadius: 16,
     borderBottomRightRadius: 16,
@@ -360,14 +413,12 @@ const styles = StyleSheet.create({
   placeFieldNoResults: {
     padding: 14,
     fontSize: 13,
-    color: '#6b7280',
     textAlign: 'center',
   },
   dropdownRow: {
     minHeight: 48,
     borderRadius: 16,
     borderWidth: 1,
-    backgroundColor: '#fff',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -379,16 +430,13 @@ const styles = StyleSheet.create({
   },
   dropdownText: {
     fontSize: 15,
-    color: '#111827',
     flex: 1,
     marginRight: 10,
   },
   dropdownList: {
     maxHeight: 150,
-    backgroundColor: '#fff',
     borderWidth: 1,
     borderTopWidth: 0,
-    borderColor: '#e5e7eb',
     borderBottomLeftRadius: 16,
     borderBottomRightRadius: 16,
   },
@@ -396,27 +444,19 @@ const styles = StyleSheet.create({
     flexGrow: 0,
   },
   dropdownItem: {
-    minHeight: 48,
+    minHeight: 44,
     paddingHorizontal: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#fff',
   },
   dropdownItemBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
-  },
-  dropdownItemSelected: {
-    backgroundColor: '#f5f3ff',
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   dropdownItemText: {
     fontSize: 14,
-    color: '#111827',
     fontWeight: '600',
-  },
-  dropdownItemTextSelected: {
-    color: '#4f46e5',
+    flex: 1,
   },
   toggleTrack: {
     width: 44,

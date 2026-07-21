@@ -3,6 +3,8 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image, Alert, Act
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useThemeContext } from '../../theme/ThemeContext';
+import { formSurfaces, themedCard, withAlpha } from '../../utils/closetTheme';
 import { normalizeProfileType } from '../../utils/supportEligibility';
 import { useLanguage } from '../../i18n';
 import useScreenshotProtection from '../../hooks/useScreenshotProtection';
@@ -204,16 +206,24 @@ const EbookDetailScreen = () => {
     routeUserData?.profile || ebook?.profile,
   );
   const {
+    bg,
     bgStyle,
     text,
     textStyle,
+    card,
     cardStyle,
     border,
     mutedText,
     mutedTextStyle,
     accent,
-    icon,
   } = useAppTheme(profileThemeType === 'company' ? 'company' : 'user');
+  const { isDarkMode } = useThemeContext();
+  const surfaces = formSurfaces(isDarkMode);
+  const brandAccent = accent || '#5A2D82';
+  const primaryText = text || (isDarkMode ? '#ffffff' : '#111827');
+  const muted = mutedText || surfaces.mutedColor;
+  const surface = card || surfaces.listSurface;
+  const surfaceBorder = border || surfaces.listBorder;
   const { t } = useLanguage();
   const toast = useToast();
   const [isDownloading, setIsDownloading] = useState(false);
@@ -674,9 +684,9 @@ const EbookDetailScreen = () => {
         <View style={styles.headerRow}>
           <TouchableOpacity
             onPress={handleBackPress}
-            style={[styles.backBtn, cardStyle, { borderColor: border, borderWidth: StyleSheet.hairlineWidth }]}
+            style={[styles.backBtn, cardStyle, { borderColor: surfaceBorder, borderWidth: StyleSheet.hairlineWidth }]}
           >
-            <Ionicons name="arrow-back" size={20} color={icon} />
+            <Ionicons name="arrow-back" size={20} color={primaryText} />
           </TouchableOpacity>
           <View style={styles.authorWrap}>
             <View style={styles.avatarStack}>
@@ -689,15 +699,21 @@ const EbookDetailScreen = () => {
               <Text style={[styles.metaText, mutedTextStyle]}>{createdAt}</Text>
             </View>
             {!fromEbookPublisher && !fromMyClosetShopFront && !fromAllEbooksScreen ? (
-              <View style={[styles.subscriberPill, bgStyle, {borderColor: text}]}>
-                <Text style={[styles.subscriberPillText,{color:text}]}>Subscribers</Text>
+              <View style={[styles.subscriberPill, cardStyle, { borderColor: surfaceBorder }]}>
+                <Text style={[styles.subscriberPillText, textStyle]}>Subscribers</Text>
               </View>
             ) : null}
             {isOwner ? (
               <View>
                 <TouchableOpacity
                   onPress={handleDelete}
-                  style={styles.deleteButton}
+                  style={[
+                    styles.deleteButton,
+                    {
+                      backgroundColor: isDarkMode ? withAlpha('#DC2626', 0.15) : '#FEE2E2',
+                      borderColor: isDarkMode ? withAlpha('#DC2626', 0.4) : '#FCA5A5',
+                    },
+                  ]}
                 >
                   <Ionicons
                     name="trash-outline"
@@ -714,12 +730,12 @@ const EbookDetailScreen = () => {
           {description}
         </Text>
 
-        <View style={[styles.previewCard, cardStyle, { borderColor: border }]}>
+        <View style={[styles.previewCard, themedCard(surface, surfaceBorder)]}>
           <View style={styles.cardLeft}>
             {coverImage ? (
               <Image source={{ uri: coverImage }} style={styles.cover} resizeMode="cover" />
             ) : (
-              <View style={[styles.cover, { backgroundColor: accent }]}>
+              <View style={[styles.cover, { backgroundColor: brandAccent }]}>
                 <Text style={styles.coverText} numberOfLines={3}>{title}</Text>
                 <Text style={styles.coverSub}>E-book</Text>
                 <Text style={styles.coverAuthor}>{userName.toUpperCase()}</Text>
@@ -733,14 +749,37 @@ const EbookDetailScreen = () => {
               {description}
             </Text>
             <View style={styles.metricsRow}>
-              <Text style={[styles.metric, { color: text }]}>📚 {chapters.length} Chapters</Text>
+              <Text style={[styles.metric, textStyle]}>📚 {chapters.length} Chapters</Text>
             </View>
           </View>
         </View>
 
+        {chapters.length > 0 ? (
+          <View style={[styles.chaptersCard, themedCard(surface, surfaceBorder)]}>
+            <Text style={[styles.sectionTitle, textStyle]}>Table of Contents</Text>
+            {chapters.map((ch, idx) => (
+              <View
+                key={`${idx}-${ch}`}
+                style={[
+                  styles.learnItem,
+                  idx < chapters.length - 1 && {
+                    borderBottomWidth: StyleSheet.hairlineWidth,
+                    borderBottomColor: surfaces.itemBorder,
+                  },
+                ]}
+              >
+                <Ionicons name="bookmark-outline" size={14} color={brandAccent} style={styles.chapterIcon} />
+                <Text style={[styles.chapterText, mutedTextStyle]}>
+                  {idx + 1}. {ch}
+                </Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+
         {allowDownload && (
           <TouchableOpacity
-            style={[styles.downloadButton, { backgroundColor: accent }]}
+            style={[styles.downloadButton, { backgroundColor: brandAccent }]}
             onPress={handleDownloadPdf}
             disabled={isDownloading}
           >
@@ -749,18 +788,18 @@ const EbookDetailScreen = () => {
             ) : (
               <>
                 <Ionicons name="download-outline" size={16} color="#fff" />
-                <Text style={[styles.downloadButtonText]}>Download PDF</Text>
+                <Text style={styles.downloadButtonText}>Download PDF</Text>
               </>
             )}
           </TouchableOpacity>
         )}
 
         <TouchableOpacity
-          style={[styles.readButton, { backgroundColor: accent, borderColor: accent }]}
+          style={[styles.readButton, { backgroundColor: brandAccent, borderColor: brandAccent }]}
           onPress={handleReadBook}
         >
           <Ionicons name="book-outline" size={16} color="#fff" />
-          <Text style={[styles.readButtonText, { color: '#fff' }]}>Read e-book</Text>
+          <Text style={styles.readButtonText}>Read e-book</Text>
         </TouchableOpacity>
 
         {!fromEbookPublisher && !fromMyClosetShopFront && !fromAllEbooksScreen ? (
@@ -772,12 +811,12 @@ const EbookDetailScreen = () => {
               <Ionicons
                 name={isLiked ? 'heart' : 'heart-outline'}
                 size={25}
-                color={isLiked ? '#ef4444' : mutedText}
+                color={isLiked ? '#ef4444' : muted}
               />
               <Text style={[styles.actionCount, mutedTextStyle]}>{likes}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.actionBtn} onPress={handleOpenComments}>
-              <Ionicons name="chatbubble-outline" size={25} color={mutedText} />
+              <Ionicons name="chatbubble-outline" size={25} color={muted} />
               <Text style={[styles.actionCount, mutedTextStyle]}>{comments}</Text>
             </TouchableOpacity>
             <View style={styles.actionSpacer} />
@@ -788,7 +827,7 @@ const EbookDetailScreen = () => {
               <Ionicons
                 name={isSaved ? 'bookmark' : 'bookmark-outline'}
                 size={25}
-                color={isSaved ? accent : mutedText}
+                color={isSaved ? brandAccent : muted}
               />
             </TouchableOpacity>
           </View>
@@ -803,9 +842,12 @@ const EbookDetailScreen = () => {
         closeOnPressMask={true}
         customModalProps={{ statusBarTranslucent: true }}
         customStyles={{
-          container: [styles.commentSheetContainer, bgStyle],
+          container: [
+            styles.commentSheetContainer,
+            { backgroundColor: isDarkMode ? bg || '#121212' : '#fff' },
+          ],
           draggableIcon: {
-            backgroundColor: '#ccc',
+            backgroundColor: surfaceBorder,
             width: 60,
           },
         }}
@@ -975,7 +1017,13 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     marginRight:10,
   },
-  sectionTitle: { fontSize: 15, fontWeight: '800', color: '#111827', marginBottom: 10, marginTop: 6 },
+  sectionTitle: { fontSize: 15, fontWeight: '800', marginBottom: 10, marginTop: 6 },
+  chaptersCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 12,
+    marginTop: 14,
+  },
   learnList: {
     paddingBottom: 14,
   },
@@ -984,29 +1032,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 7,
   },
+  chapterIcon: {
+    marginRight: 8,
+  },
   learnBullet: {
     width: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: '#5A2D82',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
   },
-  chapterText: { fontSize: 13, color: '#1F2937', fontWeight: '600', flex: 1 },
+  chapterText: { fontSize: 13, fontWeight: '600', flex: 1 },
   commentBox: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#ececec',
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 8,
     marginTop: 10,
-    backgroundColor: '#fff',
   },
   commentAvatar: { width: 26, height: 26, borderRadius: 13, marginRight: 10 },
-  commentPlaceholder: { flex: 1, color: '#9ca3af', fontSize: 13 },
+  commentPlaceholder: { flex: 1, fontSize: 13 },
   sendBtn: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
   commentSheetContainer: {
     borderTopLeftRadius: 18,
@@ -1016,12 +1064,10 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#FEE2E2',
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 10,
     borderWidth: 1,
-    borderColor: '#FCA5A5',
     shadowColor: '#DC2626',
     shadowOffset: {
       width: 0,

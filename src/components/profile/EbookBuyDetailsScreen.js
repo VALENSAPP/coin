@@ -2,16 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useThemeContext } from '../../theme/ThemeContext';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { getMarketplaceEbookById } from '../../services/post';
-
-const themeStyles = {
-  purple: { bg: '#5A2D82', tint: '#EDE3FA' },
-  sand: { bg: '#C08B47', tint: '#FFF1D9' },
-  forest: { bg: '#274C3A', tint: '#DDEFE3' },
-  gold: { bg: '#8A6B1C', tint: '#F8EBC2' },
-  ink: { bg: '#1F2937', tint: '#E5E7EB' },
-};
+import { formSurfaces, themedCard } from '../../utils/closetTheme';
 
 const getCoverImage = (item) => {
   if (!item) return null;
@@ -64,8 +58,14 @@ const EbookBuyDetailsScreen = () => {
 
   const currentEbook = loadedEbook || ebook;
 
-  const { bgStyle, textStyle, text } = useAppTheme(userData?.profile);
-  const accentColor = text || '#5A2D82';
+  const { bgStyle, text, card, border, mutedText, accent, bg } = useAppTheme(userData?.profile);
+  const { isDarkMode } = useThemeContext();
+  const surfaces = formSurfaces(isDarkMode);
+  const brandAccent = accent || '#5A2D82';
+  const primaryText = text || (isDarkMode ? '#ffffff' : '#111827');
+  const muted = mutedText || surfaces.mutedColor;
+  const surface = card || surfaces.listSurface;
+  const surfaceBorder = border || surfaces.listBorder;
 
   const coverImage = getCoverImage(currentEbook);
   const title = currentEbook?.caption || currentEbook?.title || 'E-book';
@@ -83,7 +83,6 @@ const EbookBuyDetailsScreen = () => {
     userData?.displayName ||
     'Unknown Author';
   const description = getDescription(currentEbook);
-  const palette = themeStyles[currentEbook?.theme] || themeStyles.purple;
 
   const priceLabel = currentEbook?.amount != null ? `$${parseFloat(currentEbook.amount).toFixed(2)}` : 'Free';
   const chapterCount = currentEbook?.tableContent?.length || 4;
@@ -98,23 +97,21 @@ const EbookBuyDetailsScreen = () => {
 
   return (
     <View style={[styles.screen, bgStyle]}>
-      {/* Header */}
       <View style={styles.headerRow}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={22} color="#111827" />
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} hitSlop={10}>
+          <Ionicons name="arrow-back" size={22} color={primaryText} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, textStyle]}>E-book Details</Text>
-        <Text style={styles.cartBadgeText} />
+        <Text style={[styles.headerTitle, { color: primaryText }]}>E-book Details</Text>
+        <View style={styles.headerSpacer} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Cover Preview */}
         <View style={styles.coverWrapper}>
-          <View style={[styles.coverShadow, { shadowColor: accentColor }]}>
+          <View style={[styles.coverShadow, { shadowColor: brandAccent, backgroundColor: surface }]}>
             {coverImage ? (
               <Image source={{ uri: coverImage }} style={styles.coverImage} resizeMode="cover" />
             ) : (
-              <View style={[styles.fallbackCover, { backgroundColor: text }]}>
+              <View style={[styles.fallbackCover, { backgroundColor: brandAccent }]}>
                 <Text style={styles.fallbackTitle}>{title}</Text>
                 <Text style={styles.fallbackAuthor}>{author.toUpperCase()}</Text>
               </View>
@@ -122,56 +119,58 @@ const EbookBuyDetailsScreen = () => {
           </View>
         </View>
 
-        {/* Ebook Info */}
         <View style={styles.infoWrapper}>
-          <Text style={[styles.titleText, textStyle]}>{title}</Text>
-          <Text style={styles.authorText}>by {author}</Text>
+          <Text style={[styles.titleText, { color: primaryText }]}>{title}</Text>
+          <Text style={[styles.authorText, { color: muted }]}>by {author}</Text>
+          <Text style={[styles.descriptionText, { color: muted }]}>{description}</Text>
 
-          {/* Description */}
-          <Text style={styles.descriptionText}>{description}</Text>
-
-          {/* Chapters List */}
           {ebook?.tableContent && ebook.tableContent.length > 0 && (
             <View style={styles.chaptersWrapper}>
-              <Text style={[styles.chaptersTitle, textStyle]}>Table of Contents</Text>
+              <Text style={[styles.chaptersTitle, { color: primaryText }]}>Table of Contents</Text>
               {ebook.tableContent.map((ch, idx) => (
                 <View key={idx} style={styles.chapterItem}>
-                  <Ionicons name="bookmark-outline" size={14} color={accentColor} style={styles.chapterIcon} />
-                  <Text style={styles.chapterText}>{idx + 1}. {ch}</Text>
+                  <Ionicons name="bookmark-outline" size={14} color={brandAccent} style={styles.chapterIcon} />
+                  <Text style={[styles.chapterText, { color: muted }]}>{idx + 1}. {ch}</Text>
                 </View>
               ))}
             </View>
           )}
 
-          {/* Stats Row */}
           <View style={styles.statsRow}>
-            <View style={styles.statCard}>
-              <Ionicons name="document-text-outline" size={20} color={accentColor} />
-              <Text style={styles.statLabel}>Pages</Text>
-              <Text style={[styles.statValue, textStyle]}>{chapterCount * 8} approx</Text>
+            <View style={[styles.statCard, themedCard(surface, surfaceBorder)]}>
+              <Ionicons name="document-text-outline" size={20} color={brandAccent} />
+              <Text style={[styles.statLabel, { color: muted }]}>Pages</Text>
+              <Text style={[styles.statValue, { color: primaryText }]}>{chapterCount * 8} approx</Text>
             </View>
-            <View style={styles.statCard}>
-              <Ionicons name="globe-outline" size={20} color={accentColor} />
-              <Text style={styles.statLabel}>Language</Text>
-              <Text style={[styles.statValue, textStyle]}>English</Text>
+            <View style={[styles.statCard, themedCard(surface, surfaceBorder)]}>
+              <Ionicons name="globe-outline" size={20} color={brandAccent} />
+              <Text style={[styles.statLabel, { color: muted }]}>Language</Text>
+              <Text style={[styles.statValue, { color: primaryText }]}>English</Text>
             </View>
-            <View style={styles.statCard}>
-              <Ionicons name="download-outline" size={20} color={accentColor} />
-              <Text style={styles.statLabel}>Format</Text>
-              <Text style={[styles.statValue, textStyle]}>PDF</Text>
+            <View style={[styles.statCard, themedCard(surface, surfaceBorder)]}>
+              <Ionicons name="download-outline" size={20} color={brandAccent} />
+              <Text style={[styles.statLabel, { color: muted }]}>Format</Text>
+              <Text style={[styles.statValue, { color: primaryText }]}>PDF</Text>
             </View>
           </View>
         </View>
       </ScrollView>
 
-      {/* Bottom Purchase Bar */}
-      <View style={styles.bottomBar}>
+      <View
+        style={[
+          styles.bottomBar,
+          {
+            backgroundColor: isDarkMode ? bg || '#121212' : '#fff',
+            borderTopColor: surfaceBorder,
+          },
+        ]}
+      >
         <View style={styles.priceContainer}>
-          <Text style={styles.priceLabelLabel}>Price</Text>
-          <Text style={[styles.priceValueText, { color: accentColor }]}>{priceLabel}</Text>
+          <Text style={[styles.priceLabelLabel, { color: muted }]}>Price</Text>
+          <Text style={[styles.priceValueText, { color: primaryText }]}>{priceLabel}</Text>
         </View>
         <TouchableOpacity
-          style={[styles.buyBtn, { backgroundColor: accentColor }]}
+          style={[styles.buyBtn, { backgroundColor: brandAccent }]}
           onPress={handleBuyNow}
           activeOpacity={0.88}
         >
@@ -185,7 +184,7 @@ const EbookBuyDetailsScreen = () => {
 export default EbookBuyDetailsScreen;
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#fff', paddingTop: '10%' },
+  screen: { flex: 1, paddingTop: '10%' },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -193,20 +192,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
-  backBtn: { padding: 4 },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: '#111827' },
-  cartBtn: { padding: 4, position: 'relative' },
-  cartBadge: {
-    position: 'absolute',
-    top: -2,
-    right: -2,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cartBadgeText: { color: '#fff', fontSize: 9, fontWeight: '900' },
+  backBtn: { padding: 4, width: 30 },
+  headerTitle: { fontSize: 20, fontWeight: '800' },
+  headerSpacer: { width: 30 },
   scrollContent: { paddingHorizontal: 16, paddingBottom: 100 },
   coverWrapper: {
     alignItems: 'center',
@@ -216,7 +204,6 @@ const styles = StyleSheet.create({
     width: 200,
     height: 280,
     borderRadius: 16,
-    backgroundColor: '#f3f4f6',
     shadowOpacity: 0.15,
     shadowRadius: 20,
     shadowOffset: { width: 0, height: 10 },
@@ -254,34 +241,15 @@ const styles = StyleSheet.create({
   titleText: {
     fontSize: 22,
     fontWeight: '900',
-    color: '#111827',
     marginBottom: 4,
   },
   authorText: {
     fontSize: 14,
-    color: '#6b7280',
     fontWeight: '600',
     marginBottom: 10,
   },
-  ratingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  ratingText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#111827',
-    marginLeft: 4,
-  },
-  reviewsText: {
-    fontSize: 14,
-    color: '#6b7280',
-    fontWeight: '600',
-  },
   descriptionText: {
     fontSize: 14,
-    color: '#4b5563',
     lineHeight: 22,
     marginBottom: 24,
   },
@@ -291,7 +259,6 @@ const styles = StyleSheet.create({
   chaptersTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#111827',
     marginBottom: 10,
   },
   chapterItem: {
@@ -304,7 +271,6 @@ const styles = StyleSheet.create({
   },
   chapterText: {
     fontSize: 13,
-    color: '#374151',
     fontWeight: '600',
   },
   statsRow: {
@@ -317,15 +283,12 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#E8E1F3',
     borderRadius: 12,
     paddingVertical: 12,
   },
   statLabel: {
     fontSize: 11,
-    color: '#6b7280',
     fontWeight: '600',
     marginTop: 4,
     marginBottom: 2,
@@ -333,7 +296,6 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#111827',
   },
   bottomBar: {
     position: 'absolute',
@@ -341,9 +303,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 80,
-    backgroundColor: '#fff',
     borderTopWidth: 1,
-    borderTopColor: '#f3f4f6',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -359,7 +319,6 @@ const styles = StyleSheet.create({
   },
   priceLabelLabel: {
     fontSize: 12,
-    color: '#6b7280',
     fontWeight: '700',
   },
   priceValueText: {

@@ -16,6 +16,7 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
 import { useToast } from 'react-native-toast-notifications';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useThemeContext } from '../../theme/ThemeContext';
 import { useLanguage } from '../../i18n';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import {
@@ -26,6 +27,7 @@ import {
   getMarketplaceBattleBoostPackages,
 } from '../../services/myCloset';
 import { Header, CHALLENGE_ITEMS } from './MyClosetBattleScreens';
+import { formSurfaces, selectedSurface, themedCard } from '../../utils/closetTheme';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 
 const PURPLE = '#5B2FB5';
@@ -86,16 +88,20 @@ const fastImageSource = uri =>
       }
     : null;
 
-const ActionRow = ({ icon, title, subtitle, accent, onPress, cardBg }) => (
-  <TouchableOpacity activeOpacity={0.85} onPress={onPress} style={[styles.actionRow, { backgroundColor: cardBg || '#fff' }]}>
+const ActionRow = ({ icon, title, subtitle, accent, onPress, cardBg, titleColor, borderColor, mutedColor }) => (
+  <TouchableOpacity
+    activeOpacity={0.85}
+    onPress={onPress}
+    style={[styles.actionRow, themedCard(cardBg, borderColor), { backgroundColor: cardBg || '#fff' }]}
+  >
     <View style={[styles.actionIcon, { backgroundColor: `${accent}1A` }]}>
       <Ionicons name={icon} size={20} color={accent} />
     </View>
     <View style={{ flex: 1 }}>
-      <Text style={[styles.actionTitle, { color: TEXT }]}>{title}</Text>
-      <Text style={styles.actionSubtitle}>{subtitle}</Text>
+      <Text style={[styles.actionTitle, { color: titleColor || TEXT }]}>{title}</Text>
+      <Text style={[styles.actionSubtitle, mutedColor && { color: mutedColor }]}>{subtitle}</Text>
     </View>
-    <Ionicons name="chevron-forward" size={18} color={MUTED} />
+    <Ionicons name="chevron-forward" size={18} color={mutedColor || MUTED} />
   </TouchableOpacity>
 );
 
@@ -105,7 +111,11 @@ const ActionRow = ({ icon, title, subtitle, accent, onPress, cardBg }) => (
  * winning item stays visible while the user decides what to do next.
  */
 export function BattleInsightsActionsScreen({ navigation, route }) {
-  const { bgStyle, text, card, bg } = useAppTheme();
+  const { bgStyle, text, card, bg, border, mutedText } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const surfaces = formSurfaces(isDarkMode);
+  const subtleMuted = mutedText || surfaces.mutedColor;
+  const surface = card || surfaces.listSurface;
   const { t } = useLanguage();
   const accent = text || PURPLE;
   const winnerItem = route?.params?.winnerItem || {
@@ -120,14 +130,14 @@ export function BattleInsightsActionsScreen({ navigation, route }) {
     <View style={[styles.screen, bgStyle, { backgroundColor: bg || SOFT_BG }]}>
       <Header title={t('battleInsights.headerTitle')} onBack={() => navigation.goBack()} accentColor={accent} titleColor={text || TEXT} rightIcon="ellipsis-horizontal" />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={[styles.winnerCard, { backgroundColor: card || '#fff' }]}>
+        <View style={[styles.winnerCard, themedCard(surface, border || surfaces.listBorder)]}>
           <FastImage source={fastImageSource(winnerItem.image)} style={styles.winnerImage} resizeMode={FastImage.resizeMode.cover} />
           <View style={{ flex: 1 }}>
-            <View style={[styles.winnerPill, { backgroundColor: '#FDE68A' }]}>
+            <View style={[styles.winnerPill, { backgroundColor: isDarkMode ? 'rgba(253,230,138,0.92)' : '#FDE68A' }]}>
               <Text style={styles.winnerPillText}>🏆 {t('battleInsights.winner')}</Text>
             </View>
             <Text style={[styles.winnerName, { color: text || TEXT }]}>{winnerItem.name}</Text>
-            <Text style={styles.winnerPrice}>{winnerItem.price}</Text>
+            <Text style={[styles.winnerPrice, { color: subtleMuted }]}>{winnerItem.price}</Text>
           </View>
         </View>
 
@@ -136,7 +146,10 @@ export function BattleInsightsActionsScreen({ navigation, route }) {
         <ActionRow
           icon="rocket-outline"
           accent={accent}
-          cardBg={card}
+          cardBg={surface}
+          borderColor={border || surfaces.listBorder}
+          mutedColor={subtleMuted}
+          titleColor={text}
           title={t('battleInsights.boostTitle')}
           subtitle={t('battleInsights.boostSubtitle')}
           onPress={() => navigation.navigate('BoostWinningItem', { winnerItem, battleId })}
@@ -144,7 +157,10 @@ export function BattleInsightsActionsScreen({ navigation, route }) {
         <ActionRow
           icon="pricetag-outline"
           accent={accent}
-          cardBg={card}
+          cardBg={surface}
+          borderColor={border || surfaces.listBorder}
+          mutedColor={subtleMuted}
+          titleColor={text}
           title={t('battleInsights.promotionTitle')}
           subtitle={t('battleInsights.promotionSubtitle')}
           onPress={() => navigation.navigate('CreateWinnerPromotion', { winnerItem, battleId })}
@@ -152,7 +168,10 @@ export function BattleInsightsActionsScreen({ navigation, route }) {
         <ActionRow
           icon="flash-outline"
           accent={accent}
-          cardBg={card}
+          cardBg={surface}
+          borderColor={border || surfaces.listBorder}
+          mutedColor={subtleMuted}
+          titleColor={text}
           title={t('battleInsights.challengeTitle')}
           subtitle={t('battleInsights.challengeSubtitle')}
           onPress={() =>
@@ -174,7 +193,12 @@ export function BattleInsightsActionsScreen({ navigation, route }) {
 /* ----------------------------- Boost flow ----------------------------- */
 
 export function BoostWinningItemScreen({ navigation, route }) {
-  const { bgStyle, text, card, bg } = useAppTheme();
+  const { bgStyle, text, card, bg, border, mutedText } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const surfaces = formSurfaces(isDarkMode);
+  const idleSurface = card || surfaces.inputSurface;
+  const subtleMuted = mutedText || surfaces.mutedColor;
+  const surface = card || surfaces.listSurface;
   const { t } = useLanguage();
   const accent = text || PURPLE;
   const winnerItem = route?.params?.winnerItem;
@@ -229,26 +253,26 @@ export function BoostWinningItemScreen({ navigation, route }) {
     <View style={[styles.screen, bgStyle, { backgroundColor: bg || SOFT_BG }]}>
       <Header title={t('boost.headerTitle')} onBack={() => navigation.goBack()} accentColor={accent} titleColor={text || TEXT} />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <Text style={styles.sectionHint}>{t('boost.headerHint')}</Text>
+        <Text style={[styles.sectionHint, { color: subtleMuted }]}>{t('boost.headerHint')}</Text>
 
-        <View style={[styles.toggleRow, { backgroundColor: card || '#fff' }]}>
+        <View style={[styles.toggleRow, themedCard(surface, border || surfaces.listBorder)]}>
           <View style={{ flex: 1 }}>
             <Text style={[styles.toggleTitle, { color: text || TEXT }]}>{t('boost.badgeTitle')}</Text>
-            <Text style={styles.toggleSub}>{t('boost.badgeSubtitle')}</Text>
+            <Text style={[styles.toggleSub, { color: subtleMuted }]}>{t('boost.badgeSubtitle')}</Text>
           </View>
-          <Switch value={showBadge} onValueChange={setShowBadge} thumbColor="#fff" trackColor={{ true: accent, false: '#D8CBEF' }} />
+          <Switch value={showBadge} onValueChange={setShowBadge} thumbColor="#fff" trackColor={{ true: accent, false: isDarkMode ? '#333333' : '#D8CBEF' }} />
         </View>
 
-        <View style={[styles.toggleRow, { backgroundColor: card || '#fff' }]}>
+        <View style={[styles.toggleRow, themedCard(surface, border || surfaces.listBorder)]}>
           <View style={{ flex: 1 }}>
             <Text style={[styles.toggleTitle, { color: text || TEXT }]}>{t('boost.pinTitle')}</Text>
-            <Text style={styles.toggleSub}>{t('boost.pinSubtitle')}</Text>
+            <Text style={[styles.toggleSub, { color: subtleMuted }]}>{t('boost.pinSubtitle')}</Text>
           </View>
-          <Switch value={pinOnTop} onValueChange={setPinOnTop} thumbColor="#fff" trackColor={{ true: accent, false: '#D8CBEF' }} />
+          <Switch value={pinOnTop} onValueChange={setPinOnTop} thumbColor="#fff" trackColor={{ true: accent, false: isDarkMode ? '#333333' : '#D8CBEF' }} />
         </View>
 
         <Text style={[styles.sectionLabel, { color: text || TEXT }]}>{t('boost.packageTitle')}</Text>
-        {loadingPackages ? <Text style={styles.sectionHint}>{t('boost.loading') || 'Loading packages...'}</Text> : null}
+        {loadingPackages ? <Text style={[styles.sectionHint, { color: subtleMuted }]}>{t('boost.loading') || 'Loading packages...'}</Text> : null}
         {error ? <Text style={[styles.sectionHint, { color: '#C2410C' }]}>{error}</Text> : null}
         <View style={styles.packageRow}>
           {packages.map(p => {
@@ -258,11 +282,15 @@ export function BoostWinningItemScreen({ navigation, route }) {
                 key={p.id}
                 activeOpacity={0.9}
                 onPress={() => setSelectedPackage(p.id)}
-                style={[styles.packageCard, { backgroundColor: card || '#fff' }, selected && { borderColor: accent, backgroundColor: '#F7F2FF' }]}
+                style={[
+                  styles.packageCard,
+                  { backgroundColor: idleSurface, borderColor: border || surfaces.listBorder },
+                  selected && { borderColor: accent, backgroundColor: selectedSurface(accent, isDarkMode) },
+                ]}
               >
                 <Text style={[styles.packageDays, { color: text || TEXT }]}>{t('boost.days', { count: p.days })}</Text>
                 <Text style={[styles.packagePrice, { color: accent }]}>{p.priceLabel}</Text>
-                <Text style={styles.packageViews}>{p.viewsLabel}</Text>
+                <Text style={[styles.packageViews, { color: subtleMuted }]}>{p.viewsLabel}</Text>
               </TouchableOpacity>
             );
           })}
@@ -291,7 +319,12 @@ export function BoostWinningItemScreen({ navigation, route }) {
 }
 
 export function ReviewBoostScreen({ navigation, route }) {
-  const { bgStyle, text, card, bg } = useAppTheme();
+  const { bgStyle, text, card, bg, border, mutedText } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const surfaces = formSurfaces(isDarkMode);
+  const subtleMuted = mutedText || surfaces.mutedColor;
+  const surface = card || surfaces.listSurface;
+  const rowBorder = isDarkMode ? (border || surfaces.listBorder) : '#F1E8FB';
   const { t } = useLanguage();
   const toast = useToast();
   const accent = text || PURPLE;
@@ -379,37 +412,37 @@ export function ReviewBoostScreen({ navigation, route }) {
     <View style={[styles.screen, bgStyle, { backgroundColor: bg || SOFT_BG }]}>
       <Header title={t('boost.reviewTitle')} onBack={() => navigation.goBack()} accentColor={accent} titleColor={text || TEXT} />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={[styles.reviewItemCard, { backgroundColor: card || '#fff' }]}>
+        <View style={[styles.reviewItemCard, themedCard(surface, border || surfaces.listBorder)]}>
           <FastImage source={fastImageSource(winnerItem?.image)} style={styles.winnerImage} resizeMode={FastImage.resizeMode.cover} />
           <View style={{ flex: 1 }}>
             <Text style={[styles.winnerName, { color: text || TEXT }]}>{winnerItem?.name}</Text>
-            <Text style={styles.winnerPrice}>{winnerItem?.price}</Text>
+            <Text style={[styles.winnerPrice, { color: subtleMuted }]}>{winnerItem?.price}</Text>
           </View>
         </View>
 
-        <View style={[styles.reviewBlock, { backgroundColor: card || '#fff' }]}>
-          <View style={styles.reviewRow}>
-            <Text style={styles.reviewLabel}>{t('boost.badgeTitle')}</Text>
+        <View style={[styles.reviewBlock, themedCard(surface, border || surfaces.listBorder)]}>
+          <View style={[styles.reviewRow, { borderBottomColor: rowBorder }]}>
+            <Text style={[styles.reviewLabel, { color: subtleMuted }]}>{t('boost.badgeTitle')}</Text>
             <Text style={[styles.reviewValue, { color: accent }]}>{showBadge ? `✓ ${t('boost.on')}` : t('boost.off')}</Text>
           </View>
-          <View style={styles.reviewRow}>
-            <Text style={styles.reviewLabel}>{t('boost.pinTitle')}</Text>
+          <View style={[styles.reviewRow, { borderBottomColor: rowBorder }]}>
+            <Text style={[styles.reviewLabel, { color: subtleMuted }]}>{t('boost.pinTitle')}</Text>
             <Text style={[styles.reviewValue, { color: accent }]}>{pinOnTop ? `✓ ${t('boost.on')}` : t('boost.off')}</Text>
           </View>
-          <View style={styles.reviewRow}>
-            <Text style={styles.reviewLabel}>{t('boost.packageLabel')}</Text>
+          <View style={[styles.reviewRow, { borderBottomColor: rowBorder }]}>
+            <Text style={[styles.reviewLabel, { color: subtleMuted }]}>{t('boost.packageLabel')}</Text>
             <Text style={[styles.reviewValue, { color: text || TEXT }]}>{t('boost.days', { count: pkg.days })}</Text>
           </View>
-          <View style={styles.reviewRow}>
-            <Text style={styles.reviewLabel}>{t('boost.estimatedViews')}</Text>
+          <View style={[styles.reviewRow, { borderBottomColor: rowBorder }]}>
+            <Text style={[styles.reviewLabel, { color: subtleMuted }]}>{t('boost.estimatedViews')}</Text>
             <Text style={[styles.reviewValue, { color: text || TEXT }]}>{pkg.viewsLabel}</Text>
           </View>
-          <View style={styles.reviewRow}>
-            <Text style={styles.reviewLabel}>{t('boost.starts')}</Text>
+          <View style={[styles.reviewRow, { borderBottomColor: rowBorder }]}>
+            <Text style={[styles.reviewLabel, { color: subtleMuted }]}>{t('boost.starts')}</Text>
             <Text style={[styles.reviewValue, { color: text || TEXT }]}>{t('boost.immediately')}</Text>
           </View>
-          <View style={styles.reviewRow}>
-            <Text style={styles.reviewLabel}>{t('boost.total')}</Text>
+          <View style={[styles.reviewRow, { borderBottomColor: rowBorder, borderBottomWidth: 0 }]}>
+            <Text style={[styles.reviewLabel, { color: subtleMuted }]}>{t('boost.total')}</Text>
             <Text style={[styles.reviewValue, { color: accent, fontSize: 16 }]}>{pkg.priceLabel}</Text>
           </View>
         </View>
@@ -427,7 +460,11 @@ export function ReviewBoostScreen({ navigation, route }) {
 /* --------------------------- Promotion flow ---------------------------- */
 
 export function CreateWinnerPromotionScreen({ navigation, route }) {
-  const { bgStyle, text, card, bg } = useAppTheme();
+  const { bgStyle, text, card, bg, border, mutedText } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const surfaces = formSurfaces(isDarkMode);
+  const idleSurface = card || surfaces.inputSurface;
+  const subtleMuted = mutedText || surfaces.mutedColor;
   const { t } = useLanguage();
   const accent = text || PURPLE;
   const winnerItem = route?.params?.winnerItem;
@@ -446,14 +483,18 @@ export function CreateWinnerPromotionScreen({ navigation, route }) {
               key={promo.id}
               activeOpacity={0.9}
               onPress={() => setSelectedType(promo.id)}
-              style={[styles.promoTypeCard, { backgroundColor: card || '#fff' }, selected && { borderColor: accent, backgroundColor: '#F7F2FF' }]}
+              style={[
+                styles.promoTypeCard,
+                { backgroundColor: idleSurface, borderColor: border || surfaces.listBorder },
+                selected && { borderColor: accent, backgroundColor: selectedSurface(accent, isDarkMode) },
+              ]}
             >
               <View style={[styles.actionIcon, { backgroundColor: `${accent}1A` }]}>
                 <Ionicons name={promo.icon} size={18} color={accent} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.promoTypeTitle, { color: text || TEXT }]}>{t(`promotion.types.${promo.id}.title`)}</Text>
-                <Text style={styles.promoTypeSub}>{t(`promotion.types.${promo.id}.subtitle`)}</Text>
+                <Text style={[styles.promoTypeSub, { color: subtleMuted }]}>{t(`promotion.types.${promo.id}.subtitle`)}</Text>
               </View>
               {selected ? <Ionicons name="checkmark-circle" size={20} color={accent} /> : null}
             </TouchableOpacity>
@@ -474,7 +515,12 @@ export function CreateWinnerPromotionScreen({ navigation, route }) {
 }
 
 export function PromotionDetailsScreen({ navigation, route }) {
-  const { bgStyle, text, card, bg } = useAppTheme();
+  const { bgStyle, text, card, bg, border, mutedText } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const surfaces = formSurfaces(isDarkMode);
+  const idleSurface = card || surfaces.inputSurface;
+  const subtleMuted = mutedText || surfaces.mutedColor;
+  const surface = card || surfaces.listSurface;
   const { t } = useLanguage();
   const accent = text || PURPLE;
   const { winnerItem, promotionType, battleId } = route?.params || {};
@@ -492,7 +538,7 @@ export function PromotionDetailsScreen({ navigation, route }) {
     <View style={[styles.screen, bgStyle, { backgroundColor: bg || SOFT_BG }]}>
       <Header title={t('promotion.detailsTitle')} onBack={() => navigation.goBack()} accentColor={accent} titleColor={text || TEXT} />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={[styles.reviewItemCard, { backgroundColor: card || '#fff' }]}>
+        <View style={[styles.reviewItemCard, themedCard(surface, border || surfaces.listBorder)]}>
           <FastImage source={fastImageSource(winnerItem?.image)} style={styles.winnerImage} resizeMode={FastImage.resizeMode.cover} />
           <View style={{ flex: 1 }}>
             <Text style={[styles.winnerName, { color: text || TEXT }]}>{winnerItem?.name}</Text>
@@ -505,12 +551,13 @@ export function PromotionDetailsScreen({ navigation, route }) {
         {promotionType !== 'freeShipping' ? (
           <View style={styles.field}>
             <Text style={[styles.fieldLabel, { color: text || TEXT }]}>{t('promotion.discountLabel')}</Text>
-            <View style={[styles.inputCard, { backgroundColor: card || '#fff' }]}>
+            <View style={[styles.inputCard, { backgroundColor: idleSurface, borderColor: border || surfaces.listBorder }]}>
               <TextInput
                 value={discount}
                 onChangeText={setDiscount}
                 keyboardType="number-pad"
-                style={[styles.inputText, { color: text || TEXT }]}
+                placeholderTextColor={surfaces.placeholderColor}
+                style={[styles.inputText, { color: surfaces.inputText }]}
               />
             </View>
           </View>
@@ -523,9 +570,13 @@ export function PromotionDetailsScreen({ navigation, route }) {
               <TouchableOpacity
                 key={value}
                 onPress={() => setDuration(value)}
-                style={[styles.pill, duration === value && { borderColor: accent, backgroundColor: '#F7F2FF' }]}
+                style={[
+                  styles.pill,
+                  { backgroundColor: idleSurface, borderColor: border || surfaces.listBorder },
+                  duration === value && { borderColor: accent, backgroundColor: selectedSurface(accent, isDarkMode) },
+                ]}
               >
-                <Text style={[styles.pillText, duration === value && { color: accent, fontWeight: '800' }]}>{label}</Text>
+                <Text style={[styles.pillText, { color: text || TEXT }, duration === value && { color: accent, fontWeight: '800' }]}>{label}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -533,13 +584,14 @@ export function PromotionDetailsScreen({ navigation, route }) {
 
         <View style={styles.field}>
           <Text style={[styles.fieldLabel, { color: text || TEXT }]}>{t('promotion.messageLabel')}</Text>
-          <View style={[styles.inputCard, { backgroundColor: card || '#fff' }]}>
+          <View style={[styles.inputCard, { backgroundColor: idleSurface, borderColor: border || surfaces.listBorder }]}>
             <TextInput
               value={message}
               onChangeText={setMessage}
               multiline
               maxLength={100}
-              style={[styles.inputText, { color: text || TEXT, minHeight: 60 }]}
+              placeholderTextColor={surfaces.placeholderColor}
+              style={[styles.inputText, { color: surfaces.inputText, minHeight: 60 }]}
             />
           </View>
         </View>
@@ -567,7 +619,11 @@ export function PromotionDetailsScreen({ navigation, route }) {
 }
 
 export function PreviewPromotionScreen({ navigation, route }) {
-  const { bgStyle, text, card, bg } = useAppTheme();
+  const { bgStyle, text, card, bg, border, mutedText } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const surfaces = formSurfaces(isDarkMode);
+  const subtleMuted = mutedText || surfaces.mutedColor;
+  const surface = card || surfaces.listSurface;
   const { t } = useLanguage();
   const toast = useToast();
   const accent = text || PURPLE;
@@ -634,21 +690,21 @@ export function PreviewPromotionScreen({ navigation, route }) {
           </View>
         </LinearGradient>
 
-        <View style={[styles.reviewBlock, { backgroundColor: card || '#fff' }]}>
+        <View style={[styles.reviewBlock, themedCard(surface, border || surfaces.listBorder)]}>
           <View style={styles.reviewMetaRow}>
             <View style={styles.reviewMetaCol}>
-              <Text style={styles.reviewLabel}>{t('promotion.starts')}</Text>
+              <Text style={[styles.reviewLabel, { color: subtleMuted }]}>{t('promotion.starts')}</Text>
               <Text style={[styles.reviewValue, { color: text || TEXT }]}>{t('promotion.startsValue')}</Text>
             </View>
             <View style={styles.reviewMetaCol}>
-              <Text style={styles.reviewLabel}>{t('promotion.ends')}</Text>
+              <Text style={[styles.reviewLabel, { color: subtleMuted }]}>{t('promotion.ends')}</Text>
               <Text style={[styles.reviewValue, { color: text || TEXT }]}>{t('promotion.endsValue', { duration })}</Text>
             </View>
           </View>
           {message ? (
             <View style={{ paddingTop: 8 }}>
-              <Text style={styles.reviewLabel}>{t('promotion.messageLabel')}</Text>
-              <Text style={[styles.aboutText, { marginTop: 4 }]}>{message}</Text>
+              <Text style={[styles.reviewLabel, { color: subtleMuted }]}>{t('promotion.messageLabel')}</Text>
+              <Text style={[styles.aboutText, { marginTop: 4, color: subtleMuted }]}>{message}</Text>
             </View>
           ) : null}
         </View>
@@ -709,7 +765,7 @@ const styles = StyleSheet.create({
   inputCard: { borderWidth: 1, borderColor: BORDER, borderRadius: 14, padding: 14 },
   inputText: { fontWeight: '600' },
   pillRow: { flexDirection: 'row', gap: 10, flexWrap: 'wrap' },
-  pill: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14, borderWidth: 1, borderColor: BORDER, backgroundColor: '#fff' },
+  pill: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14, borderWidth: 1, borderColor: BORDER },
   pillText: { color: TEXT, fontWeight: '800', fontSize: 12 },
 
   promoBanner: {

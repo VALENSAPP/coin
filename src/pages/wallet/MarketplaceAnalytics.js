@@ -12,8 +12,10 @@ import {
 import Svg, { Polyline, Circle, Line as SvgLine } from 'react-native-svg';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useThemeContext } from '../../theme/ThemeContext';
 import { useLanguage } from '../../i18n';
 import { getMarketplaceAnalytics } from '../../services/myCloset';
+import { formSurfaces, withAlpha } from '../../utils/closetTheme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CHART_HEIGHT = 150;
@@ -70,7 +72,7 @@ const formatMoney = (value) => `$${Number(value ?? 0).toFixed(0)}`;
 
 // ── Small SVG line chart with a tap-to-reveal tooltip, mirrors the look of ──
 // ── SubscriptionTrendChart but scoped down for this screen. ─────────────────
-const PerformanceChart = ({ points, lineColor, textColor }) => {
+const PerformanceChart = ({ points, lineColor, textColor, mutedColor, isDarkMode }) => {
     const [containerWidth, setContainerWidth] = useState(SCREEN_WIDTH - 64);
     const [activeIndex, setActiveIndex] = useState(
         points.length ? points.length - 1 : null,
@@ -84,8 +86,10 @@ const PerformanceChart = ({ points, lineColor, textColor }) => {
     if (!points.length) {
         return (
             <View style={styles.emptyChart}>
-                <Ionicons name="stats-chart-outline" size={28} color={textColor} />
-                <Text style={[styles.emptyChartText, { color: textColor }]}>No data yet</Text>
+                <Ionicons name="stats-chart-outline" size={28} color={mutedColor || textColor} />
+                <Text style={[styles.emptyChartText, { color: mutedColor || textColor }]}>
+                    No data yet
+                </Text>
             </View>
         );
     }
@@ -104,6 +108,8 @@ const PerformanceChart = ({ points, lineColor, textColor }) => {
 
     const polylineStr = coords.map((c) => `${c.x},${c.y}`).join(' ');
     const active = activeIndex != null ? coords[activeIndex] : null;
+    const inactiveDotFill = isDarkMode ? '#1E1E1E' : '#fff';
+    const baselineStroke = isDarkMode ? 'rgba(255,255,255,0.12)' : 'rgba(128,128,128,0.15)';
 
     return (
         <View
@@ -120,6 +126,7 @@ const PerformanceChart = ({ points, lineColor, textColor }) => {
                                 Math.max(active.x - 46, 0),
                                 containerWidth - 92,
                             ),
+                            backgroundColor: isDarkMode ? '#0f172a' : '#1f2937',
                         },
                     ]}
                 >
@@ -135,7 +142,7 @@ const PerformanceChart = ({ points, lineColor, textColor }) => {
                     y1={CHART_HEIGHT - 10}
                     x2={containerWidth}
                     y2={CHART_HEIGHT - 10}
-                    stroke="rgba(128,128,128,0.15)"
+                    stroke={baselineStroke}
                     strokeWidth={1}
                 />
                 <Polyline
@@ -152,7 +159,7 @@ const PerformanceChart = ({ points, lineColor, textColor }) => {
                         cx={c.x}
                         cy={c.y}
                         r={activeIndex === i ? 5 : 3}
-                        fill={activeIndex === i ? lineColor : '#fff'}
+                        fill={activeIndex === i ? lineColor : inactiveDotFill}
                         stroke={lineColor}
                         strokeWidth={2}
                     />
@@ -182,7 +189,7 @@ const PerformanceChart = ({ points, lineColor, textColor }) => {
                         key={i}
                         style={[
                             styles.chartAxisLabel,
-                            { color: textColor, width: Math.max(stepX, 1) },
+                            { color: mutedColor || textColor, width: Math.max(stepX, 1) },
                         ]}
                         numberOfLines={1}
                     >
@@ -196,13 +203,13 @@ const PerformanceChart = ({ points, lineColor, textColor }) => {
     );
 };
 
-const StatRow = ({ label, value, delta, text }) => {
+const StatRow = ({ label, value, delta, text, mutedColor, dividerColor }) => {
     const isNegative = typeof delta === 'string' && delta.startsWith('-');
     return (
         <View style={styles.statRow}>
-            <Text style={[styles.statLabel, {color: text}]}>{label}</Text>
+            <Text style={[styles.statLabel, { color: mutedColor || text }]}>{label}</Text>
             <View style={styles.statValueRow}>
-                <Text style={styles.statValue}>{value}</Text>
+                <Text style={[styles.statValue, { color: text }]}>{value}</Text>
                 {delta ? (
                     <View style={styles.deltaPill}>
                         <Ionicons
@@ -226,7 +233,9 @@ const StatRow = ({ label, value, delta, text }) => {
 };
 
 export default function MarketplaceAnalytics({ navigation, route }) {
-    const { text, bgStyle, cardStyle } = useAppTheme();
+    const { text, bgStyle, cardStyle, card, border, mutedText, accent } = useAppTheme();
+    const { isDarkMode } = useThemeContext();
+    const surfaces = formSurfaces(isDarkMode);
     const { t } = useLanguage();
 
     const initialRange = route?.params?.range === 'monthly' ? 'monthly' : 'weekly';
@@ -263,6 +272,10 @@ export default function MarketplaceAnalytics({ navigation, route }) {
 
     const rangeLabel =
         range === 'weekly' ? t('marketplaceAnalytics.thisWeek') : t('marketplaceAnalytics.thisMonth');
+
+    const chartLineColor = isDarkMode ? '#ffffff' : (accent || text);
+    const muted = mutedText || surfaces.mutedColor;
+    const dividerColor = isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(128,128,128,0.12)';
 
     const statRows = useMemo(
         () => [
@@ -310,7 +323,16 @@ export default function MarketplaceAnalytics({ navigation, route }) {
                 contentContainerStyle={styles.scroll}
                 showsVerticalScrollIndicator={false}
             >
-                <View style={[styles.card, cardStyle]}>
+                <View
+                    style={[
+                        styles.card,
+                        cardStyle,
+                        {
+                            backgroundColor: card || surfaces.listSurface,
+                            borderColor: border || surfaces.listBorder,
+                        },
+                    ]}
+                >
                     <View style={styles.cardHeaderRow}>
                         <Text style={[styles.cardTitle, { color: text }]}>
                             {t('marketplaceAnalytics.performance')}
@@ -320,7 +342,12 @@ export default function MarketplaceAnalytics({ navigation, route }) {
                             onPress={() =>
                                 setRange((prev) => (prev === 'weekly' ? 'monthly' : 'weekly'))
                             }
-                            style={styles.rangePill}
+                            style={[
+                                styles.rangePill,
+                                {
+                                    backgroundColor: withAlpha(accent || text, isDarkMode ? 0.28 : 0.1),
+                                },
+                            ]}
                         >
                             <Text style={[styles.rangePillText, { color: text }]}>
                                 {rangeLabel} ▾
@@ -333,15 +360,39 @@ export default function MarketplaceAnalytics({ navigation, route }) {
                             <ActivityIndicator color={text} />
                         </View>
                     ) : (
-                        <PerformanceChart points={points} lineColor={text} textColor={text} />
+                        <PerformanceChart
+                            points={points}
+                            lineColor={chartLineColor}
+                            textColor={text}
+                            mutedColor={muted}
+                            isDarkMode={isDarkMode}
+                        />
                     )}
                 </View>
 
-                <View style={[styles.card, cardStyle, { paddingVertical: 4 }]}>
+                <View
+                    style={[
+                        styles.card,
+                        cardStyle,
+                        {
+                            paddingVertical: 4,
+                            backgroundColor: card || surfaces.listSurface,
+                            borderColor: border || surfaces.listBorder,
+                        },
+                    ]}
+                >
                     {statRows.map((row, idx) => (
                         <React.Fragment key={row.key}>
-                            <StatRow label={row.label} value={row.value} delta={row.delta} text={text} />
-                            {idx < statRows.length - 1 && <View style={styles.divider} />}
+                            <StatRow
+                                label={row.label}
+                                value={row.value}
+                                delta={row.delta}
+                                text={text}
+                                mutedColor={muted}
+                            />
+                            {idx < statRows.length - 1 && (
+                                <View style={[styles.divider, { backgroundColor: dividerColor }]} />
+                            )}
                         </React.Fragment>
                     ))}
                 </View>
@@ -349,12 +400,32 @@ export default function MarketplaceAnalytics({ navigation, route }) {
                 <Text style={[styles.sectionTitle, { color: text }]}>
                     {t('marketplaceAnalytics.topPerformingItem')}
                 </Text>
-                <View style={[styles.card, cardStyle, styles.topItemCard]}>
+                <View
+                    style={[
+                        styles.card,
+                        cardStyle,
+                        styles.topItemCard,
+                        {
+                            backgroundColor: card || surfaces.listSurface,
+                            borderColor: border || surfaces.listBorder,
+                        },
+                    ]}
+                >
                     {loading ? (
                         <ActivityIndicator color={text} />
                     ) : topItem ? (
                         <>
-                            <View style={styles.topItemThumb}>
+                            <View
+                                style={[
+                                    styles.topItemThumb,
+                                    {
+                                        backgroundColor: withAlpha(
+                                            accent || text,
+                                            isDarkMode ? 0.2 : 0.08,
+                                        ),
+                                    },
+                                ]}
+                            >
                                 {topItem.image ? (
                                     <Image source={{ uri: topItem.image }} style={styles.topItemImage} />
                                 ) : (
@@ -368,7 +439,7 @@ export default function MarketplaceAnalytics({ navigation, route }) {
                                 <Text style={[styles.topItemPrice, { color: text }]}>
                                     ${Number(topItem.price ?? 0).toFixed(2)}
                                 </Text>
-                                <Text style={styles.topItemMeta}>
+                                <Text style={[styles.topItemMeta, { color: muted }]}>
                                     {t('marketplaceAnalytics.viewsLikesOrders', {
                                         views: summary?.totalViews ?? 0,
                                         likes: topItem.likeCount ?? 0,
@@ -378,7 +449,9 @@ export default function MarketplaceAnalytics({ navigation, route }) {
                             </View>
                         </>
                     ) : (
-                        <Text style={styles.topItemMeta}>{t('marketplaceAnalytics.noTopItem')}</Text>
+                        <Text style={[styles.topItemMeta, { color: muted }]}>
+                            {t('marketplaceAnalytics.noTopItem')}
+                        </Text>
                     )}
                 </View>
 
@@ -405,7 +478,7 @@ const styles = StyleSheet.create({
         borderRadius: 18,
         padding: 16,
         marginBottom: 14,
-        backgroundColor: '#fff',
+        borderWidth: StyleSheet.hairlineWidth,
         shadowOpacity: 0.05,
         shadowRadius: 10,
         elevation: 2,
@@ -421,13 +494,12 @@ const styles = StyleSheet.create({
         paddingHorizontal: 10,
         paddingVertical: 4,
         borderRadius: 12,
-        backgroundColor: 'rgba(124,58,237,0.08)',
     },
     rangePillText: { fontSize: 12, fontWeight: '600' },
 
     chartWrap: { width: '100%' },
-    chartAxisRow: { flexDirection: 'row', marginTop: 2},
-    chartAxisLabel: { fontSize: 9, fontWeight: '500', textAlign: 'center', paddingEnd: 15  },
+    chartAxisRow: { flexDirection: 'row', marginTop: 2 },
+    chartAxisLabel: { fontSize: 9, fontWeight: '500', textAlign: 'center', paddingEnd: 15 },
 
     emptyChart: {
         height: CHART_HEIGHT,
@@ -439,7 +511,6 @@ const styles = StyleSheet.create({
     tooltip: {
         position: 'absolute',
         top: -4,
-        backgroundColor: '#1f2937',
         borderRadius: 10,
         paddingHorizontal: 10,
         paddingVertical: 6,
@@ -460,15 +531,14 @@ const styles = StyleSheet.create({
     statValue: { fontSize: 16, fontWeight: '700', marginRight: 8 },
     deltaPill: { flexDirection: 'row', alignItems: 'center' },
     deltaText: { fontSize: 12, fontWeight: '700', marginLeft: 2 },
-    divider: { height: 1, backgroundColor: 'rgba(128,128,128,0.12)' },
+    divider: { height: 1 },
 
-    sectionTitle: { fontSize: 14, fontWeight: '700', marginBottom: 8},
+    sectionTitle: { fontSize: 14, fontWeight: '700', marginBottom: 8 },
     topItemCard: { flexDirection: 'row', alignItems: 'center' },
     topItemThumb: {
         width: 56,
         height: 56,
         borderRadius: 10,
-        backgroundColor: 'rgba(124,58,237,0.08)',
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: 12,
@@ -477,5 +547,5 @@ const styles = StyleSheet.create({
     topItemImage: { width: '100%', height: '100%' },
     topItemName: { fontSize: 14, fontWeight: '700' },
     topItemPrice: { fontSize: 13, fontWeight: '600', marginTop: 2 },
-    topItemMeta: { fontSize: 11, opacity: 0.6, marginTop: 4 },
+    topItemMeta: { fontSize: 11, marginTop: 4 },
 });
