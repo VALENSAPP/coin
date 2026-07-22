@@ -38,6 +38,8 @@ import SendCoins from '../pages/wallet/SendCoins';
 import TextGradient from '../assets/textgradient/TextGradient';
 import { Text } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import Feather from 'react-native-vector-icons/Feather';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 import { createToken, getTokenByUserId, getTokenPrice } from '../services/tokens';
 import { hideLoader, showLoader } from '../redux/actions/LoaderAction';
@@ -206,17 +208,28 @@ const CustomDrawerContent = (props) => {
           else if (route.name === 'Valens Wallet') navigateToWalletScreen('ValensWallet');
         };
 
+        const getIcon = () => {
+          if (route.name === 'DrawerDashboard') return <Feather name="grid" size={20} color={drawerColors.inactive} style={{ marginRight: 16 }} />;
+          if (route.name === 'DrawerWallet') return <Feather name="credit-card" size={20} color={drawerColors.inactive} style={{ marginRight: 16 }} />;
+          if (route.name === 'DrawerActivity') return <Feather name="activity" size={20} color={drawerColors.inactive} style={{ marginRight: 16 }} />;
+          if (route.name === 'Valens Wallet') return <Ionicons name="wallet-outline" size={20} color={drawerColors.inactive} style={{ marginRight: 16 }} />;
+          return <Feather name="circle" size={20} color={drawerColors.inactive} style={{ marginRight: 16 }} />;
+        };
+
         return (
           <TouchableOpacity
             key={route.key}
             onPress={handlePress}
             activeOpacity={0.75}
             style={{
+              flexDirection: 'row',
+              alignItems: 'center',
               paddingHorizontal: 20,
               paddingVertical: 18,
               backgroundColor: 'transparent',
             }}
           >
+            {getIcon()}
             <Text style={{ fontSize: 15, color: drawerColors.inactive, fontWeight: '600' }}>
               {label}
             </Text>
@@ -227,19 +240,29 @@ const CustomDrawerContent = (props) => {
       <TouchableOpacity
         onPress={() => navigateToWalletScreen(isCompanyProfile ? 'Shop' : 'MyCloset')}
         activeOpacity={0.75}
-        style={{ paddingHorizontal: 20, paddingVertical: 18 }}
+        style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 18 }}
       >
+        {isCompanyProfile ? (
+          <Feather name="briefcase" size={20} color={drawerColors.inactive} style={{ marginRight: 16 }} />
+        ) : (
+          <MaterialCommunityIcons name="hanger" size={20} color={drawerColors.inactive} style={{ marginRight: 16 }} />
+        )}
         <Text style={{ fontSize: 15, color: drawerColors.inactive, fontWeight: '600' }}>
           {isCompanyProfile ? t('drawerNav.shop') : t('drawerNav.myCloset')}
         </Text>
+        {isCompanyProfile && (
+          <View style={{ marginLeft: 8, backgroundColor: '#E0E7FF', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 12 }}>
+            <Text style={{ fontSize: 10, color: '#4F46E5', fontWeight: 'bold' }}>NEW</Text>
+          </View>
+        )}
       </TouchableOpacity>
 
       <TouchableOpacity
         onPress={navigateToEbookPublisher}
         activeOpacity={0.75}
-        style={{ flexDirection: 'row', paddingHorizontal: 20, paddingVertical: 12 }}
+        style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 12 }}
       >
-        <Ionicons name="book-outline" size={18} color={text} style={{ marginRight: 12 }} />
+        <Ionicons name="book-outline" size={18} color={text} style={{ marginRight: 16 }} />
         <Text style={{ fontSize: 13, color: text, fontWeight: '500' }}>
           Sell Ebook
         </Text>
@@ -248,8 +271,9 @@ const CustomDrawerContent = (props) => {
       <TouchableOpacity
         onPress={() => navigateToWalletScreen('SubscriptionSetup')}
         activeOpacity={0.75}
-        style={{ paddingHorizontal: 20, paddingVertical: 18 }}
+        style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 18 }}
       >
+        <Ionicons name="sync-outline" size={20} color={drawerColors.inactive} style={{ marginRight: 16 }} />
         <Text style={{ fontSize: 15, color: drawerColors.inactive, fontWeight: '600' }}>
           {t('drawerNav.subscriptions')}
         </Text>
@@ -258,8 +282,9 @@ const CustomDrawerContent = (props) => {
       <TouchableOpacity
         onPress={() => navigateToWalletScreen('Privatecircle', { skipPrivateCircleApi: true })}
         activeOpacity={0.75}
-        style={{ paddingHorizontal: 20, paddingVertical: 18 }}
+        style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 18 }}
       >
+        <Feather name="users" size={20} color={drawerColors.inactive} style={{ marginRight: 16 }} />
         <Text style={{ fontSize: 15, color: drawerColors.inactive, fontWeight: '600' }}>
           {t('drawerNav.privateCircle')}
         </Text>
@@ -268,8 +293,9 @@ const CustomDrawerContent = (props) => {
       <TouchableOpacity
         onPress={() => navigateToWalletScreen('Settings')}
         activeOpacity={0.75}
-        style={{ paddingHorizontal: 20, paddingVertical: 18 }}
+        style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 18 }}
       >
+        <Feather name="settings" size={20} color={drawerColors.inactive} style={{ marginRight: 16 }} />
         <Text style={{ fontSize: 15, color: drawerColors.inactive, fontWeight: '600' }}>
           {t('drawerNav.settings')}
         </Text>

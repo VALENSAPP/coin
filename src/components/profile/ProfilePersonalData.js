@@ -71,7 +71,7 @@ import { useToast } from 'react-native-toast-notifications';
 import StoryComposer from '../home/story.js/StoryComposer';
 import { getUserCredentials } from '../../services/post';
 import { metaMaskRecived } from '../../services/wallet';
-import { battleByUserId } from '../../services/battle';
+import { battleByUserId, battlePoint } from '../../services/battle';
 import { isBattleLive } from '../../utils/battleCardUtils';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useThemeContext } from '../../theme/ThemeContext';
@@ -82,6 +82,7 @@ import HexAvatar from '../home/story.js/HexAvatar';
 import { useLanguage } from '../../i18n';
 import { getCart } from '../../services/myCloset';
 import { buildClosetNavContext, withClosetNavParams } from '../../utils/closetNavigation';
+import Svg, { Polygon } from 'react-native-svg';
 
 const KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShownEver';
 const LEGACY_KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShown';
@@ -206,7 +207,7 @@ const ProfilePersonData = ({
   }, []);
 
   const avatarUri =
-    normalizeProfileImageUrl(profileImage || reduxProfileImg) || PLACEHOLDER_AVATAR;
+    normalizeProfileImageUrl(profileImage || (!fromUsersProfile ? reduxProfileImg : null)) || PLACEHOLDER_AVATAR;
 
   const [modalVisible, setModalVisible] = useState(false);
   const [usernameModalVisible, setUsernameModalVisible] = useState(false);
@@ -228,6 +229,11 @@ const ProfilePersonData = ({
   const [imageViewerVisible, setImageViewerVisible] = useState(false);
   const [totalSupportAmount, setTotalSupportAmount] = useState(0);
   const [hasLiveBattle, setHasLiveBattle] = useState(false);
+  const [battlePointSummary, setBattlePointSummary] = useState({
+    level: 'Rookie',
+    points: 0,
+    credibilityScore: 0,
+  });
   const [cartCount, setCartCount] = useState(0);
   const totalSupportAnim = useRef(new Animated.Value(0)).current;
   const followActionsAnim = useRef(new Animated.Value(0)).current;
@@ -808,8 +814,59 @@ const ProfilePersonData = ({
     }
   }, [viewedBattleUserId]);
 
+  const levelInfo = useMemo(() => {
+    const normalized = String(battlePointSummary.level || 'Rookie').trim();
+    const upper = normalized.toUpperCase();
+    
+    let tier = upper;
+    let levelText = 'LEVEL 1';
+
+    if (normalized.toLowerCase().includes('level')) {
+      tier = 'CHALLENGER';
+      levelText = upper;
+    } else {
+      switch (normalized.toLowerCase()) {
+        case 'rookie': tier = 'ROOKIE'; levelText = 'LEVEL 1'; break;
+        case 'challenger': tier = 'CHALLENGER'; levelText = 'LEVEL 2'; break;
+        case 'strategist': tier = 'STRATEGIST'; levelText = 'LEVEL 3'; break;
+        case 'analyst': tier = 'ANALYST'; levelText = 'LEVEL 4'; break;
+        case 'expert': tier = 'EXPERT'; levelText = 'LEVEL 5'; break;
+        case 'oracle': tier = 'ORACLE'; levelText = 'LEVEL 6'; break;
+        default: tier = upper; levelText = 'LEVEL 1'; break;
+      }
+    }
+
+    const pts = battlePointSummary.points || 0;
+    let maxPoints = 100;
+    if (pts >= 3000) maxPoints = pts > 3000 ? pts : 3000;
+    else if (pts >= 1500) maxPoints = 3000;
+    else if (pts >= 700) maxPoints = 1500;
+    else if (pts >= 300) maxPoints = 700;
+    else if (pts >= 100) maxPoints = 300;
+    else maxPoints = 100;
+
+    return { tier, levelText, maxPoints };
+  }, [battlePointSummary.level, battlePointSummary.points]);
+
+  const fetchBattleStats = useCallback(async () => {
+    if (!viewedBattleUserId) return;
+    try {
+      const response = await battlePoint({ params: { userId: viewedBattleUserId } });
+      const rawData = response?.data?.data || response?.data || response || {};
+      const totals = rawData?.totals || {};
+      setBattlePointSummary({
+        level: String(rawData?.level || 'Rookie'),
+        points: Number(totals?.totalBattlePoints || 0),
+        credibilityScore: Number(rawData?.credibilityScore || 0),
+      });
+    } catch (_error) {}
+  }, [viewedBattleUserId]);
+
   useFocusEffect(
-    useCallback(() => { fetchLiveBattleStatus(); }, [fetchLiveBattleStatus]),
+    useCallback(() => { 
+      fetchLiveBattleStatus(); 
+      fetchBattleStats();
+    }, [fetchLiveBattleStatus, fetchBattleStats]),
   );
 
   useEffect(() => {
@@ -1299,6 +1356,56 @@ const ProfilePersonData = ({
                     </TouchableOpacity>
                   )}
                 </TouchableOpacity>
+              </View>
+
+              {/* BATTLE DASHBOARD INFO (Vertical) */}
+              <View style={styles.battleStatsContainer}>
+                <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+                  {/* Hexagon with Dragonfly */}
+                  <View style={{ width: 52, height: 52, alignItems: 'center', justifyContent: 'center', marginBottom: 2 }}>
+                    <Svg width={52} height={52} viewBox="0 0 84 84" style={{ position: 'absolute' }}>
+                      <Polygon
+                        points="42,2 82,22 82,62 42,82 2,62 2,22"
+                        stroke={accent}
+                        strokeWidth="3.5"
+                        fill="transparent"
+                        strokeLinejoin="round"
+                      />
+                    </Svg>
+                    <DragonflyIcon width={24} height={24} />
+                  </View>
+
+                  {/* Tier & Level */}
+                  <Text style={{ fontSize: 10, fontWeight: '800', color: text, textTransform: 'uppercase', marginBottom: 1, letterSpacing: 0.5 }}>
+                    {levelInfo.tier}
+                  </Text>
+                  <Text style={{ fontSize: 8, fontWeight: '700', color: accent, textTransform: 'uppercase', marginBottom: 4 }}>
+                    {levelInfo.levelText}
+                  </Text>
+
+                  {/* Progress Bar & XP */}
+                  <View style={{ width: '100%', alignItems: 'center', marginBottom: 6 }}>
+                    <View style={{ width: 64, height: 4, backgroundColor: isDarkMode ? 'rgba(255,255,255,0.1)' : '#E5E7EB', borderRadius: 2, marginBottom: 4, overflow: 'hidden' }}>
+                      <View style={{ width: `${Math.min((battlePointSummary.points / levelInfo.maxPoints) * 100, 100)}%`, height: '100%', backgroundColor: accent, borderRadius: 2 }} />
+                    </View>
+                    <Text style={{ fontSize: 8, color: mutedText, fontWeight: '600' }}>
+                      {battlePointSummary.points} / {levelInfo.maxPoints.toLocaleString()} XP
+                    </Text>
+                  </View>
+
+                  {/* Total Reputation */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: isDarkMode ? 'rgba(255,255,255,0.06)' : '#F3F4F6', paddingHorizontal: 6, paddingVertical: 4, borderRadius: 8 }}>
+                    <Ionicons name="trophy" size={11} color="#D97706" style={{ marginRight: 4 }} />
+                    <View>
+                      <Text style={{ fontSize: 11, fontWeight: '800', color: text, lineHeight: 12 }}>
+                        {battlePointSummary.credibilityScore}
+                      </Text>
+                      <Text style={{ fontSize: 7.5, fontWeight: '600', color: mutedText, lineHeight: 10 }}>
+                        Total Reputation
+                      </Text>
+                    </View>
+                  </View>
+                </View>
               </View>
 
               <View style={styles.edit}>
@@ -1811,7 +1918,7 @@ const styles = StyleSheet.create({
   },
   profileWraper: {
     alignItems: 'flex-start',  // ← avatar stays left
-    flexShrink: 1,
+    flexShrink: 0,
   },
   avatarWithBadge: {
     position: 'relative',
@@ -1876,8 +1983,44 @@ const styles = StyleSheet.create({
   // --- Buttons ---
   edit: {
     flexDirection: 'column',
-    width: '50%',
+    flex: 1.4,
     gap: 6,
+  },
+  battleStatsContainer: {
+    flex: 0.9,
+    marginHorizontal: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  battleStatsInner: {
+    width: '100%',
+    borderRadius: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 2,
+    alignItems: 'center',
+    borderWidth: 1,
+  },
+  battleLevelText: {
+    fontSize: 11,
+    fontWeight: '800',
+    marginBottom: 6,
+    textTransform: 'uppercase',
+  },
+  battleStatsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-evenly',
+    width: '100%',
+  },
+  battleStatBox: {
+    alignItems: 'center',
+  },
+  battleStatValue: {
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  battleStatLabel: {
+    fontSize: 8.5,
+    fontWeight: '700',
   },
   editbuttons: {
     height: 36,
