@@ -128,6 +128,11 @@ import MarketplaceAnalytics from '../pages/wallet/MarketplaceAnalytics';
 import ValensWallet from '../pages/wallet/ValensWallet';
 import TransactionActivityScreen from '../pages/wallet/TransactionActivityScreen';
 import TotalEarningsScreen from '../pages/wallet/TotalEarningsScreen';
+import ReferralPointsScreen from '../pages/wallet/ReferralPointsScreen';
+import UseYourPointsScreen from '../pages/wallet/UseYourPointsScreen';
+import BuyMissionPostScreen from '../pages/wallet/BuyMissionPostScreen';
+import BuyMissionPackageScreen from '../pages/wallet/BuyMissionPackageScreen';
+import BuyMissionSuccessScreen from '../pages/wallet/BuyMissionSuccessScreen';
 import ProfileShop from '../components/profile/Shop';
 import MyClosetDashboard from '../components/profile/MyClosetDashboard';
 import {
@@ -873,6 +878,31 @@ export default function MainTabNavigator() {
           <Stack.Screen
             name="TotalEarnings"
             component={TotalEarningsScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="ReferralPoints"
+            component={ReferralPointsScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="UseYourPoints"
+            component={UseYourPointsScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="BuyMissionPost"
+            component={BuyMissionPostScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="BuyMissionPackage"
+            component={BuyMissionPackageScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="BuyMissionSuccess"
+            component={BuyMissionSuccessScreen}
             options={{ headerShown: false }}
           />
           <Stack.Screen

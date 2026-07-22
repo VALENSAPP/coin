@@ -734,7 +734,8 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
               <TouchableOpacity
                 activeOpacity={card.key === 'earnings' ? 0.8 : 1}
                 onPress={card.key === 'earnings' ? handleOpenEarnings : undefined}
-                style={card.key === 'earnings' ? styles.heroStatTouchable : undefined}
+                disabled={card.key !== 'earnings'}
+                style={styles.heroStatTouchable}
               >
                 <View style={styles.heroStatItem}>
                   <Text style={[styles.heroStatValue, textStyle]}>{card.value}</Text>
@@ -1185,14 +1186,14 @@ const styles = StyleSheet.create({
   heroStatsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
     marginBottom: 14,
   },
-  heroStatItem: { alignItems: 'center', flex: 1 },
-  heroStatTouchable: { flex: 1 },
-  heroStatValue: { fontSize: 18, fontWeight: '800' },
-  heroStatLabel: { marginTop: 2, fontSize: 12, fontWeight: '600' },
-  heroStatDivider: { width: 1, height: 32 },
+  heroStatItem: { alignItems: 'center', width: '100%' },
+  heroStatTouchable: { flex: 1, alignItems: 'center' },
+  heroStatValue: { fontSize: 18, fontWeight: '800', textAlign: 'center' },
+  heroStatLabel: { marginTop: 2, fontSize: 12, fontWeight: '600', textAlign: 'center' },
+  heroStatDivider: { width: 1, height: 32, alignSelf: 'center' },
 
   liveBanner: {
     flexDirection: 'row',

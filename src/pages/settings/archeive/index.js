@@ -24,7 +24,9 @@ import { showToastMessage } from '../../../components/displaytoastmessage';
 import { addHighlight, getHighlightUserId } from '../../../services/highlightStory';
 import { getStoryByUser } from '../../../services/stories';
 import { useAppTheme } from '../../../theme/useApptheme';
+import { useThemeContext } from '../../../theme/ThemeContext';
 import { useLanguage } from '../../../i18n';
+import { formSurfaces, withAlpha } from '../../../utils/closetTheme';
 
 const isVideoMedia = value => {
   if (!value || typeof value !== 'string') {
@@ -157,7 +159,20 @@ const ArchiveScreen = ({ navigation, route }) => {
   );
 
   const toast = useToast();
-  const { bgStyle, textStyle, cardStyle, text: themeText } = useAppTheme();
+  const {
+    bgStyle,
+    textStyle,
+    cardStyle,
+    text: themeText,
+    mutedText,
+    mutedTextStyle,
+    border,
+    accent,
+    card,
+    bg,
+  } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const surfaces = formSurfaces(isDarkMode);
   const { t } = useLanguage();
 
   const isHighlightRouteMode = route?.params?.selectionMode === 'highlight';
@@ -340,7 +355,7 @@ const ArchiveScreen = ({ navigation, route }) => {
         key={item.id}
         activeOpacity={0.85}
         onPress={() => handleStoryPress(storiesArray, index, item)}
-        style={styles.storyItem}
+        style={[styles.storyItem, { backgroundColor: surfaces.listBorder }]}
       >
         {item.type === 'video' ? (
           <View style={styles.videoPreview}>
@@ -356,13 +371,13 @@ const ArchiveScreen = ({ navigation, route }) => {
           </View>
         ) : null}
         {isHighlightSelectionMode ? (
-          <View style={styles.highlightSelectBadge}>
+          <View style={[styles.highlightSelectBadge, { backgroundColor: withAlpha(accent, 0.85) }]}>
             <Icon name="add-circle" size={20} color="#fff" />
           </View>
         ) : null}
       </TouchableOpacity>
     ),
-    [handleStoryPress, isHighlightSelectionMode, t]
+    [accent, handleStoryPress, isHighlightSelectionMode, surfaces.listBorder, t]
   );
 
   const renderDateGroup = useCallback(
@@ -385,58 +400,81 @@ const ArchiveScreen = ({ navigation, route }) => {
 
   return (
     <SafeAreaView style={[styles.container, bgStyle]} edges={['top', 'left', 'right']}>
-      <StatusBar barStyle="dark-content" backgroundColor={cardStyle?.backgroundColor || '#fff'} />
+      <StatusBar
+        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
+        backgroundColor={card || bg}
+      />
 
-      <View style={[styles.header, cardStyle]}>
+      <View style={[styles.header, cardStyle, { borderBottomColor: border }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Icon name="arrow-back" size={24} color={themeText || '#262626'} />
+          <Icon name="arrow-back" size={24} color={themeText} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, textStyle]}>
           {isHighlightSelectionMode ? t('archive.selectDropTitle') : t('archive.title')}
         </Text>
         <TouchableOpacity onPress={toggleHighlightMode} style={styles.headerActionButton}>
-          <Text style={[styles.headerActionText, { color: themeText || '#262626' }]}>
+          <Text style={[styles.headerActionText, { color: accent || themeText }]}>
             {isHighlightSelectionMode ? t('archive.done') : t('archive.select')}
           </Text>
         </TouchableOpacity>
       </View>
 
-      <View style={[styles.searchWrapper, cardStyle]}>
+      <View style={[styles.searchWrapper, { backgroundColor: bg }]}>
         {isHighlightSelectionMode ? (
-          <View style={styles.selectionBanner}>
-            <View style={styles.selectionBannerIcon}>
+          <View
+            style={[
+              styles.selectionBanner,
+              {
+                backgroundColor: withAlpha(accent, isDarkMode ? 0.18 : 0.1),
+                borderColor: withAlpha(accent, 0.25),
+              },
+            ]}
+          >
+            <View style={[styles.selectionBannerIcon, { backgroundColor: accent }]}>
               <Icon name="albums-outline" size={16} color="#fff" />
             </View>
             <View style={styles.selectionBannerTextWrap}>
-              <Text style={styles.selectionBannerTitle}>{t('archive.addDropToHighlight')}</Text>
-              <Text style={styles.selectionBannerText}>{t('archive.addDropHint')}</Text>
+              <Text style={[styles.selectionBannerTitle, textStyle]}>
+                {t('archive.addDropToHighlight')}
+              </Text>
+              <Text style={[styles.selectionBannerText, mutedTextStyle]}>
+                {t('archive.addDropHint')}
+              </Text>
             </View>
           </View>
         ) : null}
-        <View style={styles.searchInputContainer}>
-          <Icon name="search" size={18} color="#8e8e93" />
+        <View
+          style={[
+            styles.searchInputContainer,
+            {
+              backgroundColor: surfaces.inputSurface,
+              borderColor: surfaces.listBorder,
+            },
+          ]}
+        >
+          <Icon name="search" size={18} color={surfaces.placeholderColor} />
           <TextInput
             value={searchText}
             onChangeText={setSearchText}
             placeholder={t('archive.searchPlaceholder')}
-            placeholderTextColor="#8e8e93"
-            style={[styles.searchInput, { color: themeText || '#262626' }]}
+            placeholderTextColor={surfaces.placeholderColor}
+            style={[styles.searchInput, { color: surfaces.inputText }]}
             autoCapitalize="none"
             autoCorrect={false}
             returnKeyType="search"
           />
           {searchText ? (
             <TouchableOpacity onPress={() => setSearchText('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Icon name="close-circle" size={18} color="#8e8e93" />
+              <Icon name="close-circle" size={18} color={surfaces.placeholderColor} />
             </TouchableOpacity>
           ) : null}
         </View>
-        <Text style={styles.searchHint}>{t('archive.searchHint')}</Text>
+        <Text style={[styles.searchHint, mutedTextStyle]}>{t('archive.searchHint')}</Text>
       </View>
 
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={themeText || '#262626'} />
+          <ActivityIndicator size="large" color={accent || themeText} />
           <Text style={[styles.loadingText, textStyle]}>{t('archive.loading')}</Text>
         </View>
       ) : (
@@ -449,7 +487,7 @@ const ArchiveScreen = ({ navigation, route }) => {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              tintColor={themeText || '#262626'}
+              tintColor={accent || themeText}
             />
           }
           contentContainerStyle={hasArchiveStories ? styles.listContent : styles.emptyContainer}
@@ -458,12 +496,12 @@ const ArchiveScreen = ({ navigation, route }) => {
               <Icon
                 name={isSearching ? 'search-outline' : 'archive-outline'}
                 size={42}
-                color="#8e8e93"
+                color={mutedText}
               />
               <Text style={[styles.emptyTitle, textStyle]}>
                 {isSearching ? t('archive.noMatchingDates') : t('archive.noArchivedDrops')}
               </Text>
-              <Text style={styles.emptySubtitle}>
+              <Text style={[styles.emptySubtitle, mutedTextStyle]}>
                 {isSearching ? t('archive.noMatchingSubtitle') : t('archive.emptySubtitle')}
               </Text>
             </View>
@@ -519,13 +557,21 @@ const ArchiveScreen = ({ navigation, route }) => {
       >
         <View style={styles.pickerOverlay}>
           <TouchableOpacity style={styles.pickerBackdrop} activeOpacity={1} onPress={closeHighlightPicker} />
-          <View style={[styles.pickerSheet, cardStyle]}>
-            <View style={styles.pickerHandle} />
+          <View style={[styles.pickerSheet, cardStyle, { borderColor: border }]}>
+            <View style={[styles.pickerHandle, { backgroundColor: surfaces.listBorder }]} />
             <Text style={[styles.pickerTitle, textStyle]}>{t('archive.chooseHighlight')}</Text>
-            <Text style={styles.pickerSubtitle}>{t('archive.chooseHighlightSubtitle')}</Text>
+            <Text style={[styles.pickerSubtitle, mutedTextStyle]}>{t('archive.chooseHighlightSubtitle')}</Text>
 
             {selectedStoryForHighlight ? (
-              <View style={styles.selectedStoryRow}>
+              <View
+                style={[
+                  styles.selectedStoryRow,
+                  {
+                    backgroundColor: surfaces.inputSurface,
+                    borderColor: surfaces.listBorder,
+                  },
+                ]}
+              >
                 {selectedStoryForHighlight.type === 'video' ? (
                   <View style={styles.selectedStoryVideoThumb}>
                     <Icon name="play" size={18} color="#fff" />
@@ -535,7 +581,7 @@ const ArchiveScreen = ({ navigation, route }) => {
                 )}
                 <View style={styles.selectedStoryTextWrap}>
                   <Text style={[styles.selectedStoryTitle, textStyle]}>{t('archive.selectedDrop')}</Text>
-                  <Text style={styles.selectedStoryMeta}>
+                  <Text style={[styles.selectedStoryMeta, mutedTextStyle]}>
                     {selectedStoryForHighlight.type === 'video'
                       ? t('archive.videoDrop')
                       : t('archive.photoDrop')}
@@ -554,14 +600,14 @@ const ArchiveScreen = ({ navigation, route }) => {
                   <TouchableOpacity
                     key={item.id}
                     activeOpacity={0.88}
-                    style={styles.highlightOptionRow}
+                    style={[styles.highlightOptionRow, { borderBottomColor: surfaces.itemBorder }]}
                     onPress={() => handleAddStoryToHighlight(item.id)}
                     disabled={submittingHighlightId === item.id}
                   >
                     {item.coverImage ? (
                       <Image source={{ uri: item.coverImage }} style={styles.highlightOptionImage} />
                     ) : (
-                      <View style={styles.highlightOptionFallback}>
+                      <View style={[styles.highlightOptionFallback, { backgroundColor: accent }]}>
                         <Icon name="images-outline" size={18} color="#fff" />
                       </View>
                     )}
@@ -569,27 +615,29 @@ const ArchiveScreen = ({ navigation, route }) => {
                       <Text style={[styles.highlightOptionTitle, textStyle]} numberOfLines={1}>
                         {item.title}
                       </Text>
-                      <Text style={styles.highlightOptionMeta}>{t('archive.tapToAdd')}</Text>
+                      <Text style={[styles.highlightOptionMeta, mutedTextStyle]}>
+                        {t('archive.tapToAdd')}
+                      </Text>
                     </View>
                     {submittingHighlightId === item.id ? (
-                      <ActivityIndicator size="small" color={themeText || '#262626'} />
+                      <ActivityIndicator size="small" color={accent || themeText} />
                     ) : (
-                      <Icon name="chevron-forward" size={18} color="#8e8e93" />
+                      <Icon name="chevron-forward" size={18} color={mutedText} />
                     )}
                   </TouchableOpacity>
                 ))
               ) : (
                 <View style={styles.noHighlightsWrap}>
-                  <Icon name="albums-outline" size={28} color="#8e8e93" />
+                  <Icon name="albums-outline" size={28} color={mutedText} />
                   <Text style={[styles.noHighlightsTitle, textStyle]}>{t('archive.noHighlightsFound')}</Text>
-                  <Text style={styles.noHighlightsText}>{t('archive.noHighlightsText')}</Text>
+                  <Text style={[styles.noHighlightsText, mutedTextStyle]}>{t('archive.noHighlightsText')}</Text>
                 </View>
               )}
             </ScrollView>
 
             <TouchableOpacity
               activeOpacity={0.9}
-              style={[styles.pickerCancelButton, { backgroundColor: themeText || '#262626' }]}
+              style={[styles.pickerCancelButton, { backgroundColor: accent || themeText }]}
               onPress={closeHighlightPicker}
             >
               <Text style={styles.pickerCancelText}>{t('archive.cancel')}</Text>
@@ -611,8 +659,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderBottomWidth: 0.5,
-    borderBottomColor: '#e0e0e0',
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   backButton: {
     padding: 4,
@@ -622,7 +669,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 18,
     fontWeight: '600',
-    color: '#262626',
   },
   headerSpacer: {
     width: 32,
@@ -635,7 +681,6 @@ const styles = StyleSheet.create({
   headerActionText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#262626',
   },
   searchWrapper: {
     paddingHorizontal: 16,
@@ -648,7 +693,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     padding: 12,
     borderRadius: 14,
-    backgroundColor: '#eef6ff',
+    borderWidth: StyleSheet.hairlineWidth,
   },
   selectionBannerIcon: {
     width: 28,
@@ -656,7 +701,6 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#262626',
     marginRight: 10,
   },
   selectionBannerTextWrap: {
@@ -665,22 +709,18 @@ const styles = StyleSheet.create({
   selectionBannerTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#262626',
   },
   selectionBannerText: {
     marginTop: 3,
     fontSize: 12,
     lineHeight: 18,
-    color: '#6b7280',
   },
   searchInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#e4e4e7',
     borderRadius: 12,
     paddingHorizontal: 12,
-    backgroundColor: '#f6f6f7',
   },
   searchInput: {
     flex: 1,
@@ -691,7 +731,6 @@ const styles = StyleSheet.create({
   searchHint: {
     marginTop: 8,
     fontSize: 12,
-    color: '#8e8e93',
   },
   loadingContainer: {
     flex: 1,
@@ -727,7 +766,6 @@ const styles = StyleSheet.create({
   },
   emptySubtitle: {
     fontSize: 15,
-    color: '#8e8e93',
     textAlign: 'center',
     lineHeight: 22,
   },
@@ -739,7 +777,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     fontSize: 16,
     fontWeight: '600',
-    color: '#262626',
   },
   grid: {
     flexDirection: 'row',
@@ -752,7 +789,6 @@ const styles = StyleSheet.create({
     aspectRatio: 0.82,
     borderRadius: 14,
     overflow: 'hidden',
-    backgroundColor: '#ececec',
   },
   storyImage: {
     width: '100%',
@@ -790,7 +826,6 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: 'rgba(0,0,0,0.55)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -834,7 +869,7 @@ const styles = StyleSheet.create({
   pickerOverlay: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.35)',
+    backgroundColor: 'rgba(0,0,0,0.45)',
   },
   pickerBackdrop: {
     flex: 1,
@@ -847,12 +882,12 @@ const styles = StyleSheet.create({
     paddingBottom: 22,
     minHeight: 380,
     maxHeight: '78%',
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
   pickerHandle: {
     width: 42,
     height: 5,
     borderRadius: 999,
-    backgroundColor: '#d1d5db',
     alignSelf: 'center',
     marginBottom: 14,
   },
@@ -860,14 +895,12 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     textAlign: 'center',
-    color: '#262626',
   },
   pickerSubtitle: {
     marginTop: 6,
     textAlign: 'center',
     fontSize: 13,
     lineHeight: 19,
-    color: '#6b7280',
   },
   selectedStoryRow: {
     flexDirection: 'row',
@@ -876,13 +909,13 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     padding: 12,
     borderRadius: 16,
-    backgroundColor: '#f5f6f8',
+    borderWidth: StyleSheet.hairlineWidth,
   },
   selectedStoryThumb: {
     width: 48,
     height: 48,
     borderRadius: 12,
-    backgroundColor: '#ddd',
+    backgroundColor: '#333',
   },
   selectedStoryVideoThumb: {
     width: 48,
@@ -899,12 +932,10 @@ const styles = StyleSheet.create({
   selectedStoryTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#262626',
   },
   selectedStoryMeta: {
     marginTop: 3,
     fontSize: 12,
-    color: '#6b7280',
   },
   highlightOptionsList: {
     marginTop: 8,
@@ -916,14 +947,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 10,
-    borderBottomWidth: 0.5,
-    borderBottomColor: '#e5e7eb',
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   highlightOptionImage: {
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: '#ddd',
+    backgroundColor: '#333',
   },
   highlightOptionFallback: {
     width: 52,
@@ -931,7 +961,6 @@ const styles = StyleSheet.create({
     borderRadius: 26,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#64748b',
   },
   highlightOptionTextWrap: {
     flex: 1,
@@ -941,12 +970,10 @@ const styles = StyleSheet.create({
   highlightOptionTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#262626',
   },
   highlightOptionMeta: {
     marginTop: 3,
     fontSize: 12,
-    color: '#8e8e93',
   },
   noHighlightsWrap: {
     alignItems: 'center',
@@ -958,14 +985,12 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontSize: 17,
     fontWeight: '700',
-    color: '#262626',
   },
   noHighlightsText: {
     marginTop: 8,
     textAlign: 'center',
     fontSize: 13,
     lineHeight: 19,
-    color: '#8e8e93',
   },
   pickerCancelButton: {
     marginTop: 12,
@@ -973,7 +998,6 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#262626',
   },
   pickerCancelText: {
     color: '#fff',

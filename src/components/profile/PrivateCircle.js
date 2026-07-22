@@ -35,6 +35,7 @@ import {
   removePrivateCircleMember,
 } from '../../services/privatecircle';
 import { useFocusEffect, useIsFocused, useNavigation } from '@react-navigation/native';
+import { applyClientPostOverlayCacheToList } from '../../utils/postSoundtracks';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 const { width: screenWidth } = Dimensions.get('window');
@@ -80,6 +81,13 @@ const normalizeImageUrl = (url) => {
 const isVideoUrl = (url) => {
   if (!url || typeof url !== 'string') return false;
   return /\.(mp4|mov|avi|mkv|webm|m4v)(\?|$)/i.test(url);
+};
+
+const isReelPost = post => {
+  const formatValue = String(post?.format || '').toLowerCase();
+  const typeValue = String(post?.type || post?.postType || '').toLowerCase();
+  if (formatValue === 'reel' || typeValue === 'reel') return true;
+  return isVideoUrl(post?.images?.[0] || post?.video || '');
 };
 
 const getPreviewMedia = (post) => {
@@ -293,7 +301,7 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
         (post) => post?.visibleTo && post.visibleTo !== '',
       );
 
-      setPosts(filteredData);
+      setPosts(applyClientPostOverlayCacheToList(filteredData));
     } catch (error) {
       console.log('PrivateCircle fetchPosts error:', error);
       setPosts([]);
@@ -522,11 +530,52 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
       const item = posts[index];
       if (!item) return;
 
+      if (isReelPost(item)) {
+        const params = {
+          item,
+          profileUserId: userData?.id,
+          profileReels: applyClientPostOverlayCacheToList(
+            posts.filter(p => isReelPost(p)),
+          ),
+          key: Date.now().toString(),
+        };
+
+        let targetNavigation = navigation;
+        while (targetNavigation) {
+          const routeNames = targetNavigation.getState?.()?.routeNames || [];
+          if (routeNames.includes('FlipsScreen')) {
+            targetNavigation.navigate('FlipsScreen', params);
+            return;
+          }
+          targetNavigation = targetNavigation.getParent?.();
+        }
+
+        const parent = navigation.getParent?.();
+        if (parent?.navigate) {
+          parent.navigate('ProfileMain', {
+            screen: 'FlipsScreen',
+            params,
+          });
+          return;
+        }
+
+        navigation.navigate('FlipsScreen', params);
+        return;
+      }
+
+      const imagePosts = applyClientPostOverlayCacheToList(
+        posts.filter(p => !isReelPost(p)),
+      );
+      const nextIndex = Math.max(
+        0,
+        imagePosts.findIndex(p => String(p?.id) === String(item?.id)),
+      );
+
       navigation.getParent().navigate('ProfileMain', {
         screen: 'PostView',
         params: {
-          postData: posts,
-          startIndex: index,
+          postData: imagePosts,
+          startIndex: nextIndex,
           hideTabBar: true,
           userData,
           screenshotProtectionSource: SCREENSHOT_PROTECTED_SOURCES.PRIVATE_CIRCLE,

@@ -16,6 +16,11 @@ export const buyCreditHits = async (data) => {
     return axiosInstance.post('billing/buy-hit', data);
 }
 
+/** Buy mission hits / credits using Valens platform points (no Stripe). */
+export const buyHitWithPoints = async (data) => {
+    return axiosInstance.post('billing/buy-hit-with-points', data);
+}
+
 // export const FanPageSubscription = async () => {
 //     return axiosInstance.post('billing/fans-page-subscription');
 // }

@@ -94,6 +94,11 @@ import { useLanguage } from '../../i18n';
 import useScreenshotProtection, {
   shouldProtectScreenshot,
 } from '../../hooks/useScreenshotProtection';
+import YoutubePlayer from 'react-native-youtube-iframe';
+import {
+  getPostMusicForSlide,
+  getMusicTrimPlaybackWindowFromTrim,
+} from '../../utils/postSoundtracks';
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 const MAX_REEL_PINCH = 3.5;
@@ -108,6 +113,188 @@ const FLIPS_PROGRESS_TOP_GAP = 20;
 const FLIPS_PROGRESS_STRIP_HEIGHT = 28;
 const FLIPS_HEADER_AFTER_PROGRESS = 8;
 const SPEED_STEPS = [0.5, 1, 1.5, 2];
+
+const looksLikeYoutubeVideoId = value =>
+  /^[a-zA-Z0-9_-]{11}$/.test(String(value || '').trim());
+
+const parseYoutubeMusicMeta = rawMeta => {
+  if (!rawMeta) return null;
+  if (typeof rawMeta === 'object') return rawMeta;
+  if (typeof rawMeta !== 'string') return null;
+  try {
+    return JSON.parse(rawMeta);
+  } catch {
+    return null;
+  }
+};
+
+const resolveReelMusicLabel = raw => {
+  const ytm = parseYoutubeMusicMeta(
+    raw?.youtubeMusicMeta ?? raw?.youtube_music_meta ?? raw?.YoutubeMusicMeta,
+  );
+  if (ytm?.title) {
+    return ytm.artist || ytm.channelTitle
+      ? `${ytm.title} · ${ytm.artist || ytm.channelTitle}`
+      : String(ytm.title);
+  }
+  const music = raw?.music;
+  if (music && !looksLikeYoutubeVideoId(music) && String(music).trim() !== '') {
+    return String(music);
+  }
+  return 'Original Audio';
+};
+
+/**
+ * Plays attached flip soundtrack (YouTube / builtin mp3) while the reel is on screen.
+ * Original video audio is muted by the parent when this track exists.
+ */
+const ReelSoundtrackPlayer = React.memo(function ReelSoundtrackPlayer({
+  music,
+  play,
+}) {
+  const ytRef = useRef(null);
+  const mp3Ref = useRef(null);
+  const durRef = useRef(180);
+  const playRef = useRef(play);
+  playRef.current = play;
+
+  useEffect(() => {
+    if (music?.kind !== 'youtube') return;
+    (async () => {
+      try {
+        if (play) {
+          await ytRef.current?.unMute?.();
+          await ytRef.current?.playVideo?.();
+        } else {
+          await ytRef.current?.pauseVideo?.();
+        }
+      } catch (_) {
+        /* ignore player teardown */
+      }
+    })();
+  }, [play, music?.kind, music?.videoId]);
+
+  useEffect(() => {
+    if (music?.kind !== 'youtube' || !play) return;
+    const trim = music.trim;
+    const tick = setInterval(() => {
+      (async () => {
+        try {
+          if (!playRef.current) return;
+          const cur = await ytRef.current?.getCurrentTime?.();
+          if (typeof cur !== 'number' || Number.isNaN(cur)) return;
+          const dur = durRef.current || 180;
+          const { start: playStart, end: playEnd, hasOverlap } =
+            getMusicTrimPlaybackWindowFromTrim(trim, dur);
+          const margin = Math.min(0.35, Math.max(0.08, (playEnd - playStart) * 0.02));
+          if (hasOverlap && playEnd > playStart && cur >= playEnd - margin) {
+            await ytRef.current?.seekTo?.(playStart, true);
+          }
+        } catch (_) {
+          /* ignore */
+        }
+      })();
+    }, 320);
+    return () => clearInterval(tick);
+  }, [music?.kind, music?.videoId, music?.trim?.start, music?.trim?.end, play]);
+
+  useEffect(() => {
+    return () => {
+      try {
+        ytRef.current?.pauseVideo?.();
+        mp3Ref.current?.pause?.();
+      } catch (_) {
+        /* ignore */
+      }
+    };
+  }, [music?.kind, music?.videoId, music?.audioUrl]);
+
+  if (!music) return null;
+
+  if (music.kind === 'mp3' && music.audioUrl) {
+    return (
+      <Video
+        ref={mp3Ref}
+        key={`reel_mp3_${music.audioUrl}`}
+        source={{ uri: music.audioUrl }}
+        style={styles.hiddenReelAudio}
+        paused={!play}
+        muted={!play}
+        repeat={false}
+        volume={play ? 1 : 0}
+        resizeMode="contain"
+        controls={false}
+        playWhenInactive={false}
+        ignoreSilentSwitch="ignore"
+        onLoad={e => {
+          const d = e?.duration > 0 ? e.duration : 180;
+          durRef.current = d;
+          const { start, hasOverlap } = getMusicTrimPlaybackWindowFromTrim(
+            music.trim,
+            d,
+          );
+          setTimeout(() => mp3Ref.current?.seek?.(hasOverlap ? start : 0), 80);
+        }}
+        onProgress={({ currentTime }) => {
+          const dur = durRef.current || 180;
+          const { start: ps, end: pe, hasOverlap } =
+            getMusicTrimPlaybackWindowFromTrim(music.trim, dur);
+          const margin = Math.min(0.35, Math.max(0.08, (pe - ps) * 0.02));
+          if (hasOverlap && pe > ps && currentTime >= pe - margin) {
+            mp3Ref.current?.seek?.(ps);
+          }
+        }}
+      />
+    );
+  }
+
+  if (music.kind === 'youtube' && music.videoId) {
+    return (
+      <View style={styles.hiddenReelYoutube} pointerEvents="none" collapsable={false}>
+        <YoutubePlayer
+          ref={ytRef}
+          key={`reel_yt_${music.videoId}`}
+          height={200}
+          width={200}
+          videoId={music.videoId}
+          play={!!play}
+          mute={false}
+          volume={play ? 100 : 0}
+          forceAndroidAutoplay
+          initialPlayerParams={{ controls: false, modestbranding: true, rel: false }}
+          onReady={async () => {
+            try {
+              const d = await ytRef.current?.getDuration?.();
+              if (typeof d === 'number' && d > 0) {
+                durRef.current = d;
+              } else if (
+                music.durationSec != null &&
+                Number.isFinite(Number(music.durationSec))
+              ) {
+                durRef.current = Number(music.durationSec);
+              }
+              const dur = durRef.current || 180;
+              const { start: ps, hasOverlap } = getMusicTrimPlaybackWindowFromTrim(
+                music.trim,
+                dur,
+              );
+              await ytRef.current?.seekTo?.(hasOverlap ? ps : 0, true);
+              if (playRef.current) {
+                await ytRef.current?.unMute?.();
+                await ytRef.current?.playVideo?.();
+              }
+            } catch (_) {
+              /* ignore */
+            }
+          }}
+          onChangeState={() => {}}
+        />
+      </View>
+    );
+  }
+
+  return null;
+});
 
 const musicTemplates = [
   {
@@ -479,6 +666,25 @@ const ReelItem = React.memo(
       item?.userId != null &&
       String(currentUserId) === String(item.userId);
 
+    const postMusic = useMemo(
+      () =>
+        getPostMusicForSlide(
+          {
+            id: item.id,
+            music: item.musicId ?? item.music,
+            youtubeMusicMeta: item.youtubeMusicMeta,
+            postMeta: item.postMeta,
+          },
+          0,
+          null,
+        ),
+      [item.id, item.musicId, item.music, item.youtubeMusicMeta, item.postMeta],
+    );
+    const hasSoundtrack = Boolean(postMusic);
+    const videoPaused = pausedMap[item.id] === true;
+    const shouldPlaySoundtrack =
+      hasSoundtrack && isCurrent && isFocused && !videoPaused;
+
     const onVideoLoad = useCallback(
       data => handleVideoLoad(item.id, data),
       [item.id, handleVideoLoad],
@@ -503,8 +709,8 @@ const ReelItem = React.memo(
           isCurrent={isCurrent}
           isScreenFocused={isFocused}
           playbackRate={playbackRateMap[item.id] ?? 1}
-          paused={pausedMap[item.id] === true}
-          muted={mutedMap[item.id] === true}
+          paused={videoPaused}
+          muted={mutedMap[item.id] === true || hasSoundtrack}
           isBuffering={!!isBufferingMap[item.id]}
           onPinchLockChange={onPinchLockChange}
           onVideoLoad={onVideoLoad}
@@ -517,6 +723,9 @@ const ReelItem = React.memo(
           thumbnailUri={item.thumbnail || item.thumbnails?.[0] || null}
         />
 
+        {isCurrent && hasSoundtrack ? (
+          <ReelSoundtrackPlayer music={postMusic} play={shouldPlaySoundtrack} />
+        ) : null}
         {/* Horizontal actions */}
         <View
           style={[
@@ -532,7 +741,9 @@ const ReelItem = React.memo(
                 {(playbackRateMap[item.id] ?? 1) + '×'}
               </Text>
             </View>
-            <Text style={styles.actionLabel}>{tFlips('flips.speedLabel')}</Text>
+            <Text style={styles.actionLabel} numberOfLines={1}>
+              {tFlips('flips.speedLabel')}
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -540,15 +751,15 @@ const ReelItem = React.memo(
             onPress={() => handleLike(item.id)}>
             <View style={styles.actionIconSlot}>
               <Thumbup
-                width={24}
-                height={24}
+                width={26}
+                height={26}
                 style={[
                   styles.actionSvgIcon,
                   !likedMap[item.id] && styles.actionSvgIconInactive,
                 ]}
               />
             </View>
-            <Text style={styles.actionLabel}>
+            <Text style={styles.actionLabel} numberOfLines={1}>
               {formatCount(likesCountMap[item.id] || 0)}
             </Text>
           </TouchableOpacity>
@@ -557,9 +768,9 @@ const ReelItem = React.memo(
             style={styles.actionButton}
             onPress={() => handleComment(item.id)}>
             <View style={styles.actionIconSlot}>
-              <Comments width={22} height={22} style={styles.actionSvgIcon} />
+              <Comments width={26} height={26} style={styles.actionSvgIcon} />
             </View>
-            <Text style={styles.actionLabel}>
+            <Text style={styles.actionLabel} numberOfLines={1}>
               {formatCount(commentsCountMap[item.id] || 0)}
             </Text>
           </TouchableOpacity>
@@ -568,18 +779,23 @@ const ReelItem = React.memo(
             style={styles.actionButton}
             onPress={() => openShareSheet()}>
             <View style={styles.actionIconSlot}>
-              <ShareIcom width={22} height={22} style={styles.actionSvgIcon} />
+              <ShareIcom width={26} height={26} style={styles.actionSvgIcon} />
             </View>
-            <Text style={styles.actionLabel}>{tFlips('flips.shareLabel')}</Text>
+            <Text style={styles.actionLabel} numberOfLines={1}>
+              {tFlips('flips.shareLabel')}
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.actionButton, styles.actionButtonLast]}
-            onPress={() => handleMoreOptions(item)}>
+            style={styles.actionButton}
+            onPress={() => handleMoreOptions(item)}
+            accessibilityLabel={tFlips('flips.moreOptions') || 'More'}>
             <View style={styles.actionIconSlot}>
-              <Icon name="ellipsis-vertical" size={20} color="#fff" />
+              <Feather name="more-vertical" size={22} color="#fff" />
             </View>
-            <Text style={styles.actionLabelSpacer}>{'\u00A0'}</Text>
+            <Text style={[styles.actionLabel, styles.actionLabelHidden]} numberOfLines={1}>
+              {'\u00A0'}
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -974,7 +1190,14 @@ export default function FlipsScreen() {
               user: raw?.userName || raw?.username || raw?.user || 'Unknown User',
               avatar: raw?.userImage || raw?.avatar || 'https://randomuser.me/api/portraits/men/1.jpg',
               caption: raw?.caption || raw?.text || 'No caption',
-              music: raw?.music || 'Original Audio',
+              music: resolveReelMusicLabel(raw),
+              musicId: raw?.music ?? raw?.Music ?? null,
+              youtubeMusicMeta:
+                raw?.youtubeMusicMeta ??
+                raw?.youtube_music_meta ??
+                raw?.YoutubeMusicMeta ??
+                null,
+              postMeta: raw?.postMeta ?? raw?.post_meta ?? raw?.PostMeta ?? null,
               likes: raw?.likeCount || raw?.likes || 0,
               comments: raw?.commentCount || raw?.comments || 0,
               shares: raw?.shareCount || raw?.shares || 0,
@@ -2439,8 +2662,11 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 13,
     fontWeight: '700',
-    lineHeight: 16,
+    lineHeight: 28,
+    height: 28,
     textAlign: 'center',
+    textAlignVertical: 'center',
+    includeFontPadding: false,
   },
   videoContainer: { flex: 1 },
   video: { width: '100%', height: '100%' },
@@ -2488,25 +2714,20 @@ const styles = StyleSheet.create({
   buttons: { padding: 8 },
   horizontalActions: {
     position: 'absolute',
-    left: 10,
-    right: 80,
+    left: 8,
+    right: 78,
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'flex-start',
     justifyContent: 'flex-start',
-    paddingHorizontal: 10,
   },
   actionButton: {
+    width: 48,
     alignItems: 'center',
-    justifyContent: 'flex-end',
-    minWidth: 40,
-    marginRight: Platform.OS === 'android' ? 20 : 26,
-  },
-  actionButtonLast: {
-    marginRight: 0,
+    justifyContent: 'flex-start',
   },
   actionIconSlot: {
-    width: 24,
-    height: 24,
+    width: 28,
+    height: 28,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2517,15 +2738,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 4,
     fontWeight: '500',
-    minHeight: 16,
+    height: 16,
     lineHeight: 16,
     textAlign: 'center',
+    width: '100%',
   },
-  actionLabelSpacer: {
-    marginTop: 4,
-    minHeight: 16,
-    lineHeight: 16,
-    opacity: 0,
+  actionLabelHidden: {
+    color: 'transparent',
   },
   musicDisc: { marginTop: 10, marginBottom: '10%' },
   discContainer: {
@@ -2537,6 +2756,23 @@ const styles = StyleSheet.create({
   },
   discImage: { width: '100%', height: '100%', borderRadius: 25 },
   musicIconWrapper: { position: 'absolute', top: 7, left: 5 },
+  hiddenReelAudio: {
+    position: 'absolute',
+    width: 1,
+    height: 1,
+    opacity: 0,
+    left: -9999,
+    top: -9999,
+  },
+  hiddenReelYoutube: {
+    position: 'absolute',
+    width: 200,
+    height: 200,
+    opacity: 0.02,
+    left: -400,
+    top: -400,
+    zIndex: -1,
+  },
   bottomContent: {
     position: 'absolute',
     left: 0,

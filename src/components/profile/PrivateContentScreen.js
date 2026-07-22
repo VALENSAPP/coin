@@ -26,6 +26,7 @@ import useScreenshotProtection, {
   SCREENSHOT_PROTECTED_SOURCES,
 } from '../../hooks/useScreenshotProtection';
 import MyClosetShopFront from './MyClosetShopFront';
+import { applyClientPostOverlayCacheToList } from '../../utils/postSoundtracks';
 
 const { width: screenWidth } = Dimensions.get('window');
 const numColumns = 3;
@@ -49,6 +50,13 @@ const normalizeImageUrl = (url) => {
 const isVideoUrl = (url) => {
   if (!url || typeof url !== 'string') return false;
   return /\.(mp4|mov|avi|mkv|webm|m4v)(\?|$)/i.test(url);
+};
+
+const isReelPost = post => {
+  const formatValue = String(post?.format || '').toLowerCase();
+  const typeValue = String(post?.type || post?.postType || '').toLowerCase();
+  if (formatValue === 'reel' || typeValue === 'reel') return true;
+  return isVideoUrl(post?.images?.[0] || post?.video || '');
 };
 
 const mixWithWhite = (hex, amount = 0.85) => {
@@ -329,7 +337,7 @@ const PrivateContentScreen = ({
         return true;
       });
 
-      setPosts(mediaFilteredData);
+      setPosts(applyClientPostOverlayCacheToList(mediaFilteredData));
     } catch (error) {
       console.log(error);
       setPosts([]);
@@ -393,13 +401,15 @@ const PrivateContentScreen = ({
       const item = posts[index];
       if (!item) return;
 
-      const isReel = item?.format === 'reel';
+      const isReel = isReelPost(item);
 
       if (isReel) {
         const params = {
           item,
           profileUserId: userData?.id,
-          profileReels: posts,
+          profileReels: applyClientPostOverlayCacheToList(
+            posts.filter(p => isReelPost(p)),
+          ),
           key: Date.now().toString(),
         };
 
@@ -427,7 +437,9 @@ const PrivateContentScreen = ({
       }
 
       // Image post navigation
-      const imagePosts = posts.filter((p) => p?.format !== 'reel');
+      const imagePosts = applyClientPostOverlayCacheToList(
+        posts.filter(p => !isReelPost(p)),
+      );
       const nextIndex = Math.max(
         0,
         imagePosts.findIndex((p) => String(p?.id) === String(item?.id)),
