@@ -195,6 +195,10 @@ const mapBattle = (b, i) => {
   const sorted = [...(b.participants ?? [])].sort((a, c) => (a.position ?? 0) - (c.position ?? 0));
   const [p1, p2] = sorted;
   const winner = b?.winner || sorted.find(p => p?.isWinner) || null;
+  const totalVotes = sorted.reduce(
+    (sum, p) => sum + Number(p?.voteCount ?? p?.votesCount ?? p?.totalVotes ?? 0),
+    0,
+  );
   return {
     id: String(b.id ?? i),
     title: b.title,
@@ -209,6 +213,7 @@ const mapBattle = (b, i) => {
       winner?.raw?.productId ||
       null,
     winnerPct: Number(winner?.votePercentage ?? winner?.voteCount ?? winner?.pct ?? 0),
+    totalVotes,
   };
 };
 
@@ -341,6 +346,7 @@ const ItemTile = ({
   const [liked, setLiked] = useState(false);
   const [updatingWishlist, setUpdatingWishlist] = useState(false);
   const [wishlistItemId, setWishlistItemId] = useState(null);
+  console.log("------------winnerMeta---------------", winnerMeta)
 
   useEffect(() => {
     let mounted = true;
@@ -769,6 +775,12 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
     battles.forEach(battle => {
       const winner = battle?.left?.isWinner ? battle.left : battle?.right?.isWinner ? battle.right : null;
       const pct = Number(battle?.winnerPct ?? winner?.pct ?? 0);
+      const meta = {
+        pct,
+        battleId: battle.id,
+        battleTitle: battle.title,
+        totalVotes: battle.totalVotes,
+      };
       const ids = [
         battle?.winnerProductId,
         winner?.productId,
@@ -779,7 +791,7 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
         winner?.id,
       ].filter(Boolean);
       ids.forEach(id => {
-        map.set(String(id), { pct, battleId: battle.id });
+        map.set(String(id), meta);
       });
     });
     return map;
@@ -819,10 +831,10 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
 
   const goItems = () => navigation?.navigate?.('MyClosetBuyerItems', withClosetNavParams(
     { params: navContext },
-    { items, seller, sellerId: userData?.id, closetId, isOwnProfile },
+    { items, seller, sellerId: userData?.id, closetId, isOwnProfile, battles },
   ));
 
-  const openItem = item => navigation?.navigate?.('MyClosetBuyerItemDetail', withClosetNavParams(
+  const openItem = (item, winnerMeta) => navigation?.navigate?.('MyClosetBuyerItemDetail', withClosetNavParams(
     { params: navContext },
     {
       item: item?.raw || item,
@@ -831,6 +843,7 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
       sellerId: userData?.id,
       closetId,
       isOwnProfile,
+      battleWinner: winnerMeta || null,
     },
   ));
 
@@ -947,7 +960,7 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
 
       {/* ── E-books Section ── */}
       {(ebooksLoading || ebooks.length > 0) && (
-        <View style={[s.section, {marginTop: 12}]}>
+        <View style={[s.section, { marginTop: 12 }]}>
           <View style={s.sectionHead}>
             <View style={s.sectionLeft}>
               <Text style={s.sectionEmoji}>📚</Text>
@@ -988,15 +1001,15 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
       {/* ── Pinned Item ── */}
       {(battlesLoading || pinnedItems.length > 0) && (
         <>
-          <View style={[s.sectionHead, {marginTop: -15}]}>
+          <View style={[s.sectionHead, { marginTop: -15 }]}>
             <Text style={s.sectionTitle}>
               {t('myClosetDashboard.pinnedItemTitle') || 'Pinned Item'}
             </Text>
-             {(pinnedItems.length > 3) && (
-                <TouchableOpacity activeOpacity={0.8} onPress={goBattles}>
-                  <Text style={[s.seeAll, { color: accent }]}>{t('myClosetShopFront.seeAll')} ›</Text>
-                </TouchableOpacity>
-              )}
+            {(pinnedItems.length > 3) && (
+              <TouchableOpacity activeOpacity={0.8} onPress={goBattles}>
+                <Text style={[s.seeAll, { color: accent }]}>{t('myClosetShopFront.seeAll')} ›</Text>
+              </TouchableOpacity>
+            )}
           </View>
           <View style={[s.pinnedSection, { backgroundColor: '#fff' }, { borderColor: withAlpha(text, 0.12) }]}>
             {battlesLoading && pinnedItems.length === 0 ? (
@@ -1161,7 +1174,7 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
                       `${it.name} won with ${winnerMeta.pct}% of the votes.`,
                     );
                   }}
-                  onPress={() => { openItem(it); }}
+                  onPress={() => { openItem(it, winnerMeta); }}
                 />
               );
             })}
@@ -1306,7 +1319,7 @@ const s = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center',
     margin: 12, padding: 14,
     borderRadius: 16,
-    
+
   },
   bannerIcon: { width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
   bannerBody: { flex: 1 },

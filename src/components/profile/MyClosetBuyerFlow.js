@@ -586,7 +586,7 @@ const Header = ({ navigation, title, rightIcon, onRightPress, returnTo }) => {
   );
 };
 
-const BottomButton = ({ label, onPress, icon, accentColor, disabled = false }) => {
+const BottomButton = ({ label, onPress, icon, accentColor, disabled = false, secondButton = false }) => {
   const { accent: themeAccent } = useAppTheme();
   const buttonColor = resolveActionColor(accentColor, themeAccent);
   const labelColor = contrastOn(buttonColor);
@@ -599,6 +599,7 @@ const BottomButton = ({ label, onPress, icon, accentColor, disabled = false }) =
         styles.bottomButton,
         { backgroundColor: buttonColor },
         disabled && styles.bottomButtonDisabled,
+        secondButton && { marginTop: 6 }
       ]}
     >
       {icon ? <Ionicons name={icon} size={16} color={labelColor} style={styles.buttonIcon} /> : null}
@@ -880,9 +881,9 @@ const CheckoutSteps = ({ current, includeShipping = true, accentColor }) => {
                   filled
                     ? { backgroundColor: fillColor, borderColor: fillColor }
                     : {
-                        backgroundColor: 'transparent',
-                        borderColor: idleBorder,
-                      },
+                      backgroundColor: 'transparent',
+                      borderColor: idleBorder,
+                    },
                 ]}
               >
                 {done ? (
@@ -1314,6 +1315,7 @@ const MyClosetBuyerItemsScreen = ({ navigation, route }) => {
   const isOwnProfile = route?.params?.isOwnProfile ?? false;
   const accent = text;
   const returnTo = route?.params?.returnTo;
+  const battles = route?.params?.battles || [];
   const sellerName = seller?.displayName || seller?.userName || t('myClosetBuyer.closetFallback');
 
   const categoryCounts = useMemo(() => {
@@ -1344,6 +1346,32 @@ const MyClosetBuyerItemsScreen = ({ navigation, route }) => {
       ...dynamicCategories,
     ];
   }, [items, t]);
+
+  const battleWinnerMap = useMemo(() => {
+    const map = new Map();
+    battles.forEach(battle => {
+      const winner = battle?.left?.isWinner ? battle.left : battle?.right?.isWinner ? battle.right : null;
+      if (!winner) return;
+      const pct = Number(battle?.winnerPct ?? winner?.pct ?? 0);
+      const meta = {
+        pct,
+        battleId: battle.id,
+        battleTitle: battle.title,
+        totalVotes: battle.totalVotes,
+      };
+      const ids = [
+        battle?.winnerProductId,
+        winner?.productId,
+        winner?.raw?.productId,
+        winner?.raw?.product?.id,
+        winner?.raw?.product?._id,
+        winner?.participantId,
+        winner?.id,
+      ].filter(Boolean);
+      ids.forEach(id => map.set(String(id), meta));
+    });
+    return map;
+  }, [battles]);
 
   const filteredItems = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -1406,33 +1434,41 @@ const MyClosetBuyerItemsScreen = ({ navigation, route }) => {
 
   const openItem = useCallback(
     item => {
+      const productId = String(item.raw?.id || item.raw?._id || item.raw?.productId || item.id);
+      const winnerMeta = battleWinnerMap.get(productId) || null;
       navigation.navigate('MyClosetBuyerItemDetail', withClosetNavParams(route, {
         item: item.raw || item,
         seller,
         sellerId,
         items: route?.params?.items || items.map(row => row.raw || row),
         isOwnProfile: route?.params?.isOwnProfile,
+        battleWinner: winnerMeta,
       }));
     },
-    [items, navigation, route, seller, sellerId],
+    [items, navigation, route, seller, sellerId, battleWinnerMap],
   );
 
-  const renderItem = ({ item }) => (
-    <BuyerItemCard
-      item={item}
-      accent={accent}
-      t={t}
-      onPress={() => openItem(item)}
-      onToggleWishlist={onToggleWishlist}
-      sellerId={sellerId}
-      text={text}
-      card={card}
-      border={border}
-      mutedText={mutedText || surfaces.mutedColor}
-    />
-  );
+  const renderItem = ({ item }) => {
+    const productId = String(item.raw?.id || item.raw?._id || item.raw?.productId || item.id);
+    const winnerMeta = battleWinnerMap.get(productId) || null;
+    return (
+      <BuyerItemCard
+        item={item}
+        accent={accent}
+        t={t}
+        onPress={() => openItem(item)}
+        onToggleWishlist={onToggleWishlist}
+        sellerId={sellerId}
+        text={text}
+        card={card}
+        border={border}
+        mutedText={mutedText || surfaces.mutedColor}
+        winnerMeta={winnerMeta}
+      />
+    );
+  };
 
-  console.log("filteredItems------------------------",filteredItems)
+  console.log("filteredItems------------------------", filteredItems)
 
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
@@ -1590,7 +1626,7 @@ const MyClosetBuyerItemsScreen = ({ navigation, route }) => {
   );
 };
 
-const BuyerItemCard = ({ item, accent, t, onPress, onToggleWishlist, sellerId, text, card, border, mutedText }) => {
+const BuyerItemCard = ({ item, accent, t, onPress, onToggleWishlist, sellerId, text, card, border, mutedText, winnerMeta }) => {
   const [liked, setLiked] = useState(Boolean(item?.liked));
   const [updatingWishlist, setUpdatingWishlist] = useState(false);
   const [wishlistItemId, setWishlistItemId] = useState(null);
@@ -1658,6 +1694,20 @@ const BuyerItemCard = ({ item, accent, t, onPress, onToggleWishlist, sellerId, t
           <View style={[styles.newBadge, { backgroundColor: text }]}>
             <Text style={styles.newBadgeText}>{t('myClosetBuyer.newBadge') || 'New'}</Text>
           </View>
+        ) : null}
+        {winnerMeta ? (
+          <TouchableOpacity
+            activeOpacity={0.85}
+            style={styles.winnerChip}
+            onPress={() =>
+              Alert.alert(
+                t('myClosetShopFront.battleWinnerTitle') || 'Battle Winner',
+                `${item.name} won with ${winnerMeta.pct}% of the votes.`,
+              )
+            }
+          >
+            <Text style={styles.winnerChipText}>🏆 Winner</Text>
+          </TouchableOpacity>
         ) : null}
         <TouchableOpacity
           style={styles.favoriteBadge}
@@ -1891,6 +1941,84 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
             </View>
           ))}
         </View>
+        {route?.params?.battleWinner ? (
+          <>
+            <View
+              style={[
+                styles.winnerBanner,
+                { backgroundColor: withAlphaFlow(accent, 0.12), borderColor: withAlphaFlow(accent, 0.3) },
+              ]}
+            >
+              <View style={[styles.winnerBannerIcon, { backgroundColor: accent }]}>
+                <Ionicons name="trophy" size={18} color={contrastOn(accent)} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.winnerBannerTitle, { color: accent }]}>
+                  {t('myClosetBuyer.battleWinnerBannerTitle') || 'WOW, this is a winner! 🏆'}
+                </Text>
+                <Text style={[styles.winnerBannerSub, { color: mutedText }]}>
+                  {t('myClosetBuyer.battleWinnerBannerSub', { pct: route.params.battleWinner.pct }) ||
+                    `This item won the battle with ${route.params.battleWinner.pct}% of the votes.`}
+                </Text>
+              </View>
+            </View>
+
+            <View style={[styles.battleDetailsCard, themedCard(card, border)]}>
+              <Text style={[styles.sectionLabel, { color: text }]}>
+                {t('myClosetBuyer.battleDetailsTitle') || 'Battle Details'}
+              </Text>
+
+              <View style={styles.battleDetailRow}>
+                <Ionicons name="trophy-outline" size={15} color={text} />
+                <Text style={[styles.battleDetailLabel, { color: mutedText }]}>
+                  {t('myClosetBuyer.battleWinnerLabel') || 'Winner'}
+                </Text>
+                <Text style={[styles.battleDetailValue, { color: text }]}>
+                  {t('myClosetBuyer.thisItemLabel') || 'This Item'}
+                </Text>
+              </View>
+
+              {route.params.battleWinner.totalVotes ? (
+                <View style={styles.battleDetailRow}>
+                  <Ionicons name="people-outline" size={15} color={text} />
+                  <Text style={[styles.battleDetailLabel, { color: mutedText }]}>
+                    {t('myClosetBuyer.totalVotesLabel') || 'Total Votes'}
+                  </Text>
+                  <Text style={[styles.battleDetailValue, { color: text }]}>
+                    {Number(route.params.battleWinner.totalVotes).toLocaleString()}
+                  </Text>
+                </View>
+              ) : null}
+
+              <View style={styles.battleDetailRow}>
+                <Ionicons name="stats-chart-outline" size={15} color={text} />
+                <Text style={[styles.battleDetailLabel, { color: mutedText }]}>
+                  {t('myClosetBuyer.winningPercentageLabel') || 'Winning Percentage'}
+                </Text>
+                <Text style={[styles.battleDetailValue, { color: text }]}>
+                  {route.params.battleWinner.pct}%
+                </Text>
+              </View>
+
+              <View style={styles.battleDetailRow}>
+                <Ionicons name="ribbon-outline" size={15} color={text} />
+                <Text style={[styles.battleDetailLabel, { color: mutedText }]}>
+                  {t('myClosetBuyer.resultLabel') || 'Result'}
+                </Text>
+                <Text style={[styles.battleDetailValue, { color: accent }]}>
+                  {t('myClosetBuyer.winnerLabel') || 'Winner'}
+                </Text>
+              </View>
+
+              <View style={[styles.battleResultsNote, { borderTopColor: border }]}>
+                <Text style={[styles.battleResultsNoteText, { color: mutedText }]}>
+                  {t('myClosetBuyer.battleResultsNote', { pct: route.params.battleWinner.pct }) ||
+                    `This item was the community favorite and won with ${route.params.battleWinner.pct}% of the votes.`}
+                </Text>
+              </View>
+            </View>
+          </>
+        ) : null}
       </ScrollView>
       {!isOwnProfile && (
         <BottomBar>
@@ -2552,6 +2680,11 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
     );
   };
 
+  const handleContinueShopping = () => {
+    route.params?.onGoBack?.({ initialTab: 'closet' });
+    navigation.goBack();
+  }
+
   const isEmpty = !cartLoading && cartItems.length === 0;
   const wishlistEmpty = !wishlistLoading && wishlistItems.length === 0;
 
@@ -2783,10 +2916,16 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
         <BottomBar>
           <BottomButton
             label={checkingOut ? t('myClosetBuyer.loading') : t('myClosetBuyer.continueShopping')}
-            onPress={checkingOut ? undefined : handleProceed}
+            onPress={handleContinueShopping}
             accentColor={accent}
           />
-      </BottomBar>
+          <BottomButton
+            label={checkingOut ? t('myClosetBuyer.loading') : t('myClosetBuyer.goToCheckout')}
+            onPress={checkingOut ? undefined : handleProceed}
+            accentColor={accent}
+            secondButton={true}
+          />
+        </BottomBar>
       )}
     </SafeAreaView>
   );
@@ -3984,6 +4123,35 @@ const styles = StyleSheet.create({
   },
   gridImageWrap: { position: 'relative' },
   gridImage: { width: '100%', aspectRatio: 1, borderRadius: 18 },
+  winnerBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 12,
+    marginTop: 24,
+    marginVertical: 18,
+    gap: 10,
+  },
+  winnerBannerIcon: {
+    width: 32, height: 32, borderRadius: 16,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  winnerBannerTitle: { fontSize: 13, fontWeight: '900' },
+  winnerBannerSub: { marginTop: 2, fontSize: 12, lineHeight: 16 },
+
+  battleDetailsCard: {
+    borderWidth: 1, borderRadius: 14, padding: 14, marginBottom: 18,
+  },
+  battleDetailRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10,
+  },
+  battleDetailLabel: { flex: 1, fontSize: 12, fontWeight: '700' },
+  battleDetailValue: { fontSize: 13, fontWeight: '900' },
+  battleResultsNote: {
+    marginTop: 12, paddingTop: 12, borderTopWidth: 1,
+  },
+  battleResultsNoteText: { fontSize: 12, lineHeight: 17, fontStyle: 'italic' },
   newBadge: {
     position: 'absolute',
     top: 10,
@@ -3993,6 +4161,18 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   newBadgeText: { color: '#fff', fontSize: 10, fontWeight: '900' },
+  winnerChip: {
+    position: 'absolute',
+    width: '100%',
+    bottom: 0,
+    zIndex: 5,
+    backgroundColor: '#fbbf24',
+    paddingVertical: 6,
+    alignItems: 'center',
+    borderBottomEndRadius: 14,
+    borderBottomStartRadius: 14
+  },
+  winnerChipText: { fontSize: 9, fontWeight: '900', color: '#111827', letterSpacing: 0.2 },
   favoriteBadge: {
     position: 'absolute',
     top: 8,
@@ -4179,7 +4359,7 @@ const styles = StyleSheet.create({
   photoDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#d7cce3' },
   photoDotsSpacer: { height: 42 },
   detailName: { fontSize: 22, fontWeight: '900', color: '#17072d' },
-  detailPrice: { marginTop: 3, fontSize: 21, fontWeight: '900', marginBottom: 30 },
+  detailPrice: { marginTop: 3, fontSize: 21, fontWeight: '900', marginBottom: 18 },
 
   sellerCard: {
     flexDirection: 'row', alignItems: 'center',
