@@ -102,7 +102,6 @@ const CustomDrawerContent = (props) => {
     options: props.descriptors[route.key]?.options || {},
   }));
 
-
   const blockProfile = React.useCallback(async () => {
     try {
 
@@ -279,7 +278,7 @@ const CustomDrawerContent = (props) => {
       {/* Spacer pushes the Dark Mode toggle to the bottom */}
       <View style={{ flex: 1 }} />
 
-      {/* Dark Mode Toggle */}
+      {/* Dark Mode Toggle — follows phone Settings; switch UI same as before */}
       <View
         style={[
           {

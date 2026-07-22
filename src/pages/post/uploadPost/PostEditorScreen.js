@@ -423,12 +423,14 @@ const PostEditorScreen = () => {
               : 'normal',
       visibleTo: visibleTo,
       isTrustPost: isCommunityTrustPost,
-      ...(postType === 'private' &&
+      ...((postType === 'private' || postType === 'private_circle') &&
         (fromIcon === 'Flips' || fromIcon === 'video')
         ? {
           format: fromIcon === 'Flips' ? 'reel' : fromIcon === 'video' ? 'video' : 'normal',
         }
-        : {}),
+        : fromIcon === 'Flips'
+          ? { format: 'reel' }
+          : {}),
       // ...(isFlipPost && primaryMedia
       //   ? { format: getPostMediaFormat(primaryMedia) }
       //   : {}),

@@ -46,7 +46,10 @@ import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { useAppTheme } from '../../theme/useApptheme';
 import { getTotalDonationAmount } from '../../services/tokens';
 import Clipboard from '@react-native-clipboard/clipboard';
-import { extractPostMusicPayloadFromApi } from '../../utils/postSoundtracks';
+import {
+  extractPostMusicPayloadFromApi,
+  applyClientPostOverlayCache,
+} from '../../utils/postSoundtracks';
 import { useLanguage } from '../../i18n';
 import { isPostPinned, setPostPinnedState } from '../../utils/postPinning';
 import useScreenshotProtection, {
@@ -89,7 +92,10 @@ export default function PostView({ postData = [], userData = {} }) {
       : {};
 
     return raw.map(post =>
-      mergeTrustPostFields(routeTrustHint, withTrustPostFields(post)),
+      mergeTrustPostFields(
+        routeTrustHint,
+        applyClientPostOverlayCache(withTrustPostFields(post)),
+      ),
     );
   }, [routeParams?.isTrustPost, routeParams?.communityTrustPost]);
 

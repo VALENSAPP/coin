@@ -1159,6 +1159,8 @@ function PostItem({
     [screenFocused, isVisible, playingPostId, item.id],
   );
 
+  const muteVideoForSoundtrack = Boolean(postMusic) && isCurrentSlideVideo;
+
   useLayoutEffect(() => {
     if (playbackEligible) return;
     setIsMuted(true);
@@ -1714,7 +1716,7 @@ function PostItem({
                     thumbnailUri={mediaItem.thumbnail}
                     videoHeight={slideH}
                     paused={!shouldPlay}
-                    muted={isMuted}
+                    muted={isMuted || muteVideoForSoundtrack}
                     repeat
                     onVideoRef={ref => { if (ref) videoRefsMap.current[index] = ref; }}
                     onLoadStart={() => setVideoLoaded(prev => ({ ...prev, [index]: false }))}
@@ -1790,11 +1792,12 @@ function PostItem({
       );
     },
     [currentIndex, handleOpenReel, isVideoUrl, videoStates, isZooming, isMuted,
-      playbackEligible, getSlideHeight, videoLoaded, width, parsedPostMeta],
+      muteVideoForSoundtrack, playbackEligible, getSlideHeight, videoLoaded, width,
+      parsedPostMeta, postMusic, item],
   );
 
   const shouldPlayPostFeedMusic =
-    Boolean(postMusic) && playbackEligible && !isZooming && !isCurrentSlideVideo;
+    Boolean(postMusic) && playbackEligible && !isZooming;
   const shouldPlayAudio = shouldPlayPostFeedMusic && !isMuted;
 
   useEffect(() => {
@@ -1964,9 +1967,10 @@ function PostItem({
                 height={200}
                 width={200}
                 videoId={postMusic.videoId}
-                play={!isMuted}
+                play={shouldPlayAudio}
                 mute={false}
-                volume={!isMuted ? 100 : 0}
+                volume={shouldPlayAudio ? 100 : 0}
+                forceAndroidAutoplay
                 initialPlayerParams={{ controls: false, modestbranding: true, rel: false }}
                 onReady={async () => {
                   try {
@@ -1983,6 +1987,10 @@ function PostItem({
                     const dur = postFeedMusicDurRef.current || 180;
                     const { start: ps, hasOverlap } = getMusicTrimPlaybackWindowFromTrim(postMusic.trim, dur);
                     await postFeedYoutubeRef.current?.seekTo?.(hasOverlap ? ps : 0, true);
+                    if (shouldPlayAudioRef.current) {
+                      await postFeedYoutubeRef.current?.unMute?.();
+                      await postFeedYoutubeRef.current?.playVideo?.();
+                    }
                   } catch (_) { }
                 }}
                 onChangeState={state => { }}
@@ -2062,7 +2070,7 @@ function PostItem({
             </>
           )}
 
-          {postMusic && !isCurrentSlideVideo && (
+          {postMusic ? (
             <TouchableOpacity
               style={styles.speakerButton}
               onPress={() => setIsMuted(prev => !prev)}
@@ -2073,7 +2081,7 @@ function PostItem({
               }>
               <Feather name={isMuted ? 'volume-x' : 'volume-2'} size={20} color="#fff" />
             </TouchableOpacity>
-          )}
+          ) : null}
         </View>
 
         {/* Actions */}
