@@ -800,7 +800,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
     padding: 10,
-    minHeight:240,
+    minHeight:'17%',
     overflow: 'hidden',
   },
   heroContent: { flexDirection: 'row', alignItems: 'center',paddingRight:15 },

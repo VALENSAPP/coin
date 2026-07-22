@@ -484,9 +484,10 @@ const SearchScreen = () => {
   const profile = isBusinessProfile ? 'company' : 'user';
   const isScreenFocused = useIsFocused();
 
-  const getUserAccentColor = useCallback((userProfile) => (
-    normalizeProfileType(userProfile) === 'company' ? '#C9A15A' : '#5a2d82'
-  ), []);
+  const getUserAccentColor = useCallback((userProfile) => {
+    if (!userProfile) return null;
+    return normalizeProfileType(userProfile) === 'company' ? '#C9A15A' : '#5a2d82';
+  }, []);
   const isSearchActive = searchText.trim().length > 0;
   const tabBarHeight = useBottomTabBarHeight();
   const masonryBottomInset = useMemo(
@@ -970,13 +971,18 @@ const SearchScreen = () => {
   const userKeyExtractor = useCallback((item, idx) => String(item.id ?? idx), []);
 
   const renderListItem = useCallback(({ item }) => {
-    const userAccent = getUserAccentColor(item?.profile);
+    const rawAccent = getUserAccentColor(item?.profile || item?.profile_type || item?.profileType);
+    const borderColor = rawAccent || 'transparent';
+    const avatarBorderWidth = rawAccent ? 1.5 : 0;
+    const textColor = rawAccent || text || '#000';
+    const shadowColor = rawAccent || 'transparent';
+
     return (
       <TouchableOpacity
         style={[
           styles.userListItem,
           cardStyle,
-          { borderColor: border, borderWidth: StyleSheet.hairlineWidth, shadowColor: userAccent },
+          { borderColor: border, borderWidth: StyleSheet.hairlineWidth, shadowColor },
         ]}
         onPress={() => handleUserProfile(item)}
         activeOpacity={0.7}
@@ -984,11 +990,11 @@ const SearchScreen = () => {
         <HexAvatar
           uri={normalizeImageUrl(item.image) || require('../../assets/icons/pngicons/user.png')}
           size={60}
-          borderWidth={1.5}
-          borderColor={userAccent}
+          borderWidth={avatarBorderWidth}
+          borderColor={borderColor}
         />
         <View style={styles.userInfo}>
-          <Text style={[styles.userName, { color: userAccent }]} numberOfLines={1}>
+          <Text style={[styles.userName, { color: textColor }]} numberOfLines={1}>
             {item?.displayName || item?.userName}
           </Text>
           <Text style={[styles.userHandle, mutedTextStyle]} numberOfLines={1}>
@@ -997,7 +1003,7 @@ const SearchScreen = () => {
         </View>
       </TouchableOpacity>
     );
-  }, [handleUserProfile, getUserAccentColor, cardStyle, border, mutedTextStyle]);
+  }, [handleUserProfile, getUserAccentColor, cardStyle, border, mutedTextStyle, text]);
 
   const renderListHeader = useCallback(() => (
     <Text style={[styles.sectionTitle, textStyle]}>{t('search.searchResultsTitle')}</Text>
