@@ -533,7 +533,7 @@ const HighlightsScreen = ({ navigation, route }) => {
           {item.coverImage ? (
             <Image source={{ uri: item.coverImage }} style={styles.bubbleImage} />
           ) : (
-            <View style={styles.bubbleFallback}>
+            <View style={[styles.bubbleFallback, { backgroundColor: accent }]}>
               <Icon name="images-outline" size={22} color="#fff" />
             </View>
           )}
@@ -700,7 +700,7 @@ const HighlightsScreen = ({ navigation, route }) => {
                         {item.coverImage ? (
                           <Image source={{ uri: item.coverImage }} style={styles.collectionAvatarImage} />
                         ) : (
-                          <View style={styles.bubbleFallback}>
+                          <View style={[styles.bubbleFallback, { backgroundColor: accent }]}>
                             <Icon name="images-outline" size={20} color="#fff" />
                           </View>
                         )}
@@ -1032,7 +1032,6 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#64748b',
   },
   newBubbleOuter: {
     width: 76,
