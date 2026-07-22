@@ -817,19 +817,36 @@ const ProfilePersonData = ({
   const levelInfo = useMemo(() => {
     const normalized = String(battlePointSummary.level || 'Rookie').trim();
     const upper = normalized.toUpperCase();
+    
+    let tier = upper;
+    let levelText = 'LEVEL 1';
+
     if (normalized.toLowerCase().includes('level')) {
-      return { tier: 'CHALLENGER', levelText: upper };
+      tier = 'CHALLENGER';
+      levelText = upper;
+    } else {
+      switch (normalized.toLowerCase()) {
+        case 'rookie': tier = 'ROOKIE'; levelText = 'LEVEL 1'; break;
+        case 'challenger': tier = 'CHALLENGER'; levelText = 'LEVEL 2'; break;
+        case 'strategist': tier = 'STRATEGIST'; levelText = 'LEVEL 3'; break;
+        case 'analyst': tier = 'ANALYST'; levelText = 'LEVEL 4'; break;
+        case 'expert': tier = 'EXPERT'; levelText = 'LEVEL 5'; break;
+        case 'oracle': tier = 'ORACLE'; levelText = 'LEVEL 6'; break;
+        default: tier = upper; levelText = 'LEVEL 1'; break;
+      }
     }
-    switch (normalized.toLowerCase()) {
-      case 'rookie': return { tier: 'ROOKIE', levelText: 'LEVEL 1' };
-      case 'challenger': return { tier: 'CHALLENGER', levelText: 'LEVEL 2' };
-      case 'pro': return { tier: 'PRO', levelText: 'LEVEL 3' };
-      case 'expert': return { tier: 'EXPERT', levelText: 'LEVEL 4' };
-      case 'master': return { tier: 'MASTER', levelText: 'LEVEL 5' };
-      case 'legend': return { tier: 'LEGEND', levelText: 'LEVEL 6' };
-      default: return { tier: upper, levelText: 'LEVEL 1' };
-    }
-  }, [battlePointSummary.level]);
+
+    const pts = battlePointSummary.points || 0;
+    let maxPoints = 100;
+    if (pts >= 3000) maxPoints = pts > 3000 ? pts : 3000;
+    else if (pts >= 1500) maxPoints = 3000;
+    else if (pts >= 700) maxPoints = 1500;
+    else if (pts >= 300) maxPoints = 700;
+    else if (pts >= 100) maxPoints = 300;
+    else maxPoints = 100;
+
+    return { tier, levelText, maxPoints };
+  }, [battlePointSummary.level, battlePointSummary.points]);
 
   const fetchBattleStats = useCallback(async () => {
     if (!viewedBattleUserId) return;
@@ -1369,10 +1386,10 @@ const ProfilePersonData = ({
                   {/* Progress Bar & XP */}
                   <View style={{ width: '100%', alignItems: 'center', marginBottom: 6 }}>
                     <View style={{ width: 64, height: 4, backgroundColor: isDarkMode ? 'rgba(255,255,255,0.1)' : '#E5E7EB', borderRadius: 2, marginBottom: 4, overflow: 'hidden' }}>
-                      <View style={{ width: `${Math.min((battlePointSummary.points / 1000) * 100, 100)}%`, height: '100%', backgroundColor: accent, borderRadius: 2 }} />
+                      <View style={{ width: `${Math.min((battlePointSummary.points / levelInfo.maxPoints) * 100, 100)}%`, height: '100%', backgroundColor: accent, borderRadius: 2 }} />
                     </View>
                     <Text style={{ fontSize: 8, color: mutedText, fontWeight: '600' }}>
-                      {battlePointSummary.points} / 1,000 XP
+                      {battlePointSummary.points} / {levelInfo.maxPoints.toLocaleString()} XP
                     </Text>
                   </View>
 
