@@ -26,6 +26,7 @@ import { useAppTheme } from '../../theme/useApptheme';
 import { useThemeContext } from '../../theme/ThemeContext';
 import { exploretBattle } from '../../services/battle';
 import BattleCard from '../../components/search/Battlecard';
+import { BattleSlide, mapBattle } from '../../components/profile/MyClosetShopFront';
 import { mapBattleCard } from '../../utils/battleCardUtils';
 import { useLanguage } from '../../i18n';
 
@@ -162,6 +163,20 @@ export default function BattleExplore({ onClose, profile }) {
   }, [selectedBattleOptions]);
 
   const handleBattleCardPress = useCallback((battleItem) => {
+    if (battleItem?.typeByBattle === 'marketPlace') {
+      const mappedBattle = mapBattle(battleItem.raw || battleItem, 0);
+      navigation.navigate('ProfileMain', {
+        screen: 'BattleLive',
+        params: {
+          battleId: mappedBattle?.id,
+          initialBattle: mappedBattle,
+          userProfile: profile,
+          selectedItems: [mappedBattle?.left, mappedBattle?.right].filter(Boolean),
+          returnToProfile: { tab: 'Search' },
+        }
+      });
+      return;
+    }
     navigation.navigate('ProfileMain', {
       screen: 'BattleInProgress',
       params: {
@@ -175,18 +190,44 @@ export default function BattleExplore({ onClose, profile }) {
     });
   }, [navigation, profile]);
 
-  const renderItem = useCallback(({ item }) => (
-    <View style={styles.cardWrapper}>
-      <BattleCard
-        item={item}
-        fullWidth
-        selectedOption={selectedBattleOptions[item.id]}
-        onCardPress={handleBattleCardPress}
-        onOptionSelect={updateSelectedBattleOption}
-        onUserPress={handleUserProfile}
-      />
-    </View>
-  ), [selectedBattleOptions, handleBattleCardPress, updateSelectedBattleOption, handleUserProfile]);
+  const renderItem = useCallback(({ item, index }) => {
+    if (item.typeByBattle === 'marketPlace') {
+      const mappedBattle = mapBattle(item.raw || item, index);
+      return (
+        <View style={styles.cardWrapper}>
+          <BattleSlide
+            key={item.id || mappedBattle.id}
+            battle={mappedBattle}
+            accent={accent}
+            t={t}
+            onPress={() => handleBattleCardPress(item.raw || item)}
+            card={card}
+            border={border}
+            textColor={text}
+            mutedText={mutedText}
+            isDark={isDarkMode}
+            thumbSurface={isDarkMode ? '#333' : '#f5f3ef'}
+            mutedColor={mutedText}
+            loadingOverlayColor={isDarkMode ? 'rgba(0,0,0,0.5)' : 'rgba(245,243,238,0.72)'}
+            customWidth={'100%'}
+            imageSize={70}
+          />
+        </View>
+      );
+    }
+    return (
+      <View style={styles.cardWrapper}>
+        <BattleCard
+          item={item}
+          fullWidth
+          selectedOption={selectedBattleOptions[item.id]}
+          onCardPress={handleBattleCardPress}
+          onOptionSelect={updateSelectedBattleOption}
+          onUserPress={handleUserProfile}
+        />
+      </View>
+    );
+  }, [selectedBattleOptions, handleBattleCardPress, updateSelectedBattleOption, handleUserProfile, accent, t, card, border, text, mutedText, isDarkMode]);
 
   const keyExtractor = useCallback((item, idx) => String(item.id ?? idx), []);
 

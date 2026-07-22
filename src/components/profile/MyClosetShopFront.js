@@ -191,7 +191,7 @@ const mapParticipant = (p = {}, closet) => {
   };
 };
 
-const mapBattle = (b, i) => {
+export const mapBattle = (b, i) => {
   const sorted = [...(b.participants ?? [])].sort((a, c) => (a.position ?? 0) - (c.position ?? 0));
   const [p1, p2] = sorted;
   const winner = b?.winner || sorted.find(p => p?.isWinner) || null;
@@ -214,6 +214,8 @@ const mapBattle = (b, i) => {
       null,
     winnerPct: Number(winner?.votePercentage ?? winner?.voteCount ?? winner?.pct ?? 0),
     totalVotes,
+    status: b.status,
+    outcome: b.outcome,
   };
 };
 
@@ -232,9 +234,10 @@ const BATTLES_FALLBACK = [
   },
 ];
 
-const BattleSlide = ({ battle, accent, t, onPress, card, border, textColor, mutedText, isDark, thumbSurface, mutedColor, loadingOverlayColor }) => {
+export const BattleSlide = ({ battle, accent, t, onPress, card, border, textColor, mutedText, isDark, thumbSurface, mutedColor, loadingOverlayColor, customWidth, imageSize }) => {
   let winnerSide = battle?.left?.isWinner ? 'left' : battle?.right?.isWinner ? 'right' : null;
-  if (!winnerSide) {
+  const isPending = battle?.status === 'LIVE' || battle?.outcome === 'PENDING';
+  if (!winnerSide && !isPending) {
     if (battle?.winnerParticipantId) {
       if (battle.winnerParticipantId === battle?.left?.participantId) winnerSide = 'left';
       else if (battle.winnerParticipantId === battle?.right?.participantId) winnerSide = 'right';
@@ -268,7 +271,7 @@ const BattleSlide = ({ battle, accent, t, onPress, card, border, textColor, mute
   return (
     <TouchableOpacity
       activeOpacity={0.9}
-      style={[s.slide, { backgroundColor: card, borderColor: border }]}
+      style={[s.slide, customWidth ? { width: customWidth } : {}, { backgroundColor: card, borderColor: border }]}
       onPress={onPress}
     >
       <View style={s.battleHeader}>
@@ -279,7 +282,7 @@ const BattleSlide = ({ battle, accent, t, onPress, card, border, textColor, mute
 
       <View style={s.battleBody}>
         <View style={s.fighter}>
-          <View style={[s.fighterThumb, { backgroundColor: thumbSurface }]}>
+          <View style={[s.fighterThumb, imageSize ? { width: imageSize, height: imageSize } : {}, { backgroundColor: thumbSurface }]}>
             <CachedImageBox
               uri={battle.left.image}
               style={s.fighterImgWrap}
@@ -303,7 +306,7 @@ const BattleSlide = ({ battle, accent, t, onPress, card, border, textColor, mute
         </View>
 
         <View style={s.fighter}>
-          <View style={[s.fighterThumb, { backgroundColor: thumbSurface }]}>
+          <View style={[s.fighterThumb, imageSize ? { width: imageSize, height: imageSize } : {}, { backgroundColor: thumbSurface }]}>
             <CachedImageBox
               uri={battle.right.image}
               style={s.fighterImgWrap}
@@ -1356,8 +1359,11 @@ const s = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     marginTop: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  winnerBadgeText: { fontSize: 10, fontWeight: '900', color: '#111827', letterSpacing: 0.2 },
+  winnerBadgeText: { fontSize: 10, fontWeight: '900', color: '#111827', letterSpacing: 0.2, textAlign: 'center' },
   fighterName: { fontSize: 12, fontWeight: '700', textAlign: 'center', marginBottom: 2 },
   fighterPrice: { fontSize: 14, fontWeight: '800', marginBottom: 6 },
   userRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },

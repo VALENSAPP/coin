@@ -3240,7 +3240,8 @@ const MyClosetAddItemPublishedScreen = ({ navigation, route }) => {
     try {
       const id = item?.id || draft?.id;
       if (!id) return;
-      const link = `${BASE_URL}/postshare/${encodeURIComponent(String(id))}`;
+      const cachedUserId = await AsyncStorage.getItem('userId');
+      const link = `${BASE_URL}/closet/${encodeURIComponent(String(cachedUserId))}?itemId=${encodeURIComponent(String(id))}`;
       const message = t('myClosetAddItemReview.copyItemText', {
         link,
         shopName: publishedShopName,

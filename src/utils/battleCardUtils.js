@@ -240,5 +240,7 @@ export const mapBattleCard = battle => {
       battle?.predictionCounts && typeof battle.predictionCounts === 'object'
         ? battle.predictionCounts
         : {},
+    typeByBattle: battle?.typeByBattle || 'normal',
+    raw: battle,
   };
 };

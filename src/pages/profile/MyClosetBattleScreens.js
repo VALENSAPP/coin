@@ -45,7 +45,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // Fallback palette — used only when the theme doesn't provide a value,
 // so screens still look right before useAppTheme() resolves.
 const PURPLE = '#5B2FB5';
-const PURPLE_2 = '#7A49D6';
 const BORDER = '#E7DDF7';
 const SOFT_BG = '#FBF7FF';
 const TEXT = '#2F2259';
@@ -1462,7 +1461,7 @@ export function BattleLiveScreen({ navigation, route }) {
             >
               <LinearGradient
 
-                colors={isThisVoted ? ['#22C55E', '#16A34A'] : isSelected ? [brandAccent, PURPLE_2] : voteIdleColors}
+                colors={isThisVoted ? ['#22C55E', '#16A34A'] : isSelected ? [brandAccent, accent] : voteIdleColors}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={[
@@ -1508,7 +1507,7 @@ export function BattleLiveScreen({ navigation, route }) {
         >
           <LinearGradient
 
-            colors={[brandAccent, PURPLE_2]}
+            colors={[brandAccent, accent]}
             start={{ x: 0, y: 0.5 }}
             end={{ x: 1, y: 0.5 }}
             style={liveStyles.submitVoteButton}
@@ -1746,7 +1745,7 @@ export function BattleLiveScreen({ navigation, route }) {
 
       <View style={styles.footerActions}>
         <TouchableOpacity activeOpacity={0.9} onPress={handleDonePress} style={styles.footerActionFlex}>
-          <LinearGradient colors={[brandAccent, PURPLE_2]} style={styles.primaryButton}>
+          <LinearGradient colors={[brandAccent, accent]} style={styles.primaryButton}>
             <Text style={styles.primaryButtonText}>{t('battle.done') || 'Done'}</Text>
           </LinearGradient>
         </TouchableOpacity>
@@ -1756,7 +1755,7 @@ export function BattleLiveScreen({ navigation, route }) {
             onPress={() => navigation.navigate('BattleResultsScreen', { battleId })}
             style={styles.footerActionFlex}
           >
-            <LinearGradient colors={[brandAccent, PURPLE_2]} style={styles.primaryButton}>
+            <LinearGradient colors={[brandAccent, accent]} style={styles.primaryButton}>
               <Text style={styles.primaryButtonText}>{t('battle.viewResults') || 'View Results'}</Text>
             </LinearGradient>
           </TouchableOpacity>

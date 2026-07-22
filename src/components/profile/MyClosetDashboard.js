@@ -28,10 +28,11 @@ import {
 } from '../../services/myCloset';
 import { getMarketplaceEbooksByClosetId } from '../../services/post';
 import { EbookCard } from './AllEbooksScreen';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { buildProfileSharePayload } from '../../utils/profileShare';
 import { mixWithWhite, withAlpha } from '../../utils/closetTheme';
+import { BASE_URL } from '../../config/urls';
 
 const nestedSurface = (isDarkMode, accent) =>
   isDarkMode ? withAlpha(accent, 0.14) : mixWithWhite(accent, 0.92);
@@ -140,12 +141,13 @@ const normalizePriorityBattle = battle => {
   };
 };
 
-const navigateToBattleList = (navigation, closetId) => {
+const navigateToBattleList = (navigation, closetId, userProfile) => {
   navigation?.navigate?.('ProfileMain', {
     screen: 'MyClosetBattles',
     params: {
       ...(closetId ? { closetId } : {}),
       isOwnProfile: true,
+      userProfile: userProfile,
       returnTo: { tab: 'wallet', screen: 'Shop' },
     },
   });
@@ -285,6 +287,7 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
   const { isDarkMode } = useThemeContext();
   const surface = nestedSurface(isDarkMode, accent);
   const battleStats = useMemo(() => buildBattleStats(battlePerformance, t), [battlePerformance, t]);
+  const userProfile = useSelector(state => state.userProfile.userProfile);
 
   const dispatch = useDispatch();
 
@@ -558,10 +561,24 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
 
   const handleSharePress = async () => {
     try {
-      const { shareMessage } = buildProfileSharePayload({
-        username: shopHandle || userData?.username || userData?.userName,
-        userId: userData?.id || userData?._id
-      });
+      let userId = userData?.id || userData?._id || userProfile?.id || userProfile?._id;
+      if (!userId) {
+        userId = await AsyncStorage.getItem('userId');
+      }
+      if (!userId) {
+        console.warn('Cannot share: no userId found');
+        return;
+      }
+      
+      const username = shopHandle || userData?.username || userData?.userName || userProfile?.username || userProfile?.userName;
+      
+      const link = `${BASE_URL}/closet/${encodeURIComponent(String(userId))}`;
+      const profileLabel = username ? `@${username}` : 'this closet';
+      const shareMessage = [
+        `🛒 Check out ${profileLabel}'s closet on Valens!`,
+        '',
+        `🔗 ${link}`,
+      ].join('\n');
       await Share.share({ message: shareMessage });
     } catch (error) {
       console.log('Share error', error);
@@ -580,7 +597,7 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
   };
 
   const handleViewAllBattles = () => {
-    navigateToBattleList(navigation, resolvedClosetId);
+    navigateToBattleList(navigation, resolvedClosetId, userProfile);
   };
 
   const handleViewAllItems = () => {
@@ -747,7 +764,7 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, textStyle]}>{t('myClosetDashboard.pinnedItemTitle') || 'Pinned Item'}</Text>
             {showPinnedViewAll && (
-              <TouchableOpacity activeOpacity={0.8} onPress={() => navigateToBattleList(navigation, resolvedClosetId)}>
+              <TouchableOpacity activeOpacity={0.8} onPress={() => navigateToBattleList(navigation, resolvedClosetId, userProfile)}>
                 <Text style={[styles.sectionMeta, mutedTextStyle]}>{t('myClosetDashboard.viewAllPinned')} ›</Text>
               </TouchableOpacity>
             )}

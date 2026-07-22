@@ -548,6 +548,7 @@ export default function Main() {
       const reelMatch = normalizedPath.match(/^\/reelshare\/([^/?]+)/i);
       const storyMatch = normalizedPath.match(/^\/storyshare\/([^/?]+)/i);
       const profileMatch = normalizedPath.match(/^\/profile\/([^/?]+)/i);
+      const closetMatch = normalizedPath.match(/^\/closet\/([^/?]+)/i);
 
       if (postMatch?.[1]) {
         const postId = decodeURIComponent(postMatch[1]);
@@ -591,6 +592,35 @@ export default function Main() {
       if (profileMatch?.[1]) {
         const profileId = decodeURIComponent(profileMatch[1]);
         navigateWhenReady(() => navigateToUserProfile(profileId));
+        return;
+      }
+
+      if (closetMatch?.[1]) {
+        const closetId = decodeURIComponent(closetMatch[1]);
+        const loggedInUserId = await AsyncStorage.getItem('userId');
+        const isSelf = String(loggedInUserId || '').trim() === String(closetId).trim();
+
+        if (isSelf) {
+          navigateWhenReady(() =>
+            navigationRef.current?.navigate('MainApp', {
+              screen: 'ProfileMain',
+              params: {
+                screen: 'Closet',
+                params: { id: closetId },
+              },
+            })
+          );
+        } else {
+          navigateWhenReady(() =>
+            navigationRef.current?.navigate('MainApp', {
+              screen: 'HomeMain',
+              params: {
+                screen: 'UsersProfile',
+                params: { userId: closetId, initialTab: 'closet' },
+              },
+            })
+          );
+        }
         return;
       }
 

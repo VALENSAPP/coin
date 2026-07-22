@@ -248,6 +248,8 @@ const mapBattle = (battle, index) => {
     title: battle?.title,
     left: mapParticipant(p1, battle?.closet),
     right: mapParticipant(p2, battle?.closet),
+    status: battle?.status,
+    outcome: battle?.outcome,
   };
 };
 
@@ -263,7 +265,8 @@ const BattleSlide = ({
   isDark,
 }) => {
   let winnerSide = battle?.left?.isWinner ? 'left' : battle?.right?.isWinner ? 'right' : null;
-  if (!winnerSide) {
+  const isPending = battle?.status === 'LIVE' || battle?.outcome === 'PENDING';
+  if (!winnerSide && !isPending) {
     if (battle?.winnerParticipantId) {
       if (battle.winnerParticipantId === battle?.left?.participantId) winnerSide = 'left';
       else if (battle.winnerParticipantId === battle?.right?.participantId) winnerSide = 'right';
@@ -319,7 +322,7 @@ const BattleSlide = ({
           {renderWinnerBadge('left')}
         </View>
 
-        <View style={[styles.vsBubble, { backgroundColor: isDark ? border : '#f4ecfb', borderColor: border }]}>
+        <View style={[styles.vsBubble, { backgroundColor: isDark ? border : `${accent}18`, borderColor: border }]}>
           <Text style={[styles.vsText, { color: textColor }]}>{t('myClosetShopFront.vs')}</Text>
         </View>
 
@@ -1741,6 +1744,7 @@ const MyClosetBattlesScreen = ({ navigation, route }) => {
   const closetId = route?.params?.closetId;
   const isOwnProfile = route?.params?.isOwnProfile ?? false;
   const returnTo = route?.params?.returnTo;
+  const userProfile = route?.params?.userProfile;
 
   const [battles, setBattles] = useState([]);
   const [page, setPage] = useState(1);
@@ -1769,6 +1773,7 @@ const MyClosetBattlesScreen = ({ navigation, route }) => {
       battleId: battle?.id,
       initialBattle: battle,
       selectedItems: [battle?.left, battle?.right].filter(Boolean),
+      userProfile: userProfile,
       returnToProfile: buildClosetReturnTo({
         isOwnProfile,
         sellerProfile: route?.params?.seller?.profile || route?.params?.sellerProfile,

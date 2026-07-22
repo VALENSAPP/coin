@@ -517,7 +517,8 @@ const ProfileTabs = memo(({
 
   useEffect(() => {
     if (!initialTab) return;
-    const index = tabs.findIndex(tab => tab.key === initialTab);
+    const resolvedInitialTab = (initialTab === 'closet' || initialTab === 'shop') ? closetTabKey : initialTab;
+    const index = tabs.findIndex(tab => tab.key === resolvedInitialTab);
     if (index < 0) return;
 
     setActiveTab(index);
@@ -543,6 +544,7 @@ const ProfileTabs = memo(({
     targetProfileId,
     userData?.profile,
     tabs,
+    closetTabKey,
   ]);
 
   return (

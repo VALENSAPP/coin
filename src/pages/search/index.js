@@ -65,6 +65,8 @@ import { battleByUserId, exploretBattle } from '../../services/battle';
 import HexAvatar from '../../components/home/story.js/HexAvatar';
 import BattleCard, { AutoScrollBattleRow } from '../../components/search/Battlecard';
 import BattleExplore from './BattleExplore';
+import { BattleSlide, mapBattle } from '../../components/profile/MyClosetShopFront';
+import { buildClosetReturnTo } from '../../utils/closetNavigation';
 import { getUserCredentials } from '../../services/post';
 import { useLanguage } from '../../i18n';
 import { BASE_URL } from '../../config/urls';
@@ -280,6 +282,8 @@ const mapBattleCard = battle => {
       battle?.predictionCounts && typeof battle.predictionCounts === 'object'
         ? battle.predictionCounts
         : {},
+    typeByBattle: battle?.typeByBattle || 'normal',
+    raw: battle,
   };
 };
 
@@ -740,6 +744,7 @@ const SearchScreen = () => {
       setLoadingLiveBattles(true);
       const response = await exploretBattle();
       if (response?.statusCode === 200 || response?.status === 200) {
+        console.log("exploretBattle------------------response----", response)
         const rawBattles = response?.data?.battles || response?.data?.data || response?.data || [];
         const normalizedBattles = [];
         const seenBattleIds = new Set();
@@ -840,8 +845,8 @@ const SearchScreen = () => {
   }, []);
 
   const visibleBattleCards = useMemo(() => {
-    const live = liveBattles.filter(b => getBattleFeedType(b) === 'live');
-    return live.length > 0 ? live : [...liveBattles].sort((a, b) =>
+    // const live = liveBattles.filter(b => getBattleFeedType(b) === 'live');
+    return liveBattles.length > 0 ? liveBattles : [...liveBattles].sort((a, b) =>
       Number(b.totalParticipants || 0) - Number(a.totalParticipants || 0)
     );
   }, [liveBattles, getBattleFeedType]);
@@ -910,6 +915,20 @@ const SearchScreen = () => {
 
   const handleBattleCardPressRef = useRef(null);
   handleBattleCardPressRef.current = (battleItem) => {
+    if (battleItem?.typeByBattle === 'marketPlace') {
+      const mappedBattle = mapBattle(battleItem.raw || battleItem, 0);
+      navigation.navigate('ProfileMain', {
+        screen: 'BattleLive',
+        params: {
+          battleId: mappedBattle?.id,
+          initialBattle: mappedBattle,
+          userProfile: profile,
+          selectedItems: [mappedBattle?.left, mappedBattle?.right].filter(Boolean),
+          returnToProfile: { tab: 'Search' },
+        }
+      });
+      return;
+    }
     navigation.navigate('ProfileMain', {
       screen: 'BattleInProgress',
       params: {
@@ -1122,16 +1141,40 @@ const SearchScreen = () => {
                         <ActivityIndicator size="small" color={accent} />
                       </View>
                     ) : visibleBattleCards.length > 0 ? (
-                      visibleBattleCards.map(item => (
-                        <BattleCard
-                          key={item.id}
-                          item={item}
-                          selectedOption={selectedBattleOptions[item.id]}
-                          onCardPress={handleBattleCardPress}
-                          onOptionSelect={updateSelectedBattleOption}
-                          onUserPress={handleUserProfile}
-                        />
-                      ))
+                      visibleBattleCards.map((item, i) => {
+                        if (item.typeByBattle === 'marketPlace') {
+                          const mappedBattle = mapBattle(item.raw || item, i);
+                          return (
+                            <BattleSlide
+                              key={item.id || mappedBattle.id}
+                              battle={mappedBattle}
+                              accent={accent}
+                              t={t}
+                              onPress={() => handleBattleCardPress(item.raw || item)}
+                              card={card}
+                              border={border}
+                              textColor={text}
+                              mutedText={mutedText}
+                              isDark={false}
+                              thumbSurface={'#f5f3ef'}
+                              mutedColor={mutedText}
+                              loadingOverlayColor={'rgba(245,243,238,0.72)'}
+                              customWidth={220}
+                              imageSize={70}
+                            />
+                          );
+                        }
+                        return (
+                          <BattleCard
+                            key={item.id}
+                            item={item}
+                            selectedOption={selectedBattleOptions[item.id]}
+                            onCardPress={handleBattleCardPress}
+                            onOptionSelect={updateSelectedBattleOption}
+                            onUserPress={handleUserProfile}
+                          />
+                        );
+                      })
                     ) : (
                       <View style={[styles.card, cardStyle, { borderColor: border, justifyContent: 'center' }]}>
                         <Text numberOfLines={2} style={[styles.title, textStyle, { textAlign: 'center' }]}>
