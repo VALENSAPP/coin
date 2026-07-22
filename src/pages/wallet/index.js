@@ -25,7 +25,8 @@ import { getLatestTransactions, getRecentActivities, getTokenHistory, getTopCrea
 import { useFocusEffect } from '@react-navigation/native';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
-import { getCreditsLeft, totalMission, totalSupport, totalamount, referPoints, metaMaskRecived, totalPoints, getTotalFollowers, subscriptionEarningGraph } from '../../services/wallet';
+import { getCreditsLeft, totalMission, totalSupport, totalamount, metaMaskRecived, totalPoints, getTotalFollowers, subscriptionEarningGraph } from '../../services/wallet';
+import { parseTotalPlatformPointsPayload } from '../../utils/platformPoints';
 import { getUserCredentials, getUserDashboard } from '../../services/post';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import RBSheet from 'react-native-raw-bottom-sheet';
@@ -61,6 +62,7 @@ const FALLBACK_AVATAR =
 const DEFAULT_REWARD_POINTS = {
   totalPlatformPoints: 0,
   totalBattlePoints: 0,
+  marketplaceBattlePoints: 0,
   referPoints: 0,
   used: 0,
 };
@@ -591,7 +593,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
     { id: 'followers', title: t('walletDashboard.kpi.followers'), value: '-', icon: 'people' },
     { id: 'credits', title: t('walletDashboard.kpi.creditsLeft'), value: '-', icon: 'flash', currentCredits: 5 },
     { id: 'Mission Post', title: t('walletDashboard.kpi.missionPost'), value: '-', icon: 'ribbon' },
-    { id: 'referralPoints', title: t('walletDashboard.kpi.referralPoints'), value: '-', icon: 'gift' },
+    { id: 'referralPoints', title: t('walletDashboard.kpi.valensPoint'), value: '-', icon: 'gift' },
     { id: 'metamask', title: t('walletDashboard.kpi.metamaskWallet'), value: '-', icon: 'logo-usd' },
     { id: 'tipPayout', title: t('walletDashboard.tipPayout.title'), value: '', icon: 'cash' },
     // { id: 'ebook', title: t('walletDashboard.ebook.title'), value: '', icon: 'book' },
@@ -706,43 +708,37 @@ export const WalletDashboardScreen = ({ navigation }) => {
   const rewardPoints = async () => {
     try {
       const response = await totalPoints();
-
       const statusCode =
         response?.statusCode ??
         response?.data?.statusCode ??
         response?.status;
-      const responseData =
-        response?.data?.data ??
-        response?.data ??
-        DEFAULT_REWARD_POINTS;
+      const ok =
+        statusCode == null ||
+        Number(statusCode) === 200 ||
+        response?.success === true;
 
-      if (statusCode === 200) {
-        setRewardSummary({
-          totalPlatformPoints:
-            Number(
-              responseData?.totalPlatformPoints ??
-              responseData?.platformPoints
-            ) || 0,
-          totalBattlePoints:
-            Number(
-              responseData?.totalBattlePoints ??
-              responseData?.battlePoints
-            ) || 0,
-          referPoints:
-            Number(
-              responseData?.referPoints ??
-              responseData?.referralPoints
-            ) || 0,
-          used:
-            Number(
-              responseData?.used ??
-              responseData?.usedPoints
-            ) || 0,
-        });
+      if (!ok) {
+        setRewardSummary(DEFAULT_REWARD_POINTS);
         return;
       }
 
-      setRewardSummary(DEFAULT_REWARD_POINTS);
+      const parsed = parseTotalPlatformPointsPayload(response);
+      setRewardSummary({
+        totalPlatformPoints: parsed.totalPlatformPoints,
+        totalBattlePoints: parsed.totalBattlePoints,
+        marketplaceBattlePoints: parsed.marketplaceBattlePoints,
+        referPoints: parsed.referPoints,
+        used: parsed.used,
+      });
+
+      // Dashboard Valens Point KPI: total platform points.
+      setKpiData(prevKpiData =>
+        prevKpiData.map(item =>
+          item.id === 'referralPoints'
+            ? { ...item, value: `${parsed.totalPlatformPoints} pts` }
+            : item,
+        ),
+      );
     } catch (err) {
       console.log(err, 'erro in thi aposississsi');
       setRewardSummary(DEFAULT_REWARD_POINTS);
@@ -920,6 +916,32 @@ export const WalletDashboardScreen = ({ navigation }) => {
     }
   }, [navigation, totalEarningAmount, isBusinessProfile]);
 
+  const handleOpenReferralPoints = useCallback(() => {
+    const total = Number(rewardSummary.totalPlatformPoints) || 0;
+    const battle = Number(rewardSummary.totalBattlePoints) || 0;
+    const shop = Number(rewardSummary.marketplaceBattlePoints) || 0;
+    const refer = Number(rewardSummary.referPoints) || 0;
+    const used = Number(rewardSummary.used) || 0;
+    const params = {
+      totalPoints: total,
+      availablePoints: total,
+      battlePoints: battle,
+      shopPoints: shop,
+      referPoints: refer,
+      used,
+      profileType: isBusinessProfile ? 'company' : 'user',
+    };
+    try {
+      navigation.navigate('wallet', {
+        screen: 'ReferralPoints',
+        params,
+      });
+    } catch (error) {
+      console.log('ReferralPoints nested navigate failed, trying direct:', error);
+      navigation.navigate('ReferralPoints', params);
+    }
+  }, [navigation, rewardSummary, isBusinessProfile]);
+
   useFocusEffect(
     useCallback(() => {
       const fetchData = async () => {
@@ -936,7 +958,6 @@ export const WalletDashboardScreen = ({ navigation }) => {
             fetchFollowers(),
             fetchTotalSupport(),
             fetchTotalEarning(),
-            fetchReferralPoints(),
             fetchMetaMaskReceived(),
             totalMissonDonation(),
             fetchTopCreators(),
@@ -972,7 +993,6 @@ export const WalletDashboardScreen = ({ navigation }) => {
         fetchFollowers(),
         fetchTotalSupport(),
         fetchTotalEarning(),
-        fetchReferralPoints(),
         fetchMetaMaskReceived(),
         fetchTopCreators(),
         fetchTipPayoutStatus(),
@@ -1190,32 +1210,6 @@ export const WalletDashboardScreen = ({ navigation }) => {
       );
     } catch (error) {
       console.error('Error in fetchTotalEarning:', error);
-    }
-  };
-  const fetchReferralPoints = async () => {
-    try {
-      const response = await referPoints();
-      const rawValue =
-        response?.data?.referPoints ??
-        response?.data?.referralPoints ??
-        response?.data?.referPoint ??
-        response?.data?.data?.referPoints ??
-        response?.data?.data?.referralPoints ??
-        response?.data?.data?.referPoint ??
-        response?.data?.points ??
-        response?.data?.data?.points ??
-        0;
-      const pointsValue = Number(rawValue) || 0;
-
-      setKpiData(prevKpiData =>
-        prevKpiData.map(item =>
-          item.id === 'referralPoints'
-            ? { ...item, value: `${pointsValue} pts` }
-            : item
-        )
-      );
-    } catch (error) {
-      console.error('Error in fetchReferralPoints:', error);
     }
   };
   const fetchMetaMaskReceived = async () => {
@@ -1506,7 +1500,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
         end={{ x: 1, y: 1 }}
         style={[
           styles.kpiCard,
-          (isCreditsCard || isMissionPostCard || isSupportCard) && styles.kpiCardFillTouchable,
+          (isCreditsCard || isMissionPostCard || isSupportCard || item.id === 'referralPoints') && styles.kpiCardFillTouchable,
         ]}
       >
         <View style={[styles.kpiHeader, styles.kpiHeaderWithAction]}>
@@ -1583,8 +1577,8 @@ export const WalletDashboardScreen = ({ navigation }) => {
             {t('walletDashboard.kpi.tapToBuyCredits')}
           </Text>
         ) : null}
-        {(isCreditsCard || isMissionPostCard) ? (
-          <Ionicons name="chevron-forward" size={16} color={gradientText} style={styles.kpiChevronInline} />
+        {(isCreditsCard || isMissionPostCard || item.id === 'referralPoints') ? (
+          <Ionicons name="chevron-forward" size={16} color={text} style={styles.kpiChevronInline} />
         ) : null}
       </LinearGradient>
     );
@@ -1662,6 +1656,20 @@ export const WalletDashboardScreen = ({ navigation }) => {
             style={styles.kpiCardTouchable}
             activeOpacity={0.86}
             onPress={handleOpenTotalEarnings}
+          >
+            {cardContent}
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    if (item.id === 'referralPoints') {
+      return (
+        <View key={item.id} style={cellStyle}>
+          <TouchableOpacity
+            style={styles.kpiCardTouchable}
+            activeOpacity={0.86}
+            onPress={handleOpenReferralPoints}
           >
             {cardContent}
           </TouchableOpacity>
@@ -1766,7 +1774,11 @@ export const WalletDashboardScreen = ({ navigation }) => {
           >
             <View style={styles.pointsGlow} />
             <View style={styles.pointsFourColRow}>
-              <View style={styles.pointsMainCol}>
+              <TouchableOpacity
+                style={styles.pointsMainCol}
+                activeOpacity={0.75}
+                onPress={handleOpenReferralPoints}
+              >
                 <View style={styles.pointsMainIconWrap}>
                   <HexStarIcon size={34} starSize={14} starColor="#ffffff" bgColor={platformPointsHexBg} />
                 </View>
@@ -1778,11 +1790,15 @@ export const WalletDashboardScreen = ({ navigation }) => {
                     {formatPointValue(rewardSummary.totalPlatformPoints)}
                   </Text>
                 </View>
-              </View>
-
+              </TouchableOpacity>
               {rewardPointCards.map((item, index) => (
                 <React.Fragment key={item.id}>
-                  <View style={styles.pointsCol}>
+                  <TouchableOpacity
+                    style={styles.pointsCol}
+                    activeOpacity={item.id === 'referPoints' ? 0.75 : 1}
+                    disabled={item.id !== 'referPoints'}
+                    onPress={item.id === 'referPoints' ? handleOpenReferralPoints : undefined}
+                  >
                     <Ionicons name={item.icon} size={18} color={item.iconColor} />
                     <Text style={[styles.pointsColValue, { color: gradientText }]} numberOfLines={1}>
                       {formatPointValue(item.value)}
@@ -1810,7 +1826,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
                         {item.title}
                       </Text>
                     )}
-                  </View>
+                  </TouchableOpacity>
                   {index !== rewardPointCards.length - 1 ? (
                     <View style={styles.pointsDivider} />
                   ) : null}
