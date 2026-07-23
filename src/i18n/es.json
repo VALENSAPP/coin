@@ -3511,7 +3511,8 @@
     "shop": "Tienda",
     "subscriptions": "Suscripciones",
     "privateCircle": "Círculo Privado",
-    "settings": "Configuración"
+    "settings": "Configuración",
+    "services": "Servicios"
   },
   "walletStack": {
     "buyMissionCredits": "Comprar Créditos de Misión",

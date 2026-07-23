@@ -260,12 +260,15 @@ const CustomDrawerContent = (props) => {
       <TouchableOpacity
         onPress={navigateToEbookPublisher}
         activeOpacity={0.75}
-        style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 12 }}
+        style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 18 }}
       >
-        <Ionicons name="book-outline" size={18} color={text} style={{ marginRight: 16 }} />
-        <Text style={{ fontSize: 13, color: text, fontWeight: '500' }}>
-          Sell Ebook
+        <Ionicons name="briefcase-outline" size={20} color={drawerColors.inactive} style={{ marginRight: 16 }} />
+        <Text style={{ fontSize: 15, color: drawerColors.inactive, fontWeight: '600' }}>
+          {t('drawerNav.services')}
         </Text>
+        <View style={{ marginLeft: 8, backgroundColor: '#E6D5F7', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 12 }}>
+          <Text style={{ fontSize: 10, color: '#5a2d82', fontWeight: 'bold' }}>NEW</Text>
+        </View>
       </TouchableOpacity>
 
       <TouchableOpacity

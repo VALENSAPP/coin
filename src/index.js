@@ -605,8 +605,8 @@ export default function Main() {
             navigationRef.current?.navigate('MainApp', {
               screen: 'ProfileMain',
               params: {
-                screen: 'Closet',
-                params: { id: closetId },
+                screen: 'Profile',
+                params: { id: closetId, initialTab: 'closet' },
               },
             })
           );

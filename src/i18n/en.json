@@ -3655,7 +3655,8 @@
     "shop": "Shop",
     "subscriptions": "Subscriptions",
     "privateCircle": "Private Circle",
-    "settings": "Settings"
+    "settings": "Settings",
+    "services": "Services"
   },
   "walletStack": {
     "buyMissionCredits": "Buy Mission Credits",

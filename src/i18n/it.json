@@ -3511,7 +3511,8 @@
     "shop": "Negozio",
     "subscriptions": "Abbonamenti",
     "privateCircle": "Cerchia Privata",
-    "settings": "Impostazioni"
+    "settings": "Impostazioni",
+    "services": "Servizi"
   },
   "walletStack": {
     "buyMissionCredits": "Acquista Crediti Missione",
