@@ -18,10 +18,10 @@ import { useAppTheme } from '../../theme/useApptheme';
 import { useLanguage } from '../../i18n';
 import { totalPoints } from '../../services/wallet';
 import { parseTotalPlatformPointsPayload } from '../../utils/platformPoints';
+import { primaryCtaColors, contrastOn } from '../../utils/ctaContrast';
 import {
   SoftGrayDragonfly,
   LilacDragonfly,
-  GoldDragonfly,
 } from '../../assets/icons';
 
 const H_PADDING = 16;
@@ -62,11 +62,11 @@ const ReferralPointsScreen = () => {
     availablePoints: initialTotal,
   });
 
-  const DragonflyDecor = isBusinessProfile ? GoldDragonfly : LilacDragonfly;
   const iconSize = Math.min(72, Math.max(56, screenWidth * 0.17));
   const muted = mutedText || `${text}99`;
   const softBg = `${text}14`;
   const softBorder = border || `${text}18`;
+  const cta = primaryCtaColors(accent);
 
   // Available mirrors Your Platform Points.
   const availablePts = Number(points.totalPlatformPoints) || 0;
@@ -202,7 +202,7 @@ const ReferralPointsScreen = () => {
             <View style={[styles.heroIconWrap, { backgroundColor: softBg }]}>
               <MaterialCommunityIcons name="star-circle" size={iconSize * 0.55} color={text} />
               <View style={[styles.heroCoinBadge, { backgroundColor: text }]}>
-                <Text style={styles.heroCoinText}>P</Text>
+                <Text style={[styles.heroCoinText, { color: contrastOn(text) }]}>P</Text>
               </View>
             </View>
             <View style={styles.heroTextCol}>
@@ -251,7 +251,11 @@ const ReferralPointsScreen = () => {
                 {t('referralPointsScreen.waysToEarnSubtitle')}
               </Text>
             </View>
-            <DragonflyDecor width={28} height={28} />
+            {isBusinessProfile ? (
+              <SoftGrayDragonfly width={28} height={28} style={{ tintColor: text }} />
+            ) : (
+              <LilacDragonfly width={28} height={28} />
+            )}
           </View>
 
           {earnCategories.map(category => (
@@ -295,7 +299,7 @@ const ReferralPointsScreen = () => {
 
           <View style={[styles.totalBar, { backgroundColor: card, borderColor: softBorder }]}>
             <View style={[styles.totalPBadge, { backgroundColor: text }]}>
-              <Text style={styles.totalPText}>P</Text>
+              <Text style={[styles.totalPText, { color: contrastOn(text) }]}>P</Text>
             </View>
             <View style={styles.totalTextCol}>
               <Text style={[styles.totalTitle, textStyle]}>
@@ -313,13 +317,15 @@ const ReferralPointsScreen = () => {
           <TouchableOpacity
             activeOpacity={0.88}
             onPress={openUsePoints}
-            style={[styles.ctaButton, { backgroundColor: text }]}
+            style={[styles.ctaButton, { backgroundColor: cta.backgroundColor }]}
           >
-            <View style={styles.ctaLeftIcon}>
-              <Text style={styles.ctaLeftIconText}>P</Text>
+            <View style={[styles.ctaLeftIcon, { backgroundColor: `${cta.color}33` }]}>
+              <Text style={[styles.ctaLeftIconText, { color: cta.color }]}>P</Text>
             </View>
-            <Text style={styles.ctaText}>{t('referralPointsScreen.useYourPoints')}</Text>
-            <Ionicons name="chevron-forward" size={20} color="#fff" />
+            <Text style={[styles.ctaText, { color: cta.color }]}>
+              {t('referralPointsScreen.useYourPoints')}
+            </Text>
+            <Ionicons name="chevron-forward" size={20} color={cta.color} />
           </TouchableOpacity>
         </ScrollView>
       )}
@@ -505,15 +511,13 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.25)',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
   },
-  ctaLeftIconText: { color: '#fff', fontWeight: '800', fontSize: 12 },
+  ctaLeftIconText: { fontWeight: '800', fontSize: 12 },
   ctaText: {
     flex: 1,
-    color: '#fff',
     fontSize: 16,
     fontWeight: '700',
     textAlign: 'center',

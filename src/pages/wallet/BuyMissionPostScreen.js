@@ -18,6 +18,7 @@ import { useLanguage } from '../../i18n';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { totalPoints as fetchTotalPoints } from '../../services/wallet';
 import { parseTotalPlatformPointsPayload } from '../../utils/platformPoints';
+import { primaryCtaColors } from '../../utils/ctaContrast';
 
 const H_PADDING = 16;
 const MISSION_COST = 1000;
@@ -33,7 +34,7 @@ const BuyMissionPostScreen = () => {
 
   const profileType = String(route?.params?.profileType || '').toLowerCase();
   const resolvedProfile = profileType === 'company' ? 'company' : 'user';
-  const { bgStyle, textStyle, text, card } = useAppTheme(
+  const { bgStyle, textStyle, text, card, accent } = useAppTheme(
     profileType === 'company' || profileType === 'user' ? profileType : undefined,
   );
 
@@ -61,6 +62,7 @@ const BuyMissionPostScreen = () => {
   const softBorder = `${text}18`;
   const iconBox = Math.min(56, Math.max(48, width * 0.13));
   const canAfford = totalPoints >= MISSION_COST;
+  const cta = primaryCtaColors(accent);
 
   const benefits = useMemo(
     () => [
@@ -246,13 +248,16 @@ const BuyMissionPostScreen = () => {
           disabled={!canAfford}
           style={[
             styles.ctaButton,
-            { backgroundColor: text, opacity: canAfford ? 1 : 0.55 },
+            {
+              backgroundColor: cta.backgroundColor,
+              opacity: canAfford ? 1 : 0.55,
+            },
           ]}
         >
-          <View style={styles.ctaLeftIcon}>
-            <Text style={styles.pBadgeText}>P</Text>
+          <View style={[styles.ctaLeftIcon, { backgroundColor: `${cta.color}33` }]}>
+            <Text style={[styles.pBadgeText, { color: cta.color }]}>P</Text>
           </View>
-          <Text style={styles.ctaText}>
+          <Text style={[styles.ctaText, { color: cta.color }]}>
             {t('buyMissionPost.buyCta', {
               points: MISSION_COST.toLocaleString('en-US'),
             })}
@@ -427,13 +432,11 @@ const styles = StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: 13,
-    backgroundColor: 'rgba(255,255,255,0.25)',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
   },
   ctaText: {
-    color: '#fff',
     fontSize: 15,
     fontWeight: '700',
     flexShrink: 1,

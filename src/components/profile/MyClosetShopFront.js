@@ -271,7 +271,13 @@ export const BattleSlide = ({ battle, accent, t, onPress, card, border, textColo
   return (
     <TouchableOpacity
       activeOpacity={0.9}
-      style={[s.slide, customWidth ? { width: customWidth } : {}, { backgroundColor: card, borderColor: border }]}
+      style={[
+        s.slide,
+        customWidth
+          ? { width: customWidth, marginLeft: 0 }
+          : null,
+        { backgroundColor: card, borderColor: border },
+      ]}
       onPress={onPress}
     >
       <View style={s.battleHeader}>

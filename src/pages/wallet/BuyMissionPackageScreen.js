@@ -22,6 +22,7 @@ import { useLanguage } from '../../i18n';
 import { buyHitWithPoints } from '../../services/stirpe';
 import { getCreditsLeft, totalPoints } from '../../services/wallet';
 import { parseTotalPlatformPointsPayload } from '../../utils/platformPoints';
+import { primaryCtaColors } from '../../utils/ctaContrast';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 
@@ -47,7 +48,7 @@ const BuyMissionPackageScreen = () => {
 
   const profileType = String(route?.params?.profileType || '').toLowerCase();
   const resolvedProfile = profileType === 'company' ? 'company' : 'user';
-  const { bgStyle, textStyle, text, card } = useAppTheme(
+  const { bgStyle, textStyle, text, card, accent } = useAppTheme(
     profileType === 'company' || profileType === 'user' ? profileType : undefined,
   );
 
@@ -65,6 +66,7 @@ const BuyMissionPackageScreen = () => {
   const step = 2;
   const progressWidth = width - H_PADDING * 2;
   const canAfford = availablePoints >= costPoints;
+  const cta = primaryCtaColors(accent);
 
   const features = useMemo(
     () => [
@@ -346,13 +348,18 @@ const BuyMissionPackageScreen = () => {
           disabled={submitting || !canAfford}
           style={[
             styles.ctaButton,
-            { backgroundColor: text, opacity: submitting || !canAfford ? 0.55 : 1 },
+            {
+              backgroundColor: cta.backgroundColor,
+              opacity: submitting || !canAfford ? 0.55 : 1,
+            },
           ]}
         >
           {submitting ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color={cta.color} />
           ) : (
-            <Text style={styles.ctaText}>{t('buyMissionPost.confirmPurchase')}</Text>
+            <Text style={[styles.ctaText, { color: cta.color }]}>
+              {t('buyMissionPost.confirmPurchase')}
+            </Text>
           )}
         </TouchableOpacity>
       </View>
@@ -523,7 +530,6 @@ const styles = StyleSheet.create({
     marginBottom: '10%',
   },
   ctaText: {
-    color: '#fff',
     fontSize: 16,
     fontWeight: '700',
   },

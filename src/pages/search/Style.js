@@ -31,6 +31,47 @@ export default StyleSheet.create({
     fontWeight: '500',
   },
 
+  battleExploreSection: {
+    flexShrink: 0,
+  },
+  battleExploreHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+    gap: 8,
+  },
+  battleExploreBar: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  battleExploreEmoji: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginRight: 6,
+  },
+  battleExploreBarText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  battleCollapseBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  battleCarouselWrap: {
+    paddingTop: 2,
+    paddingBottom: 10,
+    flexShrink: 0,
+  },
+
   /* -------------------------------------------------------
       SEARCH RESULTS — GRID & LIST
   ------------------------------------------------------- */

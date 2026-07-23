@@ -465,6 +465,7 @@ const SearchScreen = () => {
   const [loadingLiveBattles, setLoadingLiveBattles] = useState(false);
   const [selectedBattleOptions, setSelectedBattleOptions] = useState({});
   const [showBattleExplore, setShowBattleExplore] = useState(false);
+  const [battleCarouselCollapsed, setBattleCarouselCollapsed] = useState(false);
 
   const searchTimeoutRef = useRef(null);
   const rafRef = useRef(null);
@@ -493,6 +494,13 @@ const SearchScreen = () => {
     return normalizeProfileType(userProfile) === 'company' ? '#C9A15A' : '#5a2d82';
   }, []);
   const isSearchActive = searchText.trim().length > 0;
+  // Container has paddingHorizontal: 16 — keep cards inside that width with a side peek.
+  const searchContentWidth = SCREEN_WIDTH - 32;
+  const searchBattleCardWidth = Math.round(searchContentWidth - 36);
+  const searchBattleImageSize = Math.min(
+    108,
+    Math.max(84, Math.round((searchBattleCardWidth - 72) / 2)),
+  );
   const tabBarHeight = useBottomTabBarHeight();
   const masonryBottomInset = useMemo(
     () => Platform.OS === 'ios'
@@ -1116,79 +1124,128 @@ const SearchScreen = () => {
                 )}
               </View>
 
-              {/* Battle cards row */}
+              {/* Battle Explore bar + collapse control */}
               {!isSearchActive && (
-                <View>
-                  <TouchableOpacity
-                    onPress={() => setShowBattleExplore(true)}
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      paddingVertical: 8,
-                      marginTop: 2,
-                      backgroundColor: accent,
-                      borderRadius: 10,
-                    }}
-                    activeOpacity={0.85}
-                  >
-                    <Text style={{ fontSize: 14, fontWeight: '700', marginRight: 6 }}>
-                      ⚔️
-                    </Text>
-                    <Text style={{ fontSize: 13, fontWeight: '700', color: "#fff" }}>
-                      {t('search.battleExplore')}
-                    </Text>
-                    <Icon name="chevron-forward" size={16} color="#fff" style={{ marginLeft: 4 }} />
-                  </TouchableOpacity>
-                  <View style={{ paddingHorizontal: 12, paddingTop: 2, paddingBottom: 10 }} />
-                  <AutoScrollBattleRow>
-                    {loadingLiveBattles ? (
-                      <View style={[styles.card, cardStyle, { borderColor: border, alignItems: 'center', justifyContent: 'center' }]}>
-                        <ActivityIndicator size="small" color={accent} />
-                      </View>
-                    ) : visibleBattleCards.length > 0 ? (
-                      visibleBattleCards.map((item, i) => {
-                        if (item.typeByBattle === 'marketPlace') {
-                          const mappedBattle = mapBattle(item.raw || item, i);
-                          return (
-                            <BattleSlide
-                              key={item.id || mappedBattle.id}
-                              battle={mappedBattle}
-                              accent={accent}
-                              t={t}
-                              onPress={() => handleBattleCardPress(item.raw || item)}
-                              card={card}
-                              border={border}
-                              textColor={text}
-                              mutedText={mutedText}
-                              isDark={false}
-                              thumbSurface={'#f5f3ef'}
-                              mutedColor={mutedText}
-                              loadingOverlayColor={'rgba(245,243,238,0.72)'}
-                              customWidth={220}
-                              imageSize={70}
-                            />
-                          );
-                        }
-                        return (
-                          <BattleCard
-                            key={item.id}
-                            item={item}
-                            selectedOption={selectedBattleOptions[item.id]}
-                            onCardPress={handleBattleCardPress}
-                            onOptionSelect={updateSelectedBattleOption}
-                            onUserPress={handleUserProfile}
-                          />
-                        );
-                      })
-                    ) : (
-                      <View style={[styles.card, cardStyle, { borderColor: border, justifyContent: 'center' }]}>
-                        <Text numberOfLines={2} style={[styles.title, textStyle, { textAlign: 'center' }]}>
-                          {t('search.noBattlesFoundCard')}
-                        </Text>
-                      </View>
-                    )}
-                  </AutoScrollBattleRow>
+                <View style={styles.battleExploreSection}>
+                  <View style={styles.battleExploreHeaderRow}>
+                    <TouchableOpacity
+                      onPress={() => setShowBattleExplore(true)}
+                      style={[styles.battleExploreBar, { backgroundColor: accent }]}
+                      activeOpacity={0.85}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('search.battleExplore')}
+                    >
+                      <Text style={styles.battleExploreEmoji}>⚔️</Text>
+                      <Text style={styles.battleExploreBarText}>
+                        {t('search.battleExplore')}
+                      </Text>
+                      <Icon name="chevron-forward" size={16} color="#fff" style={{ marginLeft: 4 }} />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      onPress={() => setBattleCarouselCollapsed(prev => !prev)}
+                      style={[
+                        styles.battleCollapseBtn,
+                        {
+                          backgroundColor: card,
+                          borderColor: border,
+                        },
+                      ]}
+                      activeOpacity={0.85}
+                      accessibilityRole="button"
+                      accessibilityLabel={
+                        battleCarouselCollapsed
+                          ? t('search.expandBattleCarousel')
+                          : t('search.collapseBattleCarousel')
+                      }
+                      accessibilityState={{ expanded: !battleCarouselCollapsed }}
+                    >
+                      <Icon
+                        name={battleCarouselCollapsed ? 'chevron-up' : 'chevron-down'}
+                        size={18}
+                        color={text}
+                      />
+                    </TouchableOpacity>
+                  </View>
+
+                  {!battleCarouselCollapsed ? (
+                    <View style={styles.battleCarouselWrap}>
+                      <AutoScrollBattleRow
+                        cardWidth={searchBattleCardWidth}
+                        cardGap={12}
+                        rowPaddingLeft={6}
+                      >
+                        {loadingLiveBattles ? (
+                          <View
+                            style={[
+                              styles.card,
+                              cardStyle,
+                              {
+                                borderColor: border,
+                                width: searchBattleCardWidth,
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                              },
+                            ]}
+                          >
+                            <ActivityIndicator size="small" color={accent} />
+                          </View>
+                        ) : visibleBattleCards.length > 0 ? (
+                          visibleBattleCards.map((item, i) => {
+                            if (item.typeByBattle === 'marketPlace') {
+                              const mappedBattle = mapBattle(item.raw || item, i);
+                              return (
+                                <BattleSlide
+                                  key={item.id || mappedBattle.id}
+                                  battle={mappedBattle}
+                                  accent={accent}
+                                  t={t}
+                                  onPress={() => handleBattleCardPress(item.raw || item)}
+                                  card={card}
+                                  border={border}
+                                  textColor={text}
+                                  mutedText={mutedText}
+                                  isDark={false}
+                                  thumbSurface={'#f5f3ef'}
+                                  mutedColor={mutedText}
+                                  loadingOverlayColor={'rgba(245,243,238,0.72)'}
+                                  customWidth={searchBattleCardWidth}
+                                  imageSize={searchBattleImageSize}
+                                />
+                              );
+                            }
+                            return (
+                              <BattleCard
+                                key={item.id}
+                                item={item}
+                                selectedOption={selectedBattleOptions[item.id]}
+                                onCardPress={handleBattleCardPress}
+                                onOptionSelect={updateSelectedBattleOption}
+                                onUserPress={handleUserProfile}
+                                fullWidth
+                              />
+                            );
+                          })
+                        ) : (
+                          <View
+                            style={[
+                              styles.card,
+                              cardStyle,
+                              {
+                                borderColor: border,
+                                width: searchBattleCardWidth,
+                                justifyContent: 'center',
+                              },
+                            ]}
+                          >
+                            <Text numberOfLines={2} style={[styles.title, textStyle, { textAlign: 'center' }]}>
+                              {t('search.noBattlesFoundCard')}
+                            </Text>
+                          </View>
+                        )}
+                      </AutoScrollBattleRow>
+                    </View>
+                  ) : null}
                 </View>
               )}
 

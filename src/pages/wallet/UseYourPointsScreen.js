@@ -19,7 +19,8 @@ import { useAppTheme } from '../../theme/useApptheme';
 import { useLanguage } from '../../i18n';
 import { totalPoints } from '../../services/wallet';
 import { parseTotalPlatformPointsPayload } from '../../utils/platformPoints';
-import { LilacDragonfly, GoldDragonfly, SoftGrayDragonfly } from '../../assets/icons';
+import { primaryCtaColors, contrastOn } from '../../utils/ctaContrast';
+import { LilacDragonfly, SoftGrayDragonfly } from '../../assets/icons';
 
 const H_PADDING = 16;
 
@@ -37,7 +38,7 @@ const UseYourPointsScreen = () => {
   const profileType = String(route?.params?.profileType || '').toLowerCase();
   const isBusinessProfile = profileType === 'company';
   const resolvedProfile = isBusinessProfile ? 'company' : 'user';
-  const { bgStyle, textStyle, text, card } = useAppTheme(
+  const { bgStyle, textStyle, text, card, accent } = useAppTheme(
     profileType === 'company' || profileType === 'user' ? profileType : undefined,
   );
 
@@ -59,11 +60,11 @@ const UseYourPointsScreen = () => {
       refreshPoints();
     }, [refreshPoints]),
   );
-  const DragonflyDecor = isBusinessProfile ? GoldDragonfly : LilacDragonfly;
   const imageSize = Math.min(78, Math.max(64, screenWidth * 0.18));
   const muted = `${text}99`;
   const softBg = `${text}14`;
   const softBorder = `${text}18`;
+  const cta = primaryCtaColors(accent);
 
   const options = useMemo(
     () => [
@@ -132,7 +133,7 @@ const UseYourPointsScreen = () => {
           <SoftGrayDragonfly width={44} height={44} style={styles.heroDragonfly} />
           <View style={[styles.heroHex, { borderColor: text }]}>
             <View style={[styles.heroHexInner, { backgroundColor: text }]}>
-              <Text style={styles.heroHexText}>P</Text>
+              <Text style={[styles.heroHexText, { color: contrastOn(text) }]}>P</Text>
             </View>
           </View>
           <View style={styles.heroTextCol}>
@@ -155,7 +156,11 @@ const UseYourPointsScreen = () => {
               {t('useYourPointsScreen.chooseHowSubtitle')}
             </Text>
           </View>
-          <DragonflyDecor width={28} height={28} />
+          {isBusinessProfile ? (
+            <SoftGrayDragonfly width={28} height={28} style={{ tintColor: text }} />
+          ) : (
+            <LilacDragonfly width={28} height={28} />
+          )}
         </View>
 
         {options.map(option => (
@@ -189,7 +194,9 @@ const UseYourPointsScreen = () => {
               {option.badge ? (
                 <View style={[styles.optionBadge, { backgroundColor: softBg }]}>
                   <View style={[styles.optionBadgeDot, { backgroundColor: text }]}>
-                    <Text style={styles.optionBadgeDotText}>P</Text>
+                    <Text style={[styles.optionBadgeDotText, { color: contrastOn(text) }]}>
+                      P
+                    </Text>
                   </View>
                   <Text style={[styles.optionBadgeText, { color: text }]} numberOfLines={1}>
                     {option.badge}
@@ -207,7 +214,7 @@ const UseYourPointsScreen = () => {
 
         <View style={[styles.partnerBar, { borderColor: softBorder, backgroundColor: softBg }]}>
           <View style={[styles.partnerIcon, { backgroundColor: text }]}>
-            <Ionicons name="globe-outline" size={16} color="#fff" />
+            <Ionicons name="globe-outline" size={16} color={contrastOn(text)} />
           </View>
           <Text style={[styles.partnerText, { color: muted }]}>
             {t('useYourPointsScreen.partnerNetwork')}
@@ -217,13 +224,15 @@ const UseYourPointsScreen = () => {
         <TouchableOpacity
           activeOpacity={0.88}
           onPress={() => setHowItWorksVisible(true)}
-          style={[styles.ctaButton, { backgroundColor: text }]}
+          style={[styles.ctaButton, { backgroundColor: cta.backgroundColor }]}
         >
-          <View style={styles.ctaLeftIcon}>
-            <Text style={styles.ctaLeftIconText}>P</Text>
+          <View style={[styles.ctaLeftIcon, { backgroundColor: `${cta.color}33` }]}>
+            <Text style={[styles.ctaLeftIconText, { color: cta.color }]}>P</Text>
           </View>
-          <Text style={styles.ctaText}>{t('useYourPointsScreen.howItWorks')}</Text>
-          <Ionicons name="chevron-forward" size={20} color="#fff" />
+          <Text style={[styles.ctaText, { color: cta.color }]}>
+            {t('useYourPointsScreen.howItWorks')}
+          </Text>
+          <Ionicons name="chevron-forward" size={20} color={cta.color} />
         </TouchableOpacity>
       </ScrollView>
 
@@ -242,11 +251,13 @@ const UseYourPointsScreen = () => {
               {t('useYourPointsScreen.howItWorksBody')}
             </Text>
             <TouchableOpacity
-              style={[styles.modalCta, { backgroundColor: text }]}
+              style={[styles.modalCta, { backgroundColor: cta.backgroundColor }]}
               onPress={() => setHowItWorksVisible(false)}
               activeOpacity={0.85}
             >
-              <Text style={styles.modalCtaText}>{t('useYourPointsScreen.gotIt')}</Text>
+              <Text style={[styles.modalCtaText, { color: cta.color }]}>
+                {t('useYourPointsScreen.gotIt')}
+              </Text>
             </TouchableOpacity>
           </Pressable>
         </Pressable>
@@ -403,15 +414,13 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.25)',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
   },
-  ctaLeftIconText: { color: '#fff', fontWeight: '800', fontSize: 12 },
+  ctaLeftIconText: { fontWeight: '800', fontSize: 12 },
   ctaText: {
     flex: 1,
-    color: '#fff',
     fontSize: 16,
     fontWeight: '700',
     textAlign: 'center',
@@ -427,7 +436,7 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: 18, fontWeight: '700', marginBottom: 10 },
   modalBody: { fontSize: 14, lineHeight: 21, marginBottom: 18 },
   modalCta: { borderRadius: 12, paddingVertical: 12, alignItems: 'center' },
-  modalCtaText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  modalCtaText: { fontWeight: '700', fontSize: 15 },
 });
 
 export default UseYourPointsScreen;

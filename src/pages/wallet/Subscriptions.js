@@ -11,7 +11,7 @@ import {
     Alert,
     PermissionsAndroid,
     Platform,
-    Linking
+    Linking,
 } from 'react-native';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import { PostStory } from '../../services/stories';
@@ -28,6 +28,7 @@ import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { getSubscriptionByUserID, setPrivateSubscription, setUserSubscription } from '../../services/wallet';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Ionicons from "react-native-vector-icons/Ionicons";
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useBusinessProfileTheme } from '../../theme/useBusinessProfileTheme';
 import { useThemeContext } from '../../theme/ThemeContext';
 import TermCondition from '../../components/modals/Term&Condition';
@@ -40,6 +41,7 @@ import { createCheckoutSession } from '../../services/stirpe';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 import { getUserCredentials } from '../../services/post';
 import { useLanguage } from '../../i18n';
+import FanSubscriptionIntroBanner from '../../components/wallet/FanSubscriptionIntroBanner';
 
 const STRIPE_ONBOARDING_STATUS_KEY = 'stripeOnboardingStatus';
 const SUBVENTION_TERMS_AGREED_KEY_PREFIX = 'subventionTermsAgreed';
@@ -88,12 +90,13 @@ const SubventionSetupScreen = () => {
     const { openOnboarding } = useStripeOnboarding({ fetchOnMount: true });
 
     const contentTabs = [
-        { id: 'posts', label: t('subventionSetup.tabMint'), icon: '📝' },
-        { id: 'reels', label: t('subventionSetup.tabFlips'), icon: '🎬' },
-        { id: 'stories', label: t('subventionSetup.tabDrops'), icon: '⭐' },
-        { id: 'videos', label: t('subventionSetup.tabVideos'), icon: '🎥' },
-        { id: 'ebook', label: t('subventionSetup.tabEbook'), icon: '📚' }
+        { id: 'posts', label: t('subventionSetup.tabMint'), icon: 'notebook-edit-outline', iconColor: null },
+        { id: 'reels', label: t('subventionSetup.tabFlips'), icon: 'movie-open-outline', iconColor: null },
+        { id: 'stories', label: t('subventionSetup.tabDrops'), icon: 'star-four-points', iconColor: '#E4B84A' },
+        { id: 'videos', label: t('subventionSetup.tabVideos'), icon: 'video-outline', iconColor: null },
+        { id: 'ebook', label: t('subventionSetup.tabEbook'), icon: 'book-multiple-outline', iconColor: null },
     ];
+    const selectedTabMeta = contentTabs.find(tab => tab.id === selectedTab) || contentTabs[0];
 
     const loadTermsAgreement = async () => {
         try {
@@ -656,6 +659,16 @@ const SubventionSetupScreen = () => {
         <>
             <View style={{ flex: 1, paddingBottom: 20 }}>
                 <ScrollView style={[styles.container, bgStyle]}>
+                    {/* Fan Subscriptions intro card (UI, not image) */}
+                    <FanSubscriptionIntroBanner
+                        accent={accent}
+                        mutedText={mutedText}
+                        isDarkMode={isDarkMode}
+                        isBusinessProfile={isBusinessProfile}
+                        body1={t('subventionSetup.introBody1')}
+                        body2={t('subventionSetup.introBody2')}
+                    />
+
                     {/* Price Setup Section */}
                     <View style={[styles.section, cardStyle, { shadowColor: text, borderColor: border, borderWidth: StyleSheet.hairlineWidth }]}>
                         <Text style={[styles.sectionTitle, textStyle]}>{t('subventionSetup.priceSectionTitle')}</Text>
@@ -702,41 +715,98 @@ const SubventionSetupScreen = () => {
                         </View>
                     </View>
 
-                    {/* Content Creation Section */}
+                    {/* Content Creation Section — 3-col grid cards */}
                     <View style={[styles.section, cardStyle, { shadowColor: text, borderColor: border, borderWidth: StyleSheet.hairlineWidth }]}>
-                        <Text style={[styles.sectionTitle, textStyle]}>{t('subventionSetup.contentSectionTitle')}</Text>
-                        <Text style={[styles.sectionSubtitle, { color: mutedText }]}>{t('subventionSetup.contentSectionSubtitle')}</Text>
-
-                        <View style={styles.tabContainer}>
-                            {contentTabs.map(tab => (
-                                <TouchableOpacity
-                                    key={tab.id}
-                                    style={[
-                                        styles.tab,
-                                        { backgroundColor: isDarkMode ? card : '#f3f4f6' },
-                                        selectedTab === tab.id && { backgroundColor: isDarkMode ? `${accent}33` : '#ede9fe', borderColor: accent },
-                                    ]}
-                                    onPress={() => setSelectedTab(tab.id)}
-                                >
-                                    <Text style={styles.tabIcon}>{tab.icon}</Text>
-                                    <Text style={[styles.tabLabel, { color: mutedText }, selectedTab === tab.id && { color: accent }]}>
-                                        {tab.label}
-                                    </Text>
-                                </TouchableOpacity>
-                            ))}
+                        <View style={styles.contentHeaderRow}>
+                            <View style={[styles.contentHeaderIcon, { backgroundColor: accent }]}>
+                                <MaterialCommunityIcons name="view-grid" size={14} color="#FFFFFF" />
+                            </View>
+                            <View style={styles.contentHeaderText}>
+                                <Text style={[styles.sectionTitle, textStyle, { marginBottom: 2 }]}>
+                                    {t('subventionSetup.contentSectionTitle')}
+                                </Text>
+                                <Text style={[styles.sectionSubtitle, { color: mutedText, marginBottom: 0 }]}>
+                                    {t('subventionSetup.contentSectionSubtitle')}
+                                </Text>
+                            </View>
                         </View>
 
-                        <View style={[styles.contentArea, { backgroundColor: isDarkMode ? `${accent}15` : '#f9fafb' }]}>
-                            <Text style={[styles.contentTitle, textStyle]}>
-                                {t('subventionSetup.createLabel')} {contentTabs.find(t => t.id === selectedTab)?.label}
-                            </Text>
+                        <View style={styles.contentGrid}>
+                            {contentTabs.map(tab => {
+                                const selected = selectedTab === tab.id;
+                                const iconTint = tab.iconColor || (selected ? accent : text);
+                                return (
+                                    <TouchableOpacity
+                                        key={tab.id}
+                                        activeOpacity={0.85}
+                                        onPress={() => setSelectedTab(tab.id)}
+                                        style={[
+                                            styles.contentTypeCard,
+                                            {
+                                                borderColor: selected
+                                                    ? accent
+                                                    : isDarkMode
+                                                        ? border
+                                                        : '#E8E5EE',
+                                                backgroundColor: selected
+                                                    ? isDarkMode
+                                                        ? `${accent}22`
+                                                        : `${accent}12`
+                                                    : isDarkMode
+                                                        ? card
+                                                        : '#FFFFFF',
+                                            },
+                                        ]}
+                                    >
+                                        {selected ? (
+                                            <View style={[styles.contentCheckBadge, { backgroundColor: accent }]}>
+                                                <Ionicons name="checkmark" size={12} color="#FFFFFF" />
+                                            </View>
+                                        ) : null}
+                                        <MaterialCommunityIcons
+                                            name={tab.icon}
+                                            size={28}
+                                            color={iconTint}
+                                            style={styles.contentTypeIcon}
+                                        />
+                                        <Text
+                                            style={[
+                                                styles.contentTypeLabel,
+                                                { color: selected ? accent : text },
+                                            ]}
+                                            numberOfLines={2}
+                                        >
+                                            {tab.label}
+                                        </Text>
+                                        <Text style={[styles.contentTypeHint, { color: mutedText }]}>
+                                            {t('subventionSetup.unlimitedAccess')}
+                                        </Text>
+                                    </TouchableOpacity>
+                                );
+                            })}
+
                             <TouchableOpacity
-                                style={[styles.createButton, { backgroundColor: accent }]}
+                                activeOpacity={0.88}
                                 onPress={() => handleCreateContent(selectedTab)}
+                                style={[
+                                    styles.contentCreateCard,
+                                    {
+                                        backgroundColor: isDarkMode ? card : '#FFFFFF',
+                                        borderColor: isDarkMode ? border : '#E8E5EE',
+                                    },
+                                ]}
                             >
-                                <Text style={styles.createButtonText}>
-                                    + {t('subventionSetup.newLabel')} {contentTabs.find(t => t.id === selectedTab)?.label}
+                                <View style={[styles.contentCreatePlus, { borderColor: accent }]}>
+                                    <Ionicons name="add" size={22} color={accent} />
+                                </View>
+                                <Text style={[styles.contentCreateTitle, { color: accent }]} numberOfLines={1}>
+                                    {t('subventionSetup.createLabel')} {selectedTabMeta.label}
                                 </Text>
+                                <View style={[styles.contentCreateBtn, { backgroundColor: accent }]}>
+                                    <Text style={styles.contentCreateBtnText} numberOfLines={1}>
+                                        + {t('subventionSetup.newLabel')} {selectedTabMeta.label}
+                                    </Text>
+                                </View>
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -918,56 +988,101 @@ const styles = StyleSheet.create({
     rangeText: {
         fontSize: 14,
     },
-    tabContainer: {
+    contentHeaderRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 16,
+    },
+    contentHeaderIcon: {
+        width: 28,
+        height: 28,
+        borderRadius: 8,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 10,
+    },
+    contentHeaderText: {
+        flex: 1,
+        minWidth: 0,
+    },
+    contentGrid: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        gap: 12,
-        marginBottom: 20,
+        justifyContent: 'space-between',
+        rowGap: 12,
     },
-    tab: {
-        flex: 1,
-        minWidth: '45%',
-        padding: 16,
-        borderRadius: 12,
+    contentTypeCard: {
+        width: '31.5%',
+        minHeight: 118,
+        borderRadius: 14,
+        borderWidth: 1.5,
+        paddingVertical: 12,
+        paddingHorizontal: 8,
         alignItems: 'center',
-        borderWidth: 2,
-        borderColor: 'transparent',
+        justifyContent: 'center',
+        position: 'relative',
     },
-    tabActive: {
-        backgroundColor: '#ede9fe',
-        borderColor: '#7c3aed',
+    contentCheckBadge: {
+        position: 'absolute',
+        top: 6,
+        right: 6,
+        width: 18,
+        height: 18,
+        borderRadius: 9,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
-    tabIcon: {
-        fontSize: 32,
+    contentTypeIcon: {
         marginBottom: 8,
     },
-    tabLabel: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: '#6b7280',
+    contentTypeLabel: {
+        fontSize: 12,
+        fontWeight: '700',
+        textAlign: 'center',
+        marginBottom: 4,
     },
-    tabLabelActive: {
-        color: '#7c3aed',
+    contentTypeHint: {
+        fontSize: 9,
+        textAlign: 'center',
+        lineHeight: 12,
     },
-    contentArea: {
-        padding: 20,
-        borderRadius: 8,
+    contentCreateCard: {
+        width: '31.5%',
+        minHeight: 118,
+        borderRadius: 14,
+        borderWidth: 1.5,
+        paddingVertical: 10,
+        paddingHorizontal: 8,
         alignItems: 'center',
+        justifyContent: 'center',
     },
-    contentTitle: {
-        fontSize: 16,
-        fontWeight: '600',
-        marginBottom: 12,
+    contentCreatePlus: {
+        width: 34,
+        height: 34,
+        borderRadius: 17,
+        borderWidth: 1.5,
+        borderStyle: 'dashed',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 6,
     },
-    createButton: {
-        paddingVertical: 12,
-        paddingHorizontal: 24,
-        borderRadius: 8,
+    contentCreateTitle: {
+        fontSize: 11,
+        fontWeight: '700',
+        textAlign: 'center',
+        marginBottom: 8,
     },
-    createButtonText: {
-        color: '#fff',
-        fontWeight: '600',
-        fontSize: 16,
+    contentCreateBtn: {
+        borderRadius: 14,
+        paddingVertical: 5,
+        paddingHorizontal: 8,
+        maxWidth: '100%',
+    },
+    contentCreateBtnText: {
+        color: '#FFFFFF',
+        fontSize: 10,
+        fontWeight: '700',
+        textAlign: 'center',
     },
     protectionItem: {
         flexDirection: 'row',
