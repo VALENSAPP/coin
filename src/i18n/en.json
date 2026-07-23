@@ -4376,7 +4376,9 @@
     "noItemsAvailable": "No items available",
     "addNewItem": "Add new item",
     "noBattlesTitle": "No battles yet",
-    "noBattlesText": "Check back soon to vote on new marketplace battles"
+    "noBattlesText": "Check back soon to vote on new marketplace battles",
+    "battleWinnerTitle": "Battle Winner",
+    "defaultQuestion": "Which one do you prefer?"
   },
   "myClosetOrderDetail": {
     "headerTitle": "Order Details",

@@ -325,6 +325,18 @@ const MyClosetItemsManagementScreen = ({ navigation, route }) => {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const section = route?.params?.section || 'items';
+  const returnTo = route?.params?.returnTo;
+
+  const handleBack = useCallback(() => {
+    if (returnTo === 'MyClosetDashboard') {
+      navigation.navigate('MainApp', {
+        screen: 'wallet',
+        params: { screen: 'MyCloset' },
+      });
+      return;
+    }
+    navigation.goBack();
+  }, [navigation, returnTo]);
 
   const loadItems = useCallback(async () => {
     setLoading(true);
@@ -421,7 +433,7 @@ const MyClosetItemsManagementScreen = ({ navigation, route }) => {
         <ClosestHeader
           title={section === 'orders' ? t('myClosetItems.headerTitleOrders') : t('myClosetItems.headerTitleItems')}
           subtitle={subtitle}
-          onBack={() => navigation.goBack()}
+          onBack={handleBack}
           accent={accent}
           textStyle={textStyle}
           mutedTextStyle={mutedTextStyle}

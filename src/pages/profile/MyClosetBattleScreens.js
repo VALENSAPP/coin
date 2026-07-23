@@ -192,15 +192,39 @@ const daysLeftFromEndAt = endAt => {
   return Math.max(0, Math.ceil(diffMs / (24 * 60 * 60 * 1000)));
 };
 
-const participantToItem = participant => ({
-  id: participant?.productId || participant?.product?.id,
-  participantId: participant?.id,
-  name: participant?.product?.name || '',
-  price: currency(participant?.product?.price),
-  image: itemImage(participant?.product) || participant?.product?.images?.[0] || null,
-  voteCount: participant?.voteCount ?? 0,
-  isWinner: !!participant?.isWinner,
-});
+const participantToItem = (participant, raw) => {
+  const product = participant?.product;
+  let userName = '';
+  let shopName = '';
+  
+  if (product && raw) {
+    if (product.userId === raw?.seller?.id || product.userId === raw?.sellerId) {
+      userName = raw?.seller?.userName || raw?.seller?.displayName || '';
+      shopName = raw?.closet?.shopName || '';
+    } else if (product.userId === raw?.opponentSeller?.id || product.userId === raw?.opponentSellerId) {
+      userName = raw?.opponentSeller?.userName || raw?.opponentSeller?.displayName || '';
+      shopName = raw?.opponentCloset?.shopName || '';
+    } else if (product.userId === raw?.mine?.userId) {
+      userName = raw?.mine?.userName || raw?.mine?.displayName || '';
+      shopName = raw?.mine?.shopName || '';
+    } else if (product.userId === raw?.opponent?.userId) {
+      userName = raw?.opponent?.userName || raw?.opponent?.displayName || '';
+      shopName = raw?.opponent?.shopName || '';
+    }
+  }
+
+  return {
+    id: participant?.productId || participant?.product?.id,
+    participantId: participant?.id,
+    name: participant?.product?.name || '',
+    price: currency(participant?.product?.price),
+    image: itemImage(participant?.product) || participant?.product?.images?.[0] || null,
+    voteCount: participant?.voteCount ?? 0,
+    isWinner: !!participant?.isWinner,
+    userName,
+    shopName,
+  };
+};
 
 const productToBattleItem = (product, fallback = {}) => ({
   id: product?.id || fallback?.id,
@@ -213,7 +237,7 @@ const productToBattleItem = (product, fallback = {}) => ({
 const normalizeBattle = raw => {
   if (!raw) return null;
   const participants = [...(raw?.participants || [])].sort((a, b) => (a?.position ?? 0) - (b?.position ?? 0));
-  const items = participants.map(participantToItem);
+  const items = participants.map(p => participantToItem(p, raw));
   const winnerParticipant = raw?.winner || participants.find(p => p?.isWinner) || participants[0] || null;
   const loserParticipant = raw?.loser || participants.find(p => !p?.isWinner) || participants[1] || null;
   const winnerProduct = winnerParticipant?.product || null;
@@ -399,6 +423,11 @@ export const BattleCard = ({ left, right, showWinner = false, winnerPercent, acc
             <View style={styles.winnerCopy}>
               <Text style={[styles.winnerTitle, { color: textColor }]}>{left.name}</Text>
               <Text style={[styles.winnerPrice, { color: textColor }]}>{left.price}</Text>
+              {(left.shopName || left.userName) ? (
+                <Text style={[styles.winnerSeller, { color: isDarkMode ? '#AAAAAA' : '#666666', fontSize: 12, marginTop: 2 }]} numberOfLines={1}>
+                  {left.shopName || left.userName}
+                </Text>
+              ) : null}
             </View>
             <View style={[styles.percentPill, { backgroundColor: '#22C55E' }]}>
               <Text style={styles.percentText}>{winnerPercent != null ? `${winnerPercent}%` : '—'}</Text>
@@ -416,6 +445,11 @@ export const BattleCard = ({ left, right, showWinner = false, winnerPercent, acc
           />
           <Text style={[styles.itemName, { color: textColor }]}>{left.name}</Text>
           <Text style={[styles.itemPrice, { color: accent }]}>{left.price}</Text>
+          {(left.shopName || left.userName) ? (
+            <Text style={[styles.itemSeller, { color: isDarkMode ? '#AAAAAA' : '#666666', fontSize: 12, marginTop: 4, textAlign: 'center' }]} numberOfLines={1}>
+              {left.shopName || left.userName}
+            </Text>
+          ) : null}
         </View>
         <View style={[styles.vsBubble, { backgroundColor: accent }]}><Text style={styles.vsText}>{t('battle.vs')}</Text></View>
         <View style={styles.itemTile}>
@@ -427,6 +461,11 @@ export const BattleCard = ({ left, right, showWinner = false, winnerPercent, acc
           />
           <Text style={[styles.itemName, { color: textColor }]}>{right.name}</Text>
           <Text style={[styles.itemPrice, { color: accent }]}>{right.price}</Text>
+          {(right.shopName || right.userName) ? (
+            <Text style={[styles.itemSeller, { color: isDarkMode ? '#AAAAAA' : '#666666', fontSize: 12, marginTop: 4, textAlign: 'center' }]} numberOfLines={1}>
+              {right.shopName || right.userName}
+            </Text>
+          ) : null}
         </View>
       </View>
     </View>
@@ -1097,7 +1136,7 @@ export function ChallengeBattleSetupScreen({ navigation, route }) {
           <View style={{ flex: 1 }}>
             <Text style={[styles.itemName, { color: primaryText, textAlign: 'left', fontSize: 14, fontWeight: '800' }]} numberOfLines={2}>{leftItem?.name}</Text>
             <Text style={[styles.itemPrice, { color: primaryText, textAlign: 'left', marginTop: 2 }]} numberOfLines={1}>{leftItem?.price}</Text>
-            {leftItem?.sellerName ? <Text style={[styles.itemSellerName, { color: subtleMuted, fontSize: 12, marginTop: 4 }]}>From {leftItem.sellerName}</Text> : null}
+            {leftItem?.shopName || leftItem?.userName || leftItem?.sellerName ? <Text style={[styles.itemSellerName, { color: subtleMuted, fontSize: 12, marginTop: 4 }]}>From {leftItem?.shopName || leftItem?.userName || leftItem?.sellerName}</Text> : null}
           </View>
         </View>
 
@@ -1115,7 +1154,7 @@ export function ChallengeBattleSetupScreen({ navigation, route }) {
           <View style={{ flex: 1 }}>
             <Text style={[styles.itemName, { color: primaryText, textAlign: 'left', fontSize: 14, fontWeight: '800' }]} numberOfLines={2}>{rightItem?.name}</Text>
             <Text style={[styles.itemPrice, { color: primaryText, textAlign: 'left', marginTop: 2 }]} numberOfLines={1}>{rightItem?.price}</Text>
-            {rightItem?.sellerName ? <Text style={[styles.itemSellerName, { color: subtleMuted, fontSize: 12, marginTop: 4 }]}>From {rightItem.sellerName}</Text> : null}
+            {rightItem?.shopName || rightItem?.userName || rightItem?.sellerName ? <Text style={[styles.itemSellerName, { color: subtleMuted, fontSize: 12, marginTop: 4 }]}>From {rightItem?.shopName || rightItem?.userName || rightItem?.sellerName}</Text> : null}
           </View>
         </View>
 
@@ -2455,7 +2494,7 @@ export function BattleResultsScreen({ navigation, route }) {
               />
               <View style={styles.resultsCopy}>
                 <Text style={[styles.resultsName, { color: primaryText }]} numberOfLines={2}>{winnerItem.name}</Text>
-                <Text style={[styles.resultsPrice, { color: primaryText }]}>{winnerItem.price}</Text>
+                <Text style={[styles.resultsPrice, { color: primaryText }]}>${winnerItem.price}</Text>
               </View>
               <View style={styles.resultsPercentPill}>
                 <Text style={styles.resultsPercentText}>{winnerVotePercent != null ? `${winnerVotePercent}%` : '—'}</Text>
@@ -2469,7 +2508,7 @@ export function BattleResultsScreen({ navigation, route }) {
               />
               <View style={styles.resultsCopy}>
                 <Text style={[styles.resultsNameSmall, { color: primaryText }]} numberOfLines={2}>{runnerUpItem.name}</Text>
-                <Text style={[styles.resultsPriceSmall, { color: primaryText }]}>{runnerUpItem.price}</Text>
+                <Text style={[styles.resultsPriceSmall, { color: primaryText }]}>${runnerUpItem.price}</Text>
               </View>
               <View style={[styles.resultsPercentPillMuted, isDarkMode && { backgroundColor: border || '#333' }]}>
                 <Text style={[styles.resultsPercentTextMuted, { color: subtleMuted }]}>{Math.max(0, 100 - (winnerVotePercent ?? 0))}%</Text>
@@ -2609,7 +2648,7 @@ export function ChallengeBattlePreviewScreen({ navigation, route }) {
             <Text style={{ color: primaryText, fontWeight: '700', marginTop: 12 }}>{t('battle.yourItem', 'Your item')}</Text>
             <Text style={{ color: primaryText, fontWeight: '900', fontSize: 13, marginTop: 4, textAlign: 'center' }}>{leftItem?.name || 'Item Name'}</Text>
             <Text style={{ color: accent, fontWeight: '800', marginTop: 4 }}>{leftItem?.price || '$0.00'}</Text>
-            <Text style={{ color: subtleMuted, fontSize: 11, marginTop: 6 }}>From {leftItem?.sellerName || 'Valens Closet'}</Text>
+            <Text style={{ color: subtleMuted, fontSize: 11, marginTop: 6 }}>From {leftItem?.shopName || leftItem?.userName || leftItem?.sellerName || 'Valens Closet'}</Text>
           </View>
 
           <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: idleSurface, borderWidth: 1, borderColor: border || surfaces.listBorder, alignItems: 'center', justifyContent: 'center', marginTop: 40, marginHorizontal: -10, zIndex: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 }}>
@@ -2621,7 +2660,7 @@ export function ChallengeBattlePreviewScreen({ navigation, route }) {
             <Text style={{ color: primaryText, fontWeight: '700', marginTop: 12 }}>{t('battle.challengerItem', 'Challenger item')}</Text>
             <Text style={{ color: primaryText, fontWeight: '900', fontSize: 13, marginTop: 4, textAlign: 'center' }}>{rightItem?.name || 'Item Name'}</Text>
             <Text style={{ color: accent, fontWeight: '800', marginTop: 4 }}>{rightItem?.price || '$0.00'}</Text>
-            <Text style={{ color: subtleMuted, fontSize: 11, marginTop: 6 }}>From {rightItem?.sellerName || 'Shop'}</Text>
+            <Text style={{ color: subtleMuted, fontSize: 11, marginTop: 6 }}>From {rightItem?.shopName || rightItem?.userName || rightItem?.sellerName || 'Shop'}</Text>
           </View>
         </View>
 
@@ -2723,7 +2762,7 @@ export function BattleCreatedSuccessScreen({ navigation, route }) {
             <FastImage source={fastImageSource(rightItem?.image)} style={{ width: 80, height: 80, borderRadius: 12 }} />
             <Text style={{ color: primaryText, fontWeight: '800', fontSize: 12, marginTop: 8, textAlign: 'center' }} numberOfLines={2}>{rightItem?.name || 'Item Name'}</Text>
             <Text style={{ color: primaryText, fontWeight: '900', fontSize: 12, marginTop: 4 }}>{rightItem?.price || '$0.00'}</Text>
-            <Text style={{ color: subtleMuted, fontSize: 10, marginTop: 2 }}>{rightItem?.sellerName || 'Style Hub'}</Text>
+            <Text style={{ color: subtleMuted, fontSize: 10, marginTop: 2 }}>{rightItem?.shopName || rightItem?.userName || rightItem?.sellerName || 'Style Hub'}</Text>
           </View>
         </View>
 
@@ -2845,7 +2884,7 @@ export function ChallengeReceivedScreen({ navigation, route }) {
         <View style={[styles.aboutCard, { backgroundColor: idleSurface, borderColor: border || surfaces.listBorder, flexDirection: 'row', alignItems: 'center', marginBottom: 20 }]}>
            <FastImage source={fastImageSource(rightItem?.image)} style={{ width: 40, height: 40, borderRadius: 20, marginRight: 12, backgroundColor: '#E0E0E0' }} />
            <Text style={{ color: primaryText, flex: 1, fontSize: 13, fontWeight: '500' }}>
-             <Text style={{ fontWeight: '800' }}>{rightItem?.sellerName || 'Valens Closet'}</Text> challenged your item in an Opinion Battle.
+             <Text style={{ fontWeight: '800' }}>{rightItem?.shopName || rightItem?.userName || 'Valens Closet'}</Text> challenged your item in an Opinion Battle.
            </Text>
            <Ionicons name="shield-checkmark" size={28} color={accent} />
         </View>
@@ -2858,7 +2897,7 @@ export function ChallengeReceivedScreen({ navigation, route }) {
             <Text style={{ color: primaryText, fontWeight: '900', fontSize: 14 }}>{leftItem?.name || 'Item Name'}</Text>
             <Text style={{ color: primaryText, fontWeight: '800', fontSize: 13, marginTop: 4 }}>{leftItem?.price || '$0.00'}</Text>
             <Text style={{ color: subtleMuted, fontSize: 12, marginTop: 8 }}>From your shop</Text>
-            <Text style={{ color: subtleMuted, fontSize: 12 }}>{leftItem?.sellerName || 'Your Shop'}</Text>
+            <Text style={{ color: subtleMuted, fontSize: 12 }}>{leftItem?.shopName || leftItem?.userName || 'Your Shop'}</Text>
           </View>
         </View>
 
@@ -2874,8 +2913,8 @@ export function ChallengeReceivedScreen({ navigation, route }) {
           <View style={{ flex: 1, justifyContent: 'center', height: 90 }}>
             <Text style={{ color: primaryText, fontWeight: '900', fontSize: 14 }}>{rightItem?.name || 'Item Name'}</Text>
             <Text style={{ color: primaryText, fontWeight: '800', fontSize: 13, marginTop: 4 }}>{rightItem?.price || '$0.00'}</Text>
-            <Text style={{ color: subtleMuted, fontSize: 12, marginTop: 8 }}>From {rightItem?.sellerName || 'Valens Closet'}</Text>
-            <Text style={{ color: subtleMuted, fontSize: 12 }}>@{rightItem?.sellerName?.toLowerCase()?.replace(/s+/g, '') || 'valenscloset'}</Text>
+            <Text style={{ color: subtleMuted, fontSize: 12, marginTop: 8 }}>From {rightItem?.shopName || rightItem?.userName || 'Valens Closet'}</Text>
+            <Text style={{ color: subtleMuted, fontSize: 12 }}>@{rightItem?.userName?.toLowerCase()?.replace(/\s+/g, '') || rightItem?.shopName?.toLowerCase()?.replace(/\s+/g, '') || 'valenscloset'}</Text>
           </View>
         </View>
 
@@ -3000,7 +3039,7 @@ export function ChallengeAcceptedScreen({ navigation, route }) {
                 <FastImage source={fastImageSource(rightItem?.image)} style={{ width: 100, height: 100, borderRadius: 12, backgroundColor: '#E0E0E0' }} />
                 <Text style={{ color: primaryText, fontWeight: '900', fontSize: 13, marginTop: 12, textAlign: 'center' }}>{rightItem?.name || 'Item Name'}</Text>
                 <Text style={{ color: primaryText, fontWeight: '800', fontSize: 12, marginTop: 4 }}>{rightItem?.price || '$0.00'}</Text>
-                <Text style={{ color: subtleMuted, fontSize: 11, marginTop: 4 }}>{rightItem?.sellerName || 'Valens Closet'}</Text>
+                <Text style={{ color: subtleMuted, fontSize: 11, marginTop: 4 }}>{rightItem?.shopName || rightItem?.userName || rightItem?.sellerName || 'Valens Closet'}</Text>
               </View>
             </View>
           </View>

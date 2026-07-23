@@ -4244,7 +4244,9 @@
     "noItemsAvailable": "No hay artículos disponibles",
     "addNewItem": "Agregar nuevo artículo",
     "noBattlesTitle": "Ainda não há batalhas",
-    "noBattlesText": "Volte em breve para votar nas novas batalhas do marketplace"
+    "noBattlesText": "Volte em breve para votar nas novas batalhas do marketplace",
+    "battleWinnerTitle": "Vencedor da batalha",
+    "defaultQuestion": "Qual você prefere?"
   },
   "myClosetOrderDetail": {
     "headerTitle": "Detalhes do pedido",

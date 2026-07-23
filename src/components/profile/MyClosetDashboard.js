@@ -603,7 +603,7 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
   const handleViewAllItems = () => {
     navigation?.navigate?.('ProfileMain', {
       screen: 'MyClosetItemsManagement',
-      params: { section: 'items' },
+      params: { section: 'items', returnTo: 'MyClosetDashboard' },
     });
   };
 
@@ -804,11 +804,11 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
                   <Text style={[styles.pinnedPrice, textStyle]}>{item.price}</Text>
 
                   <View style={styles.pinnedBottomRow}>
-                    {item.promoLabel ? (
+                    {/* {item.promoLabel ? (
                       <View style={styles.promoPill}>
                         <Text style={styles.promoPillText}>{item.promoLabel}</Text>
                       </View>
-                    ) : <View />}
+                    ) : <View />} */}
 
                     {item.pinLabel ? (
                       <View style={[styles.pinPill, { backgroundColor: isDarkMode ? withAlpha(accent, 0.15) : '#f5f3ff' }]}>

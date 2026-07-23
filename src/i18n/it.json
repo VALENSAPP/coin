@@ -4243,7 +4243,9 @@
     "noItemsAvailable": "Nessun articolo disponibile",
     "addNewItem": "Aggiungi nuovo articolo",
     "noBattlesTitle": "Ancora nessuna battaglia",
-    "noBattlesText": "Torna presto per votare nelle nuove battaglie del marketplace"
+    "noBattlesText": "Torna presto per votare nelle nuove battaglie del marketplace",
+    "battleWinnerTitle": "Vincitore della sfida",
+    "defaultQuestion": "Quale preferisci?"
   },
   "myClosetOrderDetail": {
     "headerTitle": "Détails de la commande",

@@ -982,7 +982,7 @@ const styles = StyleSheet.create({
     gap: 6,
     marginTop: 14,
   },
-  readButtonText: { fontWeight: '800' },
+  readButtonText: { fontWeight: '800', color: "#fff" },
   downloadButton: {
     flexDirection: 'row',
     alignItems: 'center',

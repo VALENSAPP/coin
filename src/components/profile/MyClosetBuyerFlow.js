@@ -558,7 +558,7 @@ const BottomBar = ({ children }) => {
 // Shared UI atoms
 // ─────────────────────────────────────────────────────────────────────────────
 
-const Header = ({ navigation, title, rightIcon, onRightPress, returnTo }) => {
+const Header = ({ navigation, title, rightIcon, onRightPress, returnTo, isOwnProfile }) => {
   const { accent } = useAppTheme();
   const { isDarkMode } = useThemeContext();
   const labelColor = isDarkMode ? '#ffffff' : '#17072d';
@@ -574,17 +574,21 @@ const Header = ({ navigation, title, rightIcon, onRightPress, returnTo }) => {
         <Ionicons name="chevron-back" size={22} color={accent} />
       </TouchableOpacity>
       <Text style={[styles.headerTitle, { color: labelColor }]}>{title}</Text>
-      {rightIcon ? (
-        <TouchableOpacity
-          onPress={onRightPress}
-          style={[styles.iconButton, { backgroundColor: chipSurface }]}
-          activeOpacity={0.8}
-        >
-          <Ionicons name={rightIcon} size={21} color={accent} />
-        </TouchableOpacity>
-      ) : (
-        <View style={styles.iconButton} />
-      )}
+      {!isOwnProfile &&
+        <>
+          {rightIcon ? (
+            <TouchableOpacity
+              onPress={onRightPress}
+              style={[styles.iconButton, { backgroundColor: chipSurface }]}
+              activeOpacity={0.8}
+            >
+              <Ionicons name={rightIcon} size={21} color={accent} />
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.iconButton} />
+          )}
+        </>
+      }
     </View>
   );
 };
@@ -1523,7 +1527,7 @@ const MyClosetBuyerItemsScreen = ({ navigation, route }) => {
                     </View>
                     <View style={styles.identityCopy}>
                       <View style={styles.nameRow}>
-                        <Text style={[styles.sellerName, { color: text }]} numberOfLines={1}>{sellerName} items</Text>
+                        <Text style={[styles.sellerName, { color: text, width: '85%' }]} numberOfLines={1}>{sellerName} items</Text>
                         <Ionicons name="checkmark-circle" size={15} color={accent} />
                       </View>
                       <Text style={[styles.availableText, { color: mutedText || surfaces.mutedColor }]}>
@@ -1919,6 +1923,7 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
         rightIcon={liked ? 'heart' : 'heart-outline'}
         onRightPress={handleWishlistPress}
         returnTo={returnTo}
+        isOwnProfile={isOwnProfile}
       />
       <ScrollView
         contentContainerStyle={styles.detailContent}

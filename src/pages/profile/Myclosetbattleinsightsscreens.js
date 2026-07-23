@@ -137,7 +137,7 @@ export function BattleInsightsActionsScreen({ navigation, route }) {
               <Text style={styles.winnerPillText}>🏆 {t('battleInsights.winner')}</Text>
             </View>
             <Text style={[styles.winnerName, { color: text || TEXT }]}>{winnerItem.name}</Text>
-            <Text style={[styles.winnerPrice, { color: subtleMuted }]}>{winnerItem.price}</Text>
+            <Text style={[styles.winnerPrice, { color: subtleMuted }]}>${winnerItem.price}</Text>
           </View>
         </View>
 
@@ -402,7 +402,8 @@ export function ReviewBoostScreen({ navigation, route }) {
 
       throw new Error('Payment URL missing from response');
     } catch (error) {
-      showToastMessage(toast, 'danger', error?.response?.data?.message || error?.message || 'Please try again.');
+      Alert.alert(error?.response?.data?.message || error?.message || 'Please try again.');
+      // showToastMessage(toast, 'danger', error?.response?.data?.message || error?.message || 'Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -416,7 +417,7 @@ export function ReviewBoostScreen({ navigation, route }) {
           <FastImage source={fastImageSource(winnerItem?.image)} style={styles.winnerImage} resizeMode={FastImage.resizeMode.cover} />
           <View style={{ flex: 1 }}>
             <Text style={[styles.winnerName, { color: text || TEXT }]}>{winnerItem?.name}</Text>
-            <Text style={[styles.winnerPrice, { color: subtleMuted }]}>{winnerItem?.price}</Text>
+            <Text style={[styles.winnerPrice, { color: subtleMuted }]}>${winnerItem?.price}</Text>
           </View>
         </View>
 

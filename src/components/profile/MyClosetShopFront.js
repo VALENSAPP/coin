@@ -345,6 +345,7 @@ const ItemTile = ({
   thumbSurface,
   mutedColor,
   loadingOverlayColor,
+  isOwnProfile
 }) => {
   const [liked, setLiked] = useState(false);
   const [updatingWishlist, setUpdatingWishlist] = useState(false);
@@ -418,18 +419,20 @@ const ItemTile = ({
             <Text style={s.winnerChipText}>🏆 Winner</Text>
           </TouchableOpacity>
         ) : null}
-        <TouchableOpacity
-          style={[s.heart, { backgroundColor: isDark ? `${card}cc` : '#ffffffcc' }]}
-          onPress={handleToggleWishlist}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          disabled={updatingWishlist}
-        >
-          <Ionicons
-            name={liked ? 'heart' : 'heart-outline'}
-            size={18}
-            color={liked ? accent : mutedText}
-          />
-        </TouchableOpacity>
+        {!isOwnProfile &&
+          <TouchableOpacity
+            style={[s.heart, { backgroundColor: isDark ? `${card}cc` : '#ffffffcc' }]}
+            onPress={handleToggleWishlist}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            disabled={updatingWishlist}
+          >
+            <Ionicons
+              name={liked ? 'heart' : 'heart-outline'}
+              size={18}
+              color={liked ? accent : mutedText}
+            />
+          </TouchableOpacity>
+        }
       </View>
       <Text style={[s.tileName, { color: textColor }]} numberOfLines={1}>{item.name}</Text>
       <Text style={[s.tilePrice, { color: textColor }]}>{item.price}</Text>
@@ -1054,11 +1057,11 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
                       <Text style={[s.pinnedPrice, { color: text }]}>{item.price}</Text>
 
                       <View style={s.pinnedBottomRow}>
-                        {item.promoLabel ? (
+                        {/* {item.promoLabel ? (
                           <View style={s.promoPill}>
                             <Text style={s.promoPillText}>{item.promoLabel}</Text>
                           </View>
-                        ) : <View />}
+                        ) : <View />} */}
 
                         {item.pinLabel ? (
                           <View style={s.pinPill}>
@@ -1170,6 +1173,7 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
                   loadingOverlayColor={loadingOverlayColor}
                   sellerId={targetUserId}
                   winnerMeta={winnerMeta}
+                  isOwnProfile={isOwnProfile}
                   onWinnerPress={() => {
                     if (!winnerMeta) return;
                     Alert.alert(

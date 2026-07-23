@@ -4230,7 +4230,9 @@
     "noItemsAvailable": "No hay artículos disponibles",
     "addNewItem": "Agregar nuevo artículo",
     "noBattlesTitle": "Aún no hay batallas",
-    "noBattlesText": "Vuelve pronto para votar en las nuevas batallas del mercado"
+    "noBattlesText": "Vuelve pronto para votar en las nuevas batallas del mercado",
+    "battleWinnerTitle": "Ganador del duelo",
+    "defaultQuestion": "¿Cuál prefieres?"
   },
   "myClosetOrderDetail": {
     "headerTitle": "Detalles del pedido",
