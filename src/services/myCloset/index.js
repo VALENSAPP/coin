@@ -405,3 +405,19 @@ export const getEarningHistory = async ( data) => {
 export const getbattlePerformance = async ( data) => {
   return axiosInstance.get('marketplace-battles/marketPlaceBattleOverview', data);
 };
+
+export const getShops = async (search) => {
+  return axiosInstance.get('/mycloset/shops', { params: { search } });
+};
+
+export const challengeShop = async (data) => {
+  return axiosInstance.post('/marketplace-battles/challenge', data);
+};
+
+export const acceptMarketplaceBattle = async (battleId) => {
+  return axiosInstance.post('/marketplace-battles/' + battleId + '/challenge/accept');
+};
+
+export const declineMarketplaceBattle = async (battleId) => {
+  return axiosInstance.post('/marketplace-battles/' + battleId + '/challenge/decline');
+};

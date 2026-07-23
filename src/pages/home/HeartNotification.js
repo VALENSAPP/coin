@@ -1140,6 +1140,29 @@ export default function Notifications() {
           }
         }
 
+        if (normalizeNotificationType(item.type) === 'marketplace_battle_challenge') {
+          const battleId = item?.raw?.data?.battleId || item?.raw?.data?.battle_id || item?.data?.battleId;
+          if (battleId) {
+            navigation.navigate('ProfileMain', {
+              screen: 'ChallengeReceived',
+              params: { battleId },
+            });
+            return;
+          }
+        }
+
+        if (normalizeNotificationType(item.type) === 'marketplace_battle_challenge_accepted' || normalizeNotificationType(item.type) === 'marketplace_battle_challenge_declined') {
+          const battleId = item?.raw?.data?.battleId || item?.raw?.data?.battle_id || item?.data?.battleId;
+          const status = normalizeNotificationType(item.type) === 'marketplace_battle_challenge_declined' ? 'declined' : 'accepted';
+          if (battleId) {
+            navigation.navigate('ProfileMain', {
+              screen: 'ChallengeAccepted',
+              params: { battleId, status },
+            });
+            return;
+          }
+        }
+
         if (normalizeNotificationType(item.type) === 'private_circle_exclusive_post') {
           const data = item?.raw?.data || {};
           const postCreatorId =

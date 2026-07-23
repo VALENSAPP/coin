@@ -626,7 +626,9 @@ const ImageBox = ({ uri, style, iconSize = 34 }) => (
   </View>
 );
 
-const DetailImageCarousel = ({ images, onZoomChange, accentColor }) => {
+export const DetailImageCarousel = ({ images, onZoomChange, accentColor, imageWidth, imageHeight }) => {
+  const iWidth = imageWidth || HERO_IMAGE_WIDTH;
+  const iHeight = imageHeight || HERO_IMAGE_HEIGHT;
   const { text: fallbackAccent } = useAppTheme();
   const text = accentColor || fallbackAccent;
   const [activeIndex, setActiveIndex] = useState(0);
@@ -646,7 +648,7 @@ const DetailImageCarousel = ({ images, onZoomChange, accentColor }) => {
 
   const onScroll = useCallback(event => {
     const nextIndex = Math.round(
-      event.nativeEvent.contentOffset.x / HERO_IMAGE_WIDTH,
+      event.nativeEvent.contentOffset.x / iWidth,
     );
     const clampedIndex = Math.max(0, Math.min(nextIndex, galleryImages.length - 1));
     if (clampedIndex !== activeIndex) {
@@ -675,25 +677,25 @@ const DetailImageCarousel = ({ images, onZoomChange, accentColor }) => {
   const renderItem = useCallback(({ item, index }) => {
     if (!item) {
       return (
-        <TouchableOpacity activeOpacity={0.9} style={styles.heroSlide} onPress={() => openFullScreen(index)}>
-          <ImageBox uri={null} style={styles.heroImage} iconSize={64} />
+        <TouchableOpacity activeOpacity={0.9} style={[styles.heroSlide, { width: iWidth, height: iHeight }]} onPress={() => openFullScreen(index)}>
+          <ImageBox uri={null} style={[styles.heroImage, { width: iWidth, height: iHeight }]} iconSize={64} />
         </TouchableOpacity>
       );
     }
 
     return (
-      <TouchableOpacity activeOpacity={0.95} style={styles.heroSlide} onPress={() => openFullScreen(index)}>
+      <TouchableOpacity activeOpacity={0.95} style={[styles.heroSlide, { width: iWidth, height: iHeight }]} onPress={() => openFullScreen(index)}>
         <InstagramZoomableImage
           uri={item}
-          height={HERO_IMAGE_HEIGHT}
-          width={HERO_IMAGE_WIDTH}
+          height={iHeight}
+          width={iWidth}
           resizeMode={FastImage.resizeMode.contain}
           onZoomChange={handleZoomChange}
           simultaneousHandlers={listRef}
         />
       </TouchableOpacity>
     );
-  }, [handleZoomChange, openFullScreen]);
+  }, [handleZoomChange, openFullScreen, iWidth, iHeight]);
 
   const renderFullScreenItem = useCallback(({ item }) => {
     if (!item) {
@@ -740,7 +742,7 @@ const DetailImageCarousel = ({ images, onZoomChange, accentColor }) => {
         onScroll={onScroll}
         scrollEventThrottle={16}
         decelerationRate="fast"
-        snapToInterval={HERO_IMAGE_WIDTH}
+        snapToInterval={iWidth}
         snapToAlignment="start"
         disableIntervalMomentum
         directionalLockEnabled
@@ -751,8 +753,8 @@ const DetailImageCarousel = ({ images, onZoomChange, accentColor }) => {
         windowSize={3}
         extraData={activeIndex}
         getItemLayout={(_, index) => ({
-          length: HERO_IMAGE_WIDTH,
-          offset: HERO_IMAGE_WIDTH * index,
+          length: iWidth,
+          offset: iWidth * index,
           index,
         })}
       />
@@ -2245,7 +2247,7 @@ const ShippingChoiceCard = ({ choice, selected, onPress, disabled, accentColor }
     >
       <View style={styles.shipChoiceHeaderRow}>
         <Ionicons name={meta.icon} size={18} color={fillColor} />
-        <Text style={[styles.shipChoiceTitle, { color: fallbackAccent }]}>{t(meta.titleKey)}</Text>
+        <Text style={[styles.shipChoiceTitle, { color: fillColor }]}>{t(meta.titleKey)}</Text>
         <View
           style={[
             styles.shipChoiceCheck,

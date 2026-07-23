@@ -27,6 +27,7 @@ import {
 import { formSurfaces, selectedSurface, themedCard } from '../../utils/closetTheme';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { useFocusEffect } from '@react-navigation/native';
+import Svg, { Defs, ClipPath, Polygon, Image as SvgImage } from 'react-native-svg';
 import {
   getMyClosetItems,
   createMarketplaceBattle,
@@ -39,8 +40,14 @@ import {
   addMarketplaceBattleComment,
   deleteMarketplaceBattleComment,
   reactToMarketplaceBattleComment,
+  getShops,
+  challengeShop,
+  getClosetItemsByClosetId,
+  acceptMarketplaceBattle,
+  declineMarketplaceBattle,
 } from '../../services/myCloset';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getAllUser } from '../../services/users';
 
 // Fallback palette — used only when the theme doesn't provide a value,
 // so screens still look right before useAppTheme() resolves.
@@ -57,11 +64,10 @@ const phoneBorder = {
   borderWidth: 1,
   borderColor: '#EEE5FB',
   shadowColor: '#8A63D2',
-  shadowOpacity: 0.08,
-  shadowRadius: 24,
-  shadowOffset: { width: 0, height: 14 },
-  elevation: 3,
-  backgroundColor: '#fff',
+  shadowOffset: { width: 0, height: 4 },
+  shadowOpacity: 0.1,
+  shadowRadius: 12,
+  elevation: 5,
 };
 
 // Duration pill value -> ms, used to compute startAt/endAt for the create-battle payload
@@ -577,7 +583,7 @@ export function CreateBattleScreen({ navigation, route }) {
       const normalized = normalizeItems(nextItems, t);
       prefetchImageUrls(nextItems);
       setItems(normalized);
-      setSelectedIds(normalized.slice(0, 2).map(i => i.id));
+      // setSelectedIds(normalized.slice(0, 2).map(i => i.id));
     } catch (err) {
       setItems([]);
       setLoadError(t('battle.errors.itemsLoadFailed') || 'Could not load your closet items.');
@@ -609,9 +615,9 @@ export function CreateBattleScreen({ navigation, route }) {
     <View style={[styles.screen, bgStyle, { backgroundColor: bg || SOFT_BG }]}>
       <Header title={headerTitle} onBack={handleBack} onShare={handleShare} accentColor={accent} titleColor={primaryText} />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <Stepper active={1} accent={accent} isDarkMode={isDarkMode} />
-        <Text style={[styles.sectionTitle, { color: primaryText }]}>{t('battle.chooseItemsTitle')}</Text>
-        <Text style={[styles.sectionHint, { color: subtleMuted }]}>{t('battle.chooseItemsHint')}</Text>
+        {/* <Stepper active={1} accent={accent} isDarkMode={isDarkMode} labels={[t('battle.stepper.step1', 'Choose your item'), t('battle.stepper.step2', 'Add your battle question'), t('battle.stepper.step3', 'Set battle details')]} /> */}
+        <Text style={[styles.sectionTitle, { color: primaryText }]}>{t('battle.chooseItemsTitle', 'Choose items for battle')}</Text>
+        <Text style={[styles.sectionHint, { color: subtleMuted }]}>{t('battle.chooseItemsHint', 'Select 1 item to challenge another shop, or 2 items to battle your own')}</Text>
 
         {loading ? (
           <ActivityIndicator style={{ marginTop: 24 }} color={accent} />
@@ -634,6 +640,7 @@ export function CreateBattleScreen({ navigation, route }) {
                   setSelectedIds(prev => {
                     const isSelected = prev.includes(item.id);
                     if (isSelected) return prev.filter(id => id !== item.id);
+                    // Max 2 items can be selected if they want to battle their own items
                     if (prev.length >= 2) return [prev[1], item.id];
                     return [...prev, item.id];
                   });
@@ -667,15 +674,27 @@ export function CreateBattleScreen({ navigation, route }) {
           </View>
         )}
 
-        <TouchableOpacity
-          activeOpacity={0.9}
-          disabled={selectedItems.length < 2}
-          onPress={() => navigation.navigate(nextRoute, { selectedItems, ...route?.params })}
-        >
-          <LinearGradient colors={[accent, text]} style={[styles.primaryButton, selectedItems.length < 2 && { opacity: 0.5 }]}>
-            <Text style={styles.primaryButtonText}>{t('battle.next')}</Text>
-          </LinearGradient>
-        </TouchableOpacity>
+        <View style={{ gap: 10, marginTop: 10 }}>
+          <TouchableOpacity
+            activeOpacity={0.9}
+            disabled={selectedItems.length !== 2}
+            onPress={() => navigation.navigate(nextRoute, { selectedItems, ...route?.params })}
+          >
+            <LinearGradient colors={[accent, text]} style={[styles.primaryButton, selectedItems.length !== 2 && { opacity: 0.5 }]}>
+              <Text style={styles.primaryButtonText}>{t('battle.next', 'Next')}</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            activeOpacity={0.9}
+            disabled={selectedItems.length !== 1}
+            onPress={() => navigation.navigate('ChallengeShopList', { selectedItems, ...route?.params })}
+            style={[styles.secondaryButton, selectedItems.length !== 1 && { opacity: 0.5 }, { borderColor: accent, flexDirection: 'row', alignItems: 'center', gap: 6 }]}
+          >
+            <Ionicons name="storefront-outline" size={18} color={accent} />
+            <Text style={[styles.secondaryButtonText, { color: accent }]}>{t('battle.challengeAnotherShop', 'Challenge another shop')}</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </View>
   );
@@ -970,7 +989,7 @@ export function BattlePreviewScreen({ navigation, route }) {
         }}
       />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <Stepper active={3} accent={accent} isDarkMode={isDarkMode} />
+        {/* <Stepper active={3} accent={accent} isDarkMode={isDarkMode} /> */}
         <Text style={[styles.sectionTitle, { color: primaryText }]}>{previewQuestion}</Text>
         <BattleCard
           left={selectedItems[0]}
@@ -995,10 +1014,10 @@ export function BattlePreviewScreen({ navigation, route }) {
           textColor={primaryText}
           mutedColor={subtleMuted}
           items={[
-          { label: t('battle.stats.votes'), value: '0', icon: 'checkmark-done-outline' },
-          { label: t('battle.stats.views'), value: '0', icon: 'eye-outline' },
-          { label: t('battle.stats.comments'), value: '0', icon: 'chatbubble-outline' },
-        ]} />
+            { label: t('battle.stats.votes'), value: '0', icon: 'checkmark-done-outline' },
+            { label: t('battle.stats.views'), value: '0', icon: 'eye-outline' },
+            { label: t('battle.stats.comments'), value: '0', icon: 'chatbubble-outline' },
+          ]} />
         <TouchableOpacity activeOpacity={0.9} disabled={launching} onPress={handleLaunch}>
           <LinearGradient colors={[accent, text]} style={[styles.primaryButton, launching && { opacity: 0.6 }]}>
             {launching ? (
@@ -1009,6 +1028,457 @@ export function BattlePreviewScreen({ navigation, route }) {
           </LinearGradient>
         </TouchableOpacity>
       </ScrollView>
+    </View>
+  );
+}
+
+
+export function ChallengeBattleSetupScreen({ navigation, route }) {
+  const { bgStyle, text, card, bg, border, mutedText } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const surfaces = formSurfaces(isDarkMode);
+  const idleSurface = card || surfaces.listSurface;
+  const { t } = useLanguage();
+  const accent = text || PURPLE;
+  const primaryText = text || TEXT;
+  const subtleMuted = mutedText || surfaces.mutedColor;
+  const initialQuestion = route?.params?.defaultQuestion || '';
+  const handleBack = useBattleBackHandler(navigation, route);
+  const [question, setQuestion] = useState(initialQuestion);
+  const [errors, setErrors] = useState({});
+
+  const selectedItems = route?.params?.selectedItems || [];
+  const leftItem = selectedItems[0];
+  const rightItem = selectedItems[1];
+
+  const validate = () => {
+    const nextErrors = {};
+    if (!question.trim()) nextErrors.question = t('battle.errors.questionRequired', 'Question is required');
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
+
+  const handleNext = () => {
+    if (!validate()) return;
+    navigation.navigate('ChallengeBattleSettings', {
+      question,
+      selectedItems,
+      ...route?.params,
+    });
+  };
+
+  const exampleQuestions = [
+    t('battle.example1', 'Which item is more stylish?'),
+    t('battle.example2', 'Which item would you buy?'),
+    t('battle.example3', 'Which item is better quality?'),
+  ];
+
+  return (
+    <View style={[styles.screen, bgStyle, { backgroundColor: bg || SOFT_BG }]}>
+      <Header
+        title={t('battle.questionTitle', 'Battle Question')}
+        onBack={handleBack}
+        accentColor={accent}
+        titleColor={text}
+      />
+      <KeyboardAwareScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        enableOnAndroid
+        extraScrollHeight={20}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* <Stepper active={2} accent={accent} isDarkMode={isDarkMode} labels={[t('battle.stepper.step1', 'Choose your item'), t('battle.stepper.step2', 'Add your battle question'), t('battle.stepper.step3', 'Set battle details')]} /> */}
+        <Text style={[styles.sectionHint, { color: subtleMuted, marginTop: 10, marginBottom: 10 }]}>{t('battle.questionHint', 'Add a question for the community to vote on.')}</Text>
+
+        <Text style={[styles.fieldLabel, { color: primaryText, marginBottom: 8 }]}>{t('battle.yourItem', 'Your item')}</Text>
+        <View style={[styles.itemTileHorizontal, { backgroundColor: idleSurface, borderColor: border || surfaces.listBorder, flexDirection: 'row', padding: 12, borderRadius: 14, borderWidth: 1, alignItems: 'center' }]}>
+          <FastImage source={fastImageSource(leftItem?.image)} style={{ width: 64, height: 64, borderRadius: 10, marginRight: 12 }} />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.itemName, { color: primaryText, textAlign: 'left', fontSize: 14, fontWeight: '800' }]} numberOfLines={2}>{leftItem?.name}</Text>
+            <Text style={[styles.itemPrice, { color: primaryText, textAlign: 'left', marginTop: 2 }]} numberOfLines={1}>{leftItem?.price}</Text>
+            {leftItem?.sellerName ? <Text style={[styles.itemSellerName, { color: subtleMuted, fontSize: 12, marginTop: 4 }]}>From {leftItem.sellerName}</Text> : null}
+          </View>
+        </View>
+
+        <View style={{ alignItems: 'center', marginVertical: -10, zIndex: 10 }}>
+          <View style={{ backgroundColor: bg || SOFT_BG, borderRadius: 18, padding: 4 }}>
+            <View style={{ backgroundColor: idleSurface, borderColor: border || surfaces.listBorder, borderWidth: 1, width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ color: primaryText, fontWeight: '900', fontSize: 14 }}>VS</Text>
+            </View>
+          </View>
+        </View>
+
+        <Text style={[styles.fieldLabel, { color: primaryText, marginBottom: 8, marginTop: 8 }]}>{t('battle.challengerItem', 'Challenger item')}</Text>
+        <View style={[styles.itemTileHorizontal, { backgroundColor: idleSurface, borderColor: border || surfaces.listBorder, flexDirection: 'row', padding: 12, borderRadius: 14, borderWidth: 1, alignItems: 'center' }]}>
+          <FastImage source={fastImageSource(rightItem?.image)} style={{ width: 64, height: 64, borderRadius: 10, marginRight: 12 }} />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.itemName, { color: primaryText, textAlign: 'left', fontSize: 14, fontWeight: '800' }]} numberOfLines={2}>{rightItem?.name}</Text>
+            <Text style={[styles.itemPrice, { color: primaryText, textAlign: 'left', marginTop: 2 }]} numberOfLines={1}>{rightItem?.price}</Text>
+            {rightItem?.sellerName ? <Text style={[styles.itemSellerName, { color: subtleMuted, fontSize: 12, marginTop: 4 }]}>From {rightItem.sellerName}</Text> : null}
+          </View>
+        </View>
+
+        <View style={[styles.field, { marginTop: 20 }]}>
+          <Text style={[styles.fieldLabel, { color: primaryText }]}>{t('battle.questionLabel', 'Battle Question')} *</Text>
+          <View
+            style={[
+              styles.inputCard,
+              { backgroundColor: idleSurface, borderColor: border || surfaces.listBorder, minHeight: 80 },
+              errors.question && styles.inputCardError,
+            ]}
+          >
+            <TextInput
+              value={question}
+              onChangeText={val => {
+                setQuestion(val);
+                if (errors.question) setErrors(prev => ({ ...prev, question: '' }));
+              }}
+              placeholder={t('battle.questionPlaceholder', 'Ask your question here...')}
+              placeholderTextColor={surfaces.placeholderColor}
+              style={[styles.inputText, { color: surfaces.inputText, textAlignVertical: 'top', minHeight: 60 }]}
+              multiline
+              maxLength={120}
+            />
+            <Text style={{ color: subtleMuted, fontSize: 12, textAlign: 'right', marginTop: 4 }}>{question.length}/120</Text>
+          </View>
+          {errors.question ? <Text style={styles.errorText}>{errors.question}</Text> : null}
+        </View>
+
+        <View style={{ marginTop: 16 }}>
+          <Text style={[styles.fieldLabel, { color: primaryText, marginBottom: 8 }]}>{t('battle.examplesLabel', 'Examples:')}</Text>
+          {exampleQuestions.map((q, idx) => (
+            <TouchableOpacity key={idx} onPress={() => setQuestion(q)} style={{ backgroundColor: isDarkMode ? surfaces.listSurface : '#F3EFFF', paddingVertical: 10, paddingHorizontal: 14, borderRadius: 8, marginBottom: 8 }}>
+              <Text style={{ color: primaryText, fontWeight: '600', fontSize: 13 }}>{q}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <TouchableOpacity activeOpacity={0.9} onPress={handleNext} style={{ marginTop: 20 }}>
+          <LinearGradient colors={[accent, text]} style={styles.primaryButton}>
+            <Text style={styles.primaryButtonText}>{t('battle.next', 'Next')}</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+      </KeyboardAwareScrollView>
+    </View>
+  );
+}
+
+export function ChallengeBattleSettingsScreen({ navigation, route }) {
+  const { bgStyle, text, card, bg, border, mutedText } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const surfaces = formSurfaces(isDarkMode);
+  const idleSurface = card || surfaces.listSurface;
+  const { t } = useLanguage();
+  const accent = text || PURPLE;
+  const primaryText = text || TEXT;
+  const subtleMuted = mutedText || surfaces.mutedColor;
+  const handleBack = useBattleBackHandler(navigation, route);
+
+  const question = route?.params?.question || '';
+  const selectedItems = route?.params?.selectedItems || [];
+
+  const [duration, setDuration] = useState('3 DAYS');
+  const [stake, setStake] = useState('0');
+  const [isPublic, setIsPublic] = useState(true);
+  const [launching, setLaunching] = useState(false);
+
+  const handleNext = () => {
+    navigation.navigate('ChallengeBattlePreview', {
+      ...route?.params,
+      duration,
+      stake,
+      isPublic
+    });
+  };
+
+  return (
+    <View style={[styles.screen, bgStyle, { backgroundColor: bg || SOFT_BG }]}>
+      <Header title={t('battle.settingsTitle', 'Battle Settings')} onBack={handleBack} titleColor={text} />
+      <KeyboardAwareScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* <Stepper active={3} accent={accent} isDarkMode={isDarkMode} labels={[t('battle.stepper.step1', 'Choose your item'), t('battle.stepper.step2', 'Add your battle question'), t('battle.stepper.step3', 'Set battle details')]} /> */}
+
+        <View style={styles.field}>
+          <Text style={[styles.fieldLabel, { color: primaryText }]}>{t('battle.durationLabel')}</Text>
+          <View style={styles.pillRow}>
+            {[['24 HOURS', t('battle.duration24h')], ['3 DAYS', t('battle.duration3d')], ['7 DAYS', t('battle.duration7d')]].map(([value, label]) => (
+              <TouchableOpacity
+                key={value}
+                onPress={() => setDuration(value)}
+                style={[
+                  styles.pill,
+                  { backgroundColor: idleSurface, borderColor: border || surfaces.listBorder },
+                  duration === value && [styles.pillActive, { borderColor: accent, backgroundColor: selectedSurface(accent, isDarkMode) }],
+                ]}
+              >
+                <Text style={[styles.pillText, { color: primaryText }, duration === value && { color: accent, fontWeight: '800' }]}>{label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.field}>
+          <Text style={[styles.fieldLabel, { color: primaryText }]}>{t('battle.stake', 'Stake (Optional)')}</Text>
+          <View style={[styles.inputCard, { backgroundColor: idleSurface, borderColor: border || surfaces.listBorder, paddingVertical: 12 }]}>
+            <TextInput
+              value={stake}
+              onChangeText={setStake}
+              keyboardType="numeric"
+              style={[styles.inputText, { color: surfaces.inputText, padding: 0 }]}
+            />
+          </View>
+          <Text style={[styles.sectionHint, { color: subtleMuted }]}>{t('battle.stakeHint', 'Add points as a stake to make it more exciting.')}</Text>
+        </View>
+
+        <View style={[styles.inputCard, { backgroundColor: idleSurface, borderColor: border || surfaces.listBorder, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10, paddingVertical: 14 }]}>
+          <Text style={[styles.fieldLabel, { color: primaryText, marginBottom: 0 }]}>{t('battle.publicBattle', 'Public Battle')}</Text>
+          <TouchableOpacity onPress={() => setIsPublic(!isPublic)}>
+            <Ionicons name={isPublic ? "toggle" : "toggle-outline"} size={32} color={isPublic ? accent : subtleMuted} />
+          </TouchableOpacity>
+        </View>
+        <Text style={[styles.sectionHint, { color: subtleMuted, marginTop: -2 }]}>{t('battle.publicHint', 'Keep this on to create a public battle.')}</Text>
+
+        <View style={[styles.aboutCard, themedCard(idleSurface, border || surfaces.listBorder), { flexDirection: 'row', alignItems: 'flex-start', marginTop: 20 }]}>
+          <Ionicons name="information-circle-outline" size={20} color={primaryText} style={{ marginRight: 8, marginTop: 2 }} />
+          <Text style={[styles.aboutText, { color: primaryText, flex: 1 }]}>{t('battle.settingsInfo', 'The community will vote and the winner will be shown on both items.')}</Text>
+        </View>
+
+        <TouchableOpacity activeOpacity={0.9} onPress={handleNext} style={{ marginTop: 20 }}>
+          <LinearGradient colors={[accent, text]} style={styles.primaryButton}>
+            <Text style={styles.primaryButtonText}>{t('battle.next', 'Next')}</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+      </KeyboardAwareScrollView>
+    </View>
+  );
+}
+
+export function ChallengeShopListScreen({ navigation, route }) {
+  const { bgStyle, text, card, bg, border, mutedText } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const surfaces = formSurfaces(isDarkMode);
+  const idleSurface = card || surfaces.listSurface;
+  const { t } = useLanguage();
+  const accent = text || PURPLE;
+  const primaryText = text || TEXT;
+  const subtleMuted = mutedText || surfaces.mutedColor;
+  const handleBack = () => navigation.goBack();
+
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+
+  useEffect(() => {
+    const fetchShops = async () => {
+      setLoading(true);
+      try {
+        const res = await getShops();
+        let payload = res?.data?.data ?? res?.data;
+        console.log("resresresresresresresres in getShops", res)
+        let finalUsers = Array.isArray(payload) ? payload : (payload?.shops || payload?.items || payload?.users || []);
+        if (!Array.isArray(finalUsers)) finalUsers = [];
+        setUsers(finalUsers);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchShops();
+  }, []);
+
+  const filteredUsers = users.filter(u => (u.shopName || u.name || u.userName || '').toLowerCase().includes(search.toLowerCase()));
+
+  return (
+    <View style={[styles.screen, bgStyle, { backgroundColor: bg || SOFT_BG }]}>
+      <Header title={t('battle.challengeShopTitle', 'Battle Item')} onBack={handleBack} titleColor={text} />
+      <View style={{ paddingHorizontal: 16 }}>
+        <Text style={[styles.sectionTitle, { color: primaryText }]}>{t('battle.challengeShopHeading', 'Challenge another shop')}</Text>
+        <Text style={[styles.sectionHint, { color: subtleMuted, marginBottom: 16 }]}>{t('battle.challengeShopSub', 'Choose a shop to challenge')}</Text>
+
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+          <View style={[styles.inputCard, { backgroundColor: idleSurface, borderColor: border || surfaces.listBorder, flex: 1, flexDirection: 'row', alignItems: 'center', paddingVertical: 10 }]}>
+            <Ionicons name="search" size={18} color={surfaces.placeholderColor} style={{ marginRight: 8 }} />
+            <TextInput
+              value={search}
+              onChangeText={setSearch}
+              placeholder={t('battle.searchShops', 'Search shops...')}
+              placeholderTextColor={surfaces.placeholderColor}
+              style={[styles.inputText, { flex: 1, color: surfaces.inputText, padding: 0 }]}
+            />
+          </View>
+          <TouchableOpacity style={{ marginLeft: 12, padding: 10, backgroundColor: isDarkMode ? surfaces.listSurface : '#F3EFFF', borderRadius: 12 }}>
+            <Ionicons name="options-outline" size={20} color={accent} />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 30 }} showsVerticalScrollIndicator={false}>
+        {loading ? (
+          <ActivityIndicator color={accent} style={{ marginTop: 20 }} />
+        ) : (
+          filteredUsers.map(user => (
+            <View key={user.id || user._id} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: border || surfaces.listBorder }}>
+              {user.shopLogo ? (
+                <FastImage source={fastImageSource(user.shopLogo)} style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#E0E0E0', borderWidth: 1, borderColor: accent }} />
+              ) : (
+                <FastImage source={fastImageSource(user.profileImage || user.avatar)} style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#E0E0E0' }} />
+              )}
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={{ fontSize: 14, fontWeight: '800', color: primaryText }}>{user.shopName || user.name || 'Valens Closet'}</Text>
+                <Text style={{ fontSize: 12, color: subtleMuted, marginTop: 2 }}>@{user.shopUsername || user.userName || 'shop'}</Text>
+                <Text style={{ fontSize: 12, color: subtleMuted, marginTop: 2 }}>{user.activeItemCount ?? user.itemsCount ?? 0} items</Text>
+              </View>
+              <TouchableOpacity
+                style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: accent }}
+                onPress={() => navigation.navigate('ChallengeShopItems', { shop: user, ...route?.params })}
+              >
+                <Text style={{ fontSize: 12, fontWeight: '700', color: accent }}>View</Text>
+              </TouchableOpacity>
+            </View>
+          ))
+        )}
+      </ScrollView>
+
+      <View style={{ padding: 16, paddingBottom: 30 }}>
+        <View style={[styles.aboutCard, themedCard(idleSurface, border || surfaces.listBorder), { flexDirection: 'row', alignItems: 'flex-start' }]}>
+          <Ionicons name="help-circle" size={24} color={accent} style={{ marginRight: 12 }} />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.aboutTitle, { color: primaryText, fontSize: 14 }]}>{t('battle.howItWorks', 'How it works')}</Text>
+            <Text style={[styles.aboutText, { color: subtleMuted, marginTop: 4 }]}>{t('battle.howItWorksText', 'You challenge a shop by selecting one of their items. The community will vote for their favorite!')}</Text>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+export function ChallengeShopItemsScreen({ navigation, route }) {
+  const { bgStyle, text, card, bg, border, mutedText } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const surfaces = formSurfaces(isDarkMode);
+  const idleSurface = card || surfaces.listSurface;
+  const { t } = useLanguage();
+  const accent = text || PURPLE;
+  const primaryText = text || TEXT;
+  const subtleMuted = mutedText || surfaces.mutedColor;
+  const handleBack = () => navigation.goBack();
+
+  const shop = route?.params?.shop || {};
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [selectedId, setSelectedId] = useState(null);
+
+  useEffect(() => {
+    const fetchItems = async () => {
+      setLoading(true);
+      try {
+        const closetId = shop.id || shop._id;
+        const response = await getClosetItemsByClosetId(closetId);
+        const payload = response?.data?.data ?? response?.data?.items ?? response?.data ?? response;
+        const nextItems = Array.isArray(payload) ? payload : Array.isArray(payload?.items) ? payload.items : Array.isArray(payload?.data) ? payload.data : [];
+        const normalized = normalizeItems(nextItems, t);
+        setItems(normalized);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    if (shop.id || shop._id) fetchItems();
+    else setLoading(false);
+  }, [shop]);
+
+  const filteredItems = items.filter(i => (i.name || '').toLowerCase().includes(search.toLowerCase()));
+
+  const handleCreateBattle = () => {
+    const shopSelectedItem = items.find(i => i.id === selectedId);
+    shopSelectedItem.sellerName = shop.shopName || shop.name || shop.userName;
+    const selectedItems = [route?.params?.selectedItems[0], shopSelectedItem];
+    navigation.navigate('ChallengeBattleSetup', { ...route?.params, selectedItems });
+  };
+
+  return (
+    <View style={[styles.screen, bgStyle, { backgroundColor: bg || SOFT_BG }]}>
+      <Header title={t('battle.challengeShopTitle', 'Battle Item')} onBack={handleBack} titleColor={text} />
+      <View style={{ paddingHorizontal: 16 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+          {shop.shopLogo ? (
+            <FastImage source={fastImageSource(shop.shopLogo)} style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#E0E0E0', borderWidth: 1, borderColor: accent }} />
+          ) : (
+            <FastImage source={fastImageSource(shop.profileImage || shop.avatar)} style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#E0E0E0' }} />
+          )}
+          <View style={{ flex: 1, marginLeft: 12 }}>
+            <Text style={{ fontSize: 16, fontWeight: '800', color: primaryText }}>{shop.shopName || shop.name || 'Valens Closet'}</Text>
+            <Text style={{ fontSize: 12, color: subtleMuted }}>@{shop.shopUsername || shop.userName || 'shop'}</Text>
+          </View>
+          <Text style={{ fontSize: 14, fontWeight: '700', color: primaryText }}>{items.length} items</Text>
+        </View>
+
+        <View style={[styles.inputCard, { backgroundColor: idleSurface, borderColor: border || surfaces.listBorder, flexDirection: 'row', alignItems: 'center', paddingVertical: 10, marginBottom: 16 }]}>
+          <Ionicons name="search" size={18} color={surfaces.placeholderColor} style={{ marginRight: 8 }} />
+          <TextInput
+            value={search}
+            onChangeText={setSearch}
+            placeholder={t('battle.searchShopItems', 'Search items in this shop...')}
+            placeholderTextColor={surfaces.placeholderColor}
+            style={[styles.inputText, { flex: 1, color: surfaces.inputText, padding: 0 }]}
+          />
+        </View>
+      </View>
+
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 20 }} showsVerticalScrollIndicator={false}>
+        {loading ? (
+          <ActivityIndicator color={accent} style={{ marginTop: 20 }} />
+        ) : (
+          <View style={styles.grid}>
+            {filteredItems.map(item => (
+              <TouchableOpacity
+                key={item.id}
+                activeOpacity={0.9}
+                onPress={() => setSelectedId(item.id)}
+                style={[
+                  styles.gridCard,
+                  { backgroundColor: idleSurface, borderColor: border || surfaces.listBorder },
+                  selectedId === item.id && [styles.gridCardSelected, { borderColor: accent }],
+                ]}
+              >
+                {selectedId === item.id ? (
+                  <View style={[styles.selectionDot, { backgroundColor: accent }]}>
+                    <Ionicons name="checkmark" size={12} color={isDarkMode ? '#111' : '#fff'} />
+                  </View>
+                ) : (
+                  <View
+                    style={[
+                      styles.selectionDotGhost,
+                      {
+                        backgroundColor: isDarkMode ? 'rgba(0,0,0,0.35)' : 'transparent',
+                        borderColor: isDarkMode ? 'rgba(255,255,255,0.45)' : '#D8CBEF',
+                      },
+                    ]}
+                  />
+                )}
+                <FastImage source={fastImageSource(item.image)} style={styles.gridImage} resizeMode={FastImage.resizeMode.cover} />
+                <Text style={[styles.gridName, { color: primaryText }]} numberOfLines={1}>{item.name}</Text>
+                <Text style={[styles.gridPrice, { color: accent }]}>{item.price}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+      </ScrollView>
+
+      <View style={{ padding: 16, paddingBottom: Platform.OS === 'android' ? 20 : 30 }}>
+        <TouchableOpacity
+          activeOpacity={0.9}
+          disabled={!selectedId}
+          onPress={handleCreateBattle}
+        >
+          <LinearGradient colors={[accent, text]} style={[styles.primaryButton, !selectedId && { opacity: 0.5 }]}>
+            <Text style={styles.primaryButtonText}>{t('battle.createBattleBtn2', 'Create Battle')}</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -2039,6 +2509,534 @@ export function BattleResultsScreen({ navigation, route }) {
   );
 }
 
+
+export function ChallengeBattlePreviewScreen({ navigation, route }) {
+  const { bgStyle, text, card, bg, border, mutedText } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const surfaces = formSurfaces(isDarkMode);
+  const idleSurface = card || surfaces.listSurface;
+  const { t } = useLanguage();
+  const accent = text || PURPLE;
+  const primaryText = text || TEXT;
+  const subtleMuted = mutedText || surfaces.mutedColor;
+  const handleBack = () => navigation.goBack();
+
+  const { question, selectedItems, duration, stake, isPublic } = route?.params || {};
+  const leftItem = selectedItems?.[0];
+  const rightItem = selectedItems?.[1];
+
+  const [launching, setLaunching] = useState(false);
+
+  const handleLaunch = async () => {
+    setLaunching(true);
+    try {
+      const durationMs = DURATION_MS[duration] || (3 * 24 * 60 * 60 * 1000);
+      const startAt = new Date();
+      const endAt = new Date(startAt.getTime() + durationMs);
+
+      if (route?.params?.shop) {
+        // Challenge Shop Flow
+        const challengePayload = {
+          opponentClosetId: route.params.shop.id || route.params.shop._id,
+          myProductId: selectedItems[0]?.id || selectedItems[0]?._id,
+          opponentProductId: selectedItems[1]?.id || selectedItems[1]?._id,
+          question: question || 'Opinion Battle',
+          stake: stake || 50,
+          title: question || 'Shop Challenge',
+          category: 'Fashion',
+          shareToFeed: false,
+          startAt: startAt.toISOString(),
+          endAt: endAt.toISOString(),
+          inviteExpiresInHours: 48,
+        };
+        await challengeShop(challengePayload);
+      } else {
+        // Standard Battle Flow
+        const payload = {
+          title: question || 'Opinion Battle',
+          description: question || 'Opinion Battle',
+          category: 'Fashion',
+          visibility: isPublic ? 'Everyone' : 'Private',
+          whoCanVote: isPublic ? 'Everyone' : 'Followers',
+          shareToFeed: false,
+          productIds: selectedItems ? selectedItems.map(item => item.id) : [],
+          startAt: startAt.toISOString(),
+          endAt: endAt.toISOString(),
+        };
+        // await createMarketplaceBattle(payload);
+      }
+
+      if (!route?.params?.shop) {
+        setTimeout(() => {
+          setLaunching(false);
+          navigation.navigate('BattleCreatedSuccess', { ...route?.params });
+        }, 1000);
+      } else {
+        setLaunching(false);
+        navigation.navigate('BattleCreatedSuccess', { ...route?.params });
+      }
+
+    } catch (err) {
+      setLaunching(false);
+      Alert.alert(t('battle.errors.launchFailedTitle', 'Could not launch battle'), t('battle.errors.launchFailedGeneric', 'Something went wrong. Please try again.'));
+    }
+  };
+
+  return (
+    <View style={[styles.screen, bgStyle, { backgroundColor: bg || SOFT_BG }]}>
+      <Header title={t('battle.previewTitle', 'Battle Preview')} onBack={handleBack} titleColor={text} />
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* <Stepper active={4} accent={accent} isDarkMode={isDarkMode} labels={[t('battle.stepper.step1', 'Choose your item'), t('battle.stepper.step2', 'Add your battle question'), t('battle.stepper.step3', 'Set battle details'), t('battle.stepper.step4', 'Review your battle')]} /> */}
+
+        <Text style={[styles.sectionTitle, { color: primaryText }]}>{t('battle.reviewTitle', 'Review your battle')}</Text>
+        <Text style={[styles.sectionHint, { color: subtleMuted, marginBottom: 16 }]}>{t('battle.reviewHint', 'Make sure everything looks good before you publish.')}</Text>
+
+        {question ? (
+          <View style={{ marginBottom: 16 }}>
+            <Text style={[styles.fieldLabel, { color: primaryText, marginBottom: 8 }]}>{t('battle.battleQuestion', 'Battle Question')}</Text>
+            <View style={[styles.inputCard, { backgroundColor: isDarkMode ? surfaces.listSurface : '#F3EFFF', borderColor: 'transparent', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
+              <Text style={{ color: primaryText, flex: 1, fontWeight: '600' }}>{question}</Text>
+              <TouchableOpacity onPress={() => navigation.navigate('ChallengeBattleSetup', route.params)}>
+                <Text style={{ color: accent, fontWeight: '800' }}>{t('battle.edit', 'Edit')}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : null}
+
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
+          <View style={{ flex: 1, alignItems: 'center' }}>
+            <FastImage source={fastImageSource(leftItem?.image)} style={{ width: 120, height: 120, borderRadius: 16 }} />
+            <Text style={{ color: primaryText, fontWeight: '700', marginTop: 12 }}>{t('battle.yourItem', 'Your item')}</Text>
+            <Text style={{ color: primaryText, fontWeight: '900', fontSize: 13, marginTop: 4, textAlign: 'center' }}>{leftItem?.name || 'Item Name'}</Text>
+            <Text style={{ color: accent, fontWeight: '800', marginTop: 4 }}>{leftItem?.price || '$0.00'}</Text>
+            <Text style={{ color: subtleMuted, fontSize: 11, marginTop: 6 }}>From {leftItem?.sellerName || 'Valens Closet'}</Text>
+          </View>
+
+          <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: idleSurface, borderWidth: 1, borderColor: border || surfaces.listBorder, alignItems: 'center', justifyContent: 'center', marginTop: 40, marginHorizontal: -10, zIndex: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 }}>
+            <Text style={{ color: primaryText, fontWeight: '900', fontSize: 14 }}>VS</Text>
+          </View>
+
+          <View style={{ flex: 1, alignItems: 'center' }}>
+            <FastImage source={fastImageSource(rightItem?.image)} style={{ width: 120, height: 120, borderRadius: 16 }} />
+            <Text style={{ color: primaryText, fontWeight: '700', marginTop: 12 }}>{t('battle.challengerItem', 'Challenger item')}</Text>
+            <Text style={{ color: primaryText, fontWeight: '900', fontSize: 13, marginTop: 4, textAlign: 'center' }}>{rightItem?.name || 'Item Name'}</Text>
+            <Text style={{ color: accent, fontWeight: '800', marginTop: 4 }}>{rightItem?.price || '$0.00'}</Text>
+            <Text style={{ color: subtleMuted, fontSize: 11, marginTop: 6 }}>From {rightItem?.sellerName || 'Shop'}</Text>
+          </View>
+        </View>
+
+        <View style={[styles.aboutCard, themedCard(idleSurface, border || surfaces.listBorder), { padding: 16, gap: 16, marginBottom: 20 }]}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Ionicons name="calendar-outline" size={18} color={subtleMuted} />
+              <Text style={{ color: subtleMuted, fontWeight: '600', fontSize: 13 }}>{t('battle.durationLabel', 'Duration')}</Text>
+            </View>
+            <Text style={{ color: primaryText, fontWeight: '800', fontSize: 13 }}>{duration || '3 DAYS'}</Text>
+          </View>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Ionicons name="cash-outline" size={18} color={subtleMuted} />
+              <Text style={{ color: subtleMuted, fontWeight: '600', fontSize: 13 }}>{t('battle.stakeLabel', 'Stake')}</Text>
+            </View>
+            <Text style={{ color: primaryText, fontWeight: '800', fontSize: 13 }}>{stake || '100'} Points</Text>
+          </View>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Ionicons name="globe-outline" size={18} color={subtleMuted} />
+              <Text style={{ color: subtleMuted, fontWeight: '600', fontSize: 13 }}>{t('battle.publicBattleLabel', 'Public Battle')}</Text>
+            </View>
+            <Text style={{ color: primaryText, fontWeight: '800', fontSize: 13 }}>{isPublic ? 'Yes' : 'No'}</Text>
+          </View>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Ionicons name="people-outline" size={18} color={subtleMuted} />
+              <Text style={{ color: subtleMuted, fontWeight: '600', fontSize: 13 }}>{t('battle.whoCanVoteLabel', 'Who can vote')}</Text>
+            </View>
+            <Text style={{ color: accent, fontWeight: '800', fontSize: 13 }}>Valens Community</Text>
+          </View>
+        </View>
+
+        <TouchableOpacity activeOpacity={0.9} disabled={launching} onPress={handleLaunch}>
+          <LinearGradient colors={launching ? ['#aaa', '#aaa'] : [accent, text]} style={[styles.primaryButton, launching && { opacity: 0.6 }]}>
+            {launching ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryButtonText}>{t('battle.publishBattle', 'Publish Battle')}</Text>}
+          </LinearGradient>
+        </TouchableOpacity>
+
+        <TouchableOpacity activeOpacity={0.9} onPress={handleBack} style={{ marginTop: Platform.OS == "android" ? 12 : 0, height: 48, borderRadius: 14, borderWidth: 1, borderColor: accent, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ color: accent, fontSize: 15, fontWeight: '900' }}>{t('battle.backAndEdit', 'Back and Edit')}</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </View>
+  );
+}
+
+export function BattleCreatedSuccessScreen({ navigation, route }) {
+  const { bgStyle, text, card, bg, border, mutedText } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const surfaces = formSurfaces(isDarkMode);
+  const idleSurface = card || surfaces.listSurface;
+  const { t } = useLanguage();
+  const accent = text || PURPLE;
+  const primaryText = text || TEXT;
+  const subtleMuted = mutedText || surfaces.mutedColor;
+  const handleBack = () => navigation.navigate('MainApp', { screen: 'wallet', params: { screen: 'MyCloset' } });
+
+  const selectedItems = route?.params?.selectedItems || [];
+  const leftItem = selectedItems?.[0];
+  const rightItem = selectedItems?.[1];
+
+  return (
+    <View style={[styles.screen, bgStyle, { backgroundColor: bg || SOFT_BG }]}>
+      {/* <Header title={t('battle.battleCreatedTitle', 'Battle Created')} onBack={handleBack} titleColor={text} /> */}
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <View style={{ alignItems: 'center', marginTop: 40, marginBottom: 30 }}>
+          <View style={{ width: 140, height: 140, borderRadius: 70, backgroundColor: accent, alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+            <Ionicons name="color-wand" size={64} color="#fff" style={{ position: 'absolute' }} />
+            <Text style={{ fontSize: 60, position: 'absolute' }}>⚔️</Text>
+            {/* simple confetti mock */}
+            <View style={{ position: 'absolute', top: -10, left: -20, width: 8, height: 8, backgroundColor: '#FFD7A8', borderRadius: 4 }} />
+            <View style={{ position: 'absolute', top: 20, right: -30, width: 10, height: 10, backgroundColor: '#D9C6FF', borderRadius: 5 }} />
+            <View style={{ position: 'absolute', bottom: -10, left: 10, width: 6, height: 6, backgroundColor: '#B9E3FF', borderRadius: 3 }} />
+            <View style={{ position: 'absolute', bottom: 30, right: -20, width: 8, height: 8, backgroundColor: '#F7A9D6', borderRadius: 4 }} />
+          </View>
+
+          <Text style={{ color: primaryText, fontSize: 24, fontWeight: '900', marginTop: 24 }}>{t('battle.battleCreatedSuccess', 'Battle Created!')}</Text>
+          <Text style={{ color: primaryText, fontSize: 16, fontWeight: '700', marginTop: 8 }}>{t('battle.battleLive', 'Your battle is now live')}</Text>
+          <Text style={{ color: subtleMuted, fontSize: 14, fontWeight: '600', marginTop: 12, textAlign: 'center' }}>
+            {t('battle.communityCanVote', 'The community can now vote.\nMay the best item win! 🏆')}
+          </Text>
+        </View>
+
+        <View style={[styles.aboutCard, themedCard(idleSurface, border || surfaces.listBorder), { padding: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
+          <View style={{ flex: 1, alignItems: 'center' }}>
+            <FastImage source={fastImageSource(leftItem?.image)} style={{ width: 80, height: 80, borderRadius: 12 }} />
+            <Text style={{ color: primaryText, fontWeight: '800', fontSize: 12, marginTop: 8, textAlign: 'center' }} numberOfLines={2}>{leftItem?.name || 'Item Name'}</Text>
+            <Text style={{ color: primaryText, fontWeight: '900', fontSize: 12, marginTop: 4 }}>{leftItem?.price || '$0.00'}</Text>
+            <Text style={{ color: subtleMuted, fontSize: 10, marginTop: 2 }}>{t('battle.yourItem', 'Your item')}</Text>
+          </View>
+
+          <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: idleSurface, borderWidth: 1, borderColor: border || surfaces.listBorder, alignItems: 'center', justifyContent: 'center', marginHorizontal: 10 }}>
+            <Text style={{ color: accent, fontWeight: '900', fontSize: 12 }}>VS</Text>
+          </View>
+
+          <View style={{ flex: 1, alignItems: 'center' }}>
+            <FastImage source={fastImageSource(rightItem?.image)} style={{ width: 80, height: 80, borderRadius: 12 }} />
+            <Text style={{ color: primaryText, fontWeight: '800', fontSize: 12, marginTop: 8, textAlign: 'center' }} numberOfLines={2}>{rightItem?.name || 'Item Name'}</Text>
+            <Text style={{ color: primaryText, fontWeight: '900', fontSize: 12, marginTop: 4 }}>{rightItem?.price || '$0.00'}</Text>
+            <Text style={{ color: subtleMuted, fontSize: 10, marginTop: 2 }}>{rightItem?.sellerName || 'Style Hub'}</Text>
+          </View>
+        </View>
+
+        <View style={{ alignItems: 'center', marginTop: 20, marginBottom: 20 }}>
+          <Text style={{ color: primaryText, fontSize: 13, fontWeight: '700' }}>{t('battle.votingEndsIn', 'Voting ends in')}</Text>
+          <View style={{ backgroundColor: isDarkMode ? surfaces.listSurface : '#F3EFFF', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Ionicons name="time-outline" size={16} color={accent} />
+            <Text style={{ color: primaryText, fontWeight: '800', fontSize: 13 }}>3 Days</Text>
+          </View>
+        </View>
+
+        <TouchableOpacity activeOpacity={0.9} onPress={() => navigation.navigate('MainApp', {
+          screen: 'wallet',
+          params: { screen: 'MyCloset' }
+        })}>
+          <LinearGradient colors={[accent, text]} style={styles.primaryButton}>
+            <Text style={styles.primaryButtonText}>{t('battle.backToCloset', 'Back To Closet')}</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+
+        {/* <TouchableOpacity activeOpacity={0.9} style={{ marginTop: 12, height: 48, borderRadius: 14, borderWidth: 1, borderColor: accent, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+          <Ionicons name="share-social-outline" size={20} color={accent} />
+          <Text style={{ color: accent, fontSize: 15, fontWeight: '900' }}>{t('battle.shareBattle', 'Share Battle')}</Text>
+        </TouchableOpacity> */}
+      </ScrollView>
+    </View>
+  );
+}
+
+export function ChallengeReceivedScreen({ navigation, route }) {
+  const { bgStyle, text, card, bg, border, mutedText } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const surfaces = formSurfaces(isDarkMode);
+  const idleSurface = card || surfaces.listSurface;
+  const { t } = useLanguage();
+  const accent = text || PURPLE;
+  const primaryText = text || TEXT;
+  const subtleMuted = mutedText || surfaces.mutedColor;
+  const handleBack = () => navigation.goBack();
+  
+  const { battleId } = route?.params || {};
+  
+  const [loading, setLoading] = useState(true);
+  const [accepting, setAccepting] = useState(false);
+  const [declining, setDeclining] = useState(false);
+  const [battle, setBattle] = useState(null);
+
+  useEffect(() => {
+    if (!battleId) {
+      setLoading(false);
+      return;
+    }
+    getMarketplaceBattleDetails(battleId)
+      .then(res => {
+        const raw = res?.data?.data || res?.data;
+        setBattle(normalizeBattle(raw));
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [battleId]);
+
+  const handleAccept = async () => {
+    setAccepting(true);
+    try {
+      const response = await acceptMarketplaceBattle(battleId);
+      console.log("response in acceptMarketplaceBattle-----------", response)
+      navigation.replace('ChallengeAccepted', { battleId, battle });
+    } catch (err) {
+      Alert.alert('Error', 'Could not accept challenge. Please try again.');
+    } finally {
+      setAccepting(false);
+    }
+  };
+
+  const handleDecline = async () => {
+    setDeclining(true);
+    try {
+      await declineMarketplaceBattle(battleId);
+      navigation.replace('ChallengeAccepted', { battleId, battle, status: 'declined' });
+    } catch (err) {
+      Alert.alert('Error', 'Could not decline challenge. Please try again.');
+    } finally {
+      setDeclining(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <View style={[styles.screen, bgStyle, { backgroundColor: bg || '#FBF8FF', justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={accent} />
+      </View>
+    );
+  }
+
+  if (!battle) {
+    return (
+      <View style={[styles.screen, bgStyle, { backgroundColor: bg || '#FBF8FF', justifyContent: 'center', alignItems: 'center' }]}>
+        <Text style={{ color: primaryText }}>Battle not found</Text>
+        <TouchableOpacity onPress={handleBack} style={{ marginTop: 16 }}><Text style={{ color: accent, fontWeight: '700' }}>Go Back</Text></TouchableOpacity>
+      </View>
+    );
+  }
+
+  // Ensure items[1] is the recipient (Your item) and items[0] is the challenger
+  // We'll just assume index 1 is 'Your item' based on position sorting
+  const leftItem = battle.items?.[1] || battle.items?.[0];
+  const rightItem = battle.items?.[0] || battle.items?.[1];
+
+  console.log("------------battle battles---------------",battle)
+  console.log("------------leftItem battles---------------",leftItem)
+  console.log("------------rightItem battles---------------",rightItem)
+
+  return (
+    <View style={[styles.screen, bgStyle, { backgroundColor: bg || '#FBF8FF' }]}>
+      <Header title="You got a challenge! ⚔️" onBack={handleBack} titleColor={text} />
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        
+        {/* Banner */}
+        <View style={[styles.aboutCard, { backgroundColor: idleSurface, borderColor: border || surfaces.listBorder, flexDirection: 'row', alignItems: 'center', marginBottom: 20 }]}>
+           <FastImage source={fastImageSource(rightItem?.image)} style={{ width: 40, height: 40, borderRadius: 20, marginRight: 12, backgroundColor: '#E0E0E0' }} />
+           <Text style={{ color: primaryText, flex: 1, fontSize: 13, fontWeight: '500' }}>
+             <Text style={{ fontWeight: '800' }}>{rightItem?.sellerName || 'Valens Closet'}</Text> challenged your item in an Opinion Battle.
+           </Text>
+           <Ionicons name="shield-checkmark" size={28} color={accent} />
+        </View>
+        
+        {/* Your item */}
+        <Text style={[styles.fieldLabel, { color: primaryText, fontSize: 15 }]}>Your item</Text>
+        <View style={[styles.aboutCard, { backgroundColor: idleSurface, borderColor: border || surfaces.listBorder, flexDirection: 'row', alignItems: 'flex-start', padding: 12, marginBottom: -10 }]}>
+          <FastImage source={fastImageSource(leftItem?.image)} style={{ width: 90, height: 90, borderRadius: 12, marginRight: 16, backgroundColor: '#E0E0E0' }} />
+          <View style={{ flex: 1, justifyContent: 'center', height: 90 }}>
+            <Text style={{ color: primaryText, fontWeight: '900', fontSize: 14 }}>{leftItem?.name || 'Item Name'}</Text>
+            <Text style={{ color: primaryText, fontWeight: '800', fontSize: 13, marginTop: 4 }}>{leftItem?.price || '$0.00'}</Text>
+            <Text style={{ color: subtleMuted, fontSize: 12, marginTop: 8 }}>From your shop</Text>
+            <Text style={{ color: subtleMuted, fontSize: 12 }}>{leftItem?.sellerName || 'Your Shop'}</Text>
+          </View>
+        </View>
+
+        {/* VS Badge */}
+        <View style={{ zIndex: 10, alignSelf: 'center', width: 36, height: 36, borderRadius: 18, backgroundColor: idleSurface, borderWidth: 1, borderColor: border || surfaces.listBorder, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 }}>
+          <Text style={{ color: primaryText, fontWeight: '900', fontSize: 12 }}>VS</Text>
+        </View>
+
+        {/* Challenger's item */}
+        <Text style={[styles.fieldLabel, { color: primaryText, marginTop: -6, fontSize: 15 }]}>Challenger's item</Text>
+        <View style={[styles.aboutCard, { backgroundColor: idleSurface, borderColor: border || surfaces.listBorder, flexDirection: 'row', alignItems: 'flex-start', padding: 12, marginBottom: 20 }]}>
+          <FastImage source={fastImageSource(rightItem?.image)} style={{ width: 90, height: 90, borderRadius: 12, marginRight: 16, backgroundColor: '#E0E0E0' }} />
+          <View style={{ flex: 1, justifyContent: 'center', height: 90 }}>
+            <Text style={{ color: primaryText, fontWeight: '900', fontSize: 14 }}>{rightItem?.name || 'Item Name'}</Text>
+            <Text style={{ color: primaryText, fontWeight: '800', fontSize: 13, marginTop: 4 }}>{rightItem?.price || '$0.00'}</Text>
+            <Text style={{ color: subtleMuted, fontSize: 12, marginTop: 8 }}>From {rightItem?.sellerName || 'Valens Closet'}</Text>
+            <Text style={{ color: subtleMuted, fontSize: 12 }}>@{rightItem?.sellerName?.toLowerCase()?.replace(/s+/g, '') || 'valenscloset'}</Text>
+          </View>
+        </View>
+
+        {/* Info Card */}
+        <View style={[styles.aboutCard, { backgroundColor: '#F3EFFF', borderColor: 'transparent', flexDirection: 'row', alignItems: 'flex-start', marginBottom: 16 }]}>
+          <Ionicons name="information-circle-outline" size={20} color={accent} style={{ marginRight: 12 }} />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.aboutTitle, { color: primaryText, fontSize: 14 }]}>This is an Opinion Battle.</Text>
+            <Text style={[styles.aboutText, { color: primaryText, marginTop: 4 }]}>The community will vote to decide which item they prefer.</Text>
+          </View>
+        </View>
+
+        {/* Expiry Card */}
+        <View style={[styles.aboutCard, { backgroundColor: '#F3EFFF', borderColor: 'transparent', flexDirection: 'row', alignItems: 'center', marginBottom: 24 }]}>
+          <Ionicons name="time-outline" size={20} color={accent} style={{ marginRight: 12 }} />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.aboutText, { color: primaryText }]}>Challenge expires in</Text>
+            <Text style={[styles.aboutTitle, { color: primaryText, fontSize: 14, marginTop: 2 }]}>{battle.daysLeft ? `${battle.daysLeft} Days` : '24 Hours'}</Text>
+          </View>
+        </View>
+
+        {/* Buttons */}
+        <View style={{ flexDirection: 'row', gap: 12, marginBottom: 20 }}>
+          <TouchableOpacity 
+            activeOpacity={0.9} 
+            disabled={declining || accepting} 
+            onPress={handleDecline} 
+            style={[styles.outlineBtn, { borderColor: accent }]}
+          >
+            {declining ? <ActivityIndicator color={accent} /> : <Text style={[styles.outlineBtnText, { color: accent }]}>Decline</Text>}
+          </TouchableOpacity>
+          <TouchableOpacity 
+            activeOpacity={0.9} 
+            disabled={accepting || declining} 
+            onPress={handleAccept} 
+            style={{ flex: 1 }}
+          >
+            <LinearGradient colors={accepting ? ['#aaa', '#aaa'] : [accent, text]} style={[styles.actionBtn, accepting && { opacity: 0.6 }]}>
+              {accepting ? <ActivityIndicator color="#fff" /> : <Text style={styles.actionBtnText}>Accept Challenge</Text>}
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </View>
+  );
+}
+
+export function ChallengeAcceptedScreen({ navigation, route }) {
+  const { bgStyle, text, card, bg, border, mutedText } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const surfaces = formSurfaces(isDarkMode);
+  const idleSurface = card || surfaces.listSurface;
+  const { t } = useLanguage();
+  const accent = text || PURPLE;
+  const primaryText = text || TEXT;
+  const subtleMuted = mutedText || surfaces.mutedColor;
+  
+  const { battleId, status = 'accepted' } = route?.params || {};
+  const [battle, setBattle] = useState(route?.params?.battle || null);
+  const [loading, setLoading] = useState(!route?.params?.battle && !!battleId);
+
+  useEffect(() => {
+    if (!battle && battleId) {
+      getMarketplaceBattleDetails(battleId)
+        .then(res => {
+          const raw = res?.data?.data || res?.data;
+          setBattle(normalizeBattle(raw));
+        })
+        .catch(console.error)
+        .finally(() => setLoading(false));
+    }
+  }, [battleId]);
+
+  const leftItem = battle?.items?.[1] || battle?.items?.[0];
+  const rightItem = battle?.items?.[0] || battle?.items?.[1];
+
+  const isDeclined = status === 'declined';
+
+  if (loading) {
+    return (
+      <View style={[styles.screen, bgStyle, { backgroundColor: bg || '#FBF8FF', justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={accent} />
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.screen, bgStyle, { backgroundColor: bg || '#FBF8FF' }]}>
+      <Header title={isDeclined ? "Challenge Declined" : "Challenge Accepted"} onBack={() => navigation.navigate('MainApp', { screen: 'wallet', params: { screen: 'MyCloset' } })} titleColor={text} />
+      <ScrollView contentContainerStyle={[styles.scrollContent, { alignItems: 'center', paddingTop: 20 }]} showsVerticalScrollIndicator={false}>
+        
+        {/* Success / Error Icon */}
+        <View style={{ width: 100, height: 100, borderRadius: 50, backgroundColor: isDeclined ? '#EF4444' : '#4ADE80', alignItems: 'center', justifyContent: 'center', marginBottom: 20, shadowColor: isDeclined ? '#EF4444' : '#4ADE80', shadowOpacity: 0.3, shadowRadius: 20, shadowOffset: { width: 0, height: 8 } }}>
+          <Ionicons name={isDeclined ? "close" : "checkmark"} size={60} color="#fff" />
+        </View>
+
+        <Text style={{ color: primaryText, fontSize: 24, fontWeight: '900', marginBottom: 12 }}>{isDeclined ? "Challenge Declined" : "Challenge Accepted!"}</Text>
+        
+        {!isDeclined && <Text style={{ color: primaryText, fontSize: 15, fontWeight: '700', marginBottom: 6 }}>Your item is now in the battle.</Text>}
+        
+        <Text style={{ color: subtleMuted, fontSize: 13, textAlign: 'center', marginBottom: 30, paddingHorizontal: 20 }}>
+          {isDeclined ? "You have declined this challenge. It will not proceed." : "The battle will go live once both items are accepted."}
+        </Text>
+
+        {/* Battle Preview Box */}
+        {battle && (
+          <View style={[styles.aboutCard, { backgroundColor: idleSurface, borderColor: border || surfaces.listBorder, width: '100%', padding: 16, marginBottom: 20, opacity: isDeclined ? 0.6 : 1 }]}>
+            <Text style={[styles.fieldLabel, { color: primaryText, marginBottom: 16 }]}>Battle Preview</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+              <View style={{ flex: 1, alignItems: 'center' }}>
+                <FastImage source={fastImageSource(leftItem?.image)} style={{ width: 100, height: 100, borderRadius: 12, backgroundColor: '#E0E0E0' }} />
+                <Text style={{ color: primaryText, fontWeight: '900', fontSize: 13, marginTop: 12, textAlign: 'center' }}>{leftItem?.name || 'Item Name'}</Text>
+                <Text style={{ color: primaryText, fontWeight: '800', fontSize: 12, marginTop: 4 }}>{leftItem?.price || '$0.00'}</Text>
+                <Text style={{ color: subtleMuted, fontSize: 11, marginTop: 4 }}>Your Shop</Text>
+              </View>
+              
+              <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: idleSurface, borderWidth: 1, borderColor: border || surfaces.listBorder, alignItems: 'center', justifyContent: 'center', marginTop: 34, marginHorizontal: -5, zIndex: 10 }}>
+                <Text style={{ color: primaryText, fontWeight: '900', fontSize: 11 }}>VS</Text>
+              </View>
+
+              <View style={{ flex: 1, alignItems: 'center' }}>
+                <FastImage source={fastImageSource(rightItem?.image)} style={{ width: 100, height: 100, borderRadius: 12, backgroundColor: '#E0E0E0' }} />
+                <Text style={{ color: primaryText, fontWeight: '900', fontSize: 13, marginTop: 12, textAlign: 'center' }}>{rightItem?.name || 'Item Name'}</Text>
+                <Text style={{ color: primaryText, fontWeight: '800', fontSize: 12, marginTop: 4 }}>{rightItem?.price || '$0.00'}</Text>
+                <Text style={{ color: subtleMuted, fontSize: 11, marginTop: 4 }}>{rightItem?.sellerName || 'Valens Closet'}</Text>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Notification Alert */}
+        {!isDeclined && (
+          <View style={[styles.aboutCard, { backgroundColor: '#F3EFFF', borderColor: 'transparent', flexDirection: 'row', alignItems: 'flex-start', marginBottom: 24, width: '100%' }]}>
+            <Ionicons name="notifications" size={20} color={accent} style={{ marginRight: 12 }} />
+            <Text style={[styles.aboutText, { color: primaryText, flex: 1 }]}>You'll be notified when the battle goes live and when the results are in.</Text>
+          </View>
+        )}
+
+        {/* Buttons */}
+        <TouchableOpacity 
+          activeOpacity={0.9} 
+          onPress={() => navigation.navigate('MainApp', { screen: 'wallet', params: { screen: 'MyCloset' } })} 
+          style={{ width: '100%', marginBottom: 12 }}
+        >
+          <LinearGradient colors={[accent, text]} style={styles.actionBtn}>
+            <Text style={styles.actionBtnText}>View My Battles</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+        
+        {/* <TouchableOpacity 
+          activeOpacity={0.9} 
+          onPress={() => navigation.navigate('MainApp', { screen: 'wallet', params: { screen: 'MyCloset' } })} 
+          style={[styles.outlineBtn, { borderColor: accent, width: '100%', height: 46 }]}
+        >
+          <Text style={[styles.outlineBtnText, { color: accent }]}>Back to Shop</Text>
+        </TouchableOpacity> */}
+
+      </ScrollView>
+    </View>
+  );
+}
 const styles = StyleSheet.create({
   screen: { flex: 1, paddingTop: 40 },
   headerRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingTop: 8, paddingBottom: 12 },

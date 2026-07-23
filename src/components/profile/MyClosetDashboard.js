@@ -877,7 +877,7 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
             <Ionicons name="information-circle-outline" size={14} color={mutedText} style={{ marginLeft: 4 }} />
           </View>
           <TouchableOpacity activeOpacity={0.8} onPress={handleViewAllBattles}>
-            <Text style={[styles.sectionMeta, mutedTextStyle]}>{t('myClosetDashboard.viewAllBattles')}</Text>
+            <Text style={[styles.sectionMeta, mutedTextStyle]}>{t('myClosetDashboard.viewAllBattles')} ›</Text>
           </TouchableOpacity>
         </View>
 

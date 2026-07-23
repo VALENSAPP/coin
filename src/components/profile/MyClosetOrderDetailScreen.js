@@ -7,6 +7,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Dimensions,
 } from 'react-native';
 import FastImage from 'react-native-fast-image';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -25,8 +26,10 @@ import {
 import { useAppTheme } from '../../theme/useApptheme';
 import { useThemeContext } from '../../theme/ThemeContext';
 import { useLanguage } from '../../i18n';
+import { navigateToUserProfile } from '../../utils/navigateToUserProfile';
 import ShippingDetailsModal from '../modals/ShippingDetailsModal';
 import { withAlpha } from '../../utils/closetTheme';
+import { DetailImageCarousel } from './MyClosetBuyerFlow';
 
 // ── Status meta + flow (kept in sync with the orders list screen) ─────────
 // Labels are stored as i18n keys and resolved with t() inside the components
@@ -124,7 +127,7 @@ const getLineItemName = (line, t) =>
 
 const getLineItemPrice = line => line?.product?.price ?? line?.price ?? 0;
 
-const normalizeOrderDetail = (order, t) => {
+const normalizeOrderDetail = (order, t, viewType) => {
   const lineItems = Array.isArray(order?.orderItems)
     ? order.orderItems
     : Array.isArray(order?.items)
@@ -144,17 +147,7 @@ const normalizeOrderDetail = (order, t) => {
 
   const address = order?.shippingAddress || order?.address || null;
 
-  return {
-    id: order?.id || order?._id,
-    orderNumber: order?.orderNumber || order?.orderId || order?.id,
-    status: normalizeStatus(order?.orderStatus ?? order?.status),
-    createdAt: formatDate(order?.createdAt || order?.orderDate),
-    buyerName: order?.seller?.userName || order?.buyer?.username || order?.buyer?.userName || t('myClosetOrderDetail.buyer'),
-    buyerId: order?.buyerId || order?.buyer?.id,
-    totalAmount: currency(order?.totalAmount ?? order?.amount ?? order?.total),
-    totalItemCount: order?.totalItemCount ?? normalizedLines.length,
-    orderStatusLabel: t(`myClosetOrderDetail.status.${normalizeStatus(order?.orderStatus ?? order?.status)}`),
-    coverImage:
+    const coverImg =
       firstImage(order?.productImage) ||
       firstImage(order?.item?.productImage) ||
       firstImage(order?.items?.[0]?.productImage) ||
@@ -163,7 +156,24 @@ const normalizeOrderDetail = (order, t) => {
       firstImage(order?.items?.[0]?.images) ||
       firstImage(order?.items?.[0]?.image) ||
       firstImage(order?.image) ||
-      null,
+      null;
+
+  return {
+    id: order?.id || order?._id,
+    orderNumber: order?.orderNumber || order?.orderId || order?.id,
+    status: normalizeStatus(order?.orderStatus ?? order?.status),
+    createdAt: formatDate(order?.createdAt || order?.orderDate),
+    buyerName: viewType === 'buyer'
+      ? (order?.seller?.userName || order?.seller?.username || t('myClosetOrderDetail.seller'))
+      : (order?.buyer?.username || order?.buyer?.userName || order?.user?.username || order?.user?.userName || t('myClosetOrderDetail.buyer')),
+    buyerId: viewType === 'buyer'
+      ? (order?.seller?.id || order?.sellerId)
+      : (order?.buyer?.id || order?.buyerId || order?.user?.id || order?.userId),
+    totalAmount: currency(order?.totalAmount ?? order?.amount ?? order?.total),
+    totalItemCount: order?.totalItemCount ?? normalizedLines.length,
+    orderStatusLabel: t(`myClosetOrderDetail.status.${normalizeStatus(order?.orderStatus ?? order?.status)}`),
+    coverImage: coverImg,
+    images: Array.from(new Set([coverImg, ...normalizedLines.map(line => line.image)].filter(Boolean))),
     lines: normalizedLines,
     address,
     raw: order,
@@ -304,6 +314,25 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
   const surface = isDarkMode ? card : '#fbf8ff';
   const { t } = useLanguage();
 
+  const handleUserProfile = useCallback(
+    (id) => {
+      const targetId = id != null ? String(id).trim() : '';
+      if (!targetId) return;
+
+      const currentRoute = route?.name || 'MyClosetOrderDetail';
+      const returnToPayload = {
+        tab: 'ProfileMain',
+        screen: currentRoute,
+        params: route?.params,
+      };
+
+      void navigateToUserProfile(navigation, targetId, {
+        returnTo: returnToPayload,
+      });
+    },
+    [navigation, route?.name, route?.params],
+  );
+
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -326,13 +355,13 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
         ? await getBuyerOrderDetail(orderId)
         : await getSellerOrderDetails(orderId);
       const payload = response?.data?.data ?? response?.data ?? response;
-      setOrder(normalizeOrderDetail(payload, t));
+      setOrder(normalizeOrderDetail(payload, t, viewType));
     } catch (err) {
       setError(err?.response?.data?.message || err?.message || t('myClosetOrderDetail.couldNotLoadOrder'));
     } finally {
       setLoading(false);
     }
-  }, [orderId, t]);
+  }, [orderId, t, viewType]);
 
   useFocusEffect(
     useCallback(() => {
@@ -467,12 +496,16 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
           <Text style={[styles.cardTitle, textStyle]}>
             {canUpdateStatus ? t('myClosetOrderDetail.buyer') : t('myClosetOrderDetail.seller')}
           </Text>
-          <View style={styles.buyerRow}>
+          <TouchableOpacity 
+            style={styles.buyerRow}
+            activeOpacity={0.7}
+            onPress={() => handleUserProfile(order.buyerId)}
+          >
             <View style={[styles.buyerAvatar, { backgroundColor: accent }]}>
               <Ionicons name="person" size={18} color="#fff" />
             </View>
             <Text style={[styles.buyerName, textStyle]}>{toTitleCase(order.buyerName)}</Text>
-          </View>
+          </TouchableOpacity>
         </View>
 
         {order.address ? (
@@ -498,13 +531,13 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
 
         <View style={[styles.card, cardStyle, { borderColor: border, backgroundColor: surface }]}>
           <Text style={[styles.cardTitle, textStyle]}>{t('myClosetOrderDetail.items', { count: order.totalItemCount })}</Text>
-          {order.coverImage ? (
+          {order.images?.length ? (
             <View style={styles.coverWrap}>
-              <ImageBox
-                uri={order.coverImage}
-                style={styles.coverThumb}
-                iconSize={28}
-                resizeMode={FastImage.resizeMode.contain}
+              <DetailImageCarousel
+                images={order.images}
+                accentColor={accent}
+                imageWidth={Dimensions.get('window').width - 60}
+                imageHeight={220}
               />
             </View>
           ) : null}

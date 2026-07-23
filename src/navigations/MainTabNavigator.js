@@ -115,10 +115,18 @@ import BattleReward from '../pages/settings/BattleReward';
 import BattleVoteDetails from '../pages/settings/BattleVoteDetails';
 import {
   BattleLiveScreen,
-  BattlePreviewScreen,
+  ChallengeBattleSettingsScreen,
   BattleResultsScreen,
   BattleSetupScreen,
+  BattlePreviewScreen,
+  ChallengeBattleSetupScreen,
   CreateBattleScreen,
+  ChallengeShopListScreen,
+  ChallengeShopItemsScreen,
+  ChallengeBattlePreviewScreen,
+  BattleCreatedSuccessScreen,
+  ChallengeReceivedScreen,
+  ChallengeAcceptedScreen,
 } from '../pages/profile/MyClosetBattleScreens';
 import HexAvatar from '../components/home/story.js/HexAvatar';
 import { getUserCredentials } from '../services/post';
@@ -403,6 +411,16 @@ export default function MainTabNavigator() {
         <Stack.Screen name="PromotionDetails" component={PromotionDetailsScreen} />
         <Stack.Screen name="PreviewPromotion" component={PreviewPromotionScreen} />
         <Stack.Screen name="CreateBattle" component={CreateBattleScreen} />
+        <Stack.Screen name="ChallengeShopList" component={ChallengeShopListScreen} />
+        <Stack.Screen name="ChallengeShopItems" component={ChallengeShopItemsScreen} />
+        <Stack.Screen name="BattleSetup" component={BattleSetupScreen} />
+        <Stack.Screen name="BattlePreview" component={BattlePreviewScreen} />
+        <Stack.Screen name="ChallengeBattleSetup" component={ChallengeBattleSetupScreen} />
+        <Stack.Screen name="ChallengeBattleSettings" component={ChallengeBattleSettingsScreen} />
+        <Stack.Screen name="ChallengeBattlePreview" component={ChallengeBattlePreviewScreen} />
+        <Stack.Screen name="BattleCreatedSuccess" component={BattleCreatedSuccessScreen} />
+        <Stack.Screen name="ChallengeReceived" component={ChallengeReceivedScreen} />
+        <Stack.Screen name="ChallengeAccepted" component={ChallengeAcceptedScreen} />
         <Stack.Screen
           name="ShareProfile"
           component={ShareProfile}
@@ -698,6 +716,16 @@ export default function MainTabNavigator() {
           options={{ headerShown: false }}
         />
         <Stack.Screen
+          name="ChallengeShopList"
+          component={ChallengeShopListScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="ChallengeShopItems"
+          component={ChallengeShopItemsScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
           name="BattleSetup"
           component={BattleSetupScreen}
           options={{ headerShown: false }}
@@ -705,6 +733,36 @@ export default function MainTabNavigator() {
         <Stack.Screen
           name="BattlePreview"
           component={BattlePreviewScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="ChallengeBattleSetup"
+          component={ChallengeBattleSetupScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="ChallengeBattleSettings"
+          component={ChallengeBattleSettingsScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="ChallengeBattlePreview"
+          component={ChallengeBattlePreviewScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="BattleCreatedSuccess"
+          component={BattleCreatedSuccessScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="ChallengeReceived"
+          component={ChallengeReceivedScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="ChallengeAccepted"
+          component={ChallengeAcceptedScreen}
           options={{ headerShown: false }}
         />
         <Stack.Screen
@@ -1301,6 +1359,14 @@ export default function MainTabNavigator() {
         'CreateBattle',
         'BattleSetup',
         'BattlePreview',
+        'ChallengeBattleSetup',
+        'ChallengeBattleSettings',
+        'ChallengeBattlePreview',
+        'BattleCreatedSuccess',
+        'ChallengeReceived',
+        'ChallengeAccepted',
+        'ChallengeShopList',
+        'ChallengeShopItems',
         'BattleLive',
         'BattleResultsScreen',
         'ProfileBattleScreen',
