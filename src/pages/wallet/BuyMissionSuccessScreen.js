@@ -12,6 +12,7 @@ import { CommonActions, useNavigation, useRoute } from '@react-navigation/native
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useLanguage } from '../../i18n';
+import { primaryCtaColors } from '../../utils/ctaContrast';
 
 const H_PADDING = 20;
 
@@ -24,7 +25,7 @@ const BuyMissionSuccessScreen = () => {
   const { width } = useWindowDimensions();
 
   const profileType = String(route?.params?.profileType || '').toLowerCase();
-  const { bgStyle, textStyle, text, card } = useAppTheme(
+  const { bgStyle, textStyle, text, card, accent } = useAppTheme(
     profileType === 'company' || profileType === 'user' ? profileType : undefined,
   );
 
@@ -37,6 +38,7 @@ const BuyMissionSuccessScreen = () => {
   const softBg = `${text}12`;
   const softBorder = `${text}18`;
   const checkSize = Math.min(96, Math.max(80, width * 0.22));
+  const cta = primaryCtaColors(accent);
 
   const resetDate = useMemo(() => {
     if (resetsOnParam) {
@@ -188,9 +190,11 @@ const BuyMissionSuccessScreen = () => {
         <TouchableOpacity
           activeOpacity={0.88}
           onPress={goToMissionPosts}
-          style={[styles.primaryBtn, { backgroundColor: text }]}
+          style={[styles.primaryBtn, { backgroundColor: cta.backgroundColor }]}
         >
-          <Text style={styles.primaryText}>{t('buyMissionPost.goToMissionPosts')}</Text>
+          <Text style={[styles.primaryText, { color: cta.color }]}>
+            {t('buyMissionPost.goToMissionPosts')}
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity activeOpacity={0.8} onPress={backToDashboard} style={styles.secondaryBtn}>
           <Text style={[styles.secondaryText, { color: text }]}>
@@ -285,7 +289,6 @@ const styles = StyleSheet.create({
     marginBottom: '10%',
   },
   primaryText: {
-    color: '#fff',
     fontSize: 16,
     fontWeight: '700',
   },

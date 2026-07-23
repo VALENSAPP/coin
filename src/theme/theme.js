@@ -20,21 +20,22 @@ export const businessTheme = {
 
 export const normalDarkTheme = {
   bg: '#121212',
-  text: '#ffffff',
+  // Keep brand lavender for titles/icons (same as light). Only bg/card flip.
+  text: '#5a2d82',
   card: '#1E1E1E',
   border: '#333333',
   mutedText: '#aaaaaa',
   accent: '#5a2d82',
-  icon: '#ffffff',
+  icon: '#5a2d82',
 };
 
 export const businessDarkTheme = {
   bg: '#121212',
-  // text: '#D3B683',
+  // Keep brand gold for titles/icons (same as light). Only bg/card flip.
   text: '#C9A15A',
   card: '#1E1E1E',
   border: '#333333',
   mutedText: '#aaaaaa',
   accent: '#C9A15A',
-  icon: '#ffffff',
+  icon: '#C9A15A',
 };

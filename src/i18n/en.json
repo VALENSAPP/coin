@@ -900,6 +900,8 @@
     "noBattlesFound": "No open battles found for these users",
     "noBattlesFoundCard": "No battles found",
     "battleExplore": "Battle Explore",
+    "collapseBattleCarousel": "Hide battle carousel",
+    "expandBattleCarousel": "Show battle carousel",
     "unableToOpenProfile": "Unable to open profile"
   },
   "archive": {
@@ -1991,6 +1993,9 @@
     "continue": "Continue"
   },
   "subventionSetup": {
+    "introTitle": "Fan Subscriptions",
+    "introBody1": "Fan Subscriptions where Creators set their own price for exclusive fan access, up to $1,000/month — open pricing, like OnlyFans or Patreon.",
+    "introBody2": "Valens charges $9.90/month for creators to activate their subscription channel.",
     "priceSectionTitle": "💰 Subscription Price",
     "priceSectionSubtitle": "Set your monthly rate per subscriber",
     "perMonth": "/month",
@@ -2000,13 +2005,14 @@
     "subscriptionEnds": "Subscription ends",
     "inactiveSubscriptionMessage": "Your subscription is inactive. Activate it to unlock private subscriber tools.",
     "activateSubscriptionButton": "Activate Subscription",
-    "contentSectionTitle": "📱 Create Content",
+    "contentSectionTitle": "2. Create Content",
     "contentSectionSubtitle": "Full access to all content types",
     "tabMint": "Mint",
     "tabFlips": "Flips",
     "tabDrops": "Drops",
     "tabVideos": "Videos (10min)",
     "tabEbook": "E-book",
+    "unlimitedAccess": "Unlimited access",
     "createLabel": "Create",
     "newLabel": "New",
     "protectionTitle": "🔒 Content Protection",

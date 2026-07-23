@@ -899,6 +899,8 @@
     "noBattlesFound": "Aucune battle ouverte trouvÃ©e pour ces utilisateurs",
     "noBattlesFoundCard": "Aucune battle trouvÃ©e",
     "battleExplore": "Explorer les battles",
+    "collapseBattleCarousel": "Masquer le carrousel des battles",
+    "expandBattleCarousel": "Afficher le carrousel des battles",
     "unableToOpenProfile": "Impossible dâ€™ouvrir le profil"
   },
   "archive": {
@@ -1925,6 +1927,9 @@
     "continue": "Continuer"
   },
   "subventionSetup": {
+    "introTitle": "Abonnements fans",
+    "introBody1": "Abonnements fans où les créateurs fixent leur propre prix pour un accès exclusif, jusqu'à 1 000 $/mois — tarification ouverte, comme OnlyFans ou Patreon.",
+    "introBody2": "Valens facture 9,90 $/mois aux créateurs pour activer leur canal d'abonnement.",
     "priceSectionTitle": "ðŸ’° Prix de lâ€™abonnement",
     "priceSectionSubtitle": "DÃ©finissez votre tarif mensuel par abonnÃ©",
     "perMonth": "/mois",
@@ -1941,7 +1946,8 @@
     "tabDrops": "Drops",
     "tabVideos": "VidÃ©os (10 min)",
     "tabEbook": "E-book",
-    "createLabel": "CrÃ©er",
+    "unlimitedAccess": "Accès illimité",
+    "createLabel": "Créer",
     "newLabel": "Nouveau",
     "protectionTitle": "ðŸ”’ Protection du contenu",
     "noPrints": "Aucune impression autorisÃ©e",

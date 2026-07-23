@@ -19,7 +19,7 @@ export function getWalletIllustrationGradient(isDarkMode, accent) {
   return ['#5F348D', '#9A68D2'];
 }
 
-/** Text/icons on gradient cards — brand color always for business; white only for personal dark mode. */
+/** Text/icons on gradient cards — brand color always for business; white on personal dark gradients for contrast. */
 export function getWalletGradientText(isBusinessProfile, isDarkMode, text) {
   if (isDarkMode && !isBusinessProfile) return '#ffffff';
   return text;
