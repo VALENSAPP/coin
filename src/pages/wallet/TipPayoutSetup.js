@@ -16,6 +16,7 @@ import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useLanguage } from '../../i18n';
 import { saveTipPayoutSetup, maskAccountNumber } from '../../utils/tipPayoutStorage';
+import { primaryCtaColors } from '../../utils/ctaContrast';
 
 const withAlpha = (hex, alpha = 0.12) => {
   const normalized = hex.replace('#', '');
@@ -55,23 +56,25 @@ const PagBankMark = ({ size = 48 }) => (
 );
 
 const TipPayoutSetup = ({ navigation, route }) => {
-  const { text, card, bgStyle, cardStyle } = useAppTheme();
+  const { text, card, border, mutedText, accent, bgStyle, cardStyle } = useAppTheme();
   const { t } = useLanguage();
+  const cta = primaryCtaColors(accent || text);
+  const fieldBorder = border || '#E5E7EB';
 
   const inputStyle = {
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: fieldBorder,
     borderRadius: 12,
     backgroundColor: card,
     paddingHorizontal: 14,
     paddingVertical: Platform.OS === 'ios' ? 14 : 12,
     fontSize: 15,
-    color: '#111827',
+    color: text,
   };
 
   const fieldSurfaceStyle = {
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: fieldBorder,
     borderRadius: 12,
     backgroundColor: card,
     paddingHorizontal: 14,
@@ -185,25 +188,32 @@ const TipPayoutSetup = ({ navigation, route }) => {
 
   const renderUploadField = (label, placeholder, value, onPress, iconName = 'document-text-outline') => (
     <View style={styles.fieldBlock}>
-      <Text style={styles.fieldLabel}>{label}</Text>
+      <Text style={[styles.fieldLabel, { color: text }]}>{label}</Text>
       <TouchableOpacity
         style={[styles.uploadField, fieldSurfaceStyle]}
         onPress={onPress}
         activeOpacity={0.85}
       >
         <Ionicons name={iconName} size={18} color={text} />
-        <Text style={[styles.uploadPlaceholder, value && styles.uploadValue]} numberOfLines={1}>
+        <Text
+          style={[
+            styles.uploadPlaceholder,
+            { color: mutedText },
+            value && { color: text },
+          ]}
+          numberOfLines={1}
+        >
           {value || placeholder}
         </Text>
-        <Ionicons name="arrow-up-outline" size={20} color="#9CA3AF" />
+        <Ionicons name="arrow-up-outline" size={20} color={mutedText} />
       </TouchableOpacity>
     </View>
   );
 
   const renderIntro = () => (
     <ScrollView contentContainerStyle={styles.scrollBody} showsVerticalScrollIndicator={false}>
-      <Text style={styles.screenTitle}>{t('tipPayoutSetup.connectTitle')}</Text>
-      <Text style={styles.screenSubtitle}>{t('tipPayoutSetup.connectSubtitle')}</Text>
+      <Text style={[styles.screenTitle, { color: text }]}>{t('tipPayoutSetup.connectTitle')}</Text>
+      <Text style={[styles.screenSubtitle, { color: mutedText }]}>{t('tipPayoutSetup.connectSubtitle')}</Text>
 
       <View style={styles.flowGraphic}>
         <View style={[styles.flowIconWrap, { backgroundColor: withAlpha(text, 0.12) }]}>
@@ -213,21 +223,21 @@ const TipPayoutSetup = ({ navigation, route }) => {
         <PagBankMark size={52} />
         <View style={[styles.flowDash, { borderColor: withAlpha(text, 0.35) }]} />
         <View style={[styles.flowIconWrap, { backgroundColor: withAlpha(text, 0.12) }]}>
-          <Ionicons name="business-outline" size={28} color="#9CA3AF" />
+          <Ionicons name="business-outline" size={28} color={mutedText} />
         </View>
       </View>
 
       {introBullets.map((item) => (
         <View key={item} style={styles.bulletRow}>
           <Ionicons name="checkmark-circle" size={20} color={text} />
-          <Text style={styles.bulletText}>{item}</Text>
+          <Text style={[styles.bulletText, { color: text }]}>{item}</Text>
         </View>
       ))}
 
-      <Text style={styles.legalNote}>{t('tipPayoutSetup.legalNote')}</Text>
+      <Text style={[styles.legalNote, { color: mutedText }]}>{t('tipPayoutSetup.legalNote')}</Text>
 
-      <TouchableOpacity style={[styles.primaryBtn, { backgroundColor: text }]} onPress={() => setStep('information')}>
-        <Text style={styles.primaryBtnText}>{t('tipPayoutSetup.continue')}</Text>
+      <TouchableOpacity style={[styles.primaryBtn, { backgroundColor: cta.backgroundColor }]} onPress={() => setStep('information')}>
+        <Text style={[styles.primaryBtnText, { color: cta.color }]}>{t('tipPayoutSetup.continue')}</Text>
       </TouchableOpacity>
       <TouchableOpacity style={styles.secondaryBtn} onPress={handleMaybeLater}>
         <Text style={[styles.secondaryBtnText, { color: text }]}>{t('tipPayoutSetup.maybeLater')}</Text>
@@ -237,26 +247,26 @@ const TipPayoutSetup = ({ navigation, route }) => {
 
   const renderInformation = () => (
     <ScrollView contentContainerStyle={styles.scrollBody} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-      <Text style={styles.screenTitle}>{t('tipPayoutSetup.infoTitle')}</Text>
-      <Text style={styles.screenSubtitle}>{t('tipPayoutSetup.infoSubtitle')}</Text>
+      <Text style={[styles.screenTitle, { color: text }]}>{t('tipPayoutSetup.infoTitle')}</Text>
+      <Text style={[styles.screenSubtitle, { color: mutedText }]}>{t('tipPayoutSetup.infoSubtitle')}</Text>
 
       <View style={styles.fieldBlock}>
-        <Text style={styles.fieldLabel}>{t('tipPayoutSetup.legalNameLabel')}</Text>
+        <Text style={[styles.fieldLabel, { color: text }]}>{t('tipPayoutSetup.legalNameLabel')}</Text>
         <TextInput
           style={inputStyle}
           placeholder={t('tipPayoutSetup.legalNamePlaceholder')}
-          placeholderTextColor="#9CA3AF"
+          placeholderTextColor={mutedText}
           value={legalName}
           onChangeText={setLegalName}
         />
       </View>
 
       <View style={styles.fieldBlock}>
-        <Text style={styles.fieldLabel}>{t('tipPayoutSetup.cpfLabel')}</Text>
+        <Text style={[styles.fieldLabel, { color: text }]}>{t('tipPayoutSetup.cpfLabel')}</Text>
         <TextInput
           style={inputStyle}
           placeholder={t('tipPayoutSetup.cpfPlaceholder')}
-          placeholderTextColor="#9CA3AF"
+          placeholderTextColor={mutedText}
           value={cpfCnpj}
           onChangeText={setCpfCnpj}
           keyboardType="numeric"
@@ -264,10 +274,10 @@ const TipPayoutSetup = ({ navigation, route }) => {
       </View>
 
       <TouchableOpacity
-        style={[styles.primaryBtn, { backgroundColor: text }]}
+        style={[styles.primaryBtn, { backgroundColor: cta.backgroundColor }]}
         onPress={() => validateInformation() && setStep('payout')}
       >
-        <Text style={styles.primaryBtnText}>{t('tipPayoutSetup.continue')}</Text>
+        <Text style={[styles.primaryBtnText, { color: cta.color }]}>{t('tipPayoutSetup.continue')}</Text>
       </TouchableOpacity>
       <TouchableOpacity style={styles.secondaryBtn} onPress={handleMaybeLater}>
         <Text style={[styles.secondaryBtnText, { color: text }]}>{t('tipPayoutSetup.maybeLater')}</Text>
@@ -277,23 +287,23 @@ const TipPayoutSetup = ({ navigation, route }) => {
 
   const renderPayout = () => (
     <ScrollView contentContainerStyle={styles.scrollBody} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-      <Text style={styles.screenTitle}>{t('tipPayoutSetup.payoutTitle')}</Text>
-      <Text style={styles.screenSubtitle}>{t('tipPayoutSetup.payoutSubtitle')}</Text>
+      <Text style={[styles.screenTitle, { color: text }]}>{t('tipPayoutSetup.payoutTitle')}</Text>
+      <Text style={[styles.screenSubtitle, { color: mutedText }]}>{t('tipPayoutSetup.payoutSubtitle')}</Text>
 
       <View style={[styles.tabRow, { backgroundColor: withAlpha(text, 0.12) }]}>
         <TouchableOpacity
-          style={[styles.tabBtn, payoutMethod === 'bank' && { backgroundColor: text }]}
+          style={[styles.tabBtn, payoutMethod === 'bank' && { backgroundColor: cta.backgroundColor }]}
           onPress={() => setPayoutMethod('bank')}
         >
-          <Text style={[styles.tabBtnText, { color: text }, payoutMethod === 'bank' && styles.tabBtnTextActive]}>
+          <Text style={[styles.tabBtnText, { color: text }, payoutMethod === 'bank' && { color: cta.color }]}>
             {t('tipPayoutSetup.bankAccountTab')}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.tabBtn, payoutMethod === 'pix' && { backgroundColor: text }]}
+          style={[styles.tabBtn, payoutMethod === 'pix' && { backgroundColor: cta.backgroundColor }]}
           onPress={() => setPayoutMethod('pix')}
         >
-          <Text style={[styles.tabBtnText, { color: text }, payoutMethod === 'pix' && styles.tabBtnTextActive]}>
+          <Text style={[styles.tabBtnText, { color: text }, payoutMethod === 'pix' && { color: cta.color }]}>
             {t('tipPayoutSetup.pixKeyTab')}
           </Text>
         </TouchableOpacity>
@@ -302,56 +312,56 @@ const TipPayoutSetup = ({ navigation, route }) => {
       {payoutMethod === 'bank' ? (
         <>
           <View style={styles.fieldBlock}>
-            <Text style={styles.fieldLabel}>{t('tipPayoutSetup.bankLabel')}</Text>
+            <Text style={[styles.fieldLabel, { color: text }]}>{t('tipPayoutSetup.bankLabel')}</Text>
             <TouchableOpacity style={[styles.selectField, fieldSurfaceStyle]} onPress={() => openPicker('bank', BANK_OPTIONS)}>
-              <Text style={[styles.selectText, !bank && styles.selectPlaceholder]}>
+              <Text style={[styles.selectText, { color: bank ? text : mutedText }]}>
                 {bank || t('tipPayoutSetup.bankPlaceholder')}
               </Text>
-              <Ionicons name="chevron-down" size={18} color="#6B7280" />
+              <Ionicons name="chevron-down" size={18} color={mutedText} />
             </TouchableOpacity>
           </View>
           <View style={styles.fieldBlock}>
-            <Text style={styles.fieldLabel}>{t('tipPayoutSetup.agencyLabel')}</Text>
+            <Text style={[styles.fieldLabel, { color: text }]}>{t('tipPayoutSetup.agencyLabel')}</Text>
             <TextInput
               style={inputStyle}
               placeholder={t('tipPayoutSetup.agencyPlaceholder')}
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={mutedText}
               value={agency}
               onChangeText={setAgency}
               keyboardType="numeric"
             />
           </View>
           <View style={styles.fieldBlock}>
-            <Text style={styles.fieldLabel}>{t('tipPayoutSetup.accountNumberLabel')}</Text>
+            <Text style={[styles.fieldLabel, { color: text }]}>{t('tipPayoutSetup.accountNumberLabel')}</Text>
             <TextInput
               style={inputStyle}
               placeholder={t('tipPayoutSetup.accountNumberPlaceholder')}
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={mutedText}
               value={accountNumber}
               onChangeText={setAccountNumber}
               keyboardType="numeric"
             />
           </View>
           <View style={styles.fieldBlock}>
-            <Text style={styles.fieldLabel}>{t('tipPayoutSetup.accountTypeLabel')}</Text>
+            <Text style={[styles.fieldLabel, { color: text }]}>{t('tipPayoutSetup.accountTypeLabel')}</Text>
             <TouchableOpacity
               style={[styles.selectField, fieldSurfaceStyle]}
               onPress={() => openPicker('accountType', ACCOUNT_TYPE_OPTIONS)}
             >
-              <Text style={[styles.selectText, !accountType && styles.selectPlaceholder]}>
+              <Text style={[styles.selectText, { color: accountType ? text : mutedText }]}>
                 {accountType || t('tipPayoutSetup.accountTypePlaceholder')}
               </Text>
-              <Ionicons name="chevron-down" size={18} color="#6B7280" />
+              <Ionicons name="chevron-down" size={18} color={mutedText} />
             </TouchableOpacity>
           </View>
         </>
       ) : (
         <View style={styles.fieldBlock}>
-          <Text style={styles.fieldLabel}>{t('tipPayoutSetup.pixKeyLabel')}</Text>
+          <Text style={[styles.fieldLabel, { color: text }]}>{t('tipPayoutSetup.pixKeyLabel')}</Text>
           <TextInput
             style={inputStyle}
             placeholder={t('tipPayoutSetup.pixKeyPlaceholder')}
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={mutedText}
             value={pixKey}
             onChangeText={setPixKey}
           />
@@ -359,10 +369,10 @@ const TipPayoutSetup = ({ navigation, route }) => {
       )}
 
       <TouchableOpacity
-        style={[styles.primaryBtn, { backgroundColor: text }]}
+        style={[styles.primaryBtn, { backgroundColor: cta.backgroundColor }]}
         onPress={() => validatePayout() && setStep('verify')}
       >
-        <Text style={styles.primaryBtnText}>{t('tipPayoutSetup.continue')}</Text>
+        <Text style={[styles.primaryBtnText, { color: cta.color }]}>{t('tipPayoutSetup.continue')}</Text>
       </TouchableOpacity>
       <TouchableOpacity style={styles.secondaryBtn} onPress={handleMaybeLater}>
         <Text style={[styles.secondaryBtnText, { color: text }]}>{t('tipPayoutSetup.maybeLater')}</Text>
@@ -372,8 +382,8 @@ const TipPayoutSetup = ({ navigation, route }) => {
 
   const renderVerify = () => (
     <ScrollView contentContainerStyle={styles.scrollBody} showsVerticalScrollIndicator={false}>
-      <Text style={styles.screenTitle}>{t('tipPayoutSetup.verifyTitle')}</Text>
-      <Text style={styles.screenSubtitle}>{t('tipPayoutSetup.verifySubtitle')}</Text>
+      <Text style={[styles.screenTitle, { color: text }]}>{t('tipPayoutSetup.verifyTitle')}</Text>
+      <Text style={[styles.screenSubtitle, { color: mutedText }]}>{t('tipPayoutSetup.verifySubtitle')}</Text>
 
       {renderUploadField(
         t('tipPayoutSetup.idDocumentLabel'),
@@ -398,12 +408,12 @@ const TipPayoutSetup = ({ navigation, route }) => {
       )}
 
       <View style={styles.secureRow}>
-        <Ionicons name="lock-closed" size={14} color="#6B7280" />
-        <Text style={styles.secureText}>{t('tipPayoutSetup.secureNote')}</Text>
+        <Ionicons name="lock-closed" size={14} color={mutedText} />
+        <Text style={[styles.secureText, { color: mutedText }]}>{t('tipPayoutSetup.secureNote')}</Text>
       </View>
 
-      <TouchableOpacity style={[styles.primaryBtn, { backgroundColor: text }]} onPress={finishSetup}>
-        <Text style={styles.primaryBtnText}>{t('tipPayoutSetup.continue')}</Text>
+      <TouchableOpacity style={[styles.primaryBtn, { backgroundColor: cta.backgroundColor }]} onPress={finishSetup}>
+        <Text style={[styles.primaryBtnText, { color: cta.color }]}>{t('tipPayoutSetup.continue')}</Text>
       </TouchableOpacity>
       <TouchableOpacity style={styles.secondaryBtn} onPress={handleMaybeLater}>
         <Text style={[styles.secondaryBtnText, { color: text }]}>{t('tipPayoutSetup.maybeLater')}</Text>
@@ -450,28 +460,37 @@ const TipPayoutSetup = ({ navigation, route }) => {
           </View>
         </View>
 
-        <Text style={[styles.screenTitle, styles.successTitle]}>{t('tipPayoutSetup.successTitle')}</Text>
-        <Text style={[styles.screenSubtitle, styles.successSubtitle]}>{t('tipPayoutSetup.successSubtitle')}</Text>
+        <Text style={[styles.screenTitle, styles.successTitle, { color: text }]}>{t('tipPayoutSetup.successTitle')}</Text>
+        <Text style={[styles.screenSubtitle, styles.successSubtitle, { color: mutedText }]}>{t('tipPayoutSetup.successSubtitle')}</Text>
 
         <View style={[styles.summaryCard, { backgroundColor: withAlpha(text, 0.08) }]}>
-          <SummaryRow label={t('tipPayoutSetup.summaryPayoutMethod')} value={payoutMethodLabel} />
+          <SummaryRow label={t('tipPayoutSetup.summaryPayoutMethod')} value={payoutMethodLabel} text={text} mutedText={mutedText} border={fieldBorder} />
           <SummaryRow
             label={t('tipPayoutSetup.summaryBank')}
             value={summary.payoutMethod === 'pix' ? '—' : (summary.bank || '—')}
+            text={text}
+            mutedText={mutedText}
+            border={fieldBorder}
           />
           <SummaryRow
             label={t('tipPayoutSetup.summaryAccount')}
             value={summary.payoutMethod === 'pix' ? '—' : (summary.maskedAccount || maskAccountNumber(summary.accountNumber))}
+            text={text}
+            mutedText={mutedText}
+            border={fieldBorder}
           />
           <SummaryRow
             label={t('tipPayoutSetup.summaryPixKey')}
             value={summary.payoutMethod === 'pix' ? (summary.pixKey || '—') : '—'}
+            text={text}
+            mutedText={mutedText}
+            border={fieldBorder}
             isLast
           />
         </View>
 
-        <TouchableOpacity style={[styles.primaryBtn, { backgroundColor: text }]} onPress={goDashboard}>
-          <Text style={styles.primaryBtnText}>{t('tipPayoutSetup.goToDashboard')}</Text>
+        <TouchableOpacity style={[styles.primaryBtn, { backgroundColor: cta.backgroundColor }]} onPress={goDashboard}>
+          <Text style={[styles.primaryBtnText, { color: cta.color }]}>{t('tipPayoutSetup.goToDashboard')}</Text>
         </TouchableOpacity>
       </ScrollView>
     );
@@ -496,7 +515,7 @@ const TipPayoutSetup = ({ navigation, route }) => {
                   style={[styles.modalOption, { borderBottomColor: withAlpha(text, 0.08) }]}
                   onPress={() => handlePickerSelect(item)}
                 >
-                  <Text style={styles.modalOptionText}>{item}</Text>
+                  <Text style={[styles.modalOptionText, { color: text }]}>{item}</Text>
                 </TouchableOpacity>
               )}
             />
@@ -507,10 +526,10 @@ const TipPayoutSetup = ({ navigation, route }) => {
   );
 };
 
-const SummaryRow = ({ label, value, isLast = false }) => (
-  <View style={[styles.summaryRow, isLast && styles.summaryRowLast]}>
-    <Text style={styles.summaryLabel}>{label}</Text>
-    <Text style={styles.summaryValue}>{value}</Text>
+const SummaryRow = ({ label, value, isLast = false, text, mutedText, border }) => (
+  <View style={[styles.summaryRow, isLast && styles.summaryRowLast, border && { borderBottomColor: border }]}>
+    <Text style={[styles.summaryLabel, { color: mutedText }]}>{label}</Text>
+    <Text style={[styles.summaryValue, { color: text }]}>{value}</Text>
   </View>
 );
 
@@ -526,12 +545,10 @@ const styles = StyleSheet.create({
   screenTitle: {
     fontSize: 24,
     fontWeight: '800',
-    color: '#111827',
     marginBottom: 6,
   },
   screenSubtitle: {
     fontSize: 15,
-    color: '#6B7280',
     marginBottom: 24,
     lineHeight: 22,
   },
@@ -574,12 +591,10 @@ const styles = StyleSheet.create({
   bulletText: {
     flex: 1,
     fontSize: 15,
-    color: '#374151',
     lineHeight: 21,
   },
   legalNote: {
     fontSize: 12,
-    color: '#6B7280',
     lineHeight: 18,
     marginTop: 8,
     marginBottom: 24,
@@ -590,7 +605,6 @@ const styles = StyleSheet.create({
   fieldLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#374151',
     marginBottom: 8,
   },
   selectField: {
@@ -600,11 +614,7 @@ const styles = StyleSheet.create({
   },
   selectText: {
     fontSize: 15,
-    color: '#111827',
     flex: 1,
-  },
-  selectPlaceholder: {
-    color: '#9CA3AF',
   },
   tabRow: {
     flexDirection: 'row',
@@ -622,9 +632,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
-  tabBtnTextActive: {
-    color: '#FFFFFF',
-  },
   uploadField: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -633,10 +640,6 @@ const styles = StyleSheet.create({
   uploadPlaceholder: {
     flex: 1,
     fontSize: 14,
-    color: '#9CA3AF',
-  },
-  uploadValue: {
-    color: '#111827',
   },
   secureRow: {
     flexDirection: 'row',
@@ -647,7 +650,6 @@ const styles = StyleSheet.create({
   },
   secureText: {
     fontSize: 12,
-    color: '#6B7280',
   },
   primaryBtn: {
     borderRadius: 14,
@@ -656,7 +658,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   primaryBtnText: {
-    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
   },
@@ -711,7 +712,6 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
     gap: 12,
   },
   summaryRowLast: {
@@ -719,13 +719,11 @@ const styles = StyleSheet.create({
   },
   summaryLabel: {
     fontSize: 14,
-    color: '#6B7280',
     flex: 1,
   },
   summaryValue: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#111827',
     flex: 1,
     textAlign: 'right',
   },
@@ -747,7 +745,6 @@ const styles = StyleSheet.create({
   },
   modalOptionText: {
     fontSize: 16,
-    color: '#111827',
   },
 });
 
