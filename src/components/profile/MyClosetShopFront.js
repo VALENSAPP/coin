@@ -68,118 +68,7 @@ const fastImageSource = uri =>
     }
     : null;
 
-const AutoScrollCarousel = ({ children, snapInterval }) => {
-  const scrollViewRef = React.useRef(null);
-  const isDragging = React.useRef(false);
-  const offsetRef = React.useRef(0);
-  const lastFrameTsRef = React.useRef(0);
-  const autoScrollFrameRef = React.useRef(null);
-  const numItems = React.Children.count(children);
-  const isCarouselEnabled = numItems > 1;
-  const AUTO_SCROLL_SPEED = 0.04;
 
-  const totalWidth = numItems * snapInterval;
-
-  const stopAutoScroll = React.useCallback(() => {
-    if (autoScrollFrameRef.current) cancelAnimationFrame(autoScrollFrameRef.current);
-    autoScrollFrameRef.current = null;
-    lastFrameTsRef.current = 0;
-  }, []);
-
-  const startAutoScroll = React.useCallback(() => {
-    if (!isCarouselEnabled || isDragging.current) return;
-    stopAutoScroll();
-    
-    const tick = (timestamp) => {
-      if (isDragging.current || !isCarouselEnabled) {
-        stopAutoScroll();
-        return;
-      }
-      if (!lastFrameTsRef.current) lastFrameTsRef.current = timestamp;
-      const deltaMs = timestamp - lastFrameTsRef.current;
-      lastFrameTsRef.current = timestamp;
-      
-      let next = offsetRef.current + deltaMs * AUTO_SCROLL_SPEED;
-      
-      // If we've scrolled past the first set of items, jump back seamlessly
-      if (totalWidth > 0 && next >= totalWidth) {
-        next = next - totalWidth;
-      }
-      
-      scrollViewRef.current?.scrollTo({ x: next, animated: false });
-      offsetRef.current = next;
-      
-      autoScrollFrameRef.current = requestAnimationFrame(tick);
-    };
-    
-    autoScrollFrameRef.current = requestAnimationFrame(tick);
-  }, [isCarouselEnabled, stopAutoScroll, totalWidth]);
-
-  React.useEffect(() => {
-    if (numItems <= 1) return;
-    const timer = setTimeout(() => startAutoScroll(), 300);
-    return () => {
-      clearTimeout(timer);
-      stopAutoScroll();
-    };
-  }, [numItems, startAutoScroll, stopAutoScroll]);
-
-  const handleScroll = (e) => {
-    if (e?.nativeEvent?.contentOffset?.x !== undefined) {
-      offsetRef.current = e.nativeEvent.contentOffset.x;
-    }
-  };
-
-  const resumeTimerRef = React.useRef(null);
-
-  const handleInteractionStart = () => {
-    isDragging.current = true;
-    if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
-    stopAutoScroll();
-  };
-
-  const handleInteractionEnd = (e) => {
-    isDragging.current = false;
-    if (e?.nativeEvent?.contentOffset?.x !== undefined) {
-      offsetRef.current = e.nativeEvent.contentOffset.x;
-    }
-    if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
-    resumeTimerRef.current = setTimeout(() => {
-      startAutoScroll();
-    }, 1000);
-  };
-
-  if (!isCarouselEnabled) {
-    return (
-      <View style={{ flexDirection: 'row', paddingRight: 12 }}>
-        {children}
-      </View>
-    );
-  }
-
-  // Duplicate children for infinite scroll
-  const allChildren = React.Children.toArray(children);
-  const loopedChildren = [...allChildren, ...allChildren];
-
-  return (
-    <ScrollView
-      ref={scrollViewRef}
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      scrollEventThrottle={16}
-      onScroll={handleScroll}
-      onTouchStart={handleInteractionStart}
-      onScrollBeginDrag={handleInteractionStart}
-      onScrollEndDrag={handleInteractionEnd}
-      onMomentumScrollEnd={handleInteractionEnd}
-      onTouchEnd={handleInteractionEnd}
-      onTouchCancel={handleInteractionEnd}
-      contentContainerStyle={{ paddingRight: 12 }}
-    >
-      {loopedChildren.map((child, idx) => React.cloneElement(child, { key: `carousel-item-${idx}` }))}
-    </ScrollView>
-  );
-};
 
 const normalizePriorityBattle = battle => {
   const participants = Array.isArray(battle?.participants) ? [...battle.participants] : [];
@@ -1232,26 +1121,25 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
             <View style={s.center}><ActivityIndicator color={brand} /></View>
           ) : (
             <View style={{ marginBottom: 12 }}>
-              <AutoScrollCarousel snapInterval={SCREEN_W - 12}>
+              <AutoScrollBattleRow cardWidth={SCREEN_W - 12} cardGap={0} rowPaddingLeft={0}>
                 {displayBattles.map((item) => (
-                  <View key={item.id} style={{ width: SCREEN_W - 12 }}>
-                    <BattleSlide
-                      battle={item}
-                      accent={brand}
-                      t={t}
-                      onPress={() => openBattle(item)}
-                      card={card}
-                      border={border}
-                      textColor={text}
-                      mutedText={mutedText}
-                      isDark={isDarkMode}
-                      thumbSurface={thumbSurface}
-                      mutedColor={mutedText}
-                      loadingOverlayColor={loadingOverlayColor}
-                    />
-                  </View>
+                  <BattleSlide
+                    key={item.id}
+                    battle={item}
+                    accent={brand}
+                    t={t}
+                    onPress={() => openBattle(item)}
+                    card={card}
+                    border={border}
+                    textColor={text}
+                    mutedText={mutedText}
+                    isDark={isDarkMode}
+                    thumbSurface={thumbSurface}
+                    mutedColor={mutedText}
+                    loadingOverlayColor={loadingOverlayColor}
+                  />
                 ))}
-              </AutoScrollCarousel>
+              </AutoScrollBattleRow>
             </View>
           )}
         </View>

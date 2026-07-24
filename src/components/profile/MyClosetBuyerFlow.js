@@ -337,7 +337,7 @@ const BattleSlide = ({
           </View>
           <Text style={[styles.fighterName, { color: textColor }]} numberOfLines={2}>{battle.right.name}</Text>
           <Text style={[styles.fighterPrice, { color: textColor }]}>{battle.right.price}</Text>
-          <Text style={[styles.pctRed, {color: accent}]}>{battle.right.pct}%</Text>
+          <Text style={[styles.pctRed, { color: accent }]}>{battle.right.pct}%</Text>
           {renderWinnerBadge('right')}
         </View>
       </View>
@@ -1473,6 +1473,7 @@ const MyClosetBuyerItemsScreen = ({ navigation, route }) => {
         border={border}
         mutedText={mutedText || surfaces.mutedColor}
         winnerMeta={winnerMeta}
+        isOwnProfile={isOwnProfile}
       />
     );
   };
@@ -1635,7 +1636,7 @@ const MyClosetBuyerItemsScreen = ({ navigation, route }) => {
   );
 };
 
-const BuyerItemCard = ({ item, accent, t, onPress, onToggleWishlist, sellerId, text, card, border, mutedText, winnerMeta }) => {
+const BuyerItemCard = ({ item, accent, t, onPress, onToggleWishlist, sellerId, text, card, border, mutedText, winnerMeta, isOwnProfile }) => {
   const [liked, setLiked] = useState(Boolean(item?.liked));
   const [updatingWishlist, setUpdatingWishlist] = useState(false);
   const [wishlistItemId, setWishlistItemId] = useState(null);
@@ -1718,19 +1719,22 @@ const BuyerItemCard = ({ item, accent, t, onPress, onToggleWishlist, sellerId, t
             <Text style={styles.winnerChipText}>🏆 Winner</Text>
           </TouchableOpacity>
         ) : null}
-        <TouchableOpacity
-          style={styles.favoriteBadge}
-          onPress={handleToggleWishlist}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          disabled={updatingWishlist}
-          activeOpacity={0.85}
-        >
-          <Ionicons
-            name={liked ? 'heart' : 'heart-outline'}
-            size={18}
-            color={liked ? accent : (mutedText || '#9b8c7a')}
-          />
-        </TouchableOpacity>
+        {
+          !isOwnProfile &&
+          <TouchableOpacity
+            style={styles.favoriteBadge}
+            onPress={handleToggleWishlist}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            disabled={updatingWishlist}
+            activeOpacity={0.85}
+          >
+            <Ionicons
+              name={liked ? 'heart' : 'heart-outline'}
+              size={18}
+              color={liked ? accent : (mutedText || '#9b8c7a')}
+            />
+          </TouchableOpacity>
+        }
       </View>
       <Text style={[styles.gridTitle, { color: text }]} numberOfLines={2}>
         {item.name}

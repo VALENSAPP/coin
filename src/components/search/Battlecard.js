@@ -13,6 +13,7 @@ import {
     Dimensions,
     Platform,
     PanResponder,
+    Easing,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import HexAvatar from '../../components/home/story.js/HexAvatar';
@@ -603,60 +604,43 @@ const AndroidBattleRow = ({ children, style, cardWidth = CARD_WIDTH, cardGap = C
         return () => translateX.removeListener(id);
     }, [translateX]);
 
-    // scroll one card width, pause 1s, then next card, loop forever
-    const startStepScroll = useCallback((fromX = 0) => {
+    // continuously scroll using Easing.linear
+    const startContinuousScroll = useCallback((fromX = 0) => {
         if (isDraggingRef.current) return;
         animRef.current?.stop();
 
-        const stepSize = cardWidth + cardGap;
-
-        // snap fromX to nearest card boundary
-        const snapped = Math.round(fromX / stepSize) * stepSize;
-        const nextStop = snapped - stepSize;
-
         // wrap: if we've gone past one full set, reset to equivalent position in first set
-        const wrappedFrom = snapped % -totalWidth === 0 && snapped !== 0
-            ? 0
-            : snapped;
+        const wrappedFrom = fromX <= -totalWidth ? fromX + totalWidth : fromX;
 
         translateX.setValue(wrappedFrom);
         animOffsetRef.current = wrappedFrom;
 
-        const target = wrappedFrom - stepSize;
+        const distance = Math.abs(-totalWidth - wrappedFrom);
+        const duration = distance / AUTO_SCROLL_SPEED_PX_PER_MS;
 
-        // scroll to next card
         animRef.current = Animated.timing(translateX, {
-            toValue: target,
-            duration: stepSize / AUTO_SCROLL_SPEED_PX_PER_MS,
+            toValue: -totalWidth,
+            duration: duration,
+            easing: Easing.linear,
             useNativeDriver: true,
             isInteraction: false,
         });
 
         animRef.current.start(({ finished }) => {
             if (!finished || isDraggingRef.current) return;
-
-            animOffsetRef.current = target;
-            isPausedForCardRef.current = true;
-
-            // pause 1 second at this card
-            resumeTimerRef.current = setTimeout(() => {
-                isPausedForCardRef.current = false;
-
-                // wrap if needed
-                const nextFrom = target <= -totalWidth ? target + totalWidth : target;
-                startStepScroll(nextFrom);
-            }, 500);
+            // loop back seamlessly
+            startContinuousScroll(0);
         });
     }, [totalWidth, translateX]);
 
     useEffect(() => {
-        const timer = setTimeout(() => startStepScroll(0), START_DELAY_MS);
+        const timer = setTimeout(() => startContinuousScroll(0), START_DELAY_MS);
         return () => {
             clearTimeout(timer);
             animRef.current?.stop();
             if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
         };
-    }, [startStepScroll]);
+    }, [startContinuousScroll]);
 
     const panResponder = useRef(
         PanResponder.create({
@@ -708,7 +692,7 @@ const AndroidBattleRow = ({ children, style, cardWidth = CARD_WIDTH, cardGap = C
                 }).start(() => {
                     animOffsetRef.current = targetOffset;
                     resumeTimerRef.current = setTimeout(() => {
-                        startStepScroll(targetOffset);
+                        startContinuousScroll(targetOffset);
                     }, RESUME_DELAY_MS);
                 });
             },
@@ -728,7 +712,7 @@ const AndroidBattleRow = ({ children, style, cardWidth = CARD_WIDTH, cardGap = C
                 }).start(() => {
                     animOffsetRef.current = targetOffset;
                     resumeTimerRef.current = setTimeout(() => {
-                        startStepScroll(targetOffset);
+                        startContinuousScroll(targetOffset);
                     }, RESUME_DELAY_MS);
                 });
             },
@@ -752,13 +736,13 @@ const AndroidBattleRow = ({ children, style, cardWidth = CARD_WIDTH, cardGap = C
             onTouchEnd={() => {
                 isDraggingRef.current = false;
                 resumeTimerRef.current = setTimeout(() => {
-                    startStepScroll(animOffsetRef.current);
+                    startContinuousScroll(animOffsetRef.current);
                 }, RESUME_DELAY_MS);
             }}
             onTouchCancel={() => {
                 isDraggingRef.current = false;
                 resumeTimerRef.current = setTimeout(() => {
-                    startStepScroll(animOffsetRef.current);
+                    startContinuousScroll(animOffsetRef.current);
                 }, RESUME_DELAY_MS);
             }}
             {...panResponder.panHandlers}
