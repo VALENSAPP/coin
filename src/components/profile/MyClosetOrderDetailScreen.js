@@ -146,7 +146,7 @@ const normalizeOrderDetail = (order, t, viewType) => {
   }));
 
   const address = order?.shippingAddress || order?.address || null;
-
+  console.log("order------------------",order)
     const coverImg =
       firstImage(order?.productImage) ||
       firstImage(order?.item?.productImage) ||
@@ -164,11 +164,14 @@ const normalizeOrderDetail = (order, t, viewType) => {
     status: normalizeStatus(order?.orderStatus ?? order?.status),
     createdAt: formatDate(order?.createdAt || order?.orderDate),
     buyerName: viewType === 'buyer'
-      ? (order?.seller?.userName || order?.seller?.username || t('myClosetOrderDetail.seller'))
-      : (order?.buyer?.username || order?.buyer?.userName || order?.user?.username || order?.user?.userName || t('myClosetOrderDetail.buyer')),
+      ? (order?.sellerName || order?.seller?.userName || order?.seller?.username || order?.seller?.name || order?.sellerUsername || order?.shop?.username || order?.shop?.userName || order?.shop?.name || t('myClosetOrderDetail.seller'))
+      : (order?.buyerName || order?.buyer?.username || order?.buyer?.userName || order?.buyer?.name || order?.buyerUsername || order?.user?.username || order?.user?.userName || order?.user?.name || t('myClosetOrderDetail.buyer')),
     buyerId: viewType === 'buyer'
-      ? (order?.seller?.id || order?.sellerId)
-      : (order?.buyer?.id || order?.buyerId || order?.user?.id || order?.userId),
+      ? (order?.seller?.id || order?.seller?._id || order?.sellerId || order?.shop?.id || order?.shop?._id)
+      : (order?.buyer?.id || order?.buyer?._id || order?.buyerId || order?.user?.id || order?.user?._id || order?.userId),
+    buyerImage: viewType === 'buyer'
+      ? (order?.sellerProfileImage || order?.sellerImage || order?.seller?.profileImage || order?.seller?.image || order?.seller?.avatar || order?.seller?.profilePicture || order?.seller?.profilePic || order?.shop?.shopLogo || order?.shop?.logo || order?.shop?.profileImage || order?.shop?.image || order?.shop?.avatar || order?.shop?.profilePicture || order?.shop?.profilePic || order?.shopLogo || order?.logo)
+      : (order?.buyerProfileImage || order?.buyerImage || order?.buyer?.profileImage || order?.buyer?.image || order?.buyer?.avatar || order?.buyer?.profilePicture || order?.buyer?.profilePic || order?.user?.profileImage || order?.user?.image || order?.user?.avatar || order?.user?.profilePicture || order?.user?.profilePic),
     totalAmount: currency(order?.totalAmount ?? order?.amount ?? order?.total),
     totalItemCount: order?.totalItemCount ?? normalizedLines.length,
     orderStatusLabel: t(`myClosetOrderDetail.status.${normalizeStatus(order?.orderStatus ?? order?.status)}`),
@@ -333,14 +336,15 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
     [navigation, route?.name, route?.params],
   );
 
-  const [order, setOrder] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const orderPreview = route?.params?.orderPreview;
+  const viewType = route?.params?.viewType;
+  const canUpdateStatus = viewType !== 'buyer';
+
+  const [order, setOrder] = useState(() => orderPreview ? normalizeOrderDetail(orderPreview, t, viewType) : null);
+  const [loading, setLoading] = useState(!orderPreview);
   const [error, setError] = useState(null);
   const [advancing, setAdvancing] = useState(false);
   const [shippingModalVisible, setShippingModalVisible] = useState(false);
-
-  const viewType = route?.params?.viewType;
-  const canUpdateStatus = viewType !== 'buyer';
 
   const loadOrder = useCallback(async () => {
     if (!orderId) {
@@ -348,14 +352,23 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
       setLoading(false);
       return;
     }
-    setLoading(true);
+    setOrder(prev => {
+      if (!prev) setLoading(true);
+      return prev;
+    });
     setError(null);
     try {
       const response = viewType === 'buyer'
         ? await getBuyerOrderDetail(orderId)
         : await getSellerOrderDetails(orderId);
       const payload = response?.data?.data ?? response?.data ?? response;
-      setOrder(normalizeOrderDetail(payload, t, viewType));
+      setOrder(prev => {
+         const newOrder = normalizeOrderDetail(payload, t, viewType);
+         if (prev?.buyerImage && !newOrder.buyerImage) newOrder.buyerImage = prev.buyerImage;
+         if (prev?.buyerName && !newOrder.buyerName) newOrder.buyerName = prev.buyerName;
+         if (prev?.buyerId && !newOrder.buyerId) newOrder.buyerId = prev.buyerId;
+         return newOrder;
+      });
     } catch (err) {
       setError(err?.response?.data?.message || err?.message || t('myClosetOrderDetail.couldNotLoadOrder'));
     } finally {
@@ -501,8 +514,16 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
             activeOpacity={0.7}
             onPress={() => handleUserProfile(order.buyerId)}
           >
-            <View style={[styles.buyerAvatar, { backgroundColor: accent }]}>
-              <Ionicons name="person" size={18} color="#fff" />
+            <View style={[styles.buyerAvatar, { backgroundColor: accent, overflow: 'hidden' }]}>
+              {order.buyerImage ? (
+                <FastImage
+                  source={fastImageSource(imageUri(order.buyerImage))}
+                  style={{ width: '100%', height: '100%' }}
+                  resizeMode={FastImage.resizeMode.cover}
+                />
+              ) : (
+                <Ionicons name="person" size={18} color="#fff" />
+              )}
             </View>
             <Text style={[styles.buyerName, textStyle]}>{toTitleCase(order.buyerName)}</Text>
           </TouchableOpacity>
