@@ -4288,6 +4288,7 @@
     }
   },
   "battle": {
+    "battleBy": "Battaglia di:",
     "headerTitle": "Articolo in sfida",
     "winner": "Vincitore",
     "vs": "VS",

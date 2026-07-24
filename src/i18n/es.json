@@ -4288,6 +4288,7 @@
     "noHistory": "No hay historial de pagos disponible."
   },
   "battle": {
+    "battleBy": "Batalla por:",
     "headerTitle": "Artículo en batalla",
     "winner": "Ganador",
     "vs": "VS",

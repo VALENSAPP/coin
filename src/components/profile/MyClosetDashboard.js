@@ -526,7 +526,8 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
       loadDashboard();
       loadMarketplaceOverview(overviewRange);
       loadBattlePerformance();
-    }, [loadClosetItems, loadRecentOrders, loadBuyerOrders, loadDashboard, loadMarketplaceOverview, loadBattlePerformance, overviewRange]),
+      loadPriorityBattles();
+    }, [loadClosetItems, loadPriorityBattles, loadRecentOrders, loadBuyerOrders, loadDashboard, loadMarketplaceOverview, loadBattlePerformance, overviewRange]),
   );
 
   useEffect(() => {

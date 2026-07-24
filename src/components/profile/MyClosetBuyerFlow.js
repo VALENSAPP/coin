@@ -337,7 +337,7 @@ const BattleSlide = ({
           </View>
           <Text style={[styles.fighterName, { color: textColor }]} numberOfLines={2}>{battle.right.name}</Text>
           <Text style={[styles.fighterPrice, { color: textColor }]}>{battle.right.price}</Text>
-          <Text style={styles.pctRed}>{battle.right.pct}%</Text>
+          <Text style={[styles.pctRed, {color: accent}]}>{battle.right.pct}%</Text>
           {renderWinnerBadge('right')}
         </View>
       </View>
@@ -3944,17 +3944,9 @@ const MyClosetBuyerOrderReceivedScreen = ({ navigation, route }) => {
         <TouchableOpacity
           activeOpacity={0.85}
           style={[styles.secondaryButton, themedCard(card, border)]}
-          onPress={() => navigation.reset({
-            index: 0,
-            routes: [
-              {
-                name: 'MainApp',
-                params: {
-                  screen: 'wallet',
-                  params: { screen: 'MyCloset' },
-                },
-              },
-            ],
+          onPress={() => navigation.navigate('MainApp', {
+            screen: 'wallet',
+            params: { screen: 'MyCloset' }
           })}
         >
           <Text style={[styles.secondaryButtonText, { color: text }]}>{t('myClosetBuyer.goToMyOrders')}</Text>

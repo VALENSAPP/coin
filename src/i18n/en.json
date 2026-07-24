@@ -4434,6 +4434,7 @@
     "noHistory": "No payout history available."
   },
   "battle": {
+    "battleBy": "Battle By:",
     "headerTitle": "Battle Item",
     "winner": "Winner",
     "vs": "VS",

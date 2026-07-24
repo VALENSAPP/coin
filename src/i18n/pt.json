@@ -4289,6 +4289,7 @@
     }
   },
   "battle": {
+    "battleBy": "Batalha por:",
     "headerTitle": "Item em batalha",
     "winner": "Vencedor",
     "vs": "VS",

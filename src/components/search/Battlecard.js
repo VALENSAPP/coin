@@ -684,19 +684,53 @@ const AndroidBattleRow = ({ children, style, cardWidth = CARD_WIDTH, cardGap = C
                 animOffsetRef.current = next;
             },
 
-            onPanResponderRelease: () => {
+            onPanResponderRelease: (_, gestureState) => {
                 isDraggingRef.current = false;
-                // snap to nearest card then resume step scroll
-                resumeTimerRef.current = setTimeout(() => {
-                    startStepScroll(animOffsetRef.current);
-                }, RESUME_DELAY_MS);
+                
+                const stepSize = cardWidth + cardGap;
+                const { vx, dx } = gestureState;
+                let targetOffset = animOffsetRef.current;
+                
+                if (Math.abs(vx) > 0.5 || Math.abs(dx) > stepSize / 4) {
+                    const direction = vx !== 0 ? Math.sign(vx) : Math.sign(dx);
+                    targetOffset = Math.round(dragStartOffsetRef.current / stepSize) * stepSize + (direction * stepSize);
+                } else {
+                    targetOffset = Math.round(animOffsetRef.current / stepSize) * stepSize;
+                }
+
+                if (targetOffset > 0) targetOffset -= totalWidth;
+                if (targetOffset <= -totalWidth) targetOffset += totalWidth;
+
+                Animated.timing(translateX, {
+                    toValue: targetOffset,
+                    duration: 250,
+                    useNativeDriver: true,
+                }).start(() => {
+                    animOffsetRef.current = targetOffset;
+                    resumeTimerRef.current = setTimeout(() => {
+                        startStepScroll(targetOffset);
+                    }, RESUME_DELAY_MS);
+                });
             },
 
-            onPanResponderTerminate: () => {
+            onPanResponderTerminate: (_, gestureState) => {
                 isDraggingRef.current = false;
-                resumeTimerRef.current = setTimeout(() => {
-                    startStepScroll(animOffsetRef.current);
-                }, RESUME_DELAY_MS);
+                const stepSize = cardWidth + cardGap;
+                let targetOffset = Math.round(animOffsetRef.current / stepSize) * stepSize;
+                
+                if (targetOffset > 0) targetOffset -= totalWidth;
+                if (targetOffset <= -totalWidth) targetOffset += totalWidth;
+
+                Animated.timing(translateX, {
+                    toValue: targetOffset,
+                    duration: 250,
+                    useNativeDriver: true,
+                }).start(() => {
+                    animOffsetRef.current = targetOffset;
+                    resumeTimerRef.current = setTimeout(() => {
+                        startStepScroll(targetOffset);
+                    }, RESUME_DELAY_MS);
+                });
             },
         })
     ).current;

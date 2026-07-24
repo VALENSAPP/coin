@@ -4288,6 +4288,7 @@
     "noHistory": "Aucun historique de paiement disponible."
   },
   "battle": {
+    "battleBy": "Bataille par:",
     "headerTitle": "Article en duel",
     "winner": "Gagnant",
     "vs": "VS",
