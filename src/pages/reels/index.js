@@ -1428,13 +1428,17 @@ export default function FlipsScreen() {
       return;
     }
 
-    if (returnTo == "Search") {
-      // Search is a tab route, so go through the parent tab navigator.
+    if (returnTo == "Search" || returnTo == "SearchHome") {
+      // Search is a tab route (now a stack). Prefer goBack within Search stack.
+      if (navigation.canGoBack()) {
+        navigation.goBack();
+        return;
+      }
       const parentNav = navigation.getParent?.();
       if (parentNav?.navigate) {
-        parentNav.navigate('Search', returnParams);
+        parentNav.navigate('Search', { screen: 'SearchHome', params: returnParams });
       } else {
-        navigation.navigate('Search', returnParams);
+        navigation.navigate('Search', { screen: 'SearchHome', params: returnParams });
       }
       return;
     }

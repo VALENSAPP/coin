@@ -551,6 +551,7 @@
     "removeDrawing": "Remove drawing",
     "invalidLink": "Please enter a valid link starting with http:// or https://",
     "postSuccess": "Post created successfully",
+    "flipSuccess": "Flipped",
     "postFail": "Please try again",
     "postError": "Something went wrong",
     "communityTrustTitle": "Community Trust Post",
@@ -2329,6 +2330,8 @@
     "errorDelete": "Error deleting comment",
     "errorInvalidComment": "Invalid comment",
     "errorNoPermission": "You do not have permission to delete this comment",
+    "mentionSearching": "Searching users...",
+    "mentionNoUsers": "No users found",
     "errorReactionFailed": "Failed to save reaction",
     "errorReaction": "Error saving reaction"
   },
@@ -2396,6 +2399,7 @@
     "trustUndoError": "Unable to undo vote",
     "defaultCreatorName": "Creator",
     "mintedLabel": "Minted {{dateTime}}",
+    "flippedLabel": "Flipped",
     "privateMintLabel": "Private Mint {{dateTime}}",
     "privateContentLabel": "Private Content {{dateTime}}",
     "locationPlaceholder": "(location)",
@@ -3341,7 +3345,19 @@
     "noResultsFound": "No battles found",
     "noBattlesYet": "No battles yet",
     "noResultsSubtitle": "Try a different battle question.",
-    "noBattlesSubtitle": "Start with an opinion battle or invite someone into a head-to-head duel."
+    "noBattlesSubtitle": "Start with an opinion battle or invite someone into a head-to-head duel.",
+    "levelsModal": {
+      "title": "Valens Reputation",
+      "subtitle": "This badge level informs you about battle ranks and achievements.",
+      "currentBadge": "Current",
+      "levelPill": "LEVEL {{level}}",
+      "points": "Points",
+      "battlesWon": "Battles Won",
+      "credibility": "Credibility",
+      "accuracy": "Accuracy",
+      "footer": "Build. Compete. Earn Respect. | Progress through levels by earning Battle Points, maintaining high Accuracy, and building Credibility within the community.",
+      "gotIt": "Got it"
+    }
   },
   "battleTab": {
     "noLiveTitle": "No live battle right now",
