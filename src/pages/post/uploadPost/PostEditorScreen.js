@@ -561,7 +561,11 @@ const PostEditorScreen = () => {
             mergePostOverlayFieldsFromClient(createdWithLocation, overlayFields),
           );
         }
-        showToastMessage(toast, 'success', t('postEditor.postSuccess'));
+        showToastMessage(
+          toast,
+          'success',
+          isFlipPost ? t('postEditor.flipSuccess') : t('postEditor.postSuccess'),
+        );
         navigateAfterPostCreated();
       } else {
         showToastMessage(toast, 'danger', response.message || t('postEditor.postFail'));

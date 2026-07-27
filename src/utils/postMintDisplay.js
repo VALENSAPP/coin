@@ -37,5 +37,18 @@ export const resolveMintTimestamp = post => {
 export const getMintLabelKey = post => {
   if (isPrivateCirclePost(post)) return 'postItem.privateMintLabel';
   if (isPrivateContentPost(post)) return 'postItem.privateContentLabel';
+
+  const type = String(post?.type || '').toLowerCase();
+  const format = String(post?.format || '').toLowerCase();
+  const mediaType = String(post?.mediaType || '').toLowerCase();
+  const isFlip =
+    type === 'reel' ||
+    type === 'flip' ||
+    type === 'flips' ||
+    format === 'reel' ||
+    format === 'flip' ||
+    mediaType === 'flips';
+
+  if (isFlip) return 'postItem.flippedLabel';
   return 'postItem.mintedLabel';
 };

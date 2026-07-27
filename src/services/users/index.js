@@ -12,3 +12,13 @@ export async function getAllUser(params = {}) {
         return axiosInstance.get('user/all', { params });
     }
 }
+
+/**
+ * Search users by display name, username, or email.
+ * GET /user/search?query=
+ */
+export async function searchUsers(query) {
+  const q = String(query || '').trim();
+  if (!q) return { success: true, data: [] };
+  return axiosInstance.get('user/search', { params: { query: q } });
+}

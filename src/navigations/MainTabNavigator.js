@@ -94,6 +94,7 @@ import EbookPublisherScreen from '../pages/wallet/EbookPublisher';
 import TipPayoutSetupScreen from '../pages/wallet/TipPayoutSetup';
 import KYCVerification from '../pages/authentication/kycVerification';
 import FlipsScreen from '../pages/reels';
+import { FLIPS_SCREEN_OPTIONS } from './flipsTransition';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useBusinessProfileTheme } from '../theme/useBusinessProfileTheme';
 import { useThemeContext } from '../theme/ThemeContext';
@@ -448,6 +449,11 @@ export default function MainTabNavigator() {
           component={PostEditorScreen}
           options={{ headerShown: false }}
         />
+        <Stack.Screen
+          name="FlipsScreen"
+          component={FlipsScreen}
+          options={FLIPS_SCREEN_OPTIONS}
+        />
         {/* <Stack.Screen name="OpenBattle" component={OpenBattleScreen} options={{ headerShown: false }} /> */}
         <Stack.Screen
           name="EbookDetail"
@@ -472,6 +478,35 @@ export default function MainTabNavigator() {
         <Stack.Screen
           name="EbookPaymentSuccess"
           component={EbookPaymentSuccessScreen}
+          options={{ headerShown: false }}
+        />
+      </Stack.Navigator>
+    );
+  }, [bg]);
+
+  const SearchStack = useMemo(() => {
+    return () => (
+      <Stack.Navigator
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: bg },
+        }}
+        initialRouteName="SearchHome"
+      >
+        <Stack.Screen name="SearchHome" component={SearchScreen} />
+        <Stack.Screen
+          name="FlipsScreen"
+          component={FlipsScreen}
+          options={FLIPS_SCREEN_OPTIONS}
+        />
+        <Stack.Screen
+          name="PostView"
+          component={PostView}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="UsersProfile"
+          component={Usersprofile}
           options={{ headerShown: false }}
         />
       </Stack.Navigator>
@@ -694,11 +729,7 @@ export default function MainTabNavigator() {
         <Stack.Screen
           name="FlipsScreen"
           component={FlipsScreen}
-          options={{
-            headerShown: false,
-            presentation: 'fullScreenModal', // Optional: makes it feel like a modal transition
-            animation: 'slide_from_bottom', // Optional: adds nice animation
-          }}
+          options={FLIPS_SCREEN_OPTIONS}
         />
         <Stack.Screen
           name="TermConditionScreen"
@@ -1383,6 +1414,7 @@ export default function MainTabNavigator() {
         'EbookBuyDetails',
         'EbookCheckout',
         'EbookPaymentSuccess',
+        'FlipsScreen',
       ];
 
       let currentRouteName = routeName;
@@ -1486,13 +1518,13 @@ export default function MainTabNavigator() {
         />
         <Tab.Screen
           name="Search"
-          component={SearchScreen}
-          options={{
-            tabBarStyle: defaultTabBarStyle,
-          }}
-          listeners={() => ({
-            tabPress: () => {
+          component={SearchStack}
+          options={getHomeMainOptions}
+          listeners={({ navigation }) => ({
+            tabPress: e => {
+              e.preventDefault();
               DeviceEventEmitter.emit('SEARCH_TAB_PRESS');
+              navigation.navigate('Search', { screen: 'SearchHome' });
             },
           })}
         />

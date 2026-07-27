@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Modal,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -17,9 +19,13 @@ import { useAppTheme } from '../../theme/useApptheme';
 import { useThemeContext } from '../../theme/ThemeContext';
 import { useLanguage } from '../../i18n';
 import { sortBattlesLiveFirst } from '../../utils/battleCardUtils';
+import {
+  BATTLE_LEVELS,
+  formatBattleLevelRequirement,
+  getBattleLevelDragonflyIcon,
+  resolveBattleLevel,
+} from '../../utils/battleLevels';
 import Svg, { Polygon } from 'react-native-svg';
-import { getUserDashboard } from '../../services/post';
-import { getDragonflyIcon } from './ProfilePersonalData';
 
 const mixWithWhite = (hex, amount = 0.88) => {
   const normalized = String(hex || '').replace('#', '');
@@ -195,8 +201,8 @@ export default function ProfileBattleHub({
   const [battles, setBattles] = useState([]);
   const [searchText, setSearchText] = useState('');
   const [battlePointSummary, setBattlePointSummary] = useState(emptySummary);
-  const [followerCount, setFollowerCount] = useState(0);
   const [activeTab, setActiveTab] = useState('myBattle');
+  const [levelsModalVisible, setLevelsModalVisible] = useState(false);
 
   const PRIMARY_GRADIENT =
     profile === 'user' ? ['#513189bd', '#e54ba0'] : ['#C9A15a', '#C9A15a'];
@@ -227,42 +233,29 @@ export default function ProfileBattleHub({
   const getBattlePoint = useCallback(async () => {
     if (!viewedUserId) {
       setBattlePointSummary(emptySummary);
-      setFollowerCount(0);
       return;
     }
     try {
-      const [dashRes, bpRes] = await Promise.allSettled([
-        getUserDashboard(viewedUserId),
-        battlePoint({ params: { userId: viewedUserId } })
-      ]);
-
-      if (dashRes.status === 'fulfilled') {
-        const dashData = dashRes.value?.data?.dashboardData || dashRes.value?.data || {};
-        setFollowerCount(Number(dashData?.totalFollowers || 0));
-      }
-
-      if (bpRes.status === 'fulfilled') {
-        const response = bpRes.value;
-        const rawData = response?.data?.data || response?.data || response || {};
-        const totals = rawData?.totals || {};
-        const rawItems = Array.isArray(rawData?.items) ? rawData.items : [];
-        setBattlePointSummary({
-          level: String(rawData?.level || 'Rookie'),
-          totals: {
-            totalBattlesJoined: Number(totals?.totalBattlesJoined || 0),
-            totalBattlesWon: Number(totals?.totalBattlesWon || 0),
-            totalPredictionsCorrect: Number(totals?.totalPredictionsCorrect || 0),
-            totalPredictionsWrong: Number(totals?.totalPredictionsWrong || 0),
-            totalArgumentLikes: Number(totals?.totalArgumentLikes || 0),
-          },
-          predictionAccuracyPercent: Number(rawData?.predictionAccuracyPercent || 0),
-          credibilityScore: Number(rawData?.credibilityScore || 0),
-          liveCount: rawItems.filter((item) =>
-            String(item?.status || '').toUpperCase().includes('LIVE'),
-          ).length,
-          points: Number(totals?.totalBattlePoints || 0),
-        });
-      }
+      const response = await battlePoint({ params: { userId: viewedUserId } });
+      const rawData = response?.data?.data || response?.data || response || {};
+      const totals = rawData?.totals || {};
+      const rawItems = Array.isArray(rawData?.items) ? rawData.items : [];
+      setBattlePointSummary({
+        level: String(rawData?.level || 'Rookie'),
+        totals: {
+          totalBattlesJoined: Number(totals?.totalBattlesJoined || 0),
+          totalBattlesWon: Number(totals?.totalBattlesWon || 0),
+          totalPredictionsCorrect: Number(totals?.totalPredictionsCorrect || 0),
+          totalPredictionsWrong: Number(totals?.totalPredictionsWrong || 0),
+          totalArgumentLikes: Number(totals?.totalArgumentLikes || 0),
+        },
+        predictionAccuracyPercent: Number(rawData?.predictionAccuracyPercent || 0),
+        credibilityScore: Number(rawData?.credibilityScore || 0),
+        liveCount: rawItems.filter((item) =>
+          String(item?.status || '').toUpperCase().includes('LIVE'),
+        ).length,
+        points: Number(totals?.totalBattlePoints || 0),
+      });
     } catch (_err) {
       setBattlePointSummary(emptySummary);
     }
@@ -280,16 +273,53 @@ export default function ProfileBattleHub({
     }, [getBattlePoint, loadBattles]),
   );
 
+  const currentBattleLevel = useMemo(
+    () =>
+      resolveBattleLevel({
+        level: battlePointSummary.level,
+        points: battlePointSummary.points,
+        battlesWon: battlePointSummary.totals.totalBattlesWon,
+        credibility: battlePointSummary.credibilityScore,
+        accuracy: battlePointSummary.predictionAccuracyPercent,
+      }),
+    [battlePointSummary],
+  );
+
+  const levelInfo = useMemo(
+    () => ({
+      tier: currentBattleLevel.title,
+      levelText: `LEVEL ${currentBattleLevel.level}`,
+      color: currentBattleLevel.color,
+      Icon: getBattleLevelDragonflyIcon(currentBattleLevel.iconId, isDarkMode),
+    }),
+    [currentBattleLevel, isDarkMode],
+  );
+
+  const requirementLabels = useMemo(
+    () => ({
+      points: t('battleHub.levelsModal.points'),
+      battlesWon: t('battleHub.levelsModal.battlesWon'),
+      credibility: t('battleHub.levelsModal.credibility'),
+      accuracy: t('battleHub.levelsModal.accuracy'),
+    }),
+    [t],
+  );
+
+  const openLevelsModal = useCallback(() => setLevelsModalVisible(true), []);
+  const closeLevelsModal = useCallback(() => setLevelsModalVisible(false), []);
+
+  const DragonflyIcon = levelInfo.Icon;
+
   const stats = useMemo(
     () => [
-      { key: 'level', label: t('battleHub.statLevel'), value: battlePointSummary.level },
+      { key: 'level', label: t('battleHub.statLevel'), value: currentBattleLevel.title },
       { key: 'joined', label: t('battleHub.statJoined'), value: battlePointSummary.totals.totalBattlesJoined },
       { key: 'won', label: t('battleHub.statWon'), value: battlePointSummary.totals.totalBattlesWon },
       { key: 'accuracy', label: t('battleHub.statAccuracy'), value: `${battlePointSummary.predictionAccuracyPercent}%` },
       { key: 'points', label: t('battleHub.statPoints'), value: battlePointSummary.points },
       { key: 'credibility', label: t('battleHub.statCredibility'), value: battlePointSummary.credibilityScore },
     ],
-    [battlePointSummary, t],
+    [battlePointSummary, currentBattleLevel.title, t],
   );
 
   const openBattle = useCallback(
@@ -325,39 +355,8 @@ export default function ProfileBattleHub({
     return sortBattlesLiveFirst(matched);
   }, [battles, searchText]);
 
-  const levelInfo = useMemo(() => {
-    const normalized = String(battlePointSummary.level || 'Rookie').trim();
-    const upper = normalized.toUpperCase();
-    if (normalized.toLowerCase().includes('level')) {
-      return {
-        tier: 'CHALLENGER',
-        levelText: upper
-      };
-    }
-    switch (normalized.toLowerCase()) {
-      case 'rookie':
-        return { tier: 'ROOKIE', levelText: 'LEVEL 1' };
-      case 'challenger':
-        return { tier: 'CHALLENGER', levelText: 'LEVEL 2' };
-      case 'pro':
-        return { tier: 'PRO', levelText: 'LEVEL 3' };
-      case 'expert':
-        return { tier: 'EXPERT', levelText: 'LEVEL 4' };
-      case 'master':
-        return { tier: 'MASTER', levelText: 'LEVEL 5' };
-      case 'legend':
-        return { tier: 'LEGEND', levelText: 'LEVEL 6' };
-      default:
-        return { tier: upper, levelText: 'LEVEL 1' };
-    }
-  }, [battlePointSummary.level]);
-
-  const DragonflyIcon = useMemo(
-    () => getDragonflyIcon(followerCount, false, isDarkMode),
-    [followerCount, isDarkMode],
-  );
-
   return (
+    <>
     <KeyboardAwareScrollView
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
@@ -383,12 +382,18 @@ export default function ProfileBattleHub({
             </Text>
           </View>
 
-          <View style={styles.dragonflyContainer}>
+          <TouchableOpacity
+            style={styles.dragonflyContainer}
+            onPress={openLevelsModal}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel={t('battleHub.levelsModal.title')}
+          >
             <View style={styles.hexagonWrapper}>
               <Svg width={84} height={84}>
                 <Polygon
                   points="42,2 82,22 82,62 42,82 2,62 2,22"
-                  stroke={accent}
+                  stroke={levelInfo.color}
                   strokeWidth="2.5"
                   fill="transparent"
                   strokeLinejoin="round"
@@ -398,13 +403,10 @@ export default function ProfileBattleHub({
                 <DragonflyIcon width={36} height={36} />
               </View>
             </View>
-            <Text style={[styles.dragonflyTierText, { color: accent }]}>
+            <Text style={[styles.dragonflyTierText, { color: levelInfo.color }]}>
               {levelInfo.tier}
             </Text>
-            {/* <Text style={styles.dragonflyLevelText}>
-              {levelInfo.levelText}
-            </Text> */}
-          </View>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.statsGrid}>
@@ -611,6 +613,123 @@ export default function ProfileBattleHub({
         </View>
       )}
     </KeyboardAwareScrollView>
+      <Modal
+        visible={levelsModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeLevelsModal}
+      >
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={styles.modalBackdrop}
+            activeOpacity={1}
+            onPress={closeLevelsModal}
+          />
+          <View style={[styles.modalContent, bgStyle, { borderColor: border }]}>
+            <ScrollView
+              contentContainerStyle={styles.modalScrollContent}
+              showsVerticalScrollIndicator={false}
+            >
+              <Text style={[styles.modalTitle, { color: labelColor }]}>
+                {t('battleHub.levelsModal.title')}
+              </Text>
+              <Text style={[styles.modalSubtitle, { color: mutedText }]}>
+                {t('battleHub.levelsModal.subtitle')}
+              </Text>
+
+              <View style={styles.levelsGrid}>
+                {BATTLE_LEVELS.map((tier) => {
+                  const isCurrent = tier.id === currentBattleLevel.id;
+                  const requirements = formatBattleLevelRequirement(tier, requirementLabels);
+                  const TierDragonflyIcon = getBattleLevelDragonflyIcon(tier.iconId, isDarkMode);
+                  return (
+                    <View
+                      key={tier.id}
+                      style={[
+                        styles.levelCard,
+                        {
+                          backgroundColor: surfaceBg,
+                          borderColor: isCurrent ? tier.color : border,
+                        },
+                        isCurrent && styles.levelCardCurrent,
+                      ]}
+                    >
+                      {isCurrent ? (
+                        <View style={[styles.currentBadge, { backgroundColor: tier.color }]}>
+                          <Text style={styles.currentBadgeText}>
+                            {t('battleHub.levelsModal.currentBadge')}
+                          </Text>
+                        </View>
+                      ) : null}
+                      <View style={[styles.levelPill, { backgroundColor: `${tier.color}22` }]}>
+                        <Text style={[styles.levelPillText, { color: tier.color }]}>
+                          {t('battleHub.levelsModal.levelPill', { level: tier.level })}
+                        </Text>
+                      </View>
+                      <View style={styles.levelHexWrap}>
+                        <Svg width={56} height={56}>
+                          <Polygon
+                            points="28,2 54,15 54,41 28,54 2,41 2,15"
+                            stroke={tier.color}
+                            strokeWidth="2"
+                            fill="transparent"
+                            strokeLinejoin="round"
+                          />
+                        </Svg>
+                        <View style={styles.levelHexIcon}>
+                          <TierDragonflyIcon width={24} height={24} />
+                        </View>
+                      </View>
+                      <Text
+                        style={[styles.levelTitle, { color: tier.color }]}
+                        numberOfLines={2}
+                      >
+                        {tier.title}
+                      </Text>
+                      {requirements.map((req) => (
+                        <View key={`${tier.id}-${req.key}`} style={styles.reqRow}>
+                          <Ionicons
+                            name={
+                              req.key === 'points'
+                                ? 'star'
+                                : req.key === 'wins'
+                                  ? 'trophy'
+                                  : req.key === 'credibility'
+                                    ? 'shield-checkmark'
+                                    : 'speedometer'
+                            }
+                            size={12}
+                            color={mutedText}
+                            style={styles.reqIcon}
+                          />
+                          <Text style={[styles.reqText, { color: mutedText }]} numberOfLines={1}>
+                            {req.text}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  );
+                })}
+              </View>
+
+              <Text style={[styles.modalFooter, { color: mutedText }]}>
+                {t('battleHub.levelsModal.footer')}
+              </Text>
+
+              <TouchableOpacity
+                style={[styles.modalCloseButton, { backgroundColor: accent }]}
+                onPress={closeLevelsModal}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.modalCloseButtonText}>
+                  {t('battleHub.levelsModal.gotIt')}
+                </Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+    </>
   );
 }
 
@@ -854,5 +973,132 @@ const styles = StyleSheet.create({
     color: '#8b8e9f',
     marginTop: 2,
     textAlign: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  modalContent: {
+    maxHeight: '88%',
+    borderRadius: 20,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  modalScrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 20,
+    paddingBottom: 24,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
+  modalSubtitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginTop: 8,
+    marginBottom: 16,
+    lineHeight: 18,
+  },
+  levelsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  levelCard: {
+    width: '48%',
+    borderRadius: 14,
+    borderWidth: 1.5,
+    paddingHorizontal: 10,
+    paddingTop: 12,
+    paddingBottom: 12,
+    marginBottom: 12,
+    alignItems: 'center',
+  },
+  levelCardCurrent: {
+    borderWidth: 2,
+  },
+  currentBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    borderRadius: 999,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  currentBadgeText: {
+    color: '#fff',
+    fontSize: 9,
+    fontWeight: '800',
+  },
+  levelPill: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginBottom: 8,
+  },
+  levelPillText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  levelHexWrap: {
+    width: 56,
+    height: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+  },
+  levelHexIcon: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  levelTitle: {
+    fontSize: 11,
+    fontWeight: '900',
+    textAlign: 'center',
+    marginBottom: 8,
+    minHeight: 28,
+  },
+  reqRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 3,
+  },
+  reqIcon: {
+    marginRight: 4,
+  },
+  reqText: {
+    flex: 1,
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  modalFooter: {
+    fontSize: 11,
+    fontWeight: '600',
+    textAlign: 'center',
+    lineHeight: 16,
+    marginTop: 4,
+    marginBottom: 16,
+  },
+  modalCloseButton: {
+    minHeight: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalCloseButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '900',
   },
 });

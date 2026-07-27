@@ -1612,8 +1612,9 @@ function PostItem({
                 ? [mediaItem.url]
                 : [],
           isVideo: true,
-          type: 'video',
+          type: 'reel',
           mediaType: 'video',
+          format: 'reel',
           userName: item?.userName || item?.username || t('postItem.unknownUser'),
           userImage: item?.userImage || item?.avatar || null,
           userId: item?.userId || item?.UserId || null,
@@ -1638,17 +1639,23 @@ function PostItem({
 
       // Prefer navigating within the nearest navigator that actually owns `FlipsScreen`
       // so back navigation returns to the current screen automatically.
-      // let targetNavigation = navigation;
-      // while (targetNavigation) {
-      //   const routeNames = targetNavigation.getState?.()?.routeNames || [];
-      //   if (routeNames.includes('FlipsScreen')) {
-      //     targetNavigation.navigate('FlipsScreen', params);
-      //     return;
-      //   }
-      //   targetNavigation = targetNavigation.getParent?.();
-      // }
+      let targetNavigation = navigation;
+      while (targetNavigation) {
+        const routeNames = targetNavigation.getState?.()?.routeNames || [];
+        if (routeNames.includes('FlipsScreen')) {
+          targetNavigation.navigate('FlipsScreen', params);
+          return;
+        }
+        targetNavigation = targetNavigation.getParent?.();
+      }
 
-      // navigation.navigate('ProfileMain', { screen: 'FlipsScreen', params });
+      const parent = navigation.getParent?.();
+      if (parent?.navigate) {
+        parent.navigate('ProfileMain', { screen: 'FlipsScreen', params });
+        return;
+      }
+
+      navigation.navigate('ProfileMain', { screen: 'FlipsScreen', params });
     },
     [item, navigation, returnTo, route?.name, route?.params, t],
   );

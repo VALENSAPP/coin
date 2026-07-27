@@ -888,15 +888,57 @@ const SearchScreen = () => {
 
   const handlePostPress = useCallback((item, isVideo) => {
     const uniqueKey = Date.now().toString();
-    if (item?.type === 'reel') {
+    if (item?.type === 'reel' || isVideo) {
+      let targetNavigation = navigation;
+      while (targetNavigation) {
+        const routeNames = targetNavigation.getState?.()?.routeNames || [];
+        if (routeNames.includes('FlipsScreen')) {
+          targetNavigation.navigate('FlipsScreen', {
+            item: { ...item, type: 'reel', format: 'reel', isVideo: true },
+            key: uniqueKey,
+            returnTo: 'SearchHome',
+            returnParams: route?.params,
+          });
+          return;
+        }
+        targetNavigation = targetNavigation.getParent?.();
+      }
+
       navigation.navigate('ProfileMain', {
         screen: 'FlipsScreen',
-        params: { item, key: uniqueKey, returnTo: route?.name, returnParams: route.params },
+        params: {
+          item: { ...item, type: 'reel', format: 'reel', isVideo: true },
+          key: uniqueKey,
+          returnTo: route?.name,
+          returnParams: route.params,
+        },
       });
     } else {
+      let targetNavigation = navigation;
+      while (targetNavigation) {
+        const routeNames = targetNavigation.getState?.()?.routeNames || [];
+        if (routeNames.includes('PostView')) {
+          targetNavigation.navigate('PostView', {
+            postData: item,
+            startIndex: 0,
+            returnTo: 'SearchHome',
+            returnParams: route.params,
+            hideTabBar: true,
+          });
+          return;
+        }
+        targetNavigation = targetNavigation.getParent?.();
+      }
+
       navigation.navigate('ProfileMain', {
         screen: 'PostView',
-        params: { postData: item, startIndex: 0, returnTo: route.name, returnParams: route.params, hideTabBar: true },
+        params: {
+          postData: item,
+          startIndex: 0,
+          returnTo: route.name,
+          returnParams: route.params,
+          hideTabBar: true,
+        },
         fromSearch: true,
       });
     }
