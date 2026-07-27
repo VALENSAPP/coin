@@ -817,22 +817,28 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
             onSelect={value => setDraft(prev => ({ ...prev, shippingOption: value }))}
           accent={accent}
           />
-          <Field
-            label={t('myClosetItemEditor.shippingFeeLabel')}
-            value={draft.shippingFee}
-            onChangeText={value => setDraft(prev => ({ ...prev, shippingFee: value }))}
-            placeholder={t('myClosetItemEditor.shippingFeePlaceholder')}
-            keyboardType="numeric"
-          />
-          <Field
-            label={t('myClosetItemEditor.shippingTimeLabel')}
-            value={draft.shippingTime}
-            onChangeText={value => setDraft(prev => ({ ...prev, shippingTime: value }))}
-            placeholder={t('myClosetItemEditor.shippingTimePlaceholder')}
-          accent={accent}
-          />
-          {/* Pickup City */}
-          {hasPlacesApi ? (
+          {(!draft.shippingOption || draft.shippingOption !== 'local_pick') && (
+            <>
+              <Field
+                label={t('myClosetItemEditor.shippingFeeLabel')}
+                value={draft.shippingFee}
+                onChangeText={value => setDraft(prev => ({ ...prev, shippingFee: value }))}
+                placeholder={t('myClosetItemEditor.shippingFeePlaceholder')}
+                keyboardType="numeric"
+              />
+              <Field
+                label={t('myClosetItemEditor.shippingTimeLabel')}
+                value={draft.shippingTime}
+                onChangeText={value => setDraft(prev => ({ ...prev, shippingTime: value }))}
+                placeholder={t('myClosetItemEditor.shippingTimePlaceholder')}
+                accent={accent}
+              />
+            </>
+          )}
+          {(draft.shippingOption === 'local_pick' || draft.shippingOption === 'both') && (
+            <>
+              {/* Pickup City */}
+              {hasPlacesApi ? (
             <PlaceFieldRow
               icon="location-outline"
               label={t('myClosetAddItemShipping.pickupCity') || 'Pickup City'}
@@ -1021,6 +1027,8 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
               </View>
             ) : null}
           </View>
+          </>
+          )}
 
           {/* Chat Toggle */}
           <View style={{ flexDirection: 'row', alignItems: 'center', borderRadius: 16, borderWidth: 1, borderColor: surfaces.listBorder, backgroundColor: surfaces.inputSurface, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 16 }}>

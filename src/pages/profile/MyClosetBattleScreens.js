@@ -223,6 +223,7 @@ const participantToItem = (participant, raw) => {
     isWinner: !!participant?.isWinner,
     userName,
     shopName,
+    sellerName: raw?.sellerName,
   };
 };
 
@@ -232,6 +233,9 @@ const productToBattleItem = (product, fallback = {}) => ({
   name: product?.name || fallback?.name || '',
   price: product?.price != null ? currency(product.price) : (fallback?.price || ''),
   image: itemImage(product) || fallback?.image || null,
+  shopName: product?.shopName || fallback?.shopName || '',
+  userName: product?.userName || fallback?.userName || '',
+  sellerName: product?.sellerName || fallback?.sellerName || '',
 });
 
 const normalizeBattle = raw => {
@@ -265,6 +269,7 @@ const normalizeBattle = raw => {
     runnerUpProduct,
     winnerVotePercent: raw?.winner?.votePercentage ?? participants.find(p => p?.isWinner)?.votePercentage ?? null,
     createdBy: raw?.sellerId || raw?.createdBy || raw?.userId || null, // NEW — adjust field name if API differs
+    sellerName: raw?.sellerName || raw?.seller?.userName || raw?.seller?.name,
   };
 };
 
@@ -423,9 +428,9 @@ export const BattleCard = ({ left, right, showWinner = false, winnerPercent, acc
             <View style={styles.winnerCopy}>
               <Text style={[styles.winnerTitle, { color: textColor }]}>{left.name}</Text>
               <Text style={[styles.winnerPrice, { color: textColor }]}>{left.price}</Text>
-              {(left.shopName || left.userName) ? (
+              {(left.shopName || left.userName || left.sellerName) ? (
                 <Text style={[styles.winnerSeller, { color: isDarkMode ? '#AAAAAA' : '#666666', fontSize: 12, marginTop: 2 }]} numberOfLines={1}>
-                  {left.shopName || left.userName}
+                  {left.shopName || left.userName || left.sellerName}
                 </Text>
               ) : null}
             </View>
@@ -445,9 +450,9 @@ export const BattleCard = ({ left, right, showWinner = false, winnerPercent, acc
           />
           <Text style={[styles.itemName, { color: textColor }]}>{left.name}</Text>
           <Text style={[styles.itemPrice, { color: accent }]}>{left.price}</Text>
-          {(left.shopName || left.userName) ? (
+          {(left.shopName || left.userName || left.sellerName) ? (
             <Text style={[styles.itemSeller, { color: isDarkMode ? '#AAAAAA' : '#666666', fontSize: 12, marginTop: 4, textAlign: 'center' }]} numberOfLines={1}>
-              {left.shopName || left.userName}
+              {left.shopName || left.userName || left.sellerName}
             </Text>
           ) : null}
         </View>
@@ -461,9 +466,9 @@ export const BattleCard = ({ left, right, showWinner = false, winnerPercent, acc
           />
           <Text style={[styles.itemName, { color: textColor }]}>{right.name}</Text>
           <Text style={[styles.itemPrice, { color: accent }]}>{right.price}</Text>
-          {(right.shopName || right.userName) ? (
+          {(right.shopName || right.userName || right.sellerName) ? (
             <Text style={[styles.itemSeller, { color: isDarkMode ? '#AAAAAA' : '#666666', fontSize: 12, marginTop: 4, textAlign: 'center' }]} numberOfLines={1}>
-              {right.shopName || right.userName}
+              {right.shopName || right.userName || right.sellerName}
             </Text>
           ) : null}
         </View>
@@ -1593,13 +1598,15 @@ export function BattleLiveScreen({ navigation, route }) {
 
   const question = battle?.title || route?.params?.question || t('battle.defaultQuestion');
   const selectedItems = battle?.items?.length ? battle.items : route?.params?.selectedItems || [];
+  const isCreator = !!currentUserId && !!battle?.createdBy && currentUserId === battle.createdBy;
   const showResultsBar =
     hasVoted ||
+    isOwnProfile ||
+    isCreator ||
     !!route?.params?.showResultsBar ||
     cameFromCard ||
     (battle && (battle.status !== 'LIVE' || battle.outcome !== 'PENDING'));
   const voteAudienceText = battle?.whoCanVote === 'Followers' ? t('battle.followersOnly') : t('battle.everyoneCanVote');
-  const isCreator = !!currentUserId && !!battle?.createdBy && currentUserId === battle.createdBy;
   const isBattleLive = battle?.status === 'LIVE' && battle?.outcome === 'PENDING';
   const isBattleExpired =
     battle?.status === 'EXPIRED' ||
@@ -1607,7 +1614,7 @@ export function BattleLiveScreen({ navigation, route }) {
     (!isBattleLive && battle?.daysLeft === 0);
   const isBattleFinished = ['COMPLETED', 'FINISHED', 'ENDED', 'CLOSED'].includes(String(battle?.status || '').toUpperCase());
   const isBattleVotingOpen = !isBattleExpired && battle?.outcome !== 'CANCELLED';
-  const canVote = isBattleVotingOpen && !hasVoted && !checkingVote;
+  const canVote = isBattleVotingOpen && !hasVoted && !checkingVote && !isOwnProfile && !isCreator;
   const liveScreenTitle = isBattleExpired ? (t('battleInProgress.battleEnded') || 'Battle Ended') : t('battle.liveTitle');
   const votedLabel = t('battle.voting') || 'Voting...';
 
@@ -1944,65 +1951,73 @@ export function BattleLiveScreen({ navigation, route }) {
         </View>
       </View>
 
+      {battle?.sellerName ? (
+        <Text style={{ textAlign: 'left', width: '100%', color: accent, fontSize: 15, fontWeight: 'bold', marginBottom: 4 }}>
+          {t('battle.battleBy') || 'Battle By:'} <Text style={{fontSize: 13}}>{battle.sellerName}</Text>
+        </Text>
+      ) : null}
       <Text style={[liveStyles.question, { color: primaryText }]}>{question}</Text>
       <Text style={[liveStyles.questionSub, { color: subtleMuted }]}>{t('battle.voteSwipeHint') || 'Your vote swipe others decide'}</Text>
 
       <BattleCard left={leftItem} right={rightItem} accent={accent} textColor={primaryText} isDarkMode={isDarkMode} card={surface} border={border || BORDER} />
 
       {/* Vote choice buttons with live counts */}
-      <View style={liveStyles.voteButtonsRow}>
-        {[leftItem, rightItem].map((item, index) => {
-          const isThisVoting = votingParticipantId === item?.participantId;
-          const isThisVoted = votedParticipantId === item?.participantId;
-          const isSelected = selectedParticipantId === item?.participantId;
-          const sideLabel = index === 0 ? 'A' : 'B';
-          return (
-            <TouchableOpacity
-              key={item?.participantId || item?.id || index}
-              activeOpacity={0.9}
-              disabled={!canVote || isThisVoting}
-              onPress={() => setSelectedParticipantId(item?.participantId)}
-              style={[
-                liveStyles.voteButtonWrap,
-                isSelected && liveStyles.voteButtonWrapSelected,
-                (!canVote || isThisVoting) && { opacity: 0.7 },
-              ]}
-            >
-              <LinearGradient
-
-                colors={isThisVoted ? ['#22C55E', '#16A34A'] : isSelected ? [brandAccent, accent] : voteIdleColors}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
+      {!isOwnProfile && !isCreator ? (
+        <View style={liveStyles.voteButtonsRow}>
+          {[leftItem, rightItem].map((item, index) => {
+            const isThisVoting = votingParticipantId === item?.participantId;
+            const isThisVoted = votedParticipantId === item?.participantId;
+            const isSelected = selectedParticipantId === item?.participantId;
+            const sideLabel = index === 0 ? 'A' : 'B';
+            return (
+              <TouchableOpacity
+                key={item?.participantId || item?.id || index}
+                activeOpacity={0.9}
+                disabled={!canVote || isThisVoting}
+                onPress={() => setSelectedParticipantId(item?.participantId)}
                 style={[
-                  liveStyles.voteButtonInner,
-                  {
-                    borderWidth: 1,
-                    borderColor: isThisVoted ? '#16A34A' : isSelected ? brandAccent : voteIdleBorder,
-                  },
+                  liveStyles.voteButtonWrap,
+                  isSelected && liveStyles.voteButtonWrapSelected,
+                  (!canVote || isThisVoting) && { opacity: 0.7 },
                 ]}
               >
-                {isThisVoting ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <>
-                    <Ionicons
-                      name={isThisVoted ? 'checkmark-circle' : 'thumbs-up'}
-                      size={16}
-                      color={isThisVoted || isSelected ? '#fff' : accent}
-                    />
-                    <Text style={[liveStyles.voteButtonText, { color: isThisVoted || isSelected ? '#fff' : primaryText }]}>
-                      {t('battle.vote') || 'Vote'}
-                    </Text>
-                    <Text style={[liveStyles.voteButtonCount, { color: isThisVoted || isSelected ? '#fff' : accent }]}>
-                      {sideLabel}
-                    </Text>
-                  </>
-                )}
-              </LinearGradient>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
+                <LinearGradient
+
+                  colors={isThisVoted ? ['#22C55E', '#16A34A'] : isSelected ? [brandAccent, accent] : voteIdleColors}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={[
+                    liveStyles.voteButtonInner,
+                    {
+                      borderWidth: 1,
+                      borderColor: isThisVoted ? '#16A34A' : isSelected ? brandAccent : voteIdleBorder,
+                    },
+                  ]}
+                >
+                  {isThisVoting ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <>
+                      <Ionicons
+                        name={isThisVoted ? 'checkmark-circle' : 'thumbs-up'}
+                        size={16}
+                        color={isThisVoted || isSelected ? '#fff' : accent}
+                      />
+                      <Text style={[liveStyles.voteButtonText, { color: isThisVoted || isSelected ? '#fff' : primaryText }]}>
+                        {t('battle.vote') || 'Vote'}
+                      </Text>
+                      <Text style={[liveStyles.voteButtonCount, { color: isThisVoted || isSelected ? '#fff' : accent }]}>
+                        {sideLabel}
+                      </Text>
+                    </>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      ) : null}
+
 
       {canVote && !hasVoted ? (
         <TouchableOpacity
@@ -2494,7 +2509,12 @@ export function BattleResultsScreen({ navigation, route }) {
               />
               <View style={styles.resultsCopy}>
                 <Text style={[styles.resultsName, { color: primaryText }]} numberOfLines={2}>{winnerItem.name}</Text>
-                <Text style={[styles.resultsPrice, { color: primaryText }]}>${winnerItem.price}</Text>
+                <Text style={[styles.resultsPrice, { color: primaryText }]}>{winnerItem.price}</Text>
+                {(winnerItem.shopName || winnerItem.userName || winnerItem.sellerName || battle?.sellerName) ? (
+                  <Text style={{ color: subtleMuted, fontSize: 11, marginTop: 4 }} numberOfLines={1}>
+                    From {winnerItem.shopName || winnerItem.userName || winnerItem.sellerName || battle?.sellerName}
+                  </Text>
+                ) : null}
               </View>
               <View style={styles.resultsPercentPill}>
                 <Text style={styles.resultsPercentText}>{winnerVotePercent != null ? `${winnerVotePercent}%` : '—'}</Text>
@@ -2508,7 +2528,12 @@ export function BattleResultsScreen({ navigation, route }) {
               />
               <View style={styles.resultsCopy}>
                 <Text style={[styles.resultsNameSmall, { color: primaryText }]} numberOfLines={2}>{runnerUpItem.name}</Text>
-                <Text style={[styles.resultsPriceSmall, { color: primaryText }]}>${runnerUpItem.price}</Text>
+                <Text style={[styles.resultsPriceSmall, { color: primaryText }]}>{runnerUpItem.price}</Text>
+                {(runnerUpItem.shopName || runnerUpItem.userName || runnerUpItem.sellerName || battle?.sellerName) ? (
+                  <Text style={{ color: subtleMuted, fontSize: 10, marginTop: 2 }} numberOfLines={1}>
+                    From {runnerUpItem.shopName || runnerUpItem.userName || runnerUpItem.sellerName || battle?.sellerName}
+                  </Text>
+                ) : null}
               </View>
               <View style={[styles.resultsPercentPillMuted, isDarkMode && { backgroundColor: border || '#333' }]}>
                 <Text style={[styles.resultsPercentTextMuted, { color: subtleMuted }]}>{Math.max(0, 100 - (winnerVotePercent ?? 0))}%</Text>

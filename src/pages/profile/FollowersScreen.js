@@ -415,13 +415,6 @@ export default function FollowersFollowingScreen({ navigation, route }) {
   );
 
   const handleBack = () => {
-    // Prefer real stack history — custom returnTo routes often break (e.g. own
-    // profile wrongly sent to CreatorProfile and never leaves this screen).
-    if (navigation.canGoBack()) {
-      navigation.goBack();
-      return;
-    }
-
     const nested = route?.params?.params || {};
     const screenParams =
       route?.params?.screenParams ||
@@ -429,6 +422,18 @@ export default function FollowersFollowingScreen({ navigation, route }) {
       nested ||
       {};
     const returnTo = route?.params?.returnTo || nested?.returnTo;
+
+    if (returnTo === 'Dashboard') {
+      navigation.navigate('wallet', { screen: 'Dashboard' });
+      return;
+    }
+
+    // Prefer real stack history for other cases — custom returnTo routes often break 
+    // (e.g. own profile wrongly sent to CreatorProfile and never leaves this screen).
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
     const targetUserId =
       screenParams?.userId ||
       route?.params?.userId ||
@@ -453,10 +458,7 @@ export default function FollowersFollowingScreen({ navigation, route }) {
       return;
     }
 
-    if (returnTo === 'Dashboard') {
-      navigation.navigate('wallet', { screen: 'Dashboard' });
-      return;
-    }
+
 
     navigation.navigate('ProfileMain', { screen: 'Profile' });
   };

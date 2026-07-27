@@ -264,7 +264,22 @@ const HighlightsScreen = ({ navigation, route }) => {
 
       const userHighlights = normalizeHighlightsResponse(userResponse?.data);
       const listHighlights = normalizeHighlightsResponse(listResponse?.data);
-      setHighlights(mergeHighlights(userHighlights, listHighlights));
+      const merged = mergeHighlights(userHighlights, listHighlights);
+
+      // Fetch details immediately so stories and storyCount are visible
+      const detailedHighlights = await Promise.all(
+        merged.map(async (hl) => {
+          try {
+            const res = await getHighlight({ highlightId: hl.id });
+            const detail = normalizeHighlightsResponse(res?.data)[0];
+            return detail ? { ...hl, ...detail } : hl;
+          } catch (e) {
+            return hl;
+          }
+        })
+      );
+
+      setHighlights(detailedHighlights);
     } catch (error) {
       console.error('Error fetching highlights:', error);
       setHighlights([]);
@@ -312,10 +327,14 @@ const HighlightsScreen = ({ navigation, route }) => {
 
   const openEditModal = useCallback(() => {
     if (!activeHighlight || readOnly) return;
-    setManagerMode('edit');
-    setHighlightTitle(activeHighlight.title || '');
-    setManagerVisible(true);
-  }, [activeHighlight, readOnly]);
+    const currentActive = activeHighlight;
+    closeViewer();
+    setTimeout(() => {
+      setManagerMode('edit');
+      setHighlightTitle(currentActive.title || '');
+      setManagerVisible(true);
+    }, 150);
+  }, [activeHighlight, readOnly, closeViewer]);
 
   const closeManagerModal = useCallback(() => {
     setManagerVisible(false);
@@ -366,13 +385,16 @@ const HighlightsScreen = ({ navigation, route }) => {
 
   const openArchiveForExistingHighlight = useCallback(
     highlightId => {
-      navigation.navigate('ArchiveScreen', {
-        selectionMode: 'highlight',
-        presetHighlightId: highlightId,
-        refreshTarget: 'HighlightsScreen',
-      });
+      closeViewer();
+      setTimeout(() => {
+        navigation.navigate('ArchiveScreen', {
+          selectionMode: 'highlight',
+          presetHighlightId: highlightId,
+          refreshTarget: 'HighlightsScreen',
+        });
+      }, 150);
     },
-    [navigation],
+    [navigation, closeViewer],
   );
 
   const handleCreateOrUpdateHighlight = useCallback(async () => {

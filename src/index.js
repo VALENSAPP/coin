@@ -597,6 +597,7 @@ export default function Main() {
 
       if (closetMatch?.[1]) {
         const closetId = decodeURIComponent(closetMatch[1]);
+        const itemId = urlObj.searchParams.get('itemId');
         const loggedInUserId = await AsyncStorage.getItem('userId');
         const isSelf = String(loggedInUserId || '').trim() === String(closetId).trim();
 
@@ -606,7 +607,7 @@ export default function Main() {
               screen: 'ProfileMain',
               params: {
                 screen: 'Profile',
-                params: { id: closetId, initialTab: 'closet' },
+                params: { id: closetId, initialTab: 'closet', itemId },
               },
             })
           );
@@ -616,7 +617,7 @@ export default function Main() {
               screen: 'HomeMain',
               params: {
                 screen: 'UsersProfile',
-                params: { userId: closetId, initialTab: 'closet' },
+                params: { userId: closetId, initialTab: 'closet', itemId },
               },
             })
           );

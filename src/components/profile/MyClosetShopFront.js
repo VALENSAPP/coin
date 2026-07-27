@@ -11,7 +11,7 @@ import {
   Image,
 } from 'react-native';
 import FastImage from 'react-native-fast-image';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useRoute } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useThemeContext } from '../../theme/ThemeContext';
@@ -67,6 +67,8 @@ const fastImageSource = uri =>
       cache: FastImage.cacheControl.immutable,
     }
     : null;
+
+
 
 const normalizePriorityBattle = battle => {
   const participants = Array.isArray(battle?.participants) ? [...battle.participants] : [];
@@ -216,6 +218,7 @@ export const mapBattle = (b, i) => {
     totalVotes,
     status: b.status,
     outcome: b.outcome,
+    sellerName: b.seller?.name
   };
 };
 
@@ -326,7 +329,7 @@ export const BattleSlide = ({ battle, accent, t, onPress, card, border, textColo
           <Text style={[s.fighterName, { color: textColor }]} numberOfLines={2}>{battle.right.name}</Text>
           <Text style={[s.fighterPrice, { color: textColor }]}>{battle.right.price}</Text>
           <View style={s.userRow}>
-            <Text style={s.pctRed}>{battle.right.pct}%</Text>
+            <Text style={[s.pctRed, {color: accent}]}>{battle.right.pct}%</Text>
           </View>
           {renderWinnerBadge('right')}
         </View>
@@ -858,6 +861,22 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
       battleWinner: winnerMeta || null,
     },
   ));
+
+  const route = useRoute();
+  const itemIdToOpen = route?.params?.itemId || route?.params?.params?.itemId || closetNavContext?.itemId;
+  const [hasAutoOpened, setHasAutoOpened] = useState(false);
+
+  useEffect(() => {
+    if (itemIdToOpen && !hasAutoOpened && items.length > 0) {
+      const targetItem = items.find(i => String(i.id || i._id) === String(itemIdToOpen));
+      if (targetItem) {
+        setHasAutoOpened(true);
+        openItem(targetItem);
+      } else {
+        setHasAutoOpened(true);
+      }
+    }
+  }, [itemIdToOpen, hasAutoOpened, items]);
 
   const goBattles = () => navigation?.navigate?.('ProfileMain', {
     screen: 'MyClosetBattles', // or whatever route name you register MyClosetBattlesScreen under
