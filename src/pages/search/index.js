@@ -312,8 +312,10 @@ const calculateMissionStats = (post, raisedAmountOverride = null) => {
 
 // ─── Normalize image URL (stable, outside component) ────────────────────────
 const normalizeImageUrl = url => {
-  if (!url || typeof url !== 'string') return null;
-  const trimmed = url.trim();
+  if (!url) return null;
+  const urlStr = typeof url === 'string' ? url : (url?.url || url?.uri || url?.image || url?.src);
+  if (!urlStr || typeof urlStr !== 'string') return null;
+  const trimmed = urlStr.trim();
   if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:') || trimmed.startsWith('file://')) return trimmed;
   if (trimmed.startsWith('/')) return `${BASE_URL}${trimmed}`;
   return `${BASE_URL}/${trimmed}`;
@@ -698,21 +700,34 @@ const SearchScreen = () => {
         console.log(postsData, 'posts data in search screen');
         const flattenedPosts = [];
         postsData.forEach(post => {
-          if (post?.images && Array.isArray(post.images) && post.images.length > 0) {
-            post.images.forEach((imageUrl, imgIndex) => {
+          const productObj = post?.battleWinnerProduct || post?.product || post?.item || post?.winnerProduct;
+          const rawImages = post?.images || post?.image || post?.media || post?.mediaUrl || productObj?.images || productObj?.image || productObj?.media;
+          const imgArray = Array.isArray(rawImages) ? rawImages : (rawImages ? [rawImages] : []);
+
+          if (imgArray.length > 0) {
+            imgArray.forEach((imgItem, imgIndex) => {
+              const imageUrlStr = typeof imgItem === 'string' ? imgItem : (imgItem?.url || imgItem?.uri || imgItem?.image || '');
+              if (!imageUrlStr) return;
+              const lowerUrl = imageUrlStr.toLowerCase();
               flattenedPosts.push({
                 ...post,
-                mediaUrl: imageUrl,
+                mediaUrl: imageUrlStr,
                 imageIndex: imgIndex,
                 isVideo:
-                  imageUrl?.toLowerCase().includes('.mp4') ||
-                  imageUrl?.toLowerCase().includes('.mov') ||
-                  imageUrl?.toLowerCase().includes('.avi') ||
-                  post?.type === 'video' || post?.mediaType === 'video',
+                  lowerUrl.includes('.mp4') ||
+                  lowerUrl.includes('.mov') ||
+                  lowerUrl.includes('.avi') ||
+                  lowerUrl.includes('.mkv') ||
+                  lowerUrl.includes('.webm') ||
+                  post?.type === 'video' || post?.mediaType === 'video' || post?.isVideo === true,
               });
             });
-          } else if (post?.image) {
-            flattenedPosts.push({ ...post, mediaUrl: post.image, isVideo: false });
+          } else if (post?.image || productObj?.image || post?.mediaUrl) {
+            const imgVal = post?.image || productObj?.image || post?.mediaUrl;
+            const imageUrlStr = typeof imgVal === 'string' ? imgVal : (imgVal?.url || imgVal?.uri || imgVal?.image || '');
+            if (imageUrlStr) {
+              flattenedPosts.push({ ...post, mediaUrl: imageUrlStr, isVideo: false });
+            }
           }
         });
 
@@ -888,7 +903,117 @@ const SearchScreen = () => {
 
   const handlePostPress = useCallback((item, isVideo) => {
     const uniqueKey = Date.now().toString();
-    if (item?.type === 'reel') {
+    const feedItemType = String(item?.feedItemType || '').toLowerCase();
+    const itemType = String(item?.type || '').toLowerCase();
+    const isProductItem =
+      feedItemType === 'battle_winner_product' ||
+      feedItemType === 'product' ||
+      feedItemType === 'closet_product' ||
+      itemType === 'product' ||
+      itemType === 'closet_product' ||
+      item?.isProduct === true ||
+      !!item?.productId ||
+      !!item?.battleWinnerProduct ||
+      (item?.product && (item?.product?.id || item?.product?._id || item?.product?.price || item?.product?.title || item?.product?.name));
+
+    if (isProductItem) {
+      const rawProduct =
+        item?.battleWinnerProduct?.product ||
+        item?.product ||
+        item?.item ||
+        item?.winnerProduct ||
+        item?.battleWinnerProduct ||
+        item;
+      const rawSeller =
+        item?.battleWinnerProduct?.closet ||
+        rawProduct?.seller ||
+        rawProduct?.creator ||
+        rawProduct?.user ||
+        item?.seller ||
+        item?.creator ||
+        item?.user ||
+        {};
+      const cleanProduct = {
+        ...rawProduct,
+        id: rawProduct?.id || rawProduct?._id || rawProduct?.productId || item?.productId,
+        name: rawProduct?.name || rawProduct?.title || rawProduct?.itemName || item?.name || item?.title || item?.itemName || '',
+        price: rawProduct?.price ?? rawProduct?.amount ?? rawProduct?.salePrice ?? item?.price ?? item?.amount ?? item?.salePrice ?? 0,
+        image: rawProduct?.image || rawProduct?.mediaUrl || item?.mediaUrl || item?.image || (Array.isArray(rawProduct?.images) ? rawProduct.images[0] : null),
+        images: rawProduct?.images || item?.images || [rawProduct?.image || rawProduct?.mediaUrl || item?.mediaUrl || item?.image].filter(Boolean),
+        userId: rawSeller?.sellerId || rawSeller?.userId || item?.userId || item?.sellerId || rawProduct?.userId || item?.creator?.id || rawSeller?.id,
+        closetId: rawSeller?.closetId || item?.closetId || rawProduct?.closetId || (rawSeller?.shopName ? rawSeller?.id : undefined),
+        seller: {
+          id: rawSeller?.sellerId || rawSeller?.userId || item?.userId || item?.sellerId || rawProduct?.userId || item?.creator?.id || rawSeller?.id,
+          userName: item?.userName || item?.user?.userName || '',
+          userImage: item?.userImage || item?.user?.userImage || '',
+          profile: item?.profile || 'user',
+          closet: rawSeller,
+        },
+        closet: rawSeller,
+      };
+
+      const isBattleWinner =
+        feedItemType === 'battle_winner_product' ||
+        !!item?.battleWinnerProduct ||
+        item?.isWinner === true ||
+        !!item?.battleWinner ||
+        item?.winnerPct !== undefined ||
+        item?.votePercentage !== undefined ||
+        item?.winningPercentage !== undefined ||
+        rawProduct?.isWinner === true ||
+        rawProduct?.winnerPct !== undefined ||
+        rawProduct?.votePercentage !== undefined ||
+        rawProduct?.winningPercentage !== undefined;
+
+      const pctVal = Number(
+        item?.votePercentage ??
+        item?.winnerPct ??
+        item?.pct ??
+        item?.percentage ??
+        item?.winningPercentage ??
+        rawProduct?.votePercentage ??
+        rawProduct?.winnerPct ??
+        rawProduct?.pct ??
+        rawProduct?.percentage ??
+        rawProduct?.winningPercentage ??
+        50
+      );
+
+      const totalVotesVal = Number(
+        item?.totalVotes ??
+        item?.votes ??
+        item?.voteCount ??
+        rawProduct?.totalVotes ??
+        rawProduct?.votes ??
+        rawProduct?.voteCount ??
+        0
+      );
+
+      const winnerMeta = isBattleWinner ? {
+        pct: isNaN(pctVal) || pctVal <= 0 ? 50 : pctVal,
+        totalVotes: isNaN(totalVotesVal) ? 0 : totalVotesVal,
+        battleId: item?.battleId || item?.battle?.id || rawProduct?.battleId || null,
+        battleTitle: item?.battleTitle || item?.battle?.title || rawProduct?.battleTitle || item?.title || 'Battle Winner',
+      } : null;
+
+      navigation.navigate('ProfileMain', {
+        screen: 'MyClosetBuyerItemDetail',
+        params: {
+          item: cleanProduct,
+          items: [cleanProduct],
+          seller: cleanProduct.seller,
+          sellerId: cleanProduct.userId,
+          closetId: cleanProduct.closetId,
+          isOwnProfile: false,
+          battleWinner: winnerMeta,
+          returnTo: route?.name || 'Search',
+          returnParams: route?.params || {},
+        },
+      });
+      return;
+    }
+
+    if (item?.type === 'reel' || feedItemType === 'reel') {
       navigation.navigate('ProfileMain', {
         screen: 'FlipsScreen',
         params: { item, key: uniqueKey, returnTo: route?.name, returnParams: route.params },

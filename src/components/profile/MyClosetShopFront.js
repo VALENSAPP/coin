@@ -196,7 +196,25 @@ const mapParticipant = (p = {}, closet) => {
 export const mapBattle = (b, i) => {
   const sorted = [...(b.participants ?? [])].sort((a, c) => (a.position ?? 0) - (c.position ?? 0));
   const [p1, p2] = sorted;
-  const winner = b?.winner || sorted.find(p => p?.isWinner) || null;
+  const left = mapParticipant(p1, b.closet);
+  const right = mapParticipant(p2, b.closet);
+
+  let winner = b?.winner || sorted.find(p => p?.isWinner) || null;
+  if (!winner && b?.winnerParticipantId) {
+    winner = sorted.find(p => p?.id === b.winnerParticipantId) || null;
+    if (left.participantId === b.winnerParticipantId) left.isWinner = true;
+    if (right.participantId === b.winnerParticipantId) right.isWinner = true;
+  }
+  if (!winner && b?.winnerProductId) {
+    if (left.productId === b.winnerProductId) { left.isWinner = true; winner = p1; }
+    if (right.productId === b.winnerProductId) { right.isWinner = true; winner = p2; }
+  }
+  const isFinished = ['COMPLETED', 'FINISHED', 'ENDED', 'CLOSED'].includes(String(b?.status || '').toUpperCase()) || b?.outcome === 'COMPLETED';
+  if (!winner && isFinished && left && right) {
+    if (right.pct > left.pct) { right.isWinner = true; winner = p2; }
+    else if (left.pct > right.pct) { left.isWinner = true; winner = p1; }
+  }
+
   const totalVotes = sorted.reduce(
     (sum, p) => sum + Number(p?.voteCount ?? p?.votesCount ?? p?.totalVotes ?? 0),
     0,
@@ -204,21 +222,22 @@ export const mapBattle = (b, i) => {
   return {
     id: String(b.id ?? i),
     title: b.title,
-    left: mapParticipant(p1, b.closet),
-    right: mapParticipant(p2, b.closet),
+    left,
+    right,
     participants: sorted,
-    winnerParticipantId: winner?.id || null,
+    winnerParticipantId: winner?.id || b?.winnerParticipantId || null,
     winnerProductId:
       winner?.product?.id ||
       winner?.product?._id ||
       winner?.productId ||
       winner?.raw?.productId ||
+      b?.winnerProductId ||
       null,
-    winnerPct: Number(winner?.votePercentage ?? winner?.voteCount ?? winner?.pct ?? 0),
+    winnerPct: Number(winner?.votePercentage ?? winner?.voteCount ?? winner?.pct ?? Math.max(left.pct || 0, right.pct || 0)),
     totalVotes,
     status: b.status,
     outcome: b.outcome,
-    sellerName: b.seller?.name
+    sellerName: b.seller?.name || b.closet?.shopName
   };
 };
 
