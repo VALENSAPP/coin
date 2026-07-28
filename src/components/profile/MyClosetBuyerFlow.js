@@ -1994,22 +1994,53 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
   const isOwnProfile = route?.params?.isOwnProfile ?? false;
   const returnTo = route?.params?.returnTo;
   const [currentUserId, setCurrentUserId] = useState(null);
+  const [currentUserLoaded, setCurrentUserLoaded] = useState(false);
   const [liked, setLiked] = useState(false);
   const [wishlistLoading, setWishlistLoading] = useState(false);
   const [detailScrollEnabled, setDetailScrollEnabled] = useState(true);
   const isOutOfStock = Number(item.quantityAvailable) <= 0;
   const productId = item.productId || item.raw?.product?.id || item.raw?.product?._id || item.raw?.id || item.raw?._id || item.id;
-  const ownerUserId = item.raw?.userId || item.raw?.sellerId || item.raw?.battleWinnerProduct?.battle?.userId || item.raw?.battleWinnerProduct?.closet?.sellerId || route?.params?.sellerId || null;
-  const isOwnerViewingItem = !!currentUserId && !!ownerUserId && String(currentUserId) === String(ownerUserId);
+  const ownerUserIds = [
+    route?.params?.seller?.id,
+    route?.params?.sellerId,
+    route?.params?.seller?.userId,
+    route?.params?.seller?.sellerId,
+    seller?.id,
+    seller?.userId,
+    seller?.sellerId,
+    item.raw?.userId,
+    item.raw?.sellerId,
+    item.raw?.seller?.id,
+    item.raw?.seller?.userId,
+    item.raw?.battleWinnerProduct?.battle?.userId,
+    item.raw?.battleWinnerProduct?.closet?.sellerId,
+    item.raw?.closet?.sellerId,
+  ].filter(Boolean);
+  const isOwnerViewingItem =
+    !!currentUserId &&
+    ownerUserIds.some(ownerId => String(currentUserId) === String(ownerId));
+  const hideBuyNow =
+    currentUserLoaded &&
+    (
+      isOwnProfile ||
+      isOwnerViewingItem ||
+      ownerUserIds.some(ownerId => String(currentUserId || '') === String(ownerId))
+    );
 
   useEffect(() => {
     let active = true;
     AsyncStorage.getItem('userId')
       .then(id => {
-        if (active) setCurrentUserId(id);
+        if (active) {
+          setCurrentUserId(id);
+          setCurrentUserLoaded(true);
+        }
       })
       .catch(() => {
-        if (active) setCurrentUserId(null);
+        if (active) {
+          setCurrentUserId(null);
+          setCurrentUserLoaded(true);
+        }
       });
     return () => {
       active = false;
@@ -2183,7 +2214,7 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
           </>
         ) : null}
       </ScrollView>
-      {!isOwnProfile && !isOwnerViewingItem && (
+      {!hideBuyNow && (
         <BottomBar>
           <BottomButton
             label={isOutOfStock ? 'Out of stock' : t('myClosetBuyer.buyNow')}

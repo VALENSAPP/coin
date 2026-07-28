@@ -107,6 +107,15 @@ export const navigateClosetReturn = (navigation, returnTo) => {
   }
 
   if (typeof returnTo === 'string') {
+    if (returnTo === 'SearchHome') {
+      const tabNav = navigation.getParent?.() || navigation;
+      try {
+        tabNav.navigate('Search', { screen: 'SearchHome' });
+        return;
+      } catch (_error) {}
+      if (navigation.canGoBack?.()) navigation.goBack();
+      return;
+    }
     navigation.navigate(returnTo);
     return;
   }
@@ -123,9 +132,19 @@ export const navigateClosetReturn = (navigation, returnTo) => {
       navigation.navigate(tab, { screen, params });
       return;
     } catch (_error) {}
+    if (navigation.canGoBack?.()) navigation.goBack();
+    return;
   }
 
   if (screen) {
+    if (screen === 'SearchHome') {
+      try {
+        tabNav.navigate('Search', { screen: 'SearchHome', params: params || {} });
+        return;
+      } catch (_error) {}
+      if (navigation.canGoBack?.()) navigation.goBack();
+      return;
+    }
     try {
       navigation.navigate(screen, params || {});
       return;

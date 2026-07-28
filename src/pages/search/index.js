@@ -1006,7 +1006,7 @@ const SearchScreen = () => {
           closetId: cleanProduct.closetId,
           isOwnProfile: false,
           battleWinner: winnerMeta,
-          returnTo: route?.name || 'Search',
+          returnTo: { tab: 'Search', screen: 'SearchHome', params: route?.params || {} },
           returnParams: route?.params || {},
         },
       });
