@@ -1928,7 +1928,7 @@
   },
   "subventionSetup": {
     "introTitle": "Assinaturas de fãs",
-    "introBody1": "Assinaturas de fãs em que os criadores definem o próprio preço pelo acesso exclusivo, até $1.000/mês — preços abertos, como OnlyFans ou Patreon.",
+    "introBody1": "Assinaturas de fãs em que os criadores definem o próprio preço pelo acesso exclusivo, até $1.000/mês — preços abertos.",
     "introBody2": "A Valens cobra $9.90/mês dos criadores para ativar o canal de assinatura.",
     "priceSectionTitle": "ðŸ’° PreÃ§o da assinatura",
     "priceSectionSubtitle": "Defina sua taxa mensal por assinante",
@@ -3355,7 +3355,9 @@
     "emailRequired": "O e-mail Ã© obrigatÃ³rio",
     "emailInvalid": "Digite um endereÃ§o de e-mail vÃ¡lido",
     "passwordRequired": "A senha Ã© obrigatÃ³ria",
-    "passwordMinLength": "A senha deve ter pelo menos 6 caracteres"
+    "passwordMinLength": "A senha deve ter pelo menos 6 caracteres",
+    "usernameRequired": "O nome de usuÃ¡rio Ã© obrigatÃ³rio",
+    "usernameNoSpaces": "EspaÃ§os nÃ£o sÃ£o permitidos no nome de usuÃ¡rio"
   },
   "userChat": {
     "errorTitle": "Erro",

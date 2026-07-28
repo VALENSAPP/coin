@@ -45,3 +45,21 @@ export function validatePassword(password, t) {
   }
   return '';
 }
+
+/**
+ * @param {string} username
+ * @param {Function} [t]  - i18n translation function from useLanguage()
+ * @returns {string}  error message, or '' when valid
+ */
+export function validateUsername(username, t) {
+  const value = String(username ?? '');
+  if (!value.trim()) {
+    return t ? t('validation.usernameRequired') : 'Username is required';
+  }
+  if (/\s/.test(value)) {
+    return t
+      ? t('validation.usernameNoSpaces')
+      : 'Spaces are not allowed in username';
+  }
+  return '';
+}

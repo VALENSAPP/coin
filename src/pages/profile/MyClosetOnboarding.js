@@ -33,6 +33,7 @@ import ShareModal from '../../components/modals/ShareModal';
 import PostLocationModal from '../../components/modals/PostLocationModal';
 import { getPlaceDetails, isGooglePlacesConfigured, searchPlacePredictions, searchCityPredictions } from '../../services/googlePlaces';
 import { BASE_URL } from '../../config/urls';
+import { validateUsername } from '../../utils/validation';
 
 const mixWithWhite = (hex, amount = 0.86) => {
   const normalized = String(hex || '').replace('#', '');
@@ -1003,7 +1004,8 @@ const MyClosetCreateShopScreen = ({ navigation, route }) => {
   const handleContinue = () => {
     const nextErrors = {};
     if (isBlank(shopName)) nextErrors.shopName = t('myClosetCreateShop.errors.shopNameRequired');
-    if (isBlank(username)) nextErrors.username = t('myClosetCreateShop.errors.usernameRequired');
+    const usernameError = validateUsername(username, t);
+    if (usernameError) nextErrors.username = usernameError;
 
     if (Object.keys(nextErrors).length > 0) {
       setErrors(nextErrors);
@@ -1037,9 +1039,11 @@ const MyClosetCreateShopScreen = ({ navigation, route }) => {
             value={username}
             onChangeText={value => {
               setUsername(value);
-              if (errors.username) {
-                setErrors(prev => ({ ...prev, username: null }));
-              }
+              const usernameError = validateUsername(value, t);
+              setErrors(prev => ({
+                ...prev,
+                username: usernameError || null,
+              }));
             }}
             prefix="valens.app/"
             text={text}

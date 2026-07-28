@@ -266,10 +266,14 @@ const getProfileData = async (dispatch, navigation, toast, accessToken, refreshT
 
 export const signupReference = async (type, idtoken, toast, dispatch, navigation, profile, userName, t) => {
   try {
+    const sanitizedUserName =
+      userName && userName !== 'Unknown'
+        ? String(userName).replace(/\s+/g, '')
+        : '';
     const payload = {
       registrationType: type,
       profile,
-      ...(userName !== "Unknown" && { userName }),
+      ...(sanitizedUserName && { userName: sanitizedUserName }),
     };
 
     if (type === "GOOGLE") {

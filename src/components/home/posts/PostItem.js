@@ -78,6 +78,7 @@ import {
 import { useLanguage } from '../../../i18n';
 import { navigateToUserProfile } from '../../../utils/navigateToUserProfile';
 import { parseText } from '../../../utils/commentUtils';
+import { resolveUserIdFromUsername } from '../../../utils/mentionUtils';
 import { normalizePostHashtags } from '../../../utils/hashtagUtils';
 import TrustCommentModal from '../../modals/TrustCommentModal';
 import PostLocationModal from '../../modals/PostLocationModal';
@@ -674,15 +675,6 @@ function PostItem({
     ? `${captionValue.slice(0, previewCaptionLength).trimEnd()}... `
     : captionValue;
 
-  const captionTextStyles = useMemo(
-    () => ({
-      hashtag: styles.inlineHashtagText,
-      mention: styles.inlineMentionText,
-      plain: styles.captionText,
-    }),
-    [],
-  );
-
   useEffect(() => {
     setExpanded(false);
     setTrustPanelVisible(false);
@@ -1188,6 +1180,42 @@ function PostItem({
       });
     },
     [currentUserIdStr, navigation, route?.name, route?.params],
+  );
+
+  const mentionPressLock = useRef(false);
+  const handleMentionPress = useCallback(
+    async mentionPart => {
+      if (mentionPressLock.current) return;
+      const username = String(mentionPart || '')
+        .replace(/^@+/, '')
+        .trim();
+      if (!username) return;
+
+      mentionPressLock.current = true;
+      try {
+        const userId = await resolveUserIdFromUsername(username);
+        if (!userId) {
+          showToastMessage(toast, 'danger', t('postEditor.openProfileError'));
+          return;
+        }
+        handleUserProfile(userId);
+      } catch (_) {
+        showToastMessage(toast, 'danger', t('postEditor.openProfileError'));
+      } finally {
+        mentionPressLock.current = false;
+      }
+    },
+    [handleUserProfile, t, toast],
+  );
+
+  const captionTextStyles = useMemo(
+    () => ({
+      hashtag: styles.inlineHashtagText,
+      mention: styles.inlineMentionText,
+      plain: styles.captionText,
+      onMentionPress: handleMentionPress,
+    }),
+    [handleMentionPress],
   );
 
   const normalizeExternalUrl = useCallback((value) => {

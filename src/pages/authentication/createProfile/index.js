@@ -34,6 +34,7 @@ import { useDebouncedCallback } from '../../../hooks/useDebouncedCallback';
 import { setUserProfile } from '../../../redux/actions/UserProfileAction';
 import { showLoader, hideLoader } from '../../../redux/actions/LoaderAction';
 import { useLanguage } from '../../../i18n';
+import { validateUsername } from '../../../utils/validation';
 import {
   pickProfileImageFromCamera,
   pickProfileImageFromGallery,
@@ -117,9 +118,7 @@ export default function CreateProfile() {
     }, [navigation, accessToken, refreshToken])
   );
 
-  const validateUsername = v => {
-    if (!v) return t('createProfile.usernameRequired');
-  };
+  const validateUsernameField = v => validateUsername(v, t);
 
   const validateDisplayName = v => (!v ? t('createProfile.displayNameRequired') : '');
 
@@ -279,7 +278,7 @@ export default function CreateProfile() {
   };
 
   const isValid =
-    !validateUsername(username) &&
+    !validateUsernameField(username) &&
     !validateDisplayName(displayName) &&
     !validateBio(bio) &&
     displayNameStatus === 'approved' &&
@@ -563,7 +562,7 @@ export default function CreateProfile() {
                   value={username}
                   onChangeText={txt => {
                     setUsername(txt);
-                    setErrors(prev => ({ ...prev, username: validateUsername(txt) }));
+                    setErrors(prev => ({ ...prev, username: validateUsernameField(txt) }));
                   }}
                 />
               </View>

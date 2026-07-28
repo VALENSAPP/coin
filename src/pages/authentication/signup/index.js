@@ -29,6 +29,7 @@ import { useAppTheme } from '../../../theme/useApptheme';
 import { setUserProfile } from '../../../redux/actions/UserProfileAction';
 import { setSignupFormData, clearSignupFormData } from '../../../redux/actions/SignupFormAction';
 import { useLanguage } from '../../../i18n';
+import { validateUsername } from '../../../utils/validation';
 
 export default function SignupScreen() {
   const navigation = useNavigation();
@@ -80,7 +81,8 @@ export default function SignupScreen() {
       errs.email = t('signup.emailInvalid');
     }
 
-    if (!userName.trim()) errs.userName = t('signup.usernameRequired');
+    const userNameError = validateUsername(userName, t);
+    if (userNameError) errs.userName = userNameError;
 
     if (!password) {
       errs.password = t('signup.passwordRequired');
@@ -256,11 +258,13 @@ export default function SignupScreen() {
                     value={userName}
                     onChangeText={value => {
                       setUsername(value);
-                      if (errors.userName) {
-                        const next = { ...errors };
-                        delete next.userName;
-                        setErrors(next);
-                      }
+                      const userNameError = validateUsername(value, t);
+                      setErrors(prev => {
+                        const next = { ...prev };
+                        if (userNameError) next.userName = userNameError;
+                        else delete next.userName;
+                        return next;
+                      });
                     }}
                   />
                 </View>

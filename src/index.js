@@ -7,9 +7,7 @@ import { Linking, AppState, DeviceEventEmitter, View } from 'react-native';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Splash from './pages/splashSceen/Splash';
 import { hideLoader } from './redux/actions/LoaderAction';
-import { showToastMessage } from './components/displaytoastmessage';
-import { useToast } from 'react-native-toast-notifications';
-import { refreshToken, markAppPermissionsReady, requestAppLocationPermission } from './services/authentication';
+import { refreshToken, markAppPermissionsReady, requestAppLocationPermission, getAuthDeviceId } from './services/authentication';
 import { ThemeProvider, useThemeContext } from './theme/ThemeContext';
 import { setUserProfile } from './redux/actions/UserProfileAction';
 import { setStripeCustomerId } from './redux/actions/UserAction';
@@ -123,7 +121,6 @@ export default function Main() {
   const userProfile = useSelector(state => state.userProfile.userProfile);
   const isLoggedIn = useSelector(state => state.login.IS_LOGGED_IN);
   const dispatch = useDispatch();
-  const toast = useToast();
   const { t } = useLanguage();
 
   const navigationRef = useRef(null);
@@ -135,6 +132,9 @@ export default function Main() {
   const welcomeModalCloseInFlight = useRef(false);
   const lockLogoutInFlight = useRef(false);
   const postSplashPermissionsRequestedRef = useRef(false);
+  /** Session bootstrap must run once per app process — re-running after login can wipe a valid session. */
+  const sessionBootstrapStartedRef = useRef(false);
+  const checkKycAndShowWelcomeModalRef = useRef(null);
 
   const requestPostSplashPermissions = React.useCallback(() => {
     if (postSplashPermissionsRequestedRef.current) return;
@@ -244,6 +244,8 @@ export default function Main() {
       console.log('KYC polling check failed:', error?.message || error);
     }
   }, [isLoggedIn]);
+
+  checkKycAndShowWelcomeModalRef.current = checkKycAndShowWelcomeModal;
 
   const handleVerificationDoNow = React.useCallback(() => {
     setlockModal(false);
@@ -370,25 +372,23 @@ export default function Main() {
   useEffect(() => {
     dispatch(setUserProfile('normal'));
 
-    // ── Token refresh ──────────────────────────────────────────────────────
+    // ── Token refresh + session validation (ONCE per process) ──────────────
     const fetchRefreshToken = async () => {
       const oldToken = await AsyncStorage.getItem('refreshToken');
+      if (!oldToken) return;
       try {
         const response = await refreshToken({ refreshToken: oldToken });
         if (response?.statusCode === 200) {
           console.log('response in refreshtoken:', response);
           await AsyncStorage.setItem('token', response.data.access_token);
           await AsyncStorage.setItem('refreshToken', response.data.refresh_token);
-        } else {
-          showToastMessage(toast, 'danger', response.data.message);
         }
+        // Non-200: keep existing tokens — do not toast/logout here (transient / expired refresh)
       } catch {
-        // Silent — token refresh failures are non-fatal
+        // Silent — token refresh failures are non-fatal on bootstrap
       }
     };
-    fetchRefreshToken();
 
-    // ── Session validation ─────────────────────────────────────────────────
     const checkLogin = async () => {
       try {
         // ── First-launch detection
@@ -400,44 +400,125 @@ export default function Main() {
           setIsFirstLaunch(false);
         }
 
-        const [loggedI, deviceId] = await Promise.all([
+        const [loggedI, storedDeviceId, userId, token] = await Promise.all([
           AsyncStorage.getItem('isLoggedIn'),
           AsyncStorage.getItem('device_id'),
+          AsyncStorage.getItem('userId'),
+          AsyncStorage.getItem('token'),
         ]);
 
-        if (loggedI !== 'true') { dispatch(loggedOut()); return; }
+        if (loggedI !== 'true') {
+          dispatch(loggedOut());
+          return;
+        }
 
-        const response = await authSesionHistory();
-        const sessions = response?.data?.sessions || [];
-        const currentSession = sessions.find(s => s.deviceId === deviceId);
-
-        if (currentSession) {
+        // Restore local session if API check is inconclusive (keeps user in app)
+        const restoreLocalSession = async () => {
           dispatch(loggedIn());
           await ensureCurrentAccountSaved();
           const storedStripeId = await AsyncStorage.getItem('stripeCustomerId');
           if (storedStripeId) dispatch(setStripeCustomerId(storedStripeId));
-        } else {
-          console.log('Session not found, logging out');
-          const keys = await AsyncStorage.getAllKeys();
+        };
 
-          const keysToRemove = keys.filter(
-            key => key !== 'hasLaunchedBefore' && key !== 'darkMode',
-          );
-
-          await AsyncStorage.multiRemove(keysToRemove);
-          dispatch(loggedOut());
+        let deviceId = storedDeviceId;
+        if (!deviceId) {
+          try {
+            deviceId = await getAuthDeviceId();
+          } catch (e) {
+            console.log('checkLogin: could not resolve device_id', e?.message || e);
+          }
         }
+
+        const response = await authSesionHistory(userId ? { userId } : {});
+        const statusOk =
+          response?.statusCode === 200 ||
+          response?.status === 200 ||
+          (Array.isArray(response?.data?.sessions) || Array.isArray(response?.data));
+
+        // Transient / auth API failure: never wipe a locally valid login
+        if (!statusOk || response?.error === true) {
+          console.log(
+            'checkLogin: session API inconclusive, keeping local session',
+            response?.statusCode ?? response?.message,
+          );
+          if (token) {
+            await restoreLocalSession();
+          } else {
+            dispatch(loggedOut());
+          }
+          return;
+        }
+
+        const rawSessions = response?.data?.sessions ?? response?.data ?? [];
+        const sessions = Array.isArray(rawSessions) ? rawSessions : [];
+        const normalizeId = id => String(id || '').trim();
+        const currentDeviceId = normalizeId(deviceId);
+
+        let currentSession = sessions.find(s => {
+          const sid = normalizeId(s?.deviceId ?? s?.device_id);
+          return Boolean(sid && currentDeviceId && sid === currentDeviceId);
+        });
+
+        if (!currentSession) {
+          currentSession = sessions.find(
+            s => s?.isCurrent || s?.current || s?.isActive || s?.active,
+          );
+        }
+
+        if (currentSession) {
+          await restoreLocalSession();
+          return;
+        }
+
+        // No sessions returned yet (common right after login / backend lag) — keep local login
+        if (sessions.length === 0 && token) {
+          console.log('checkLogin: empty sessions list, keeping local session');
+          await restoreLocalSession();
+          return;
+        }
+
+        // Sessions exist but none match this device — treat as logged out elsewhere
+        console.log('Session not found, logging out');
+        const keys = await AsyncStorage.getAllKeys();
+        const keysToRemove = keys.filter(
+          key => key !== 'hasLaunchedBefore' && key !== 'darkMode',
+        );
+        await AsyncStorage.multiRemove(keysToRemove);
+        dispatch(loggedOut());
       } catch (error) {
         console.log('Error in checkLogin:', error);
+        // Network / unexpected errors must not force logout when local session exists
+        try {
+          const [loggedI, token] = await Promise.all([
+            AsyncStorage.getItem('isLoggedIn'),
+            AsyncStorage.getItem('token'),
+          ]);
+          if (loggedI === 'true' && token) {
+            dispatch(loggedIn());
+            await ensureCurrentAccountSaved();
+            return;
+          }
+        } catch (_) {
+          // fall through
+        }
         dispatch(loggedOut());
       }
     };
-    checkLogin();
+
+    const runSessionBootstrap = async () => {
+      if (sessionBootstrapStartedRef.current) return;
+      sessionBootstrapStartedRef.current = true;
+      await fetchRefreshToken();
+      await checkLogin();
+    };
+    runSessionBootstrap();
 
     // ── AppState ───────────────────────────────────────────────────────────
     const appStateSubscription = AppState.addEventListener('change', nextState => {
       console.log('AppState changed:', appState.current, '->', nextState);
-      if (nextState === 'active') checkKycAndShowWelcomeModal();
+      if (nextState === 'active') {
+        checkKycAndShowWelcomeModalRef.current?.();
+      }
       appState.current = nextState;
     });
 
@@ -711,8 +792,10 @@ export default function Main() {
       linkingSubscription.remove();
       appStateSubscription.remove();
     };
+    // Session bootstrap is guarded by sessionBootstrapStartedRef (runs once).
+    // KYC uses checkKycAndShowWelcomeModalRef so login must not re-trigger checkLogin.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dispatch, toast, isNavigationReady, checkKycAndShowWelcomeModal]);
+  }, [dispatch, isNavigationReady]);
 
   // ─────────────────────────────────────────────────────────────────────────
   // Render

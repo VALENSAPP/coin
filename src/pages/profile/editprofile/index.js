@@ -36,6 +36,7 @@ import { useDebouncedCallback } from '../../../hooks/useDebouncedCallback';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import HexAvatar from '../../../components/home/story.js/HexAvatar';
 import { useLanguage } from '../../../i18n';
+import { validateUsername } from '../../../utils/validation';
 
 const ProfileEditScreen = () => {
   const navigation = useNavigation();
@@ -166,8 +167,9 @@ const ProfileEditScreen = () => {
       }
     }
     if (field === 'username') {
-      if (!value.trim()) {
-        newErrors.username = t('profileEdit.usernameRequired');
+      const usernameError = validateUsername(value, t);
+      if (usernameError) {
+        newErrors.username = usernameError;
       } else {
         delete newErrors.username;
       }

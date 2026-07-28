@@ -1,3 +1,5 @@
+import { getAllUser } from '../services/users';
+
 /**
  * Detect the active @mention token being typed at the cursor.
  * Returns { query, startIndex } or null when not in a mention.
@@ -70,4 +72,35 @@ export function normalizeSearchUsers(response) {
       };
     })
     .filter(Boolean);
+}
+
+/**
+ * Resolve a @username to a user id via /user/all?userName=
+ * @param {string} incomingUsername
+ * @returns {Promise<string|null>}
+ */
+export async function resolveUserIdFromUsername(incomingUsername) {
+  const cleanUsername = decodeURIComponent(String(incomingUsername || '').trim()).replace(
+    /^@+/,
+    '',
+  );
+  if (!cleanUsername) return null;
+
+  try {
+    const response = await getAllUser({ userName: cleanUsername });
+    const users = response?.data?.users ?? response?.data ?? [];
+    const list = Array.isArray(users) ? users : [];
+    const exactMatch = list.find(
+      u =>
+        String(u?.userName || u?.username || '').toLowerCase() ===
+        cleanUsername.toLowerCase(),
+    );
+    const fallbackUser = exactMatch || list[0];
+    const id =
+      fallbackUser?.id || fallbackUser?._id || fallbackUser?.userId || null;
+    return id != null ? String(id).trim() : null;
+  } catch (error) {
+    console.log('Username resolution failed:', error?.message || error);
+    return null;
+  }
 }
