@@ -33,6 +33,7 @@ import {
   getActiveMention,
   insertMention,
   normalizeSearchUsers,
+  resolveUserIdFromUsername,
 } from '../../../utils/mentionUtils';
 import { parseText } from '../../../utils/commentUtils';
 
@@ -147,6 +148,34 @@ const CommentItem = memo(
       [navigation, onCloseSheet],
     );
 
+    const toast = useToast();
+    const mentionPressLock = useRef(false);
+
+    const handleMentionPress = useCallback(
+      async mentionPart => {
+        if (mentionPressLock.current) return;
+        const username = String(mentionPart || '')
+          .replace(/^@+/, '')
+          .trim();
+        if (!username) return;
+
+        mentionPressLock.current = true;
+        try {
+          const userId = await resolveUserIdFromUsername(username);
+          if (!userId) {
+            showToastMessage(toast, 'danger', t('postEditor.openProfileError'));
+            return;
+          }
+          handleNavigateToProfile(userId);
+        } catch (_) {
+          showToastMessage(toast, 'danger', t('postEditor.openProfileError'));
+        } finally {
+          mentionPressLock.current = false;
+        }
+      },
+      [handleNavigateToProfile, t, toast],
+    );
+
     const TRUST_BADGE_CONFIG = {
       AGREE: { label: 'Agree Vote', color: '#059669', bg: '#ECFDF5', icon: '👍' },
       NOT_SURE: { label: 'Not Sure', color: '#D97706', bg: '#FFFBEB', icon: '🤔' },
@@ -203,6 +232,7 @@ const CommentItem = memo(
                 mention: { color: accent, fontWeight: '700' },
                 hashtag: { color: accent, fontWeight: '600' },
                 plain: { color: labelColor },
+                onMentionPress: handleMentionPress,
               })}
             </Text>
             <View style={styles.commentActionsRow}>
@@ -361,6 +391,7 @@ const CommentItem = memo(
                         mention: { color: accent, fontWeight: '700' },
                         hashtag: { color: accent, fontWeight: '600' },
                         plain: { color: labelColor },
+                        onMentionPress: handleMentionPress,
                       })}
                     </Text>
                     <View style={styles.commentActionsRow}>

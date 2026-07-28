@@ -18,19 +18,47 @@ export function getTimeAgo(ts) {
  * Splits text by hashtags (#word) and mentions (@word) and returns an array of Text elements.
  * Used for consistent comment/reply display across CommentItem and ReplyItem.
  * @param {string} text - Raw comment text
- * @param {object} [styles] - Optional style overrides: { hashtag, mention, plain }
+ * @param {object} [styles] - Optional style overrides + press handlers:
+ *   { hashtag, mention, plain, onMentionPress, onHashtagPress }
  * @returns {React.ReactNode[]}
  */
 export function parseText(text, styles = {}) {
   const hashtagStyle = styles.hashtag ?? { color: '#385898' };
   const mentionStyle = styles.mention ?? { color: '#00376b' };
-  return text.split(/([#@][\w_]+)/g).map((part, i) =>
-    part.startsWith('#') ? (
-      <Text key={i} style={hashtagStyle}>{part}</Text>
-    ) : part.startsWith('@') ? (
-      <Text key={i} style={mentionStyle}>{part}</Text>
-    ) : (
-      <Text key={i}>{part}</Text>
-    )
-  );
+  const plainStyle = styles.plain;
+  const { onMentionPress, onHashtagPress } = styles;
+
+  return String(text || '')
+    .split(/([#@][\w.]+)/g)
+    .map((part, i) => {
+      if (part.startsWith('#')) {
+        return (
+          <Text
+            key={i}
+            style={hashtagStyle}
+            suppressHighlighting
+            onPress={onHashtagPress ? () => onHashtagPress(part) : undefined}
+          >
+            {part}
+          </Text>
+        );
+      }
+      if (part.startsWith('@')) {
+        return (
+          <Text
+            key={i}
+            style={mentionStyle}
+            suppressHighlighting
+            onPress={onMentionPress ? () => onMentionPress(part) : undefined}
+          >
+            {part}
+          </Text>
+        );
+      }
+      return (
+        <Text key={i} style={plainStyle}>
+          {part}
+        </Text>
+      );
+    });
 }

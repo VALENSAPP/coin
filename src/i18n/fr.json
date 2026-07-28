@@ -1928,7 +1928,7 @@
   },
   "subventionSetup": {
     "introTitle": "Abonnements fans",
-    "introBody1": "Abonnements fans où les créateurs fixent leur propre prix pour un accès exclusif, jusqu'à 1 000 $/mois — tarification ouverte, comme OnlyFans ou Patreon.",
+    "introBody1": "Abonnements fans où les créateurs fixent leur propre prix pour un accès exclusif, jusqu'à 1 000 $/mois — tarification ouverte.",
     "introBody2": "Valens facture 9,90 $/mois aux créateurs pour activer leur canal d'abonnement.",
     "priceSectionTitle": "ðŸ’° Prix de lâ€™abonnement",
     "priceSectionSubtitle": "DÃ©finissez votre tarif mensuel par abonnÃ©",
@@ -3355,7 +3355,9 @@
     "emailRequired": "Lâ€™adresse e-mail est requise",
     "emailInvalid": "Entrez une adresse e-mail valide",
     "passwordRequired": "Le mot de passe est requis",
-    "passwordMinLength": "Le mot de passe doit contenir au moins 6 caractÃ¨res"
+    "passwordMinLength": "Le mot de passe doit contenir au moins 6 caractÃ¨res",
+    "usernameRequired": "Le nom d'utilisateur est requis",
+    "usernameNoSpaces": "Les espaces ne sont pas autorisÃ©s dans le nom d'utilisateur"
   },
   "userChat": {
     "errorTitle": "Errore",

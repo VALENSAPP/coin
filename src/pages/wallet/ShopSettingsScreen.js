@@ -33,6 +33,7 @@ import {
   updateMyCloset,
 } from '../../services/myCloset';
 import PostLocationModal from '../../components/modals/PostLocationModal';
+import { validateUsername } from '../../utils/validation';
 
 const defaultState = {
   shopName: '',
@@ -299,6 +300,12 @@ const ShopSettingsScreen = ({ navigation }) => {
   }, [t, toast]);
 
   const handleSave = useCallback(async () => {
+    const shopUsernameError = validateUsername(data.shopUsername, t);
+    if (shopUsernameError) {
+      showToastMessage(toast, 'danger', shopUsernameError);
+      return;
+    }
+
     const payload = {
       shopName: String(data.shopName || '').trim(),
       shopUsername: String(data.shopUsername || '').trim(),
@@ -652,6 +659,13 @@ const ShopSettingsScreen = ({ navigation }) => {
           multiline={activeModalConfig?.multiline}
           onCancel={() => setActiveField(null)}
           onSave={value => {
+            if (activeField === 'shopUsername') {
+              const shopUsernameError = validateUsername(value, t);
+              if (shopUsernameError) {
+                showToastMessage(toast, 'danger', shopUsernameError);
+                return;
+              }
+            }
             setData(prev => ({ ...prev, [activeField]: value }));
             setActiveField(null);
           }}

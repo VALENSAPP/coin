@@ -83,6 +83,16 @@ const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 const DOUBLE_TAP_DELAY = 300;
 
+/** Quick reaction emojis for other users' stories/drops (unicode escapes avoid encoding corruption). */
+const STORY_QUICK_REACTIONS = [
+  '\u{1F602}', // 😂
+  '\u{1F60D}', // 😍
+  '\u{1F525}', // 🔥
+  '\u{1F44F}', // 👏
+  '\u{1F44D}', // 👍
+  '\u{1F64C}', // 🙌
+];
+
 function inferStoryMediaTypeFromUrl(url) {
   if (typeof url !== 'string') return 'image';
   const lower = url.toLowerCase().trim();
@@ -1548,7 +1558,7 @@ console.log('VIEWER currentUser:', currentUser?.id, currentUser?.username, 'isUs
               style={[inputStyles.wrap, { paddingBottom: insets.bottom + 20 }]}
             >
               <View style={inputStyles.quickRow}>
-                {['≡ƒæì', '≡ƒæÅ', '≡ƒöÑ', '≡ƒÿì', '≡ƒÿé', '≡ƒÿ«'].map(emo => (
+                {STORY_QUICK_REACTIONS.map(emo => (
                   <TouchableOpacity
                     key={emo}
                     style={inputStyles.quickBtn}
