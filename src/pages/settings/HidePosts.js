@@ -892,11 +892,12 @@ const HidePosts = ({ navigation }) => {
 
       <RBSheet
         ref={commentSheetRef}
-        height={500}
+        height={560}
         openDuration={250}
         draggable
         closeOnPressMask
         customModalProps={{ statusBarTranslucent: true }}
+        customAvoidingViewProps={{ enabled: false }}
         customStyles={{
           container: [
             {
