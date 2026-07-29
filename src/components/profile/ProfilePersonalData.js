@@ -586,6 +586,7 @@ const ProfilePersonData = ({
         readOnly: true,
         profileType: userData?.profile,
         title: userData?.displayName || userData?.userName || t('profilePersonData.highlights'),
+        preloadedHighlights: userData?.highlights || userData?.highlightList || userData?.highlightGroups || [],
       },
     });
   }, [navigation, targetUserId, userData?.displayName, userData?.profile, userData?.userName, t]);

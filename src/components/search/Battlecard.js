@@ -573,7 +573,7 @@ const AUTO_SCROLL_SPEED_PX_PER_MS = 0.04;
 const START_DELAY_MS = 300;
 const ROW_PADDING_LEFT = 10;
 
-const AndroidBattleRow = ({ children, style, cardWidth = CARD_WIDTH, cardGap = CARD_GAP, rowPaddingLeft = ROW_PADDING_LEFT }) => {
+const AndroidBattleRow = ({ children, style, cardWidth = CARD_WIDTH, cardGap = CARD_GAP, rowPaddingLeft = ROW_PADDING_LEFT, autoScroll = true }) => {
     const allChildren = React.Children.toArray(children);
 
     if (allChildren.length === 0) return null;
@@ -634,13 +634,14 @@ const AndroidBattleRow = ({ children, style, cardWidth = CARD_WIDTH, cardGap = C
     }, [totalWidth, translateX]);
 
     useEffect(() => {
+        if (!autoScroll) return undefined;
         const timer = setTimeout(() => startContinuousScroll(0), START_DELAY_MS);
         return () => {
             clearTimeout(timer);
             animRef.current?.stop();
             if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
         };
-    }, [startContinuousScroll]);
+    }, [autoScroll, startContinuousScroll]);
 
     const panResponder = useRef(
         PanResponder.create({
@@ -723,6 +724,22 @@ const AndroidBattleRow = ({ children, style, cardWidth = CARD_WIDTH, cardGap = C
         animRef.current?.stop();
         if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
     }, []);
+
+    if (!autoScroll) {
+        return (
+            <View style={[{ overflow: 'hidden', paddingLeft: rowPaddingLeft }, style]} collapsable={false}>
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    bounces={false}
+                    decelerationRate="fast"
+                    contentContainerStyle={{ flexDirection: 'row' }}
+                >
+                    {allChildren}
+                </ScrollView>
+            </View>
+        );
+    }
 
     return (
         <View
