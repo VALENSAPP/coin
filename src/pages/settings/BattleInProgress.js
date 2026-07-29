@@ -2134,6 +2134,19 @@ export default function BattleInProgress() {
     const entryPoint = route.params?.entryPoint;
 
     if (backTarget) {
+      if (typeof backTarget === 'object' && backTarget?.tab) {
+        navigation.navigate(backTarget.tab, backTarget.screen ? { screen: backTarget.screen, params: backTarget.params } : undefined);
+        return;
+      }
+
+      if (backTarget === 'Search' || backTarget === 'SearchHome') {
+        navigation.navigate('Search', {
+          screen: 'SearchHome',
+          params: returnParams,
+        });
+        return;
+      }
+
       navigation.navigate(backTarget, returnParams);
       return;
     }

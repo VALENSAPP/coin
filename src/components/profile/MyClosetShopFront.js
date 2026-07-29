@@ -1140,7 +1140,7 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
             <View style={s.center}><ActivityIndicator color={brand} /></View>
           ) : (
             <View style={{ marginBottom: 12 }}>
-              <AutoScrollBattleRow cardWidth={SCREEN_W - 12} cardGap={0} rowPaddingLeft={0}>
+              <AutoScrollBattleRow cardWidth={SCREEN_W - 12} cardGap={0} rowPaddingLeft={0} autoScroll={false}>
                 {displayBattles.map((item) => (
                   <BattleSlide
                     key={item.id}

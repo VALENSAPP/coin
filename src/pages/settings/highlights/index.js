@@ -203,9 +203,13 @@ const HighlightsScreen = ({ navigation, route }) => {
   const readOnly = Boolean(route?.params?.readOnly);
   const profileType = route?.params?.profileType;
   const screenTitle = route?.params?.title;
-  const [loading, setLoading] = useState(true);
+  const initialHighlights = useMemo(
+    () => normalizeHighlightsResponse(route?.params?.preloadedHighlights || route?.params?.highlights),
+    [route?.params?.highlights, route?.params?.preloadedHighlights],
+  );
+  const [loading, setLoading] = useState(initialHighlights.length === 0);
   const [refreshing, setRefreshing] = useState(false);
-  const [highlights, setHighlights] = useState([]);
+  const [highlights, setHighlights] = useState(initialHighlights);
   const [viewerVisible, setViewerVisible] = useState(false);
   const [viewerStories, setViewerStories] = useState([]);
   const [viewerIndex, setViewerIndex] = useState(0);
@@ -254,6 +258,25 @@ const HighlightsScreen = ({ navigation, route }) => {
         const userResponse = await getHighlightUserId({ params: { userId } }).catch(() => null);
         const userHighlights = normalizeHighlightsResponse(userResponse?.data);
         setHighlights(userHighlights);
+        Promise.allSettled(
+          userHighlights.map(async hl => {
+            const res = await getHighlight({ highlightId: hl.id });
+            const detail = normalizeHighlightsResponse(res?.data)[0];
+            return detail ? { ...hl, ...detail } : hl;
+          }),
+        ).then(results => {
+          const hydrated = results
+            .map(result => (result.status === 'fulfilled' ? result.value : null))
+            .filter(Boolean);
+          if (hydrated.length) {
+            setHighlights(prev => {
+              const merged = new Map(prev.map(item => [item.id, item]));
+              hydrated.forEach(item => merged.set(item.id, { ...merged.get(item.id), ...item }));
+              return Array.from(merged.values());
+            });
+          }
+        });
+        setLoading(false);
         return;
       }
 
