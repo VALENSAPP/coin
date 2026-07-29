@@ -8,7 +8,7 @@ export function getActiveMention(text, cursor = null) {
   const value = String(text || '');
   const caret = Number.isFinite(cursor) ? Math.max(0, Math.min(cursor, value.length)) : value.length;
   const before = value.slice(0, caret);
-  const match = before.match(/(?:^|[\s([{])@([a-zA-Z0-9._]*)$/);
+  const match = before.match(/(?:^|[\s([{])@([a-zA-Z0-9._-]*)$/);
   if (!match) return null;
 
   const query = match[1] || '';
@@ -40,6 +40,8 @@ export function normalizeSearchUsers(response) {
     (Array.isArray(payload?.data) && payload.data) ||
     (Array.isArray(payload?.users) && payload.users) ||
     (Array.isArray(payload?.data?.users) && payload.data.users) ||
+    (Array.isArray(payload?.data?.data?.users) && payload.data.data.users) ||
+    (Array.isArray(payload?.result?.users) && payload.result.users) ||
     (Array.isArray(payload?.results) && payload.results) ||
     [];
 
@@ -50,7 +52,9 @@ export function normalizeSearchUsers(response) {
       ).trim();
       const username = String(
         user?.userName ?? user?.username ?? user?.handle ?? '',
-      ).trim();
+      )
+        .trim()
+        .replace(/^@+/, '');
       const displayName = String(
         user?.displayName ?? user?.name ?? username ?? '',
       ).trim();

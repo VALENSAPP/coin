@@ -1050,11 +1050,12 @@ const SavedPostsScreen = ({ navigation }) => {
           {/* Comment Sheet */}
           <RBSheet
             ref={commentSheetRef}
-            height={500}
+            height={560}
             openDuration={250}
             draggable={true}
             closeOnPressMask={true}
             customModalProps={{ statusBarTranslucent: true, presentationStyle: 'overFullScreen' }}
+            customAvoidingViewProps={{ enabled: false }}
             onClose={() => {
               setCommentPostId(null);
               setCommentPostOwnerId(null);

@@ -836,11 +836,12 @@ const EbookDetailScreen = () => {
 
       <RBSheet
         ref={commentSheetRef}
-        height={500}
+        height={560}
         openDuration={250}
         draggable={true}
         closeOnPressMask={true}
         customModalProps={{ statusBarTranslucent: true }}
+        customAvoidingViewProps={{ enabled: false }}
         customStyles={{
           container: [
             styles.commentSheetContainer,

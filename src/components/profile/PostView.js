@@ -1324,11 +1324,12 @@ export default function PostView({ postData = [], userData = {} }) {
       {/* Comment Bottom Sheet */}
       <RBSheet
         ref={commentSheetRef}
-        height={500}
+        height={560}
         openDuration={250}
         draggable={true}
         closeOnPressMask={true}
         customModalProps={{ statusBarTranslucent: true }}
+        customAvoidingViewProps={{ enabled: false }}
         customStyles={{
           container: [{
             borderTopLeftRadius: 18,

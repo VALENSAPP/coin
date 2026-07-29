@@ -116,10 +116,10 @@ const Posts = forwardRef(function Posts(
 
     const onKeyboardHide = () => {
       timeout = setTimeout(() => {
-        // reset layout for both sheets
+        // Only purchase sheet used updateLayout historically; comment RBSheet v3
+        // has no updateLayout and its KeyboardAvoidingView caused bounce.
         purchaseSheetRef.current?.updateLayout?.({ height: 500 });
-        commentSheetRef.current?.updateLayout?.({ height: 500 });
-      }, 300); // wait until keyboard animation is done
+      }, 300);
     };
 
     const hideSub = Keyboard.addListener('keyboardDidHide', onKeyboardHide);
@@ -1246,17 +1246,17 @@ const Posts = forwardRef(function Posts(
           {/* Comment Sheet */}
           <RBSheet
             ref={commentSheetRef}
-            height={500}
+            height={560}
             openDuration={250}
             draggable={true}
             closeOnPressMask={true}
             customModalProps={{ statusBarTranslucent: true }}
+            customAvoidingViewProps={{ enabled: false }}
             onClose={() => { Keyboard.dismiss(); setCommentPostId(null); }}
             customStyles={{
               container: [{
                 borderTopLeftRadius: 18,
                 borderTopRightRadius: 18,
-                bottom: -20,
               }, bgStyle],
               draggableIcon: {
                 backgroundColor: '#ccc',

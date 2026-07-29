@@ -8,6 +8,8 @@ import {
   StyleSheet,
   Modal,
   ActivityIndicator,
+  Keyboard,
+  Platform,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { formatDistanceToNow } from 'date-fns';
@@ -28,7 +30,8 @@ import { useThemeContext } from '../../../theme/ThemeContext';
 import HexAvatar from '../story.js/HexAvatar';
 import { useLanguage } from '../../../i18n';
 import { useNavigation } from '@react-navigation/native';
-import { searchUsers } from '../../../services/users';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { searchUsers, getAllUser } from '../../../services/users';
 import {
   getActiveMention,
   insertMention,
@@ -332,7 +335,7 @@ const CommentItem = memo(
                 onSelectionChange={event =>
                   onReplySelectionChange?.(event?.nativeEvent?.selection)
                 }
-                editable={!isPosting}
+                editable={true}
               />
               <TouchableOpacity onPress={onCancelReply}>
                 <Text style={[styles.replyCancelText, { color: mutedText }]}>
@@ -493,13 +496,20 @@ export default function CommentSheet({
   const [activeMention, setActiveMention] = useState(null);
   const [inputSelection, setInputSelection] = useState({ start: 0, end: 0 });
   const [replySelection, setReplySelection] = useState({ start: 0, end: 0 });
+  const [keyboardOffset, setKeyboardOffset] = useState(0);
 
   const isFetchingRef = useRef(false);
   const mentionSearchRef = useRef(null);
   const mentionRequestIdRef = useRef(0);
+  const commentTextRef = useRef('');
+  const replyTextRef = useRef('');
+  const inputSelectionRef = useRef({ start: 0, end: 0 });
+  const replySelectionRef = useRef({ start: 0, end: 0 });
+  const activeMentionRef = useRef(null);
 
   const toast = useToast();
   const { t } = useLanguage();
+  const insets = useSafeAreaInsets();
   const profileImage = useSelector(state => state.profileImage?.profileImg);
   const { bgStyle, card, border, mutedText, accent } = useAppTheme();
   const { isDarkMode } = useThemeContext();
@@ -566,7 +576,28 @@ export default function CommentSheet({
     AsyncStorage.getItem('userId').then(id => setUserId(id || null));
   }, [postId, fetchComments]);
 
+  // Manual keyboard inset — RBSheet's built-in KeyboardAvoidingView (esp. Android
+  // behavior="height") fights adjustResize and makes the sheet bounce on post/dismiss.
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const onShow = event => {
+      const next = Math.max(0, Math.round(event?.endCoordinates?.height || 0));
+      setKeyboardOffset(prev => (prev === next ? prev : next));
+    };
+    const onHide = () => setKeyboardOffset(prev => (prev === 0 ? prev : 0));
+
+    const showSub = Keyboard.addListener(showEvent, onShow);
+    const hideSub = Keyboard.addListener(hideEvent, onHide);
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
   const clearMentionState = useCallback(() => {
+    activeMentionRef.current = null;
     setActiveMention(null);
     setMentionUsers([]);
     setMentionLoading(false);
@@ -585,17 +616,45 @@ export default function CommentSheet({
         return;
       }
 
-      setActiveMention({ ...mention, field });
+      const nextActive = { ...mention, field };
+      activeMentionRef.current = nextActive;
+      setActiveMention(nextActive);
 
       if (mentionSearchRef.current) clearTimeout(mentionSearchRef.current);
+      // Keep previous results visible while the next query loads (avoids flicker).
       setMentionLoading(true);
       const requestId = ++mentionRequestIdRef.current;
+      const searchQuery = query;
 
       mentionSearchRef.current = setTimeout(async () => {
         try {
-          const response = await searchUsers(query);
+          let users = [];
+          try {
+            const response = await searchUsers(searchQuery);
+            users = normalizeSearchUsers(response);
+          } catch (_searchError) {
+            users = [];
+          }
+
+          // Fallback to the same endpoint used by tag/search screens when
+          // /user/search returns nothing or fails for partial queries.
+          if (!users.length) {
+            try {
+              const fallback = await getAllUser({ userName: searchQuery });
+              users = normalizeSearchUsers(fallback);
+            } catch (_fallbackError) {
+              users = [];
+            }
+          }
+
           if (requestId !== mentionRequestIdRef.current) return;
-          setMentionUsers(normalizeSearchUsers(response));
+          const needle = searchQuery.toLowerCase();
+          const filtered = users.filter(user => {
+            const username = String(user.username || '').toLowerCase();
+            const displayName = String(user.displayName || '').toLowerCase();
+            return username.includes(needle) || displayName.includes(needle);
+          });
+          setMentionUsers((filtered.length ? filtered : users).slice(0, 8));
         } catch (_error) {
           if (requestId !== mentionRequestIdRef.current) return;
           setMentionUsers([]);
@@ -604,58 +663,61 @@ export default function CommentSheet({
             setMentionLoading(false);
           }
         }
-      }, 280);
+      }, 220);
     },
     [clearMentionState],
   );
 
   const handleCommentTextChange = useCallback(
     text => {
+      commentTextRef.current = text;
       setCommentText(text);
-      runMentionSearch(text, null, 'comment');
+      runMentionSearch(text, text.length, 'comment');
     },
     [runMentionSearch],
   );
 
   const handleReplyTextChange = useCallback(
     text => {
+      replyTextRef.current = text;
       setReplyText(text);
-      runMentionSearch(text, null, 'reply');
+      runMentionSearch(text, text.length, 'reply');
     },
     [runMentionSearch],
   );
 
   const handleSelectMention = useCallback(
     user => {
-      if (!activeMention || !user?.username) return;
-      const field = activeMention.field;
-      const currentText = field === 'reply' ? replyText : commentText;
+      const mention = activeMentionRef.current;
+      if (!mention || !user?.username) return;
+      const field = mention.field;
+      const currentText =
+        field === 'reply' ? replyTextRef.current : commentTextRef.current;
       const cursor =
-        field === 'reply' ? replySelection.start : inputSelection.start;
+        field === 'reply'
+          ? replySelectionRef.current.start
+          : inputSelectionRef.current.start;
       const { text, cursor: nextCursor } = insertMention(
         currentText,
         cursor,
-        activeMention.startIndex,
+        mention.startIndex,
         user.username,
       );
 
       if (field === 'reply') {
+        replyTextRef.current = text;
+        replySelectionRef.current = { start: nextCursor, end: nextCursor };
         setReplyText(text);
         setReplySelection({ start: nextCursor, end: nextCursor });
       } else {
+        commentTextRef.current = text;
+        inputSelectionRef.current = { start: nextCursor, end: nextCursor };
         setCommentText(text);
         setInputSelection({ start: nextCursor, end: nextCursor });
       }
       clearMentionState();
     },
-    [
-      activeMention,
-      replyText,
-      commentText,
-      replySelection.start,
-      inputSelection.start,
-      clearMentionState,
-    ],
+    [clearMentionState],
   );
 
   useEffect(
@@ -676,6 +738,9 @@ export default function CommentSheet({
     if (isPosting) return;
 
     const trimmedComment = activeText.trim();
+    // Dismiss once up-front so editable toggles don't bounce the sheet.
+    Keyboard.dismiss();
+    clearMentionState();
 
     // ── EDIT FLOW ──────────────────────────────────────────────────────────────
     if (editingComment) {
@@ -690,6 +755,7 @@ export default function CommentSheet({
         ),
       );
       setCommentText('');
+      commentTextRef.current = '';
       setEditingComment(null);
 
       try {
@@ -724,8 +790,8 @@ export default function CommentSheet({
       const threadId = replyingToComment.threadId || replyingToComment.id;
 
       setReplyText('');
+      replyTextRef.current = '';
       setReplyingToComment(null);
-      clearMentionState();
 
       try {
         const response = await postComment(postId, trimmedComment, threadId);
@@ -761,7 +827,7 @@ export default function CommentSheet({
 
     setComments(prev => [tempComment, ...prev]);
     setCommentText('');
-    clearMentionState();
+    commentTextRef.current = '';
     onCommentCountUpdate?.(postId, comments.length + 1);
     setIsPosting(true);
 
@@ -813,6 +879,7 @@ export default function CommentSheet({
       parentId: comment.parentId,
       threadId: comment.parentId || comment.id,
     });
+    replyTextRef.current = '';
     setReplyText('');
     clearMentionState();
     setExpandedReplies(prev => ({
@@ -896,6 +963,7 @@ export default function CommentSheet({
 
   const handleEditComment = useCallback(() => {
     if (!selectedComment) return;
+    commentTextRef.current = selectedComment.text;
     setCommentText(selectedComment.text);
     setEditingComment(selectedComment);
     setIsModalVisible(false);
@@ -1001,12 +1069,16 @@ export default function CommentSheet({
         onChangeReplyText={handleReplyTextChange}
         onReplySelectionChange={selection => {
           if (!selection) return;
+          replySelectionRef.current = selection;
           setReplySelection(selection);
-          runMentionSearch(replyText, selection.start, 'reply');
+          // Skip if text update hasn't landed yet (common Android race).
+          if (selection.start > replyTextRef.current.length) return;
+          runMentionSearch(replyTextRef.current, selection.start, 'reply');
         }}
         onSubmitReply={handleSendComment}
         onCancelReply={() => {
           setReplyingToComment(null);
+          replyTextRef.current = '';
           setReplyText('');
           clearMentionState();
         }}
@@ -1043,46 +1115,64 @@ export default function CommentSheet({
 
   // ─── render ───────────────────────────────────────────────────────────────────
 
+  // Keep input above home-indicator when keyboard is closed; lift by keyboard when open.
+  const bottomPad =
+    keyboardOffset > 0 ? keyboardOffset : Math.max(insets.bottom, 16);
+  // Shrink mention list under the keyboard so rows stay fully visible + scrollable.
+  const mentionMaxHeight = keyboardOffset > 0 ? 156 : 220;
+  const collapseBodyForMention = Boolean(activeMention && keyboardOffset > 0);
+
   return (
-    <View style={[styles.container, bgStyle]}>
+    <View style={[styles.container, bgStyle, { paddingBottom: bottomPad }]}>
       <Text style={[styles.title, { color: labelColor }]}>
         {t('commentSheet.title', { count: comments.length })}
       </Text>
 
-      {initialLoading ? (
-        <View style={styles.emptyContainer}>
-          <ActivityIndicator size="small" color={accent} />
-        </View>
-      ) : comments.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Text style={[styles.emptyText, { color: mutedText }]}>{t('commentSheet.noComments')}</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={comments}
-          keyExtractor={commentKeyExtractor}
-          renderItem={renderCommentItem}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.commentsListContent}
-        />
-      )}
+      <View style={[styles.body, collapseBodyForMention && styles.bodyCollapsed]}>
+        {initialLoading ? (
+          <View style={styles.emptyContainer}>
+            <ActivityIndicator size="small" color={accent} />
+          </View>
+        ) : comments.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Text style={[styles.emptyText, { color: mutedText }]}>
+              {t('commentSheet.noComments')}
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            data={comments}
+            keyExtractor={commentKeyExtractor}
+            renderItem={renderCommentItem}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            contentContainerStyle={styles.commentsListContent}
+            style={styles.commentsList}
+          />
+        )}
+      </View>
 
-      {/* Mention suggestions */}
+      {/* Mention suggestions sit in-flow above the input so they never clip under it */}
       {activeMention ? (
         <View
           style={[
             styles.mentionPanel,
-            { backgroundColor: card, borderColor: border },
+            {
+              backgroundColor: card,
+              borderColor: border,
+              maxHeight: mentionMaxHeight,
+            },
           ]}
         >
-          {mentionLoading ? (
+          {mentionLoading && mentionUsers.length === 0 ? (
             <View style={styles.mentionStatusRow}>
               <ActivityIndicator size="small" color={accent} />
               <Text style={[styles.mentionStatusText, { color: mutedText }]}>
                 {t('commentSheet.mentionSearching')}
               </Text>
             </View>
-          ) : mentionUsers.length === 0 ? (
+          ) : !mentionLoading && mentionUsers.length === 0 ? (
             <Text style={[styles.mentionStatusText, { color: mutedText, padding: 12 }]}>
               {activeMention.query
                 ? t('commentSheet.mentionNoUsers')
@@ -1090,10 +1180,21 @@ export default function CommentSheet({
             </Text>
           ) : (
             <FlatList
-              keyboardShouldPersistTaps="handled"
+              keyboardShouldPersistTaps="always"
+              nestedScrollEnabled
               data={mentionUsers.slice(0, 8)}
               keyExtractor={item => String(item.id)}
-              style={styles.mentionList}
+              style={{ maxHeight: mentionMaxHeight }}
+              contentContainerStyle={styles.mentionListContent}
+              showsVerticalScrollIndicator
+              bounces={false}
+              ListHeaderComponent={
+                mentionLoading ? (
+                  <View style={styles.mentionLoadingHint}>
+                    <ActivityIndicator size="small" color={accent} />
+                  </View>
+                ) : null
+              }
               renderItem={({ item }) => (
                 <TouchableOpacity
                   style={[styles.mentionRow, { borderBottomColor: border }]}
@@ -1123,7 +1224,7 @@ export default function CommentSheet({
 
       {/* Input row */}
       <View style={[styles.inputRow, bgStyle, { borderTopColor: border }]}>
-        <View style={{ marginRight: 8 }}>
+        <View style={styles.inputAvatar}>
           <HexAvatar
             uri={profileImage}
             size={30}
@@ -1156,14 +1257,22 @@ export default function CommentSheet({
             const selection = event?.nativeEvent?.selection;
             if (!selection) return;
             if (replyingToComment) {
+              replySelectionRef.current = selection;
               setReplySelection(selection);
-              runMentionSearch(replyText, selection.start, 'reply');
+              if (selection.start > replyTextRef.current.length) return;
+              runMentionSearch(replyTextRef.current, selection.start, 'reply');
             } else {
+              inputSelectionRef.current = selection;
               setInputSelection(selection);
-              runMentionSearch(commentText, selection.start, 'comment');
+              if (selection.start > commentTextRef.current.length) return;
+              runMentionSearch(
+                commentTextRef.current,
+                selection.start,
+                'comment',
+              );
             }
           }}
-          editable={!isPosting}
+          editable={true}
         />
         <TouchableOpacity
           onPress={handleSendComment}
@@ -1196,8 +1305,10 @@ export default function CommentSheet({
             style={{ marginLeft: 8 }}
             onPress={() => {
               setEditingComment(null);
+              commentTextRef.current = '';
               setCommentText('');
               setReplyingToComment(null);
+              replyTextRef.current = '';
               setReplyText('');
               clearMentionState();
             }}>
@@ -1270,14 +1381,26 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 18,
     borderTopRightRadius: 18,
     paddingHorizontal: 16,
-    paddingTop: 8,
-    marginBottom: 20,
+    paddingTop: 4,
   },
   title: {
     fontSize: 16,
     fontWeight: '600',
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
+  },
+  body: {
+    flex: 1,
+    minHeight: 0,
+  },
+  bodyCollapsed: {
+    flex: 0,
+    height: 0,
+    overflow: 'hidden',
+    opacity: 0,
+  },
+  commentsList: {
+    flex: 1,
   },
   commentCard: {
     borderRadius: 16,
@@ -1405,28 +1528,28 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   inputRow: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 15,
-    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingBottom: 8,
+    paddingHorizontal: 0,
     borderTopWidth: 1,
   },
+  inputAvatar: {
+    marginRight: 8,
+  },
   input: {
-    width: '70%',
+    flex: 1,
     borderWidth: 1,
     borderRadius: 20,
     paddingHorizontal: 14,
-    paddingVertical: 6,
+    paddingVertical: 8,
     fontSize: 14,
-    marginRight: 20,
+    marginRight: 12,
   },
   sendText: {
     fontWeight: '600',
-    fontSize: 18,
+    fontSize: 16,
   },
   sendTextDisabled: {
     opacity: 0.4,
@@ -1441,17 +1564,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   commentsListContent: {
-    paddingBottom: 70,
+    paddingBottom: 12,
+    flexGrow: 1,
   },
   mentionPanel: {
-    maxHeight: 220,
     borderWidth: 1,
     borderRadius: 14,
     marginBottom: 8,
     overflow: 'hidden',
   },
-  mentionList: {
-    maxHeight: 220,
+  mentionListContent: {
+    paddingBottom: 4,
+  },
+  mentionLoadingHint: {
+    paddingVertical: 6,
+    alignItems: 'center',
   },
   mentionStatusRow: {
     flexDirection: 'row',
@@ -1470,6 +1597,7 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
+    minHeight: 48,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   mentionMeta: {

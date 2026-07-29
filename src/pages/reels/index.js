@@ -2402,18 +2402,19 @@ export default function FlipsScreen() {
 
         <RBSheet
           ref={commentSheetRef}
-          height={500}
+          height={560}
           openDuration={250}
           draggable
           closeOnPressMask
           customModalProps={{ statusBarTranslucent: true }}
+          customAvoidingViewProps={{ enabled: false }}
           onClose={() => {
             Keyboard.dismiss();
             setCommentPostId(null);
           }}
           customStyles={{
             container: [
-              { borderTopLeftRadius: 18, borderTopRightRadius: 18, bottom: -20 },
+              { borderTopLeftRadius: 18, borderTopRightRadius: 18 },
               bgStyle,
             ],
             draggableIcon: { backgroundColor: '#ccc', width: 60 },
