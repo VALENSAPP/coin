@@ -16,6 +16,8 @@ import {
   ActivityIndicator,
   Pressable,
   StyleSheet,
+  Image,
+  Dimensions,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
@@ -28,7 +30,94 @@ import { exploretBattle } from '../../services/battle';
 import BattleCard from '../../components/search/Battlecard';
 import { BattleSlide, mapBattle } from '../../components/profile/MyClosetShopFront';
 import { mapBattleCard } from '../../utils/battleCardUtils';
+import { navigateToBattleLive, withClosetNavParams, buildClosetReturnTo } from '../../utils/closetNavigation';
 import { useLanguage } from '../../i18n';
+
+const BoostedWinnerCard = ({ item, cardWidth, accent, border, onPress }) => {
+  const raw = item?.raw || item;
+  const bwp = raw?.battleWinnerProduct || {};
+  const product = bwp?.product || bwp || {};
+
+  const productName =
+    product?.name || product?.title ||
+    bwp?.name || bwp?.title || 'Battle Winner';
+  const productPrice =
+    product?.price != null ? `$${Number(product.price).toFixed(2)}` :
+      bwp?.price != null ? `$${Number(bwp.price).toFixed(2)}` : '';
+  const productImage =
+    (Array.isArray(product?.images) ? product.images[0] : null) ||
+    product?.image ||
+    (Array.isArray(bwp?.images) ? bwp.images[0] : null) ||
+    bwp?.image || null;
+
+  const votePercentage =
+    bwp?.votePercentage ??
+    bwp?.winnerPct ??
+    product?.votePercentage ??
+    raw?.winnerPct ??
+    100;
+  const displayPct = Math.round(Number(votePercentage) || 0);
+  const cardH = 215;
+  const imgW = Math.round(cardWidth * 0.42);
+
+  return (
+    <TouchableOpacity
+      activeOpacity={0.88}
+      onPress={onPress}
+      style={{
+        width: cardWidth,
+        height: cardH,
+        borderRadius: 14,
+        overflow: 'hidden',
+        flexDirection: 'row',
+        backgroundColor: accent || '#6C3FE8',
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: border,
+      }}
+    >
+      <View style={{ width: imgW, height: cardH, position: 'relative' }}>
+        {productImage ? (
+          <Image
+            source={{ uri: productImage }}
+            style={{ width: '100%', height: '100%' }}
+            resizeMode="cover"
+            fadeDuration={0}
+          />
+        ) : (
+          <View style={{ width: '100%', height: '100%', backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' }}>
+            <Icon name="bag-handle-outline" size={40} color="rgba(255,255,255,0.4)" />
+          </View>
+        )}
+      </View>
+      <View style={{ flex: 1, paddingHorizontal: 14, paddingVertical: 12, justifyContent: 'space-between' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Icon name="swap-horizontal-outline" size={14} color="rgba(255,255,255,0.8)" />
+          <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 10, fontWeight: '600', letterSpacing: 1, textTransform: 'uppercase' }}>
+            Battle Winner
+          </Text>
+        </View>
+        <Text numberOfLines={2} style={{ color: '#fff', fontSize: 18, fontWeight: '800', lineHeight: 22, marginTop: 4 }}>
+          {productName}
+        </Text>
+        {!!productPrice && (
+          <Text style={{ color: '#C8A8FF', fontSize: 20, fontWeight: '800', marginTop: 2 }}>
+            {productPrice}
+          </Text>
+        )}
+        <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 8, paddingVertical: 6, paddingHorizontal: 10, marginTop: 6, gap: 8 }}>
+          <View style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: accent || '#6C3FE8', alignItems: 'center', justifyContent: 'center' }}>
+            <Icon name="trending-up-outline" size={14} color="#fff" />
+          </View>
+          <View style={{ width: 1, height: '100%', backgroundColor: 'rgba(255,255,255,0.25)' }} />
+          <View>
+            <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>{displayPct}%</Text>
+            <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 10 }}>Community Votes</Text>
+          </View>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+};
 
 export default function BattleExplore({ onClose, profile }) {
   const navigation = useNavigation();
@@ -39,6 +128,7 @@ export default function BattleExplore({ onClose, profile }) {
   const labelColor = isDarkMode ? '#ffffff' : '#111827';
   const inputSurface = isDarkMode ? 'rgba(255,255,255,0.08)' : card;
   const { t } = useLanguage();
+  const cardWidth = Dimensions.get('window').width - 32;
 
   const [battles, setBattles] = useState([]);
   const [filteredBattles, setFilteredBattles] = useState([]);
@@ -56,6 +146,27 @@ export default function BattleExplore({ onClose, profile }) {
   useEffect(() => {
     AsyncStorage.getItem('userId').then(id => setUserId(id));
   }, []);
+
+  const isOwnProfileForCloset = async (closetLike) => {
+    const storedUserId = await AsyncStorage.getItem('userId');
+    const closetId =
+      closetLike?.id ??
+      closetLike?._id ??
+      closetLike?.userId ??
+      closetLike?.sellerId ??
+      closetLike?.closetId ??
+      '';
+
+    const normalizedUserId = String(storedUserId ?? '').trim();
+    const normalizedClosetId = String(closetId ?? '').trim();
+
+    console.log('userId----------------------------', storedUserId, typeof storedUserId);
+    console.log('closetId----------------------------', closetId, typeof closetId);
+
+    console.log('normalizedUserId ----------------------------', normalizedUserId !== '' && normalizedUserId === normalizedClosetId);
+
+    return normalizedUserId !== '' && normalizedUserId === normalizedClosetId;
+  }
 
   const fetchBattles = useCallback(async (isSilent = false) => {
     if (!isSilent) setLoading(true);
@@ -162,21 +273,87 @@ export default function BattleExplore({ onClose, profile }) {
     selectedBattleOptionsRef.current = selectedBattleOptions;
   }, [selectedBattleOptions]);
 
-  const handleBattleCardPress = useCallback((battleItem) => {
-    if (battleItem?.typeByBattle === 'marketPlace') {
-      const mappedBattle = mapBattle(battleItem.raw || battleItem, 0);
-      navigation.navigate('ProfileMain', {
-        screen: 'BattleLive',
-        params: {
-          battleId: mappedBattle?.id,
-          initialBattle: mappedBattle,
-          userProfile: profile,
-          selectedItems: [mappedBattle?.left, mappedBattle?.right].filter(Boolean),
-          returnToProfile: { tab: 'Search' },
-        }
+  const handleBattleCardPress = useCallback(async(battleItem) => {
+    const raw = battleItem?.raw || battleItem;
+    const fmt = String(raw?.format || battleItem?.format || '').toLowerCase();
+    const tbb = String(raw?.typeByBattle || battleItem?.typeByBattle || '').toLowerCase();
+
+    if (fmt === 'boosted' || tbb === 'boosted_product') {
+      const bwp = raw?.battleWinnerProduct || {};
+      const product = bwp?.product || bwp || {};
+      const closet = bwp?.closet || {};
+      const seller = bwp?.seller || {};
+      console.log("seller------------------------------",seller)
+      const cleanProduct = {
+        ...product,
+        id: product?.id || product?._id || bwp?.id,
+        name: product?.name || product?.title || bwp?.name || '',
+        price: product?.price ?? bwp?.price ?? 0,
+        image:
+          (Array.isArray(product?.images) ? product.images[0] : null) ||
+          product?.image ||
+          (Array.isArray(bwp?.images) ? bwp.images[0] : null) ||
+          bwp?.image || null,
+        images: product?.images || bwp?.images || [],
+        userId: closet?.sellerId || closet?.userId || product?.userId,
+        closetId: closet?.closetId || closet?.id,
+        seller: {
+          id: closet?.sellerId || closet?.userId || product?.userId,
+          userName: closet?.shopUsername || '',
+          userImage: closet?.shopLogo || '',
+          profile: 'user',
+          closet,
+        },
+        closet,
+      };
+      const votePercentage =
+        bwp?.votePercentage ?? bwp?.winnerPct ?? product?.votePercentage ?? raw?.winnerPct ?? 100;
+      const winnerMeta = {
+        pct: Math.round(Number(votePercentage) || 0),
+        totalVotes: raw?.totalVotes || 0,
+        battleId: raw?.id || null,
+        battleTitle: raw?.title || 'Battle Winner',
+      };
+      const isOwnProfile = await isOwnProfileForCloset(seller);
+      console.log("isOwnProfile------------------",isOwnProfile)
+      console.log("isOwnProfile------------------",typeof(isOwnProfile))
+      navigation?.navigate?.('ProfileMain', {
+        screen: 'MyClosetBuyerItemDetail',
+        params: withClosetNavParams(
+          { params: {} },
+          {
+            item: cleanProduct?.raw || cleanProduct,
+            items: [cleanProduct],
+            seller: cleanProduct.seller,
+            sellerId: cleanProduct.userId,
+            closetId: cleanProduct.closetId,
+            isOwnProfile: isOwnProfile,
+            battleWinner: winnerMeta || null,
+            returnTo: { tab: 'Search', screen: 'SearchHome', params: {} },
+            returnParams: {},
+          },
+        ),
       });
       return;
     }
+
+    if (fmt === 'marketplace' || tbb === 'marketplace') {
+      const mappedBattle = mapBattle(raw || battleItem, 0);
+      const closet = raw?.closet || battleItem?.raw?.closet || battleItem?.closet || {};
+      navigateToBattleLive(navigation, {
+        battleId: mappedBattle?.id,
+        initialBattle: mappedBattle,
+        userProfile: profile,
+        selectedItems: [mappedBattle?.left, mappedBattle?.right].filter(Boolean),
+        isOwnProfile: isOwnProfileForCloset(closet),
+        returnToProfile: buildClosetReturnTo({
+          isOwnProfile: isOwnProfileForCloset(closet),
+          sellerProfile: profile,
+        }),
+      });
+      return;
+    }
+
     navigation.navigate('ProfileMain', {
       screen: 'BattleInProgress',
       params: {
@@ -191,10 +368,28 @@ export default function BattleExplore({ onClose, profile }) {
   }, [navigation, profile]);
 
   const renderItem = useCallback(({ item, index }) => {
-    if (item.typeByBattle === 'marketPlace') {
+    const rawFormat = String(item?.raw?.format || item?.format || '').toLowerCase();
+    const rawTypeByBattle = String(item?.raw?.typeByBattle || item?.typeByBattle || '').toLowerCase();
+    const isMarketplace = rawFormat === 'marketplace' || rawTypeByBattle === 'marketplace';
+    const isBoosted = rawFormat === 'boosted' || rawTypeByBattle === 'boosted_product';
+
+    if (isMarketplace || isBoosted) {
+      if (isBoosted) {
+        return (
+          <View style={[styles.cardWrapper, styles.marketplaceCardWrapper]}>
+            <BoostedWinnerCard
+              item={item}
+              cardWidth={cardWidth}
+              accent={accent}
+              border={border}
+              onPress={() => handleBattleCardPress(item.raw || item)}
+            />
+          </View>
+        );
+      }
       const mappedBattle = mapBattle(item.raw || item, index);
       return (
-        <View style={styles.cardWrapper}>
+        <View style={[styles.cardWrapper, styles.marketplaceCardWrapper]}>
           <BattleSlide
             key={item.id || mappedBattle.id}
             battle={mappedBattle}
@@ -205,7 +400,7 @@ export default function BattleExplore({ onClose, profile }) {
             border={border}
             textColor={text}
             mutedText={mutedText}
-            isDark={isDarkMode}
+            isDark={false}
             thumbSurface={isDarkMode ? '#333' : '#f5f3ef'}
             mutedColor={mutedText}
             loadingOverlayColor={isDarkMode ? 'rgba(0,0,0,0.5)' : 'rgba(245,243,238,0.72)'}
@@ -220,6 +415,7 @@ export default function BattleExplore({ onClose, profile }) {
         <BattleCard
           item={item}
           fullWidth
+          bottomMargin={0}
           selectedOption={selectedBattleOptions[item.id]}
           onCardPress={handleBattleCardPress}
           onOptionSelect={updateSelectedBattleOption}
@@ -352,8 +548,11 @@ const styles = StyleSheet.create({
   },
   cardWrapper: {
     width: '100%',
-    marginBottom: 16,
-    paddingHorizontal: 4,
+    marginBottom: 0,
+    paddingHorizontal: 0,
+  },
+  marketplaceCardWrapper: {
+    marginBottom: 12,
   },
   emptyContainer: {
     flex: 1,

@@ -12,6 +12,7 @@
  * 8. useMemo dependencies tightened to prevent cascade recalculations
  * 9. Extracted BattleCard as React.memo to prevent re-render on scroll
  * 10. Videos only autoplay when screen is focused + debounce cleaned up properly
+ * 11. Boosted/marketplace battle cards now match BattleCard's real height + spacing
  */
 
 import React, {
@@ -66,7 +67,11 @@ import HexAvatar from '../../components/home/story.js/HexAvatar';
 import BattleCard, { AutoScrollBattleRow } from '../../components/search/Battlecard';
 import BattleExplore from './BattleExplore';
 import { BattleSlide, mapBattle } from '../../components/profile/MyClosetShopFront';
-import { buildClosetReturnTo } from '../../utils/closetNavigation';
+import {
+  buildClosetReturnTo,
+  navigateToBattleLive,
+  withClosetNavParams,
+} from '../../utils/closetNavigation';
 import { getUserCredentials } from '../../services/post';
 import { useLanguage } from '../../i18n';
 import { BASE_URL } from '../../config/urls';
@@ -443,6 +448,227 @@ const MasonryItem = memo(
     prev.height === next.height,
 );
 
+// ─── BoostedWinnerCard ───────────────────────────────────────────────────────
+// cardHeight is passed in from SearchScreen so this matches BattleCard's real
+// measured height. Falls back to 160 only until the measurement is available.
+const BoostedWinnerCard = memo(({ item, cardWidth, cardHeight, accent, card, border, text, mutedText, onPress }) => {
+  const raw = item?.raw || item;
+  const bwp = raw?.battleWinnerProduct || {};
+  const product = bwp?.product || bwp || {};
+  const closet = bwp?.closet || {};
+
+  const productName =
+    product?.name || product?.title ||
+    bwp?.name || bwp?.title || 'Battle Winner';
+  const productPrice =
+    product?.price != null ? `$${Number(product.price).toFixed(2)}` :
+      bwp?.price != null ? `$${Number(bwp.price).toFixed(2)}` : '';
+  const productImage =
+    (Array.isArray(product?.images) ? product.images[0] : null) ||
+    product?.image ||
+    (Array.isArray(bwp?.images) ? bwp.images[0] : null) ||
+    bwp?.image || null;
+
+  const votePercentage =
+    bwp?.votePercentage ??
+    bwp?.winnerPct ??
+    product?.votePercentage ??
+    raw?.winnerPct ??
+    100;
+  const displayPct = Math.round(Number(votePercentage) || 0);
+
+  const cardH = 215;
+  const imgW = Math.round(cardWidth * 0.42);
+
+  return (
+    <TouchableOpacity
+      activeOpacity={0.88}
+      onPress={onPress}
+      style={[
+        {
+          width: cardWidth,
+          height: cardH,
+          borderRadius: 14,
+          overflow: 'hidden',
+          flexDirection: 'row',
+          backgroundColor: accent || '#6C3FE8',
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: border
+        },
+      ]}
+    >
+      {/* Left — product image */}
+      <View style={{ width: imgW, height: cardH, position: 'relative' }}>
+        {productImage ? (
+          <Image
+            source={{ uri: productImage }}
+            style={{ width: '100%', height: '100%' }}
+            resizeMode="cover"
+            fadeDuration={0}
+          />
+        ) : (
+          <View
+            style={{
+              width: '100%',
+              height: '100%',
+              backgroundColor: 'rgba(255,255,255,0.1)',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Icon name="bag-handle-outline" size={40} color="rgba(255,255,255,0.4)" />
+          </View>
+        )}
+        {/* Winner ribbon */}
+        <View
+          style={{
+            position: 'absolute',
+            top: 10,
+            left: 0,
+            backgroundColor: '#6C3FE8',
+            paddingHorizontal: 8,
+            paddingVertical: 4,
+            borderTopRightRadius: 8,
+            borderBottomRightRadius: 8,
+            flexDirection: 'column',
+            alignItems: 'center',
+          }}
+        >
+          <Text style={{ fontSize: 14 }}>🏆</Text>
+          <Text
+            style={{
+              color: '#fff',
+              fontSize: 9,
+              fontWeight: '700',
+              letterSpacing: 0.5,
+              marginTop: 1,
+            }}
+          >
+            WINNER
+          </Text>
+        </View>
+        {/* Bottom winner pill */}
+        <View
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            backgroundColor: '#F5C518',
+            paddingVertical: 4,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 4,
+          }}
+        >
+          <Text style={{ fontSize: 12 }}>🏆</Text>
+          <Text
+            style={{
+              color: '#1a1a1a',
+              fontSize: 11,
+              fontWeight: '800',
+              letterSpacing: 0.3,
+            }}
+          >
+            Winner
+          </Text>
+        </View>
+      </View>
+
+      {/* Right — info */}
+      <View
+        style={{
+          flex: 1,
+          paddingHorizontal: 14,
+          paddingVertical: 12,
+          justifyContent: 'space-between',
+        }}
+      >
+        {/* Header */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Icon name="swap-horizontal-outline" size={14} color="rgba(255,255,255,0.8)" />
+          <Text
+            style={{
+              color: 'rgba(255,255,255,0.85)',
+              fontSize: 10,
+              fontWeight: '600',
+              letterSpacing: 1,
+              textTransform: 'uppercase',
+            }}
+          >
+            Battle Winner
+          </Text>
+        </View>
+
+        {/* Product name */}
+        <Text
+          numberOfLines={2}
+          style={{
+            color: '#fff',
+            fontSize: 18,
+            fontWeight: '800',
+            lineHeight: 22,
+            marginTop: 4,
+          }}
+        >
+          {productName}
+        </Text>
+
+        {/* Price */}
+        {!!productPrice && (
+          <Text
+            style={{
+              color: '#C8A8FF',
+              fontSize: 20,
+              fontWeight: '800',
+              marginTop: 2,
+            }}
+          >
+            {productPrice}
+          </Text>
+        )}
+
+        {/* Vote pill */}
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: 'rgba(255,255,255,0.15)',
+            borderRadius: 8,
+            paddingVertical: 6,
+            paddingHorizontal: 10,
+            marginTop: 6,
+            gap: 8,
+          }}
+        >
+          <View
+            style={{
+              width: 26,
+              height: 26,
+              borderRadius: 13,
+              backgroundColor: accent || '#6C3FE8',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Icon name="trending-up-outline" size={14} color="#fff" />
+          </View>
+          <View style={{ width: 1, height: '100%', backgroundColor: 'rgba(255,255,255,0.25)' }} />
+          <View>
+            <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>
+              {displayPct}%
+            </Text>
+            <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 10 }}>
+              Community Votes
+            </Text>
+          </View>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+});
+
 // ─── Main Screen ─────────────────────────────────────────────────────────────
 const SearchScreen = () => {
   const dispatch = useDispatch();
@@ -468,6 +694,16 @@ const SearchScreen = () => {
   const [selectedBattleOptions, setSelectedBattleOptions] = useState({});
   const [showBattleExplore, setShowBattleExplore] = useState(false);
   const [battleCarouselCollapsed, setBattleCarouselCollapsed] = useState(false);
+  // OPTIMIZATION 11: real BattleCard height, measured once, reused by
+  // BoostedWinnerCard + the marketplace BattleSlide wrapper so all card
+  // types in the carousel line up at (roughly) the same height.
+  const [battleCardHeight, setBattleCardHeight] = useState(null);
+  // Boosted/marketplace cards look a bit heavy at the exact same height as
+  // BattleCard — trim a few px off. Tweak this number to taste.
+  const BOOSTED_CARD_HEIGHT_OFFSET = 24;
+  const boostedCardHeight = battleCardHeight
+    ? Math.max(120, battleCardHeight - BOOSTED_CARD_HEIGHT_OFFSET)
+    : null;
 
   const searchTimeoutRef = useRef(null);
   const rafRef = useRef(null);
@@ -489,6 +725,7 @@ const SearchScreen = () => {
     accent,
   } = useBusinessProfileTheme();
   const profile = isBusinessProfile ? 'company' : 'user';
+  const isOwnProfile = false;
   const isScreenFocused = useIsFocused();
 
   const getUserAccentColor = useCallback((userProfile) => {
@@ -1076,20 +1313,86 @@ const SearchScreen = () => {
 
   const handleBattleCardPressRef = useRef(null);
   handleBattleCardPressRef.current = (battleItem) => {
-    if (battleItem?.typeByBattle === 'marketPlace') {
-      const mappedBattle = mapBattle(battleItem.raw || battleItem, 0);
-      navigation.navigate('ProfileMain', {
-        screen: 'BattleLive',
-        params: {
-          battleId: mappedBattle?.id,
-          initialBattle: mappedBattle,
-          userProfile: profile,
-          selectedItems: [mappedBattle?.left, mappedBattle?.right].filter(Boolean),
-          returnToProfile: { tab: 'Search' },
-        }
+    const raw = battleItem?.raw || battleItem;
+    const fmt = String(raw?.format || battleItem?.format || '').toLowerCase();
+    const tbb = String(raw?.typeByBattle || battleItem?.typeByBattle || '').toLowerCase();
+          console.log("--------------------------raw----------------------", raw)
+
+    // Boosted product — open the winner product detail
+    if (fmt === 'boosted' || tbb === 'boosted_product') {
+      const bwp = raw?.battleWinnerProduct || {};
+      const product = bwp?.product || bwp || {};
+      const closet = bwp?.closet || {};
+      const seller = bwp?.seller || {};
+      const cleanProduct = {
+        ...product,
+        id: product?.id || product?._id || bwp?.id,
+        name: product?.name || product?.title || bwp?.name || '',
+        price: product?.price ?? bwp?.price ?? 0,
+        image:
+          (Array.isArray(product?.images) ? product.images[0] : null) ||
+          product?.image ||
+          (Array.isArray(bwp?.images) ? bwp.images[0] : null) ||
+          bwp?.image || null,
+        images: product?.images || bwp?.images || [],
+        userId: closet?.sellerId || closet?.userId || product?.userId,
+        closetId: closet?.closetId || closet?.id,
+        seller: {
+          id: closet?.sellerId || closet?.userId || product?.userId,
+          userName: closet?.shopUsername || '',
+          userImage: closet?.shopLogo || '',
+          profile: 'user',
+          closet,
+        },
+        closet,
+      };
+      const votePercentage =
+        bwp?.votePercentage ?? bwp?.winnerPct ?? product?.votePercentage ?? raw?.winnerPct ?? 100;
+      const winnerMeta = {
+        pct: Math.round(Number(votePercentage) || 0),
+        totalVotes: raw?.totalVotes || 0,
+        battleId: raw?.id || null,
+        battleTitle: raw?.title || 'Battle Winner',
+      };
+      const isOwnProfileForCloset = String(userId || '') === String(seller?.id || '');
+      navigation?.navigate?.('ProfileMain', {
+        screen: 'MyClosetBuyerItemDetail',
+        params: withClosetNavParams(
+          { params: route?.params || {} },
+          {
+            item: cleanProduct?.raw || cleanProduct,
+            items: [cleanProduct],
+            seller: cleanProduct.seller,
+            sellerId: cleanProduct.userId,
+            closetId: cleanProduct.closetId,
+            isOwnProfile: isOwnProfileForCloset,
+            battleWinner: winnerMeta || null,
+            returnTo: { tab: 'Search', screen: 'SearchHome', params: route?.params || {} },
+            returnParams: route?.params || {},
+          },
+        ),
       });
       return;
     }
+
+    // Marketplace battle
+    if (fmt === 'marketplace' || String(battleItem?.typeByBattle || '').toLowerCase() === 'marketplace') {
+      const mappedBattle = mapBattle(battleItem.raw || battleItem, 0);
+      navigateToBattleLive(navigation, {
+        battleId: mappedBattle?.id,
+        initialBattle: mappedBattle,
+        userProfile: profile,
+        selectedItems: [mappedBattle?.left, mappedBattle?.right].filter(Boolean),
+        isOwnProfile: String(userId || '') === String(mappedBattle?.closet?.id || mappedBattle?.closetId || battleItem?.raw?.closet?.id || battleItem?.raw?.closetId || ''),
+        returnToProfile: buildClosetReturnTo({
+          isOwnProfile: String(userId || '') === String(mappedBattle?.closet?.id || mappedBattle?.closetId || battleItem?.raw?.closet?.id || battleItem?.raw?.closetId || ''),
+          sellerProfile: profile,
+          sellerId: route?.params?.sellerId || route?.params?.seller?.id,
+        }),
+      });
+      return;
+    }
+
     navigation.navigate('ProfileMain', {
       screen: 'BattleInProgress',
       params: {
@@ -1120,6 +1423,15 @@ const SearchScreen = () => {
       setRefreshing(false);
     }
   }, [searchText, searchUsers, fetchPosts, fetchExploreBattles]);
+
+  // OPTIMIZATION 11: capture BattleCard's real rendered height once, so
+  // BoostedWinnerCard and the marketplace BattleSlide wrapper can match it.
+  const handleBattleCardLayout = useCallback(event => {
+    const h = event?.nativeEvent?.layout?.height;
+    if (h && Math.round(h) !== battleCardHeight) {
+      setBattleCardHeight(Math.round(h));
+    }
+  }, [battleCardHeight]);
 
   // ─── OPTIMIZATION 8: Stable renderItem using memoized MasonryItem ────────
   const renderMasonryFlatListItem = useCallback(({ item: layoutItem }) => (
@@ -1344,38 +1656,77 @@ const SearchScreen = () => {
                           </View>
                         ) : visibleBattleCards.length > 0 ? (
                           visibleBattleCards.map((item, i) => {
-                            if (item.typeByBattle === 'marketPlace') {
-                              const mappedBattle = mapBattle(item.raw || item, i);
+                            const raw = item?.raw || item;
+                            const rawFmt = String(raw?.format || '').toLowerCase();
+                            const rawTbb = String(raw?.typeByBattle || item?.typeByBattle || '').toLowerCase();
+
+                            // Boosted product winner card — height matches BattleCard
+                            if (rawFmt === 'boosted' || rawTbb === 'boosted_product') {
                               return (
-                                <BattleSlide
-                                  key={item.id || mappedBattle.id}
-                                  battle={mappedBattle}
+                                <BoostedWinnerCard
+                                  key={item.id}
+                                  item={item}
+                                  cardWidth={searchBattleCardWidth}
+                                  cardHeight={boostedCardHeight}
                                   accent={accent}
-                                  t={t}
-                                  onPress={() => handleBattleCardPress(item.raw || item)}
                                   card={card}
                                   border={border}
-                                  textColor={text}
+                                  text={text}
                                   mutedText={mutedText}
-                                  isDark={false}
-                                  thumbSurface={'#f5f3ef'}
-                                  mutedColor={mutedText}
-                                  loadingOverlayColor={'rgba(245,243,238,0.72)'}
-                                  customWidth={searchBattleCardWidth}
-                                  imageSize={searchBattleImageSize}
+                                  onPress={() => handleBattleCardPress(item)}
                                 />
                               );
                             }
+
+                            // Marketplace battle — same UI as MyClosetShopFront,
+                            // width + height matched, explicit gap to next card
+                            if (rawFmt === 'marketplace') {
+                              const mappedBattle = mapBattle(item.raw || item, i);
+                              return (
+                                <View
+                                  key={item.id || mappedBattle.id}
+                                  style={{
+                                    width: searchBattleCardWidth,
+                                    marginRight: 12,
+                                    // NOTE: no fixed height here — BattleSlide's
+                                    // internal layout (thumbs, name, price, vs
+                                    // bubble, winner badge) is fixed and can't
+                                    // compress, so forcing a shorter height with
+                                    // overflow:hidden cuts content off the bottom.
+                                    // Let it size itself naturally.
+                                  }}
+                                >
+                                  <BattleSlide
+                                    battle={mappedBattle}
+                                    accent={accent}
+                                    t={t}
+                                    onPress={() => handleBattleCardPress(item.raw || item)}
+                                    card={card}
+                                    border={border}
+                                    textColor={text}
+                                    mutedText={mutedText}
+                                    isDark={false}
+                                    thumbSurface={'#f5f3ef'}
+                                    mutedColor={mutedText}
+                                    loadingOverlayColor={'rgba(245,243,238,0.72)'}
+                                    customWidth={searchBattleCardWidth}
+                                  />
+                                </View>
+                              );
+                            }
+
+                            // Normal battle (POLL / HEAD_TO_HEAD) — measured for height reference
                             return (
-                              <BattleCard
-                                key={item.id}
-                                item={item}
-                                selectedOption={selectedBattleOptions[item.id]}
-                                onCardPress={handleBattleCardPress}
-                                onOptionSelect={updateSelectedBattleOption}
-                                onUserPress={handleUserProfile}
-                                fullWidth
-                              />
+                              <View key={item.id} onLayout={handleBattleCardLayout}>
+                                <BattleCard
+                                  item={item}
+                                  selectedOption={selectedBattleOptions[item.id]}
+                                  onCardPress={handleBattleCardPress}
+                                  onOptionSelect={updateSelectedBattleOption}
+                                  onUserPress={handleUserProfile}
+                                  fullWidth
+                                />
+                              </View>
                             );
                           })
                         ) : (

@@ -283,7 +283,7 @@ const StatRow = ({ totalParticipants, totalLikes, totalComments }) => (
 
 // ─── BattleCard ───────────────────────────────────────────────────────────────
 
-const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, onUserPress, fullWidth }) => {
+const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, onUserPress, fullWidth, bottomMargin = 8 }) => {
     const { t } = useLanguage();
     const { accent, card, text: themeText, border, mutedText } = useBattleAccent();
     const cardThemeStyle = { backgroundColor: card, borderColor: border };
@@ -350,7 +350,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
         return (
             <TouchableOpacity
                 activeOpacity={0.88}
-                style={[styles.card, cardThemeStyle, ended && styles.cardEnded, fullWidth && styles.cardFullWidth]}
+                style={[styles.card, cardThemeStyle, ended && styles.cardEnded, fullWidth && styles.cardFullWidth, { marginBottom: bottomMargin }]}
                 onPress={handleCardPress}
                 renderToHardwareTextureAndroid
             >
@@ -426,7 +426,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
     return (
         <TouchableOpacity
             activeOpacity={0.88}
-            style={[styles.card, cardThemeStyle, ended && styles.cardEnded, fullWidth && styles.cardFullWidth]}
+            style={[styles.card, cardThemeStyle, ended && styles.cardEnded, fullWidth && styles.cardFullWidth, { marginBottom: bottomMargin }]}
             onPress={handleCardPress}
             hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
             renderToHardwareTextureAndroid

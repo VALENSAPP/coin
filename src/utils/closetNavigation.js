@@ -167,9 +167,24 @@ export const navigateToBattleLive = (navigation, params = {}) => {
     }
   };
 
+  const tryNestedProfileMain = nav => {
+    if (!nav?.navigate) return false;
+    try {
+      nav.navigate('ProfileMain', {
+        screen: 'BattleLive',
+        params: battleParams,
+      });
+      return true;
+    } catch (_error) {
+      return false;
+    }
+  };
+
+  if (tryNestedProfileMain(navigation)) return true;
   if (tryNavigate(navigation)) return true;
 
   const parent = navigation?.getParent?.();
+  if (tryNestedProfileMain(parent)) return true;
   if (tryNavigate(parent)) return true;
 
   if (navigation?.navigate) {

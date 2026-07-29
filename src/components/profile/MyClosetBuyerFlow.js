@@ -18,10 +18,10 @@ import {
   View,
   Platform,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import FastImage from 'react-native-fast-image';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   getMyClosetItems,
@@ -129,11 +129,6 @@ const currency = value => {
 const numberFromPrice = value => {
   const numeric = Number(String(value ?? 0).replace(/[^0-9.]/g, ''));
   return Number.isNaN(numeric) ? 0 : numeric;
-};
-
-const safeNumber = (value, fallback = 0) => {
-  const numeric = Number(value);
-  return Number.isFinite(numeric) ? numeric : fallback;
 };
 
 const imageUri = image => {
@@ -353,89 +348,20 @@ const BattleSlide = ({
 
 // `description`/`brand`/`condition` fall back to translated defaults when the API omits them.
 const normalizeItem = (item = {}, index = 0, t) => ({
-  id: String(
-    item?.id ||
-    item?._id ||
-    item?.product?.id ||
-    item?.product?._id ||
-    item?.battleWinnerProduct?.product?.id ||
-    item?.battleWinnerProduct?.product?._id ||
-    `item-${index}`,
-  ),
-  productId:
-    item?.product?.id ||
-    item?.product?._id ||
-    item?.battleWinnerProduct?.product?.id ||
-    item?.battleWinnerProduct?.product?._id ||
-    item?.productId ||
-    item?.id ||
-    item?._id ||
-    null,
+  id: String(item?.id || item?._id || `item-${index}`),
   raw: item,
-  name:
-    item?.name ||
-    item?.title ||
-    item?.itemName ||
-    item?.product?.name ||
-    item?.product?.title ||
-    item?.battleWinnerProduct?.product?.name ||
-    item?.battleWinnerProduct?.product?.title ||
-    t('myClosetBuyer.untitledItem'),
-  price: currency(
-    item?.price ??
-    item?.amount ??
-    item?.salePrice ??
-    item?.product?.price ??
-    item?.battleWinnerProduct?.product?.price,
-  ),
-  priceValue: numberFromPrice(
-    item?.price ??
-    item?.amount ??
-    item?.salePrice ??
-    item?.product?.price ??
-    item?.battleWinnerProduct?.product?.price,
-  ),
+  name: item?.name || item?.title || item?.itemName || t('myClosetBuyer.untitledItem'),
+  price: currency(item?.price ?? item?.amount ?? item?.salePrice),
+  priceValue: numberFromPrice(item?.price ?? item?.amount ?? item?.salePrice),
   image: itemImage(item),
   images: itemImages(item),
-  brand:
-    item?.brand ||
-    item?.product?.brand ||
-    item?.battleWinnerProduct?.product?.brand ||
-    t('myClosetBuyer.defaultBrand'),
-  category:
-    item?.category ||
-    item?.product?.category ||
-    item?.battleWinnerProduct?.product?.category ||
-    t('myClosetBuyer.defaultCategory'),
-  condition:
-    item?.condition ||
-    item?.product?.condition ||
-    item?.battleWinnerProduct?.product?.condition ||
-    t('myClosetBuyer.defaultCondition'),
-  description:
-    item?.description ||
-    item?.text ||
-    item?.caption ||
-    item?.product?.description ||
-    item?.battleWinnerProduct?.product?.description ||
-    t('myClosetBuyer.defaultDescription'),
-  quantityAvailable: Number(
-    item?.quantity ??
-    item?.availableQuantity ??
-    item?.product?.quantity ??
-    item?.product?.quantityAvailable ??
-    item?.battleWinnerProduct?.product?.quantity ??
-    item?.battleWinnerProduct?.product?.quantityAvailable ??
-    1,
-  ) || 0,
-  sellerName:
-    item?.sellerName ||
-    item?.userName ||
-    item?.ownerName ||
-    item?.battleWinnerProduct?.closet?.shopName ||
-    item?.battleWinnerProduct?.closet?.shopUsername ||
-    '',
-  createdAt: item?.createdAt || item?.created_at || item?.postedAt || item?.dateAdded || item?.battleWinnerProduct?.battle?.completedAt || null,
+  brand: item?.brand || t('myClosetBuyer.defaultBrand'),
+  category: item?.category || t('myClosetBuyer.defaultCategory'),
+  condition: item?.condition || t('myClosetBuyer.defaultCondition'),
+  description: item?.description || t('myClosetBuyer.defaultDescription'),
+  quantityAvailable: Number(item?.quantity ?? item?.availableQuantity ?? 1) || 0,
+  sellerName: item?.sellerName || item?.userName || item?.ownerName || '',
+  createdAt: item?.createdAt || item?.created_at || item?.postedAt || item?.dateAdded || null,
 });
 
 const normalizeItems = (items, t) =>
@@ -488,26 +414,23 @@ const isNewItem = createdAt => {
 
 const buildCart = (route, t, overrides = {}) => {
   const item = normalizeItem(route?.params?.item || {}, 0, t);
-  const quantity = safeNumber(route?.params?.quantity, 1) || 1;
+  const quantity = Number(route?.params?.quantity || 1) || 1;
   const cartItemsSnapshot = route?.params?.cartItemsSnapshot || null;
   const breakdown = route?.params?.checkoutData?.breakdown ?? null;
 
   let fallbackItemTotal = item.priceValue * quantity;
   if (Array.isArray(cartItemsSnapshot) && cartItemsSnapshot.length > 0) {
     fallbackItemTotal = cartItemsSnapshot.reduce((sum, ci) => {
-      const price = safeNumber(ci?.product?.price ?? ci?.price ?? item.priceValue, item.priceValue);
-      return sum + price * (safeNumber(ci?.quantity, 1) || 1);
+      const price = ci?.product?.price ?? ci?.price ?? item.priceValue;
+      return sum + price * (ci.quantity || 1);
     }, 0);
   }
-  const itemTotal = safeNumber(breakdown?.itemsSubtotal ?? route?.params?.itemTotal, fallbackItemTotal);
-  const shipping = safeNumber(breakdown?.shippingAmount ?? route?.params?.shippingAmount ?? route?.params?.shipping, 0);
-  const taxAmount = safeNumber(breakdown?.taxAmount, 0);
-  const platformFee = safeNumber(breakdown?.platformFee, 0);
-  const discountAmount = safeNumber(breakdown?.discountAmount, 0);
-  const total = safeNumber(
-    breakdown?.totalAmountDue ?? route?.params?.total,
-    itemTotal + shipping + taxAmount + platformFee - discountAmount,
-  );
+  const itemTotal = breakdown?.itemsSubtotal ?? route?.params?.itemTotal ?? fallbackItemTotal;
+  const shipping = breakdown?.shippingAmount ?? Number(route?.params?.shippingAmount ?? route?.params?.shipping ?? 0);
+  const taxAmount = breakdown?.taxAmount ?? 0;
+  const platformFee = breakdown?.platformFee ?? 0;
+  const discountAmount = breakdown?.discountAmount ?? 0;
+  const total = breakdown?.totalAmountDue ?? route?.params?.total ?? (itemTotal + shipping + taxAmount + platformFee - discountAmount);
 
   return {
     item,
@@ -526,59 +449,7 @@ const buildCart = (route, t, overrides = {}) => {
   };
 };
 
-const resolveCartIdFromRoute = route => {
-  const params = route?.params || {};
-  return (
-    params.cartId ||
-    params.cartUUID ||
-    params.checkoutData?.cartId ||
-    params.checkoutData?.cartUUID ||
-    params.checkoutData?.cart?.id ||
-    params.checkoutData?.cart?._id ||
-    params.cart?.id ||
-    params.cart?._id ||
-    params.cart?.cartId ||
-    params.cart?.cartUUID ||
-    params.cartItemsSnapshot?.[0]?.cartId ||
-    params.cartItemsSnapshot?.[0]?.cartUUID ||
-    null
-  );
-};
-
-const extractCartIdFromResponse = response => {
-  const data = response?.data ?? response ?? {};
-  const direct =
-    data?.cartId ??
-    data?.cartUUID ??
-    data?.id ??
-    data?._id ??
-    data?.data?.cartId ??
-    data?.data?.cartUUID ??
-    data?.data?.id ??
-    data?.data?._id ??
-    data?.cart?.id ??
-    data?.cart?._id ??
-    data?.cart?.cartId ??
-    data?.cart?.cartUUID;
-
-  if (direct) return direct;
-
-  const carts = data?.carts ?? data?.data?.carts ?? data?.data ?? [];
-  const firstCart = Array.isArray(carts) ? carts[0] : carts;
-  return (
-    firstCart?.cartId ||
-    firstCart?.cartUUID ||
-    firstCart?.id ||
-    firstCart?._id ||
-    null
-  );
-};
-
 const goBack = (navigation, returnTo) => {
-  if (returnTo) {
-    navigateClosetReturn(navigation, returnTo);
-    return;
-  }
   if (navigation.canGoBack?.()) {
     navigation.goBack();
     return;
@@ -1452,6 +1323,7 @@ const MyClosetBuyerItemsScreen = ({ navigation, route }) => {
   const seller = useMemo(() => route?.params?.seller || {}, [route?.params?.seller]);
   const sellerId = route?.params?.sellerId || seller?.id;
   const isOwnProfile = route?.params?.isOwnProfile ?? false;
+  const [loggedInUserId, setLoggedInUserId] = useState(route?.params?.loggedInUserId || null);
   const accent = text;
   const returnTo = route?.params?.returnTo;
   const battles = route?.params?.battles || [];
@@ -1511,6 +1383,13 @@ const MyClosetBuyerItemsScreen = ({ navigation, route }) => {
     });
     return map;
   }, [battles]);
+
+  useEffect(() => {
+    if (loggedInUserId) return;
+    AsyncStorage.getItem('userId').then(id => {
+      if (id) setLoggedInUserId(id);
+    });
+  }, [loggedInUserId]);
 
   const filteredItems = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -1580,11 +1459,11 @@ const MyClosetBuyerItemsScreen = ({ navigation, route }) => {
         seller,
         sellerId,
         items: route?.params?.items || items.map(row => row.raw || row),
-        isOwnProfile: route?.params?.isOwnProfile,
+        isOwnProfile: String(loggedInUserId || '') === String(route?.params?.closetId || sellerId || ''),
         battleWinner: winnerMeta,
       }));
     },
-    [items, navigation, route, seller, sellerId, battleWinnerMap],
+    [items, navigation, route, seller, sellerId, battleWinnerMap, loggedInUserId],
   );
 
   const renderItem = ({ item }) => {
@@ -1993,59 +1872,11 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
   const seller = route?.params?.seller || {};
   const isOwnProfile = route?.params?.isOwnProfile ?? false;
   const returnTo = route?.params?.returnTo;
-  const [currentUserId, setCurrentUserId] = useState(null);
-  const [currentUserLoaded, setCurrentUserLoaded] = useState(false);
   const [liked, setLiked] = useState(false);
   const [wishlistLoading, setWishlistLoading] = useState(false);
   const [detailScrollEnabled, setDetailScrollEnabled] = useState(true);
   const isOutOfStock = Number(item.quantityAvailable) <= 0;
-  const productId = item.productId || item.raw?.product?.id || item.raw?.product?._id || item.raw?.id || item.raw?._id || item.id;
-  const ownerUserIds = [
-    route?.params?.seller?.id,
-    route?.params?.sellerId,
-    route?.params?.seller?.userId,
-    route?.params?.seller?.sellerId,
-    seller?.id,
-    seller?.userId,
-    seller?.sellerId,
-    item.raw?.userId,
-    item.raw?.sellerId,
-    item.raw?.seller?.id,
-    item.raw?.seller?.userId,
-    item.raw?.battleWinnerProduct?.battle?.userId,
-    item.raw?.battleWinnerProduct?.closet?.sellerId,
-    item.raw?.closet?.sellerId,
-  ].filter(Boolean);
-  const isOwnerViewingItem =
-    !!currentUserId &&
-    ownerUserIds.some(ownerId => String(currentUserId) === String(ownerId));
-  const hideBuyNow =
-    currentUserLoaded &&
-    (
-      isOwnProfile ||
-      isOwnerViewingItem ||
-      ownerUserIds.some(ownerId => String(currentUserId || '') === String(ownerId))
-    );
-
-  useEffect(() => {
-    let active = true;
-    AsyncStorage.getItem('userId')
-      .then(id => {
-        if (active) {
-          setCurrentUserId(id);
-          setCurrentUserLoaded(true);
-        }
-      })
-      .catch(() => {
-        if (active) {
-          setCurrentUserId(null);
-          setCurrentUserLoaded(true);
-        }
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
+  const productId = item.raw?.id || item.raw?._id || item.id;
 
   useEffect(() => {
     let active = true;
@@ -2214,7 +2045,7 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
           </>
         ) : null}
       </ScrollView>
-      {!hideBuyNow && (
+      {!isOwnProfile && (
         <BottomBar>
           <BottomButton
             label={isOutOfStock ? 'Out of stock' : t('myClosetBuyer.buyNow')}
@@ -2240,7 +2071,7 @@ const MyClosetBuyerOptionsScreen = ({ navigation, route }) => {
   const [existingCartItemId, setExistingCartItemId] = useState(null);
   const available = Math.max(1, item.quantityAvailable);
 
-  const productId = item.productId || item.raw?.product?.id || item.raw?.product?._id || item.raw?.id || item.raw?._id || item.id;
+  const productId = item.raw?.id || item.raw?._id || item.id;
 
   useFocusEffect(
     useCallback(() => {
@@ -2295,95 +2126,26 @@ const MyClosetBuyerOptionsScreen = ({ navigation, route }) => {
     }
     setAdding(true);
     try {
-      const sellerId = route?.params?.sellerId || item.raw?.userId || item.raw?.sellerId || item.raw?.battleWinnerProduct?.closet?.sellerId || null;
-      const closetId = route?.params?.closetId || item.raw?.battleWinnerProduct?.closet?.id || item.raw?.closetId || null;
-      const payloadVariants = [
-        { productId, quantity },
-        { id: productId, quantity },
-        { itemId: productId, quantity },
-        { skuId: productId, quantity },
-        {
-          productId,
-          quantity,
-          ...(sellerId ? { sellerId } : {}),
-          ...(closetId ? { closetId } : {}),
-        },
-        {
-          id: productId,
-          quantity,
-          ...(sellerId ? { sellerId } : {}),
-          ...(closetId ? { closetId } : {}),
-        },
-      ].filter(Boolean);
       if (existingCartItemId) {
         await updateCartItem(existingCartItemId, { quantity });
       } else {
-        let addResponse = null;
-        let lastErr = null;
-        for (const payload of payloadVariants) {
-          try {
-            console.log('[addCartItem] trying payload', payload);
-            addResponse = await addCartItem(payload);
-            lastErr = null;
-            break;
-          } catch (attemptErr) {
-            lastErr = attemptErr;
-            console.log('[addCartItem] payload failed', {
-              payload,
-              status: attemptErr?.response?.status,
-              data: attemptErr?.response?.data,
-            });
-          }
-        }
-        if (!addResponse) throw lastErr || new Error('Unable to add item to cart');
-        console.log('[addCartItem] response', addResponse?.data ?? addResponse);
-        const addedCartId = extractCartIdFromResponse(addResponse);
-        if (addedCartId) setCartId(addedCartId);
+        await addCartItem({ productId, quantity });
       }
-      const refreshedCart = await getCart({ sellerId: route?.params?.sellerId });
-      const refreshedCarts =
-        refreshedCart?.data?.data?.carts ??
-        refreshedCart?.data?.carts ??
-        refreshedCart?.data?.data ??
-        refreshedCart?.data ??
-        [];
-      const refreshedCartObj = Array.isArray(refreshedCarts) ? refreshedCarts[0] : refreshedCarts;
-      const refreshedCartId = extractCartIdFromResponse(refreshedCart) || route?.params?.cartId || cartId || null;
-      const refreshedItems = refreshedCartObj?.cartItems ?? [];
-      const fallbackItem = {
-        ...item.raw,
-        ...item,
-        quantity,
-      };
-      navigation.navigate('MyClosetBuyerCart', withClosetNavParams(route, {
-        item: fallbackItem,
-        seller: route?.params?.seller || {},
-        sellerId: route?.params?.sellerId,
-        items: route?.params?.items || [],
-        quantity,
-        note,
-        cartId: refreshedCartId,
-        cartItemsSnapshot: Array.isArray(refreshedItems) && refreshedItems.length ? refreshedItems : undefined,
-      }));
-      return;
     } catch (err) {
-      console.log('[addCartItem] final error', {
-        payload: { productId, quantity },
-        status: err?.response?.status,
-        data: err?.response?.data,
-      });
       setAdding(false);
-      Alert.alert(
-        t('myClosetBuyer.errorTitle'),
-        err?.response?.data?.message ||
-          err?.response?.data?.details ||
-          err?.response?.data?.error ||
-          t('myClosetBuyer.addToCartError'),
-      );
+      Alert.alert(t('myClosetBuyer.errorTitle'), err?.response?.data?.message || t('myClosetBuyer.addToCartError'));
       return;
     } finally {
       setAdding(false);
     }
+    navigation.navigate('MyClosetBuyerCart', withClosetNavParams(route, {
+      item: item.raw,
+      seller: route?.params?.seller || {},
+      sellerId: route?.params?.sellerId,
+      items: route?.params?.items || [],
+      quantity,
+      note,
+    }));
   };
 
   return (
@@ -2592,17 +2354,12 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
     try {
       const dataToSend = { sellerId: route?.params?.sellerId };
       const response = await getCart(dataToSend);
-      const cartsArr =
-        response?.data?.data?.carts ??
-        response?.data?.carts ??
-        response?.data?.data ??
-        response?.data ??
-        [];
+      const cartsArr = response?.data?.data?.carts ?? response?.data?.carts ?? [];
       const cartObj = cartsArr[0] ?? null;
       const items = cartObj?.cartItems ?? [];
       setCartItems(Array.isArray(items) ? items : []);
-      setClosetId(cartObj?.closetId ?? response?.data?.data?.closetId ?? null);
-      setCartId(cartObj?.id ?? cartObj?._id ?? response?.data?.data?.id ?? response?.data?.data?._id ?? null);
+      setClosetId(cartObj?.closetId ?? null);
+      setCartId(cartObj?.id ?? null);
 
       // Pull the seller's items so we know each product's shipping option.
       if (cartObj?.closetId) {
@@ -2887,24 +2644,10 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
     );
   };
 
-  const fallbackCartItems = useMemo(() => {
-    if (cartItems.length > 0) return cartItems;
-    const routeItem = route?.params?.item;
-    if (!routeItem) return [];
-    const normalizedFallback = normalizeItem(routeItem, 0, t);
-    return [{
-      ...normalizedFallback,
-      id: String(normalizedFallback.productId || normalizedFallback.id || routeItem?.id || routeItem?._id || 'pending-cart-item'),
-      quantity: Math.max(1, Number(route?.params?.quantity || 1) || 1),
-    }];
-  }, [cartItems, route?.params?.item, route?.params?.quantity, t]);
-  const isEmpty = !cartLoading && fallbackCartItems.length === 0;
-  const wishlistEmpty = !wishlistLoading && wishlistItems.length === 0;
-
-  // ── Totals computed from server cart or the passed-in fallback item ─────
-  const computedItemTotal = (Array.isArray(fallbackCartItems) ? fallbackCartItems : []).reduce((sum, ci) => {
-    const price = numberFromPrice(ci?.product?.price ?? ci?.price ?? ci?.priceValue ?? localCart.item.priceValue);
-    return sum + price * (Number(ci.quantity) || 1);
+  // ── Totals computed from server cart ──────────────────────────────────
+  const computedItemTotal = cartItems.reduce((sum, ci) => {
+    const price = ci?.product?.price ?? ci?.price ?? localCart.item.priceValue;
+    return sum + price * (ci.quantity || 1);
   }, 0);
   const shipping = localCart.shipping;
   const serviceFee = localCart.serviceFee;
@@ -2934,7 +2677,7 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
     //   console.log('[DEBUG] checkout breakdown:', JSON.stringify(breakdown, null, 2));
     navigation.navigate('MyClosetBuyerCheckout', withClosetNavParams(route, {
       cartId,
-      cartItemsSnapshot: fallbackCartItems,
+      cartItemsSnapshot: cartItems,
       shippingOptionsMap,
       pickupAddressMap,
       requiresShipping,
@@ -2954,7 +2697,7 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
       'MyClosetBuyerShipping',
       withClosetNavParams(route, {
         cartId,
-        cartItemsSnapshot: fallbackCartItems,
+        cartItemsSnapshot: cartItems,
         shippingOptionsMap,
         pickupAddressMap,
         requiresShipping,
@@ -2967,13 +2710,16 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
     navigation.goBack();
   }
 
+  const isEmpty = !cartLoading && cartItems.length === 0;
+  const wishlistEmpty = !wishlistLoading && wishlistItems.length === 0;
+
   // ── Helper: resolve image + name from a cart item ────────────────────
   const cartItemImage = ci => imageUri(ci?.product?.images?.[0]) || imageUri(ci?.product?.image) || imageUri(ci?.image) || null;
   const cartItemName = ci => ci?.product?.name || ci?.product?.title || ci?.name || t('myClosetBuyer.itemFallback');
   const cartItemPrice = ci => currency(ci?.product?.price ?? ci?.price ?? 0);
   const cartItemMax = ci => Number(ci?.product?.quantity || ci?.product?.availableQuantity || 99) || 99;
 
-  const totalQuantity = fallbackCartItems.reduce(
+  const totalQuantity = cartItems.reduce(
     (total, item) => total + (item.quantity || 0),
     0,
   );
@@ -2989,7 +2735,7 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
               count: totalQuantity,
             })
         }
-        rightIcon={fallbackCartItems.length > 0 ? 'trash-outline' : undefined}
+        rightIcon={cartItems.length > 0 ? 'trash-outline' : undefined}
         onRightPress={handleClearCart}
         returnTo={returnTo}
       />
@@ -3027,7 +2773,7 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
                 </View>
               ) : null}
 
-              {fallbackCartItems.map(ci => {
+              {cartItems.map(ci => {
                 const isActing = itemActionLoading === ci.id;
                 const qty = ci.quantity || 1;
                 const maxQty = cartItemMax(ci);
@@ -3222,7 +2968,7 @@ const MyClosetBuyerCheckoutScreen = ({ navigation, route }) => {
   const handleEditCart = () => navigation.navigate('MyClosetBuyerCart', withClosetNavParams(route));
 
   const handleContinue = async () => {
-    const cartId = resolveCartIdFromRoute(route);
+    const cartId = route?.params?.cartId;
     if (!cartId) {
       navigation.navigate('MyClosetBuyerShipping', withClosetNavParams(route));
       return;
@@ -3498,13 +3244,11 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
     String(selectedAddress.city || '').trim()
   );
   const canContinue = !continuing && allChoicesMade && (!requiresShipping || isAddressComplete);
-  const cartId = resolveCartIdFromRoute(route);
 
   const nextCart = {
     ...route.params,
-    cartId,
     shipping: method === 'express' ? 20 : 10,
-    total: safeNumber(cart.itemTotal, 0) + safeNumber(method === 'express' ? 20 : 10, 0) + safeNumber(cart.serviceFee, 0),
+    total: cart.itemTotal /*+ (method === 'express' ? 20 : 10) + cart.serviceFee*/,
     shippingMethod: method,
     // Pass selected address forward so Review screen can display it
     shippingAddress: selectedAddress,
@@ -3752,6 +3496,7 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
               return;
             }
 
+            const cartId = route?.params?.cartId;
             if (!cartId) {
               navigation.navigate('MyClosetBuyerPayment', withClosetNavParams(route, { ...nextCart, requiresShipping }));
               return;
@@ -3810,7 +3555,7 @@ const MyClosetBuyerPaymentScreen = ({ navigation, route }) => {
   const [paymentMethod, setPaymentMethod] = useState('secure');
   const derivedRequiresShipping = cartRequiresShipping(route?.params?.cartItemsSnapshot, route?.params?.shippingOptionsMap);
   const requiresShipping = derivedRequiresShipping || route?.params?.requiresShipping === true;
-  const cartId = resolveCartIdFromRoute(route);
+  const cartId = route?.params?.cartId;
 
   // If we already have fresh checkout data (breakdown), use it as-is.
   // Otherwise, fetch it ourselves so the fee/tax/total are never stale or missing.
@@ -3977,7 +3722,7 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
   }, [findPaymentId, pollForPaidPayment, navigation, route.params, t]);
 
   useEffect(() => {
-    const cartId = resolveCartIdFromRoute(route);
+    const cartId = route?.params?.cartId;
     if (!cartId) return undefined;
 
     const sub = DeviceEventEmitter.addListener('PAYMENT_COMPLETED', (payload) => {
@@ -3989,7 +3734,7 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
   }, [route?.params?.cartId, finalizeOrder]);
 
   const handleContinue = async () => {
-    const cartId = resolveCartIdFromRoute(route);
+    const cartId = route?.params?.cartId;
     const addressId = addr?.id ?? null;
 
     if (!cartId) {
