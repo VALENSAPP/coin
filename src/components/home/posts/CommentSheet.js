@@ -36,6 +36,7 @@ import {
   getActiveMention,
   insertMention,
   normalizeSearchUsers,
+  rankMentionUsers,
   resolveUserIdFromUsername,
 } from '../../../utils/mentionUtils';
 import { parseText } from '../../../utils/commentUtils';
@@ -666,13 +667,9 @@ export default function CommentSheet({
           }
 
           if (requestId !== mentionRequestIdRef.current) return;
-          const needle = searchQuery.toLowerCase();
-          const filtered = users.filter(user => {
-            const username = String(user.username || '').toLowerCase();
-            const displayName = String(user.displayName || '').toLowerCase();
-            return username.includes(needle) || displayName.includes(needle);
-          });
-          setMentionUsers((filtered.length ? filtered : users).slice(0, 8));
+          const ranked = rankMentionUsers(users, searchQuery, 8);
+          // Keep API order only when nothing matched our local ranking filters.
+          setMentionUsers(ranked.length ? ranked : users.slice(0, 8));
         } catch (_error) {
           if (requestId !== mentionRequestIdRef.current) return;
           setMentionUsers([]);
@@ -1135,15 +1132,17 @@ export default function CommentSheet({
 
   // ─── render ───────────────────────────────────────────────────────────────────
 
-  // Keep input above home-indicator when keyboard is closed; lift by keyboard when open.
+  // Spacer under the composer keeps the input above keyboard / home indicator.
+  // Applied below the input (not on the outer sheet) so mention growth can't
+  // push the TextInput under the keyboard.
   const bottomPad =
     keyboardOffset > 0 ? keyboardOffset : Math.max(insets.bottom, 16);
-  // Shrink mention list under the keyboard so rows stay fully visible + scrollable.
-  const mentionMaxHeight = keyboardOffset > 0 ? 156 : 220;
+  // Keep mention panel compact when the keyboard is open (~2–3 rows).
+  const mentionMaxHeight = keyboardOffset > 0 ? 120 : 220;
   const collapseBodyForMention = Boolean(activeMention && keyboardOffset > 0);
 
   return (
-    <View style={[styles.container, bgStyle, { paddingBottom: bottomPad }]}>
+    <View style={[styles.container, bgStyle]}>
       <Text style={[styles.title, { color: labelColor }]}>
         {t('commentSheet.title', { count: comments.length })}
       </Text>
@@ -1242,99 +1241,102 @@ export default function CommentSheet({
         </View>
       ) : null}
 
-      {/* Input row */}
-      <View style={[styles.inputRow, bgStyle, { borderTopColor: border }]}>
-        <View style={styles.inputAvatar}>
-          <HexAvatar
-            uri={profileImage}
-            size={30}
-            borderWidth={1}
-            borderColor={accent}
-          />
-        </View>
-        <TextInput
-          placeholder={
-            editingComment
-              ? t('commentSheet.editPlaceholder')
-              : replyingToComment
-                ? t('commentSheet.replyPlaceholder', { username: replyingToComment.username })
-                : t('commentSheet.addCommentPlaceholder')
-          }
-          placeholderTextColor={mutedText}
-          style={[
-            styles.input,
-            {
-              color: labelColor,
-              backgroundColor: inputSurface,
-              borderColor: border,
-            },
-          ]}
-          value={replyingToComment ? replyText : commentText}
-          onChangeText={
-            replyingToComment ? handleReplyTextChange : handleCommentTextChange
-          }
-          onSelectionChange={event => {
-            const selection = event?.nativeEvent?.selection;
-            if (!selection) return;
-            if (replyingToComment) {
-              replySelectionRef.current = selection;
-              setReplySelection(selection);
-              if (selection.start > replyTextRef.current.length) return;
-              runMentionSearch(replyTextRef.current, selection.start, 'reply');
-            } else {
-              inputSelectionRef.current = selection;
-              setInputSelection(selection);
-              if (selection.start > commentTextRef.current.length) return;
-              runMentionSearch(
-                commentTextRef.current,
-                selection.start,
-                'comment',
-              );
-            }
-          }}
-          editable={true}
-        />
-        <TouchableOpacity
-          onPress={handleSendComment}
-          disabled={
-            isPosting ||
-            !(replyingToComment ? replyText.trim() : commentText.trim())
-          }>
-          {isPosting ? (
-            <ActivityIndicator size="small" color={accent} />
-          ) : (
-            <Text
-              style={[
-                styles.sendText,
-                { color: accent },
-                !(replyingToComment
-                  ? replyText.trim()
-                  : commentText.trim()) && styles.sendTextDisabled,
-              ]}>
-              {editingComment
-                ? t('commentSheet.update')
+      {/* Composer pinned above keyboard spacer */}
+      <View style={[styles.composerWrap, bgStyle]}>
+        <View style={[styles.inputRow, { borderTopColor: border }]}>
+          <View style={styles.inputAvatar}>
+            <HexAvatar
+              uri={profileImage}
+              size={30}
+              borderWidth={1}
+              borderColor={accent}
+            />
+          </View>
+          <TextInput
+            placeholder={
+              editingComment
+                ? t('commentSheet.editPlaceholder')
                 : replyingToComment
-                  ? t('commentSheet.reply')
-                  : t('commentSheet.send')}
-            </Text>
-          )}
-        </TouchableOpacity>
-
-        {(editingComment || replyingToComment) && (
+                  ? t('commentSheet.replyPlaceholder', { username: replyingToComment.username })
+                  : t('commentSheet.addCommentPlaceholder')
+            }
+            placeholderTextColor={mutedText}
+            style={[
+              styles.input,
+              {
+                color: labelColor,
+                backgroundColor: inputSurface,
+                borderColor: border,
+              },
+            ]}
+            value={replyingToComment ? replyText : commentText}
+            onChangeText={
+              replyingToComment ? handleReplyTextChange : handleCommentTextChange
+            }
+            onSelectionChange={event => {
+              const selection = event?.nativeEvent?.selection;
+              if (!selection) return;
+              if (replyingToComment) {
+                replySelectionRef.current = selection;
+                setReplySelection(selection);
+                if (selection.start > replyTextRef.current.length) return;
+                runMentionSearch(replyTextRef.current, selection.start, 'reply');
+              } else {
+                inputSelectionRef.current = selection;
+                setInputSelection(selection);
+                if (selection.start > commentTextRef.current.length) return;
+                runMentionSearch(
+                  commentTextRef.current,
+                  selection.start,
+                  'comment',
+                );
+              }
+            }}
+            editable={true}
+          />
           <TouchableOpacity
-            style={{ marginLeft: 8 }}
-            onPress={() => {
-              setEditingComment(null);
-              commentTextRef.current = '';
-              setCommentText('');
-              setReplyingToComment(null);
-              replyTextRef.current = '';
-              setReplyText('');
-              clearMentionState();
-            }}>
-            <Icon name="close-circle" size={20} color={mutedText} />
+            onPress={handleSendComment}
+            disabled={
+              isPosting ||
+              !(replyingToComment ? replyText.trim() : commentText.trim())
+            }>
+            {isPosting ? (
+              <ActivityIndicator size="small" color={accent} />
+            ) : (
+              <Text
+                style={[
+                  styles.sendText,
+                  { color: accent },
+                  !(replyingToComment
+                    ? replyText.trim()
+                    : commentText.trim()) && styles.sendTextDisabled,
+                ]}>
+                {editingComment
+                  ? t('commentSheet.update')
+                  : replyingToComment
+                    ? t('commentSheet.reply')
+                    : t('commentSheet.send')}
+              </Text>
+            )}
           </TouchableOpacity>
-        )}
+
+          {(editingComment || replyingToComment) && (
+            <TouchableOpacity
+              style={{ marginLeft: 8 }}
+              onPress={() => {
+                setEditingComment(null);
+                commentTextRef.current = '';
+                setCommentText('');
+                setReplyingToComment(null);
+                replyTextRef.current = '';
+                setReplyText('');
+                clearMentionState();
+              }}>
+              <Icon name="close-circle" size={20} color={mutedText} />
+            </TouchableOpacity>
+          )}
+        </View>
+        <View style={{ height: bottomPad }} />
       </View>
 
       {/* Action modal */}
@@ -1547,6 +1549,9 @@ const styles = StyleSheet.create({
     padding: 10,
     marginTop: 8,
   },
+  composerWrap: {
+    flexShrink: 0,
+  },
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1588,6 +1593,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   mentionPanel: {
+    flexShrink: 1,
     borderWidth: 1,
     borderRadius: 14,
     marginBottom: 8,
