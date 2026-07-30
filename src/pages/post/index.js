@@ -827,23 +827,23 @@ const cropImage = (imageUri, index) => {
       <View style={[styles.headerRow, bgStyle, { shadowColor: text, borderBottomColor: border }]}>
         <TouchableOpacity
           onPress={() => {
-            setShowTypeModal(false);
-            if (navigation.canGoBack()) {
-              navigation.goBack();
-              return;
-            }
+            setShowTypeModal(true);
+            // if (navigation.canGoBack()) {
+            //   navigation.goBack();
+            //   return;
+            // }
 
-            if (returnTo && typeof returnTo === 'object' && returnTo?.tab) {
-              navigation.navigate(returnTo.tab);
-              return;
-            }
+            // if (returnTo && typeof returnTo === 'object' && returnTo?.tab) {
+            //   navigation.navigate(returnTo.tab);
+            //   return;
+            // }
 
-            if (typeof returnTo === 'string' && returnTo.length) {
-              navigation.navigate(returnTo);
-              return;
-            }
+            // if (typeof returnTo === 'string' && returnTo.length) {
+            //   navigation.navigate(returnTo);
+            //   return;
+            // }
 
-            navigation.navigate('HomeMain');
+            // navigation.navigate('HomeMain');
           }}
           style={styles.headerIconBtn}
         >

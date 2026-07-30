@@ -75,7 +75,7 @@ export default function PostView({ postData = [], userData = {} }) {
 
   // Extract params including the source screen info
   const routeParams = route.params || {};
-  const { startIndex, userChat, userData: routeUserData } = routeParams;
+  const { startIndex, userChat, userData: routeUserData, openCommentsOnMount } = routeParams;
   const routeLoggedInUserId = routeParams.loggedInUserId; // ← add this
 
   const navPostData = routeParams.postData;
@@ -133,6 +133,7 @@ export default function PostView({ postData = [], userData = {} }) {
   const playingDebounceRef = useRef(null);
   const pinningPostIdRef = useRef('');
   const pendingInitialScrollRef = useRef(false);
+  const didAutoOpenCommentsRef = useRef(false);
   const [listViewportHeight, setListViewportHeight] = useState(0);
   const { bgStyle, text, border } = useAppTheme();
   const [isReady, setIsReady] = useState(false);
@@ -1040,6 +1041,27 @@ export default function PostView({ postData = [], userData = {} }) {
     setCommentPostId(null);
   };
 
+  useEffect(() => {
+    if (!openCommentsOnMount || didAutoOpenCommentsRef.current) return;
+    const targetPostId = routeParams?.commentPostId || routeParams?.postId || navPostData?.id || posts?.[0]?.id;
+    if (!targetPostId) return;
+
+    didAutoOpenCommentsRef.current = true;
+    const timer = setTimeout(() => {
+      handleComment(String(targetPostId), routeParams?.commentPostOwnerId || routeUserData?.id || routeUserData?.userId || null);
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [
+    openCommentsOnMount,
+    routeParams?.commentPostId,
+    routeParams?.postId,
+    routeParams?.commentPostOwnerId,
+    navPostData,
+    posts,
+    routeUserData,
+  ]);
+
   const handleCommentCountUpdate = useCallback((postId, newCount) => {
     setPostCommentsCount(prev => ({
       ...prev,
@@ -1349,6 +1371,12 @@ export default function PostView({ postData = [], userData = {} }) {
           onCommentCountUpdate={handleCommentCountUpdate}
           postId={commentPostId}
           postOwnerId={commentPostOwnerId}
+          returnTo="PostView"
+          returnParams={{
+            ...routeParams,
+            returnTo: routeParams?.returnTo,
+            returnParams: routeParams?.returnParams,
+          }}
         />
       </RBSheet>
     </>
