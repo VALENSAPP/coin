@@ -79,6 +79,49 @@ export function normalizeSearchUsers(response) {
 }
 
 /**
+ * Score a user against the typed @query. Lower is better.
+ * Prefers prefix matches so "@st" ranks stevenaustin above test20.
+ */
+export function getMentionMatchScore(user, query) {
+  const needle = String(query || '').trim().toLowerCase();
+  if (!needle) return 100;
+
+  const username = String(user?.username || '').toLowerCase();
+  const displayName = String(user?.displayName || '').toLowerCase();
+  const displayWords = displayName.split(/\s+/).filter(Boolean);
+
+  if (username === needle) return 0;
+  if (displayName === needle) return 1;
+  if (username.startsWith(needle)) return 2;
+  if (displayName.startsWith(needle)) return 3;
+  if (displayWords.some(word => word.startsWith(needle))) return 4;
+  if (username.includes(needle)) return 5;
+  if (displayName.includes(needle)) return 6;
+  return 100;
+}
+
+/**
+ * Filter + sort mention candidates so prefix matches appear first.
+ */
+export function rankMentionUsers(users, query, limit = 8) {
+  const needle = String(query || '').trim().toLowerCase();
+  const list = Array.isArray(users) ? users : [];
+  if (!needle) return list.slice(0, limit);
+
+  return list
+    .map(user => ({ user, score: getMentionMatchScore(user, needle) }))
+    .filter(entry => entry.score < 100)
+    .sort((a, b) => {
+      if (a.score !== b.score) return a.score - b.score;
+      const aName = String(a.user.username || '').toLowerCase();
+      const bName = String(b.user.username || '').toLowerCase();
+      return aName.localeCompare(bName);
+    })
+    .slice(0, limit)
+    .map(entry => entry.user);
+}
+
+/**
  * Resolve a @username to a user id via /user/all?userName=
  * @param {string} incomingUsername
  * @returns {Promise<string|null>}
