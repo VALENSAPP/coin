@@ -159,12 +159,6 @@ export default function BattleExplore({ onClose, profile }) {
 
     const normalizedUserId = String(storedUserId ?? '').trim();
     const normalizedClosetId = String(closetId ?? '').trim();
-
-    console.log('userId----------------------------', storedUserId, typeof storedUserId);
-    console.log('closetId----------------------------', closetId, typeof closetId);
-
-    console.log('normalizedUserId ----------------------------', normalizedUserId !== '' && normalizedUserId === normalizedClosetId);
-
     return normalizedUserId !== '' && normalizedUserId === normalizedClosetId;
   }
 

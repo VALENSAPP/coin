@@ -645,7 +645,7 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
   const openInMaps = () => {
     if (!draft.pickupAddress) return;
     const query = encodeURIComponent(draft.pickupAddress);
-    Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${query}`).catch(() => {});
+    Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${query}`).catch(() => { });
   };
 
   const pickupLocationOptions = useMemo(
@@ -761,7 +761,7 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
             value={draft.name}
             onChangeText={value => setDraft(prev => ({ ...prev, name: value }))}
             placeholder={t('myClosetItemEditor.itemNamePlaceholder')}
-          accent={accent}
+            accent={accent}
           />
           <DropdownRow
             label={t('myClosetItemEditor.categoryLabel')}
@@ -769,14 +769,14 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
             options={CATEGORY_OPTIONS}
             placeholder={t('myClosetItemEditor.categoryPlaceholder')}
             onSelect={value => setDraft(prev => ({ ...prev, category: value }))}
-          accent={accent}
+            accent={accent}
           />
           <Field
             label={t('myClosetItemEditor.brandLabel')}
             value={draft.brand}
             onChangeText={value => setDraft(prev => ({ ...prev, brand: value }))}
             placeholder={t('myClosetItemEditor.brandPlaceholder')}
-          accent={accent}
+            accent={accent}
           />
           <DropdownRow
             label={t('myClosetItemEditor.conditionLabel')}
@@ -784,7 +784,7 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
             options={CONDITION_OPTIONS}
             placeholder={t('myClosetItemEditor.conditionPlaceholder')}
             onSelect={value => setDraft(prev => ({ ...prev, condition: value }))}
-          accent={accent}
+            accent={accent}
           />
           <Field
             label={t('myClosetItemEditor.descriptionLabel')}
@@ -792,7 +792,7 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
             onChangeText={value => setDraft(prev => ({ ...prev, description: value }))}
             placeholder={t('myClosetItemEditor.descriptionPlaceholder')}
             multiline
-          accent={accent}
+            accent={accent}
           />
           <Field
             label={t('myClosetItemEditor.priceLabel')}
@@ -800,7 +800,7 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
             onChangeText={value => setDraft(prev => ({ ...prev, price: value }))}
             placeholder={t('myClosetItemEditor.pricePlaceholder')}
             keyboardType="numeric"
-          accent={accent}
+            accent={accent}
           />
           <Field
             label={t('myClosetItemEditor.quantityLabel')}
@@ -808,7 +808,7 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
             onChangeText={value => setDraft(prev => ({ ...prev, quantity: value }))}
             placeholder={t('myClosetItemEditor.quantityPlaceholder')}
             keyboardType="numeric"
-          accent={accent}
+            accent={accent}
           />
           <DropdownRow
             label={t('myClosetItemEditor.shippingOptionLabel')}
@@ -816,7 +816,7 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
             options={SHIPPING_OPTIONS}
             placeholder={t('myClosetItemEditor.shippingOptionPlaceholder')}
             onSelect={value => setDraft(prev => ({ ...prev, shippingOption: value }))}
-          accent={accent}
+            accent={accent}
           />
           {(!draft.shippingOption || draft.shippingOption !== 'local_pick') && (
             <>
@@ -840,195 +840,195 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
             <>
               {/* Pickup City */}
               {hasPlacesApi ? (
-            <PlaceFieldRow
-              icon="location-outline"
-              label={t('myClosetAddItemShipping.pickupCity') || 'Pickup City'}
-              placeholder={t('myClosetAddItemShipping.searchCity') || 'Search city...'}
-              value={draft.pickUpCity}
-              filled={Boolean(draft.pickUpCity)}
-              expanded={expandedField === 'pickUpCity'}
-              onToggle={() => {
-                setCityQuery(draft.pickUpCity || '');
-                setExpandedField('pickUpCity');
-              }}
-              onCollapse={() => setExpandedField(null)}
-              query={cityQuery}
-              onQueryChange={setCityQuery}
-              predictions={cityPredictions}
-              searching={citySearching}
-              onSelectPrediction={handleSelectCityPrediction}
-              text={text}
-              error={errors.pickUpCity}
-              t={t}
-            />
-          ) : (
-            <AdvancedDropdownRow
-              label={t('myClosetAddItemShipping.pickupCity') || 'Pickup City'}
-              placeholder={t('myClosetAddItemShipping.selectCity') || 'Select city'}
-              value={draft.pickUpCity}
-              expanded={expandedField === 'pickUpCity'}
-              onToggle={() => setExpandedField(prev => (prev === 'pickUpCity' ? null : 'pickUpCity'))}
-              onSelect={handleSelectCityFallback}
-              options={PICKUP_CITY_OPTIONS}
-              text={text}
-              error={errors.pickUpCity}
-            />
-          )}
+                <PlaceFieldRow
+                  icon="location-outline"
+                  label={t('myClosetAddItemShipping.pickupCity') || 'Pickup City'}
+                  placeholder={t('myClosetAddItemShipping.searchCity') || 'Search city...'}
+                  value={draft.pickUpCity}
+                  filled={Boolean(draft.pickUpCity)}
+                  expanded={expandedField === 'pickUpCity'}
+                  onToggle={() => {
+                    setCityQuery(draft.pickUpCity || '');
+                    setExpandedField('pickUpCity');
+                  }}
+                  onCollapse={() => setExpandedField(null)}
+                  query={cityQuery}
+                  onQueryChange={setCityQuery}
+                  predictions={cityPredictions}
+                  searching={citySearching}
+                  onSelectPrediction={handleSelectCityPrediction}
+                  text={text}
+                  error={errors.pickUpCity}
+                  t={t}
+                />
+              ) : (
+                <AdvancedDropdownRow
+                  label={t('myClosetAddItemShipping.pickupCity') || 'Pickup City'}
+                  placeholder={t('myClosetAddItemShipping.selectCity') || 'Select city'}
+                  value={draft.pickUpCity}
+                  expanded={expandedField === 'pickUpCity'}
+                  onToggle={() => setExpandedField(prev => (prev === 'pickUpCity' ? null : 'pickUpCity'))}
+                  onSelect={handleSelectCityFallback}
+                  options={PICKUP_CITY_OPTIONS}
+                  text={text}
+                  error={errors.pickUpCity}
+                />
+              )}
 
-          {/* Pickup Location */}
-          {hasPlacesApi ? (
-            <PlaceFieldRow
-              icon="business-outline"
-              label={t('myClosetAddItemShipping.pickupSpot') || 'Pickup Spot'}
-              placeholder={draft.pickUpCity ? (t('myClosetAddItemShipping.selectPickupSpot') || 'Search area or address...') : (t('myClosetAddItemShipping.selectCityFirst') || 'Select a city first')}
-              value={draft.pickupLocation}
-              filled={Boolean(draft.pickupLocation)}
-              disabled={!draft.pickUpCity}
-              expanded={expandedField === 'pickupLocation'}
-              onToggle={() => {
-                if (!draft.pickUpCity) return;
-                setPickupQuery(draft.pickupLocation || '');
-                setExpandedField('pickupLocation');
-              }}
-              onCollapse={() => setExpandedField(null)}
-              query={pickupQuery}
-              onQueryChange={setPickupQuery}
-              predictions={pickupPredictions}
-              searching={pickupSearching}
-              onSelectPrediction={handleSelectPickupPrediction}
-              text={text}
-              error={errors.pickupLocation}
-              t={t}
-            />
-          ) : (
-            <AdvancedDropdownRow
-              label={t('myClosetAddItemShipping.pickupSpot') || 'Pickup Spot'}
-              placeholder={draft.pickUpCity ? (t('myClosetAddItemShipping.selectPickupSpot') || 'Select spot') : (t('myClosetAddItemShipping.selectCityFirst') || 'Select a city first')}
-              value={draft.pickupLocation}
-              expanded={expandedField === 'pickupLocation'}
-              onToggle={() => {
-                if (!draft.pickUpCity) return;
-                setExpandedField(prev => (prev === 'pickupLocation' ? null : 'pickupLocation'));
-              }}
-              onSelect={handleSelectPickupLocationFallback}
-              options={pickupLocationOptions}
-              text={text}
-              error={errors.pickupLocation}
-            />
-          )}
+              {/* Pickup Location */}
+              {hasPlacesApi ? (
+                <PlaceFieldRow
+                  icon="business-outline"
+                  label={t('myClosetAddItemShipping.pickupSpot') || 'Pickup Spot'}
+                  placeholder={draft.pickUpCity ? (t('myClosetAddItemShipping.selectPickupSpot') || 'Search area or address...') : (t('myClosetAddItemShipping.selectCityFirst') || 'Select a city first')}
+                  value={draft.pickupAddress || draft.pickupLocation}
+                  filled={Boolean(draft.pickupAddress || draft.pickupLocation)}
+                  disabled={!draft.pickUpCity}
+                  expanded={expandedField === 'pickupLocation'}
+                  onToggle={() => {
+                    if (!draft.pickUpCity) return;
+                    setPickupQuery(draft.pickupLocation || '');
+                    setExpandedField('pickupLocation');
+                  }}
+                  onCollapse={() => setExpandedField(null)}
+                  query={pickupQuery}
+                  onQueryChange={setPickupQuery}
+                  predictions={pickupPredictions}
+                  searching={pickupSearching}
+                  onSelectPrediction={handleSelectPickupPrediction}
+                  text={text}
+                  error={errors.pickupLocation}
+                  t={t}
+                />
+              ) : (
+                <AdvancedDropdownRow
+                  label={t('myClosetAddItemShipping.pickupSpot') || 'Pickup Spot'}
+                  placeholder={draft.pickUpCity ? (t('myClosetAddItemShipping.selectPickupSpot') || 'Select spot') : (t('myClosetAddItemShipping.selectCityFirst') || 'Select a city first')}
+                  value={draft.pickupAddress || draft.pickupLocation}
+                  expanded={expandedField === 'pickupLocation'}
+                  onToggle={() => {
+                    if (!draft.pickUpCity) return;
+                    setExpandedField(prev => (prev === 'pickupLocation' ? null : 'pickupLocation'));
+                  }}
+                  onSelect={handleSelectPickupLocationFallback}
+                  options={pickupLocationOptions}
+                  text={text}
+                  error={errors.pickupLocation}
+                />
+              )}
 
-          {draft.pickupAddress ? (
-            <View style={{ marginLeft: 44, marginTop: -4, marginBottom: 14 }}>
-              <Text style={[styles.pickupAddressText, mutedTextStyle]}>
-                {draft.pickupAddress}
-              </Text>
-              <TouchableOpacity activeOpacity={0.8} onPress={openInMaps} style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Ionicons name="map-outline" size={14} color={accent} />
-                <Text style={{ marginLeft: 5, fontSize: 12, fontWeight: '700', color: accent, textDecorationLine: 'underline' }}>
-                  {t('myClosetAddItemShipping.viewOnMap') || 'View on Map'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          ) : null}
-
-          {/* Pickup Hours */}
-          <View style={{ marginBottom: 16 }}>
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={() => setHoursExpanded(prev => !prev)}
-              style={{
-                minHeight: 58,
-                borderRadius: 16,
-                borderWidth: 1,
-                borderColor: surfaces.listBorder,
-                backgroundColor: surfaces.inputSurface,
-                flexDirection: 'row',
-                alignItems: 'center',
-                paddingHorizontal: 14,
-                paddingVertical: 10,
-                marginBottom: 14,
-              }}
-            >
-              <View style={{
-                width: 34,
-                height: 34,
-                borderRadius: 17,
-                backgroundColor: surfaces.iconBubble,
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}>
-                <Ionicons name="time-outline" size={17} color={accent} />
-              </View>
-              <View style={{ flex: 1, marginLeft: 10 }}>
-                <Text style={{ fontSize: 12, fontWeight: '800', color: surfaces.labelColor, marginBottom: 3 }}>
-                  {t('myClosetAddItemShipping.availableHours') || 'Available Hours'}
-                </Text>
-                <Text style={{ fontSize: 12, color: surfaces.mutedColor }}>
-                  {draft.pickupHours?.weekdayStart} - {draft.pickupHours?.weekdayEnd}
-                </Text>
-              </View>
-              <Ionicons name={hoursExpanded ? 'chevron-up' : 'chevron-down'} size={18} color={textStyle?.color || accent} />
-            </TouchableOpacity>
-            {hoursExpanded ? (
-              <View style={{ marginTop: -6, marginBottom: 14, padding: 12, borderRadius: 16, borderWidth: 1, borderColor: surfaces.listBorder, backgroundColor: isDarkMode ? 'rgba(255,255,255,0.04)' : '#fafafa' }}>
-                <Text style={{ fontSize: 12, fontWeight: '800', color: surfaces.labelColor, marginBottom: 8 }}>
-                  {t('myClosetAddItemShipping.weekdays') || 'Weekdays (Mon-Fri)'}
-                </Text>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 10, marginBottom: 6 }}>
-                  <View style={{ flex: 1 }}>
-                    <AdvancedDropdownRow
-                      placeholder="Start"
-                      value={draft.pickupHours?.weekdayStart}
-                      expanded={expandedField === 'weekdayStart'}
-                      onToggle={() => setExpandedField(prev => (prev === 'weekdayStart' ? null : 'weekdayStart'))}
-                      onSelect={val => setDraft(prev => ({ ...prev, pickupHours: { ...prev.pickupHours, weekdayStart: val } }))}
-                      options={PICKUP_TIME_OPTIONS}
-                      text={text}
-                    />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <AdvancedDropdownRow
-                      placeholder="End"
-                      value={draft.pickupHours?.weekdayEnd}
-                      expanded={expandedField === 'weekdayEnd'}
-                      onToggle={() => setExpandedField(prev => (prev === 'weekdayEnd' ? null : 'weekdayEnd'))}
-                      onSelect={val => setDraft(prev => ({ ...prev, pickupHours: { ...prev.pickupHours, weekdayEnd: val } }))}
-                      options={PICKUP_TIME_OPTIONS}
-                      text={text}
-                    />
-                  </View>
+              {draft.pickupAddress ? (
+                <View style={{ marginLeft: 44, marginTop: -4, marginBottom: 14 }}>
+                  {/* <Text style={[styles.pickupAddressText, mutedTextStyle]}>
+                    {draft.pickupAddress}
+                  </Text> */}
+                  <TouchableOpacity activeOpacity={0.8} onPress={openInMaps} style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Ionicons name="map-outline" size={14} color={accent} />
+                    <Text style={{ marginLeft: 5, fontSize: 12, fontWeight: '700', color: accent, textDecorationLine: 'underline' }}>
+                      {t('myClosetAddItemShipping.viewOnMap') || 'View on Map'}
+                    </Text>
+                  </TouchableOpacity>
                 </View>
-                <Text style={{ fontSize: 12, fontWeight: '800', color: surfaces.labelColor, marginBottom: 8, marginTop: 4 }}>
-                  {t('myClosetAddItemShipping.weekends') || 'Weekends (Sat-Sun)'}
-                </Text>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 10 }}>
-                  <View style={{ flex: 1 }}>
-                    <AdvancedDropdownRow
-                      placeholder="Start"
-                      value={draft.pickupHours?.weekendStart}
-                      expanded={expandedField === 'weekendStart'}
-                      onToggle={() => setExpandedField(prev => (prev === 'weekendStart' ? null : 'weekendStart'))}
-                      onSelect={val => setDraft(prev => ({ ...prev, pickupHours: { ...prev.pickupHours, weekendStart: val } }))}
-                      options={PICKUP_TIME_OPTIONS}
-                      text={text}
-                    />
+              ) : null}
+
+              {/* Pickup Hours */}
+              <View style={{ marginBottom: 16 }}>
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={() => setHoursExpanded(prev => !prev)}
+                  style={{
+                    minHeight: 58,
+                    borderRadius: 16,
+                    borderWidth: 1,
+                    borderColor: surfaces.listBorder,
+                    backgroundColor: surfaces.inputSurface,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    paddingHorizontal: 14,
+                    paddingVertical: 10,
+                    marginBottom: 14,
+                  }}
+                >
+                  <View style={{
+                    width: 34,
+                    height: 34,
+                    borderRadius: 17,
+                    backgroundColor: surfaces.iconBubble,
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    <Ionicons name="time-outline" size={17} color={accent} />
                   </View>
-                  <View style={{ flex: 1 }}>
-                    <AdvancedDropdownRow
-                      placeholder="End"
-                      value={draft.pickupHours?.weekendEnd}
-                      expanded={expandedField === 'weekendEnd'}
-                      onToggle={() => setExpandedField(prev => (prev === 'weekendEnd' ? null : 'weekendEnd'))}
-                      onSelect={val => setDraft(prev => ({ ...prev, pickupHours: { ...prev.pickupHours, weekendEnd: val } }))}
-                      options={PICKUP_TIME_OPTIONS}
-                      text={text}
-                    />
+                  <View style={{ flex: 1, marginLeft: 10 }}>
+                    <Text style={{ fontSize: 12, fontWeight: '800', color: surfaces.labelColor, marginBottom: 3 }}>
+                      {t('myClosetAddItemShipping.availableHours') || 'Available Hours'}
+                    </Text>
+                    <Text style={{ fontSize: 12, color: surfaces.mutedColor }}>
+                      {draft.pickupHours?.weekdayStart} - {draft.pickupHours?.weekdayEnd}
+                    </Text>
                   </View>
-                </View>
+                  <Ionicons name={hoursExpanded ? 'chevron-up' : 'chevron-down'} size={18} color={textStyle?.color || accent} />
+                </TouchableOpacity>
+                {hoursExpanded ? (
+                  <View style={{ marginTop: -6, marginBottom: 14, padding: 12, borderRadius: 16, borderWidth: 1, borderColor: surfaces.listBorder, backgroundColor: isDarkMode ? 'rgba(255,255,255,0.04)' : '#fafafa' }}>
+                    <Text style={{ fontSize: 12, fontWeight: '800', color: surfaces.labelColor, marginBottom: 8 }}>
+                      {t('myClosetAddItemShipping.weekdays') || 'Weekdays (Mon-Fri)'}
+                    </Text>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 10, marginBottom: 6 }}>
+                      <View style={{ flex: 1 }}>
+                        <AdvancedDropdownRow
+                          placeholder="Start"
+                          value={draft.pickupHours?.weekdayStart}
+                          expanded={expandedField === 'weekdayStart'}
+                          onToggle={() => setExpandedField(prev => (prev === 'weekdayStart' ? null : 'weekdayStart'))}
+                          onSelect={val => setDraft(prev => ({ ...prev, pickupHours: { ...prev.pickupHours, weekdayStart: val } }))}
+                          options={PICKUP_TIME_OPTIONS}
+                          text={text}
+                        />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <AdvancedDropdownRow
+                          placeholder="End"
+                          value={draft.pickupHours?.weekdayEnd}
+                          expanded={expandedField === 'weekdayEnd'}
+                          onToggle={() => setExpandedField(prev => (prev === 'weekdayEnd' ? null : 'weekdayEnd'))}
+                          onSelect={val => setDraft(prev => ({ ...prev, pickupHours: { ...prev.pickupHours, weekdayEnd: val } }))}
+                          options={PICKUP_TIME_OPTIONS}
+                          text={text}
+                        />
+                      </View>
+                    </View>
+                    <Text style={{ fontSize: 12, fontWeight: '800', color: surfaces.labelColor, marginBottom: 8, marginTop: 4 }}>
+                      {t('myClosetAddItemShipping.weekends') || 'Weekends (Sat-Sun)'}
+                    </Text>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 10 }}>
+                      <View style={{ flex: 1 }}>
+                        <AdvancedDropdownRow
+                          placeholder="Start"
+                          value={draft.pickupHours?.weekendStart}
+                          expanded={expandedField === 'weekendStart'}
+                          onToggle={() => setExpandedField(prev => (prev === 'weekendStart' ? null : 'weekendStart'))}
+                          onSelect={val => setDraft(prev => ({ ...prev, pickupHours: { ...prev.pickupHours, weekendStart: val } }))}
+                          options={PICKUP_TIME_OPTIONS}
+                          text={text}
+                        />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <AdvancedDropdownRow
+                          placeholder="End"
+                          value={draft.pickupHours?.weekendEnd}
+                          expanded={expandedField === 'weekendEnd'}
+                          onToggle={() => setExpandedField(prev => (prev === 'weekendEnd' ? null : 'weekendEnd'))}
+                          onSelect={val => setDraft(prev => ({ ...prev, pickupHours: { ...prev.pickupHours, weekendEnd: val } }))}
+                          options={PICKUP_TIME_OPTIONS}
+                          text={text}
+                        />
+                      </View>
+                    </View>
+                  </View>
+                ) : null}
               </View>
-            ) : null}
-          </View>
-          </>
+            </>
           )}
 
           {/* Chat Toggle */}
@@ -1056,7 +1056,7 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
             options={RETURN_POLICY_OPTIONS}
             placeholder={t('myClosetItemEditor.returnPolicyPlaceholder')}
             onSelect={value => setDraft(prev => ({ ...prev, returnPolicy: value }))}
-          accent={accent}
+            accent={accent}
           />
         </View>
 
