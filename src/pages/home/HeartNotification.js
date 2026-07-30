@@ -16,7 +16,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useBusinessProfileTheme } from '../../theme/useBusinessProfileTheme';
 import {
@@ -328,6 +328,7 @@ export default function Notifications() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const listBottomPadding = Math.max(insets.bottom + 16, Platform.OS === 'android' ? 24 : 16);
+  const routes = useRoute();
 
   const tabs = useMemo(
     () => [
@@ -595,7 +596,7 @@ export default function Notifications() {
   }, []);
 
   const navigateToPost = useCallback(
-    notification => {
+    (notification, options = {}) => {
       const postId = notification?.postId;
       if (!postId) return;
 
@@ -613,6 +614,11 @@ export default function Notifications() {
           userChat: true,
           fromScreen: 'Notifications',
           hideTabBar: true,
+          returnTo: 'HomeMain',
+          returnParams: { screen: 'HeartNotification' },
+          openCommentsOnMount: !!options.openCommentsOnMount,
+          commentPostId: options.commentPostId || postId,
+          commentPostOwnerId: options.commentPostOwnerId || notification?.raw?.userId || notification?.raw?.data?.userId || null,
         },
       });
     },
@@ -1213,6 +1219,19 @@ export default function Notifications() {
             setCircleAccessModalVisible(true);
           }
 
+          return;
+        }
+
+        if (normalizeNotificationType(item.type).includes('comment')) {
+          navigateToPost(item, {
+            openCommentsOnMount: true,
+            commentPostId: item?.postId || item?.raw?.data?.postId || item?.raw?.data?.post_id,
+            commentPostOwnerId:
+              item?.raw?.data?.commenterId ||
+              item?.raw?.data?.userId ||
+              item?.raw?.userId ||
+              null,
+          });
           return;
         }
 

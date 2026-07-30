@@ -776,12 +776,12 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   statValue: {
-    fontSize: 20,
-    fontWeight: '900',
+    fontSize: 15,
+    fontWeight: '800',
   },
   statLabel: {
-    fontSize: 12,
-    fontWeight: '700',
+    fontSize: 10,
+    fontWeight: '600',
     marginTop: 4,
   },
   primaryButton: {
