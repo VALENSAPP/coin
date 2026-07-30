@@ -99,6 +99,8 @@ const CommentItem = memo(
     onCloseSheet,
     currentUserId,
     postOwnerId,
+    returnTo,
+    returnParams,
     onReplyPress,
     replyingToThreadId,
     replyingToUsername,
@@ -145,10 +147,24 @@ const CommentItem = memo(
         if (!userId) return;
         onCloseSheet?.();
         requestAnimationFrame(() => {
-          navigation.navigate('UsersProfile', { userId });
+          const parentNavigation = navigation.getParent?.();
+          const params = { userId, returnTo, returnParams };
+
+          if (parentNavigation?.navigate) {
+            parentNavigation.navigate('HomeMain', {
+              screen: 'UsersProfile',
+              params,
+            });
+            return;
+          }
+
+          navigation.navigate('HomeMain', {
+            screen: 'UsersProfile',
+            params,
+          });
         });
       },
-      [navigation, onCloseSheet],
+      [navigation, onCloseSheet, returnParams, returnTo],
     );
 
     const toast = useToast();
@@ -477,6 +493,8 @@ export default function CommentSheet({
   onClose,
   postOwnerId,
   onCommentCountUpdate,
+  returnTo,
+  returnParams,
 }) {
   const [comments, setComments] = useState([]);
   const [commentText, setCommentText] = useState('');
@@ -1062,6 +1080,8 @@ export default function CommentSheet({
         onCloseSheet={onClose}
         currentUserId={currentUser?.id ?? userId}
         postOwnerId={postOwnerId}
+        returnTo={returnTo}
+        returnParams={returnParams}
         onReplyPress={handleReplyPress}
         replyingToThreadId={replyingToComment?.threadId}
         replyingToUsername={replyingToComment?.username}

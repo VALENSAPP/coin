@@ -260,15 +260,26 @@ const CustomDrawerContent = (props) => {
       <TouchableOpacity
         onPress={navigateToEbookPublisher}
         activeOpacity={0.75}
-        style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 18 }}
+        style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14, paddingLeft: 44 }}
       >
-        <Ionicons name="briefcase-outline" size={20} color={drawerColors.inactive} style={{ marginRight: 16 }} />
+        <Ionicons name="book-outline" size={20} color={drawerColors.inactive} style={{ marginRight: 16 }} />
         <Text style={{ fontSize: 15, color: drawerColors.inactive, fontWeight: '600' }}>
-          {t('drawerNav.services')}
+          {t('drawerNav.ebook', 'Ebook')}
         </Text>
         <View style={{ marginLeft: 8, backgroundColor: '#E6D5F7', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 12 }}>
           <Text style={{ fontSize: 10, color: '#5a2d82', fontWeight: 'bold' }}>NEW</Text>
         </View>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        onPress={() => {}}
+        activeOpacity={0.75}
+        style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 18, opacity: 0.75 }}
+      >
+        <Ionicons name="briefcase-outline" size={20} color={drawerColors.inactive} style={{ marginRight: 16 }} />
+        <Text style={{ fontSize: 15, color: drawerColors.inactive, fontWeight: '600' }}>
+          {t('drawerNav.services', 'Services')}
+        </Text>
       </TouchableOpacity>
 
       <TouchableOpacity
