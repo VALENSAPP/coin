@@ -77,34 +77,65 @@ const normalizeItemShippingOption = value => {
   return 'ship_items';
 };
 
-const buildItemPayload = data => {
-  const payload = data instanceof FormData ? data : new FormData();
+const formatPickupHours = hours => String(hours || '').trim();
+const parseFee = fee => Number(fee) || 0;
 
-  if (!(data instanceof FormData) && data && typeof data === 'object') {
-    appendItemField(payload, 'name', data.name);
-    appendItemField(payload, 'category', data.category);
-    appendItemField(payload, 'brand', data.brand);
-    appendItemField(payload, 'condition', normalizeItemCondition(data.condition));
-    appendItemField(payload, 'description', data.description);
-    appendItemField(payload, 'price', data.price);
-    appendItemField(payload, 'quantity', data.quantity);
-    appendItemField(payload, 'shippingOption', normalizeItemShippingOption(data.shippingOption));
-    appendItemField(payload, 'shippingOptions', normalizeItemShippingOption(data.shippingOptions));
-    appendItemField(payload, 'estimateShippingTime', data.estimateShippingTime);
-    appendItemField(payload, 'returnPolicy', data.returnPolicy);
+/**
+ * Single source of truth for building the /mycloset/items multipart payload.
+ * Accepts a "draft"-shaped object:
+ * { photos/images, itemName/name, category, brand, condition, description,
+ *   price, quantity, shippingEnabled, pickupEnabled, shippingFee, shippingTime,
+ *   pickupAddress, pickupHours, buyerChatEnabled, returnPolicy }
+ */
+const buildItemPayload = draft => {
+  // Defensive: if a fully-built FormData is passed in (e.g. from a caller
+  // that already assembled its own payload), use it as-is rather than
+  // re-reading (now-undefined) fields off of it.
+  if (draft instanceof FormData) return draft;
 
-    if (Array.isArray(data.images)) {
-      data.images.forEach(image => appendItemImage(payload, image));
-    } else if (data.image) {
-      appendItemImage(payload, data.image);
+  const payload = new FormData();
+
+  const images = draft.photos || draft.images || (draft.image ? [draft.image] : []);
+  images.forEach(image => appendItemImage(payload, image));
+
+  const shippingEnabled = !!draft.shippingEnabled;
+  const pickupEnabled = !!draft.pickupEnabled;
+  const shippingOption =
+    shippingEnabled && pickupEnabled ? 'both'
+      : pickupEnabled ? 'local_pick'
+        : normalizeItemShippingOption(draft.shippingOption || 'ship_items');
+
+  payload.append('name', String(draft.itemName ?? draft.name ?? '').trim());
+  payload.append('category', String(draft.category || '').trim());
+  if (draft.brand) payload.append('brand', String(draft.brand).trim());
+  payload.append('condition', normalizeItemCondition(draft.condition));
+  payload.append('description', String(draft.description || '').trim());
+  payload.append('price', String(draft.price ?? ''));
+  payload.append('quantity', String(draft.quantity ?? 1));
+  payload.append('shippingOption', shippingOption);
+
+  if (shippingOption === 'ship_items' || shippingOption === 'both') {
+    payload.append('shippingFee', String(parseFee(draft.shippingFee)));
+    if (draft.shippingTime || draft.estimateShippingTime) {
+      payload.append('estimateShippingTime', draft.shippingTime || draft.estimateShippingTime);
     }
   }
+
+  if (shippingOption === 'local_pick' || shippingOption === 'both') {
+    if (draft.pickUpCity) payload.append('pickUpCity', String(draft.pickUpCity).trim());
+    if (draft.pickupLocation) payload.append('pickupLocation', String(draft.pickupLocation).trim());
+    payload.append('pickupAddress', String(draft.pickupAddress || '').trim());
+    payload.append('pickupAvailableHours', formatPickupHours(draft.pickupHours ?? draft.pickupAvailableHours));
+    payload.append('buyerChatEnabled', String(draft.buyerChatEnabled ?? true));
+  }
+
+  payload.append('returnPolicy', String(draft.returnPolicy || '').trim());
 
   return payload;
 };
 
-export const createMyClosetItem = async data => {
-  return axiosInstance.post('mycloset/items', buildItemPayload(data));
+export const createMyClosetItem = async draft => {
+  return axiosInstance.post('mycloset/items', buildItemPayload(draft));
 };
 
 export const updateMyClosetItem = async (itemId, data) => {
@@ -398,11 +429,11 @@ export const getEarning = async (data) => {
   return axiosInstance.get('earnings', data);
 };
 
-export const getEarningHistory = async ( data) => {
+export const getEarningHistory = async (data) => {
   return axiosInstance.get('earnings/history', data);
 };
 
-export const getbattlePerformance = async ( data) => {
+export const getbattlePerformance = async (data) => {
   return axiosInstance.get('marketplace-battles/marketPlaceBattleOverview', data);
 };
 

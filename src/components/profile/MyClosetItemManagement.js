@@ -117,8 +117,8 @@ const formatPrice = value => {
   return `$${numericValue.toFixed(2)}`;
 };
 
-const parseFee = feeLabel => {
-  const match = String(feeLabel || '').match(/[\d.]+/);
+const parseFee = fee => {
+  const match = String(fee ?? '').match(/[\d.]+/);
   return match ? parseFloat(match[0]) : 0;
 };
 
@@ -225,12 +225,13 @@ const parsePickupHours = str => {
 };
 
 const formatPickupHours = hours => {
-  const h = hours || DEFAULT_PICKUP_HOURS;
+  if (typeof hours === 'string') return hours.trim();
+  const h = { ...DEFAULT_PICKUP_HOURS, ...(hours || {}) };
   return `Mon-Fri ${h.weekdayStart}-${h.weekdayEnd}, Sat-Sun ${h.weekendStart}-${h.weekendEnd}`;
 };
 
 const toEditableItem = item => {
-  let derivedCity = item?.pickupCity || '';
+  let derivedCity = item?.pickUpCity || '';
   if (!derivedCity && item?.pickupAddress) {
     const foundCity = PICKUP_CITY_OPTIONS.find(city => item.pickupAddress.includes(city));
     if (foundCity) derivedCity = foundCity;
@@ -248,7 +249,7 @@ const toEditableItem = item => {
     shippingOption: item?.shippingOption || item?.shippingOptions || '',
     shippingTime: item?.estimateShippingTime || item?.shippingTime || '',
     shippingFee: String(item?.shippingFee ?? ''),
-    pickupCity: derivedCity,
+    pickUpCity: derivedCity,
     pickupLocation: item?.pickupLocation || '',
     pickupAddress: item?.pickupAddress || '',
     pickupHours: parsePickupHours(item?.pickupAvailableHours || item?.pickupHours),
@@ -280,7 +281,7 @@ const buildPayload = draft => {
   }
 
   if (pickupEnabled) {
-    if (draft.pickupCity) payload.append('pickupCity', String(draft.pickupCity).trim());
+    if (draft.pickUpCity) payload.append('pickUpCity', String(draft.pickUpCity).trim());
     if (draft.pickupLocation) payload.append('pickupLocation', String(draft.pickupLocation).trim());
     payload.append('pickupAddress', String(draft.pickupAddress || '').trim());
     payload.append('pickupAvailableHours', formatPickupHours(draft.pickupHours));
@@ -519,7 +520,7 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
 
   const hasPlacesApi = useMemo(() => isGooglePlacesConfigured(), []);
 
-  const [cityQuery, setCityQuery] = useState(draft.pickupCity || '');
+  const [cityQuery, setCityQuery] = useState(draft.pickUpCity || '');
   const [cityPredictions, setCityPredictions] = useState([]);
   const [citySearching, setCitySearching] = useState(false);
   const cityDebounceRef = React.useRef(null);
@@ -541,7 +542,7 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
   }, [item]);
 
   useEffect(() => {
-    if (!hasPlacesApi || expandedField !== 'pickupCity') return undefined;
+    if (!hasPlacesApi || expandedField !== 'pickUpCity') return undefined;
     const query = cityQuery.trim();
     if (query.length < 2) { setCityPredictions([]); return undefined; }
 
@@ -568,29 +569,29 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
     try {
       const details = await getPlaceDetails(prediction.id);
       const cityLabel = details.city || prediction.description;
-      setDraft(prev => ({ ...prev, pickupCity: cityLabel, pickupLocation: '', pickupAddress: '' }));
+      setDraft(prev => ({ ...prev, pickUpCity: cityLabel, pickupLocation: '', pickupAddress: '' }));
       setCityQuery(cityLabel);
       if (details.latitude != null && details.longitude != null) {
         setPickupCoords({ latitude: details.latitude, longitude: details.longitude });
       }
       setPickupQuery('');
-      if (errors.pickupCity) setErrors(prev => ({ ...prev, pickupCity: null }));
+      if (errors.pickUpCity) setErrors(prev => ({ ...prev, pickUpCity: null }));
     } catch {
-      setDraft(prev => ({ ...prev, pickupCity: prediction.description }));
+      setDraft(prev => ({ ...prev, pickUpCity: prediction.description }));
       setCityQuery(prediction.description);
     }
   };
 
   const handleSelectCityFallback = value => {
-    setDraft(prev => ({ ...prev, pickupCity: value, pickupLocation: '', pickupAddress: '' }));
+    setDraft(prev => ({ ...prev, pickUpCity: value, pickupLocation: '', pickupAddress: '' }));
     setCityQuery(value);
     setPickupQuery('');
     setExpandedField(null);
-    if (errors.pickupCity) setErrors(prev => ({ ...prev, pickupCity: null }));
+    if (errors.pickUpCity) setErrors(prev => ({ ...prev, pickUpCity: null }));
   };
 
   useEffect(() => {
-    if (!hasPlacesApi || expandedField !== 'pickupLocation' || !draft.pickupCity) return undefined;
+    if (!hasPlacesApi || expandedField !== 'pickupLocation' || !draft.pickUpCity) return undefined;
     const query = pickupQuery.trim();
     if (query.length < 2) { setPickupPredictions([]); return undefined; }
 
@@ -608,7 +609,7 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
     }, 320);
 
     return () => pickupDebounceRef.current && clearTimeout(pickupDebounceRef.current);
-  }, [pickupQuery, hasPlacesApi, expandedField, draft.pickupCity, pickupCoords]);
+  }, [pickupQuery, hasPlacesApi, expandedField, draft.pickUpCity, pickupCoords]);
 
   const handleSelectPickupPrediction = async prediction => {
     setPickupQuery(prediction.description);
@@ -632,7 +633,7 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
   };
 
   const handleSelectPickupLocationFallback = value => {
-    const match = (PICKUP_LOCATIONS_BY_CITY[draft.pickupCity] || []).find(
+    const match = (PICKUP_LOCATIONS_BY_CITY[draft.pickUpCity] || []).find(
       p => p.label === value || p.address === value,
     );
     setDraft(prev => ({ ...prev, pickupLocation: value, pickupAddress: match?.address || '' }));
@@ -648,8 +649,8 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
   };
 
   const pickupLocationOptions = useMemo(
-    () => (PICKUP_LOCATIONS_BY_CITY[draft.pickupCity] || []).map(place => place.label),
-    [draft.pickupCity],
+    () => (PICKUP_LOCATIONS_BY_CITY[draft.pickUpCity] || []).map(place => place.label),
+    [draft.pickUpCity],
   );
 
   const handleBack = useCallback(() => {
@@ -843,12 +844,12 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
               icon="location-outline"
               label={t('myClosetAddItemShipping.pickupCity') || 'Pickup City'}
               placeholder={t('myClosetAddItemShipping.searchCity') || 'Search city...'}
-              value={draft.pickupCity}
-              filled={Boolean(draft.pickupCity)}
-              expanded={expandedField === 'pickupCity'}
+              value={draft.pickUpCity}
+              filled={Boolean(draft.pickUpCity)}
+              expanded={expandedField === 'pickUpCity'}
               onToggle={() => {
-                setCityQuery(draft.pickupCity || '');
-                setExpandedField('pickupCity');
+                setCityQuery(draft.pickUpCity || '');
+                setExpandedField('pickUpCity');
               }}
               onCollapse={() => setExpandedField(null)}
               query={cityQuery}
@@ -857,20 +858,20 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
               searching={citySearching}
               onSelectPrediction={handleSelectCityPrediction}
               text={text}
-              error={errors.pickupCity}
+              error={errors.pickUpCity}
               t={t}
             />
           ) : (
             <AdvancedDropdownRow
               label={t('myClosetAddItemShipping.pickupCity') || 'Pickup City'}
               placeholder={t('myClosetAddItemShipping.selectCity') || 'Select city'}
-              value={draft.pickupCity}
-              expanded={expandedField === 'pickupCity'}
-              onToggle={() => setExpandedField(prev => (prev === 'pickupCity' ? null : 'pickupCity'))}
+              value={draft.pickUpCity}
+              expanded={expandedField === 'pickUpCity'}
+              onToggle={() => setExpandedField(prev => (prev === 'pickUpCity' ? null : 'pickUpCity'))}
               onSelect={handleSelectCityFallback}
               options={PICKUP_CITY_OPTIONS}
               text={text}
-              error={errors.pickupCity}
+              error={errors.pickUpCity}
             />
           )}
 
@@ -879,13 +880,13 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
             <PlaceFieldRow
               icon="business-outline"
               label={t('myClosetAddItemShipping.pickupSpot') || 'Pickup Spot'}
-              placeholder={draft.pickupCity ? (t('myClosetAddItemShipping.selectPickupSpot') || 'Search area or address...') : (t('myClosetAddItemShipping.selectCityFirst') || 'Select a city first')}
+              placeholder={draft.pickUpCity ? (t('myClosetAddItemShipping.selectPickupSpot') || 'Search area or address...') : (t('myClosetAddItemShipping.selectCityFirst') || 'Select a city first')}
               value={draft.pickupLocation}
               filled={Boolean(draft.pickupLocation)}
-              disabled={!draft.pickupCity}
+              disabled={!draft.pickUpCity}
               expanded={expandedField === 'pickupLocation'}
               onToggle={() => {
-                if (!draft.pickupCity) return;
+                if (!draft.pickUpCity) return;
                 setPickupQuery(draft.pickupLocation || '');
                 setExpandedField('pickupLocation');
               }}
@@ -902,11 +903,11 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
           ) : (
             <AdvancedDropdownRow
               label={t('myClosetAddItemShipping.pickupSpot') || 'Pickup Spot'}
-              placeholder={draft.pickupCity ? (t('myClosetAddItemShipping.selectPickupSpot') || 'Select spot') : (t('myClosetAddItemShipping.selectCityFirst') || 'Select a city first')}
+              placeholder={draft.pickUpCity ? (t('myClosetAddItemShipping.selectPickupSpot') || 'Select spot') : (t('myClosetAddItemShipping.selectCityFirst') || 'Select a city first')}
               value={draft.pickupLocation}
               expanded={expandedField === 'pickupLocation'}
               onToggle={() => {
-                if (!draft.pickupCity) return;
+                if (!draft.pickUpCity) return;
                 setExpandedField(prev => (prev === 'pickupLocation' ? null : 'pickupLocation'));
               }}
               onSelect={handleSelectPickupLocationFallback}

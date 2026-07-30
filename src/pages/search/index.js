@@ -46,7 +46,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { getAllUser } from '../../services/users';
-import { getposts } from '../../services/home';
+import { getSearchPagePost } from '../../services/home';
 import {
   useIsFocused,
   useNavigation,
@@ -358,9 +358,66 @@ const MissionProgressBar = memo(({ progressPercent = 0, goalAmount = 0, currentR
   );
 });
 
+const BoostedTileOverlay = memo(({ post, text }) => {
+  const bwp = post?.battleWinnerProduct || {};
+  const product = bwp?.product || bwp || {};
+  const productName = product?.name || product?.title || bwp?.name || post?.caption || 'Winner';
+  const productPrice =
+    product?.price != null ? `$${Number(product.price).toFixed(2)}` :
+      bwp?.price != null ? `$${Number(bwp.price).toFixed(2)}` : '';
+
+  return (
+    <>
+      {/* Winner ribbon, top-left */}
+      <View
+        style={{
+          position: 'absolute',
+          top: 6,
+          left: 0,
+          backgroundColor: text,
+          paddingHorizontal: 6,
+          paddingVertical: 3,
+          borderTopRightRadius: 6,
+          borderBottomRightRadius: 6,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 3,
+        }}
+      >
+        <Text style={{ fontSize: 10 }}>🏆</Text>
+        <Text style={{ color: '#fff', fontSize: 9, fontWeight: '700', letterSpacing: 0.3 }}>
+          WINNER
+        </Text>
+      </View>
+
+      {/* Name + price bar, bottom */}
+      <View
+        style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          backgroundColor: 'rgba(0,0,0,0.55)',
+          paddingHorizontal: 8,
+          paddingVertical: 6,
+        }}
+      >
+        <Text numberOfLines={1} style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>
+          {productName}
+        </Text>
+        {!!productPrice && (
+          <Text style={{ color: '#F5C518', fontSize: 11, fontWeight: '800', marginTop: 1 }}>
+            {productPrice}
+          </Text>
+        )}
+      </View>
+    </>
+  );
+});
+
 // ─── OPTIMIZATION 1: MasonryItem as standalone React.memo component ──────────
 const MasonryItem = memo(
-  ({ post, index, height, top, columnIndex, width, spacing, isPlaying, donationTotal, onPress, onLongPress }) => {
+  ({ post, index, height, top, columnIndex, width, spacing, isPlaying, donationTotal, onPress, onLongPress, text }) => {
     const imageUrl = useMemo(
       () => normalizeImageUrl(post?.mediaUrl || post?.image || (post?.images && post.images[0])),
       // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -384,6 +441,13 @@ const MasonryItem = memo(
       if (!isMissionPost) return null;
       return calculateMissionStats(post, donationTotal);
     }, [isMissionPost, post, donationTotal]);
+
+    // NEW
+    const isBoostedProduct =
+      post?.isBoostedProduct ||
+      post?.format === 'boosted' ||
+      post?.feedItemType === 'boosted_product' ||
+      post?.type === 'battle_winner_product';
 
     if (!imageUrl) return null;
 
@@ -426,6 +490,10 @@ const MasonryItem = memo(
             fadeDuration={0}
           />
         )}
+
+        {/* NEW: boosted product overlay */}
+        {isBoostedProduct && <BoostedTileOverlay post={post} text={text}/>}
+
         {isMissionPost && missionStats && (
           <View style={styles.missionBadgeWrapper}>
             <MissionProgressBar
@@ -676,6 +744,11 @@ const SearchScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const { t } = useLanguage();
+
+  const [page, setPage] = useState(1);
+  const [limit] = useState(20);
+  const [hasMore, setHasMore] = useState(true);
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
 
   const [userId, setUserId] = useState(null);
   const [filteredUsers, setFilteredUsers] = useState([]);
@@ -928,18 +1001,45 @@ const SearchScreen = () => {
   }, [searchUsers]);
 
   // ─── OPTIMIZATION 5: Fetch posts + donations IN PARALLEL ───────────────────
-  const fetchPosts = useCallback(async () => {
+  const fetchPosts = useCallback(async (pageToFetch = 1, isLoadMore = false) => {
     try {
-      dispatch(showLoader());
-      const response = await getposts();
+      if (isLoadMore) {
+        setIsFetchingMore(true);
+      } else {
+        dispatch(showLoader());
+      }
+      const response = await getSearchPagePost(pageToFetch, limit);
+      console.log('FULL RESPONSE:', JSON.stringify(response));
       if (response?.statusCode === 200) {
         const postsData = response.data || [];
         console.log(postsData, 'posts data in search screen');
+        console.log('postsData.length:', postsData.length, 'limit:', limit);
         const flattenedPosts = [];
         postsData.forEach(post => {
+          const isBoostedProduct =
+            post?.format === 'boosted' ||
+            post?.feedItemType === 'boosted_product' ||
+            post?.type === 'battle_winner_product';
+
           const productObj = post?.battleWinnerProduct || post?.product || post?.item || post?.winnerProduct;
           const rawImages = post?.images || post?.image || post?.media || post?.mediaUrl || productObj?.images || productObj?.image || productObj?.media;
           const imgArray = Array.isArray(rawImages) ? rawImages : (rawImages ? [rawImages] : []);
+
+          // Boosted product posts: one tile only, using the first product image
+          if (isBoostedProduct) {
+            const firstImg = imgArray[0];
+            const imageUrlStr = typeof firstImg === 'string' ? firstImg : (firstImg?.url || firstImg?.uri || firstImg?.image || '');
+            if (imageUrlStr) {
+              flattenedPosts.push({
+                ...post,
+                mediaUrl: imageUrlStr,
+                imageIndex: 0,
+                isVideo: false,
+                isBoostedProduct: true,
+              });
+            }
+            return; // skip the normal multi-image flattening below
+          }
 
           if (imgArray.length > 0) {
             imgArray.forEach((imgItem, imgIndex) => {
@@ -968,8 +1068,16 @@ const SearchScreen = () => {
           }
         });
 
-        setPosts(flattenedPosts);
-        dispatch(hideLoader());
+        // OPTIMIZATION: append on load-more instead of replacing
+        setPosts(prev => {
+          if (!isLoadMore) return flattenedPosts;
+          const existingIds = new Set(prev.map(p => p.id));
+          const newOnly = flattenedPosts.filter(p => !existingIds.has(p.id));
+          return [...prev, ...newOnly];
+        });
+        setHasMore(postsData.length > 0);
+        setPage(pageToFetch);
+        if (!isLoadMore) dispatch(hideLoader());
 
         const missionPostIds = [...new Set(
           flattenedPosts
@@ -987,18 +1095,25 @@ const SearchScreen = () => {
                 nextTotals[missionPostIds[idx]] = Number(res.value?.data?.totalDonation) || 0;
               }
             });
-            setDonationTotals(nextTotals);
+            // merge, not overwrite, so earlier pages' totals survive
+            setDonationTotals(prev => ({ ...prev, ...nextTotals }));
           });
         }
       } else {
         showToastMessage(toastRef.current, 'danger', response?.data?.message || 'Failed to fetch posts');
-        dispatch(hideLoader());
+        if (!isLoadMore) dispatch(hideLoader());
       }
     } catch (error) {
-      dispatch(hideLoader());
+      if (!isLoadMore) dispatch(hideLoader());
       showToastMessage(toastRef.current, 'danger', error?.response?.message ?? 'Something went wrong');
+    } finally {
+      if (isLoadMore) {
+        setIsFetchingMore(false);
+      } else {
+        dispatch(hideLoader());
+      }
     }
-  }, [dispatch]);
+  }, [dispatch, limit]);
 
   const fetchExploreBattles = useCallback(async () => {
     try {
@@ -1232,7 +1347,7 @@ const SearchScreen = () => {
         battleId: item?.battleId || item?.battle?.id || rawProduct?.battleId || null,
         battleTitle: item?.battleTitle || item?.battle?.title || rawProduct?.battleTitle || item?.title || 'Battle Winner',
       } : null;
-
+      const isOwnProfileForCloset = String(userId || '') === String(cleanProduct?.seller?.id || '');
       navigation.navigate('ProfileMain', {
         screen: 'MyClosetBuyerItemDetail',
         params: {
@@ -1241,7 +1356,7 @@ const SearchScreen = () => {
           seller: cleanProduct.seller,
           sellerId: cleanProduct.userId,
           closetId: cleanProduct.closetId,
-          isOwnProfile: false,
+          isOwnProfile: isOwnProfileForCloset,
           battleWinner: winnerMeta,
           returnTo: { tab: 'Search', screen: 'SearchHome', params: route?.params || {} },
           returnParams: route?.params || {},
@@ -1316,7 +1431,7 @@ const SearchScreen = () => {
     const raw = battleItem?.raw || battleItem;
     const fmt = String(raw?.format || battleItem?.format || '').toLowerCase();
     const tbb = String(raw?.typeByBattle || battleItem?.typeByBattle || '').toLowerCase();
-          console.log("--------------------------raw----------------------", raw)
+    console.log("--------------------------raw----------------------", raw)
 
     // Boosted product — open the winner product detail
     if (fmt === 'boosted' || tbb === 'boosted_product') {
@@ -1411,13 +1526,20 @@ const SearchScreen = () => {
     handleBattleCardPressRef.current?.(battleItem);
   }, []);
 
+  const loadMorePosts = useCallback(() => {
+    console.log('onEndReached fired', { isSearchActive, isFetchingMore, hasMore, page });
+    if (isSearchActive || isFetchingMore || !hasMore) return;
+    fetchPosts(page + 1, true);
+  }, [isSearchActive, isFetchingMore, hasMore, page, fetchPosts]);
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
       if (searchText.trim().length > 0) {
         await searchUsers(searchText);
       } else {
-        await Promise.all([fetchPosts(), fetchExploreBattles()]);
+        setHasMore(true);
+        await Promise.all([fetchPosts(1, false), fetchExploreBattles()]);
       }
     } finally {
       setRefreshing(false);
@@ -1452,6 +1574,7 @@ const SearchScreen = () => {
       donationTotal={donationTotals[String(layoutItem.post?.id)]}
       onPress={handlePostPress}
       onLongPress={openPreview}
+      text={text}
     />
   ), [isScreenFocused, previewVisible, isSearchActive, playingVideoIndexes, donationTotals, handlePostPress, openPreview]);
 
@@ -1811,6 +1934,15 @@ const SearchScreen = () => {
                       onScroll={onMasonryScroll}
                       scrollEventThrottle={16}
                       getItemLayout={undefined}
+                      onEndReached={loadMorePosts}
+                      onEndReachedThreshold={0.5}
+                      ListFooterComponent={
+                        isFetchingMore ? (
+                          <View style={{ paddingVertical: 20, alignItems: 'center' }}>
+                            <ActivityIndicator size="small" color={accent} />
+                          </View>
+                        ) : null
+                      }
                     />
                   </View>
                 ) : (

@@ -10,3 +10,7 @@ export const getposts = async () => {
 export const getSuggestedUsers = async (limit) => {
     return axiosInstance.get(`user/suggested-users?limit=` + limit);
 }
+
+export const getSearchPagePost = async (page = 1, limit = 20) => {
+    return axiosInstance.get('post/searchPagePosts?page='+ page + '&limit=' + limit);
+}
