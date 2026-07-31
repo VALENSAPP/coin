@@ -1031,7 +1031,7 @@ const styles = StyleSheet.create({
     optionChipTextWrap: { flex: 1, minWidth: 0 },
     optionChipLabel: { flex: 1, fontSize: 11, fontWeight: '600', color: TEXT, minWidth: 0 },
     optionChipLabelSelected: { color: PURPLE_DARK },
-    optionChipPercentInline: { fontSize: 11, fontWeight: '700', color: PURPLE_DARK },
+    optionChipPercentInline: { fontSize: 11, fontWeight: '700', },
     optionChipPercent: { marginTop: 1, fontSize: 9, fontWeight: '700', color: GRAY_MID },
     optionProgressTrack: {
         width: '100%',

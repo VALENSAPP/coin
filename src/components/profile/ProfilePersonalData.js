@@ -73,6 +73,7 @@ import { getUserCredentials } from '../../services/post';
 import { metaMaskRecived } from '../../services/wallet';
 import { battleByUserId, battlePoint } from '../../services/battle';
 import { isBattleLive } from '../../utils/battleCardUtils';
+import { BATTLE_LEVELS, resolveBattleLevel } from '../../utils/battleLevels';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useThemeContext } from '../../theme/ThemeContext';
 import { getSupportRecipientWalletAddress } from '../../utils/walletPaymentSupport';
@@ -817,37 +818,22 @@ const ProfilePersonData = ({
 
   const levelInfo = useMemo(() => {
     const normalized = String(battlePointSummary.level || 'Rookie').trim();
-    const upper = normalized.toUpperCase();
-    
-    let tier = upper;
-    let levelText = 'LEVEL 1';
+    const tier = resolveBattleLevel({
+      level: normalized,
+      points: battlePointSummary.points,
+      credibility: battlePointSummary.credibilityScore,
+    }) || BATTLE_LEVELS[0];
 
-    if (normalized.toLowerCase().includes('level')) {
-      tier = 'CHALLENGER';
-      levelText = upper;
-    } else {
-      switch (normalized.toLowerCase()) {
-        case 'rookie': tier = 'ROOKIE'; levelText = 'LEVEL 1'; break;
-        case 'challenger': tier = 'CHALLENGER'; levelText = 'LEVEL 2'; break;
-        case 'strategist': tier = 'STRATEGIST'; levelText = 'LEVEL 3'; break;
-        case 'analyst': tier = 'ANALYST'; levelText = 'LEVEL 4'; break;
-        case 'expert': tier = 'EXPERT'; levelText = 'LEVEL 5'; break;
-        case 'oracle': tier = 'ORACLE'; levelText = 'LEVEL 6'; break;
-        default: tier = upper; levelText = 'LEVEL 1'; break;
-      }
-    }
+    const currentIndex = BATTLE_LEVELS.findIndex((entry) => entry.id === tier.id);
+    const nextTier = currentIndex !== -1 && currentIndex < BATTLE_LEVELS.length - 1
+      ? BATTLE_LEVELS[currentIndex + 1]
+      : null;
 
-    const pts = battlePointSummary.points || 0;
-    let maxPoints = 100;
-    if (pts >= 3000) maxPoints = pts > 3000 ? pts : 3000;
-    else if (pts >= 1500) maxPoints = 3000;
-    else if (pts >= 700) maxPoints = 1500;
-    else if (pts >= 300) maxPoints = 700;
-    else if (pts >= 100) maxPoints = 300;
-    else maxPoints = 100;
+    const levelText = `LEVEL ${tier.level}`;
+    const maxPoints = nextTier ? nextTier.points : tier.points;
 
     return { tier, levelText, maxPoints };
-  }, [battlePointSummary.level, battlePointSummary.points]);
+  }, [battlePointSummary.level, battlePointSummary.points, battlePointSummary.credibilityScore]);
 
   const fetchBattleStats = useCallback(async () => {
     if (!viewedBattleUserId) return;
@@ -1378,7 +1364,7 @@ const ProfilePersonData = ({
 
                   {/* Tier & Level */}
                   <Text style={{ fontSize: 10, fontWeight: '800', color: text, textTransform: 'uppercase', marginBottom: 1, letterSpacing: 0.5 }}>
-                    {levelInfo.tier}
+                    {levelInfo.tier?.title || levelInfo.tier}
                   </Text>
                   <Text style={{ fontSize: 8, fontWeight: '700', color: accent, textTransform: 'uppercase', marginBottom: 4 }}>
                     {levelInfo.levelText}

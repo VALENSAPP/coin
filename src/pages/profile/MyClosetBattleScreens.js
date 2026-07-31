@@ -18,6 +18,7 @@ import LinearGradient from 'react-native-linear-gradient';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useThemeContext } from '../../theme/ThemeContext';
 import { useLanguage } from '../../i18n';
+import HexAvatar from '../../components/home/story.js/HexAvatar';
 import {
   navigateClosetReturn,
   useClosetTheme,
@@ -249,6 +250,26 @@ const normalizeBattle = raw => {
   const totalVotes = raw?.totalVotes ?? participants.reduce((sum, p) => sum + (p?.voteCount ?? 0), 0);
   const leftVotes = items[0]?.voteCount ?? 0;
   const leftVotePercent = totalVotes > 0 ? Math.round((leftVotes / totalVotes) * 100) : 50;
+  const creatorAvatar =
+    raw?.seller?.image ||
+    raw?.seller?.avatar ||
+    raw?.seller?.profileImage ||
+    raw?.mine?.image ||
+    raw?.closet?.shopLogo ||
+    raw?.mine?.shopLogo ||
+    null;
+  const creatorName =
+    raw?.seller?.displayName ||
+    raw?.seller?.userName ||
+    raw?.seller?.name ||
+    raw?.mine?.displayName ||
+    raw?.mine?.userName ||
+    raw?.sellerName ||
+    '';
+  const creatorShopName =
+    raw?.closet?.shopName ||
+    raw?.mine?.shopName ||
+    '';
   return {
     id: raw?.id,
     battleId: raw?.battleId || raw?.id,
@@ -270,6 +291,9 @@ const normalizeBattle = raw => {
     winnerVotePercent: raw?.winner?.votePercentage ?? participants.find(p => p?.isWinner)?.votePercentage ?? null,
     createdBy: raw?.sellerId || raw?.createdBy || raw?.userId || null, // NEW — adjust field name if API differs
     sellerName: raw?.sellerName || raw?.seller?.userName || raw?.seller?.name,
+    creatorAvatar,
+    creatorName,
+    creatorShopName,
   };
 };
 
@@ -1951,10 +1975,21 @@ export function BattleLiveScreen({ navigation, route }) {
         </View>
       </View>
 
-      {battle?.sellerName ? (
-        <Text style={{ textAlign: 'left', width: '100%', color: accent, fontSize: 15, fontWeight: 'bold', marginBottom: 4 }}>
-          {t('battle.battleBy') || 'Battle By:'} <Text style={{fontSize: 13}}>{battle.sellerName}</Text>
-        </Text>
+      {(battle?.creatorName || battle?.creatorAvatar || battle?.creatorShopName || battle?.sellerName) ? (
+        <View style={liveStyles.creatorRow}>
+          <HexAvatar uri={battle.creatorAvatar} size={44} borderWidth={1} borderColor={accent} />
+          <View style={liveStyles.creatorDetails}>
+            <Text style={[liveStyles.creatorLabel, { color: mutedText }]}>{t('battle.battleBy') || 'Battle By'}</Text>
+            <Text style={[liveStyles.creatorName, { color: primaryText }]} numberOfLines={1}>
+              {battle.creatorName || battle.sellerName || battle.creatorShopName || 'Valens User'}
+            </Text>
+            {battle.creatorShopName ? (
+              <Text style={[liveStyles.creatorShop, { color: mutedText }]} numberOfLines={1}>
+                {battle.creatorShopName}
+              </Text>
+            ) : null}
+          </View>
+        </View>
       ) : null}
       <Text style={[liveStyles.question, { color: primaryText }]}>{question}</Text>
       <Text style={[liveStyles.questionSub, { color: subtleMuted }]}>{t('battle.voteSwipeHint') || 'Your vote swipe others decide'}</Text>
@@ -2332,6 +2367,11 @@ const liveStyles = StyleSheet.create({
 
   commentsCard: { borderRadius: 18, borderWidth: 1, padding: 14, marginBottom: 16 },
   commentsHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  creatorRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
+  creatorDetails: { flex: 1, justifyContent: 'center' },
+  creatorLabel: { fontSize: 12, fontWeight: '700', marginBottom: 2 },
+  creatorName: { fontSize: 15, fontWeight: '900' },
+  creatorShop: { fontSize: 12, fontWeight: '600', marginTop: 2 },
   commentsTitle: { fontSize: 15, fontWeight: '800' },
   commentsNotice: { alignItems: 'center', paddingVertical: 12, gap: 8 },
   emptyCommentsText: { fontSize: 12, fontWeight: '600', color: MUTED, textAlign: 'center', paddingVertical: 14 },

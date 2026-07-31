@@ -34,9 +34,7 @@ export const BATTLE_LEVELS = [
     color: '#A5B4FC',
     iconId: 'lilac',
     points: 200,
-    battlesWon: 3,
-    credibility: 50,
-    accuracy: 40,
+   
   },
   {
     id: 'contender',
@@ -45,9 +43,7 @@ export const BATTLE_LEVELS = [
     color: '#60A5FA',
     iconId: 'blue',
     points: 600,
-    battlesWon: 10,
-    credibility: 120,
-    accuracy: 50,
+   
   },
   {
     id: 'strategist',
@@ -56,9 +52,7 @@ export const BATTLE_LEVELS = [
     color: '#8B5CF6',
     iconId: 'lavender',
     points: 1500,
-    battlesWon: 25,
-    credibility: 250,
-    accuracy: 60,
+  
   },
   {
     id: 'dominator',
@@ -67,9 +61,7 @@ export const BATTLE_LEVELS = [
     color: '#EC4899',
     iconId: 'lilac',
     points: 3500,
-    battlesWon: 60,
-    credibility: 500,
-    accuracy: 65,
+   
   },
   {
     id: 'titan',
@@ -78,9 +70,7 @@ export const BATTLE_LEVELS = [
     color: '#F59E0B',
     iconId: 'gold',
     points: 7500,
-    battlesWon: 120,
-    credibility: 1000,
-    accuracy: 70,
+    
   },
   {
     id: 'oracle',
@@ -89,9 +79,7 @@ export const BATTLE_LEVELS = [
     color: '#7C3AED',
     iconId: 'lavender',
     points: 15000,
-    battlesWon: 250,
-    credibility: 2000,
-    accuracy: 75,
+   
   },
   {
     id: 'phantom',
@@ -99,10 +87,8 @@ export const BATTLE_LEVELS = [
     title: 'PHANTOM',
     color: '#14B8A6',
     iconId: 'blue',
-    points: 30000,
-    battlesWon: 500,
-    credibility: 5000,
-    accuracy: 80,
+    points: 32000,
+   
   },
   {
     id: 'immortal',
@@ -111,9 +97,7 @@ export const BATTLE_LEVELS = [
     color: '#6366F1',
     iconId: 'lilac',
     points: 75000,
-    battlesWon: 1000,
-    credibility: 10000,
-    accuracy: 85,
+   
   },
   {
     id: 'champion',
@@ -122,9 +106,7 @@ export const BATTLE_LEVELS = [
     color: '#B45309',
     iconId: 'goldLavender',
     points: 150000,
-    battlesWon: 2500,
-    credibility: 25000,
-    accuracy: 90,
+   
   },
 ];
 
@@ -164,7 +146,7 @@ const LEVEL_ALIASES = {
   strategist: 'strategist',
   dominator: 'dominator',
   analyst: 'dominator',
-  expert: 'dominator',
+  expert: 'titan',
   titan: 'titan',
   master: 'titan',
   oracle: 'oracle',
@@ -234,20 +216,20 @@ export function formatBattleLevelRequirement(tier, labels = {}) {
             ? `${tier.points.toLocaleString()}+ ${pointsLabel}`
             : `${tier.points.toLocaleString()} ${pointsLabel}`,
     },
-    {
-      key: 'wins',
-      icon: 'sword-cross',
-      text: `${tier.battlesWon.toLocaleString()} ${winsLabel}`,
-    },
-    {
-      key: 'credibility',
-      icon: 'shield-checkmark',
-      text: `${tier.credibility.toLocaleString()} ${credibilityLabel}`,
-    },
-    {
-      key: 'accuracy',
-      icon: 'speedometer',
-      text: tier.accuracy == null ? '—' : `${tier.accuracy}% ${accuracyLabel}`,
-    },
+    // {
+    //   key: 'wins',
+    //   icon: 'sword-cross',
+    //   text: `${tier.battlesWon.toLocaleString()} ${winsLabel}`,
+    // },
+    // {
+    //   key: 'credibility',
+    //   icon: 'shield-checkmark',
+    //   text: `${tier.credibility.toLocaleString()} ${credibilityLabel}`,
+    // },
+    // {
+    //   key: 'accuracy',
+    //   icon: 'speedometer',
+    //   text: tier.accuracy == null ? '—' : `${tier.accuracy}% ${accuracyLabel}`,
+    // },
   ];
 }
