@@ -449,11 +449,23 @@ const buildCart = (route, t, overrides = {}) => {
   };
 };
 
-const goBack = (navigation, returnTo) => {
-  if (navigation.canGoBack?.()) {
+const goBack = (navigation, returnTo, isRouteFromSearch, fromMyOwnProfile) => {
+  if (isRouteFromSearch || fromMyOwnProfile){
     navigation.goBack();
     return;
   }
+  else if (returnTo.tab == "Search" || returnTo.screen == "SearchHome") {
+    navigation.navigate('HomeMain', {
+      screen: 'UsersProfile',
+      params: {
+        returnTo: 'Search',
+      },
+    });
+  }
+  // if (navigation.canGoBack?.()) {
+  //   navigation.goBack();
+  //   return;
+  // }
   navigateClosetReturn(navigation, returnTo);
 };
 
@@ -559,7 +571,7 @@ const BottomBar = ({ children }) => {
 // Shared UI atoms
 // ─────────────────────────────────────────────────────────────────────────────
 
-const Header = ({ navigation, title, rightIcon, onRightPress, returnTo, isOwnProfile }) => {
+const Header = ({ navigation, title, rightIcon, onRightPress, returnTo, isOwnProfile, isRouteFromSearch, fromMyOwnProfile }) => {
   const { accent } = useAppTheme();
   const { isDarkMode } = useThemeContext();
   const labelColor = isDarkMode ? '#ffffff' : '#17072d';
@@ -568,7 +580,7 @@ const Header = ({ navigation, title, rightIcon, onRightPress, returnTo, isOwnPro
   return (
     <View style={styles.header}>
       <TouchableOpacity
-        onPress={() => goBack(navigation, returnTo)}
+        onPress={() => goBack(navigation, returnTo, isRouteFromSearch, fromMyOwnProfile)}
         style={[styles.iconButton, { backgroundColor: chipSurface }]}
         activeOpacity={0.8}
       >
@@ -1925,6 +1937,7 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
       seller,
       sellerId: route?.params?.sellerId,
       items: route?.params?.items || [],
+      isRouteFromSearch: true
     }));
   };
 
@@ -1937,6 +1950,7 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
         onRightPress={handleWishlistPress}
         returnTo={returnTo}
         isOwnProfile={isOwnProfile}
+        fromMyOwnProfile={returnTo.screen !== "SearchHome"}
       />
       <ScrollView
         contentContainerStyle={styles.detailContent}
@@ -2070,6 +2084,7 @@ const MyClosetBuyerOptionsScreen = ({ navigation, route }) => {
   const [syncingQty, setSyncingQty] = useState(false);
   const [existingCartItemId, setExistingCartItemId] = useState(null);
   const available = Math.max(1, item.quantityAvailable);
+  const isRouteFromSearch = route?.params?.isRouteFromSearch;
 
   const productId = item.raw?.id || item.raw?._id || item.id;
 
@@ -2121,6 +2136,7 @@ const MyClosetBuyerOptionsScreen = ({ navigation, route }) => {
         items: route?.params?.items || [],
         quantity,
         note,
+        isRouteFromSearch
       }));
       return;
     }
@@ -2145,6 +2161,7 @@ const MyClosetBuyerOptionsScreen = ({ navigation, route }) => {
       items: route?.params?.items || [],
       quantity,
       note,
+      isRouteFromSearch
     }));
   };
 
@@ -2154,8 +2171,9 @@ const MyClosetBuyerOptionsScreen = ({ navigation, route }) => {
         navigation={navigation}
         title={t('myClosetBuyer.selectOptions')}
         rightIcon="close"
-        onRightPress={() => goBack(navigation, returnTo)}
+        onRightPress={() => goBack(navigation, returnTo, isRouteFromSearch)}
         returnTo={returnTo}
+        isRouteFromSearch={isRouteFromSearch}
       />
       <KeyboardAwareScrollView
         contentContainerStyle={styles.formContent}
@@ -2331,6 +2349,7 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
   const toast = useToast();
   const { t } = useLanguage();
   const returnTo = route?.params?.returnTo;
+  const isRouteFromSearch = route?.params?.isRouteFromSearch;
   const localCart = buildCart(route, t); // fallback data from route params
 
   // ── Server cart state ───────────────────────────────────────────────────
@@ -2681,6 +2700,7 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
       shippingOptionsMap,
       pickupAddressMap,
       requiresShipping,
+      isRouteFromSearch
     }));
     // } catch (err) {
     //   Alert.alert(
@@ -2738,6 +2758,7 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
         rightIcon={cartItems.length > 0 ? 'trash-outline' : undefined}
         onRightPress={handleClearCart}
         returnTo={returnTo}
+        isRouteFromSearch={isRouteFromSearch}
       />
 
       {cartLoading ? (
@@ -2964,6 +2985,7 @@ const MyClosetBuyerCheckoutScreen = ({ navigation, route }) => {
   const derivedRequiresShipping = cartRequiresShipping(route?.params?.cartItemsSnapshot, route?.params?.shippingOptionsMap);
   const requiresShipping = derivedRequiresShipping || route?.params?.requiresShipping === true;
   const [continuing, setContinuing] = useState(false);
+  const isRouteFromSearch = route?.params?.isRouteFromSearch;
 
   const handleEditCart = () => navigation.navigate('MyClosetBuyerCart', withClosetNavParams(route));
 
@@ -2994,6 +3016,7 @@ const MyClosetBuyerCheckoutScreen = ({ navigation, route }) => {
           itemTotal: breakdown?.itemsSubtotal ?? route?.params?.itemTotal,
           shippingAmount: breakdown?.shippingAmount ?? 0,
           total: breakdown?.totalAmountDue ?? route?.params?.total,
+          isRouteFromSearch
         }),
       );
     } catch (err) {
@@ -3008,7 +3031,7 @@ const MyClosetBuyerCheckoutScreen = ({ navigation, route }) => {
 
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
-      <Header navigation={navigation} title={t('myClosetBuyer.checkoutTitle')} returnTo={returnTo} />
+      <Header navigation={navigation} title={t('myClosetBuyer.checkoutTitle')} returnTo={returnTo} isRouteFromSearch={isRouteFromSearch}/>
       <ScrollView contentContainerStyle={styles.checkoutContent} showsVerticalScrollIndicator={false}>
         <CheckoutSteps current={0} includeShipping={true} accentColor={accent} />
         <OrderSummary cart={cart} editable onEditCart={handleEditCart} accentColor={text} />
@@ -3039,6 +3062,7 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
   const { t } = useLanguage();
   const toast = useToast();
   const returnTo = route?.params?.returnTo;
+  const isRouteFromSearch = route?.params?.isRouteFromSearch;
   const cart = buildCart(route, t);
   const [method, setMethod] = useState('standard');
   const [showAddressModal, setShowAddressModal] = useState(false);
@@ -3256,7 +3280,7 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
 
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
-      <Header navigation={navigation} title={t('myClosetBuyer.shippingInformationTitle')} returnTo={returnTo} />
+      <Header navigation={navigation} title={t('myClosetBuyer.shippingInformationTitle')} returnTo={returnTo} isRouteFromSearch={isRouteFromSearch}/>
       <ScrollView
         contentContainerStyle={styles.checkoutContent}
         showsVerticalScrollIndicator={false}
@@ -3498,7 +3522,7 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
 
             const cartId = route?.params?.cartId;
             if (!cartId) {
-              navigation.navigate('MyClosetBuyerPayment', withClosetNavParams(route, { ...nextCart, requiresShipping }));
+              navigation.navigate('MyClosetBuyerPayment', withClosetNavParams(route, { ...nextCart, requiresShipping, isRouteFromSearch }));
               return;
             }
 
@@ -3522,6 +3546,7 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
                 itemTotal: breakdown?.itemsSubtotal ?? nextCart?.itemTotal,
                 shippingAmount: breakdown?.shippingAmount ?? 0,
                 total: breakdown?.totalAmountDue ?? nextCart?.total,
+                isRouteFromSearch
               }));
             } catch (err) {
               Alert.alert(
@@ -3556,6 +3581,7 @@ const MyClosetBuyerPaymentScreen = ({ navigation, route }) => {
   const derivedRequiresShipping = cartRequiresShipping(route?.params?.cartItemsSnapshot, route?.params?.shippingOptionsMap);
   const requiresShipping = derivedRequiresShipping || route?.params?.requiresShipping === true;
   const cartId = route?.params?.cartId;
+  const isRouteFromSearch = route?.params?.isRouteFromSearch;
 
   // If we already have fresh checkout data (breakdown), use it as-is.
   // Otherwise, fetch it ourselves so the fee/tax/total are never stale or missing.
@@ -3586,7 +3612,7 @@ const MyClosetBuyerPaymentScreen = ({ navigation, route }) => {
 
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
-      <Header navigation={navigation} title={t('myClosetBuyer.paymentTitle')} returnTo={returnTo} />
+      <Header navigation={navigation} title={t('myClosetBuyer.paymentTitle')} returnTo={returnTo} isRouteFromSearch={isRouteFromSearch}/>
       <ScrollView
         contentContainerStyle={styles.checkoutContent}
         showsVerticalScrollIndicator={false}
@@ -3638,7 +3664,7 @@ const MyClosetBuyerPaymentScreen = ({ navigation, route }) => {
           label={t('myClosetBuyer.continueToReview')}
           accentColor={accent}
           onPress={() =>
-            navigation.navigate('MyClosetBuyerReview', withClosetNavParams(route, { checkoutData, paymentMethod }))
+            navigation.navigate('MyClosetBuyerReview', withClosetNavParams(route, { checkoutData, paymentMethod, isRouteFromSearch }))
           }
         />
       </BottomBar>
@@ -3653,6 +3679,7 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
   const { text, accent, bgStyle, card, border, mutedText } = useClosetTheme(route);
   const { t } = useLanguage();
   const returnTo = route?.params?.returnTo;
+  const isRouteFromSearch = route?.params?.isRouteFromSearch;
   const cart = buildCart(route, t);
   const [checking, setChecking] = useState(false);
   // shippingAddress passed from Shipping screen via nextCart
@@ -3807,7 +3834,7 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
 
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
-      <Header navigation={navigation} title={t('myClosetBuyer.reviewOrderTitle')} returnTo={returnTo} />
+      <Header navigation={navigation} title={t('myClosetBuyer.reviewOrderTitle')} returnTo={returnTo} isRouteFromSearch={isRouteFromSearch}/>
       <ScrollView
         contentContainerStyle={styles.checkoutContent}
         showsVerticalScrollIndicator={false}

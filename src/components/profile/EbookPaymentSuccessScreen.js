@@ -40,6 +40,7 @@ const EbookPaymentSuccessScreen = () => {
       userData,
       loggedInUserId,
       username: userData?.userName || userData?.username || ebook?.userName,
+      sourceScreen: 'AllEbooks',
     });
   };
 

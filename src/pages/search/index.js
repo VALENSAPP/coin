@@ -1347,6 +1347,8 @@ const SearchScreen = () => {
         battleId: item?.battleId || item?.battle?.id || rawProduct?.battleId || null,
         battleTitle: item?.battleTitle || item?.battle?.title || rawProduct?.battleTitle || item?.title || 'Battle Winner',
       } : null;
+      console.log("userId------------------",userId)
+      console.log("cleanProduct?.id------------------",cleanProduct)
       const isOwnProfileForCloset = String(userId || '') === String(cleanProduct?.seller?.id || '');
       navigation.navigate('ProfileMain', {
         screen: 'MyClosetBuyerItemDetail',
@@ -1497,6 +1499,7 @@ const SearchScreen = () => {
         battleId: mappedBattle?.id,
         initialBattle: mappedBattle,
         userProfile: profile,
+        returnTo: { tab: 'Search', screen: 'SearchHome', params: route?.params || {} },
         selectedItems: [mappedBattle?.left, mappedBattle?.right].filter(Boolean),
         isOwnProfile: String(userId || '') === String(mappedBattle?.closet?.id || mappedBattle?.closetId || battleItem?.raw?.closet?.id || battleItem?.raw?.closetId || ''),
         returnToProfile: buildClosetReturnTo({

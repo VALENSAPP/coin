@@ -192,24 +192,44 @@ const daysLeftFromEndAt = endAt => {
   return Math.max(0, Math.ceil(diffMs / (24 * 60 * 60 * 1000)));
 };
 
-const participantToItem = (participant, raw) => {
+const participantToItem = (participant, raw, idx) => {
+  console.log('PTI DEBUG', {
+  idx,
+  productUserId: participant?.product?.userId,
+  closetShopName: raw?.closet?.shopName,
+  opponentClosetShopName: raw?.opponentCloset?.shopName,
+  sellerId: raw?.seller?.id,
+  opponentSellerId: raw?.opponentSellerId,
+});
   const product = participant?.product;
   let userName = '';
   let shopName = '';
-  
-  if (product && raw) {
-    if (product.userId === raw?.seller?.id || product.userId === raw?.sellerId) {
-      userName = raw?.seller?.userName || raw?.seller?.displayName || '';
-      shopName = raw?.closet?.shopName || '';
-    } else if (product.userId === raw?.opponentSeller?.id || product.userId === raw?.opponentSellerId) {
-      userName = raw?.opponentSeller?.userName || raw?.opponentSeller?.displayName || '';
-      shopName = raw?.opponentCloset?.shopName || '';
-    } else if (product.userId === raw?.mine?.userId) {
-      userName = raw?.mine?.userName || raw?.mine?.displayName || '';
-      shopName = raw?.mine?.shopName || '';
-    } else if (product.userId === raw?.opponent?.userId) {
-      userName = raw?.opponent?.userName || raw?.opponent?.displayName || '';
-      shopName = raw?.opponent?.shopName || '';
+
+if (!shopName && raw && idx != null) {
+  const hasOpponent = !!(raw?.opponentCloset || raw?.opponentSeller || raw?.opponentSellerId);
+
+  if (!hasOpponent) {
+    // SAME_CLOSET battles — both items belong to the same seller/closet.
+    shopName = raw?.closet?.shopName || raw?.mine?.shopName || '';
+    userName = userName || raw?.seller?.userName || raw?.seller?.displayName || raw?.mine?.userName || '';
+  } else if (idx === 0) {
+    shopName = raw?.closet?.shopName || raw?.mine?.shopName || '';
+    userName = userName || raw?.seller?.userName || raw?.seller?.displayName || raw?.mine?.userName || '';
+  } else if (idx === 1) {
+    shopName = raw?.opponentCloset?.shopName || raw?.opponent?.shopName || '';
+    userName = userName || raw?.opponentSeller?.userName || raw?.opponentSeller?.displayName || raw?.opponent?.userName || '';
+  }
+}
+
+  // Fallback — product.userId isn't reliably returned by the API, so use
+  // position (0 = home/closet side, 1 = opponent side) to resolve shopName.
+  if (!shopName && raw && idx != null) {
+    if (idx === 0) {
+      shopName = raw?.closet?.shopName || raw?.mine?.shopName || '';
+      userName = userName || raw?.seller?.userName || raw?.seller?.displayName || raw?.mine?.userName || '';
+    } else if (idx === 1) {
+      shopName = raw?.opponentCloset?.shopName || raw?.opponent?.shopName || '';
+      userName = userName || raw?.opponentSeller?.userName || raw?.opponentSeller?.displayName || raw?.opponent?.userName || '';
     }
   }
 
@@ -239,9 +259,10 @@ const productToBattleItem = (product, fallback = {}) => ({
 });
 
 const normalizeBattle = raw => {
+  console.log("raw in battle-----------------------",raw)
   if (!raw) return null;
   const participants = [...(raw?.participants || [])].sort((a, b) => (a?.position ?? 0) - (b?.position ?? 0));
-  const items = participants.map(p => participantToItem(p, raw));
+  const items = participants.map((p, idx) => participantToItem(p, raw, idx));
   const winnerParticipant = raw?.winner || participants.find(p => p?.isWinner) || participants[0] || null;
   const loserParticipant = raw?.loser || participants.find(p => !p?.isWinner) || participants[1] || null;
   const winnerProduct = winnerParticipant?.product || null;
@@ -1086,7 +1107,7 @@ export function ChallengeBattleSetupScreen({ navigation, route }) {
   const accent = text || PURPLE;
   const primaryText = text || TEXT;
   const subtleMuted = mutedText || surfaces.mutedColor;
-  const initialQuestion = route?.params?.defaultQuestion || '';
+  const initialQuestion = route?.params?.question || route?.params?.defaultQuestion || '';
   const handleBack = useBattleBackHandler(navigation, route);
   const [question, setQuestion] = useState(initialQuestion);
   const [errors, setErrors] = useState({});
@@ -1102,14 +1123,14 @@ export function ChallengeBattleSetupScreen({ navigation, route }) {
     return Object.keys(nextErrors).length === 0;
   };
 
-  const handleNext = () => {
-    if (!validate()) return;
-    navigation.navigate('ChallengeBattleSettings', {
-      question,
-      selectedItems,
-      ...route?.params,
-    });
-  };
+const handleNext = () => {
+  if (!validate()) return;
+  navigation.navigate('ChallengeBattleSettings', {
+    ...route?.params,   // spread first, so it doesn't clobber below
+    question,
+    selectedItems,
+  });
+};
 
   const exampleQuestions = [
     t('battle.example1', 'Which item is more stylish?'),
@@ -1192,7 +1213,7 @@ export function ChallengeBattleSetupScreen({ navigation, route }) {
         <View style={{ marginTop: 16 }}>
           <Text style={[styles.fieldLabel, { color: primaryText, marginBottom: 8 }]}>{t('battle.examplesLabel', 'Examples:')}</Text>
           {exampleQuestions.map((q, idx) => (
-            <TouchableOpacity key={idx} onPress={() => setQuestion(q)} style={{ backgroundColor: isDarkMode ? surfaces.listSurface : '#F3EFFF', paddingVertical: 10, paddingHorizontal: 14, borderRadius: 8, marginBottom: 8 }}>
+            <TouchableOpacity key={idx} onPress={() => setQuestion(q)} style={{ backgroundColor: isDarkMode ? surfaces.listSurface : '#fff', paddingVertical: 10, paddingHorizontal: 14, borderRadius: 8, marginBottom: 8 }}>
               <Text style={{ color: primaryText, fontWeight: '600', fontSize: 13 }}>{q}</Text>
             </TouchableOpacity>
           ))}
@@ -1545,7 +1566,20 @@ export function BattleLiveScreen({ navigation, route }) {
   const isOwnProfile = route?.params?.isOwnProfile ?? false;
   const launchedFromPreview = route?.params?.launchedFromPreview ?? false;
   const cameFromCard = !!initialBattle;
-  const handleBack = useBattleBackHandler(navigation, route);
+  const battleBack = useBattleBackHandler(navigation, route);
+
+  console.log("-----------------initialBattle-----------------", initialBattle)
+ const handleBack = useCallback(() => {
+  if (returnTo?.screen === "SearchHome") {
+    navigation.navigate('MainApp', {
+      screen: 'Search',
+    });
+    return;
+  }
+  else {
+    battleBack();
+  }
+}, [returnTo, navigation, battleBack]);
   const handleDonePress = useCallback(() => {
     if (returnTo) {
       navigateClosetReturn(navigation, returnTo);
@@ -1597,6 +1631,7 @@ export function BattleLiveScreen({ navigation, route }) {
   const [deletingCommentId, setDeletingCommentId] = useState('');
 
   const question = battle?.title || route?.params?.question || t('battle.defaultQuestion');
+  console.log("battle?.items-------------------------------------",battle )
   const selectedItems = battle?.items?.length ? battle.items : route?.params?.selectedItems || [];
   const isCreator = !!currentUserId && !!battle?.createdBy && currentUserId === battle.createdBy;
   const showResultsBar =
@@ -1617,7 +1652,7 @@ export function BattleLiveScreen({ navigation, route }) {
   const canVote = isBattleVotingOpen && !hasVoted && !checkingVote && !isOwnProfile && !isCreator;
   const liveScreenTitle = isBattleExpired ? (t('battleInProgress.battleEnded') || 'Battle Ended') : t('battle.liveTitle');
   const votedLabel = t('battle.voting') || 'Voting...';
-
+  console.log("selectedItems---------------------------",selectedItems)
   const leftItem = selectedItems[0] || {};
   const rightItem = selectedItems[1] || {};
   const leftVoteCount = Number(leftItem?.voteCount ?? 0);
@@ -1953,7 +1988,7 @@ export function BattleLiveScreen({ navigation, route }) {
 
       {battle?.sellerName ? (
         <Text style={{ textAlign: 'left', width: '100%', color: accent, fontSize: 15, fontWeight: 'bold', marginBottom: 4 }}>
-          {t('battle.battleBy') || 'Battle By:'} <Text style={{fontSize: 13}}>{battle.sellerName}</Text>
+          {t('battle.battleBy') || 'Battle By:'} <Text style={{ fontSize: 13 }}>{battle.sellerName}</Text>
         </Text>
       ) : null}
       <Text style={[liveStyles.question, { color: primaryText }]}>{question}</Text>
@@ -2658,7 +2693,7 @@ export function ChallengeBattlePreviewScreen({ navigation, route }) {
         {question ? (
           <View style={{ marginBottom: 16 }}>
             <Text style={[styles.fieldLabel, { color: primaryText, marginBottom: 8 }]}>{t('battle.battleQuestion', 'Battle Question')}</Text>
-            <View style={[styles.inputCard, { backgroundColor: isDarkMode ? surfaces.listSurface : '#F3EFFF', borderColor: 'transparent', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
+            <View style={[styles.inputCard, { backgroundColor: isDarkMode ? surfaces.listSurface : '#fff', borderColor: 'transparent', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
               <Text style={{ color: primaryText, flex: 1, fontWeight: '600' }}>{question}</Text>
               <TouchableOpacity onPress={() => navigation.navigate('ChallengeBattleSetup', route.params)}>
                 <Text style={{ color: accent, fontWeight: '800' }}>{t('battle.edit', 'Edit')}</Text>
@@ -2673,7 +2708,7 @@ export function ChallengeBattlePreviewScreen({ navigation, route }) {
             <Text style={{ color: primaryText, fontWeight: '700', marginTop: 12 }}>{t('battle.yourItem', 'Your item')}</Text>
             <Text style={{ color: primaryText, fontWeight: '900', fontSize: 13, marginTop: 4, textAlign: 'center' }}>{leftItem?.name || 'Item Name'}</Text>
             <Text style={{ color: accent, fontWeight: '800', marginTop: 4 }}>{leftItem?.price || '$0.00'}</Text>
-            <Text style={{ color: subtleMuted, fontSize: 11, marginTop: 6 }}>From {leftItem?.shopName || leftItem?.userName || leftItem?.sellerName || 'Valens Closet'}</Text>
+            <Text style={{ color: subtleMuted, fontSize: 11, marginTop: 6 }}>{t('battle.fromMyCloset')}</Text>
           </View>
 
           <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: idleSurface, borderWidth: 1, borderColor: border || surfaces.listBorder, alignItems: 'center', justifyContent: 'center', marginTop: 40, marginHorizontal: -10, zIndex: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 }}>
@@ -2765,7 +2800,7 @@ export function BattleCreatedSuccessScreen({ navigation, route }) {
           </View>
 
           <Text style={{ color: primaryText, fontSize: 24, fontWeight: '900', marginTop: 24 }}>{t('battle.battleCreatedSuccess', 'Battle Created!')}</Text>
-          <Text style={{ color: primaryText, fontSize: 16, fontWeight: '700', marginTop: 8 }}>{t('battle.battleLive', 'Your battle is now live')}</Text>
+          <Text style={{ color: primaryText, fontSize: 16, fontWeight: '700', marginTop: 8 }}>{t('battle.battleLive', { shopName: (rightItem?.shopName || rightItem?.userName || rightItem?.sellerName || 'Style Hub') })}</Text>
           <Text style={{ color: subtleMuted, fontSize: 14, fontWeight: '600', marginTop: 12, textAlign: 'center' }}>
             {t('battle.communityCanVote', 'The community can now vote.\nMay the best item win! 🏆')}
           </Text>
@@ -2907,13 +2942,15 @@ export function ChallengeReceivedScreen({ navigation, route }) {
         
         {/* Banner */}
         <View style={[styles.aboutCard, { backgroundColor: idleSurface, borderColor: border || surfaces.listBorder, flexDirection: 'row', alignItems: 'center', marginBottom: 20 }]}>
-           <FastImage source={fastImageSource(rightItem?.image)} style={{ width: 40, height: 40, borderRadius: 20, marginRight: 12, backgroundColor: '#E0E0E0' }} />
-           <Text style={{ color: primaryText, flex: 1, fontSize: 13, fontWeight: '500' }}>
-             <Text style={{ fontWeight: '800' }}>{rightItem?.shopName || rightItem?.userName || 'Valens Closet'}</Text> challenged your item in an Opinion Battle.
-           </Text>
-           <Ionicons name="shield-checkmark" size={28} color={accent} />
+          <FastImage source={fastImageSource(rightItem?.image)} style={{ width: 40, height: 40, borderRadius: 20, marginRight: 12, backgroundColor: '#E0E0E0' }} />
+          <Text style={{ color: primaryText, flex: 1, fontSize: 13, fontWeight: '500' }}>
+            <Text style={{ fontWeight: '800' }}>{rightItem?.shopName || rightItem?.userName || 'Valens Closet'}</Text> challenged your item in an Opinion Battle.
+          </Text>
+          <Ionicons name="shield-checkmark" size={28} color={accent} />
         </View>
-        
+
+        <Text style={[styles.fieldLabel, { color: primaryText, fontSize: 15, textAlign: 'center', marginTop: -7 }]}>{battle?.title}</Text>
+
         {/* Your item */}
         <Text style={[styles.fieldLabel, { color: primaryText, fontSize: 15 }]}>Your item</Text>
         <View style={[styles.aboutCard, { backgroundColor: idleSurface, borderColor: border || surfaces.listBorder, flexDirection: 'row', alignItems: 'flex-start', padding: 12, marginBottom: -10 }]}>
@@ -2944,7 +2981,7 @@ export function ChallengeReceivedScreen({ navigation, route }) {
         </View>
 
         {/* Info Card */}
-        <View style={[styles.aboutCard, { backgroundColor: '#F3EFFF', borderColor: 'transparent', flexDirection: 'row', alignItems: 'flex-start', marginBottom: 16 }]}>
+        <View style={[styles.aboutCard, { backgroundColor: '#fff', borderColor: 'transparent', flexDirection: 'row', alignItems: 'flex-start', marginBottom: 16 }]}>
           <Ionicons name="information-circle-outline" size={20} color={accent} style={{ marginRight: 12 }} />
           <View style={{ flex: 1 }}>
             <Text style={[styles.aboutTitle, { color: primaryText, fontSize: 14 }]}>This is an Opinion Battle.</Text>
@@ -2953,7 +2990,7 @@ export function ChallengeReceivedScreen({ navigation, route }) {
         </View>
 
         {/* Expiry Card */}
-        <View style={[styles.aboutCard, { backgroundColor: '#F3EFFF', borderColor: 'transparent', flexDirection: 'row', alignItems: 'center', marginBottom: 24 }]}>
+        <View style={[styles.aboutCard, { backgroundColor: '#fff', borderColor: 'transparent', flexDirection: 'row', alignItems: 'center', marginBottom: 24 }]}>
           <Ionicons name="time-outline" size={20} color={accent} style={{ marginRight: 12 }} />
           <View style={{ flex: 1 }}>
             <Text style={[styles.aboutText, { color: primaryText }]}>Challenge expires in</Text>
@@ -2963,18 +3000,18 @@ export function ChallengeReceivedScreen({ navigation, route }) {
 
         {/* Buttons */}
         <View style={{ flexDirection: 'row', gap: 12, marginBottom: 20 }}>
-          <TouchableOpacity 
-            activeOpacity={0.9} 
-            disabled={declining || accepting} 
-            onPress={handleDecline} 
+          <TouchableOpacity
+            activeOpacity={0.9}
+            disabled={declining || accepting}
+            onPress={handleDecline}
             style={[styles.outlineBtn, { borderColor: accent }]}
           >
             {declining ? <ActivityIndicator color={accent} /> : <Text style={[styles.outlineBtnText, { color: accent }]}>Decline</Text>}
           </TouchableOpacity>
-          <TouchableOpacity 
-            activeOpacity={0.9} 
-            disabled={accepting || declining} 
-            onPress={handleAccept} 
+          <TouchableOpacity
+            activeOpacity={0.9}
+            disabled={accepting || declining}
+            onPress={handleAccept}
             style={{ flex: 1 }}
           >
             <LinearGradient colors={accepting ? ['#aaa', '#aaa'] : [accent, text]} style={[styles.actionBtn, accepting && { opacity: 0.6 }]}>
@@ -3079,9 +3116,9 @@ export function ChallengeAcceptedScreen({ navigation, route }) {
         )}
 
         {/* Buttons */}
-        <TouchableOpacity 
-          activeOpacity={0.9} 
-          onPress={() => navigation.navigate('MainApp', { screen: 'wallet', params: { screen: 'MyCloset' } })} 
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={() => navigation.navigate('MainApp', { screen: 'wallet', params: { screen: 'MyCloset' } })}
           style={{ width: '100%', marginBottom: 12 }}
         >
           <LinearGradient colors={[accent, text]} style={styles.actionBtn}>

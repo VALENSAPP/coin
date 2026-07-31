@@ -187,7 +187,7 @@ const mapParticipant = (p = {}, closet) => {
     name: product.name || '',
     price: fmt(product.price),
     image: thumb(product), // product.images[0]
-    user: closet?.shopName || closet?.shopUsername || '',
+    shopName: closet?.shopName || closet?.shopUsername || '',
     pct: Number(p.votePercentage ?? 0),
     isWinner: !!p.isWinner,
   };
@@ -205,7 +205,7 @@ export const mapBattle = (b, i) => {
     id: String(b.id ?? i),
     title: b.title,
     left: mapParticipant(p1, b.closet),
-    right: mapParticipant(p2, b.closet),
+    right: mapParticipant(p2, b.opponentCloset),
     participants: sorted,
     winnerParticipantId: winner?.id || null,
     winnerProductId:
