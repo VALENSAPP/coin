@@ -962,7 +962,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   dragonflyTierText: {
-    fontSize: 13,
+    fontSize: 10,
     fontWeight: '800',
     marginTop: 6,
     textAlign: 'center',

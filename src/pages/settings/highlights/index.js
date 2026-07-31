@@ -13,12 +13,17 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  Pressable,
+  Dimensions,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Video from 'react-native-video';
 import { useToast } from 'react-native-toast-notifications';
+import { postLikeStory, postCommentStory } from '../../../services/stories';
+import { sendMessage as sendChatMessage } from '../../../services/chatMessage';
+import ShareModal from '../../../components/modals/ShareModal';
 
 import { showToastMessage } from '../../../components/displaytoastmessage';
 import {
@@ -213,6 +218,11 @@ const HighlightsScreen = ({ navigation, route }) => {
   const [viewerVisible, setViewerVisible] = useState(false);
   const [viewerStories, setViewerStories] = useState([]);
   const [viewerIndex, setViewerIndex] = useState(0);
+  const [currentUserId, setCurrentUserId] = useState(null);
+  const [likes, setLikes] = useState({});
+  const [comments, setComments] = useState({});
+  const [selectedShareStory, setSelectedShareStory] = useState(null);
+  const shareRef = React.useRef(null);
   const [activeHighlight, setActiveHighlight] = useState(null);
   const [managerVisible, setManagerVisible] = useState(false);
   const [managerMode, setManagerMode] = useState('create');
@@ -373,6 +383,10 @@ const HighlightsScreen = ({ navigation, route }) => {
     setLoadingDetail(true);
 
     try {
+      try {
+        const id = await AsyncStorage.getItem('userId');
+        setCurrentUserId(id ? String(id) : null);
+      } catch (_e) {}
       const response = await getHighlight({ highlightId: highlight.id });
       const detail = normalizeHighlightsResponse(response?.data)[0];
       if (detail?.stories?.length) {
@@ -399,6 +413,14 @@ const HighlightsScreen = ({ navigation, route }) => {
       return current;
     });
   }, [closeViewer, viewerStories.length]);
+
+  const prevStory = useCallback(() => {
+    setViewerIndex(current => {
+      if (current > 0) return current - 1;
+      closeViewer();
+      return current;
+    });
+  }, [closeViewer]);
 
   const currentStory = viewerStories[viewerIndex];
   const totalStories = useMemo(
@@ -555,6 +577,41 @@ const HighlightsScreen = ({ navigation, route }) => {
       },
     ]);
   }, [activeHighlight, closeViewer, currentStory, t, toast, viewerIndex, viewerStories]);
+
+  const onToggleLike = useCallback(async (ownerId, storyId, nextLiked) => {
+    const clean = String(storyId || '').replace(/_\d+$/, '');
+    try {
+      const res = await postLikeStory({ storyId: clean });
+      if (res?.success) {
+        const key = `${ownerId}:${storyId}`;
+        setLikes(prev => {
+          const curr = prev[key] || { liked: false, count: 0 };
+          let count = curr.count || 0;
+          if (nextLiked && !curr.liked) count += 1;
+          if (!nextLiked && curr.liked && count > 0) count -= 1;
+          return { ...prev, [key]: { liked: nextLiked, count } };
+        });
+      }
+    } catch (_e) { }
+  }, []);
+
+  const onAddComment = useCallback(async (ownerId, storyId, text) => {
+    const cleanText = String(text || '').trim();
+    if (!cleanText) return;
+    const clean = String(storyId || '').replace(/_\d+$/, '');
+    try {
+      const res = await postCommentStory({ comment: cleanText, storyId: clean });
+      if (res?.success) {
+        const key = `${ownerId}:${storyId}`;
+        setComments(prev => ({ ...prev, [key]: [...(prev[key] || []), { user: 'you', text: cleanText, ts: Date.now() }] }));
+        try {
+          if (ownerId && currentUserId && String(ownerId) !== String(currentUserId)) {
+            await sendChatMessage({ senderId: currentUserId, receiverId: ownerId, message: cleanText, type: 'CHAT' });
+          }
+        } catch (_e) { }
+      }
+    } catch (_e) { }
+  }, [currentUserId]);
 
   const renderBubble = item => (
     <TouchableOpacity
@@ -822,9 +879,9 @@ const HighlightsScreen = ({ navigation, route }) => {
       <Modal visible={viewerVisible} transparent={false} animationType="fade" onRequestClose={closeViewer}>
         <View style={styles.viewerContainer}>
           <View style={styles.viewerHeader}>
-            <TouchableOpacity onPress={closeViewer} style={styles.viewerBackButton}>
-              <Icon name="arrow-back" size={24} color="#fff" />
-            </TouchableOpacity>
+                <TouchableOpacity onPress={closeViewer} style={styles.viewerBackButton}>
+                  <Icon name="arrow-back" size={24} color="#fff" />
+                </TouchableOpacity>
             <View style={styles.viewerTitleWrap}>
               <Text style={styles.viewerTitle} numberOfLines={1}>
                 {activeHighlight?.title || t('highlights.titleReadOnly')}
@@ -834,6 +891,31 @@ const HighlightsScreen = ({ navigation, route }) => {
               </Text>
             </View>
             <View style={styles.viewerHeaderActions}>
+              {currentStory ? (
+                <TouchableOpacity
+                  onPress={() => {
+                    setSelectedShareStory(currentStory);
+                    try { shareRef.current?.open?.(); } catch (_e) {}
+                  }}
+                  style={[styles.viewerAddButton, { marginRight: 8 }]}
+                >
+                  <Icon name="share-outline" size={18} color="#fff" />
+                </TouchableOpacity>
+              ) : null}
+              {currentStory ? (
+                <TouchableOpacity
+                  onPress={() => {
+                    const ownerId = activeHighlight?.id || 'highlight';
+                    const sid = currentStory?.storyId || currentStory?.id;
+                    const key = `${ownerId}:${sid}`;
+                    const nextLiked = !(likes[key]?.liked === true);
+                    onToggleLike(ownerId, sid, nextLiked);
+                  }}
+                  style={[styles.viewerAddButton, { marginRight: 8 }]}
+                >
+                  <Icon name={likes[`${activeHighlight?.id || 'highlight'}:${currentStory?.storyId || currentStory?.id}`]?.liked ? 'heart' : 'heart-outline'} size={18} color="#fff" />
+                </TouchableOpacity>
+              ) : null}
               {!readOnly ? (
                 <>
                   <TouchableOpacity
@@ -843,8 +925,8 @@ const HighlightsScreen = ({ navigation, route }) => {
                     <Icon name="add" size={20} color="#fff" />
                   </TouchableOpacity>
                   <TouchableOpacity onPress={openEditModal} style={styles.viewerAddButton}>
-                    <Icon name="create-outline" size={18} color="#fff" />
-                  </TouchableOpacity>
+                      <Icon name="create-outline" size={18} color="#fff" />
+                    </TouchableOpacity>
                 </>
               ) : null}
             </View>
@@ -859,7 +941,16 @@ const HighlightsScreen = ({ navigation, route }) => {
               <Text style={styles.viewerEmptyText}>{t('highlights.noDropsAvailable')}</Text>
             </View>
           ) : (
-            <TouchableOpacity style={styles.viewerMedia} activeOpacity={1} onPress={nextStory}>
+            <Pressable
+              style={styles.viewerMedia}
+              android_ripple={{ color: 'rgba(255,255,255,0.06)' }}
+              onPress={(e) => {
+                const x = e.nativeEvent.locationX || 0;
+                const w = Dimensions.get('window').width || 360;
+                const leftZone = w * 0.3;
+                if (x < leftZone) prevStory(); else nextStory();
+              }}
+            >
               {currentStory?.type === 'video' ? (
                 <Video
                   source={{ uri: currentStory?.uri }}
@@ -878,7 +969,7 @@ const HighlightsScreen = ({ navigation, route }) => {
                   resizeMode="contain"
                 />
               )}
-            </TouchableOpacity>
+            </Pressable>
           )}
 
           {currentStory && !readOnly ? (
@@ -906,6 +997,12 @@ const HighlightsScreen = ({ navigation, route }) => {
           ) : null}
         </View>
       </Modal>
+
+      <ShareModal
+        ref={shareRef}
+        story={selectedShareStory}
+        onClose={() => { try { shareRef.current?.close?.(); } catch (_e) {} setSelectedShareStory(null); }}
+      />
 
       {/* Create / Edit modal */}
       <Modal visible={managerVisible && !readOnly} transparent animationType="fade" onRequestClose={closeManagerModal}>
