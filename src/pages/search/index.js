@@ -1406,7 +1406,7 @@ const SearchScreen = () => {
         fromSearch: true,
       });
     }
-  }, [navigation, route?.name, route?.params]);
+  }, [navigation, route?.name, route?.params, userId]);
 
   const openPreview = useCallback(post => {
     setPreviewPost(post);

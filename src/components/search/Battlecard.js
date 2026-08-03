@@ -578,15 +578,7 @@ const AndroidBattleRow = ({ children, style, cardWidth = CARD_WIDTH, cardGap = C
 
     if (allChildren.length === 0) return null;
 
-    if (allChildren.length === 1) {
-        return (
-            <View style={[{ flexDirection: 'row', paddingHorizontal: rowPaddingLeft }, style]}>
-                {allChildren}
-            </View>
-        );
-    }
-
-    const loopedChildren = [...allChildren, ...allChildren];
+    const loopedChildren = [...allChildren, ...allChildren, ...allChildren];
     const totalWidth = allChildren.length * (cardWidth + cardGap);
 
     const translateX = useRef(new Animated.Value(0)).current;
@@ -609,8 +601,10 @@ const AndroidBattleRow = ({ children, style, cardWidth = CARD_WIDTH, cardGap = C
         if (isDraggingRef.current) return;
         animRef.current?.stop();
 
-        // wrap: if we've gone past one full set, reset to equivalent position in first set
-        const wrappedFrom = fromX <= -totalWidth ? fromX + totalWidth : fromX;
+        // wrap: normalize offset to the core middle zone [0, -totalWidth]
+        let wrappedFrom = fromX;
+        while (wrappedFrom <= -totalWidth) wrappedFrom += totalWidth;
+        while (wrappedFrom > 0) wrappedFrom -= totalWidth;
 
         translateX.setValue(wrappedFrom);
         animOffsetRef.current = wrappedFrom;
@@ -629,13 +623,13 @@ const AndroidBattleRow = ({ children, style, cardWidth = CARD_WIDTH, cardGap = C
         animRef.current.start(({ finished }) => {
             if (!finished || isDraggingRef.current) return;
             // loop back seamlessly
-            startContinuousScroll(0);
+            startContinuousScroll(animOffsetRef.current);
         });
     }, [totalWidth, translateX]);
 
     useEffect(() => {
         if (!autoScroll) return undefined;
-        const timer = setTimeout(() => startContinuousScroll(0), START_DELAY_MS);
+        const timer = setTimeout(() => startContinuousScroll(animOffsetRef.current), START_DELAY_MS);
         return () => {
             clearTimeout(timer);
             animRef.current?.stop();
@@ -663,8 +657,8 @@ const AndroidBattleRow = ({ children, style, cardWidth = CARD_WIDTH, cardGap = C
 
             onPanResponderMove: (_, gestureState) => {
                 let next = dragStartOffsetRef.current + gestureState.dx;
-                if (next > 0) next -= totalWidth;
-                if (next < -totalWidth) next += totalWidth;
+                if (next > totalWidth) next = totalWidth;
+                if (next < -totalWidth * 2) next = -totalWidth * 2;
                 translateX.setValue(next);
                 animOffsetRef.current = next;
             },
@@ -673,27 +667,28 @@ const AndroidBattleRow = ({ children, style, cardWidth = CARD_WIDTH, cardGap = C
                 isDraggingRef.current = false;
                 
                 const stepSize = cardWidth + cardGap;
-                const { vx, dx } = gestureState;
-                let targetOffset = animOffsetRef.current;
+                const { vx } = gestureState;
                 
-                if (Math.abs(vx) > 0.5 || Math.abs(dx) > stepSize / 4) {
-                    const direction = vx !== 0 ? Math.sign(vx) : Math.sign(dx);
-                    targetOffset = Math.round(dragStartOffsetRef.current / stepSize) * stepSize + (direction * stepSize);
-                } else {
-                    targetOffset = Math.round(animOffsetRef.current / stepSize) * stepSize;
-                }
+                let projectedOffset = animOffsetRef.current + (vx * 200);
+                let targetOffset = Math.round(projectedOffset / stepSize) * stepSize;
 
-                if (targetOffset > 0) targetOffset -= totalWidth;
-                if (targetOffset <= -totalWidth) targetOffset += totalWidth;
+                if (targetOffset > totalWidth) targetOffset = totalWidth;
+                if (targetOffset < -totalWidth * 2) targetOffset = -totalWidth * 2;
 
                 Animated.timing(translateX, {
                     toValue: targetOffset,
                     duration: 250,
                     useNativeDriver: true,
                 }).start(() => {
-                    animOffsetRef.current = targetOffset;
+                    let finalOffset = targetOffset;
+                    while (finalOffset > 0) finalOffset -= totalWidth;
+                    while (finalOffset <= -totalWidth) finalOffset += totalWidth;
+                    
+                    animOffsetRef.current = finalOffset;
+                    translateX.setValue(finalOffset);
+
                     resumeTimerRef.current = setTimeout(() => {
-                        startContinuousScroll(targetOffset);
+                        startContinuousScroll(finalOffset);
                     }, RESUME_DELAY_MS);
                 });
             },
@@ -703,17 +698,23 @@ const AndroidBattleRow = ({ children, style, cardWidth = CARD_WIDTH, cardGap = C
                 const stepSize = cardWidth + cardGap;
                 let targetOffset = Math.round(animOffsetRef.current / stepSize) * stepSize;
                 
-                if (targetOffset > 0) targetOffset -= totalWidth;
-                if (targetOffset <= -totalWidth) targetOffset += totalWidth;
+                if (targetOffset > totalWidth) targetOffset = totalWidth;
+                if (targetOffset < -totalWidth * 2) targetOffset = -totalWidth * 2;
 
                 Animated.timing(translateX, {
                     toValue: targetOffset,
                     duration: 250,
                     useNativeDriver: true,
                 }).start(() => {
-                    animOffsetRef.current = targetOffset;
+                    let finalOffset = targetOffset;
+                    while (finalOffset > 0) finalOffset -= totalWidth;
+                    while (finalOffset <= -totalWidth) finalOffset += totalWidth;
+                    
+                    animOffsetRef.current = finalOffset;
+                    translateX.setValue(finalOffset);
+
                     resumeTimerRef.current = setTimeout(() => {
-                        startContinuousScroll(targetOffset);
+                        startContinuousScroll(finalOffset);
                     }, RESUME_DELAY_MS);
                 });
             },
@@ -746,18 +747,17 @@ const AndroidBattleRow = ({ children, style, cardWidth = CARD_WIDTH, cardGap = C
             style={[{ overflow: 'hidden', paddingLeft: rowPaddingLeft }, style]}
             collapsable={false}
             onTouchStart={() => {
-                isDraggingRef.current = true;
                 animRef.current?.stop();
                 if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
             }}
             onTouchEnd={() => {
-                isDraggingRef.current = false;
+                if (isDraggingRef.current) return;
                 resumeTimerRef.current = setTimeout(() => {
                     startContinuousScroll(animOffsetRef.current);
                 }, RESUME_DELAY_MS);
             }}
             onTouchCancel={() => {
-                isDraggingRef.current = false;
+                if (isDraggingRef.current) return;
                 resumeTimerRef.current = setTimeout(() => {
                     startContinuousScroll(animOffsetRef.current);
                 }, RESUME_DELAY_MS);

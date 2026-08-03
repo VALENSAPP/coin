@@ -794,7 +794,8 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
     const map = new Map();
     battles.forEach(battle => {
       const winner = battle?.left?.isWinner ? battle.left : battle?.right?.isWinner ? battle.right : null;
-      const pct = Number(battle?.winnerPct ?? winner?.pct ?? 0);
+      const winnerParticipant = battle?.participants?.find(p => p.id === winner?.participantId || p.id === winner?.id);
+      const pct = Number(winnerParticipant?.votePercentage ?? battle?.winnerPct ?? winner?.pct ?? 0);
       const meta = {
         pct,
         battleId: battle.id,
