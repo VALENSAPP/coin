@@ -31,7 +31,6 @@ import { formSurfaces, selectedSurface, themedCard } from '../../utils/closetThe
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 
 const PURPLE = '#5B2FB5';
-const PURPLE_2 = '#7A49D6';
 const BORDER = '#E7DDF7';
 const SOFT_BG = '#FBF7FF';
 const TEXT = '#2F2259';
@@ -79,14 +78,15 @@ const getPromoPrice = item =>
     ? String(item.price)
     : item?.formattedPrice || item?.amount || item?.salePrice || '';
 
-const fastImageSource = uri =>
-  uri
+const fastImageSource = rawUri => {
+  const uri = imageUri(rawUri);
+  return uri
     ? {
         uri,
-        priority: FastImage.priority.high,
-        cache: FastImage.cacheControl.immutable,
+        priority: FastImage.priority.normal,
       }
     : null;
+};
 
 const ActionRow = ({ icon, title, subtitle, accent, onPress, cardBg, titleColor, borderColor, mutedColor }) => (
   <TouchableOpacity
@@ -131,7 +131,7 @@ export function BattleInsightsActionsScreen({ navigation, route }) {
       <Header title={t('battleInsights.headerTitle')} onBack={() => navigation.goBack()} accentColor={accent} titleColor={text || TEXT} rightIcon="ellipsis-horizontal" />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={[styles.winnerCard, themedCard(surface, border || surfaces.listBorder)]}>
-          <FastImage source={fastImageSource(winnerItem.image)} style={styles.winnerImage} resizeMode={FastImage.resizeMode.cover} />
+          <FastImage source={fastImageSource(getPromoImage(winnerItem))} style={styles.winnerImage} resizeMode={FastImage.resizeMode.cover} />
           <View style={{ flex: 1 }}>
             <View style={[styles.winnerPill, { backgroundColor: isDarkMode ? 'rgba(253,230,138,0.92)' : '#FDE68A' }]}>
               <Text style={styles.winnerPillText}>🏆 {t('battleInsights.winner')}</Text>
@@ -309,7 +309,7 @@ export function BoostWinningItemScreen({ navigation, route }) {
             })
           }
         >
-          <LinearGradient colors={[accent, PURPLE_2]} style={styles.primaryButton}>
+          <LinearGradient colors={[accent, text]} style={styles.primaryButton}>
             <Text style={styles.primaryButtonText}>{t('boost.continue')}</Text>
           </LinearGradient>
         </TouchableOpacity>
@@ -437,7 +437,7 @@ export function ReviewBoostScreen({ navigation, route }) {
       <Header title={t('boost.reviewTitle')} onBack={() => navigation.goBack()} accentColor={accent} titleColor={text || TEXT} />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={[styles.reviewItemCard, themedCard(surface, border || surfaces.listBorder)]}>
-          <FastImage source={fastImageSource(winnerItem?.image)} style={styles.winnerImage} resizeMode={FastImage.resizeMode.cover} />
+          <FastImage source={fastImageSource(getPromoImage(winnerItem))} style={styles.winnerImage} resizeMode={FastImage.resizeMode.cover} />
           <View style={{ flex: 1 }}>
             <Text style={[styles.winnerName, { color: text || TEXT }]}>{winnerItem?.name}</Text>
             <Text style={[styles.winnerPrice, { color: subtleMuted }]}>${winnerItem?.price}</Text>
@@ -472,7 +472,7 @@ export function ReviewBoostScreen({ navigation, route }) {
         </View>
 
         <TouchableOpacity activeOpacity={0.9} onPress={handleBoostNow} disabled={submitting}>
-          <LinearGradient colors={[accent, PURPLE_2]} style={styles.primaryButton}>
+          <LinearGradient colors={[accent, text]} style={styles.primaryButton}>
             <Text style={styles.primaryButtonText}>{submitting ? (t('boost.loading') || 'Loading...') : t('boost.boostNow')}</Text>
           </LinearGradient>
         </TouchableOpacity>
@@ -529,7 +529,7 @@ export function CreateWinnerPromotionScreen({ navigation, route }) {
           activeOpacity={0.9}
           onPress={() => navigation.navigate('PromotionDetails', { winnerItem, promotionType: selectedType, battleId })}
         >
-          <LinearGradient colors={[accent, PURPLE_2]} style={styles.primaryButton}>
+          <LinearGradient colors={[accent, text]} style={styles.primaryButton}>
             <Text style={styles.primaryButtonText}>{t('promotion.next')}</Text>
           </LinearGradient>
         </TouchableOpacity>
@@ -563,7 +563,7 @@ export function PromotionDetailsScreen({ navigation, route }) {
       <Header title={t('promotion.detailsTitle')} onBack={() => navigation.goBack()} accentColor={accent} titleColor={text || TEXT} />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={[styles.reviewItemCard, themedCard(surface, border || surfaces.listBorder)]}>
-          <FastImage source={fastImageSource(winnerItem?.image)} style={styles.winnerImage} resizeMode={FastImage.resizeMode.cover} />
+          <FastImage source={fastImageSource(getPromoImage(winnerItem))} style={styles.winnerImage} resizeMode={FastImage.resizeMode.cover} />
           <View style={{ flex: 1 }}>
             <Text style={[styles.winnerName, { color: text || TEXT }]}>{winnerItem?.name}</Text>
             <View style={[styles.winnerPill, { backgroundColor: '#FDE68A', alignSelf: 'flex-start', marginTop: 4 }]}>
@@ -633,7 +633,7 @@ export function PromotionDetailsScreen({ navigation, route }) {
             })
           }
         >
-          <LinearGradient colors={[accent, PURPLE_2]} style={styles.primaryButton}>
+          <LinearGradient colors={[accent, text]} style={styles.primaryButton}>
             <Text style={styles.primaryButtonText}>{t('promotion.preview')}</Text>
           </LinearGradient>
         </TouchableOpacity>
@@ -689,7 +689,7 @@ export function PreviewPromotionScreen({ navigation, route }) {
     <View style={[styles.screen, bgStyle, { backgroundColor: bg || SOFT_BG }]}>
       <Header title={t('promotion.previewTitle')} onBack={() => navigation.goBack()} accentColor={accent} titleColor={text || TEXT} />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <LinearGradient colors={[accent, PURPLE_2]} start={{ x: 0.05, y: 0.05 }} end={{ x: 0.95, y: 0.95 }} style={styles.promoBanner}>
+        <LinearGradient colors={[accent, text]} start={{ x: 0.05, y: 0.05 }} end={{ x: 0.95, y: 0.95 }} style={styles.promoBanner}>
           <View style={styles.promoBannerGlowA} />
           <View style={styles.promoBannerGlowB} />
           <Text style={styles.promoBannerTag}>{t('promotion.bannerTag')}</Text>
@@ -734,7 +734,7 @@ export function PreviewPromotionScreen({ navigation, route }) {
         </View>
 
         <TouchableOpacity activeOpacity={0.9} onPress={handleLaunch} disabled={launching}>
-          <LinearGradient colors={[accent, PURPLE_2]} style={styles.primaryButton}>
+          <LinearGradient colors={[accent, text]} style={styles.primaryButton}>
             <Text style={styles.primaryButtonText}>{launching ? (t('boost.loading') || 'Loading...') : t('promotion.launch')}</Text>
           </LinearGradient>
         </TouchableOpacity>

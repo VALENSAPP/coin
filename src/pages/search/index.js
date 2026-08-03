@@ -865,7 +865,12 @@ const SearchScreen = () => {
 
   const masonryItems = useMemo(() => {
     if (!masonryLayout?.columns) return [];
-    return masonryLayout.columns.flat();
+    const flattened = masonryLayout.columns.flat();
+    // Sort by vertical position so FlatList virtualization mounts items evenly across columns as we scroll
+    return flattened.sort((a, b) => {
+      if (a.top !== b.top) return a.top - b.top;
+      return a.columnIndex - b.columnIndex;
+    });
   }, [masonryLayout]);
 
 
@@ -1582,7 +1587,7 @@ const SearchScreen = () => {
   ), [isScreenFocused, previewVisible, isSearchActive, playingVideoIndexes, donationTotals, handlePostPress, openPreview]);
 
   const masonryKeyExtractor = useCallback((item, idx) =>
-    item?.post?.id ? `${item.post.id}-${idx}-${item.columnIndex}` : `masonry-${idx}`,
+    item?.post?.id ? `${item.post.id}-${item.post.imageIndex ?? 0}` : `masonry-${idx}`,
     []);
 
   const userKeyExtractor = useCallback((item, idx) => String(item.id ?? idx), []);

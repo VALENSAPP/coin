@@ -2435,10 +2435,10 @@ const liveStyles = StyleSheet.create({
 });
 
 export function BattleResultsScreen({ navigation, route }) {
-  const { bgStyle, text, card, bg, border, mutedText, accent: themeAccent } = useClosetTheme(route);
+  const { bgStyle, text, card, bg, border, mutedText} = useAppTheme();
   const { isDarkMode } = useThemeContext();
   const { t } = useLanguage();
-  const brandAccent = themeAccent || PURPLE;
+  const brandAccent = text || PURPLE;
   const accent = text || brandAccent;
   const primaryText = text || TEXT;
   const subtleMuted = mutedText || MUTED;
@@ -2901,7 +2901,7 @@ export function ChallengeReceivedScreen({ navigation, route }) {
   const accent = text || PURPLE;
   const primaryText = text || TEXT;
   const subtleMuted = mutedText || surfaces.mutedColor;
-  const handleBack = () => navigation.goBack();
+  const handleBack = () => navigation.navigate('HomeMain', { screen: 'HeartNotification' });
   
   const { battleId } = route?.params || {};
   
@@ -3105,7 +3105,7 @@ export function ChallengeAcceptedScreen({ navigation, route }) {
 
   return (
     <View style={[styles.screen, bgStyle, { backgroundColor: bg || '#FBF8FF' }]}>
-      <Header title={isDeclined ? "Challenge Declined" : "Challenge Accepted"} onBack={() => navigation.navigate('MainApp', { screen: 'wallet', params: { screen: 'MyCloset' } })} titleColor={text} />
+      <Header title={isDeclined ? "Challenge Declined" : "Challenge Accepted"} onBack={() => navigation.navigate('HomeMain', { screen: 'HeartNotification' })} titleColor={text} />
       <ScrollView contentContainerStyle={[styles.scrollContent, { alignItems: 'center', paddingTop: 20 }]} showsVerticalScrollIndicator={false}>
         
         {/* Success / Error Icon */}

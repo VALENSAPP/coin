@@ -1500,8 +1500,6 @@ const MyClosetBuyerItemsScreen = ({ navigation, route }) => {
     );
   };
 
-  console.log("filteredItems------------------------", filteredItems)
-
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
       <View style={styles.shopHeader}>
