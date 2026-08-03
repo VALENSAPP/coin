@@ -394,9 +394,32 @@ export function ReviewBoostScreen({ navigation, route }) {
         } else {
           await Linking.openURL(paymentUrl);
         }
-        Alert.alert(t('boost.boostedTitle'), t('boost.boostedMessage'), [
-          { text: t('boost.done'), onPress: () => navigation.navigate('wallet', { screen: 'MyCloset', params: { boostedItemId: winnerItem?.id } }) },
-        ]);
+        
+        let isPaid = false;
+        try {
+          for (let i = 0; i < 4; i++) {
+            const checkRes = await getMarketplaceBattleBoostByBattle(battleId);
+            const checkData = checkRes?.data?.data || checkRes?.data || {};
+            const st = String(checkData?.paymentStatus || checkData?.status || checkData?.state || '').toLowerCase();
+            
+            if (st === 'paid' || st === 'active' || st === 'success' || st === 'completed') {
+              isPaid = true;
+              break;
+            }
+            if (st === 'failed' || st === 'cancelled' || st === 'canceled') {
+              break;
+            }
+            await new Promise(r => setTimeout(r, 1500));
+          }
+        } catch (e) {
+          console.error('Error checking boost status:', e);
+        }
+
+        if (isPaid) {
+          Alert.alert(t('boost.boostedTitle'), t('boost.boostedMessage'), [
+            { text: t('boost.done'), onPress: () => navigation.navigate('wallet', { screen: 'MyCloset', params: { boostedItemId: winnerItem?.id } }) },
+          ]);
+        }
         return;
       }
 

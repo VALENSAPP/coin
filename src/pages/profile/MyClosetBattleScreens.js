@@ -1396,9 +1396,9 @@ export function ChallengeShopListScreen({ navigation, route }) {
               style={[styles.inputText, { flex: 1, color: surfaces.inputText, padding: 0 }]}
             />
           </View>
-          <TouchableOpacity style={{ marginLeft: 12, padding: 10, backgroundColor: isDarkMode ? surfaces.listSurface : '#F3EFFF', borderRadius: 12 }}>
+          {/* <TouchableOpacity style={{ marginLeft: 12, padding: 10, backgroundColor: isDarkMode ? surfaces.listSurface : '#F3EFFF', borderRadius: 12 }}>
             <Ionicons name="options-outline" size={20} color={accent} />
-          </TouchableOpacity>
+          </TouchableOpacity> */}
         </View>
       </View>
 

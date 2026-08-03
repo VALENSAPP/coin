@@ -1382,7 +1382,8 @@ const MyClosetBuyerItemsScreen = ({ navigation, route }) => {
     battles.forEach(battle => {
       const winner = battle?.left?.isWinner ? battle.left : battle?.right?.isWinner ? battle.right : null;
       if (!winner) return;
-      const pct = Number(battle?.winnerPct ?? winner?.pct ?? 0);
+      const winnerParticipant = battle?.participants?.find(p => p.id === winner?.participantId || p.id === winner?.id);
+      const pct = Number(winnerParticipant?.votePercentage ?? battle?.winnerPct ?? winner?.pct ?? 0);
       const meta = {
         pct,
         battleId: battle.id,
@@ -1512,7 +1513,7 @@ const MyClosetBuyerItemsScreen = ({ navigation, route }) => {
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
       <View style={styles.shopHeader}>
         <TouchableOpacity
-          onPress={() => goBack(navigation, returnTo)}
+          onPress={() => goBack(navigation, returnTo, false, true)}
           style={styles.iconButton}
           activeOpacity={0.8}
         >
