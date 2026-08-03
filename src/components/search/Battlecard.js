@@ -581,20 +581,22 @@ const AndroidBattleRow = ({ children, style, cardWidth = CARD_WIDTH, cardGap = C
     const loopedChildren = [...allChildren, ...allChildren, ...allChildren];
     const totalWidth = allChildren.length * (cardWidth + cardGap);
 
-    const translateX = useRef(new Animated.Value(0)).current;
+    const translateX = useRef(new Animated.Value(-totalWidth)).current;
     const animRef = useRef(null);
-    const animOffsetRef = useRef(0);
+    const animOffsetRef = useRef(-totalWidth);
     const isDraggingRef = useRef(false);
     const dragStartOffsetRef = useRef(0);
     const resumeTimerRef = useRef(null);
     const isPausedForCardRef = useRef(false);
 
     useEffect(() => {
+        animOffsetRef.current = -totalWidth;
+        translateX.setValue(-totalWidth);
         const id = translateX.addListener(({ value }) => {
             animOffsetRef.current = value;
         });
         return () => translateX.removeListener(id);
-    }, [translateX]);
+    }, [translateX, totalWidth]);
 
     // continuously scroll using Easing.linear
     const startContinuousScroll = useCallback((fromX = 0) => {
@@ -609,11 +611,12 @@ const AndroidBattleRow = ({ children, style, cardWidth = CARD_WIDTH, cardGap = C
         translateX.setValue(wrappedFrom);
         animOffsetRef.current = wrappedFrom;
 
-        const distance = Math.abs(-totalWidth - wrappedFrom);
+        const targetX = -totalWidth * 2;
+        const distance = Math.abs(targetX - wrappedFrom);
         const duration = distance / AUTO_SCROLL_SPEED_PX_PER_MS;
 
         animRef.current = Animated.timing(translateX, {
-            toValue: -totalWidth,
+            toValue: targetX,
             duration: duration,
             easing: Easing.linear,
             useNativeDriver: true,
@@ -663,7 +666,7 @@ const AndroidBattleRow = ({ children, style, cardWidth = CARD_WIDTH, cardGap = C
                 animOffsetRef.current = next;
             },
 
-            onPanResponderRelease: (_, gestureState) => {
+            onPanResponderRelease: () => {
                 isDraggingRef.current = false;
                 
                 const stepSize = cardWidth + cardGap;
@@ -693,7 +696,7 @@ const AndroidBattleRow = ({ children, style, cardWidth = CARD_WIDTH, cardGap = C
                 });
             },
 
-            onPanResponderTerminate: (_, gestureState) => {
+            onPanResponderTerminate: () => {
                 isDraggingRef.current = false;
                 const stepSize = cardWidth + cardGap;
                 let targetOffset = Math.round(animOffsetRef.current / stepSize) * stepSize;

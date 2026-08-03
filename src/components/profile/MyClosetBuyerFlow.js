@@ -67,7 +67,7 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const GRID_GAP = 12;
 const GRID_ITEM_WIDTH = (SCREEN_WIDTH - 48) / 2;
 const HERO_IMAGE_WIDTH = SCREEN_WIDTH - 40;
-const HERO_IMAGE_HEIGHT = 220;
+const HERO_IMAGE_HEIGHT = Math.round(SCREEN_HEIGHT * 0.4);
 const MUTED = '#6b7280';
 const BORDER = '#ebe4f3';
 const SURFACE = '#fbf8ff';
@@ -152,8 +152,14 @@ const itemImages = item => {
   const images = Array.isArray(item?.images)
     ? item.images.map(imageUri).filter(Boolean)
     : [];
-  const fallback = imageUri(item?.image) || imageUri(item?.thumbnail);
-  return images.length ? images : fallback ? [fallback] : [];
+  const primaryImage = imageUri(item?.image) || imageUri(item?.thumbnail);
+
+  if (primaryImage) {
+    const deduped = [primaryImage, ...images.filter(uri => uri !== primaryImage)];
+    return deduped.length ? deduped : [primaryImage];
+  }
+
+  return images.length ? images : [];
 };
 
 const itemImage = item => itemImages(item)[0] || null;
@@ -769,6 +775,7 @@ export const DetailImageCarousel = ({ images, onZoomChange, accentColor, imageWi
         maxToRenderPerBatch={2}
         windowSize={3}
         extraData={activeIndex}
+        style={{ width: iWidth, height: iHeight }}
         getItemLayout={(_, index) => ({
           length: iWidth,
           offset: iWidth * index,
@@ -1956,29 +1963,35 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
         showsVerticalScrollIndicator={false}
         scrollEnabled={detailScrollEnabled}
       >
-        <DetailImageCarousel
-          images={item.images}
-          accentColor={text}
-          onZoomChange={zoomed => setDetailScrollEnabled(!zoomed)}
-        />
-        <Text style={[styles.detailName, { color: text }]}>{item.name}</Text>
-        <Text style={[styles.detailPrice, { color: text }]}>{item.price}</Text>
-        {/* <SellerCard seller={seller} accentColor={text} /> */}
-        <Text style={[styles.sectionLabel, { color: text }]}>{t('myClosetBuyer.description')}</Text>
-        <Text style={[styles.description, { color: mutedText }]}>{item.description}</Text>
-        <View style={styles.attributeList}>
-          {[
-            { icon: 'shield-checkmark-outline', label: t('myClosetBuyer.condition'), value: item.condition },
-            { icon: 'pricetag-outline', label: t('myClosetBuyer.brand'), value: item.brand },
-            { icon: 'albums-outline', label: t('myClosetBuyer.category'), value: item.category },
-          ].map(attr => (
-            <View key={attr.label} style={styles.attributeRow}>
-              <Ionicons name={attr.icon} size={15} color={text} />
-              <Text style={[styles.attributeLabel, { color: mutedText }]}>{attr.label}</Text>
-              <Text style={[styles.attributeValue, { color: text }]}>{attr.value}</Text>
+        <View style={styles.detailHeaderRow}>
+          <DetailImageCarousel
+            images={item.images}
+            accentColor={text}
+            onZoomChange={zoomed => setDetailScrollEnabled(!zoomed)}
+            imageWidth={Math.round(SCREEN_WIDTH * 0.42)}
+            imageHeight={Math.round(SCREEN_HEIGHT * 0.4)}
+          />
+          <View style={styles.detailHeaderInfo}>
+            <Text style={[styles.detailName, { color: text }]}>{item.name}</Text>
+            <Text style={[styles.detailPrice, { color: text, marginTop: 6 }]}>{item.price}</Text>
+            <Text style={[styles.sectionLabel, { color: text, marginTop: 14 }]}>{t('myClosetBuyer.description')}</Text>
+            <Text style={[styles.description, { color: mutedText, marginBottom: 12 }]}>{item.description}</Text>
+            <View style={styles.attributeList}>
+              {[
+                { icon: 'shield-checkmark-outline', label: t('myClosetBuyer.condition'), value: item.condition },
+                { icon: 'pricetag-outline', label: t('myClosetBuyer.brand'), value: item.brand },
+                { icon: 'albums-outline', label: t('myClosetBuyer.category'), value: item.category },
+              ].map(attr => (
+                <View key={attr.label} style={styles.attributeRow}>
+                  <Ionicons name={attr.icon} size={15} color={text} />
+                  <Text style={[styles.attributeLabel, { color: mutedText }]}>{attr.label}</Text>
+                  <Text style={[styles.attributeValue, { color: text }]}>{attr.value}</Text>
+                </View>
+              ))}
             </View>
-          ))}
+          </View>
         </View>
+        {/* <View style={styles.detailBannerSpacer} /> */}
         {route?.params?.battleWinner ? (
           <>
             <View
@@ -4350,6 +4363,19 @@ const styles = StyleSheet.create({
 
   // detail
   detailContent: { paddingHorizontal: 20, paddingBottom: 110 },
+  detailHeaderRow: {
+    flexDirection: 'row',
+    gap: 16,
+    alignItems: 'flex-start',
+    marginBottom: 10,
+  },
+  detailHeaderInfo: {
+    flex: 1,
+    justifyContent: 'space-between',
+  },
+  detailBannerSpacer: {
+    height: 10,
+  },
   heroImage: { width: HERO_IMAGE_WIDTH, height: HERO_IMAGE_HEIGHT, borderRadius: 18 },
   heroSlide: {
     width: HERO_IMAGE_WIDTH,
@@ -4402,7 +4428,8 @@ const styles = StyleSheet.create({
   photoDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#d7cce3' },
   photoDotsSpacer: { height: 42 },
   detailName: { fontSize: 22, fontWeight: '900', color: '#17072d' },
-  detailPrice: { marginTop: 3, fontSize: 21, fontWeight: '900', marginBottom: 18 },
+  detailPrice: { marginTop: 3, fontSize: 21, fontWeight: '900' },
+  detailDivider: { height: 1, backgroundColor: BORDER, marginVertical: 18 },
 
   sellerCard: {
     flexDirection: 'row', alignItems: 'center',
