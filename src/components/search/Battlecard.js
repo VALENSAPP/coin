@@ -586,40 +586,44 @@ const AndroidBattleRow = ({ children, style, cardWidth = CARD_WIDTH, cardGap = C
         );
     }
 
-    const loopedChildren = [...allChildren, ...allChildren];
-    const totalWidth = allChildren.length * (cardWidth + cardGap);
+    const loopedChildren = [...allChildren, ...allChildren, ...allChildren];
+    const totalWidth = allChildren.length * cardWidth + Math.max(0, allChildren.length - 1) * cardGap;
 
-    const translateX = useRef(new Animated.Value(0)).current;
+    const translateX = useRef(new Animated.Value(-totalWidth)).current;
     const animRef = useRef(null);
-    const animOffsetRef = useRef(0);
+    const animOffsetRef = useRef(-totalWidth);
     const isDraggingRef = useRef(false);
     const dragStartOffsetRef = useRef(0);
     const resumeTimerRef = useRef(null);
     const isPausedForCardRef = useRef(false);
 
     useEffect(() => {
+        animOffsetRef.current = -totalWidth;
+        translateX.setValue(-totalWidth);
         const id = translateX.addListener(({ value }) => {
             animOffsetRef.current = value;
         });
         return () => translateX.removeListener(id);
-    }, [translateX]);
+    }, [translateX, totalWidth]);
 
     // continuously scroll using Easing.linear
     const startContinuousScroll = useCallback((fromX = 0) => {
         if (isDraggingRef.current) return;
         animRef.current?.stop();
 
-        // wrap: if we've gone past one full set, reset to equivalent position in first set
-        const wrappedFrom = fromX <= -totalWidth ? fromX + totalWidth : fromX;
+        let wrappedFrom = fromX;
+        while (wrappedFrom > -totalWidth) wrappedFrom -= totalWidth;
+        while (wrappedFrom <= -totalWidth * 2) wrappedFrom += totalWidth;
 
         translateX.setValue(wrappedFrom);
         animOffsetRef.current = wrappedFrom;
 
-        const distance = Math.abs(-totalWidth - wrappedFrom);
+        const targetX = -totalWidth * 2;
+        const distance = Math.abs(targetX - wrappedFrom);
         const duration = distance / AUTO_SCROLL_SPEED_PX_PER_MS;
 
         animRef.current = Animated.timing(translateX, {
-            toValue: -totalWidth,
+            toValue: targetX,
             duration: duration,
             easing: Easing.linear,
             useNativeDriver: true,
@@ -628,8 +632,8 @@ const AndroidBattleRow = ({ children, style, cardWidth = CARD_WIDTH, cardGap = C
 
         animRef.current.start(({ finished }) => {
             if (!finished || isDraggingRef.current) return;
-            // loop back seamlessly
-            startContinuousScroll(0);
+            // loop back seamlessly to the middle copy
+            startContinuousScroll(-totalWidth);
         });
     }, [totalWidth, translateX]);
 
@@ -663,59 +667,30 @@ const AndroidBattleRow = ({ children, style, cardWidth = CARD_WIDTH, cardGap = C
 
             onPanResponderMove: (_, gestureState) => {
                 let next = dragStartOffsetRef.current + gestureState.dx;
-                if (next > 0) next -= totalWidth;
-                if (next < -totalWidth) next += totalWidth;
+                while (next > 0) next -= totalWidth;
+                while (next <= -totalWidth * 2) next += totalWidth;
                 translateX.setValue(next);
                 animOffsetRef.current = next;
             },
 
-            onPanResponderRelease: (_, gestureState) => {
+            onPanResponderRelease: () => {
                 isDraggingRef.current = false;
-                
-                const stepSize = cardWidth + cardGap;
-                const { vx, dx } = gestureState;
-                let targetOffset = animOffsetRef.current;
-                
-                if (Math.abs(vx) > 0.5 || Math.abs(dx) > stepSize / 4) {
-                    const direction = vx !== 0 ? Math.sign(vx) : Math.sign(dx);
-                    targetOffset = Math.round(dragStartOffsetRef.current / stepSize) * stepSize + (direction * stepSize);
-                } else {
-                    targetOffset = Math.round(animOffsetRef.current / stepSize) * stepSize;
-                }
-
-                if (targetOffset > 0) targetOffset -= totalWidth;
-                if (targetOffset <= -totalWidth) targetOffset += totalWidth;
-
-                Animated.timing(translateX, {
-                    toValue: targetOffset,
-                    duration: 250,
-                    useNativeDriver: true,
-                }).start(() => {
-                    animOffsetRef.current = targetOffset;
-                    resumeTimerRef.current = setTimeout(() => {
-                        startContinuousScroll(targetOffset);
-                    }, RESUME_DELAY_MS);
-                });
+                const targetOffset = animOffsetRef.current;
+                translateX.setValue(targetOffset);
+                animOffsetRef.current = targetOffset;
+                resumeTimerRef.current = setTimeout(() => {
+                    startContinuousScroll(targetOffset);
+                }, RESUME_DELAY_MS);
             },
 
-            onPanResponderTerminate: (_, gestureState) => {
+            onPanResponderTerminate: () => {
                 isDraggingRef.current = false;
-                const stepSize = cardWidth + cardGap;
-                let targetOffset = Math.round(animOffsetRef.current / stepSize) * stepSize;
-                
-                if (targetOffset > 0) targetOffset -= totalWidth;
-                if (targetOffset <= -totalWidth) targetOffset += totalWidth;
-
-                Animated.timing(translateX, {
-                    toValue: targetOffset,
-                    duration: 250,
-                    useNativeDriver: true,
-                }).start(() => {
-                    animOffsetRef.current = targetOffset;
-                    resumeTimerRef.current = setTimeout(() => {
-                        startContinuousScroll(targetOffset);
-                    }, RESUME_DELAY_MS);
-                });
+                const targetOffset = animOffsetRef.current;
+                translateX.setValue(targetOffset);
+                animOffsetRef.current = targetOffset;
+                resumeTimerRef.current = setTimeout(() => {
+                    startContinuousScroll(targetOffset);
+                }, RESUME_DELAY_MS);
             },
         })
     ).current;

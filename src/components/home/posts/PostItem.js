@@ -702,11 +702,7 @@ function PostItem({
     }),
     [item?.type, item?.postType, item?.raiseAmount],
   );
-  const locationDisplayText = locationValue.trim()
-    ? locationValue.trim()
-    : isPostOwner
-      ? t('postItem.locationPlaceholder')
-      : '';
+  const locationDisplayText = locationValue.trim();
 
   const navigation = useNavigation();
   const shareRef = useRef(null);
@@ -1929,7 +1925,7 @@ function PostItem({
                 </View>
               )}
             </TouchableOpacity>
-            {supportsLocation && (isPostOwner || locationValue.trim()) ? (
+            {supportsLocation && locationValue.trim() ? (
               <TouchableOpacity
                 onPress={handleOpenLocationEditor}
                 disabled={!isPostOwner}
@@ -1940,7 +1936,6 @@ function PostItem({
                   style={[
                     styles.locationText,
                     { color: mutedText },
-                    !locationValue.trim() && styles.locationPlaceholderText,
                   ]}
                   numberOfLines={1}>
                   {locationDisplayText}
