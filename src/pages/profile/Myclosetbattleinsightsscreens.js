@@ -10,6 +10,8 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import FastImage from 'react-native-fast-image';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -29,6 +31,7 @@ import {
 import { Header, CHALLENGE_ITEMS } from './MyClosetBattleScreens';
 import { formSurfaces, selectedSurface, themedCard } from '../../utils/closetTheme';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
+import { BASE_URL } from '../../config/urls';
 
 const PURPLE = '#5B2FB5';
 const BORDER = '#E7DDF7';
@@ -59,9 +62,14 @@ const PROMO_TYPE_API_MAP = {
 };
 
 const imageUri = img => {
-  const uri = typeof img === 'string' ? img : img?.uri || null;
-  if (!uri) return null;
-  return String(uri).replace(/["'\s]+$/, '');
+  if (Array.isArray(img) && img.length > 0) img = img[0];
+  const raw = typeof img === 'string' ? img : img?.uri || null;
+  if (!raw) return null;
+  const t = String(raw).replace(/["'\s]+$/, '').trim();
+  if (!t) return null;
+  if (t.startsWith('http://') || t.startsWith('https://') || t.startsWith('data:') || t.startsWith('file://')) return t;
+  if (t.startsWith('/')) return `${BASE_URL}${t}`;
+  return `${BASE_URL}/${t}`;
 };
 
 const getPromoImage = item =>
@@ -130,16 +138,19 @@ export function BattleInsightsActionsScreen({ navigation, route }) {
     <View style={[styles.screen, bgStyle, { backgroundColor: bg || SOFT_BG }]}>
       <Header title={t('battleInsights.headerTitle')} onBack={() => navigation.goBack()} accentColor={accent} titleColor={text || TEXT} rightIcon="ellipsis-horizontal" />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={[styles.winnerCard, themedCard(surface, border || surfaces.listBorder)]}>
-          <FastImage source={fastImageSource(getPromoImage(winnerItem))} style={styles.winnerImage} resizeMode={FastImage.resizeMode.cover} />
-          <View style={{ flex: 1 }}>
-            <View style={[styles.winnerPill, { backgroundColor: isDarkMode ? 'rgba(253,230,138,0.92)' : '#FDE68A' }]}>
-              <Text style={styles.winnerPillText}>🏆 {t('battleInsights.winner')}</Text>
+        <LinearGradient colors={[accent, text]} start={{ x: 0.05, y: 0.05 }} end={{ x: 0.95, y: 0.95 }} style={[styles.promoBanner, { minHeight: 167, paddingTop: 0, paddingBottom: 18, marginTop: 8 }]}>
+          <View style={styles.promoBannerGlowA} />
+          <View style={styles.promoBannerGlowB} />
+          {/* <Text style={[styles.promoBannerTag, { marginBottom: 12 }]}>{t('battleInsights.headerTitle')?.toUpperCase?.() || 'BATTLE WINNER'}</Text> */}
+          <View style={styles.promoBannerItemRow}>
+            {getPromoImage(winnerItem) ? <FastImage source={fastImageSource(getPromoImage(winnerItem))} style={styles.promoBannerImage} resizeMode={FastImage.resizeMode.cover} /> : <View style={styles.promoBannerImagePlaceholder} />}
+            <View style={styles.promoBannerItemCopy}>
+              <Text style={styles.promoBannerItemName} numberOfLines={2}>{winnerItem?.name}</Text>
+              {getPromoPrice(winnerItem) ? <Text style={styles.promoBannerItemPrice}>${getPromoPrice(winnerItem)}</Text> : null}
+              <Text style={styles.promoBannerItemMeta}>🏆 {t('battleInsights.winner')}</Text>
             </View>
-            <Text style={[styles.winnerName, { color: text || TEXT }]}>{winnerItem.name}</Text>
-            <Text style={[styles.winnerPrice, { color: subtleMuted }]}>${winnerItem.price}</Text>
           </View>
-        </View>
+        </LinearGradient>
 
         <Text style={[styles.sectionLabel, { color: text || TEXT }]}>{t('battleInsights.whatNext')}</Text>
 
@@ -559,18 +570,33 @@ export function PromotionDetailsScreen({ navigation, route }) {
   const [message, setMessage] = useState(defaultMsg);
 
   return (
-    <View style={[styles.screen, bgStyle, { backgroundColor: bg || SOFT_BG }]}>
+    <KeyboardAvoidingView style={[styles.screen, bgStyle, { backgroundColor: bg || SOFT_BG }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <Header title={t('promotion.detailsTitle')} onBack={() => navigation.goBack()} accentColor={accent} titleColor={text || TEXT} />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={[styles.reviewItemCard, themedCard(surface, border || surfaces.listBorder)]}>
-          <FastImage source={fastImageSource(getPromoImage(winnerItem))} style={styles.winnerImage} resizeMode={FastImage.resizeMode.cover} />
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.winnerName, { color: text || TEXT }]}>{winnerItem?.name}</Text>
-            <View style={[styles.winnerPill, { backgroundColor: '#FDE68A', alignSelf: 'flex-start', marginTop: 4 }]}>
-              <Text style={styles.winnerPillText}>🏆 {t('battleInsights.winner')}</Text>
+        <LinearGradient colors={[accent, text]} start={{ x: 0.05, y: 0.05 }} end={{ x: 0.95, y: 0.95 }} style={styles.promoBanner}>
+          <View style={styles.promoBannerGlowA} />
+          <View style={styles.promoBannerGlowB} />
+          <Text style={styles.promoBannerTag}>{t('promotion.bannerTag')}</Text>
+          {isFreeShipping ? (
+            <Text style={styles.promoBannerDiscount}>
+              <Text style={[styles.promoBannerDiscountValue, { fontSize: 32 }]}>{t('promotion.types.freeShipping.title')}</Text>
+            </Text>
+          ) : (
+            <Text style={styles.promoBannerDiscount}>
+              <Text style={styles.promoBannerDiscountValue}>{discount}%</Text>
+              <Text style={styles.promoBannerDiscountSuffix}> OFF</Text>
+            </Text>
+          )}
+          <Text style={styles.promoBannerSub}>{t('promotion.bannerSub', { duration: duration?.toLowerCase?.() || duration })}</Text>
+          <View style={styles.promoBannerItemRow}>
+            {getPromoImage(winnerItem) ? <FastImage source={fastImageSource(getPromoImage(winnerItem))} style={styles.promoBannerImage} resizeMode={FastImage.resizeMode.cover} /> : <View style={styles.promoBannerImagePlaceholder} />}
+            <View style={styles.promoBannerItemCopy}>
+              <Text style={styles.promoBannerItemName} numberOfLines={2}>{winnerItem?.name}</Text>
+              {getPromoPrice(winnerItem) ? <Text style={styles.promoBannerItemPrice}>${getPromoPrice(winnerItem)}</Text> : null}
+              <Text style={styles.promoBannerItemMeta}>🏆 {t('battleInsights.winner')}</Text>
             </View>
           </View>
-        </View>
+        </LinearGradient>
 
         {promotionType !== 'freeShipping' ? (
           <View style={styles.field}>
@@ -638,7 +664,7 @@ export function PromotionDetailsScreen({ navigation, route }) {
           </LinearGradient>
         </TouchableOpacity>
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -795,15 +821,11 @@ const styles = StyleSheet.create({
   promoBanner: {
     borderRadius: 22,
     padding: 18,
+    marginHorizontal: -15,
     minHeight: 335,
     overflow: 'hidden',
     justifyContent: 'flex-start',
     gap: 8,
-    shadowColor: '#4D1F9E',
-    shadowOpacity: 0.16,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 4,
   },
   promoBannerGlowA: {
     position: 'absolute',

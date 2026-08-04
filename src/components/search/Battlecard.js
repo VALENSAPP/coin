@@ -666,7 +666,7 @@ const AndroidBattleRow = ({ children, style, cardWidth = CARD_WIDTH, cardGap = C
                 animOffsetRef.current = next;
             },
 
-            onPanResponderRelease: () => {
+            onPanResponderRelease: (_, gestureState) => {
                 isDraggingRef.current = false;
                 
                 const stepSize = cardWidth + cardGap;

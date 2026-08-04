@@ -46,6 +46,7 @@ import {
   getClosetItemsByClosetId,
   acceptMarketplaceBattle,
   declineMarketplaceBattle,
+  getMarketplaceBattleChallengeStatus,
 } from '../../services/myCloset';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getAllUser } from '../../services/users';
@@ -195,32 +196,32 @@ const daysLeftFromEndAt = endAt => {
 
 const participantToItem = (participant, raw, idx) => {
   console.log('PTI DEBUG', {
-  idx,
-  productUserId: participant?.product?.userId,
-  closetShopName: raw?.closet?.shopName,
-  opponentClosetShopName: raw?.opponentCloset?.shopName,
-  sellerId: raw?.seller?.id,
-  opponentSellerId: raw?.opponentSellerId,
-});
+    idx,
+    productUserId: participant?.product?.userId,
+    closetShopName: raw?.closet?.shopName,
+    opponentClosetShopName: raw?.opponentCloset?.shopName,
+    sellerId: raw?.seller?.id,
+    opponentSellerId: raw?.opponentSellerId,
+  });
   const product = participant?.product;
   let userName = '';
   let shopName = '';
 
-if (!shopName && raw && idx != null) {
-  const hasOpponent = !!(raw?.opponentCloset || raw?.opponentSeller || raw?.opponentSellerId);
+  if (!shopName && raw && idx != null) {
+    const hasOpponent = !!(raw?.opponentCloset || raw?.opponentSeller || raw?.opponentSellerId);
 
-  if (!hasOpponent) {
-    // SAME_CLOSET battles — both items belong to the same seller/closet.
-    shopName = raw?.closet?.shopName || raw?.mine?.shopName || '';
-    userName = userName || raw?.seller?.userName || raw?.seller?.displayName || raw?.mine?.userName || '';
-  } else if (idx === 0) {
-    shopName = raw?.closet?.shopName || raw?.mine?.shopName || '';
-    userName = userName || raw?.seller?.userName || raw?.seller?.displayName || raw?.mine?.userName || '';
-  } else if (idx === 1) {
-    shopName = raw?.opponentCloset?.shopName || raw?.opponent?.shopName || '';
-    userName = userName || raw?.opponentSeller?.userName || raw?.opponentSeller?.displayName || raw?.opponent?.userName || '';
+    if (!hasOpponent) {
+      // SAME_CLOSET battles — both items belong to the same seller/closet.
+      shopName = raw?.closet?.shopName || raw?.mine?.shopName || '';
+      userName = userName || raw?.seller?.userName || raw?.seller?.displayName || raw?.mine?.userName || '';
+    } else if (idx === 0) {
+      shopName = raw?.closet?.shopName || raw?.mine?.shopName || '';
+      userName = userName || raw?.seller?.userName || raw?.seller?.displayName || raw?.mine?.userName || '';
+    } else if (idx === 1) {
+      shopName = raw?.opponentCloset?.shopName || raw?.opponent?.shopName || '';
+      userName = userName || raw?.opponentSeller?.userName || raw?.opponentSeller?.displayName || raw?.opponent?.userName || '';
+    }
   }
-}
 
   // Fallback — product.userId isn't reliably returned by the API, so use
   // position (0 = home/closet side, 1 = opponent side) to resolve shopName.
@@ -253,14 +254,14 @@ const productToBattleItem = (product, fallback = {}) => ({
   participantId: fallback?.participantId || product?.participantId || product?.id,
   name: product?.name || fallback?.name || '',
   price: product?.price != null ? currency(product.price) : (fallback?.price || ''),
-  image: itemImage(product) || fallback?.image || null,
+  image: itemImage(product) || fallback?.images || null,
   shopName: product?.shopName || fallback?.shopName || '',
   userName: product?.userName || fallback?.userName || '',
   sellerName: product?.sellerName || fallback?.sellerName || '',
 });
 
 const normalizeBattle = raw => {
-  console.log("raw in battle-----------------------",raw)
+  console.log("raw in battle-----------------------", raw)
   if (!raw) return null;
   const participants = [...(raw?.participants || [])].sort((a, b) => (a?.position ?? 0) - (b?.position ?? 0));
   const items = participants.map((p, idx) => participantToItem(p, raw, idx));
@@ -1147,14 +1148,14 @@ export function ChallengeBattleSetupScreen({ navigation, route }) {
     return Object.keys(nextErrors).length === 0;
   };
 
-const handleNext = () => {
-  if (!validate()) return;
-  navigation.navigate('ChallengeBattleSettings', {
-    ...route?.params,   // spread first, so it doesn't clobber below
-    question,
-    selectedItems,
-  });
-};
+  const handleNext = () => {
+    if (!validate()) return;
+    navigation.navigate('ChallengeBattleSettings', {
+      ...route?.params,   // spread first, so it doesn't clobber below
+      question,
+      selectedItems,
+    });
+  };
 
   const exampleQuestions = [
     t('battle.example1', 'Which item is more stylish?'),
@@ -1593,17 +1594,17 @@ export function BattleLiveScreen({ navigation, route }) {
   const battleBack = useBattleBackHandler(navigation, route);
 
   console.log("-----------------initialBattle-----------------", initialBattle)
- const handleBack = useCallback(() => {
-  if (returnTo?.screen === "SearchHome") {
-    navigation.navigate('MainApp', {
-      screen: 'Search',
-    });
-    return;
-  }
-  else {
-    battleBack();
-  }
-}, [returnTo, navigation, battleBack]);
+  const handleBack = useCallback(() => {
+    if (returnTo?.screen === "SearchHome") {
+      navigation.navigate('MainApp', {
+        screen: 'Search',
+      });
+      return;
+    }
+    else {
+      battleBack();
+    }
+  }, [returnTo, navigation, battleBack]);
   const handleDonePress = useCallback(() => {
     if (returnTo) {
       navigateClosetReturn(navigation, returnTo);
@@ -1655,7 +1656,7 @@ export function BattleLiveScreen({ navigation, route }) {
   const [deletingCommentId, setDeletingCommentId] = useState('');
 
   const question = battle?.title || route?.params?.question || t('battle.defaultQuestion');
-  console.log("battle?.items-------------------------------------",battle )
+  console.log("battle?.items-------------------------------------", battle)
   const selectedItems = battle?.items?.length ? battle.items : route?.params?.selectedItems || [];
   const isCreator = !!currentUserId && !!battle?.createdBy && currentUserId === battle.createdBy;
   const showResultsBar =
@@ -1676,7 +1677,7 @@ export function BattleLiveScreen({ navigation, route }) {
   const canVote = isBattleVotingOpen && !hasVoted && !checkingVote && !isOwnProfile && !isCreator;
   const liveScreenTitle = isBattleExpired ? (t('battleInProgress.battleEnded') || 'Battle Ended') : t('battle.liveTitle');
   const votedLabel = t('battle.voting') || 'Voting...';
-  console.log("selectedItems---------------------------",selectedItems)
+  console.log("selectedItems---------------------------", selectedItems)
   const leftItem = selectedItems[0] || {};
   const rightItem = selectedItems[1] || {};
   const leftVoteCount = Number(leftItem?.voteCount ?? 0);
@@ -2435,7 +2436,7 @@ const liveStyles = StyleSheet.create({
 });
 
 export function BattleResultsScreen({ navigation, route }) {
-  const { bgStyle, text, card, bg, border, mutedText} = useAppTheme();
+  const { bgStyle, text, card, bg, border, mutedText } = useAppTheme();
   const { isDarkMode } = useThemeContext();
   const { t } = useLanguage();
   const brandAccent = text || PURPLE;
@@ -2464,6 +2465,7 @@ export function BattleResultsScreen({ navigation, route }) {
     insights?.loser?.product,
     battle?.runnerUpProduct || fallbackItems?.[0],
   );
+  console.log("insights----------------", insights)
   const winnerVotePercent = insights?.winner?.votePercentage ?? battle?.winnerVotePercent;
   const totalVotes = insights?.totalVotes ?? battle?.totalVotes ?? 0;
   const totalViews = insights?.viewCount ?? battle?.totalViews ?? 0;
@@ -2633,13 +2635,16 @@ export function BattleResultsScreen({ navigation, route }) {
               {/* <TouchableOpacity activeOpacity={0.9} style={[styles.outlineBtn, { borderColor: accent }]} onPress={() => Share.share({ message: t('battle.shareResultsMessage') }).catch(() => { })}>
             <Text style={[styles.outlineBtnText, { color: accent }]}>{t('battle.shareResults')}</Text>
           </TouchableOpacity> */}
-              <TouchableOpacity
-                activeOpacity={0.9}
-                style={[styles.actionBtn, { backgroundColor: brandAccent }]}
-                onPress={() => navigation.navigate('BattleInsightsActions', { battleId, winnerItem, runnerUpItem })}
-              >
-                <Text style={styles.actionBtnText}>{t('battle.useInsights') || 'Use Insights'}</Text>
-              </TouchableOpacity>
+              {
+                insights?.outcome !== "TIE" &&
+                <TouchableOpacity
+                  activeOpacity={0.9}
+                  style={[styles.actionBtn, { backgroundColor: brandAccent }]}
+                  onPress={() => navigation.navigate('BattleInsightsActions', { battleId, winnerItem, runnerUpItem })}
+                >
+                  <Text style={styles.actionBtnText}>{t('battle.useInsights') || 'Use Insights'}</Text>
+                </TouchableOpacity>
+              }
             </View>
           </>
         ) : null}
@@ -2902,26 +2907,41 @@ export function ChallengeReceivedScreen({ navigation, route }) {
   const primaryText = text || TEXT;
   const subtleMuted = mutedText || surfaces.mutedColor;
   const handleBack = () => navigation.navigate('HomeMain', { screen: 'HeartNotification' });
-  
+
   const { battleId } = route?.params || {};
-  
+
   const [loading, setLoading] = useState(true);
   const [accepting, setAccepting] = useState(false);
   const [declining, setDeclining] = useState(false);
   const [battle, setBattle] = useState(null);
+  const [challengeStatus, setChallengeStatus] = useState(null);
 
   useEffect(() => {
     if (!battleId) {
       setLoading(false);
       return;
     }
-    getMarketplaceBattleDetails(battleId)
-      .then(res => {
+
+    const fetchDetails = async () => {
+      try {
+        const res = await getMarketplaceBattleDetails(battleId);
         const raw = res?.data?.data || res?.data;
         setBattle(normalizeBattle(raw));
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
+
+        try {
+          const statusRes = await getMarketplaceBattleChallengeStatus(battleId);
+          setChallengeStatus(statusRes?.data?.data || statusRes?.data);
+        } catch (err) {
+          console.error("Error fetching challenge status", err);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDetails();
   }, [battleId]);
 
   const handleAccept = async () => {
@@ -2971,15 +2991,15 @@ export function ChallengeReceivedScreen({ navigation, route }) {
   const leftItem = battle.items?.[1] || battle.items?.[0];
   const rightItem = battle.items?.[0] || battle.items?.[1];
 
-  console.log("------------battle battles---------------",battle)
-  console.log("------------leftItem battles---------------",leftItem)
-  console.log("------------rightItem battles---------------",rightItem)
+  console.log("------------battle battles---------------", battle)
+  console.log("------------leftItem battles---------------", leftItem)
+  console.log("------------rightItem battles---------------", rightItem)
 
   return (
     <View style={[styles.screen, bgStyle, { backgroundColor: bg || '#FBF8FF' }]}>
       <Header title="You got a challenge! ⚔️" onBack={handleBack} titleColor={text} />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        
+
         {/* Banner */}
         <View style={[styles.aboutCard, { backgroundColor: idleSurface, borderColor: border || surfaces.listBorder, flexDirection: 'row', alignItems: 'center', marginBottom: 20 }]}>
           <FastImage source={fastImageSource(rightItem?.image)} style={{ width: 40, height: 40, borderRadius: 20, marginRight: 12, backgroundColor: '#E0E0E0' }} />
@@ -3039,26 +3059,34 @@ export function ChallengeReceivedScreen({ navigation, route }) {
         </View>
 
         {/* Buttons */}
-        <View style={{ flexDirection: 'row', gap: 12, marginBottom: 20 }}>
-          <TouchableOpacity
-            activeOpacity={0.9}
-            disabled={declining || accepting}
-            onPress={handleDecline}
-            style={[styles.outlineBtn, { borderColor: accent }]}
-          >
-            {declining ? <ActivityIndicator color={accent} /> : <Text style={[styles.outlineBtnText, { color: accent }]}>Decline</Text>}
-          </TouchableOpacity>
-          <TouchableOpacity
-            activeOpacity={0.9}
-            disabled={accepting || declining}
-            onPress={handleAccept}
-            style={{ flex: 1 }}
-          >
-            <LinearGradient colors={accepting ? ['#aaa', '#aaa'] : [accent, text]} style={[styles.actionBtn, accepting && { opacity: 0.6 }]}>
-              {accepting ? <ActivityIndicator color="#fff" /> : <Text style={styles.actionBtnText}>Accept Challenge</Text>}
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
+        {challengeStatus?.inviteStatus === 'PENDING' ? (
+          <View style={{ flexDirection: 'row', gap: 12, marginBottom: 20 }}>
+            <TouchableOpacity
+              activeOpacity={0.9}
+              disabled={declining || accepting}
+              onPress={handleDecline}
+              style={[styles.outlineBtn, { borderColor: accent }]}
+            >
+              {declining ? <ActivityIndicator color={accent} /> : <Text style={[styles.outlineBtnText, { color: accent }]}>Decline</Text>}
+            </TouchableOpacity>
+            <TouchableOpacity
+              activeOpacity={0.9}
+              disabled={accepting || declining}
+              onPress={handleAccept}
+              style={{ flex: 1 }}
+            >
+              <LinearGradient colors={accepting ? ['#aaa', '#aaa'] : [accent, text]} style={[styles.actionBtn, accepting && { opacity: 0.6 }]}>
+                {accepting ? <ActivityIndicator color="#fff" /> : <Text style={styles.actionBtnText}>Accept Challenge</Text>}
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={{ marginBottom: 20 }}>
+            <Text style={{ color: primaryText, textAlign: 'center', fontSize: 16, fontWeight: '600' }}>
+              Challenge is {challengeStatus?.inviteStatus?.toLowerCase() || 'no longer available'}
+            </Text>
+          </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -3073,7 +3101,7 @@ export function ChallengeAcceptedScreen({ navigation, route }) {
   const accent = text || PURPLE;
   const primaryText = text || TEXT;
   const subtleMuted = mutedText || surfaces.mutedColor;
-  
+
   const { battleId, status = 'accepted' } = route?.params || {};
   const [battle, setBattle] = useState(route?.params?.battle || null);
   const [loading, setLoading] = useState(!route?.params?.battle && !!battleId);
@@ -3107,16 +3135,16 @@ export function ChallengeAcceptedScreen({ navigation, route }) {
     <View style={[styles.screen, bgStyle, { backgroundColor: bg || '#FBF8FF' }]}>
       <Header title={isDeclined ? "Challenge Declined" : "Challenge Accepted"} onBack={() => navigation.navigate('HomeMain', { screen: 'HeartNotification' })} titleColor={text} />
       <ScrollView contentContainerStyle={[styles.scrollContent, { alignItems: 'center', paddingTop: 20 }]} showsVerticalScrollIndicator={false}>
-        
+
         {/* Success / Error Icon */}
         <View style={{ width: 100, height: 100, borderRadius: 50, backgroundColor: isDeclined ? '#EF4444' : '#4ADE80', alignItems: 'center', justifyContent: 'center', marginBottom: 20, shadowColor: isDeclined ? '#EF4444' : '#4ADE80', shadowOpacity: 0.3, shadowRadius: 20, shadowOffset: { width: 0, height: 8 } }}>
           <Ionicons name={isDeclined ? "close" : "checkmark"} size={60} color="#fff" />
         </View>
 
         <Text style={{ color: primaryText, fontSize: 24, fontWeight: '900', marginBottom: 12 }}>{isDeclined ? "Challenge Declined" : "Challenge Accepted!"}</Text>
-        
+
         {!isDeclined && <Text style={{ color: primaryText, fontSize: 15, fontWeight: '700', marginBottom: 6 }}>Your item is now in the battle.</Text>}
-        
+
         <Text style={{ color: subtleMuted, fontSize: 13, textAlign: 'center', marginBottom: 30, paddingHorizontal: 20 }}>
           {isDeclined ? "You have declined this challenge. It will not proceed." : "The battle will go live once both items are accepted."}
         </Text>
@@ -3132,7 +3160,7 @@ export function ChallengeAcceptedScreen({ navigation, route }) {
                 <Text style={{ color: primaryText, fontWeight: '800', fontSize: 12, marginTop: 4 }}>{leftItem?.price || '$0.00'}</Text>
                 <Text style={{ color: subtleMuted, fontSize: 11, marginTop: 4 }}>Your Shop</Text>
               </View>
-              
+
               <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: idleSurface, borderWidth: 1, borderColor: border || surfaces.listBorder, alignItems: 'center', justifyContent: 'center', marginTop: 34, marginHorizontal: -5, zIndex: 10 }}>
                 <Text style={{ color: primaryText, fontWeight: '900', fontSize: 11 }}>VS</Text>
               </View>
@@ -3165,7 +3193,7 @@ export function ChallengeAcceptedScreen({ navigation, route }) {
             <Text style={styles.actionBtnText}>View My Battles</Text>
           </LinearGradient>
         </TouchableOpacity>
-        
+
         {/* <TouchableOpacity 
           activeOpacity={0.9} 
           onPress={() => navigation.navigate('MainApp', { screen: 'wallet', params: { screen: 'MyCloset' } })} 

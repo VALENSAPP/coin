@@ -452,3 +452,7 @@ export const acceptMarketplaceBattle = async (battleId) => {
 export const declineMarketplaceBattle = async (battleId) => {
   return axiosInstance.post('/marketplace-battles/' + battleId + '/challenge/decline');
 };
+
+export const getMarketplaceBattleChallengeStatus = async (battleId) => {
+  return axiosInstance.get('/marketplace-battles/' + battleId + '/challenge');
+};

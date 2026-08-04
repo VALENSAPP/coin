@@ -460,7 +460,7 @@ const goBack = (navigation, returnTo, isRouteFromSearch, fromMyOwnProfile) => {
     navigation.goBack();
     return;
   }
-  else if (returnTo.tab == "Search" || returnTo.screen == "SearchHome") {
+  else if (returnTo?.tab == "Search" || returnTo?.screen == "SearchHome") {
     navigation.navigate('HomeMain', {
       screen: 'UsersProfile',
       params: {
