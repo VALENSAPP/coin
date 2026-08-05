@@ -173,7 +173,13 @@ const unwrapMyClosetResponse = (source) => {
 };
 
 const unwrapBattlesResponse = (source) => {
-  const battles = source?.data?.battles ?? source?.battles ?? [];
+  const battles =
+    source?.data?.battles ??
+    source?.data?.data?.battles ??
+    source?.data?.data ??
+    source?.battles ??
+    source?.data ??
+    [];
   return Array.isArray(battles) ? battles : [];
 };
 
@@ -239,7 +245,9 @@ const BATTLES_FALLBACK = [
 
 export const BattleSlide = ({ battle, accent, t, onPress, card, border, textColor, mutedText, isDark, thumbSurface, mutedColor, loadingOverlayColor, customWidth, imageSize }) => {
   let winnerSide = battle?.left?.isWinner ? 'left' : battle?.right?.isWinner ? 'right' : null;
-  const isPending = battle?.status === 'LIVE' || battle?.outcome === 'PENDING';
+  const isPending =
+    String(battle?.status || '').toUpperCase() === 'LIVE' &&
+    String(battle?.outcome || '').toUpperCase() === 'PENDING';
   if (!winnerSide && !isPending) {
     if (battle?.winnerParticipantId) {
       if (battle.winnerParticipantId === battle?.left?.participantId) winnerSide = 'left';
@@ -673,7 +681,7 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
     }
     setBattlesLoading(true);
     try {
-      const res = await getClosetBattlesPriority(id, { page: 1, limit: 10 });
+      const res = await getClosetBattlesPriority(id, { page: 1, limit: 30 });
       console.log('getClosetBattlesPriority response:', JSON.stringify(res, null, 2));
       const raw = unwrapBattlesResponse(res);
       setBattles(raw.map(mapBattle));
@@ -1386,8 +1394,8 @@ const s = StyleSheet.create({
   },
   battleHeader: { width: '100%', marginBottom: 12, alignItems: 'center' },
   battleTitle: { fontSize: 14, fontWeight: '800', textAlign: 'center' },
-  battleBody: { flexDirection: 'row', alignItems: 'center' },
-  fighter: { flex: 1, alignItems: 'center' },
+  battleBody: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', minWidth: 0 },
+  fighter: { flex: 1, alignItems: 'center', minWidth: 0, paddingHorizontal: 6, maxWidth: '42%' },
   fighterThumb: { width: 100, height: 100, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginBottom: 8, overflow: 'hidden' },
   fighterImg: { width: '100%', height: '100%', borderRadius: 12 },
   winnerBadge: {
@@ -1401,8 +1409,8 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
   winnerBadgeText: { fontSize: 10, fontWeight: '900', color: '#111827', letterSpacing: 0.2, textAlign: 'center' },
-  fighterName: { fontSize: 12, fontWeight: '700', textAlign: 'center', marginBottom: 2 },
-  fighterPrice: { fontSize: 14, fontWeight: '800', marginBottom: 6 },
+  fighterName: { fontSize: 12, fontWeight: '700', textAlign: 'center', marginBottom: 2, flexShrink: 1, minWidth: 0 },
+  fighterPrice: { fontSize: 14, fontWeight: '800', marginBottom: 6, flexShrink: 1, minWidth: 0 },
   userRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   avatar: { width: 18, height: 18, borderRadius: 9, backgroundColor: '#d1d5db' },
   username: { fontSize: 11, color: '#6b7280', fontWeight: '600' },

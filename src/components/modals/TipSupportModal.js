@@ -23,11 +23,11 @@ import { useToast } from 'react-native-toast-notifications';
 import {
   getPaymentSessionUrl,
   STRIPE_BROWSER_OPTIONS,
-  getStripeErrorMessages,
 } from '../../utils/stripeOnboarding';
 import { useStripeCustomer } from '../../hooks/useStripeCustomer';
 import StripePaymentMethodModal from './StripePaymentMethodModal';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useThemeContext } from '../../theme/ThemeContext';
 import { useLanguage } from '../../i18n';
 
 const AMOUNTS = [5, 10, 25, 50];
@@ -55,8 +55,11 @@ export default function TipSupportModal({
   const toast = useToast();
   const dispatch = useDispatch();
   const { t } = useLanguage();
+  const { isDarkMode } = useThemeContext();
   const { text, card, cardStyle } = useAppTheme();
-  const stripeErrorMessages = getStripeErrorMessages(t);
+  const modalTitleColor = isDarkMode ? '#FFFFFF' : text;
+  const amountTextColor = isDarkMode ? '#FFFFFF' : text;
+  const modalIconColor = isDarkMode ? '#FFFFFF' : '#1F2937';
   const {
     requireStripeCustomerForPayment,
     openPaymentConnectionAndRefresh,
@@ -115,7 +118,7 @@ export default function TipSupportModal({
       setIsButtonLoading(false);
       dispatch(hideLoader());
     }
-  }, [dispatch, stripeErrorMessages, toast]);
+  }, [dispatch]);
 
   const handleConfirm = async () => {
     if (!vendorId) {
@@ -187,10 +190,12 @@ export default function TipSupportModal({
             <View style={[styles.sheet, cardStyle]}>
               <View style={styles.headerRow}>
                 <TouchableOpacity onPress={onClose} hitSlop={12} style={styles.headerIconBtn}>
-                  <Ionicons name="arrow-back" size={22} color="#1F2937" />
+                  <Ionicons name="arrow-back" size={22} color={modalIconColor} />
                 </TouchableOpacity>
                 <View style={styles.headerTitleWrap}>
-                  <Text style={styles.title}>{t('tipSupportScreen.title')}</Text>
+                  <Text style={[styles.title, { color: modalTitleColor }]}>
+                    {t('tipSupportScreen.title')}
+                  </Text>
                   <View style={styles.subtitleRow}>
                     <Text style={styles.subtitle}>
                       {t('tipSupportScreen.subtitle', { creatorName })}
@@ -199,7 +204,7 @@ export default function TipSupportModal({
                   </View>
                 </View>
                 <TouchableOpacity onPress={onClose} hitSlop={12} style={styles.headerIconBtn}>
-                  <Ionicons name="close" size={24} color="#1F2937" />
+                  <Ionicons name="close" size={24} color={modalIconColor} />
                 </TouchableOpacity>
               </View>
 
@@ -227,7 +232,7 @@ export default function TipSupportModal({
                         setCustomAmount('');
                       }}
                     >
-                      <Text style={styles.amountText}>${amt}</Text>
+                      <Text style={[styles.amountText, { color: amountTextColor }]}>${amt}</Text>
                     </TouchableOpacity>
                   ))}
 

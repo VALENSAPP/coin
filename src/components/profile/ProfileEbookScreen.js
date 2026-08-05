@@ -9,6 +9,7 @@ import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { useLanguage } from '../../i18n';
 import useScreenshotProtection from '../../hooks/useScreenshotProtection';
 import { getPostByUser } from '../../services/post';
+import PrivateContentHeader from './PrivateContentHeader';
 const DEFAULT_EBOOKS = [
   {
     id: 'ebook-1',
@@ -289,6 +290,15 @@ const ProfileEbookScreen = ({
 
   return (
     <View style={[styles.screen, bgStyle]}>
+      <PrivateContentHeader
+        message={userData?.privateContentMessage}
+        messageType={'ebooks'}
+        canEdit={isOwnProfile}
+        userId={userData?.id}
+        onSave={(text) => {
+          console.log('Saved ebook private message:', text);
+        }}
+      />
       <View style={styles.headerRow}>
         <Text style={[styles.headerTitle, { color: primaryText }]}>E-books</Text>
         <Text style={[styles.headerCount, { color: muted }]}>{data.length} E-books</Text>

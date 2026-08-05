@@ -242,6 +242,8 @@ const participantToItem = (participant, raw, idx) => {
     price: currency(participant?.product?.price),
     image: itemImage(participant?.product) || participant?.product?.images?.[0] || null,
     voteCount: participant?.voteCount ?? 0,
+    votePercentage: participant?.votePercentage,
+    pct: participant?.pct ?? participant?.votePercentage,
     isWinner: !!participant?.isWinner,
     userName,
     shopName,
@@ -265,7 +267,8 @@ const normalizeBattle = raw => {
   if (!raw) return null;
   const participants = [...(raw?.participants || [])].sort((a, b) => (a?.position ?? 0) - (b?.position ?? 0));
   const items = participants.map((p, idx) => participantToItem(p, raw, idx));
-  const winnerParticipant = raw?.winner || participants.find(p => p?.isWinner) || participants[0] || null;
+  const explicitWinnerParticipant = raw?.winner || participants.find(p => p?.isWinner) || null;
+  const winnerParticipant = explicitWinnerParticipant || participants[0] || null;
   const loserParticipant = raw?.loser || participants.find(p => !p?.isWinner) || participants[1] || null;
   const winnerProduct = winnerParticipant?.product || null;
   const runnerUpProduct = loserParticipant?.product || null;
@@ -309,6 +312,12 @@ const normalizeBattle = raw => {
     items,
     leftVotePercent,
     winnerProduct,
+    winnerParticipantId: explicitWinnerParticipant?.id || null,
+    winnerProductId:
+      explicitWinnerParticipant?.product?.id ||
+      explicitWinnerParticipant?.product?._id ||
+      explicitWinnerParticipant?.productId ||
+      null,
     runnerUpProduct,
     winnerVotePercent: raw?.winner?.votePercentage ?? participants.find(p => p?.isWinner)?.votePercentage ?? null,
     createdBy: raw?.sellerId || raw?.createdBy || raw?.userId || null, // NEW — adjust field name if API differs
@@ -1689,10 +1698,71 @@ export function BattleLiveScreen({ navigation, route }) {
   const leftVoteCount = Number(leftItem?.voteCount ?? 0);
   const rightVoteCount = Number(rightItem?.voteCount ?? 0);
   const totalItemVotes = leftVoteCount + rightVoteCount;
+  const leftPctValue = Number(leftItem?.votePercentage ?? leftItem?.pct);
+  const rightPctValue = Number(rightItem?.votePercentage ?? rightItem?.pct);
   const leftVotePercent = totalItemVotes > 0
     ? Math.round((leftVoteCount / totalItemVotes) * 100)
-    : (battle?.leftVotePercent ?? 50);
-  const rightVotePercent = 100 - leftVotePercent;
+    : Number.isFinite(leftPctValue)
+      ? Math.round(leftPctValue)
+      : (battle?.leftVotePercent ?? 50);
+  const rightVotePercent = Number.isFinite(rightPctValue)
+    ? Math.round(rightPctValue)
+    : 100 - leftVotePercent;
+  const battleIsResolved =
+    isBattleExpired ||
+    isBattleFinished ||
+    ['WINNER', 'COMPLETED', 'FINISHED', 'ENDED', 'CLOSED'].includes(String(battle?.outcome || '').toUpperCase());
+  const explicitWinnerSide = leftItem?.isWinner
+    ? 'left'
+    : rightItem?.isWinner
+      ? 'right'
+      : null;
+  const winnerProductId = String(
+    battle?.winnerProductId ||
+    route?.params?.battleWinner?.productId ||
+    '',
+  );
+  const winnerParticipantId = String(
+    battle?.winnerParticipantId ||
+    route?.params?.battleWinner?.participantId ||
+    '',
+  );
+  const winnerParticipantSide = winnerParticipantId
+    ? String(leftItem?.participantId || '') === winnerParticipantId
+      ? 'left'
+      : String(rightItem?.participantId || '') === winnerParticipantId
+        ? 'right'
+        : null
+    : null;
+  const winnerProductSide = winnerProductId
+    ? String(leftItem?.id || leftItem?.productId || '') === winnerProductId
+      ? 'left'
+      : String(rightItem?.id || rightItem?.productId || '') === winnerProductId
+        ? 'right'
+      : null
+    : null;
+  const pctWinnerSide =
+    battleIsResolved &&
+    Number.isFinite(leftPctValue) &&
+    Number.isFinite(rightPctValue) &&
+    leftPctValue !== rightPctValue
+      ? leftPctValue > rightPctValue
+        ? 'left'
+        : 'right'
+      : null;
+  const voteWinnerSide =
+    battleIsResolved && totalItemVotes > 0 && leftVoteCount !== rightVoteCount
+      ? leftVoteCount > rightVoteCount
+        ? 'left'
+        : 'right'
+      : null;
+  const winnerSide = explicitWinnerSide || winnerParticipantSide || winnerProductSide || voteWinnerSide || pctWinnerSide;
+  const winnerItem = winnerSide === 'right' ? rightItem : leftItem;
+  const runnerUpItem = winnerSide === 'right' ? leftItem : rightItem;
+  const winnerPercent = winnerSide === 'right'
+    ? Number(rightItem?.votePercentage ?? rightItem?.pct ?? rightVotePercent)
+    : Number(leftItem?.votePercentage ?? leftItem?.pct ?? leftVotePercent);
+  const showWinnerCard = battleIsResolved && !!winnerSide;
 
   const checkExistingVote = useCallback(async () => {
     if (!battleId) return;
@@ -2036,7 +2106,17 @@ export function BattleLiveScreen({ navigation, route }) {
       <Text style={[liveStyles.question, { color: primaryText }]}>{question}</Text>
       <Text style={[liveStyles.questionSub, { color: subtleMuted }]}>{t('battle.voteSwipeHint') || 'Your vote swipe others decide'}</Text>
 
-      <BattleCard left={leftItem} right={rightItem} accent={accent} textColor={primaryText} isDarkMode={isDarkMode} card={surface} border={border || BORDER} />
+      <BattleCard
+        left={showWinnerCard ? winnerItem : leftItem}
+        right={showWinnerCard ? runnerUpItem : rightItem}
+        showWinner={showWinnerCard}
+        winnerPercent={Number.isFinite(winnerPercent) ? Math.round(winnerPercent) : null}
+        accent={accent}
+        textColor={primaryText}
+        isDarkMode={isDarkMode}
+        card={surface}
+        border={border || BORDER}
+      />
 
       {/* Vote choice buttons with live counts */}
       {!isOwnProfile && !isCreator ? (

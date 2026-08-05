@@ -594,3 +594,21 @@ export async function unVote(data) {
 export async function getvotesDetail(data) {
   return axiosInstance.post('post/getTrustVoteBypostId', data);
 }
+
+export async function postMessagePrivate(data) {
+  return axiosInstance.post('post-message', data);
+}
+
+export async function getMessagesPrivateById(params = {}) {
+  // params should be passed as { params: { userId } }
+  return axiosInstance.get('post-message/by-user', params);
+}
+
+export async function getMyMessagesPrivate() {
+  return axiosInstance.get('post-message/me');
+}
+
+export async function updateMessages(data = {}) {
+  return axiosInstance.patch('post-message/me', data);
+}
+

@@ -42,6 +42,7 @@ import InAppBrowser from 'react-native-inappbrowser-reborn';
 import { getUserCredentials } from '../../services/post';
 import { useLanguage } from '../../i18n';
 import FanSubscriptionIntroBanner from '../../components/wallet/FanSubscriptionIntroBanner';
+import { postMessagePrivate, getMessagesPrivateById, getMyMessagesPrivate, updateMessages } from '../../services/post';
 
 const STRIPE_ONBOARDING_STATUS_KEY = 'stripeOnboardingStatus';
 const SUBVENTION_TERMS_AGREED_KEY_PREFIX = 'subventionTermsAgreed';
@@ -86,6 +87,13 @@ const SubventionSetupScreen = () => {
     const [showStripeSetupModal, setShowStripeSetupModal] = useState(false);
     const [rawAmount, setRawAmount] = useState('9');
     const [comment, setComment] = useState('');
+    // Custom private-content messages (photos/videos/ebooks)
+    const [photoMessage, setPhotoMessage] = useState('');
+    const [videoMessage, setVideoMessage] = useState('');
+    const [ebookMessage, setEbookMessage] = useState('');
+    const [editingMessageType, setEditingMessageType] = useState(null); // 'photo' | 'video' | 'ebook' | null
+    const [editingMessageText, setEditingMessageText] = useState('');
+    const [editingModalVisible, setEditingModalVisible] = useState(false);
 
     const { openOnboarding } = useStripeOnboarding({ fetchOnMount: true });
 
@@ -351,6 +359,90 @@ const SubventionSetupScreen = () => {
         }
     }, []);
 
+    const loadCustomMessages = async () => {
+        try {
+            const resp = await getMyMessagesPrivate();
+            const data = resp?.data ?? resp;
+            if (data) {
+                setPhotoMessage(data.messageForPhotos || '');
+                setVideoMessage(data.messageForVideos || '');
+                setEbookMessage(data.messageForEbooks || '');
+            }
+        } catch (error) {
+            console.log('Error loading custom messages from server', error);
+        }
+    };
+
+    const saveCustomMessage = async (type, text) => {
+        try {
+            const nextPhoto = type === 'photos' ? (text || '') : (photoMessage || '');
+            const nextVideo = type === 'videos' ? (text || '') : (videoMessage || '');
+            const nextEbook = type === 'ebooks' ? (text || '') : (ebookMessage || '');
+
+            let existing = null;
+            try {
+                existing = await getMyMessagesPrivate();
+            } catch (e) {
+                // ignore — we'll attempt to POST if GET fails
+            }
+
+            const hasServerMessage = !!(existing && (
+                (existing?.statusCode === 200 && (existing?.data?.id || existing?.data?.messageForPhotos || existing?.data?.messageForVideos || existing?.data?.messageForEbooks)) ||
+                (existing?.messageForPhotos || existing?.messageForVideos || existing?.messageForEbooks)
+            ));
+
+            try {
+                if (hasServerMessage) {
+                    await updateMessages({
+                        messageForPhotos: nextPhoto,
+                        messageForVideos: nextVideo,
+                        messageForEbooks: nextEbook,
+                    });
+                    showToastMessage(toast, 'success', 'Message updated successfully');
+                } else {
+                    await postMessagePrivate({
+                        messageForPhotos: nextPhoto,
+                        messageForVideos: nextVideo,
+                        messageForEbooks: nextEbook,
+                    });
+                    showToastMessage(toast, 'success', 'Message added successfully');
+                }
+
+                // update local UI state
+                if (type === 'photos') setPhotoMessage(text || '');
+                if (type === 'videos') setVideoMessage(text || '');
+                if (type === 'ebooks') setEbookMessage(text || '');
+                return true;
+            } catch (err) {
+                console.log('saveCustomMessage server error', err?.response || err?.message || err);
+                showToastMessage(toast, 'danger', 'Failed to save message to server');
+                return false;
+            }
+        } catch (error) {
+            console.log('Error saving custom message', error);
+            return false;
+        }
+    };
+
+    const openEditModal = async (type) => {
+        setEditingMessageType(type);
+        try {
+            const resp = await getMyMessagesPrivate();
+            const data = resp?.data ?? resp;
+            const nextText = type === 'photos'
+                ? (data?.messageForPhotos || photoMessage || '')
+                : type === 'videos'
+                    ? (data?.messageForVideos || videoMessage || '')
+                    : (data?.messageForEbooks || ebookMessage || '');
+            setEditingMessageText(nextText);
+        } catch (error) {
+            console.log('Error fetching my private message for edit modal', error);
+            const currentText = type === 'photos' ? photoMessage : type === 'videos' ? videoMessage : ebookMessage;
+            setEditingMessageText(currentText || '');
+        }
+        setEditingModalVisible(true);
+    };
+
     const fetchSubscriptionByUserId = useCallback(async () => {
         try {
             const id = await AsyncStorage.getItem('userId');
@@ -393,6 +485,7 @@ const SubventionSetupScreen = () => {
             const initializeScreen = async () => {
                 await loadTermsAgreement();
                 await fetchSubscriptionByUserId();
+                await loadCustomMessages();
                 await getCredential();
             };
             initializeScreen();
@@ -810,6 +903,75 @@ const SubventionSetupScreen = () => {
                             </TouchableOpacity>
                         </View>
                     </View>
+
+                    {/* Custom Messages Section */}
+                    <View style={[styles.section, cardStyle, { shadowColor: text, borderColor: border, borderWidth: StyleSheet.hairlineWidth }]}>
+                        <View style={styles.contentHeaderRow}>
+                            <View style={[styles.contentHeaderIcon, { backgroundColor: accent }]}>
+                                <Ionicons name="chatbox-ellipses" size={14} color="#FFFFFF" />
+                            </View>
+                            <View style={styles.contentHeaderText}>
+                                <Text style={[styles.sectionTitle, textStyle, { marginBottom: 2 }]}>Custom Messages</Text>
+                                <Text style={[styles.sectionSubtitle, { color: mutedText, marginBottom: 0 }]}>Personalize messages for your content</Text>
+                            </View>
+                        </View>
+
+                        <TouchableOpacity style={[styles.messageRow, cardStyle]} activeOpacity={0.85} onPress={() => openEditModal('photos')}>
+                            <View style={styles.messageIcon}><Ionicons name="image-outline" size={20} color={accent} /></View>
+                            <Text style={[styles.messageLabel, textStyle]}>Message for photos</Text>
+                            <Ionicons name="chevron-forward" size={20} color={mutedText} style={styles.messageChevron} />
+                        </TouchableOpacity>
+
+                        <TouchableOpacity style={[styles.messageRow, cardStyle]} activeOpacity={0.85} onPress={() => openEditModal('videos')}>
+                            <View style={styles.messageIcon}><Ionicons name="videocam-outline" size={20} color={accent} /></View>
+                            <Text style={[styles.messageLabel, textStyle]}>Message for videos</Text>
+                            <Ionicons name="chevron-forward" size={20} color={mutedText} style={styles.messageChevron} />
+                        </TouchableOpacity>
+
+                        <TouchableOpacity style={[styles.messageRow, cardStyle]} activeOpacity={0.85} onPress={() => openEditModal('ebooks')}>
+                            <View style={styles.messageIcon}><Ionicons name="book-outline" size={20} color={accent} /></View>
+                            <Text style={[styles.messageLabel, textStyle]}>Message for ebooks</Text>
+                            <Ionicons name="chevron-forward" size={20} color={mutedText} style={styles.messageChevron} />
+                        </TouchableOpacity>
+                    </View>
+
+                    {/* Editing modal for custom messages */}
+                    <Modal visible={editingModalVisible} transparent animationType="slide" onRequestClose={() => setEditingModalVisible(false)}>
+                        <View style={[styles.modalOverlay, { backgroundColor: isDarkMode ? 'rgba(0,0,0,0.85)' : 'rgba(0,0,0,0.4)' }]}> 
+                            <View style={[styles.modalCardNice, { maxWidth: 640, backgroundColor: card, borderColor: border }]}> 
+                                <View style={styles.modalHeaderRow}>
+                                    <View>
+                                        <Text style={[styles.modalTitleBold, { color: text }]}>Edit message</Text>
+                                        <Text style={[styles.modalSubtitle, { color: mutedText }]}>For {editingMessageType}</Text>
+                                    </View>
+                                    <TouchableOpacity onPress={() => setEditingModalVisible(false)} style={styles.modalCloseBtn}>
+                                        <Ionicons name="close" size={20} color={mutedText} />
+                                    </TouchableOpacity>
+                                </View>
+
+                                <TextInput
+                                    value={editingMessageText}
+                                    onChangeText={setEditingMessageText}
+                                    placeholder="Write a short message users will see when viewing this private content"
+                                    placeholderTextColor={mutedText}
+                                    multiline
+                                    style={[styles.modalTextInput, { minHeight: 120, maxHeight: 320, backgroundColor: card, borderColor: border, color: text } ]}
+                                />
+
+                                <View style={styles.modalActionsRow}>
+                                    <TouchableOpacity style={[styles.modalActionSecondary]} onPress={() => setEditingModalVisible(false)}>
+                                        <Text style={[styles.modalActionTextSecondary, { color: mutedText }]}>Cancel</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity style={[styles.modalActionPrimary, { backgroundColor: accent }]} onPress={async () => {
+                                        const ok = await saveCustomMessage(editingMessageType, editingMessageText || '');
+                                        if (ok) setEditingModalVisible(false);
+                                    }}>
+                                        <Text style={[styles.modalActionTextPrimary]}>Save</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+                        </View>
+                    </Modal>
 
                     {/* Content Protection Section */}
                     <View style={[styles.section, cardStyle, { shadowColor: text, borderColor: border, borderWidth: StyleSheet.hairlineWidth }]}>
@@ -1314,6 +1476,88 @@ const styles = StyleSheet.create({
         fontSize: 11,
         fontWeight: '700',
         color: '#111827',
+    },
+    messageRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 12,
+        paddingHorizontal: 12,
+        borderRadius: 10,
+        marginBottom: 10,
+    },
+    messageIcon: {
+        width: 36,
+        height: 36,
+        borderRadius: 8,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 12,
+    },
+    messageLabel: {
+        flex: 1,
+        fontSize: 15,
+        fontWeight: '700',
+    },
+    messageChevron: {
+        marginLeft: 8,
+    },
+    modalCardNice: {
+        width: '100%',
+        borderRadius: 14,
+        padding: 16,
+        borderWidth: StyleSheet.hairlineWidth,
+        shadowColor: '#000',
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+        elevation: 6,
+    },
+    modalHeaderRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 12,
+    },
+    modalCloseBtn: {
+        padding: 6,
+        borderRadius: 8,
+    },
+    modalTitleBold: {
+        fontSize: 18,
+        fontWeight: '800',
+    },
+    modalSubtitle: {
+        fontSize: 12,
+        marginTop: 2,
+    },
+    modalTextInput: {
+        borderRadius: 10,
+        padding: 12,
+        fontSize: 14,
+        borderWidth: StyleSheet.hairlineWidth,
+        textAlignVertical: 'top',
+    },
+    modalActionsRow: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        marginTop: 14,
+    },
+    modalActionSecondary: {
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+        borderRadius: 10,
+        marginRight: 8,
+    },
+    modalActionPrimary: {
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        borderRadius: 10,
+    },
+    modalActionTextPrimary: {
+        color: '#fff',
+        fontWeight: '800',
+    },
+    modalActionTextSecondary: {
+        fontWeight: '700',
     },
 });
 

@@ -27,6 +27,7 @@ import useScreenshotProtection, {
 } from '../../hooks/useScreenshotProtection';
 import MyClosetShopFront from './MyClosetShopFront';
 import { applyClientPostOverlayCacheToList } from '../../utils/postSoundtracks';
+import PrivateContentHeader from './PrivateContentHeader';
 
 const { width: screenWidth } = Dimensions.get('window');
 const numColumns = 3;
@@ -629,6 +630,15 @@ const PrivateContentScreen = ({
 
   return (
     <View style={[styles.screen, bgStyle]}>
+      <PrivateContentHeader
+        message={userData?.privateContentMessage}
+        messageType={activeMediaFilter === 'photo' ? 'photos' : activeMediaFilter === 'video' ? 'videos' : 'ebooks'}
+        canEdit={isOwnProfile}
+        userId={userData?.id}
+        onSave={(text) => {
+          console.log('Saved private content message:', text);
+        }}
+      />
       {/* {!canViewPrivateContent ? (
         <LockedCard />
       ) : ( */}

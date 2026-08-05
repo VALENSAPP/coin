@@ -272,7 +272,9 @@ const BattleSlide = ({
   isDark,
 }) => {
   let winnerSide = battle?.left?.isWinner ? 'left' : battle?.right?.isWinner ? 'right' : null;
-  const isPending = battle?.status === 'LIVE' || battle?.outcome === 'PENDING';
+  const isPending =
+    String(battle?.status || '').toUpperCase() === 'LIVE' &&
+    String(battle?.outcome || '').toUpperCase() === 'PENDING';
   if (!winnerSide && !isPending) {
     if (battle?.winnerParticipantId) {
       if (battle.winnerParticipantId === battle?.left?.participantId) winnerSide = 'left';
