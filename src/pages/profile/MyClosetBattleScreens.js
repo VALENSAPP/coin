@@ -1601,6 +1601,12 @@ export function BattleLiveScreen({ navigation, route }) {
       });
       return;
     }
+    else if (returnTo?.screen === "HeartNotification"){
+      navigation.navigate('HomeMain', { 
+        screen: 'HeartNotification' 
+      });
+      return;
+    }
     else {
       battleBack();
     }

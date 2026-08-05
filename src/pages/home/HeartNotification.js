@@ -1169,6 +1169,20 @@ export default function Notifications() {
           }
         }
 
+        if (normalizeNotificationType(item.type) === 'marketplace_battle_completed') {
+          const battleId = item?.raw?.data?.battleId || item?.raw?.data?.battle_id || item?.data?.battleId;
+          if (battleId) {
+            navigation.navigate('ProfileMain', {
+              screen: 'BattleLive',
+              params: { 
+                battleId,
+                returnTo: { tab: 'HomeMain', screen: 'HeartNotification' } 
+              },
+            });
+            return;
+          }
+        }
+
         if (normalizeNotificationType(item.type) === 'private_circle_exclusive_post') {
           const data = item?.raw?.data || {};
           const postCreatorId =
