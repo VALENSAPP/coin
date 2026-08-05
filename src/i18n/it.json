@@ -4570,7 +4570,11 @@
     "challengeTitle": "Défier un autre article",
     "challengeSubtitle": "Commencer une nouvelle bataille",
     "challengeHeaderTitle": "Article de la bataille",
-    "challengeDefaultQuestion": "Quelles lunettes de soleil préférez-vous ?"
+    "challengeDefaultQuestion": "Quelles lunettes de soleil préférez-vous ?",
+    "heyWinner": "Ciao, vincitore!",
+    "winnerMessage": "Hai 7 giorni per scegliere come desideri promuovere il tuo prodotto vincitore.",
+    "winnerExpiry": "Se non lo utilizzi in tempo, scadrà e non potrà più essere usato.",
+    "winnerFooter": "Siamo qui per aiutarti a brillare! ✨"
   },
   "boost": {
     "headerTitle": "Mettre en avant l'article gagnant",

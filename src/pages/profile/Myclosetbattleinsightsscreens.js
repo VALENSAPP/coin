@@ -90,9 +90,9 @@ const fastImageSource = rawUri => {
   const uri = imageUri(rawUri);
   return uri
     ? {
-        uri,
-        priority: FastImage.priority.normal,
-      }
+      uri,
+      priority: FastImage.priority.normal,
+    }
     : null;
 };
 
@@ -196,6 +196,56 @@ export function BattleInsightsActionsScreen({ navigation, route }) {
             })
           }
         />
+        <View
+          style={[
+            styles.winnerNotice,
+            themedCard(surface, border || surfaces.listBorder),
+            { backgroundColor: `${accent}10` },
+          ]}
+        >
+          <View style={styles.winnerNoticeHeader}>
+            <View style={[styles.winnerNoticeIcon, { backgroundColor: `${accent}15` }]}>
+              <Ionicons name="sparkles-outline" size={20} color={accent} />
+            </View>
+
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.winnerNoticeTitle, { color: text || TEXT }]}>
+                🎉 {t('battleInsights.heyWinner') || 'Hey Winner!'}
+              </Text>
+
+              <Text
+                style={[
+                  styles.winnerNoticeText,
+                  { color: subtleMuted },
+                ]}
+              >
+                {t('battleInsights.winnerMessage') ||
+                  "You have 7 days to choose how you'd like to promote your winning product."}
+              </Text>
+
+              <Text
+                style={[
+                  styles.winnerNoticeText,
+                  { color: subtleMuted, marginTop: 6 },
+                ]}
+              >
+                {t('battleInsights.winnerExpiry') ||
+                  "If not used in time, it will expire and can't be used."}
+              </Text>
+
+              <Text
+                style={[
+                  styles.winnerNoticeFooter,
+                  { color: accent },
+                ]}
+              >
+                ❤️ {t('battleInsights.winnerFooter') ||
+                  "We're here to help you shine! ✨"}
+              </Text>
+            </View>
+          </View>
+        </View>
+
       </ScrollView>
     </View>
   );
@@ -405,14 +455,14 @@ export function ReviewBoostScreen({ navigation, route }) {
         } else {
           await Linking.openURL(paymentUrl);
         }
-        
+
         let isPaid = false;
         try {
           for (let i = 0; i < 4; i++) {
             const checkRes = await getMarketplaceBattleBoostByBattle(battleId);
             const checkData = checkRes?.data?.data || checkRes?.data || {};
             const st = String(checkData?.paymentStatus || checkData?.status || checkData?.state || '').toLowerCase();
-            
+
             if (st === 'paid' || st === 'active' || st === 'success' || st === 'completed') {
               isPaid = true;
               break;
@@ -561,7 +611,7 @@ export function PromotionDetailsScreen({ navigation, route }) {
   const { winnerItem, promotionType, battleId } = route?.params || {};
   const isFreeShipping = promotionType === 'freeShipping';
   const defaultFreeShippingMsg = 'Thank you for voting! Enjoy free shipping on our battle winner.';
-  const defaultMsg = isFreeShipping 
+  const defaultMsg = isFreeShipping
     ? (t('promotion.defaultFreeShippingMessage') || defaultFreeShippingMsg)
     : t('promotion.defaultMessage');
 
@@ -774,6 +824,13 @@ const styles = StyleSheet.create({
   scrollContent: { paddingHorizontal: 16, paddingBottom: 28, gap: 12 },
   sectionHint: { fontSize: 12, color: MUTED, fontWeight: '600' },
   sectionLabel: { fontSize: 15, fontWeight: '800', marginTop: 6 },
+
+  winnerNotice: { marginTop: 20, borderRadius: 20, padding: 18 },
+  winnerNoticeHeader: { flexDirection: 'row', alignItems: 'flex-start' },
+  winnerNoticeIcon: { width: 42, height: 42, borderRadius: 21, justifyContent: 'center', alignItems: 'center', marginRight: 14 },
+  winnerNoticeTitle: { fontSize: 17, fontWeight: '700', marginBottom: 8 },
+  winnerNoticeText: { fontSize: 14, lineHeight: 22 },
+  winnerNoticeFooter: { marginTop: 14, fontSize: 14, fontWeight: '600' },
 
   winnerCard: { flexDirection: 'row', gap: 12, borderRadius: 18, borderWidth: 1, borderColor: BORDER, padding: 12, alignItems: 'center' },
   winnerImage: { width: 64, height: 64, borderRadius: 14 },

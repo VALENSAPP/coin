@@ -375,10 +375,14 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
         const normalized = list.map((order, index) => normalizeOrder(order, index, mode, t));
 
         if (mode === 'buyer') {
-          setAllOrders(normalized);
+          setAllOrders(prev =>
+            append ? [...prev, ...normalized] : normalized
+          );
         }
 
-        setOrders(normalized);
+        setOrders(prev =>
+          append ? [...prev, ...normalized] : normalized
+        );
         setPageInfo(prev => ({
           page: pagination?.page ?? page,
           limit: pagination?.limit ?? prev.limit,
@@ -391,7 +395,13 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
           'danger',
           error?.response?.data?.message || error?.message || t('myClosetOrders.loadError'),
         );
-        if (!append) setOrders([]);
+        if (!append) {
+          setOrders([]);
+          if (mode === 'buyer') {
+            setAllOrders([]);
+          }
+        }
+
       } finally {
         append ? setLoadingMore(false) : setLoading(false);
       }
@@ -419,15 +429,15 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
     }
   }, [fetchOrdersPage]);
 
-useFocusEffect(
-  useCallback(() => {
-    loadOrders(1, false);
+  useFocusEffect(
+    useCallback(() => {
+      loadOrders(1, false);
 
-    if (mode === 'seller') {
-      loadCounts();
-    }
-  }, [activeTab, mode]),
-);
+      if (mode === 'seller') {
+        loadCounts();
+      }
+    }, [activeTab, mode]),
+  );
 
   const handleLoadMore = useCallback(() => {
     if (loadingMore || pageInfo.page >= pageInfo.totalPages) return;
@@ -464,16 +474,16 @@ useFocusEffect(
     }
   }, [mode, activeTab, allOrders, orders]);
 
-useEffect(() => {
-  if (mode !== 'buyer') return;
+  useEffect(() => {
+    if (mode !== 'buyer') return;
 
-  setCounts({
-    all: allOrders.length,
-    processing: allOrders.filter(o => o.status === 'processing').length,
-    shipMe: allOrders.filter(o => o.status === 'shipped').length,
-    delivered: allOrders.filter(o => o.status === 'delivered').length,
-  });
-}, [allOrders, mode]);
+    setCounts({
+      all: allOrders.length,
+      processing: allOrders.filter(o => o.status === 'processing').length,
+      shipMe: allOrders.filter(o => o.status === 'shipped').length,
+      delivered: allOrders.filter(o => o.status === 'delivered').length,
+    });
+  }, [allOrders, mode]);
 
   const handleAdvance = useCallback(
     async (order, extra) => {
@@ -495,8 +505,13 @@ useEffect(() => {
       setAdvancingId(order.id);
       dispatch(showLoader());
       try {
-        await action(order.raw?.id || order.raw?._id || order.id);
-        showToastMessage(toast, 'success', t('myClosetOrders.statusUpdateSuccess'));
+        const response = await action(order.raw?.id || order.raw?._id || order.id);
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          showToastMessage(toast, 'success', t('myClosetOrders.statusUpdateSuccess'));
+        }
+        else {
+          showToastMessage(toast, 'danger', response.message);
+        }
         await Promise.all([loadOrders(1, false), loadCounts()]);
       } catch (error) {
         showToastMessage(toast, 'danger', error?.response?.data?.message || error?.message || t('myClosetOrders.statusUpdateError'));

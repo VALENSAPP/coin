@@ -1615,7 +1615,7 @@ const MyClosetBuyerItemsScreen = ({ navigation, route }) => {
                       selectedCategory === item.key && [styles.categoryCardActive, { borderColor: accent }],
                     ]}
                   >
-                    <View style={[styles.categoryIconWrap, selectedCategory === item.key && { backgroundColor: `${accent}18` }]}>
+                    <View style={[styles.categoryIconWrap, bgStyle, selectedCategory === item.key && bgStyle]}>
                       <Ionicons name={item.icon} size={18} color={selectedCategory === item.key ? accent : (mutedText || '#6b6281')} />
                     </View>
                     <Text style={[styles.categoryLabel, { color: text }]} numberOfLines={1}>{item.label}</Text>
@@ -4148,7 +4148,6 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 10,
-    backgroundColor: '#f6f1fb',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 6,

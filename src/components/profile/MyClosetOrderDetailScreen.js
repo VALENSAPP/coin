@@ -47,7 +47,7 @@ const STATUS_FLOW = {
   pending: { labelKey: 'myClosetOrderDetail.markAsProcessing', actionKey: 'processing' },
   confirmed: { labelKey: 'myClosetOrderDetail.markAsProcessing', actionKey: 'processing' },
   processing: { labelKey: 'myClosetOrderDetail.markAsShipped', actionKey: 'shipped' },
-  shipped: { labelKey: 'myClosetOrderDetail.markAsDelivered', actionKey: 'delivered' },
+  shipped: null,
   delivered: null,
   cancelled: null,
 };
@@ -397,8 +397,13 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
     setAdvancing(true);
     dispatch(showLoader());
     try {
-      await action(order.id, extra);
-      showToastMessage(toast, 'success', t('myClosetOrderDetail.orderStatusUpdated'));
+      const response = await action(order.id, extra);
+      if (response.statusCode == 200 || response.statusCode == 201){
+        showToastMessage(toast, 'success', t('myClosetOrderDetail.orderStatusUpdated'));
+      }
+      else {
+        showToastMessage(toast, 'danger', response.message);
+      }
       await loadOrder();
     } catch (err) {
       showToastMessage(toast, 'danger', err?.response?.data?.message || err?.message || t('myClosetOrderDetail.unableToUpdateStatus'));

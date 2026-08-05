@@ -4732,7 +4732,11 @@
     "challengeTitle": "Challenge Another Item",
     "challengeSubtitle": "Start a new battle",
     "challengeHeaderTitle": "Battle Item",
-    "challengeDefaultQuestion": "Which sunglasses do you prefer?"
+    "challengeDefaultQuestion": "Which sunglasses do you prefer?",
+    "heyWinner": "Hey Winner!",
+    "winnerMessage": "You have 7 days to choose how you'd like to promote your winning product.",
+    "winnerExpiry": "If not used in time, it will expire and can't be used.",
+    "winnerFooter": "We're here to help you shine! ✨"
   },
   "boost": {
     "headerTitle": "Boost Winning Item",

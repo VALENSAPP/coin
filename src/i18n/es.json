@@ -4570,7 +4570,11 @@
     "challengeTitle": "Desafiar a otro artículo",
     "challengeSubtitle": "Inicia una nueva batalla",
     "challengeHeaderTitle": "Artículo de la batalla",
-    "challengeDefaultQuestion": "¿Qué gafas de sol prefieres?"
+    "challengeDefaultQuestion": "¿Qué gafas de sol prefieres?",
+    "heyWinner": "¡Hola, ganador!",
+    "winnerMessage": "Tienes 7 días para elegir cómo te gustaría promocionar tu producto ganador.",
+    "winnerExpiry": "Si no lo usas a tiempo, caducará y ya no podrás utilizarlo.",
+    "winnerFooter": "¡Estamos aquí para ayudarte a brillar! ✨"
   },
   "boost": {
     "headerTitle": "Impulsar el artículo ganador",

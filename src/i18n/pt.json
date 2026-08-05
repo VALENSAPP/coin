@@ -4571,7 +4571,11 @@
     "challengeTitle": "Desafiar outro item",
     "challengeSubtitle": "Inicie uma nova batalha",
     "challengeHeaderTitle": "Item da batalha",
-    "challengeDefaultQuestion": "Qual óculos de sol você prefere?"
+    "challengeDefaultQuestion": "Qual óculos de sol você prefere?",
+    "heyWinner": "Olá, vencedor!",
+    "winnerMessage": "Você tem 7 dias para escolher como gostaria de promover seu produto vencedor.",
+    "winnerExpiry": "Se não for usado a tempo, ele expirará e não poderá mais ser utilizado.",
+    "winnerFooter": "Estamos aqui para ajudar você a brilhar! ✨"
   },
   "boost": {
     "headerTitle": "Impulsionar item vencedor",
