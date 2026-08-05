@@ -1479,7 +1479,7 @@ const MyClosetBuyerItemsScreen = ({ navigation, route }) => {
         seller,
         sellerId,
         items: route?.params?.items || items.map(row => row.raw || row),
-        isOwnProfile: String(loggedInUserId || '') === String(route?.params?.closetId || sellerId || ''),
+        isOwnProfile: String(loggedInUserId || '') === String(sellerId || ''),
         battleWinner: winnerMeta,
       }));
     },
