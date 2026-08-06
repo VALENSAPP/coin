@@ -510,6 +510,21 @@ export const BattleCard = ({ left, right, showWinner = false, winnerPercent, acc
               {left.shopName || left.userName || left.sellerName}
             </Text>
           ) : null}
+          {showWinner &&
+            // <Text style={[styles.winnerBadge, { color: textColor, marginTop: 5 }]}>🏆 {t('battle.winner')}</Text>
+            <TouchableOpacity style={{
+                backgroundColor: '#fbbf24',
+                borderRadius: 999,
+                paddingHorizontal: 10,
+                paddingVertical: 5,
+                marginTop: 6,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+            }}>
+              <Text style={{fontSize: 10, fontWeight: '900', color: '#111827', letterSpacing: 0.2, textAlign: 'center'}}>🏆 Winner</Text>
+            </TouchableOpacity>
+          }
         </View>
         <View style={[styles.vsBubble, { backgroundColor: accent }]}><Text style={styles.vsText}>{t('battle.vs')}</Text></View>
         <View style={styles.itemTile}>
@@ -1610,9 +1625,9 @@ export function BattleLiveScreen({ navigation, route }) {
       });
       return;
     }
-    else if (returnTo?.screen === "HeartNotification"){
-      navigation.navigate('HomeMain', { 
-        screen: 'HeartNotification' 
+    else if (returnTo?.screen === "HeartNotification") {
+      navigation.navigate('HomeMain', {
+        screen: 'HeartNotification'
       });
       return;
     }
@@ -1739,13 +1754,13 @@ export function BattleLiveScreen({ navigation, route }) {
       ? 'left'
       : String(rightItem?.id || rightItem?.productId || '') === winnerProductId
         ? 'right'
-      : null
+        : null
     : null;
   const pctWinnerSide =
     battleIsResolved &&
-    Number.isFinite(leftPctValue) &&
-    Number.isFinite(rightPctValue) &&
-    leftPctValue !== rightPctValue
+      Number.isFinite(leftPctValue) &&
+      Number.isFinite(rightPctValue) &&
+      leftPctValue !== rightPctValue
       ? leftPctValue > rightPctValue
         ? 'left'
         : 'right'
@@ -2248,12 +2263,12 @@ export function BattleLiveScreen({ navigation, route }) {
           <Text style={[liveStyles.statValue, { color: primaryText }]}>{battle?.totalComments ?? comments.length}</Text>
           <Text style={[liveStyles.statLabel, { color: subtleMuted }]}>{t('battle.stats.comments') || 'Comments'}</Text>
         </View>
-        <View style={[liveStyles.statDivider, { backgroundColor: border || BORDER }]} />
-        <View style={liveStyles.statItem}>
+        {/* <View style={[liveStyles.statDivider, { backgroundColor: border || BORDER }]} /> */}
+        {/* <View style={liveStyles.statItem}>
           <Ionicons name="heart-outline" size={16} color={subtleMuted} />
           <Text style={[liveStyles.statValue, { color: primaryText }]}>{battle?.totalLikes ?? 0}</Text>
           <Text style={[liveStyles.statLabel, { color: subtleMuted }]}>{t('battle.stats.likes') || 'Likes'}</Text>
-        </View>
+        </View> */}
       </View>
 
       {/* Comments section — GET/POST/DELETE /marketplace-battles/{battleId}/comments */}
