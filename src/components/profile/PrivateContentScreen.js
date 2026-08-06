@@ -378,9 +378,9 @@ const PrivateContentScreen = ({
   }, [fetchPosts, getSubscriptionStatus, isOwnProfile, userData?.id]);
 
   useEffect(() => {
-    // if (isCompany) return;
-    if (refreshKey !== undefined) refreshStatusAndPosts();
-  }, [refreshKey]);
+    if (!userData?.id || !isActiveTab) return;
+    refreshStatusAndPosts();
+  }, [refreshKey, userData?.id, isActiveTab, normalizedIsSubscribed, refreshStatusAndPosts]);
 
   useFocusEffect(
     useCallback(() => {

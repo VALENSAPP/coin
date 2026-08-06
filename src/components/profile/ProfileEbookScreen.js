@@ -233,11 +233,9 @@ const ProfileEbookScreen = ({
   }, [resolvedIsSubscribed]);
 
   useEffect(() => {
-    // if (isCompany) return;
-    if (userData?.id && isFocused && isActiveTab) {
-      fetchEbooks(userData.id);
-    }
-  }, [userData?.id, refreshKey, fetchEbooks, isFocused, isActiveTab, isCompany]);
+    if (!userData?.id || !isFocused || !isActiveTab) return;
+    fetchEbooks(userData.id);
+  }, [refreshKey, userData?.id, isFocused, isActiveTab, normalizedIsSubscribed, fetchEbooks]);
 
   const renderEmpty = () => {
     if (!canViewPrivateContent) {

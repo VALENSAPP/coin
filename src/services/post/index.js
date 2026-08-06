@@ -600,8 +600,13 @@ export async function postMessagePrivate(data) {
 }
 
 export async function getMessagesPrivateById(params = {}) {
-  // params should be passed as { params: { userId } }
-  return axiosInstance.get('post-message/by-user', params);
+  const userId = params?.userId || params?.params?.userId || params?.userID || params?.id;
+
+  if (!userId) {
+    throw new Error('getMessagesPrivateById: userId is required');
+  }
+
+  return axiosInstance.get(`post-message/by-user/${encodeURIComponent(String(userId))}`);
 }
 
 export async function getMyMessagesPrivate() {
@@ -611,4 +616,3 @@ export async function getMyMessagesPrivate() {
 export async function updateMessages(data = {}) {
   return axiosInstance.patch('post-message/me', data);
 }
-
