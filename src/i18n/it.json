@@ -4572,9 +4572,19 @@
     "challengeHeaderTitle": "Article de la bataille",
     "challengeDefaultQuestion": "Quelles lunettes de soleil préférez-vous ?",
     "heyWinner": "Ciao, vincitore!",
-    "winnerMessage": "Hai 7 giorni per scegliere come desideri promuovere il tuo prodotto vincitore.",
+    "winnerMessage": "Hai {{days}} {{unit}} per scegliere come desideri promuovere il tuo prodotto vincitore.",
     "winnerExpiry": "Se non lo utilizzi in tempo, scadrà e non potrà più essere usato.",
-    "winnerFooter": "Siamo qui per aiutarti a brillare! ✨"
+    "winnerFooter": "Siamo qui per aiutarti a brillare! ✨",
+    "promotionExpiredTitle": "Promozione scaduta",
+    "oopsTimesUp": "Ops... Il tempo è scaduto! ⏳",
+    "expiredSubtitle": "La promozione del tuo prodotto vincitore è scaduta.",
+    "expiredWindowNotice": "Il tuo periodo di promozione di {{days}} giorni è terminato, quindi questa ricompensa non è più disponibile.",
+    "dontWorryTitle": "Ma non preoccuparti! 🎉",
+    "dontWorryText": "Era solo una battaglia. Crea una nuova battaglia, lascia che la community voti di nuovo e, se il tuo prodotto vincerà, sbloccherai una nuova opportunità di promozione.",
+    "nextWinnerTip": "Chissà? Il tuo prossimo prodotto vincitore potrebbe diventare il tuo articolo più venduto. 😊",
+    "readyRoundTwo": "Pronto per il secondo round?",
+    "createNewBattle": "Crea una nuova battaglia",
+    "goToMyCloset": "Vai al Mio Armadio"
   },
   "boost": {
     "headerTitle": "Mettre en avant l'article gagnant",

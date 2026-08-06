@@ -4572,9 +4572,19 @@
     "challengeHeaderTitle": "Artículo de la batalla",
     "challengeDefaultQuestion": "¿Qué gafas de sol prefieres?",
     "heyWinner": "¡Hola, ganador!",
-    "winnerMessage": "Tienes 7 días para elegir cómo te gustaría promocionar tu producto ganador.",
-    "winnerExpiry": "Si no lo usas a tiempo, caducará y ya no podrás utilizarlo.",
-    "winnerFooter": "¡Estamos aquí para ayudarte a brillar! ✨"
+    "winnerMessage": "Tienes {{days}} {{unit}} para elegir cómo te gustaría promocionar tu producto ganador.",
+    "winnerExpiry": "Si no lo usas a tiempo, caducará y ya no podrá utilizarse.",
+    "winnerFooter": "¡Estamos aquí para ayudarte a brillar! ✨",
+    "promotionExpiredTitle": "Promoción caducada",
+    "oopsTimesUp": "¡Ups... Se acabó el tiempo! ⏳",
+    "expiredSubtitle": "La promoción de tu producto ganador ha caducado.",
+    "expiredWindowNotice": "Tu período de promoción de {{days}} días ha finalizado, por lo que esta recompensa ya no está disponible.",
+    "dontWorryTitle": "¡Pero no te preocupes! 🎉",
+    "dontWorryText": "Eso fue solo una batalla. Crea una nueva batalla, deja que la comunidad vuelva a votar y, si tu producto gana, desbloquearás una nueva oportunidad de promoción.",
+    "nextWinnerTip": "¿Quién sabe? Tu próximo producto ganador podría convertirse en el más vendido. 😊",
+    "readyRoundTwo": "¿Listo para la segunda ronda?",
+    "createNewBattle": "Crear nueva batalla",
+    "goToMyCloset": "Ir a Mi Armario"
   },
   "boost": {
     "headerTitle": "Impulsar el artículo ganador",

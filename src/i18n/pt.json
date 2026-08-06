@@ -4573,9 +4573,19 @@
     "challengeHeaderTitle": "Item da batalha",
     "challengeDefaultQuestion": "Qual óculos de sol você prefere?",
     "heyWinner": "Olá, vencedor!",
-    "winnerMessage": "Você tem 7 dias para escolher como gostaria de promover seu produto vencedor.",
+    "winnerMessage": "Você tem {{days}} {{unit}} para escolher como deseja promover o seu produto vencedor.",
     "winnerExpiry": "Se não for usado a tempo, ele expirará e não poderá mais ser utilizado.",
-    "winnerFooter": "Estamos aqui para ajudar você a brilhar! ✨"
+    "winnerFooter": "Estamos aqui para ajudar você a brilhar! ✨",
+    "promotionExpiredTitle": "Promoção expirada",
+    "oopsTimesUp": "Ops... O tempo acabou! ⏳",
+    "expiredSubtitle": "A promoção do seu produto vencedor expirou.",
+    "expiredWindowNotice": "Sua janela de promoção de {{days}} dias terminou, portanto esta recompensa não está mais disponível.",
+    "dontWorryTitle": "Mas não se preocupe! 🎉",
+    "dontWorryText": "Foi apenas uma batalha. Crie uma nova batalha, deixe a comunidade votar novamente e, se o seu produto vencer, você desbloqueará uma nova oportunidade de promoção.",
+    "nextWinnerTip": "Quem sabe? Seu próximo produto vencedor pode se tornar o seu item mais vendido. 😊",
+    "readyRoundTwo": "Pronto para a segunda rodada?",
+    "createNewBattle": "Criar nova batalha",
+    "goToMyCloset": "Ir para Meu Closet"
   },
   "boost": {
     "headerTitle": "Impulsionar item vencedor",

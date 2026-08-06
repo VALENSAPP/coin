@@ -4734,9 +4734,19 @@
     "challengeHeaderTitle": "Battle Item",
     "challengeDefaultQuestion": "Which sunglasses do you prefer?",
     "heyWinner": "Hey Winner!",
-    "winnerMessage": "You have 7 days to choose how you'd like to promote your winning product.",
+    "winnerMessage": "You have {{days}} {{unit}} to choose how you'd like to promote your winning product.",
     "winnerExpiry": "If not used in time, it will expire and can't be used.",
-    "winnerFooter": "We're here to help you shine! ✨"
+    "winnerFooter": "We're here to help you shine! ✨",
+    "promotionExpiredTitle": "Promotion Expired",
+    "oopsTimesUp": "Oops... Time's up! ⏳",
+    "expiredSubtitle": "Your Winner Promotion has expired.",
+    "expiredWindowNotice": "Your {{days}}-day promotion window has ended, so this reward is no longer available.",
+    "dontWorryTitle": "But don't worry! 🎉",
+    "dontWorryText": "That's just one battle. Create a new Battle, let the community vote again, and if your product wins, you'll unlock a brand-new promotion opportunity.",
+    "nextWinnerTip": "Who knows? Your next winner might become your best-selling item yet. 😊",
+    "readyRoundTwo": "Ready for round two?",
+    "createNewBattle": "Create New Battle",
+    "goToMyCloset": "Go to My Closet"
   },
   "boost": {
     "headerTitle": "Boost Winning Item",

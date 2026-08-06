@@ -4574,9 +4574,19 @@
     "challengeHeaderTitle": "Article de la bataille",
     "challengeDefaultQuestion": "Quelles lunettes de soleil préférez-vous ?",
     "heyWinner": "Bonjour, gagnant !",
-    "winnerMessage": "Vous avez 7 jours pour choisir comment vous souhaitez promouvoir votre produit gagnant.",
+    "winnerMessage": "Vous avez {{days}} {{unit}} pour choisir comment vous souhaitez promouvoir votre produit gagnant.",
     "winnerExpiry": "Si vous ne l'utilisez pas à temps, il expirera et ne pourra plus être utilisé.",
-    "winnerFooter": "Nous sommes là pour vous aider à briller ! ✨"
+    "winnerFooter": "Nous sommes là pour vous aider à briller ! ✨",
+    "promotionExpiredTitle": "Promotion expirée",
+    "oopsTimesUp": "Oups... Le temps est écoulé ! ⏳",
+    "expiredSubtitle": "La promotion de votre produit gagnant a expiré.",
+    "expiredWindowNotice": "Votre période de promotion de {{days}} jours est terminée. Cette récompense n'est donc plus disponible.",
+    "dontWorryTitle": "Mais ne vous inquiétez pas ! 🎉",
+    "dontWorryText": "Ce n'était qu'une bataille. Créez une nouvelle bataille, laissez la communauté voter à nouveau et, si votre produit gagne, vous débloquerez une toute nouvelle opportunité de promotion.",
+    "nextWinnerTip": "Qui sait ? Votre prochain produit gagnant pourrait devenir votre article le plus vendu. 😊",
+    "readyRoundTwo": "Prêt pour un deuxième round ?",
+    "createNewBattle": "Créer une nouvelle bataille",
+    "goToMyCloset": "Aller à Mon Dressing"
   },
   "boost": {
     "headerTitle": "Mettre en avant l'article gagnant",

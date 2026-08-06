@@ -221,7 +221,7 @@ const STATUS_FLOW = {
   pending: { next: 'processing', actionKey: 'processing' },
   confirmed: { next: 'processing', actionKey: 'processing' },
   processing: { next: 'shipped', actionKey: 'shipped' },
-  shipped: { next: 'delivered', actionKey: 'delivered' },
+  shipped: null,
   delivered: null,
   cancelled: null,
 };

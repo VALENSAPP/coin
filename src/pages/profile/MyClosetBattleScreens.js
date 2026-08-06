@@ -2726,7 +2726,7 @@ export function BattleResultsScreen({ navigation, route }) {
                 <TouchableOpacity
                   activeOpacity={0.9}
                   style={[styles.actionBtn, { backgroundColor: brandAccent }]}
-                  onPress={() => navigation.navigate('BattleInsightsActions', { battleId, winnerItem, runnerUpItem })}
+                  onPress={() => navigation.navigate('BattleInsightsActions', { battleId, winnerItem, runnerUpItem, insights })}
                 >
                   <Text style={styles.actionBtnText}>{t('battle.useInsights') || 'Use Insights'}</Text>
                 </TouchableOpacity>

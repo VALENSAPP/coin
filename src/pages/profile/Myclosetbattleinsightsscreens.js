@@ -39,6 +39,27 @@ const SOFT_BG = '#FBF7FF';
 const TEXT = '#2F2259';
 const MUTED = '#786D96';
 
+const PROMOTION_WINDOW_DAYS = 7;
+const PROMOTION_WINDOW_MS = PROMOTION_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+
+const getPromotionCountdown = completedAt => {
+  if (!completedAt) return null;
+  const completedTime = new Date(completedAt).getTime();
+  if (Number.isNaN(completedTime)) return null;
+
+  const expiresAt = completedTime + PROMOTION_WINDOW_MS;
+  const msRemaining = expiresAt - Date.now();
+
+  return {
+    expiresAt,
+    msRemaining,
+    // ceil so it reads 7 the moment the battle completes, then 6, 5, 4...
+    daysRemaining: Math.max(0, Math.ceil(msRemaining / ONE_DAY_MS)),
+    isExpired: msRemaining <= 0,
+  };
+};
+
 const FALLBACK_BOOST_PACKAGES = [
   { id: 'starter', days: 3, priceLabel: '$4.99', viewsLabel: '~5K - 10K' },
   { id: 'growth', days: 7, priceLabel: '$9.99', viewsLabel: '~15K - 30K' },
@@ -131,8 +152,36 @@ export function BattleInsightsActionsScreen({ navigation, route }) {
     price: '$85',
     image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600&q=80',
   };
-
+  const insights = route?.params?.insights
   const battleId = route?.params?.battleId || route?.params?.id || winnerItem?.battleId;
+
+  const completedAt = insights?.completedAt || route?.params?.completedAt || winnerItem?.completedAt;
+
+  const [countdown, setCountdown] = useState(() => getPromotionCountdown(completedAt));
+
+  useEffect(() => {
+    setCountdown(getPromotionCountdown(completedAt));
+    if (!completedAt) return undefined;
+
+    const interval = setInterval(() => {
+      setCountdown(getPromotionCountdown(completedAt));
+    }, 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [completedAt]);
+
+  const isExpired = !!countdown?.isExpired;
+  const daysRemaining = countdown?.daysRemaining ?? PROMOTION_WINDOW_DAYS;
+
+  if (isExpired) {
+    return (
+      <PromotionExpiredScreen
+        navigation={navigation}
+        winnerItem={winnerItem}
+        battleId={battleId}
+      />
+    );
+  }
 
   return (
     <View style={[styles.screen, bgStyle, { backgroundColor: bg || SOFT_BG }]}>
@@ -213,39 +262,136 @@ export function BattleInsightsActionsScreen({ navigation, route }) {
                 🎉 {t('battleInsights.heyWinner') || 'Hey Winner!'}
               </Text>
 
-              <Text
-                style={[
-                  styles.winnerNoticeText,
-                  { color: subtleMuted },
-                ]}
-              >
-                {t('battleInsights.winnerMessage') ||
-                  "You have 7 days to choose how you'd like to promote your winning product."}
+              <Text style={[styles.winnerNoticeText, { color: subtleMuted }]}>
+                {t('battleInsights.winnerMessage', { days: daysRemaining, unit: 'days' }) ||
+                  `You have ${daysRemaining} day${daysRemaining === 1 ? '' : 's'} to choose how you'd like to promote your winning product.`}
               </Text>
 
-              <Text
-                style={[
-                  styles.winnerNoticeText,
-                  { color: subtleMuted, marginTop: 6 },
-                ]}
-              >
+              <Text style={[styles.winnerNoticeText, { color: subtleMuted, marginTop: 6 }]}>
                 {t('battleInsights.winnerExpiry') ||
                   "If not used in time, it will expire and can't be used."}
               </Text>
 
-              <Text
-                style={[
-                  styles.winnerNoticeFooter,
-                  { color: accent },
-                ]}
-              >
-                ❤️ {t('battleInsights.winnerFooter') ||
-                  "We're here to help you shine! ✨"}
+              <Text style={[styles.winnerNoticeFooter, { color: accent }]}>
+                ❤️ {t('battleInsights.winnerFooter') || "We're here to help you shine! ✨"}
               </Text>
             </View>
           </View>
         </View>
 
+      </ScrollView>
+    </View>
+  );
+}
+
+export function PromotionExpiredScreen({ navigation, winnerItem, battleId }) {
+  const { bgStyle, text, card, bg, border, mutedText } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const surfaces = formSurfaces(isDarkMode);
+  const subtleMuted = mutedText || surfaces.mutedColor;
+  const surface = card || surfaces.listSurface;
+  const { t } = useLanguage();
+  const accent = text || PURPLE;
+
+  return (
+    <View style={[styles.screen, bgStyle, { backgroundColor: bg || SOFT_BG }]}>
+      <Header
+        title={t('battleInsights.promotionExpiredTitle') || 'Promotion Expired'}
+        onBack={() => navigation.goBack()}
+        accentColor={accent}
+        titleColor={text || TEXT}
+      />
+      <ScrollView contentContainerStyle={styles.expiredScrollContent} showsVerticalScrollIndicator={false}>
+        <View style={styles.expiredIconWrap}>
+          <View style={[styles.expiredIconCircle, { backgroundColor: `${accent}15` }]}>
+            <Ionicons name="alarm-outline" size={64} color={accent} />
+          </View>
+          <View style={[styles.expiredTrophyBadge, { backgroundColor: '#FFB020' }]}>
+            <Ionicons name="trophy" size={18} color="#fff" />
+            <View style={[styles.expiredTrophyX, { backgroundColor: accent }]}>
+              <Ionicons name="close" size={10} color="#fff" />
+            </View>
+          </View>
+          <Ionicons name="sparkles" size={16} color={accent} style={styles.sparkleTopLeft} />
+          <Ionicons name="sparkles" size={12} color={accent} style={styles.sparkleBottomRight} />
+        </View>
+
+        <Text style={[styles.expiredTitle, { color: text || TEXT }]}>
+          {t('battleInsights.oopsTimesUp') || "Oops... Time's up! ⏳"}
+        </Text>
+        <Text style={[styles.expiredSubtitle, { color: subtleMuted }]}>
+          {t('battleInsights.expiredSubtitle') || 'Your Winner Promotion has expired.'}
+        </Text>
+
+        <View style={[styles.expiredNoticeCard, themedCard(surface, border || surfaces.listBorder)]}>
+          <Ionicons name="calendar-outline" size={18} color={accent} style={{ marginTop: 2 }} />
+          <Text style={[styles.expiredNoticeText, { color: subtleMuted }]}>
+            {t('battleInsights.expiredWindowNotice', { days: PROMOTION_WINDOW_DAYS }) ||
+              `Your ${PROMOTION_WINDOW_DAYS}-day promotion window has ended, so this reward is no longer available.`}
+          </Text>
+        </View>
+
+        <View style={[styles.dontWorryCard, themedCard(surface, border || surfaces.listBorder), { backgroundColor: `${accent}0D` }]}>
+          <View style={styles.dontWorryHeader}>
+            <View style={[styles.dontWorryEmojiCircle, { backgroundColor: `${accent}1A` }]}>
+              <Text style={{ fontSize: 20 }}>😊</Text>
+            </View>
+            <Text style={[styles.dontWorryTitle, { color: text || TEXT }]}>
+              {t('battleInsights.dontWorryTitle') || "But don't worry! 🎉"}
+            </Text>
+          </View>
+          <Text style={[styles.dontWorryText, { color: subtleMuted }]}>
+            {t('battleInsights.dontWorryText') ||
+              "That's just one battle. Create a new Battle, let the community vote again, and if your product wins, you'll unlock a brand-new promotion opportunity."}
+          </Text>
+
+          <View style={styles.nextWinnerTipRow}>
+            <Ionicons name="rocket-outline" size={16} color={accent} />
+            <Text style={[styles.nextWinnerTipText, { color: subtleMuted }]}>
+              {t('battleInsights.nextWinnerTip') || 'Who knows? Your next winner might become your best-selling item yet. 😊'}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.readyRow}>
+          <Ionicons name="star" size={14} color={accent} />
+          <Text style={[styles.readyText, { color: text || TEXT }]}>
+            {t('battleInsights.readyRoundTwo') || 'Ready for round two?'}
+          </Text>
+          <Ionicons name="star-outline" size={14} color={accent} />
+        </View>
+
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={() =>
+            navigation.navigate('CreateBattle', {
+              items: CHALLENGE_ITEMS,
+              headerTitle: t('battleInsights.challengeHeaderTitle'),
+              defaultQuestion: t('battleInsights.challengeDefaultQuestion'),
+              nextRoute: 'BattleSetup',
+              previewRoute: 'BattlePreview',
+              liveRoute: 'BattleLive',
+            })
+          }
+        >
+          <LinearGradient colors={[accent, text]} style={[styles.primaryButton, {flexDirection: 'row', paddingHorizontal: 85}]}>
+            <Ionicons name="flash-outline" size={16} color="#fff" style={{ marginRight: 8 }} />
+            <Text style={styles.primaryButtonText}>
+              {t('battleInsights.createNewBattle') || 'Create New Battle'}
+            </Text>
+          </LinearGradient>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={() => navigation.navigate('wallet', { screen: 'MyCloset' })}
+          style={[styles.secondaryButton, { borderColor: border || surfaces.listBorder, backgroundColor: surface }]}
+        >
+          <Ionicons name="refresh-outline" size={16} color={accent} style={{ marginRight: 8 }} />
+          <Text style={[styles.secondaryButtonText, { color: accent }]}>
+            {t('battleInsights.goToMyCloset') || 'Go to My Closet'}
+          </Text>
+        </TouchableOpacity>
       </ScrollView>
     </View>
   );
@@ -926,4 +1072,27 @@ const styles = StyleSheet.create({
   reviewMetaRow: { flexDirection: 'row', gap: 18 },
   reviewMetaCol: { flex: 1, gap: 4 },
   aboutText: { color: MUTED, fontSize: 12, lineHeight: 18, fontWeight: '600' },
+
+  expiredScrollContent: { paddingHorizontal: 20, paddingBottom: 28, alignItems: 'center', gap: 10 },
+  expiredIconWrap: { width: 140, height: 140, alignItems: 'center', justifyContent: 'center', marginTop: 12, marginBottom: 4 },
+  expiredIconCircle: { width: 120, height: 120, borderRadius: 60, alignItems: 'center', justifyContent: 'center' },
+  expiredTrophyBadge: { position: 'absolute', right: 6, bottom: 10, width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
+  expiredTrophyX: { position: 'absolute', right: -4, top: -4, width: 16, height: 16, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  sparkleTopLeft: { position: 'absolute', top: 4, left: 6 },
+  sparkleBottomRight: { position: 'absolute', bottom: 8, right: 4 },
+  expiredTitle: { fontSize: 22, fontWeight: '900', textAlign: 'center', marginTop: 6 },
+  expiredSubtitle: { fontSize: 14, fontWeight: '700', textAlign: 'center', marginBottom: 4 },
+  expiredNoticeCard: { flexDirection: 'row', gap: 10, borderRadius: 16, padding: 14, width: '100%' },
+  expiredNoticeText: { flex: 1, fontSize: 13, lineHeight: 20, fontWeight: '600' },
+  dontWorryCard: { width: '100%', borderRadius: 18, padding: 16, gap: 10 },
+  dontWorryHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  dontWorryEmojiCircle: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  dontWorryTitle: { fontSize: 15, fontWeight: '800' },
+  dontWorryText: { fontSize: 13, lineHeight: 20, fontWeight: '600' },
+  nextWinnerTipRow: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
+  nextWinnerTipText: { flex: 1, fontSize: 12, lineHeight: 18, fontWeight: '600' },
+  readyRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
+  readyText: { fontSize: 14, fontWeight: '800' },
+  secondaryButton: { height: 48, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', width: '100%', marginTop: 4 },
+  secondaryButtonText: { fontSize: 15, fontWeight: '800' },
 });
