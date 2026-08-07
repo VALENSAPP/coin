@@ -228,6 +228,14 @@ export const mapBattle = (b, i) => {
   };
 };
 
+const isLiveShopBattle = (battle) => {
+  const status = String(battle?.status || '').trim().toUpperCase();
+  return Boolean(
+    battle?.isLive || battle?.live ||
+      ['LIVE', 'ACTIVE', 'IN_PROGRESS', 'IN-PROGRESS', 'ONGOING'].includes(status),
+  );
+};
+
 // ── placeholder battle data (fallback while loading / on error) ──────────────
 
 const BATTLES_FALLBACK = [
@@ -244,6 +252,7 @@ const BATTLES_FALLBACK = [
 ];
 
 export const BattleSlide = ({ battle, accent, t, onPress, card, border, textColor, mutedText, isDark, thumbSurface, mutedColor, loadingOverlayColor, customWidth, imageSize }) => {
+  console.log(battle,'battlesssssss')
   let winnerSide = battle?.left?.isWinner ? 'left' : battle?.right?.isWinner ? 'right' : null;
   const isPending =
     String(battle?.status || '').toUpperCase() === 'LIVE' &&
@@ -792,11 +801,20 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
     [items, t],
   );
 
-  // Use real battles once loaded; fall back to placeholder only while loading
+  // The storefront carousel is intentionally live-only. Completed battles are
+  // still retained in `battles` so the shop owner can see them from See all.
+  const liveBattles = useMemo(
+    () => battles.filter(isLiveShopBattle),
+    [battles],
+  );
+  // Use real live battles once loaded; fall back to placeholder only while loading
   // and nothing has come back yet, so the section never looks empty on first paint.
-  const displayBattles = battles.length > 0
-    ? battles
-    : (battlesLoading ? BATTLES_FALLBACK : battles);
+  const displayBattles = useMemo(
+    () => (liveBattles.length > 0
+      ? liveBattles
+      : (battlesLoading ? BATTLES_FALLBACK : [])),
+    [battlesLoading, liveBattles],
+  );
 
   const battleWinnerMap = useMemo(() => {
     const map = new Map();
@@ -894,7 +912,19 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
 
   const goBattles = () => navigation?.navigate?.('ProfileMain', {
     screen: 'MyClosetBattles', // or whatever route name you register MyClosetBattlesScreen under
-    params: { closetId, userProfile: userData?.profile },
+    params: {
+      closetId,
+      userProfile: userData?.profile,
+      isOwnProfile: resolvedIsOwnProfile,
+      sellerId: userData?.id,
+      sellerProfile: userData?.profile,
+      seller,
+      returnTo: buildClosetReturnTo({
+        isOwnProfile: resolvedIsOwnProfile,
+        sellerProfile: userData?.profile,
+        sellerId: userData?.id,
+      }),
+    },
   });
   const openBattle = battle => navigateToBattleLive(navigation, {
     battleId: battle?.id,

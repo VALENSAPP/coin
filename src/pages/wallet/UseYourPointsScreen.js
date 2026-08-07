@@ -48,6 +48,7 @@ const UseYourPointsScreen = () => {
   const refreshPoints = useCallback(async () => {
     try {
       const response = await totalPoints();
+      console.log(response,'respoensee e. eee e ee e e ')
       const parsed = parseTotalPlatformPointsPayload(response);
       setTotalPts(parsed.totalPlatformPoints);
     } catch (error) {

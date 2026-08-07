@@ -260,6 +260,14 @@ const mapBattle = (battle, index) => {
   };
 };
 
+const isLiveClosetBattle = (battle) => {
+  const status = String(battle?.status || '').trim().toUpperCase();
+  return Boolean(
+    battle?.isLive || battle?.live ||
+      ['LIVE', 'ACTIVE', 'IN_PROGRESS', 'IN-PROGRESS', 'ONGOING'].includes(status),
+  );
+};
+
 const BattleSlide = ({
   battle,
   accent,
@@ -1799,13 +1807,18 @@ const MyClosetBattlesScreen = ({ navigation, route }) => {
       console.log('loadPage res:', res);
       const raw = unwrapBattlesResponse(res);
       const mapped = raw.map(mapBattle);
-      setBattles(prev => (replace ? mapped : [...prev, ...mapped]));
+      // A shop owner can review all of their battles (including COMPLETED).
+      // Visitors only see live shop battles in the public See all screen.
+      const visibleBattles = isOwnProfile
+        ? mapped
+        : mapped.filter(isLiveClosetBattle);
+      setBattles(prev => (replace ? visibleBattles : [...prev, ...visibleBattles]));
       setHasMore(mapped.length === LIMIT);
     } catch {
       if (replace) setBattles([]);
       setHasMore(false);
     }
-  }, [closetId]);
+  }, [closetId, isOwnProfile]);
 
   const openBattle = useCallback((battle) => {
     navigateToBattleLive(navigation, withClosetNavParams(route, {

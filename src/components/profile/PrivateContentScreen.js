@@ -635,6 +635,7 @@ const PrivateContentScreen = ({
         messageType={activeMediaFilter === 'photo' ? 'photos' : activeMediaFilter === 'video' ? 'videos' : 'ebooks'}
         canEdit={isOwnProfile}
         userId={userData?.id}
+        profileType={profileThemeType}
         onSave={(text) => {
           console.log('Saved private content message:', text);
         }}
