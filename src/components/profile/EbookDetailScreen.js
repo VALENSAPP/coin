@@ -1,5 +1,6 @@
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image, Alert, ActivityIndicator, DeviceEventEmitter } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Image, Alert, ActivityIndicator, DeviceEventEmitter } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { useAppTheme } from '../../theme/useApptheme';
@@ -11,16 +12,19 @@ import useScreenshotProtection from '../../hooks/useScreenshotProtection';
 import FileViewer from 'react-native-file-viewer';
 import RNFS from 'react-native-fs';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
-import RBSheet from 'react-native-raw-bottom-sheet';
-import CommentSheet from '../home/posts/CommentSheet';
+import HexAvatar from '../home/story.js/HexAvatar';
 import {
   deletePost,
   getPostlikes,
   likePost,
   savePost,
   unSavePost,
+  getComments,
+  postComment,
+  deleteComment,
   getMarketplaceEbookById,
   getMarketPlaceEbookById,
+  deleteMarketplaceEbook,
 } from '../../services/post';
 import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../displaytoastmessage';
@@ -123,6 +127,15 @@ const formatDisplayName = (value) => {
   return text.charAt(0).toUpperCase() + text.slice(1);
 };
 
+const flattenEbookComments = (items, depth = 0) =>
+  (Array.isArray(items) ? items : []).reduce((all, item) => {
+    all.push({ ...item, depth });
+    if (Array.isArray(item?.replies) && item.replies.length) {
+      all.push(...flattenEbookComments(item.replies, depth + 1));
+    }
+    return all;
+  }, []);
+
 const EbookDetailScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
@@ -200,13 +213,15 @@ const EbookDetailScreen = () => {
     };
 
     fetchEbookDetail();
+    // ebookData is intentionally read as a fallback when navigation supplies
+    // only an e-book id; re-running after the fetched merge would loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [route?.params?.ebook?.id, route?.params?.ebook?._id]);
   const routeLoggedInUserId = route?.params?.loggedInUserId;
   const profileThemeType = normalizeProfileType(
     routeUserData?.profile || ebook?.profile,
   );
   const {
-    bg,
     bgStyle,
     text,
     textStyle,
@@ -228,7 +243,7 @@ const EbookDetailScreen = () => {
   const toast = useToast();
   const [isDownloading, setIsDownloading] = useState(false);
   const [holdScreenshotProtection, setHoldScreenshotProtection] = useState(false);
-  const commentSheetRef = useRef(null);
+  const commentInputRef = useRef(null);
 
   const title = ebook.caption || ebook.title || 'E-book';
   const userName = formatDisplayName(
@@ -299,10 +314,14 @@ const EbookDetailScreen = () => {
   const [comments, setComments] = useState(ebook?.commentCount || 0);
   const [currentUserId, setCurrentUserId] = useState(null);
   const [liking, setLiking] = useState(false);
-  const [commentPostId, setCommentPostId] = useState(null);
-  const [commentPostOwnerId, setCommentPostOwnerId] = useState(null);
+  const [commentItems, setCommentItems] = useState([]);
+  const [commentText, setCommentText] = useState('');
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [commentPosting, setCommentPosting] = useState(false);
+  const [deletingCommentIds, setDeletingCommentIds] = useState(new Set());
   const createdAt = formatDate(ebook.createdAt);
   const viewerUserId = currentUserId ?? routeLoggedInUserId ?? null;
+  const canShowComments = !fromEbookPublisher && !fromMyClosetShopFront && !fromAllEbooksScreen;
   const isOwner = useMemo(() => {
     if (!viewerUserId || !ebook?.userId) return false;
     return String(viewerUserId) === String(ebook.userId);
@@ -396,7 +415,6 @@ const EbookDetailScreen = () => {
     currentUserId,
     fromEbookPublisher,
     fromMyClosetShopFront,
-    fromAllEbooksScreen,
   ]);
 
   useScreenshotProtection({
@@ -514,25 +532,104 @@ const EbookDetailScreen = () => {
       console.log('Save Error', error);
     }
   };
+  const fetchEbookComments = useCallback(async () => {
+    if (!ebook?.id || !canShowComments) return;
+    setCommentsLoading(true);
+    try {
+      const response = await getComments(String(ebook.id));
+      const rawComments = response?.data?.comments ?? response?.data?.data?.comments ?? [];
+      const flattened = flattenEbookComments(rawComments);
+      setCommentItems(flattened);
+      setComments(Math.max(0, flattened.length));
+    } catch (error) {
+      console.log('Load e-book comments error:', error);
+    } finally {
+      setCommentsLoading(false);
+    }
+  }, [ebook?.id, canShowComments]);
+
+  useEffect(() => {
+    fetchEbookComments();
+  }, [fetchEbookComments]);
+
   const handleOpenComments = useCallback(() => {
-    if (!ebook?.id) return;
-    setCommentPostId(String(ebook.id));
-    setCommentPostOwnerId(ebook?.userId ?? null);
-    requestAnimationFrame(() => {
-      commentSheetRef.current?.open();
-    });
-  }, [ebook?.id, ebook?.userId]);
+    if (!canShowComments) return;
+    commentInputRef.current?.focus();
+  }, [canShowComments]);
 
-  const handleCloseComments = useCallback(() => {
-    commentSheetRef.current?.close();
-    setCommentPostId(null);
-    setCommentPostOwnerId(null);
-  }, []);
+  const handlePostComment = useCallback(async () => {
+    const message = commentText.trim();
+    if (!ebook?.id || !message || commentPosting) return;
 
-  const handleCommentCountUpdate = useCallback((postId, newCount) => {
-    if (String(postId) !== String(ebook?.id)) return;
-    setComments(Math.max(0, Number(newCount) || 0));
-  }, [ebook?.id]);
+    setCommentPosting(true);
+    try {
+      const response = await postComment(String(ebook.id), message);
+      if (response?.success === false) {
+        throw new Error(response?.data?.message || 'Unable to post comment');
+      }
+      setCommentText('');
+      await fetchEbookComments();
+    } catch (error) {
+      showToastMessage(toast, 'danger', error?.response?.data?.message || error?.message || 'Unable to post comment');
+    } finally {
+      setCommentPosting(false);
+    }
+  }, [commentPosting, commentText, ebook?.id, fetchEbookComments, toast]);
+
+  const handleDeleteComment = useCallback((comment) => {
+    const commentId = comment?.id || comment?._id;
+    if (!commentId || deletingCommentIds.has(String(commentId))) return;
+
+    Alert.alert('Delete comment', 'Are you sure you want to delete this comment?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          setDeletingCommentIds(prev => new Set(prev).add(String(commentId)));
+          try {
+            const response = await deleteComment(String(commentId), String(ebook.id));
+            if (response?.success === false) {
+              throw new Error(response?.data?.message || 'Unable to delete comment');
+            }
+            await fetchEbookComments();
+          } catch (error) {
+            showToastMessage(toast, 'danger', error?.response?.data?.message || error?.message || 'Unable to delete comment');
+          } finally {
+            setDeletingCommentIds(prev => {
+              const next = new Set(prev);
+              next.delete(String(commentId));
+              return next;
+            });
+          }
+        },
+      },
+    ]);
+  }, [deletingCommentIds, ebook?.id, fetchEbookComments, toast]);
+
+  const handleCommentProfilePress = useCallback((commentUserId) => {
+    if (!commentUserId) return;
+    const returnParams = {
+      ...route?.params,
+      ebook: ebookData,
+      userData: routeUserData,
+    };
+    const parentNavigation = navigation.getParent?.();
+    const parentState = navigation.getParent?.()?.getState?.();
+    const stackName = route?.params?.stackName || parentState?.routes?.[parentState.index]?.name;
+    const params = {
+      userId: String(commentUserId),
+      returnTo: 'EbookDetail',
+      returnParams,
+      stackName,
+    };
+
+    if (parentNavigation?.navigate) {
+      parentNavigation.navigate('HomeMain', { screen: 'UsersProfile', params });
+      return;
+    }
+    navigation.navigate('HomeMain', { screen: 'UsersProfile', params });
+  }, [ebookData, navigation, route?.params, routeUserData]);
   const handleDelete = () => {
     Alert.alert(
       'Delete E-book',
@@ -680,7 +777,17 @@ const EbookDetailScreen = () => {
 
   return (
     <View style={[styles.screen, bgStyle]}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <KeyboardAvoidingView
+        style={styles.screen}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+      <KeyboardAwareScrollView
+        contentContainerStyle={[styles.content, canShowComments && styles.contentWithCommentComposer]}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        enableOnAndroid
+        extraScrollHeight={24}
+      >
         <View style={styles.headerRow}>
           <TouchableOpacity
             onPress={handleBackPress}
@@ -832,34 +939,84 @@ const EbookDetailScreen = () => {
             </TouchableOpacity>
           </View>
         ) : null}
-      </ScrollView>
 
-      <RBSheet
-        ref={commentSheetRef}
-        height={560}
-        openDuration={250}
-        draggable={true}
-        closeOnPressMask={true}
-        customModalProps={{ statusBarTranslucent: true }}
-        customAvoidingViewProps={{ enabled: false }}
-        customStyles={{
-          container: [
-            styles.commentSheetContainer,
-            { backgroundColor: isDarkMode ? bg || '#121212' : '#fff' },
-          ],
-          draggableIcon: {
-            backgroundColor: surfaceBorder,
-            width: 60,
-          },
-        }}
-      >
-        <CommentSheet
-          postId={commentPostId}
-          postOwnerId={commentPostOwnerId}
-          onClose={handleCloseComments}
-          onCommentCountUpdate={handleCommentCountUpdate}
-        />
-      </RBSheet>
+        {canShowComments ? (
+          <View style={[styles.commentsSection, { borderTopColor: surfaceBorder }]}>
+            <Text style={[styles.commentsTitle, textStyle]}>Comments ({comments})</Text>
+            {commentsLoading ? (
+              <ActivityIndicator size="small" color={brandAccent} style={styles.commentsLoader} />
+            ) : commentItems.length > 0 ? (
+              commentItems.map(comment => {
+                const commentId = String(comment?.id || comment?._id || '');
+                const commentUserId = String(comment?.userId ?? comment?.user?.id ?? '');
+                const isOwnComment = Boolean(currentUserId && commentUserId && commentUserId === String(currentUserId));
+                const commentName = formatDisplayName(comment?.displayName || comment?.user?.displayName || comment?.user?.userName || comment?.userName || comment?.username || 'Unknown');
+                const commentAvatar = comment?.image || comment?.user?.image || comment?.user?.avatar || '';
+                return (
+                  <View key={commentId} style={[styles.commentItem, { borderBottomColor: surfaceBorder, marginLeft: Math.min(comment.depth || 0, 2) * 18 }]}>
+                    <TouchableOpacity
+                      onPress={() => handleCommentProfilePress(commentUserId)}
+                      disabled={!commentUserId}
+                      accessibilityRole="button"
+                    >
+                      <HexAvatar uri={commentAvatar} size={34} borderWidth={1} borderColor={brandAccent} />
+                    </TouchableOpacity>
+                    <View style={styles.commentItemBody}>
+                      <View style={styles.commentItemHeader}>
+                        <TouchableOpacity onPress={() => handleCommentProfilePress(commentUserId)} disabled={!commentUserId}>
+                          <Text style={[styles.commentUsername, textStyle]}>{commentName}</Text>
+                        </TouchableOpacity>
+                        <Text style={[styles.commentTime, mutedTextStyle]}>{formatDate(comment?.createdAt)}</Text>
+                      </View>
+                      <Text style={[styles.commentBodyText, textStyle]}>{comment?.comment || ''}</Text>
+                    </View>
+                    {isOwnComment ? (
+                      <TouchableOpacity
+                        onPress={() => handleDeleteComment(comment)}
+                        disabled={deletingCommentIds.has(commentId)}
+                        style={styles.commentDeleteButton}
+                        accessibilityLabel="Delete comment"
+                      >
+                        {deletingCommentIds.has(commentId) ? (
+                          <ActivityIndicator size="small" color="#DC2626" />
+                        ) : (
+                          <Ionicons name="trash-outline" size={18} color="#DC2626" />
+                        )}
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+                );
+              })
+            ) : (
+              <Text style={[styles.noCommentsText, mutedTextStyle]}>Be the first to comment.</Text>
+            )}
+          </View>
+        ) : null}
+      </KeyboardAwareScrollView>
+
+      {canShowComments ? (
+        <View style={[styles.commentComposer, { backgroundColor: surface, borderTopColor: surfaceBorder }]}>
+          <TextInput
+            ref={commentInputRef}
+            value={commentText}
+            onChangeText={setCommentText}
+            placeholder="Add a comment..."
+            placeholderTextColor={muted}
+            style={[styles.commentInput, { color: primaryText, backgroundColor: isDarkMode ? withAlpha('#ffffff', 0.08) : '#F5F3F7', borderColor: surfaceBorder }]}
+            multiline
+            maxLength={1000}
+          />
+          <TouchableOpacity
+            onPress={handlePostComment}
+            disabled={!commentText.trim() || commentPosting}
+            style={[styles.commentSendButton, { backgroundColor: brandAccent }, (!commentText.trim() || commentPosting) && styles.commentSendButtonDisabled]}
+            accessibilityLabel="Post comment"
+          >
+            {commentPosting ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="send" size={18} color="#fff" />}
+          </TouchableOpacity>
+        </View>
+      ) : null}
+      </KeyboardAvoidingView>
     </View>
   );
 };
@@ -873,6 +1030,9 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 24,
 
+  },
+  contentWithCommentComposer: {
+    paddingBottom: 96,
   },
   headerRow: {
     flexDirection: 'row',
@@ -1045,21 +1205,86 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   chapterText: { fontSize: 13, fontWeight: '600', flex: 1 },
-  commentBox: {
+  commentsSection: {
+    marginTop: 14,
+    paddingTop: 14,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  commentsTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    marginBottom: 8,
+  },
+  commentsLoader: {
+    paddingVertical: 18,
+  },
+  noCommentsText: {
+    fontSize: 13,
+    paddingVertical: 14,
+  },
+  commentItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  commentItemBody: {
+    flex: 1,
+    marginLeft: 10,
+  },
+  commentItemHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  commentUsername: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  commentTime: {
+    fontSize: 11,
+    flexShrink: 1,
+  },
+  commentBodyText: {
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 3,
+  },
+  commentDeleteButton: {
+    padding: 6,
+    marginLeft: 4,
+  },
+  commentComposer: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    marginTop: 10,
+    borderLeftWidth: 0,
+    borderRightWidth: 0,
+    borderBottomWidth: 0,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
-  commentAvatar: { width: 26, height: 26, borderRadius: 13, marginRight: 10 },
-  commentPlaceholder: { flex: 1, fontSize: 13 },
-  sendBtn: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
-  commentSheetContainer: {
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
+  commentInput: {
+    flex: 1,
+    minHeight: 40,
+    maxHeight: 96,
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    fontSize: 14,
+    textAlignVertical: 'center',
+  },
+  commentSendButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+  },
+  commentSendButtonDisabled: {
+    opacity: 0.45,
   },
   deleteButton: {
     width: 36,

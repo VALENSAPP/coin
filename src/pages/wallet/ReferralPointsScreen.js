@@ -70,10 +70,13 @@ const ReferralPointsScreen = () => {
 
   // Available mirrors Your Platform Points.
   const availablePts = Number(points.totalPlatformPoints) || 0;
+  // Lifetime points include both the points still available and points already used.
+  const lifetimePoints = availablePts + (Number(points.used) || 0);
 
   const loadPoints = useCallback(async () => {
     try {
       const response = await totalPoints();
+      console.log(response,'dta in rposne of poinstststs')
       const statusCode =
         response?.statusCode ?? response?.data?.statusCode ?? response?.status;
       const ok =
@@ -234,10 +237,10 @@ const ReferralPointsScreen = () => {
             </View>
             <View style={[styles.summaryCard, { backgroundColor: card, borderColor: softBorder }]}>
               <Text style={[styles.summaryLabel, { color: muted }]}>
-                {t('referralPointsScreen.referShort')}
+                {t('referralPointsScreen.totalPoints')}
               </Text>
               <Text style={[styles.summaryValue, { color: text }]}>
-                {formatNumber(points.referPoints)}
+                {formatNumber(lifetimePoints)}
               </Text>
             </View>
           </View>
@@ -310,7 +313,7 @@ const ReferralPointsScreen = () => {
               </Text>
             </View>
             <Text style={[styles.totalValue, { color: text }]}>
-              {formatPts(points.totalPlatformPoints)}
+              {formatPts(lifetimePoints)}
             </Text>
           </View>
 

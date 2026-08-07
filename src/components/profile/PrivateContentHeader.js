@@ -25,21 +25,30 @@ const PrivateContentHeader = ({
   onSave = () => {},
   placeholder = 'Add a message for private content',
   userId = null,
+  profileType,
   style,
 }) => {
   const [message, setMessage] = useState(initialMessage || '');
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(message);
+  const [isMessageExpanded, setIsMessageExpanded] = useState(false);
+  const [isMessageTruncated, setIsMessageTruncated] = useState(false);
   const [serverMessages, setServerMessages] = useState({
     messageForPhotos: '',
     messageForVideos: '',
     messageForEbooks: '',
   });
-  const { bg, card, text, mutedText, accent } = useAppTheme();
+  const { bg, card, text, mutedText, accent } = useAppTheme(profileType);
   const { isDarkMode } = useThemeContext();
   const toast = useToast();
 
   useEffect(() => setMessage(initialMessage || ''), [initialMessage]);
+
+  // Reset the collapsed state whenever this tab receives a different message.
+  useEffect(() => {
+    setIsMessageExpanded(false);
+    setIsMessageTruncated(false);
+  }, [message, messageType]);
 
   const iconName = (messageType === 'photos') ? 'images-outline' : (messageType === 'videos' || messageType === 'video') ? 'videocam-outline' : 'book-outline';
 
@@ -166,6 +175,16 @@ const PrivateContentHeader = ({
     }
   };
 
+  const displayedMessage = message && message.length > 0
+    ? message
+    : (canEdit ? placeholder : 'No message added');
+
+  const handleMessageLayout = ({ nativeEvent }) => {
+    // `lines` contains the natural line layout, allowing us to show the control
+    // only when the message genuinely needs more than the two-line preview.
+    setIsMessageTruncated(nativeEvent.lines.length > 2);
+  };
+
   return (
     <View style={[styles.root, { backgroundColor: bg }, style]}>
       <View style={[styles.card, { backgroundColor: card, borderColor: 'rgba(0,0,0,0.06)' }]}> 
@@ -175,8 +194,35 @@ const PrivateContentHeader = ({
           </View>
         </View>
         <View style={styles.body}>
-          <Text style={[styles.messageText, { color: mutedText }]} numberOfLines={2}>
-            {message && message.length > 0 ? message : (canEdit ? placeholder : 'No message added')}
+          <TouchableOpacity
+            activeOpacity={isMessageTruncated ? 0.7 : 1}
+            disabled={!isMessageTruncated}
+            onPress={() => setIsMessageExpanded((expanded) => !expanded)}
+            accessibilityRole={isMessageTruncated ? 'button' : undefined}
+            accessibilityLabel={isMessageTruncated ? (isMessageExpanded ? 'Collapse private content message' : 'Expand private content message') : undefined}
+            accessibilityState={isMessageTruncated ? { expanded: isMessageExpanded } : undefined}
+          >
+            <Text
+              style={[styles.messageText, { color: mutedText }]}
+              numberOfLines={isMessageExpanded ? undefined : 2}
+              ellipsizeMode="tail"
+            >
+              {displayedMessage}
+            </Text>
+            {isMessageTruncated && (
+              <Text style={[styles.expandToggle, { color: accent || '#5A2D82' }]}>
+                {isMessageExpanded ? 'Show less' : 'Show more'}
+              </Text>
+            )}
+          </TouchableOpacity>
+          <Text
+            accessible={false}
+            importantForAccessibility="no-hide-descendants"
+            pointerEvents="none"
+            style={[styles.messageText, styles.messageMeasure]}
+            onTextLayout={handleMessageLayout}
+          >
+            {displayedMessage}
           </Text>
         </View>
         {canEdit && (
@@ -270,6 +316,17 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontSize: 13,
     lineHeight: 18,
+  },
+  messageMeasure: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    opacity: 0,
+  },
+  expandToggle: {
+    marginTop: 4,
+    fontSize: 13,
+    fontWeight: '700',
   },
   editButton: {
     marginLeft: 8,

@@ -293,6 +293,7 @@ const ProfileEbookScreen = ({
         messageType={'ebooks'}
         canEdit={isOwnProfile}
         userId={userData?.id}
+        profileType={profileThemeType}
         onSave={(text) => {
           console.log('Saved ebook private message:', text);
         }}

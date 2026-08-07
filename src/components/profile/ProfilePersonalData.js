@@ -1197,6 +1197,20 @@ const ProfilePersonData = ({
       const params = screenParams?.returnParams || screenParams?.postViewParams || undefined;
       navigation.navigate('ProfileMain', { screen: 'PostView', params });
       return;
+    } else if (returnByTo === 'EbookDetail') {
+      // Comments can open a profile from any tab stack. Use the originating
+      // stack supplied by the detail screen so back returns to that same e-book.
+      const stackName = screenParams?.stackName;
+      const params = screenParams?.returnParams;
+      const parentNav = navigation.getParent?.();
+      if (stackName && parentNav?.navigate) {
+        parentNav.navigate(stackName, { screen: 'EbookDetail', params });
+      } else if (stackName) {
+        navigation.navigate(stackName, { screen: 'EbookDetail', params });
+      } else {
+        navigation.navigate('EbookDetail', params);
+      }
+      return;
     } else if (returnByTo === 'Add') {
       const parentNav = navigation.getParent?.();
       if (parentNav?.jumpTo) parentNav.jumpTo('Add');
