@@ -51,6 +51,7 @@ const getConditionOptions = t => [
 const getShippingOptions = t => [
   { label: t('myClosetItems.shippingShip'), value: 'ship_items' },
   { label: t('myClosetItems.shippingLocalPickup'), value: 'local_pick' },
+  { label: t('myClosetItems.shippingBoth'), value: 'both' },
 ];
 
 const getReturnPolicyOptions = t => [
@@ -103,6 +104,8 @@ const getShippingLabel = (value, t) => {
       return t('myClosetItems.shippingShip');
     case 'local_pick':
       return t('myClosetItems.shippingLocalPickup');
+    case 'both':
+      return t('myClosetItems.shippingBoth');
     default:
       return value || '';
   }
@@ -236,6 +239,7 @@ const toEditableItem = item => {
     const foundCity = PICKUP_CITY_OPTIONS.find(city => item.pickupAddress.includes(city));
     if (foundCity) derivedCity = foundCity;
   }
+  const shippingOption = item?.shippingOption || item?.shippingOptions || '';
 
   return {
     id: item?.id || item?._id,
@@ -256,11 +260,15 @@ const toEditableItem = item => {
     buyerChatEnabled: String(item?.buyerChatEnabled) !== 'false',
     returnPolicy: item?.returnPolicy || '',
     image: extractItemImage(item),
+    shippingEnabled: shippingOption !== 'local_pick',
+    pickupEnabled: shippingOption === 'local_pick' || shippingOption === 'both',
   };
 };
 
 const buildPayload = draft => {
-  const shippingOption = draft.shippingOption || 'ship_items';
+  const shippingOption = draft.shippingEnabled && draft.pickupEnabled
+    ? 'both'
+    : draft.pickupEnabled ? 'local_pick' : 'ship_items';
   const shippingEnabled = shippingOption !== 'local_pick';
   const pickupEnabled = shippingOption === 'local_pick' || shippingOption === 'both';
 
@@ -815,7 +823,14 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
             value={draft.shippingOption}
             options={SHIPPING_OPTIONS}
             placeholder={t('myClosetItemEditor.shippingOptionPlaceholder')}
-            onSelect={value => setDraft(prev => ({ ...prev, shippingOption: value }))}
+            onSelect={value =>
+              setDraft(prev => ({
+                ...prev,
+                shippingOption: value,
+                shippingEnabled: value !== 'local_pick',
+                pickupEnabled: value === 'local_pick' || value === 'both',
+              }))
+            }
             accent={accent}
           />
           {(!draft.shippingOption || draft.shippingOption !== 'local_pick') && (

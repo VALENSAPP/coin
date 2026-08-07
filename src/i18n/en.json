@@ -3770,7 +3770,8 @@
     "categoryVintagePieces": "Vintage > Pieces",
     "categoryOthers": "Others",
     "yes": "Yes",
-    "no": "No"
+    "no": "No",
+    "shippingBoth": "Both"
   },
   "myClosetItemEditor": {
     "headerTitle": "Edit Item",

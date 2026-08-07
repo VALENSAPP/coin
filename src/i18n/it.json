@@ -3610,7 +3610,8 @@
     "categoryVintagePieces": "Vintage > Articoli",
     "categoryOthers": "Altro",
     "yes": "Sì",
-    "no": "No"
+    "no": "No",
+    "shippingBoth": "Entrambi"
   },
   "myClosetItemEditor": {
     "headerTitle": "Modifica articolo",
