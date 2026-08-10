@@ -122,7 +122,22 @@ const useBattleAccent = () => {
     const accentLight = isBusinessProfile
         ? (isDarkMode ? 'rgba(201,161,90,0.22)' : 'rgba(201,161,90,0.14)')
         : (isDarkMode ? 'rgba(90,45,130,0.25)' : '#EEEDFE');
-    return { accent, accentLight, accentDark: accent, isDarkMode, card, border, text, mutedText, isBusinessProfile };
+    // Soft brand tint for text sitting on accentLight chips — never dark purple on dark bg.
+    const accentSoftText = isDarkMode
+        ? (isBusinessProfile ? '#F0E0B8' : '#E8DEFF')
+        : accent;
+    return {
+        accent,
+        accentLight,
+        accentDark: accent,
+        accentSoftText,
+        isDarkMode,
+        card,
+        border,
+        text,
+        mutedText,
+        isBusinessProfile,
+    };
 };
 
 // ─── LiveDot ──────────────────────────────────────────────────────────────────
@@ -151,21 +166,24 @@ const LiveDot = () => {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-const TimerBadge = ({ endTime, ended, t }) => (
-    <View style={styles.timerBadge}>
-        <Icon name="time-outline" size={10} color={ended ? '#A32D2D' : '#888780'} style={{ marginRight: 3 }} />
-        <Text style={[styles.timerText, ended && styles.timerTextEnded]}>
-            {formatBattleCountdown(endTime, t)}
-        </Text>
-    </View>
-);
+const TimerBadge = ({ endTime, ended, t }) => {
+    const { mutedText } = useBattleAccent();
+    return (
+        <View style={styles.timerBadge}>
+            <Icon name="time-outline" size={10} color={ended ? '#A32D2D' : mutedText} style={{ marginRight: 3 }} />
+            <Text style={[styles.timerText, { color: mutedText }, ended && styles.timerTextEnded]}>
+                {formatBattleCountdown(endTime, t)}
+            </Text>
+        </View>
+    );
+};
 
 const ModeBadge = ({ format, ended, isLive, t }) => {
-    const { accentLight, accentDark } = useBattleAccent();
+    const { accentLight, accentSoftText } = useBattleAccent();
     return (
         <View style={[styles.modeBadge, !ended && { backgroundColor: accentLight }, ended && styles.modeBadgeEnded]}>
             {!ended && (isLive ? <LiveDot /> : <View style={styles.modeBadgeDotOrange} />)}
-            <Text style={[styles.modeBadgeText, !ended && { color: accentDark }, ended && styles.modeBadgeTextEnded]} numberOfLines={2}>
+            <Text style={[styles.modeBadgeText, !ended && { color: accentSoftText }, ended && styles.modeBadgeTextEnded]} numberOfLines={2}>
                 {format === 'POLL' ? t('battleCard.poll') : t('battleCard.battleMode')}
             </Text>
         </View>
@@ -182,7 +200,7 @@ const ParticipantAvatar = ({ avatarUrl, name, handle, isEmpty, onPress, onPressI
                         <Icon name="person-add-outline" size={15} color={accent} />
                     </View>
                     <Text style={[styles.waitingLabel, { color: accent }]}>{t('battleCard.waiting')}</Text>
-                    <Text style={styles.waitingSub}>{t('battleCard.openSlot')}</Text>
+                    <Text style={[styles.waitingSub, { color: mutedText }]}>{t('battleCard.openSlot')}</Text>
                 </View>
             </View>
         );
@@ -210,23 +228,25 @@ const ParticipantAvatar = ({ avatarUrl, name, handle, isEmpty, onPress, onPressI
 };
 
 const StakePill = ({ amount, t }) => {
-    const { accent, accentLight, accentDark } = useBattleAccent();
+    const { accentLight, accentSoftText } = useBattleAccent();
     return (
         <View style={[styles.stakePill, { backgroundColor: accentLight }]}>
-            <Icon name="flash" size={11} color={accent} />
-            <Text style={[styles.stakeText, { color: accentDark }]}>
-                {t('battleCard.stakes')} <Text style={[styles.stakeAmount, { color: accentDark }]}>{formatAmount(amount)}</Text>
+            <Icon name="flash" size={11} color={accentSoftText} />
+            <Text style={[styles.stakeText, { color: accentSoftText }]}>
+                {t('battleCard.stakes')} <Text style={[styles.stakeAmount, { color: accentSoftText }]}>{formatAmount(amount)}</Text>
             </Text>
         </View>
     );
 };
 
 const OptionChip = ({ option, isSelected, onPress, disabled, avatarUrl, percent }) => {
-    const { accent, accentLight, accentDark, card, text: themeText, border, isDarkMode } = useBattleAccent();
+    const { accent, accentLight, accentSoftText, card, text: themeText, border, isDarkMode } = useBattleAccent();
     const safePercent = Number.isFinite(percent)
         ? Math.max(0, Math.min(100, Math.round(percent)))
         : 0;
     const label = option?.label || option;
+    // Dark mode: always use light labels — brand purple (#5a2d82) fails contrast on dark chips.
+    const labelColor = isDarkMode ? '#F5F0FF' : (isSelected ? accentSoftText : themeText);
 
     return (
         <TouchableOpacity
@@ -243,18 +263,20 @@ const OptionChip = ({ option, isSelected, onPress, disabled, avatarUrl, percent 
             <View style={styles.optionChipTopRow}>
                 <HexAvatar uri={normalizeImageUrl(avatarUrl) || DEFAULT_AVATAR} size={22} borderWidth={1.5} borderColor={accent} fadeDuration={0} />
                 <Text
-                    style={[
-                        styles.optionChipLabel,
-                        { color: themeText },
-                        isSelected && { color: accentDark },
-                    ]}
+                    style={[styles.optionChipLabel, { color: labelColor }]}
                     numberOfLines={1}
                 >
                     {label}
                     {' '}
-                    <Text style={[styles.optionChipPercentInline, isSelected && { color: accentDark }]}>{safePercent}%</Text>
+                    <Text style={[styles.optionChipPercentInline, { color: labelColor }]}>{safePercent}%</Text>
                 </Text>
-                <View style={[styles.radioCircle, isSelected && { borderColor: accent }]}>
+                <View
+                    style={[
+                        styles.radioCircle,
+                        isDarkMode && { backgroundColor: 'transparent', borderColor: border },
+                        isSelected && { borderColor: accent, backgroundColor: isDarkMode ? 'transparent' : '#fff' },
+                    ]}
+                >
                     {isSelected && <View style={[styles.radioInner, { backgroundColor: accent }]} />}
                 </View>
             </View>
@@ -265,21 +287,24 @@ const OptionChip = ({ option, isSelected, onPress, disabled, avatarUrl, percent 
     );
 };
 
-const StatRow = ({ totalParticipants, totalLikes, totalComments }) => (
-    <View style={styles.statsRow}>
-        <View style={styles.statItem}>
-            <Icon name="people-outline" size={12} color="#888780" />
-            <Text style={styles.statText}>{formatBattleCount(totalParticipants)}</Text>
-        </View>
-        <View style={styles.statDot} />
-        <View style={styles.statItem}>
-            <View style={{ marginTop: 2 }}>
-                <Icon name="chatbox-ellipses-outline" size={12} color="#888780" />
+const StatRow = ({ totalParticipants, totalLikes, totalComments }) => {
+    const { mutedText, border } = useBattleAccent();
+    return (
+        <View style={styles.statsRow}>
+            <View style={styles.statItem}>
+                <Icon name="people-outline" size={12} color={mutedText} />
+                <Text style={[styles.statText, { color: mutedText }]}>{formatBattleCount(totalParticipants)}</Text>
             </View>
-            <Text style={styles.statText}>{formatBattleCount(totalComments)}</Text>
+            <View style={[styles.statDot, { backgroundColor: border }]} />
+            <View style={styles.statItem}>
+                <View style={{ marginTop: 2 }}>
+                    <Icon name="chatbox-ellipses-outline" size={12} color={mutedText} />
+                </View>
+                <Text style={[styles.statText, { color: mutedText }]}>{formatBattleCount(totalComments)}</Text>
+            </View>
         </View>
-    </View>
-);
+    );
+};
 
 // ─── BattleCard ───────────────────────────────────────────────────────────────
 
@@ -409,14 +434,14 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
 
                 <View style={styles.metaRow}>
                     <StakePill amount={formatAmount(item.stakeAmount || 0)} t={t} />
-                    <Text style={styles.metaText}>
+                    <Text style={[styles.metaText, mutedTextStyle]}>
                         {formattedEndDate
                             ? `${t('battleCard.ends')} ${formattedEndDate}`
                             : t('battleCard.noEndDate')}
                     </Text>
                 </View>
 
-                <View style={styles.divider} />
+                <View style={[styles.divider, { backgroundColor: border }]} />
                 <StatRow totalParticipants={item.totalParticipants} totalLikes={item.totalLikes} totalComments={item.totalComments} />
             </TouchableOpacity>
         );
@@ -542,7 +567,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
                 </TouchableOpacity>
             )}
 
-            <View style={styles.divider} />
+            <View style={[styles.divider, { backgroundColor: border }]} />
             <StatRow totalParticipants={item.totalParticipants} totalLikes={item.totalLikes} totalComments={item.totalComments} />
         </TouchableOpacity>
     );

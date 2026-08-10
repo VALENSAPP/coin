@@ -59,6 +59,7 @@ import { showToastMessage } from '../../components/displaytoastmessage';
 import Video from 'react-native-video';
 import styles from './Style';
 import { useBusinessProfileTheme } from '../../theme/useBusinessProfileTheme';
+import { useThemeContext } from '../../theme/ThemeContext';
 import { normalizeProfileType } from '../../utils/supportEligibility';
 import { getProgressBarColor } from '../../utils/progressBarUtils';
 import { getTotalDonationAmount } from '../../services/tokens';
@@ -797,9 +798,12 @@ const SearchScreen = () => {
     icon,
     accent,
   } = useBusinessProfileTheme();
+  const { isDarkMode } = useThemeContext();
   const profile = isBusinessProfile ? 'company' : 'user';
   const isOwnProfile = false;
   const isScreenFocused = useIsFocused();
+  const battleThumbSurface = isDarkMode ? (border || '#333') : '#f5f3ef';
+  const battleLoadingOverlay = isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(245,243,238,0.72)';
 
   const getUserAccentColor = useCallback((userProfile) => {
     if (!userProfile) return null;
@@ -1836,10 +1840,10 @@ const SearchScreen = () => {
                                     border={border}
                                     textColor={text}
                                     mutedText={mutedText}
-                                    isDark={false}
-                                    thumbSurface={'#f5f3ef'}
+                                    isDark={isDarkMode}
+                                    thumbSurface={battleThumbSurface}
                                     mutedColor={mutedText}
-                                    loadingOverlayColor={'rgba(245,243,238,0.72)'}
+                                    loadingOverlayColor={battleLoadingOverlay}
                                     customWidth={searchBattleCardWidth}
                                   />
                                 </View>

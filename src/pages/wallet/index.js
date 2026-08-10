@@ -123,20 +123,53 @@ const FOLLOWERS_RANGE_BY_PERIOD = {
   Weekly: 'weekly',
 };
 
-const pad2 = value => String(value).padStart(2, '0');
-
 function formatActivityDayLabel(date) {
   if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
-  return date.toLocaleDateString('en-US', { weekday: 'long' });
+  return date.toLocaleDateString(undefined, { weekday: 'short' });
+}
+
+function formatActivityWeekLabel(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+function formatActivityHourLabel(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
+  return date.toLocaleTimeString(undefined, { hour: 'numeric', hour12: true });
 }
 
 const formatActivityBucketLabel = (timestamp, range) => {
   const date = new Date(timestamp);
   if (Number.isNaN(date.getTime())) return '';
   if (range === 'daily') {
-    return formatActivityDayLabel(date);
+    return formatActivityHourLabel(date);
   }
-  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+  return formatActivityWeekLabel(date);
+};
+
+/** Keep axis labels short even when the API returns ISO dates or long weekdays. */
+const shortenActivityAxisLabel = (label, timestamp, range) => {
+  const raw = String(label || '').trim();
+  const dateFromTs = Number.isFinite(Number(timestamp)) ? new Date(Number(timestamp)) : null;
+  const dateFromIso = /^\d{4}-\d{2}-\d{2}/.test(raw) ? new Date(raw.slice(0, 10)) : null;
+  const date =
+    dateFromTs && !Number.isNaN(dateFromTs.getTime())
+      ? dateFromTs
+      : dateFromIso && !Number.isNaN(dateFromIso.getTime())
+        ? dateFromIso
+        : null;
+
+  if (/monday|tuesday|wednesday|thursday|friday|saturday|sunday/i.test(raw)) {
+    return date ? formatActivityDayLabel(date) : raw.slice(0, 3);
+  }
+
+  if (date) {
+    if (range === 'daily') return formatActivityHourLabel(date);
+    return formatActivityWeekLabel(date);
+  }
+
+  if (raw.length > 8) return `${raw.slice(0, 7)}…`;
+  return raw;
 };
 
 const normalizeActivityTimestamp = (timestamp, range) => {
@@ -189,18 +222,24 @@ const resolveActivityLabel = (item, timestamp, range) => {
   const label = String(item?.label || '').trim();
   if (range === 'daily') {
     const dayName = String(item?.dayname ?? item?.dayName ?? item?.weekday ?? '').trim();
-    if (dayName) return dayName;
+    if (dayName) return shortenActivityAxisLabel(dayName, timestamp, range);
+
+    if (label && /^\d{1,2}:\d{2}/.test(label)) {
+      return shortenActivityAxisLabel(label, timestamp, range);
+    }
 
     const dateFromDay = item?.day ?? item?.date ?? item?.timestamp ?? item?.createdAt ?? item?.time;
     if (dateFromDay != null && String(dateFromDay).trim()) {
       const parsed = parseApiTimestamp(dateFromDay);
-      if (Number.isFinite(parsed)) return formatActivityDayLabel(new Date(parsed));
+      if (Number.isFinite(parsed)) {
+        return shortenActivityAxisLabel('', parsed, range);
+      }
     }
 
-    return formatActivityDayLabel(new Date(timestamp));
+    return shortenActivityAxisLabel('', timestamp, range);
   }
 
-  if (label) return label;
+  if (label) return shortenActivityAxisLabel(label, timestamp, range);
   return formatActivityBucketLabel(timestamp, range);
 };
 
@@ -416,7 +455,9 @@ const splitHeaderNameLines = (label, maxCharsPerLine) => {
 const ACTIVITY_UNFOLLOW_PINK = '#db2777';
 const ACTIVITY_SUPPORT_LINE = '#8b5cf6';
 /** Min horizontal space per segment; chart widens (scroll) when points would crowd */
-const ACTIVITY_CHART_POINT_GAP = 46;
+const ACTIVITY_CHART_POINT_GAP = 58;
+/** Minimum px between visible x-axis labels */
+const ACTIVITY_CHART_LABEL_GAP = 56;
 
 /** Multi-series trend (each line scaled to its own min/max so shapes are visible together). */
 function ActivityTrendSvg({
@@ -430,6 +471,7 @@ function ActivityTrendSvg({
   colorFollowers,
   colorUnfollowers,
   colorSupport,
+  range = 'weekly',
 }) {
   const pairedSorted = useMemo(() => {
     const len = Math.min(
@@ -454,10 +496,10 @@ function ActivityTrendSvg({
     return rows;
   }, [timestamps, labels, followersValues, unfollowersValues, supportValues]);
 
-  const padL = 32;
-  const padR = 8;
+  const padL = 28;
+  const padR = 12;
   const padT = 8;
-  const padB = 30;
+  const padB = 36;
   const innerW = Math.max(chartWidth - padL - padR, 1);
   const innerH = Math.max(chartHeight - padT - padB, 1);
   const n = pairedSorted.length;
@@ -466,7 +508,9 @@ function ActivityTrendSvg({
   const unfollowersValuesSorted = pairedSorted.map((r) => r.uv);
   const supportValuesSorted = pairedSorted.map((r) => r.sv);
   const timestampsSorted = pairedSorted.map((r) => r.t);
-  const labelsSorted = pairedSorted.map((r) => r.label);
+  const labelsSorted = pairedSorted.map((r) =>
+    shortenActivityAxisLabel(r.label, r.t, range),
+  );
 
   const xs = Array.from({ length: n }, (_, i) =>
     padL + (n <= 1 ? innerW / 2 : (i / (n - 1)) * innerW),
@@ -475,13 +519,37 @@ function ActivityTrendSvg({
   const labelIndexes = useMemo(() => {
     if (n <= 0) return [];
     if (n === 1) return [0];
-    const maxLabels = Math.min(7, n);
-    const set = new Set([0, n - 1]);
+
+    const xAt = (i) => padL + (n <= 1 ? innerW / 2 : (i / (n - 1)) * innerW);
+    const maxByWidth = Math.max(2, Math.floor(innerW / ACTIVITY_CHART_LABEL_GAP) + 1);
+    const maxLabels = Math.min(n, maxByWidth, 6);
+    if (maxLabels <= 2) return [0, n - 1];
+
+    const picked = [0];
     for (let k = 1; k < maxLabels - 1; k++) {
-      set.add(Math.round((k / (maxLabels - 1)) * (n - 1)));
+      const idx = Math.round((k / (maxLabels - 1)) * (n - 1));
+      if (idx > picked[picked.length - 1]) picked.push(idx);
     }
-    return [...set].sort((a, b) => a - b);
-  }, [n]);
+    if (picked[picked.length - 1] !== n - 1) picked.push(n - 1);
+
+    const spaced = [picked[0]];
+    for (let i = 1; i < picked.length - 1; i++) {
+      const prevX = xAt(spaced[spaced.length - 1]);
+      const nextX = xAt(picked[i]);
+      if (nextX - prevX >= ACTIVITY_CHART_LABEL_GAP * 0.85) {
+        spaced.push(picked[i]);
+      }
+    }
+    const last = picked[picked.length - 1];
+    while (
+      spaced.length > 1 &&
+      xAt(last) - xAt(spaced[spaced.length - 1]) < ACTIVITY_CHART_LABEL_GAP * 0.85
+    ) {
+      spaced.pop();
+    }
+    if (spaced[spaced.length - 1] !== last) spaced.push(last);
+    return spaced;
+  }, [n, innerW, padL]);
 
   const toYs = (vals) => {
     const nums = vals.map((v) => Number(v) || 0);
@@ -551,9 +619,9 @@ function ActivityTrendSvg({
           <SvgText
             key={`lb-${ts}-${i}`}
             x={xs[i]}
-            y={chartHeight - 4}
+            y={chartHeight - 6}
             fill="#888"
-            fontSize={9}
+            fontSize={10}
             textAnchor={anchor}
           >
             {labelsSorted[i] || ''}
@@ -1868,9 +1936,9 @@ export const WalletDashboardScreen = ({ navigation }) => {
                       { color: mutedText },
                       isActive && styles.periodTextActive,
                     ]}
-                    numberOfLines={2}
+                    numberOfLines={1}
                     adjustsFontSizeToFit
-                    minimumFontScale={0.85}
+                    minimumFontScale={0.75}
                   >
                     {period}
                   </Text>
@@ -2047,6 +2115,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
                     colorFollowers={text}
                     colorUnfollowers={ACTIVITY_UNFOLLOW_PINK}
                     colorSupport={ACTIVITY_SUPPORT_LINE}
+                    range={FOLLOWERS_RANGE_BY_PERIOD[activityPeriod] ?? 'weekly'}
                   />
                 </ScrollView>
                 <Text style={[styles.activityChartFootnote, { color: mutedText }]}>

@@ -34,11 +34,15 @@ const AMOUNTS = [5, 10, 25, 50];
 const MIN_TIP_AMOUNT = 0.5;
 
 const withAlpha = (hex, alpha = 0.12) => {
+  if (!hex || typeof hex !== 'string' || !hex.startsWith('#')) {
+    return `rgba(90, 45, 130, ${alpha})`;
+  }
   const normalized = hex.replace('#', '');
   const full = normalized.length === 3
     ? normalized.split('').map((c) => c + c).join('')
     : normalized;
   const int = parseInt(full, 16);
+  if (Number.isNaN(int)) return `rgba(90, 45, 130, ${alpha})`;
   const r = (int >> 16) & 255;
   const g = (int >> 8) & 255;
   const b = int & 255;
@@ -56,10 +60,7 @@ export default function TipSupportModal({
   const dispatch = useDispatch();
   const { t } = useLanguage();
   const { isDarkMode } = useThemeContext();
-  const { text, card, cardStyle } = useAppTheme();
-  const modalTitleColor = isDarkMode ? '#FFFFFF' : text;
-  const amountTextColor = isDarkMode ? '#FFFFFF' : text;
-  const modalIconColor = isDarkMode ? '#FFFFFF' : '#1F2937';
+  const { text, card, cardStyle, accent, mutedText, border } = useAppTheme();
   const {
     requireStripeCustomerForPayment,
     openPaymentConnectionAndRefresh,
@@ -73,6 +74,11 @@ export default function TipSupportModal({
 
   const finalAmount = Number(selectedAmount || customAmount);
   const isAmountValid = finalAmount >= MIN_TIP_AMOUNT;
+  const primaryText = isDarkMode ? '#F5F0FF' : (text || '#111827');
+  const secondaryText = isDarkMode ? '#C8C4D0' : (mutedText || '#6B7280');
+  const actionAccent = accent || '#5a2d82';
+  const idleBorder = border || (isDarkMode ? '#444444' : '#D1D5DB');
+  const sheetBg = card || (isDarkMode ? '#1E1E1E' : '#FFFFFF');
 
   const resetForm = () => {
     setCustomAmount('');
@@ -149,11 +155,6 @@ export default function TipSupportModal({
       const url = getPaymentSessionUrl(response);
 
       if (!url) {
-        // showToastMessage(
-        //   toast,
-        //   'danger',
-        //   response?.message || response?.data?.message || stripeErrorMessages.SESSION_FAILED,
-        // );
         setIsButtonLoading(false);
         dispatch(hideLoader());
         return;
@@ -161,11 +162,6 @@ export default function TipSupportModal({
 
       await openCheckoutSession(url);
     } catch (error) {
-      // showToastMessage(
-      //   toast,
-      //   'danger',
-      //   error?.response?.data?.message || error?.message || stripeErrorMessages.NETWORK_ERROR,
-      // );
       setIsButtonLoading(false);
       dispatch(hideLoader());
     }
@@ -187,24 +183,24 @@ export default function TipSupportModal({
           style={styles.flex}
         >
           <View style={styles.overlay}>
-            <View style={[styles.sheet, cardStyle]}>
+            <View style={[styles.sheet, cardStyle, { backgroundColor: sheetBg }]}>
               <View style={styles.headerRow}>
                 <TouchableOpacity onPress={onClose} hitSlop={12} style={styles.headerIconBtn}>
-                  <Ionicons name="arrow-back" size={22} color={modalIconColor} />
+                  <Ionicons name="arrow-back" size={22} color={primaryText} />
                 </TouchableOpacity>
                 <View style={styles.headerTitleWrap}>
-                  <Text style={[styles.title, { color: modalTitleColor }]}>
+                  <Text style={[styles.title, { color: primaryText }]}>
                     {t('tipSupportScreen.title')}
                   </Text>
                   <View style={styles.subtitleRow}>
-                    <Text style={styles.subtitle}>
+                    <Text style={[styles.subtitle, { color: secondaryText }]}>
                       {t('tipSupportScreen.subtitle', { creatorName })}
                     </Text>
-                    <Ionicons name="heart" size={14} color={text} style={styles.subtitleHeart} />
+                    <Ionicons name="heart" size={14} color={actionAccent} style={styles.subtitleHeart} />
                   </View>
                 </View>
                 <TouchableOpacity onPress={onClose} hitSlop={12} style={styles.headerIconBtn}>
-                  <Ionicons name="close" size={24} color={modalIconColor} />
+                  <Ionicons name="close" size={24} color={primaryText} />
                 </TouchableOpacity>
               </View>
 
@@ -213,7 +209,9 @@ export default function TipSupportModal({
                 contentContainerStyle={styles.scrollContent}
                 keyboardShouldPersistTaps="handled"
               >
-                <Text style={styles.amountLabel}>{t('tipSupportScreen.amountLabel')}</Text>
+                <Text style={[styles.amountLabel, { color: primaryText }]}>
+                  {t('tipSupportScreen.amountLabel')}
+                </Text>
 
                 <View style={styles.amountGrid}>
                   {AMOUNTS.map((amt) => (
@@ -221,10 +219,10 @@ export default function TipSupportModal({
                       key={amt}
                       style={[
                         styles.amountBox,
-                        { borderColor: '#D1D5DB', backgroundColor: card },
+                        { borderColor: idleBorder, backgroundColor: sheetBg },
                         isSelected(amt) && {
-                          borderColor: text,
-                          backgroundColor: withAlpha(text, 0.12),
+                          borderColor: actionAccent,
+                          backgroundColor: withAlpha(actionAccent, isDarkMode ? 0.22 : 0.12),
                         },
                       ]}
                       onPress={() => {
@@ -232,44 +230,46 @@ export default function TipSupportModal({
                         setCustomAmount('');
                       }}
                     >
-                      <Text style={[styles.amountText, { color: amountTextColor }]}>${amt}</Text>
+                      <Text style={[styles.amountText, { color: primaryText }]}>${amt}</Text>
                     </TouchableOpacity>
                   ))}
 
                   <View
                     style={[
                       styles.customBox,
-                      { borderColor: '#D1D5DB', backgroundColor: card },
+                      { borderColor: idleBorder, backgroundColor: sheetBg },
                       isCustomSelected && {
-                        borderColor: text,
-                        backgroundColor: withAlpha(text, 0.12),
+                        borderColor: actionAccent,
+                        backgroundColor: withAlpha(actionAccent, isDarkMode ? 0.22 : 0.12),
                       },
                     ]}
                   >
                     <TextInput
                       keyboardType="decimal-pad"
-                      style={styles.customInput}
+                      style={[styles.customInput, { color: primaryText }]}
                       value={customAmount}
                       onChangeText={(val) => {
                         setCustomAmount(val);
                         setSelectedAmount(null);
                       }}
                       placeholder={t('tipSupportScreen.customAmountPlaceholder')}
-                      placeholderTextColor="#9CA3AF"
+                      placeholderTextColor={secondaryText}
                     />
-                    <Ionicons name="pencil" size={16} color="#6B7280" />
+                    <Ionicons name="pencil" size={16} color={secondaryText} />
                   </View>
                 </View>
 
-                <View style={[styles.infoBox, { backgroundColor: withAlpha(text, 0.12) }]}>
-                  <Ionicons name="information-circle" size={20} color={text} />
-                  <Text style={styles.infoText}>{t('tipSupportScreen.disclaimer')}</Text>
+                <View style={[styles.infoBox, { backgroundColor: withAlpha(actionAccent, isDarkMode ? 0.2 : 0.12) }]}>
+                  <Ionicons name="information-circle" size={20} color={actionAccent} />
+                  <Text style={[styles.infoText, { color: secondaryText }]}>
+                    {t('tipSupportScreen.disclaimer')}
+                  </Text>
                 </View>
 
                 <TouchableOpacity
                   style={[
                     styles.continueBtn,
-                    { backgroundColor: text },
+                    { backgroundColor: actionAccent },
                     (isButtonLoading || !isAmountValid) && styles.continueBtnDisabled,
                   ]}
                   onPress={handleConfirm}
@@ -288,7 +288,9 @@ export default function TipSupportModal({
                 </TouchableOpacity>
 
                 <TouchableOpacity style={styles.maybeLaterBtn} onPress={onClose}>
-                  <Text style={styles.maybeLaterText}>{t('tipSupportScreen.maybeLater')}</Text>
+                  <Text style={[styles.maybeLaterText, { color: secondaryText }]}>
+                    {t('tipSupportScreen.maybeLater')}
+                  </Text>
                 </TouchableOpacity>
               </ScrollView>
             </View>
@@ -343,12 +345,10 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#111827',
     textAlign: 'center',
   },
   subtitle: {
     fontSize: 14,
-    color: '#6B7280',
     textAlign: 'center',
   },
   subtitleRow: {
@@ -368,7 +368,6 @@ const styles = StyleSheet.create({
   amountLabel: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#374151',
     marginBottom: 12,
   },
   amountGrid: {
@@ -388,7 +387,6 @@ const styles = StyleSheet.create({
   amountText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#111827',
   },
   customBox: {
     width: '48%',
@@ -403,7 +401,6 @@ const styles = StyleSheet.create({
   customInput: {
     flex: 1,
     fontSize: 15,
-    color: '#111827',
     paddingVertical: 0,
   },
   infoBox: {
@@ -418,7 +415,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     lineHeight: 19,
-    color: '#4B5563',
   },
   continueBtn: {
     flexDirection: 'row',
@@ -442,7 +438,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   maybeLaterText: {
-    color: '#6B7280',
     fontSize: 15,
     fontWeight: '600',
   },
