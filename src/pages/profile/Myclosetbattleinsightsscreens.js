@@ -373,8 +373,9 @@ export function PromotionExpiredScreen({ navigation, winnerItem, battleId }) {
               liveRoute: 'BattleLive',
             })
           }
+          style={{width: '100%'}}
         >
-          <LinearGradient colors={[accent, text]} style={[styles.primaryButton, {flexDirection: 'row', paddingHorizontal: 85}]}>
+          <LinearGradient colors={[accent, text]} style={[styles.primaryButton, {flexDirection: 'row'}]}>
             <Ionicons name="flash-outline" size={16} color="#fff" style={{ marginRight: 8 }} />
             <Text style={styles.primaryButtonText}>
               {t('battleInsights.createNewBattle') || 'Create New Battle'}
@@ -1001,7 +1002,7 @@ const styles = StyleSheet.create({
   packageViews: { fontSize: 10, color: MUTED, fontWeight: '700', textAlign: 'center' },
 
   primaryButton: { height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
-  primaryButtonText: { color: '#fff', fontSize: 15, fontWeight: '900' },
+  primaryButtonText: { color: '#fff', fontSize: 15, fontWeight: '900',textAlign:'center' },
 
   reviewItemCard: { flexDirection: 'row', gap: 12, alignItems: 'center', borderRadius: 18, borderWidth: 1, borderColor: BORDER, padding: 12 },
   reviewBlock: { gap: 4, borderRadius: 18, borderWidth: 1, borderColor: BORDER, padding: 14 },
