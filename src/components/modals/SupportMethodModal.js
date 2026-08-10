@@ -11,6 +11,7 @@ import {
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useSelector } from 'react-redux';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useThemeContext } from '../../theme/ThemeContext';
 import { useLanguage } from '../../i18n';
 
 const WALLET_ICONS = {
@@ -19,11 +20,15 @@ const WALLET_ICONS = {
 };
 
 const withAlpha = (hex, alpha = 0.12) => {
+  if (!hex || typeof hex !== 'string' || !hex.startsWith('#')) {
+    return `rgba(90, 45, 130, ${alpha})`;
+  }
   const normalized = hex.replace('#', '');
   const full = normalized.length === 3
     ? normalized.split('').map((c) => c + c).join('')
     : normalized;
   const int = parseInt(full, 16);
+  if (Number.isNaN(int)) return `rgba(90, 45, 130, ${alpha})`;
   const r = (int >> 16) & 255;
   const g = (int >> 8) & 255;
   const b = int & 255;
@@ -39,7 +44,8 @@ const SupportMethodModal = ({
   canSupport = true,
 }) => {
   const { t } = useLanguage();
-  const { text, card, cardStyle } = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const { text, card, cardStyle, accent, mutedText, border } = useAppTheme();
   const userProfile = useSelector((state) => state.userProfile.userProfile);
   const walletIcon = useMemo(
     () => WALLET_ICONS[userProfile === 'company' ? 'company' : 'user'],
@@ -52,6 +58,16 @@ const SupportMethodModal = ({
   const isTipSelected = selectedMethod === 'tip';
   const isConnectWalletEnabled = isWalletSelected && canSupport;
   const isSendTipEnabled = isTipSelected;
+
+  // Force readable contrast: brand purple/gold is for accents, not body copy in dark mode.
+  const primaryText = isDarkMode ? '#F5F0FF' : (text || '#111827');
+  const secondaryText = isDarkMode ? '#C8C4D0' : (mutedText || '#6B7280');
+  const actionAccent = accent || '#5a2d82';
+  const idleBorder = border || (isDarkMode ? '#444444' : '#E5E7EB');
+  const disabledSurface = isDarkMode ? '#2A2A2A' : '#F3F4F6';
+  const disabledButtonBg = isDarkMode ? '#4B5563' : '#9CA3AF';
+  const chevronColor = secondaryText;
+  const sheetBg = card || (isDarkMode ? '#1E1E1E' : '#FFFFFF');
 
   useEffect(() => {
     if (!visible) return;
@@ -95,35 +111,35 @@ const SupportMethodModal = ({
   const walletCardStyle = useMemo(() => {
     if (isWalletMethodDisabled) {
       return {
-        borderColor: '#E5E7EB',
-        backgroundColor: '#F3F4F6',
+        borderColor: idleBorder,
+        backgroundColor: disabledSurface,
         opacity: 0.65,
       };
     }
     if (isWalletSelected) {
       return {
-        borderColor: text,
-        backgroundColor: withAlpha(text, 0.06),
+        borderColor: actionAccent,
+        backgroundColor: withAlpha(actionAccent, isDarkMode ? 0.22 : 0.06),
       };
     }
     return {
-      borderColor: '#E5E7EB',
-      backgroundColor: card,
+      borderColor: idleBorder,
+      backgroundColor: sheetBg,
     };
-  }, [isWalletMethodDisabled, isWalletSelected, text, card]);
+  }, [isWalletMethodDisabled, isWalletSelected, actionAccent, sheetBg, idleBorder, disabledSurface, isDarkMode]);
 
   const tipCardStyle = useMemo(() => {
     if (isTipSelected) {
       return {
-        borderColor: text,
-        backgroundColor: withAlpha(text, 0.06),
+        borderColor: actionAccent,
+        backgroundColor: withAlpha(actionAccent, isDarkMode ? 0.22 : 0.06),
       };
     }
     return {
-      borderColor: '#E5E7EB',
-      backgroundColor: card,
+      borderColor: idleBorder,
+      backgroundColor: sheetBg,
     };
-  }, [isTipSelected, text, card]);
+  }, [isTipSelected, actionAccent, sheetBg, idleBorder, isDarkMode]);
 
   return (
     <Modal
@@ -133,9 +149,9 @@ const SupportMethodModal = ({
       onRequestClose={onClose}
     >
       <View style={styles.overlay}>
-        <View style={[styles.sheet, cardStyle]}>
+        <View style={[styles.sheet, cardStyle, { backgroundColor: sheetBg }]}>
           <TouchableOpacity style={styles.closeButton} onPress={onClose} hitSlop={12}>
-            <Ionicons name="close" size={24} color="#1F2937" />
+            <Ionicons name="close" size={24} color={primaryText} />
           </TouchableOpacity>
 
           <ScrollView
@@ -143,15 +159,15 @@ const SupportMethodModal = ({
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
           >
-            <Text style={styles.title}>
+            <Text style={[styles.title, { color: primaryText }]}>
               {t('supportCreator.methodTitle', { creatorName })}
             </Text>
 
-            <View style={[styles.heartIconWrap, { borderColor: text }]}>
-              <Ionicons name="heart" size={28} color={text} />
+            <View style={[styles.heartIconWrap, { borderColor: actionAccent }]}>
+              <Ionicons name="heart" size={28} color={actionAccent} />
             </View>
 
-            <Text style={styles.subtitle}>
+            <Text style={[styles.subtitle, { color: secondaryText }]}>
               {t('supportCreator.methodSubtitle')}
             </Text>
 
@@ -161,7 +177,7 @@ const SupportMethodModal = ({
               onPress={handleWalletCardPress}
               disabled={isWalletMethodDisabled}
             >
-              <View style={[styles.methodIconWrap, { backgroundColor: withAlpha(text, 0.08) }]}>
+              <View style={[styles.methodIconWrap, { backgroundColor: withAlpha(actionAccent, 0.14) }]}>
                 <Image
                   source={walletIcon}
                   style={styles.methodIconImage}
@@ -169,14 +185,16 @@ const SupportMethodModal = ({
                 />
               </View>
               <View style={styles.methodCopy}>
-                <Text style={styles.methodTitle}>{t('supportCreator.walletMethodTitle')}</Text>
+                <Text style={[styles.methodTitle, { color: primaryText }]}>
+                  {t('supportCreator.walletMethodTitle')}
+                </Text>
                 {walletBullets.map((line, index) => (
-                  <Text key={`wallet-${index}`} style={styles.methodBullet}>
+                  <Text key={`wallet-${index}`} style={[styles.methodBullet, { color: secondaryText }]}>
                     {'\u2022'} {line}
                   </Text>
                 ))}
               </View>
-              <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+              <Ionicons name="chevron-forward" size={20} color={chevronColor} />
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -184,24 +202,33 @@ const SupportMethodModal = ({
               style={[styles.methodCard, tipCardStyle]}
               onPress={handleTipCardPress}
             >
-              <View style={[styles.methodIconWrap, { backgroundColor: withAlpha(text, 0.12) }]}>
-                <Ionicons name="heart-outline" size={28} color={text} />
+              <View style={[styles.methodIconWrap, { backgroundColor: withAlpha(actionAccent, 0.14) }]}>
+                <Ionicons name="heart-outline" size={28} color={actionAccent} />
               </View>
               <View style={styles.methodCopy}>
-                <Text style={styles.methodTitle}>{t('supportCreator.tipMethodTitle')}</Text>
+                <Text style={[styles.methodTitle, { color: primaryText }]}>
+                  {t('supportCreator.tipMethodTitle')}
+                </Text>
                 {tipBullets.map((line, index) => (
-                  <Text key={`tip-${index}`} style={styles.methodBullet}>
+                  <Text key={`tip-${index}`} style={[styles.methodBullet, { color: secondaryText }]}>
                     {'\u2022'} {line}
                   </Text>
                 ))}
               </View>
-              <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+              <Ionicons name="chevron-forward" size={20} color={chevronColor} />
             </TouchableOpacity>
 
-            <View style={[styles.importantBox, { backgroundColor: withAlpha(text, 0.1) }]}>
-              <Ionicons name="shield-checkmark-outline" size={18} color="#6B7280" style={styles.importantIcon} />
-              <Text style={styles.importantText}>
-                <Text style={styles.importantLabel}>{t('supportCreator.importantLabel')} </Text>
+            <View style={[styles.importantBox, { backgroundColor: withAlpha(actionAccent, isDarkMode ? 0.2 : 0.1) }]}>
+              <Ionicons
+                name="shield-checkmark-outline"
+                size={18}
+                color={secondaryText}
+                style={styles.importantIcon}
+              />
+              <Text style={[styles.importantText, { color: secondaryText }]}>
+                <Text style={[styles.importantLabel, { color: primaryText }]}>
+                  {t('supportCreator.importantLabel')}{' '}
+                </Text>
                 {t('supportCreator.importantBody')}
               </Text>
             </View>
@@ -209,7 +236,7 @@ const SupportMethodModal = ({
             <TouchableOpacity
               style={[
                 styles.actionButton,
-                { backgroundColor: isConnectWalletEnabled ? text : '#9CA3AF' },
+                { backgroundColor: isConnectWalletEnabled ? actionAccent : disabledButtonBg },
               ]}
               onPress={handleWalletPress}
               disabled={!isConnectWalletEnabled}
@@ -231,7 +258,7 @@ const SupportMethodModal = ({
             <TouchableOpacity
               style={[
                 styles.actionButton,
-                { backgroundColor: isSendTipEnabled ? text : '#9CA3AF' },
+                { backgroundColor: isSendTipEnabled ? actionAccent : disabledButtonBg },
               ]}
               onPress={handleTipPress}
               disabled={!isSendTipEnabled}
@@ -243,7 +270,9 @@ const SupportMethodModal = ({
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.maybeLaterButton} onPress={onClose}>
-              <Text style={styles.maybeLaterText}>{t('supportCreator.maybeLater')}</Text>
+              <Text style={[styles.maybeLaterText, { color: secondaryText }]}>
+                {t('supportCreator.maybeLater')}
+              </Text>
             </TouchableOpacity>
           </ScrollView>
         </View>
@@ -279,7 +308,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#111827',
     textAlign: 'center',
     marginBottom: 14,
   },
@@ -295,7 +323,6 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 15,
-    color: '#6B7280',
     textAlign: 'center',
     marginBottom: 18,
   },
@@ -326,12 +353,10 @@ const styles = StyleSheet.create({
   methodTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#111827',
     marginBottom: 6,
   },
   methodBullet: {
     fontSize: 13,
-    color: '#4B5563',
     lineHeight: 19,
     marginBottom: 2,
   },
@@ -350,12 +375,10 @@ const styles = StyleSheet.create({
   importantText: {
     flex: 1,
     fontSize: 13,
-    color: '#4B5563',
     lineHeight: 19,
   },
   importantLabel: {
     fontWeight: '700',
-    color: '#374151',
   },
   actionButton: {
     flexDirection: 'row',
@@ -389,7 +412,6 @@ const styles = StyleSheet.create({
   },
   maybeLaterText: {
     fontSize: 15,
-    color: '#6B7280',
     fontWeight: '600',
   },
 });
