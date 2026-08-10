@@ -28,6 +28,7 @@ import useScreenshotProtection, {
 import MyClosetShopFront from './MyClosetShopFront';
 import { applyClientPostOverlayCacheToList } from '../../utils/postSoundtracks';
 import PrivateContentHeader from './PrivateContentHeader';
+import PrintWarningModal from '../modals/PrintWarningModal';
 
 const { width: screenWidth } = Dimensions.get('window');
 const numColumns = 3;
@@ -173,6 +174,8 @@ const PrivateContentScreen = ({
   const [resolvedIsSubscribed, setResolvedIsSubscribed] = useState(false);
   const [shopCheckComplete, setShopCheckComplete] = useState(false);
   const [shopExists, setShopExists] = useState(false);
+  const [printWarningVisible, setPrintWarningVisible] = useState(false);
+  const [printAttempts, setPrintAttempts] = useState(0);
   const navigation = useNavigation();
   const isFocused = useIsFocused();
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -193,6 +196,11 @@ const PrivateContentScreen = ({
     String(isSubscribed || '').toLowerCase() === 'true';
   const isOwnProfile = String(loggedInUserId || '') === String(userData?.id || '');
   const canViewPrivateContent = isOwnProfile || resolvedIsSubscribed;
+
+  const handleRestrictedCapture = useCallback(() => {
+    setPrintAttempts(previousAttempts => Math.min(previousAttempts + 1, 3));
+    setPrintWarningVisible(true);
+  }, []);
 
   const handleStartShopPress = useCallback(async () => {
     try {
@@ -255,6 +263,7 @@ const PrivateContentScreen = ({
     enabled: isFocused && isActiveTab && !isCompany && canViewPrivateContent && !isOwnProfile,
     title: t('postView.screenshotWarningTitle'),
     message: t('postView.screenshotWarningMessage'),
+    onCaptureAttempt: handleRestrictedCapture,
   });
 
   const isActiveStatus = useCallback((value) => {
@@ -630,6 +639,11 @@ const PrivateContentScreen = ({
 
   return (
     <View style={[styles.screen, bgStyle]}>
+      <PrintWarningModal
+        visible={printWarningVisible}
+        attempts={printAttempts}
+        onClose={() => setPrintWarningVisible(false)}
+      />
       <PrivateContentHeader
         message={userData?.privateContentMessage}
         messageType={activeMediaFilter === 'photo' ? 'photos' : activeMediaFilter === 'video' ? 'videos' : 'ebooks'}

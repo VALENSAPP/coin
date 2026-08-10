@@ -527,7 +527,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: '10%',
+    marginBottom: '15%',
   },
   ctaText: {
     fontSize: 16,

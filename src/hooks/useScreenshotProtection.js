@@ -158,21 +158,26 @@ export default function useScreenshotProtection({
   holdProtection = false,
   title,
   message,
+  onCaptureAttempt,
 } = {}) {
   const isFocused = useIsFocused();
   const lastWarningAtRef = useRef(0);
   const isActiveRef = useRef(false);
   const shouldProtect = (isFocused || holdProtection) && enabled;
 
-  const showWarning = useCallback(() => {
-    if (!title || !message) return;
-
+  const notifyCaptureAttempt = useCallback(() => {
     const now = Date.now();
     if (now - lastWarningAtRef.current < WARNING_DEBOUNCE_MS) return;
     lastWarningAtRef.current = now;
 
+    if (onCaptureAttempt) {
+      onCaptureAttempt();
+      return;
+    }
+
+    if (!title || !message) return;
     Alert.alert(title, message, [{ text: 'OK' }]);
-  }, [title, message]);
+  }, [onCaptureAttempt, title, message]);
 
   const deactivateProtection = useCallback(() => {
     if (!isActiveRef.current) return;
@@ -191,9 +196,9 @@ export default function useScreenshotProtection({
     } catch (error) {
       isActiveRef.current = false;
       console.warn(`${LOG_TAG} Failed to enable protection:`, error);
-      showWarning();
+      if (title && message) Alert.alert(title, message, [{ text: 'OK' }]);
     }
-  }, [showWarning]);
+  }, [title, message]);
 
   useFocusEffect(
     useCallback(() => {
@@ -239,12 +244,12 @@ export default function useScreenshotProtection({
         eventType === CaptureEventType.CAPTURED ||
         eventType === CaptureEventType.RECORDING
       ) {
-        showWarning();
+        notifyCaptureAttempt();
       }
     });
 
     return () => {
       subscription?.remove?.();
     };
-  }, [shouldProtect, showWarning]);
+  }, [shouldProtect, notifyCaptureAttempt]);
 }

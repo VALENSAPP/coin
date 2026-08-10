@@ -1557,38 +1557,38 @@ const ProfilePersonData = ({
                     )}
                   </>
                 )}
+
+                <Animated.View
+                  pointerEvents={totalSupportOpen ? 'auto' : 'none'}
+                  style={[
+                    styles.totalSupportPopover,
+                    cardStyle,
+                    { borderColor: border },
+                    {
+                      height: totalSupportCardHeight,
+                      opacity: totalSupportCardOpacity,
+                      transform: [
+                        { translateY: totalSupportCardTranslateY },
+                        { scale: totalSupportCardScale },
+                      ],
+                    },
+                  ]}
+                >
+                  {totalSupportLoading ? (
+                    <ActivityIndicator size="small" color={accent} />
+                  ) : (
+                    <>
+                      <Text style={[styles.totalSupportPopoverLabel, { color: mutedText }]}>
+                        {t('profilePersonData.totalSupportReceived')}
+                      </Text>
+                      <Text style={[styles.totalSupportPopoverAmount, { color: accent }]}>
+                        $ {totalSupportAmount.toFixed(2)}
+                      </Text>
+                    </>
+                  )}
+                </Animated.View>
               </View>
             </View>
-
-            <Animated.View
-              pointerEvents={totalSupportOpen ? 'auto' : 'none'}
-              style={[
-                styles.totalSupportPopover,
-                cardStyle,
-                { borderColor: border },
-                {
-                  height: totalSupportCardHeight,
-                  opacity: totalSupportCardOpacity,
-                  transform: [
-                    { translateY: totalSupportCardTranslateY },
-                    { scale: totalSupportCardScale },
-                  ],
-                },
-              ]}
-            >
-              {totalSupportLoading ? (
-                <ActivityIndicator size="small" color={accent} />
-              ) : (
-                <>
-                  <Text style={[styles.totalSupportPopoverLabel, { color: mutedText }]}>
-                    {t('profilePersonData.totalSupportReceived')}
-                  </Text>
-                  <Text style={[styles.totalSupportPopoverAmount, { color: accent }]}>
-                    $ {totalSupportAmount.toFixed(2)}
-                  </Text>
-                </>
-              )}
-            </Animated.View>
 
             <Text style={[styles.displaynamee, { color: text }]} numberOfLines={2}>
               {Userdata.Displayname}
@@ -1986,6 +1986,7 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     flex: 1.4,
     gap: 6,
+    position: 'relative',
   },
   battleStatsContainer: {
     flex: 0.9,
@@ -2074,9 +2075,9 @@ const styles = StyleSheet.create({
   },
   totalSupportPopover: {
     position: 'absolute',
-    top: 120,
+    top: 126,
+    left: 0,
     right: 0,
-    width: '50%',
     zIndex: 999,
     overflow: 'hidden',
     borderRadius: 10,

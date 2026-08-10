@@ -47,6 +47,9 @@ import { postMessagePrivate, getMessagesPrivateById, getMyMessagesPrivate, updat
 const STRIPE_ONBOARDING_STATUS_KEY = 'stripeOnboardingStatus';
 const SUBVENTION_TERMS_AGREED_KEY_PREFIX = 'subventionTermsAgreed';
 
+const getPrivateMessagesPayload = response =>
+    response?.data?.data ?? response?.data ?? response ?? {};
+
 const hasActiveSubscriptionAccess = (data) => {
     const status = String(data?.subscriptionStatus || '').toUpperCase();
     const endDateValue = data?.subscriptionEnd || data?.currentPeriodEnd;
@@ -362,7 +365,8 @@ const SubventionSetupScreen = () => {
     const loadCustomMessages = async () => {
         try {
             const resp = await getMyMessagesPrivate();
-            const data = resp?.data ?? resp;
+            const data = getPrivateMessagesPayload(resp);
+            console.log(resp,'message rrpoenssneenenen')
             if (data) {
                 setPhotoMessage(data.messageForPhotos || '');
                 setVideoMessage(data.messageForVideos || '');
@@ -386,9 +390,12 @@ const SubventionSetupScreen = () => {
                 // ignore — we'll attempt to POST if GET fails
             }
 
+            const existingData = getPrivateMessagesPayload(existing);
             const hasServerMessage = !!(existing && (
-                (existing?.statusCode === 200 && (existing?.data?.id || existing?.data?.messageForPhotos || existing?.data?.messageForVideos || existing?.data?.messageForEbooks)) ||
-                (existing?.messageForPhotos || existing?.messageForVideos || existing?.messageForEbooks)
+                existingData?.id ||
+                existingData?.messageForPhotos ||
+                existingData?.messageForVideos ||
+                existingData?.messageForEbooks
             ));
 
             try {
@@ -428,7 +435,7 @@ const SubventionSetupScreen = () => {
         setEditingMessageType(type);
         try {
             const resp = await getMyMessagesPrivate();
-            const data = resp?.data ?? resp;
+            const data = getPrivateMessagesPayload(resp);
             const nextText = type === 'photos'
                 ? (data?.messageForPhotos || photoMessage || '')
                 : type === 'videos'

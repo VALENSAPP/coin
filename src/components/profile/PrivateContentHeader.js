@@ -13,10 +13,34 @@ import { useAppTheme } from '../../theme/useApptheme';
 import { useThemeContext } from '../../theme/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useToast } from 'react-native-toast-notifications';
-import { getMessagesPrivateById, updateMessages } from '../../services/post';
+import {
+  getMessagesPrivateById,
+  getMyMessagesPrivate,
+  updateMessages,
+} from '../../services/post';
 import { showToastMessage } from '../displaytoastmessage';
 
 const { width: screenWidth } = Dimensions.get('window');
+
+const getPrivateMessages = response => {
+  const payload = response?.data?.data ?? response?.data ?? response ?? {};
+  return {
+    messageForPhotos: payload?.messageForPhotos || payload?.messageForPhoto || '',
+    messageForVideos: payload?.messageForVideos || payload?.messageForVideo || '',
+    messageForEbooks: payload?.messageForEbooks || payload?.messageForEbook || '',
+  };
+};
+
+const getMessageForType = (messages, messageType) => {
+  const messageByType = {
+    photos: messages.messageForPhotos,
+    video: messages.messageForVideos,
+    videos: messages.messageForVideos,
+    ebook: messages.messageForEbooks,
+    ebooks: messages.messageForEbooks,
+  };
+  return messageByType[messageType] || '';
+};
 
 const PrivateContentHeader = ({
   message: initialMessage = '',
@@ -52,41 +76,6 @@ const PrivateContentHeader = ({
 
   const iconName = (messageType === 'photos') ? 'images-outline' : (messageType === 'videos' || messageType === 'video') ? 'videocam-outline' : 'book-outline';
 
-  useEffect(() => {
-    let mounted = true;
-    const fetchServer = async () => {
-      if (!userId) return;
-      try {
-        const res = await getMessagesPrivateById({ params: { userId } });
-        const payload = res?.data?.data ?? res?.data ?? res;
-        const next = {
-          messageForPhotos: payload?.messageForPhotos || payload?.messageForPhoto || '',
-          messageForVideos: payload?.messageForVideos || payload?.messageForVideo || '',
-          messageForEbooks: payload?.messageForEbooks || payload?.messageForEbook || '',
-        };
-        if (mounted) {
-          setServerMessages(next);
-          if (messageType) {
-            const map = {
-              photos: next.messageForPhotos,
-              video: next.messageForVideos,
-              videos: next.messageForVideos,
-              ebook: next.messageForEbooks,
-              ebooks: next.messageForEbooks,
-            };
-            const val = map[messageType] ?? '';
-            if (val) setMessage(val);
-          }
-        }
-      } catch (e) {
-        // ignore server error — fallback to AsyncStorage handled elsewhere
-        console.log('getMessagesPrivateById error', e?.response || e?.message || e);
-      }
-    };
-    fetchServer();
-    return () => { mounted = false; };
-  }, [userId, messageType]);
-
   const getCustomMessageKey = (userId, type) => `privateMessage:${type}:${userId || 'unknown'}`;
 
   useEffect(() => {
@@ -96,26 +85,16 @@ const PrivateContentHeader = ({
       try {
         const targetUserId = userId || await AsyncStorage.getItem('userId');
         let serverVal = '';
-        if (targetUserId) {
+        if (canEdit || targetUserId) {
           try {
-            const res = await getMessagesPrivateById({ params: { userId: targetUserId } });
-            const payload = res?.data?.data ?? res?.data ?? res;
-            const next = {
-              messageForPhotos: payload?.messageForPhotos || payload?.messageForPhoto || '',
-              messageForVideos: payload?.messageForVideos || payload?.messageForVideo || '',
-              messageForEbooks: payload?.messageForEbooks || payload?.messageForEbook || '',
-            };
+            const res = canEdit
+              ? await getMyMessagesPrivate()
+              : await getMessagesPrivateById({ params: { userId: targetUserId } });
+            const next = getPrivateMessages(res);
             if (mounted) setServerMessages(next);
-            const map = {
-              photos: next.messageForPhotos,
-              videos: next.messageForVideos,
-              video: next.messageForVideos,
-              ebook: next.messageForEbooks,
-              ebooks: next.messageForEbooks,
-            };
-            serverVal = map[messageType] ?? '';
+            serverVal = getMessageForType(next, messageType);
           } catch (err) {
-            serverVal = '';
+            console.log('private content message load error', err?.response || err?.message || err);
           }
         }
 
@@ -136,7 +115,7 @@ const PrivateContentHeader = ({
     };
     loadForUser();
     return () => { mounted = false; };
-  }, [messageType, initialMessage, userId]);
+  }, [canEdit, messageType, initialMessage, userId]);
 
   const handleSave = () => {
     setMessage(draft || '');

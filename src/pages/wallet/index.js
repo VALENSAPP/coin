@@ -589,7 +589,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
   const [rewardSummary, setRewardSummary] = useState(DEFAULT_REWARD_POINTS);
   const [kpiData, setKpiData] = useState([
     { id: 'Total Earning', title: t('walletDashboard.kpi.totalEarning'), value: '-', icon: 'wallet' },
-    { id: 'support', title: t('walletDashboard.kpi.subscriptionEarning').replace(' ', '\n'), value: '-', icon: 'pie-chart' },
+    { id: 'support', title: t('walletDashboard.kpi.subscriptionEarning'), value: '-', icon: 'pie-chart' },
     { id: 'followers', title: t('walletDashboard.kpi.followers'), value: '-', icon: 'people' },
     { id: 'credits', title: t('walletDashboard.kpi.creditsLeft'), value: '-', icon: 'flash', currentCredits: 5 },
     { id: 'Mission Post', title: t('walletDashboard.kpi.missionPost'), value: '-', icon: 'ribbon' },
@@ -1510,23 +1510,12 @@ export const WalletDashboardScreen = ({ navigation }) => {
             </View>
             {isSupportCard ? (
               <View style={styles.kpiSubscriptionTitleWrap}>
-                {(() => {
-                  const [firstLine = '', ...rest] = t('walletDashboard.kpi.subscriptionEarning').trim().split(/\s+/);
-                  const secondLine = rest.join(' ');
-                  return (
-                    <>
-                      <Text style={[styles.kpiSubscriptionTitleLine, { color: gradientText }]} numberOfLines={1}>
-                        {firstLine}
-                      </Text>
-                      <Text style={[styles.kpiSubscriptionTitleLine, { color: gradientText }]} numberOfLines={1}>
-                        {secondLine}
-                      </Text>
-                    </>
-                  );
-                })()}
+                <Text style={[styles.kpiSubscriptionTitleLine, { color: gradientText }]}>
+                  {item.title}
+                </Text>
               </View>
             ) : (
-              <Text style={[styles.kpiTitle, { color: gradientText }]} numberOfLines={2}>
+              <Text style={[styles.kpiTitle, { color: gradientText }]}>
                 {item.title}
               </Text>
             )}
@@ -1552,7 +1541,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
               <Ionicons name="information-circle-outline" size={18} color={gradientText} />            </TouchableOpacity>
           )}
         </View>
-        <Text style={[styles.kpiValue, isMissionPostCard && styles.kpiValueMultiline, { color: gradientText }]} numberOfLines={3}>
+        <Text style={[styles.kpiValue, isMissionPostCard && styles.kpiValueMultiline, { color: gradientText }]}>
           {item.value}
         </Text>
         {isMetaMaskCard ? (
@@ -1572,7 +1561,6 @@ export const WalletDashboardScreen = ({ navigation }) => {
               styles.kpiMetaSingleLine,
               styles.kpiMetaBuyCredits, { color: gradientText }
             ]}
-            numberOfLines={2}
           >
             {t('walletDashboard.kpi.tapToBuyCredits')}
           </Text>
@@ -2856,7 +2844,7 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     minHeight: Platform.OS == "android" ? 132 : 150,
     justifyContent: 'flex-start',
-    top: 15
+    top: 15,
   },
   kpiCardMetaMask: {
     borderRadius: 18,
@@ -2924,6 +2912,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginLeft: 8,
     flex: 1,
+    flexShrink: 1,
     textTransform: 'capitalize',
     lineHeight: 16,
     // height: 32,
@@ -2931,7 +2920,6 @@ const styles = StyleSheet.create({
   kpiSubscriptionTitleWrap: {
     flex: 1,
     marginLeft: 8,
-    height: 32,
     justifyContent: 'center',
   },
   kpiSubscriptionTitleLine: {
@@ -2940,6 +2928,7 @@ const styles = StyleSheet.create({
     textTransform: 'capitalize',
     lineHeight: 16,
     includeFontPadding: false,
+    flexShrink: 1,
   },
   kpiValue: {
     fontSize: 20,

@@ -296,6 +296,7 @@ const styles = StyleSheet.create({
     marginTop: 14,
     alignItems: 'center',
     paddingVertical: 6,
+    marginBottom:'10%'
   },
   secondaryText: {
     fontSize: 15,
