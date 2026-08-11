@@ -264,7 +264,7 @@ const isLiveClosetBattle = (battle) => {
   const status = String(battle?.status || '').trim().toUpperCase();
   return Boolean(
     battle?.isLive || battle?.live ||
-      ['LIVE', 'ACTIVE', 'IN_PROGRESS', 'IN-PROGRESS', 'ONGOING'].includes(status),
+    ['LIVE', 'ACTIVE', 'IN_PROGRESS', 'IN-PROGRESS', 'ONGOING'].includes(status),
   );
 };
 
@@ -466,7 +466,7 @@ const buildCart = (route, t, overrides = {}) => {
 };
 
 const goBack = (navigation, returnTo, isRouteFromSearch, fromMyOwnProfile) => {
-  if (isRouteFromSearch || fromMyOwnProfile){
+  if (isRouteFromSearch || fromMyOwnProfile) {
     navigation.goBack();
     return;
   }
@@ -3058,7 +3058,7 @@ const MyClosetBuyerCheckoutScreen = ({ navigation, route }) => {
 
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
-      <Header navigation={navigation} title={t('myClosetBuyer.checkoutTitle')} returnTo={returnTo} isRouteFromSearch={isRouteFromSearch}/>
+      <Header navigation={navigation} title={t('myClosetBuyer.checkoutTitle')} returnTo={returnTo} isRouteFromSearch={isRouteFromSearch} />
       <ScrollView contentContainerStyle={styles.checkoutContent} showsVerticalScrollIndicator={false}>
         <CheckoutSteps current={0} includeShipping={true} accentColor={accent} />
         <OrderSummary cart={cart} editable onEditCart={handleEditCart} accentColor={text} />
@@ -3305,9 +3305,15 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
     shippingAddress: selectedAddress,
   };
 
+  const openLocationInMaps = (address) => {
+    if (!address) return;
+    const query = encodeURIComponent(address);
+    Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${query}`).catch(() => { });
+  };
+
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
-      <Header navigation={navigation} title={t('myClosetBuyer.shippingInformationTitle')} returnTo={returnTo} isRouteFromSearch={isRouteFromSearch}/>
+      <Header navigation={navigation} title={t('myClosetBuyer.shippingInformationTitle')} returnTo={returnTo} isRouteFromSearch={isRouteFromSearch} />
       <ScrollView
         contentContainerStyle={styles.checkoutContent}
         showsVerticalScrollIndicator={false}
@@ -3494,14 +3500,23 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
           <>
             <Text style={[styles.sectionLabel, { color: text }]}>{t('myClosetBuyer.pickupAddress')}</Text>
             {pickupLocations.map(location => (
-              <View key={`${location.id}-${location.address}`} style={[styles.reviewCard, themedCard(card, border)]}>
-                {/* <Text style={styles.addressName}>{location.name}</Text> */}
+              <TouchableOpacity
+                key={`${location.id}-${location.address}`}
+                activeOpacity={0.85}
+                onPress={() => openLocationInMaps(location.address)}
+                style={[styles.reviewCard, themedCard(card, border)]}
+              >
                 {location.sellerName ? (
                   <Text style={[styles.addressPhone, { color: mutedText }]}>{location.sellerName}</Text>
                 ) : null}
-                <Text style={[styles.addressText, { color: mutedText }]}>{location.address}</Text>
-                {location.hours ? <Text style={[styles.addressText, { color: mutedText }]}>{location.hours}</Text> : null}
-              </View>
+                <View style={styles.addressRowWithIcon}>
+                  <Text style={[styles.addressText, { color: mutedText, flex: 1 }]}>{location.address}</Text>
+                  <Ionicons name="navigate-outline" size={16} color={text} style={{ marginLeft: 6 }} />
+                </View>
+                {location.hours ? (
+                  <Text style={[styles.addressText, { color: mutedText }]}>{location.hours}</Text>
+                ) : null}
+              </TouchableOpacity>
             ))}
           </>
         ) : null}
@@ -3639,7 +3654,7 @@ const MyClosetBuyerPaymentScreen = ({ navigation, route }) => {
 
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
-      <Header navigation={navigation} title={t('myClosetBuyer.paymentTitle')} returnTo={returnTo} isRouteFromSearch={isRouteFromSearch}/>
+      <Header navigation={navigation} title={t('myClosetBuyer.paymentTitle')} returnTo={returnTo} isRouteFromSearch={isRouteFromSearch} />
       <ScrollView
         contentContainerStyle={styles.checkoutContent}
         showsVerticalScrollIndicator={false}
@@ -3861,7 +3876,7 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
 
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
-      <Header navigation={navigation} title={t('myClosetBuyer.reviewOrderTitle')} returnTo={returnTo} isRouteFromSearch={isRouteFromSearch}/>
+      <Header navigation={navigation} title={t('myClosetBuyer.reviewOrderTitle')} returnTo={returnTo} isRouteFromSearch={isRouteFromSearch} />
       <ScrollView
         contentContainerStyle={styles.checkoutContent}
         showsVerticalScrollIndicator={false}
@@ -4684,6 +4699,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', marginBottom: 20,
   },
   addAddressText: { marginLeft: 10, fontSize: 13, fontWeight: '900' },
+
+  addressRowWithIcon: { flexDirection: 'row', alignItems: 'center' },
 
   radioCard: {
     minHeight: 58, borderWidth: 1, borderColor: BORDER, borderRadius: 13,
