@@ -552,7 +552,7 @@ const EbookPublisher = ({ navigation }) => {
   const rootSteps = [
     { key: 1, label: 'Upload', done: rootStep > 1 || isPublished, active: rootStep === 1 && !isPublished },
     { key: 2, label: 'Details', done: rootStep > 2 || isPublished, active: rootStep === 2 && !isPublished },
-    { key: 3, label: 'Pricing', active: rootStep === 3 && !isPublished },
+    { key: 3, label: 'Pricing', done: rootStep > 3 || isPublished, active: rootStep === 3 && !isPublished },
     { key: 4, label: 'Publish', active: isPublished },
   ];
 
@@ -1020,7 +1020,7 @@ const EbookPublisher = ({ navigation }) => {
                       </View>
                       {!isLast && <View style={[styles.rootStepLine, { backgroundColor: accent }]} />}
                     </View>
-                    <Text style={[styles.rootStepLabel, active && { color: text, fontWeight: '800' }]}>{item.label}</Text>
+                    <Text style={[styles.rootStepLabel, (active || done) && { color: accent, fontWeight: '800' }]}>{item.label}</Text>
                   </View>
                 );
               })}

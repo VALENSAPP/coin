@@ -44,6 +44,7 @@ import { displayExpandableNotification } from '../../services/NotificationServic
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SIDEBAR_WIDTH = 130;
+const POSTS_PAGE_SIZE = 20;
 
 const isVideoStoryMedia = value => {
   if (!value || typeof value !== 'string') return false;
@@ -128,6 +129,8 @@ export default function HomeScreen({ route }) {
 
   const [posts, setPosts] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingMorePosts, setLoadingMorePosts] = useState(false);
+  const [hasMorePosts, setHasMorePosts] = useState(true);
   const [storyRefreshTick, setStoryRefreshTick] = useState(0);
   const [sidebarVisible, setSidebarVisible] = useState(false);
   const [isBusinessProfile, setIsBusinessProfile] = useState(false);
@@ -141,6 +144,9 @@ export default function HomeScreen({ route }) {
   const [openingLinkedStory, setOpeningLinkedStory] = useState(false);
   const sidebarAnim = useRef(new Animated.Value(SIDEBAR_WIDTH)).current;
   const postsRef = useRef(null);
+  const postsPageRef = useRef(0);
+  const postsLoadingRef = useRef(false);
+  const postsHasMoreRef = useRef(true);
 
   const isInitialMountRef = useRef(true);
   const conversationsRef = useRef([]);
@@ -402,6 +408,55 @@ export default function HomeScreen({ route }) {
     };
   }, [currentUserId, socketReady, isFocused]);
 
+  const fetchData = useCallback(async ({ page = 1, append = false } = {}) => {
+    if (postsLoadingRef.current) return;
+    if (append && !postsHasMoreRef.current) return;
+
+    postsLoadingRef.current = true;
+    if (append) setLoadingMorePosts(true);
+    try {
+      const response = await getposts(page, POSTS_PAGE_SIZE);
+      if (response?.statusCode === 200) {
+        // Support both the existing array response and paginated API envelopes.
+        const payload = response?.data;
+        const pagePosts = Array.isArray(payload)
+          ? payload
+          : (payload?.posts || payload?.items || payload?.data || []);
+        const pagination = response?.pagination || payload?.pagination || payload?.meta;
+        const totalPages = Number(pagination?.totalPages || pagination?.total_pages);
+        const nextHasMore = Number.isFinite(totalPages) && totalPages > 0
+          ? page < totalPages
+          : pagePosts.length === POSTS_PAGE_SIZE;
+
+        setPosts(previousPosts => {
+          const nextPosts = append
+            ? [...previousPosts, ...pagePosts.filter(post => !previousPosts.some(existing => String(existing?.id) === String(post?.id)))]
+            : pagePosts;
+          return applyClientPostOverlayCacheToList(nextPosts);
+        });
+        postsPageRef.current = page;
+        postsHasMoreRef.current = nextHasMore;
+        setHasMorePosts(nextHasMore);
+      } else {
+        showToastMessage(toast, 'danger', response?.data?.message || t('home.somethingWentWrong'));
+      }
+    } catch (error) {
+      showToastMessage(
+        toast,
+        'danger',
+        error?.response?.message ??  t('home.somethingWentWrong'),
+      );
+    } finally {
+      postsLoadingRef.current = false;
+      setLoadingMorePosts(false);
+    }
+  }, [toast, t]);
+
+  const loadMorePosts = useCallback(() => {
+    if (postsLoadingRef.current || !postsHasMoreRef.current) return;
+    return fetchData({ page: postsPageRef.current + 1, append: true });
+  }, [fetchData]);
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
@@ -413,30 +468,13 @@ export default function HomeScreen({ route }) {
             console.log('🔄 HomeScreen: Manual refresh - requesting chat box');
             socket.emit('getUserChatBox', { userId: currentUserId });
           }
-        })() : Promise.resolve()
+        })() : Promise.resolve(),
       ]);
-      setStoryRefreshTick(t => t + 1);
+      setStoryRefreshTick(tick => tick + 1);
     } finally {
       setRefreshing(false);
     }
   }, [currentUserId, socketReady, fetchData]);
-
-  const fetchData = useCallback(async () => {
-    try {
-      const response = await getposts();
-      if (response?.statusCode === 200) {
-        setPosts(applyClientPostOverlayCacheToList(response.data));
-      } else {
-        showToastMessage(toast, 'danger', response.data.message);
-      }
-    } catch (error) {
-      showToastMessage(
-        toast,
-        'danger',
-        error?.response?.message ??  t('home.somethingWentWrong'),
-      );
-    }
-  }, [toast, t]);
 
   const fetchProfileData = useCallback(async () => {
     try {
@@ -885,6 +923,9 @@ const openLinkedStory = useCallback(async (sharedStoryId) => {
           ref={postsRef}
           postData={posts}
           onRefresh={onRefresh}
+          onLoadMore={loadMorePosts}
+          loadingMore={loadingMorePosts}
+          hasMorePosts={hasMorePosts}
           refreshing={refreshing}
           isBusinessProfile={isBusinessProfile}
         />

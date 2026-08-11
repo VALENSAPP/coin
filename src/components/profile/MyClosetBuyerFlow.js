@@ -376,6 +376,13 @@ const normalizeItem = (item = {}, index = 0, t) => ({
   condition: item?.condition || t('myClosetBuyer.defaultCondition'),
   description: item?.description || t('myClosetBuyer.defaultDescription'),
   quantityAvailable: Number(item?.quantity ?? item?.availableQuantity ?? 1) || 0,
+  shippingOption: String(item?.shippingOption ?? item?.shippingOptions ?? 'ship_items').toLowerCase(),
+  shippingFee: item?.shippingFee ?? null,
+  estimatedShippingTime: item?.estimateShippingTime ?? item?.shippingTime ?? '',
+  pickUpCity: item?.pickUpCity ?? item?.pickupCity ?? '',
+  pickupLocation: item?.pickupLocation ?? '',
+  pickupAddress: item?.pickupAddress ?? '',
+  pickupAvailableHours: item?.pickupAvailableHours ?? item?.pickupHours ?? '',
   sellerName: item?.sellerName || item?.userName || item?.ownerName || '',
   createdAt: item?.createdAt || item?.created_at || item?.postedAt || item?.dateAdded || null,
 });
@@ -1910,6 +1917,11 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
   const [detailScrollEnabled, setDetailScrollEnabled] = useState(true);
   const isOutOfStock = Number(item.quantityAvailable) <= 0;
   const productId = item.raw?.id || item.raw?._id || item.id;
+  const offersShipping = item.shippingOption === 'ship_items' || item.shippingOption === 'both';
+  const offersPickup = item.shippingOption === 'local_pick' || item.shippingOption === 'both';
+  const pickupAddress = [item.pickupLocation, item.pickupAddress, item.pickUpCity]
+    .filter((value, index, values) => value && values.indexOf(value) === index)
+    .join('\n');
 
   useEffect(() => {
     let active = true;
@@ -2007,6 +2019,79 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
           </View>
         </View>
         {/* <View style={styles.detailBannerSpacer} /> */}
+        {(offersShipping || offersPickup) ? (
+          <View style={[styles.fulfilmentCard, themedCard(card, border)]}>
+            <View style={styles.fulfilmentHeader}>
+              <View style={[styles.fulfilmentIcon, { backgroundColor: withAlphaFlow(accent, 0.12) }]}>
+                <Ionicons name="car-outline" size={22} color={accent} />
+              </View>
+              <View style={styles.fulfilmentHeaderCopy}>
+                <Text style={[styles.fulfilmentTitle, { color: text }]}>{t('myClosetBuyer.shippingMethod')}</Text>
+                <Text style={[styles.fulfilmentSubtitle, { color: mutedText }]}>
+                  {offersShipping && offersPickup
+                    ? t('myClosetBuyer.shippingAndPickupHelper')
+                    : offersShipping
+                      ? t('myClosetBuyer.shippingOnlyHelper')
+                      : t('myClosetBuyer.pickupOnlyHelper')}
+                </Text>
+              </View>
+            </View>
+
+            <View style={[styles.fulfilmentOptions, { borderColor: border }]}>
+              {offersShipping ? (
+                <View style={[styles.fulfilmentOption, offersPickup && { borderBottomWidth: 1, borderBottomColor: border }]}>
+                  <View style={[styles.fulfilmentIconSmall, { backgroundColor: withAlphaFlow(accent, 0.1) }]}>
+                    <Ionicons name="car-outline" size={20} color={accent} />
+                  </View>
+                  <View style={styles.fulfilmentOptionCopy}>
+                    <Text style={[styles.fulfilmentOptionTitle, { color: text }]}>{t('myClosetBuyer.shipItemsTitle')}</Text>
+                    <Text style={[styles.fulfilmentOptionSubtitle, { color: mutedText }]}>{t('myClosetBuyer.shipItemsHelper')}</Text>
+                    {(item.shippingFee != null || item.estimatedShippingTime) ? (
+                      <View style={styles.fulfilmentMeta}>
+                        {item.shippingFee != null ? (
+                          <Text style={[styles.fulfilmentMetaText, { color: text }]}>
+                            {t('myClosetBuyer.shippingFee')}: {currency(item.shippingFee)}
+                          </Text>
+                        ) : null}
+                        {item.estimatedShippingTime ? (
+                          <Text style={[styles.fulfilmentMetaText, { color: text }]}>
+                            {t('myClosetBuyer.estimatedDelivery')}: {item.estimatedShippingTime}
+                          </Text>
+                        ) : null}
+                      </View>
+                    ) : null}
+                  </View>
+                </View>
+              ) : null}
+
+              {offersPickup ? (
+                <View style={styles.fulfilmentOption}>
+                  <View style={[styles.fulfilmentIconSmall, { backgroundColor: withAlphaFlow(accent, 0.1) }]}>
+                    <Ionicons name="location-outline" size={21} color={accent} />
+                  </View>
+                  <View style={styles.fulfilmentOptionCopy}>
+                    <Text style={[styles.fulfilmentOptionTitle, { color: text }]}>{t('myClosetBuyer.pickupLocationTitle')}</Text>
+                    <Text style={[styles.fulfilmentOptionSubtitle, { color: mutedText }]}>{t('myClosetBuyer.pickupLocationHelper')}</Text>
+                    {pickupAddress ? <Text style={[styles.pickupAddressDetail, { color: text }]}>{pickupAddress}</Text> : null}
+                  </View>
+                </View>
+              ) : null}
+            </View>
+          </View>
+        ) : null}
+
+        {offersPickup && item.pickupAvailableHours ? (
+          <View style={[styles.pickupTimeCard, themedCard(card, border)]}>
+            <View style={[styles.fulfilmentIcon, { backgroundColor: withAlphaFlow(accent, 0.12) }]}>
+              <Ionicons name="time-outline" size={23} color={accent} />
+            </View>
+            <View style={styles.fulfilmentHeaderCopy}>
+              <Text style={[styles.fulfilmentTitle, { color: text }]}>{t('myClosetBuyer.pickupTimeTitle')}</Text>
+              <Text style={[styles.fulfilmentSubtitle, { color: mutedText }]}>{t('myClosetBuyer.pickupTimeHelper')}</Text>
+              <Text style={[styles.pickupTimeValue, { color: text }]}>{item.pickupAvailableHours}</Text>
+            </View>
+          </View>
+        ) : null}
         {route?.params?.battleWinner ? (
           <>
             <View
@@ -4483,6 +4568,24 @@ const styles = StyleSheet.create({
   attributeRow: { flexDirection: 'row', alignItems: 'center' },
   attributeLabel: { marginLeft: 8, width: 90, fontSize: 12, color: MUTED, fontWeight: '700' },
   attributeValue: { flex: 1, fontSize: 12, color: '#17072d', fontWeight: '800' },
+
+  fulfilmentCard: { marginTop: 18, padding: 14, borderWidth: 1, borderRadius: 18 },
+  fulfilmentHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 },
+  fulfilmentHeaderCopy: { flex: 1 },
+  fulfilmentIcon: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
+  fulfilmentTitle: { fontSize: 18, fontWeight: '900' },
+  fulfilmentSubtitle: { marginTop: 3, fontSize: 13, lineHeight: 18 },
+  fulfilmentOptions: { borderWidth: 1, borderRadius: 16, overflow: 'hidden' },
+  fulfilmentOption: { flexDirection: 'row', gap: 12, padding: 14 },
+  fulfilmentIconSmall: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
+  fulfilmentOptionCopy: { flex: 1 },
+  fulfilmentOptionTitle: { fontSize: 16, fontWeight: '900' },
+  fulfilmentOptionSubtitle: { marginTop: 3, fontSize: 13, lineHeight: 18 },
+  fulfilmentMeta: { marginTop: 10, gap: 4 },
+  fulfilmentMetaText: { fontSize: 13, fontWeight: '800' },
+  pickupAddressDetail: { marginTop: 9, fontSize: 13, lineHeight: 19, fontWeight: '700' },
+  pickupTimeCard: { flexDirection: 'row', gap: 12, marginTop: 14, padding: 14, borderWidth: 1, borderRadius: 18 },
+  pickupTimeValue: { marginTop: 9, fontSize: 15, fontWeight: '900' },
 
   bottomBar: {
     position: 'absolute', left: 0, right: 0, bottom: 0,

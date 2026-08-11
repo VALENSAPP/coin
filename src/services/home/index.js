@@ -1,8 +1,8 @@
 import axiosInstance from "../../services";
 import { logApiPostsMedia } from "../../utils/postItemMediaDebug";
 
-export const getposts = async () => {
-    const response = await axiosInstance.get('post/all');
+export const getposts = async (page = 1, limit = 20) => {
+    const response = await axiosInstance.get(`post/all?page=${page}&limit=${limit}`);
     logApiPostsMedia('API GET post/all → response.data', response?.data);
     return response;
 }

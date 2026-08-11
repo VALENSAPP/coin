@@ -139,7 +139,11 @@ export const createMyClosetItem = async draft => {
 };
 
 export const updateMyClosetItem = async (itemId, data) => {
-  return axiosInstance.patch(`mycloset/items/${itemId}`, buildItemPayload(data));
+  // The item management screen already creates a FormData payload. Rebuilding
+  // it treats FormData like a plain object, which strips required fields and
+  // causes the API to reject the update with a 400 response.
+  const payload = data instanceof FormData ? data : buildItemPayload(data);
+  return axiosInstance.patch(`mycloset/items/${itemId}`, payload);
 };
 
 export const deleteMyClosetItem = async itemId => {
