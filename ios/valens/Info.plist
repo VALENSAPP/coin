@@ -97,7 +97,7 @@
 	<key>NSCalendarsUsageDescription</key>
 	<string>This app requires access to your calendar to support related functionality.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>This app needs camera access to take photos.</string>
+	<string>Valens uses your camera when you choose to take and upload a profile photo during profile setup, or to create a post, story, chat, or closet listing.</string>
 	<key>NSContactsUsageDescription</key>
 	<string>This app requires access to contacts to support communication-related features.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
@@ -109,9 +109,9 @@
 	<key>NSMotionUsageDescription</key>
 	<string>This app requires access to motion data to improve app functionality.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>This app needs access to save images to your photo library.</string>
+	<string>Valens saves images and videos you choose to download, such as a shared profile image or media from a post, to your photo library.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>This app requires access to your photo library to allow you to share images.</string>
+	<string>Valens accesses photos and videos you select from your library to upload a profile photo during profile setup, or to create a post, story, chat, or closet listing.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>This app requires speech recognition to enable voice-related features.</string>
 	<key>RCTNewArchEnabled</key>
