@@ -513,16 +513,16 @@ export const BattleCard = ({ left, right, showWinner = false, winnerPercent, acc
           {showWinner &&
             // <Text style={[styles.winnerBadge, { color: textColor, marginTop: 5 }]}>🏆 {t('battle.winner')}</Text>
             <TouchableOpacity style={{
-                backgroundColor: '#fbbf24',
-                borderRadius: 999,
-                paddingHorizontal: 10,
-                paddingVertical: 5,
-                marginTop: 6,
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
+              backgroundColor: '#fbbf24',
+              borderRadius: 999,
+              paddingHorizontal: 10,
+              paddingVertical: 5,
+              marginTop: 6,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
             }}>
-              <Text style={{fontSize: 10, fontWeight: '900', color: '#111827', letterSpacing: 0.2, textAlign: 'center'}}>🏆 Winner</Text>
+              <Text style={{ fontSize: 10, fontWeight: '900', color: '#111827', letterSpacing: 0.2, textAlign: 'center' }}>🏆 Winner</Text>
             </TouchableOpacity>
           }
         </View>
@@ -1636,6 +1636,7 @@ export function BattleLiveScreen({ navigation, route }) {
     }
   }, [returnTo, navigation, battleBack]);
   const handleDonePress = useCallback(() => {
+
     if (returnTo) {
       navigateClosetReturn(navigation, returnTo);
       return;
@@ -1655,7 +1656,13 @@ export function BattleLiveScreen({ navigation, route }) {
       return;
     }
     if (navigation.canGoBack?.()) {
-      navigation.goBack();
+      if (route?.params?.userProfile == "user") {
+        battleBack();
+      }
+      else {
+        navigation.goBack();
+      }
+      return;
     }
   }, [navigation, returnTo, isOwnProfile, launchedFromPreview]);
 

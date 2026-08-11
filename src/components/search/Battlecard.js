@@ -677,26 +677,25 @@ const AndroidBattleRow = ({ children, style, cardWidth = CARD_WIDTH, cardGap = C
     }, [isCarouselEnabled, startContinuousScroll]);
 
     const panResponder = useMemo(() => PanResponder.create({
-            onStartShouldSetPanResponder: () => false,
-            onStartShouldSetPanResponderCapture: () => false,
-            onMoveShouldSetPanResponder: (_, gestureState) => {
-                const { dx, dy } = gestureState;
-                return Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy) * 2;
-            },
-            onMoveShouldSetPanResponderCapture: () => false,
+    onStartShouldSetPanResponder: () => false,
+    onStartShouldSetPanResponderCapture: () => false,
+    onMoveShouldSetPanResponder: (_, gestureState) => {
+        const { dx, dy } = gestureState;
+        return Math.abs(dx) > 4 && Math.abs(dx) > Math.abs(dy) * 1.5; // slightly more responsive
+    },
+    onMoveShouldSetPanResponderCapture: () => false,
+    onPanResponderTerminationRequest: () => false, 
 
             onPanResponderGrant: () => {
-                isDraggingRef.current = true;
-                animRef.current?.stop();
-                if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
-                // Read the native-driven value before dragging so the first move
-                // continues from the visible card instead of an older offset.
-                translateX.stopAnimation((value) => {
-                    animOffsetRef.current = value;
-                    dragStartOffsetRef.current = value;
-                    translateX.setValue(value);
-                });
-            },
+    isDraggingRef.current = true;
+    animRef.current?.stop();
+    translateX.stopAnimation(); // just halts it, no need to wait for the callback
+    if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+
+    // synchronous read — no bridge round-trip, no stale baseline
+    dragStartOffsetRef.current = animOffsetRef.current;
+    translateX.setValue(animOffsetRef.current);
+},
 
             onPanResponderMove: (_, gestureState) => {
                 let next = dragStartOffsetRef.current + gestureState.dx;
