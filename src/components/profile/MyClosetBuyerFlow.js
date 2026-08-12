@@ -83,6 +83,20 @@ const allowedShippingChoices = shippingOption => {
   return [SHIP_OPTION_SHIP];
 };
 
+const resolveEffectiveShippingOption = (shippingOptionsMap, item) => {
+  const sellerOption = shippingOptionsMap[cartItemProductId(item)] ?? SHIP_OPTION_SHIP;
+  if (sellerOption === SHIP_OPTION_BOTH) {
+    return item?.selectedShippingChoice || SHIP_OPTION_SHIP;
+  }
+  return sellerOption === SHIP_OPTION_LOCAL ? SHIP_OPTION_LOCAL : SHIP_OPTION_SHIP;
+};
+
+const cartRequiresShippingPostChoice = (cartItemsSnapshot = [], shippingOptionsMap = {}) =>
+  (Array.isArray(cartItemsSnapshot) ? cartItemsSnapshot : []).some(item => {
+    const opt = resolveEffectiveShippingOption(shippingOptionsMap, item);
+    return opt === SHIP_OPTION_SHIP;
+  });
+
 const resolveShippingOption = (shippingOptionsMap, item) =>
   shippingOptionsMap[cartItemProductId(item)] ?? item?.selectedShippingChoice ?? SHIP_OPTION_SHIP;
 
@@ -3094,8 +3108,7 @@ const MyClosetBuyerCheckoutScreen = ({ navigation, route }) => {
   const { bgStyle, text, accent, card, border, mutedText } = useClosetTheme(route);
   const returnTo = route?.params?.returnTo;
   const cart = buildCart(route, t);
-  const derivedRequiresShipping = cartRequiresShipping(route?.params?.cartItemsSnapshot, route?.params?.shippingOptionsMap);
-  const requiresShipping = derivedRequiresShipping || route?.params?.requiresShipping === true;
+  const derivedRequiresShipping = cartRequiresShippingPostChoice(route?.params?.cartItemsSnapshot, route?.params?.shippingOptionsMap);
   const [continuing, setContinuing] = useState(false);
   const isRouteFromSearch = route?.params?.isRouteFromSearch;
 
@@ -3215,6 +3228,14 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
     if (opt === SHIP_OPTION_BOTH) return shippingChoices[ci.id] || null;
     return opt === SHIP_OPTION_LOCAL ? SHIP_OPTION_LOCAL : SHIP_OPTION_SHIP;
   };
+
+  const resolvedCartItemsSnapshot = useMemo(
+    () => cartItemsSnapshot.map(ci => ({
+      ...ci,
+      selectedShippingChoice: effectiveChoice(ci),
+    })),
+    [cartItemsSnapshot, shippingChoices, shippingOptionsMap],
+  );
 
   const allChoicesMade = itemsNeedingChoice.every(ci => !!shippingChoices[ci.id]);
   const requiresShipping = cartItemsSnapshot.some(ci => {
@@ -3383,6 +3404,7 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
 
   const nextCart = {
     ...route.params,
+    cartItemsSnapshot: resolvedCartItemsSnapshot,
     shipping: method === 'express' ? 20 : 10,
     total: cart.itemTotal /*+ (method === 'express' ? 20 : 10) + cart.serviceFee*/,
     shippingMethod: method,
@@ -3705,7 +3727,7 @@ const MyClosetBuyerPaymentScreen = ({ navigation, route }) => {
   const { t } = useLanguage();
   const returnTo = route?.params?.returnTo;
   const [paymentMethod, setPaymentMethod] = useState('secure');
-  const derivedRequiresShipping = cartRequiresShipping(route?.params?.cartItemsSnapshot, route?.params?.shippingOptionsMap);
+  const derivedRequiresShipping = cartRequiresShippingPostChoice(route?.params?.cartItemsSnapshot, route?.params?.shippingOptionsMap);
   const requiresShipping = derivedRequiresShipping || route?.params?.requiresShipping === true;
   const cartId = route?.params?.cartId;
   const isRouteFromSearch = route?.params?.isRouteFromSearch;
@@ -3811,7 +3833,9 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
   const [checking, setChecking] = useState(false);
   // shippingAddress passed from Shipping screen via nextCart
   const addr = route?.params?.shippingAddress ?? null;
-  const derivedRequiresShipping = cartRequiresShipping(route?.params?.cartItemsSnapshot, route?.params?.shippingOptionsMap);
+  console.log('route?.params?.cartItemsSnapshot, route?.params?.shippingOptionsMap:', route?.params?.cartItemsSnapshot, route?.params?.shippingOptionsMap);
+  const derivedRequiresShipping = cartRequiresShippingPostChoice(route?.params?.cartItemsSnapshot, route?.params?.shippingOptionsMap);
+  console.log('derivedRequiresShipping:', derivedRequiresShipping, 'route?.params?.requiresShipping:', route?.params?.requiresShipping);
   const requiresShipping = derivedRequiresShipping || route?.params?.requiresShipping === true;
   const shipOnlyItemsNeedingSync = useMemo(
     () => getShipOnlyCartItems(route?.params?.cartItemsSnapshot, route?.params?.shippingOptionsMap),
