@@ -7,7 +7,7 @@ import React, {
   useImperativeHandle,
   forwardRef,
 } from 'react';
-import { View, Text, FlatList, StyleSheet, Alert, Keyboard, RefreshControl } from 'react-native';
+import { View, Text, FlatList, StyleSheet, Alert, Keyboard, RefreshControl, ActivityIndicator } from 'react-native';
 import RBSheet from 'react-native-raw-bottom-sheet';
 // Child components
 import OptionsModal from './OptionsModal';
@@ -56,7 +56,15 @@ const isVideoMediaUrl = (url, postType) => {
 };
 
 const Posts = forwardRef(function Posts(
-  { postData = [], onRefresh, isBusinessProfile, refreshing = false },
+  {
+    postData = [],
+    onRefresh,
+    onLoadMore,
+    isBusinessProfile,
+    refreshing = false,
+    loadingMore = false,
+    hasMorePosts = false,
+  },
   ref,
 ) {
   const { t } = useLanguage();
@@ -1155,6 +1163,15 @@ const Posts = forwardRef(function Posts(
             updateCellsBatchingPeriod={100}
             viewabilityConfigCallbackPairs={viewabilityConfigCallbackPairs.current}
             scrollEventThrottle={16}
+            onEndReached={hasMorePosts && !loadingMore ? onLoadMore : undefined}
+            onEndReachedThreshold={0.5}
+            ListFooterComponent={
+              loadingMore ? (
+                <View style={styles.loadingMore}>
+                  <ActivityIndicator color="#783eb9" />
+                </View>
+              ) : null
+            }
           />
 
           {/* Options Modal */}
@@ -1294,6 +1311,9 @@ const styles = StyleSheet.create({
   listContent: {
     paddingTop: 0,
     paddingBottom: 0,
+  },
+  loadingMore: {
+    paddingVertical: 20,
   },
 });
 
