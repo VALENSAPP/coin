@@ -3712,9 +3712,15 @@
       "delivered": "Consegnato",
       "cancelled": "Annullato"
     },
+    "fulfillment": {
+      "shipToDeliver": "Spedisci personalmente",
+      "localPickup": "Ritiro locale"
+    },
     "action": {
       "processing": "Segna come in elaborazione",
       "shipped": "Segna come spedito",
+      "sendOtp": "Invia OTP all'acquirente",
+      "deliver": "Segna come consegnato",
       "delivered": "Segna come consegnato"
     },
     "tabs": {
@@ -4316,6 +4322,14 @@
     "markAsProcessing": "Marquer comme en cours de traitement",
     "markAsShipped": "Marquer comme expédiée",
     "markAsDelivered": "Marquer comme livrée",
+    "sendOtpToBuyer": "Invia OTP all'acquirente",
+    "enterDeliveryOtp": "Inserisci OTP di consegna",
+    "enterOtpSubtitle": "Inserisci l'OTP fornito dall'acquirente per verificare la consegna con ritiro locale.",
+    "otpLabel": "Codice OTP",
+    "otpPlaceholder": "Inserisci OTP",
+    "verifyAndDeliver": "Verifica e consegna",
+    "otpSentSuccess": "OTP inviato correttamente all'e-mail dell'acquirente.",
+    "deliverySuccess": "L'ordine è stato contrassegnato come consegnato correttamente.",
     "status": {
       "pending": "À expédier",
       "confirmed": "Confirmée",
