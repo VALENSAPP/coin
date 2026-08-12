@@ -3842,6 +3842,7 @@
     "totalLabel": "Total {{amount}}",
     "continueShopping": "Continuer vos achats",
     "goToMyOrders": "Voir mes commandes",
+    "chatWithSeller": "Discuter avec le vendeur",
     "steps": {
       "cart": "Panier",
       "shipping": "Livraison",

@@ -46,6 +46,7 @@ import {
   getPaymentDetailsByPaymentId,
   getClosetBattlesPriority,
 } from '../../services/myCloset';
+import { getClosetChatThreadsApi } from '../../services/chatMessage';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useThemeContext } from '../../theme/ThemeContext';
 import { useLanguage } from '../../i18n';
@@ -1821,7 +1822,8 @@ const MyClosetBattlesScreen = ({ navigation, route }) => {
   }, [closetId, isOwnProfile]);
 
   const openBattle = useCallback((battle) => {
-    navigateToBattleLive(navigation, withClosetNavParams(route, {
+    const { returnTo: _parentReturnTo, ...parentParams } = route?.params || {};
+    navigateToBattleLive(navigation, withClosetNavParams({ params: parentParams }, {
       battleId: battle?.id,
       initialBattle: battle,
       selectedItems: [battle?.left, battle?.right].filter(Boolean),
@@ -1832,7 +1834,7 @@ const MyClosetBattlesScreen = ({ navigation, route }) => {
         sellerId: route?.params?.seller?.id || route?.params?.sellerId,
       }),
     }));
-  }, [navigation, isOwnProfile, route, route?.params?.seller?.id, route?.params?.seller?.profile, route?.params?.sellerId, route?.params?.sellerProfile]);
+  }, [navigation, isOwnProfile, route, route?.params?.seller?.id, route?.params?.seller?.profile, route?.params?.sellerId, route?.params?.sellerProfile, userProfile]);
 
   useFocusEffect(
     useCallback(() => {
@@ -3956,6 +3958,7 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
 
 const MyClosetBuyerOrderReceivedScreen = ({ navigation, route }) => {
   const { text, accent, bgStyle, card, border, mutedText } = useClosetTheme(route);
+  const { isDarkMode } = useThemeContext();
   const { t } = useLanguage();
   const returnTo = route?.params?.returnTo;
   const payment = route?.params?.payment ?? null;
@@ -3967,6 +3970,52 @@ const MyClosetBuyerOrderReceivedScreen = ({ navigation, route }) => {
   const amount = payment?.amount != null ? payment.amount / 100 : cart.total; // amount is in cents per your sample
   const orderDate = payment?.createdAt ? new Date(payment.createdAt) : new Date();
   const items = payment?.metadata?.items ?? [];
+
+  const handleChatWithSeller = useCallback(async () => {
+    const sellerObj = route?.params?.seller || null;
+    const resolvedSellerId =
+      route?.params?.sellerId ||
+      sellerObj?.id ||
+      sellerObj?.userId ||
+      payment?.sellerId ||
+      payment?.metadata?.sellerId ||
+      null;
+
+    const orderInfo = {
+      orderId: orderId || payment?.orderId,
+      amount: amount,
+      items: items,
+      createdAt: payment?.createdAt,
+    };
+
+    const otherUser = sellerObj || (resolvedSellerId ? { id: resolvedSellerId } : null);
+
+    let threadId = null;
+    try {
+      const res = await getClosetChatThreadsApi();
+      const threads = Array.isArray(res?.data) ? res.data : (res?.data?.threads || []);
+      const match = threads.find(t => {
+        const tOtherId = String(t?.otherUser?.id || t?.otherUser?.userId || t?.sellerId || '');
+        const tOrderId = String(t?.orderInfo?.orderId || t?.orderId || '');
+        return (
+          (orderId && tOrderId === String(orderId)) ||
+          (resolvedSellerId && tOtherId === String(resolvedSellerId))
+        );
+      });
+      if (match?.threadId || match?.id) {
+        threadId = match.threadId || match.id;
+      }
+    } catch (_err) {}
+
+    navigation.navigate('UserClosetChat', {
+      threadId: threadId || (orderId ? `thread_order_${orderId}` : resolvedSellerId ? `thread_${resolvedSellerId}` : undefined),
+      otherUser: otherUser,
+      sellerId: resolvedSellerId,
+      seller: sellerObj,
+      orderInfo: orderInfo,
+      returnTo: returnTo,
+    });
+  }, [navigation, route?.params, payment, orderId, amount, items, returnTo]);
 
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
@@ -4032,6 +4081,25 @@ const MyClosetBuyerOrderReceivedScreen = ({ navigation, route }) => {
           })}
         >
           <Text style={[styles.secondaryButtonText, { color: text }]}>{t('myClosetBuyer.goToMyOrders')}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          activeOpacity={0.85}
+          style={[
+            styles.secondaryButton,
+            {
+              backgroundColor: isDarkMode ? (card || 'rgba(124, 58, 237, 0.12)') : '#F3E8FF',
+              borderColor: border || 'transparent',
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+            },
+          ]}
+          onPress={handleChatWithSeller}
+        >
+          <Ionicons name="chatbubble-outline" size={18} color={accent || PURPLE} style={{ marginRight: 8 }} />
+          <Text style={[styles.secondaryButtonText, { color: accent || PURPLE }]}>
+            {t('myClosetBuyer.chatWithSeller')}
+          </Text>
         </TouchableOpacity>
       </BottomBar>
     </SafeAreaView>

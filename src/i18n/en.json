@@ -3978,6 +3978,7 @@
     "totalLabel": "Total {{amount}}",
     "continueShopping": "Continue Shopping",
     "goToMyOrders": "Go to My Orders",
+    "chatWithSeller": "Chat with Seller",
     "steps": {
       "cart": "Cart",
       "shipping": "Shipping",
