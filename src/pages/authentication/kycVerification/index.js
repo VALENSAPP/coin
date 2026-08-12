@@ -29,6 +29,7 @@ import { getKycToken, kycStart, kycStatus, kycSync, kycWebhook } from '../../../
 import { showToastMessage } from '../../../components/displaytoastmessage';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 import { useAppTheme } from '../../../theme/useApptheme';
+import { useThemeContext } from '../../../theme/ThemeContext';
 import { EditProfile } from '../../../services/createProfile';
 import { loggedIn } from '../../../redux/actions/LoginAction';
 import { setUserProfile } from '../../../redux/actions/UserProfileAction';
@@ -39,6 +40,22 @@ import { clearSignupFormData } from '../../../redux/actions/SignupFormAction';
 
 const { width, height } = Dimensions.get('window');
 
+const withAlpha = (hex, alpha = 0.12) => {
+    if (!hex || typeof hex !== 'string' || !hex.startsWith('#')) {
+        return `rgba(90, 45, 130, ${alpha})`;
+    }
+    const normalized = hex.replace('#', '');
+    const full = normalized.length === 3
+        ? normalized.split('').map((c) => c + c).join('')
+        : normalized;
+    const int = parseInt(full, 16);
+    if (Number.isNaN(int)) return `rgba(90, 45, 130, ${alpha})`;
+    const r = (int >> 16) & 255;
+    const g = (int >> 8) & 255;
+    const b = int & 255;
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+
 export default function KYCVerification({ route }) {
     const profileData = route?.params?.profileData ?? null;
     const serverProfile = route?.params?.serverProfile ?? null;
@@ -47,6 +64,31 @@ export default function KYCVerification({ route }) {
     const navigation = useNavigation();
     const dispatch = useDispatch();
     const { t } = useLanguage();
+    const { isDarkMode } = useThemeContext();
+    const {
+        bgStyle,
+        text,
+        mutedText,
+        card,
+        border,
+        accent,
+        bg,
+    } = useAppTheme(profileFromRoute);
+
+    const primaryText = isDarkMode ? '#F5F0FF' : (text || '#1F2937');
+    const secondaryText = isDarkMode ? '#C8C4D0' : (mutedText || '#6B7280');
+    const actionAccent = accent || '#5a2d82';
+    const surface = card || (isDarkMode ? '#1E1E1E' : '#FFFFFF');
+    const fieldBorder = border || (isDarkMode ? '#444444' : '#D1D5DB');
+    const screenBg = bg || (isDarkMode ? '#121212' : '#FFFFFF');
+    const infoBg = withAlpha(actionAccent, isDarkMode ? 0.22 : 0.1);
+    const noteBg = isDarkMode ? withAlpha(actionAccent, 0.18) : '#F9FAFB';
+    const disabledBtnBg = isDarkMode ? '#3F3F46' : '#E5E7EB';
+    const disabledBtnText = isDarkMode ? '#A1A1AA' : '#9CA3AF';
+    const dropdownListBg = surface;
+    const modalBg = surface;
+    const inputTextColor = primaryText;
+    const placeholderColor = secondaryText;
 
     // Build translated document types inside component so t() is in scope
     const DOCUMENT_TYPES = [
@@ -87,8 +129,6 @@ export default function KYCVerification({ route }) {
     const progressAnimationRef = useRef(null);
     const percentUpdateInterval = useRef(null);
     const shouldReturnAfterStatusCheckRef = useRef(false);
-
-    const { bgStyle, textStyle } = useAppTheme(profileFromRoute);
 
     useEffect(() => {
         const subscription = DeviceEventEmitter.addListener('PAYMENT_COMPLETED', (data) => {
@@ -409,10 +449,10 @@ export default function KYCVerification({ route }) {
                     <View style={styles.submittingIcon}>
                         <ActivityIndicator size="large" color="#fff" />
                     </View>
-                    <Text style={styles.modalTitle}>
+                    <Text style={[styles.modalTitle, { color: primaryText }]}>
                         {isRetrying ? t('kyc.modalRetrying') : t('kyc.modalSubmitting')}
                     </Text>
-                    <Text style={styles.modalMessage}>
+                    <Text style={[styles.modalMessage, { color: secondaryText }]}>
                         {isRetrying ? t('kyc.modalRetryingMsg') : t('kyc.modalSubmittingMsg')}
                     </Text>
                     <View style={styles.dotsContainer}>
@@ -429,8 +469,8 @@ export default function KYCVerification({ route }) {
                     <View style={[styles.resultIcon, styles.successIconBg]}>
                         <Text style={styles.resultIconText}>✓</Text>
                     </View>
-                    <Text style={styles.modalTitle}>{t('kyc.modalVerified')}</Text>
-                    <Text style={styles.modalMessage}>{modalMessage}</Text>
+                    <Text style={[styles.modalTitle, { color: primaryText }]}>{t('kyc.modalVerified')}</Text>
+                    <Text style={[styles.modalMessage, { color: secondaryText }]}>{modalMessage}</Text>
                     <View style={styles.successFooter}>
                         <Text style={styles.autoCloseText}>{t('kyc.proceedingWallet')}</Text>
                         <View style={styles.successDots}>
@@ -448,13 +488,20 @@ export default function KYCVerification({ route }) {
                     <View style={[styles.resultIcon, styles.errorIconBg]}>
                         <Text style={styles.resultIconText}>×</Text>
                     </View>
-                    <Text style={styles.modalTitle}>{t('kyc.modalError')}</Text>
-                    <Text style={styles.modalMessage}>{modalMessage}</Text>
+                    <Text style={[styles.modalTitle, { color: primaryText }]}>{t('kyc.modalError')}</Text>
+                    <Text style={[styles.modalMessage, { color: secondaryText }]}>{modalMessage}</Text>
                     <TouchableOpacity style={[styles.modalButton, styles.errorButton]} onPress={handleRetry}>
                         <Text style={styles.buttonText}>{t('kyc.tryAgain')}</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setShowModal(false)}>
-                        <Text style={styles.cancelButtonText}>{t('kyc.cancel')}</Text>
+                    <TouchableOpacity
+                        style={[
+                            styles.modalButton,
+                            styles.cancelButton,
+                            { backgroundColor: isDarkMode ? withAlpha(actionAccent, 0.2) : '#F3F4F6' },
+                        ]}
+                        onPress={() => setShowModal(false)}
+                    >
+                        <Text style={[styles.cancelButtonText, { color: primaryText }]}>{t('kyc.cancel')}</Text>
                     </TouchableOpacity>
                 </>
             );
@@ -463,9 +510,9 @@ export default function KYCVerification({ route }) {
     };
 
     return (
-        <SafeAreaView style={styles.safeArea}>
+        <SafeAreaView style={[styles.safeArea, { backgroundColor: screenBg }, bgStyle]}>
             <KeyboardAwareScrollView
-                style={styles.container}
+                style={[styles.container, { backgroundColor: screenBg }]}
                 contentContainerStyle={styles.contentContainer}
                 keyboardShouldPersistTaps="handled"
                 enableOnAndroid={true}
@@ -478,24 +525,34 @@ export default function KYCVerification({ route }) {
                     <StepHeader currentStep={2} />
 
                     <View style={styles.headerSection}>
-                        <Text style={styles.title}>{t('kyc.title')}</Text>
-                        <Text style={styles.subtitle}>{t('kyc.subtitle')}</Text>
+                        <Text style={[styles.title, { color: primaryText }]}>{t('kyc.title')}</Text>
+                        <Text style={[styles.subtitle, { color: secondaryText }]}>{t('kyc.subtitle')}</Text>
                     </View>
 
-                    <View style={styles.infoBox}>
-                        <Icon name="shield" size={20} color="#4F46E5" />
-                        <Text style={styles.infoText}>{t('kyc.securityInfo')}</Text>
+                    <View style={[styles.infoBox, { backgroundColor: infoBg, borderLeftColor: actionAccent }]}>
+                        <Icon name="shield" size={20} color={actionAccent} />
+                        <Text style={[styles.infoText, { color: isDarkMode ? primaryText : '#4338CA' }]}>
+                            {t('kyc.securityInfo')}
+                        </Text>
                     </View>
 
                     <View style={styles.form}>
                         {/* First Name */}
                         <View style={styles.field}>
-                            <Text style={styles.label}>{t('kyc.firstNameLabel')}</Text>
+                            <Text style={[styles.label, { color: primaryText }]}>{t('kyc.firstNameLabel')}</Text>
                             <TextInput
                                 placeholder={t('kyc.firstNamePlaceholder')}
-                                placeholderTextColor="#6B7280"
+                                placeholderTextColor={placeholderColor}
                                 ref={firstNameInputRef}
-                                style={[styles.inputFull, errors.firstName && styles.inputErrorWrapper]}
+                                style={[
+                                    styles.inputFull,
+                                    {
+                                        color: inputTextColor,
+                                        borderColor: fieldBorder,
+                                        backgroundColor: surface,
+                                    },
+                                    errors.firstName && styles.inputErrorWrapper,
+                                ]}
                                 value={firstName}
                                 onChangeText={txt => {
                                     setFirstName(txt);
@@ -507,12 +564,20 @@ export default function KYCVerification({ route }) {
 
                         {/* Last Name */}
                         <View style={styles.field}>
-                            <Text style={styles.label}>{t('kyc.lastNameLabel')}</Text>
+                            <Text style={[styles.label, { color: primaryText }]}>{t('kyc.lastNameLabel')}</Text>
                             <TextInput
                                 placeholder={t('kyc.lastNamePlaceholder')}
-                                placeholderTextColor="#6B7280"
+                                placeholderTextColor={placeholderColor}
                                 ref={lastNameInputRef}
-                                style={[styles.inputFull, errors.lastName && styles.inputErrorWrapper]}
+                                style={[
+                                    styles.inputFull,
+                                    {
+                                        color: inputTextColor,
+                                        borderColor: fieldBorder,
+                                        backgroundColor: surface,
+                                    },
+                                    errors.lastName && styles.inputErrorWrapper,
+                                ]}
                                 value={lastName}
                                 onChangeText={txt => {
                                     setLastName(txt);
@@ -524,37 +589,73 @@ export default function KYCVerification({ route }) {
 
                         {/* Document Type Dropdown */}
                         <View style={styles.field}>
-                            <Text style={styles.label}>{t('kyc.documentTypeLabel')}</Text>
+                            <Text style={[styles.label, { color: primaryText }]}>{t('kyc.documentTypeLabel')}</Text>
                             <TouchableOpacity
                                 style={[
                                     styles.dropdownButton,
+                                    {
+                                        borderColor: showDropdown ? actionAccent : fieldBorder,
+                                        backgroundColor: showDropdown
+                                            ? withAlpha(actionAccent, isDarkMode ? 0.2 : 0.08)
+                                            : surface,
+                                    },
                                     errors.documentType && styles.inputErrorWrapper,
-                                    showDropdown && styles.dropdownButtonActive,
                                 ]}
                                 onPress={() => { Keyboard.dismiss(); setShowDropdown(!showDropdown); }}
                             >
-                                <Text style={[styles.dropdownButtonText, !documentType && styles.dropdownPlaceholder]}>
+                                <Text
+                                    style={[
+                                        styles.dropdownButtonText,
+                                        { color: documentType ? primaryText : secondaryText },
+                                    ]}
+                                >
                                     {getSelectedLabel()}
                                 </Text>
-                                <Icon name={showDropdown ? 'chevron-up' : 'chevron-down'} size={20} color="#6B7280" />
+                                <Icon
+                                    name={showDropdown ? 'chevron-up' : 'chevron-down'}
+                                    size={20}
+                                    color={secondaryText}
+                                />
                             </TouchableOpacity>
 
                             {showDropdown && (
-                                <View style={styles.dropdownList}>
+                                <View
+                                    style={[
+                                        styles.dropdownList,
+                                        { backgroundColor: dropdownListBg, borderColor: fieldBorder },
+                                    ]}
+                                >
                                     {DOCUMENT_TYPES.map((item, index) => (
                                         <TouchableOpacity
                                             key={item.value}
                                             style={[
                                                 styles.dropdownItem,
-                                                index !== DOCUMENT_TYPES.length - 1 && styles.dropdownItemBorder,
-                                                documentType === item.value && styles.dropdownItemSelected,
+                                                index !== DOCUMENT_TYPES.length - 1 && {
+                                                    borderBottomWidth: 1,
+                                                    borderBottomColor: fieldBorder,
+                                                },
+                                                documentType === item.value && {
+                                                    backgroundColor: withAlpha(actionAccent, isDarkMode ? 0.22 : 0.1),
+                                                },
                                             ]}
                                             onPress={() => handleDocumentSelect(item)}
                                         >
-                                            <Text style={[styles.dropdownItemText, documentType === item.value && styles.dropdownItemTextSelected]}>
+                                            <Text
+                                                style={[
+                                                    styles.dropdownItemText,
+                                                    {
+                                                        color: documentType === item.value
+                                                            ? actionAccent
+                                                            : primaryText,
+                                                        fontWeight: documentType === item.value ? '600' : '400',
+                                                    },
+                                                ]}
+                                            >
                                                 {item.label}
                                             </Text>
-                                            {documentType === item.value && <Icon name="check" size={16} color="#4F46E5" />}
+                                            {documentType === item.value && (
+                                                <Icon name="check" size={16} color={actionAccent} />
+                                            )}
                                         </TouchableOpacity>
                                     ))}
                                 </View>
@@ -563,18 +664,26 @@ export default function KYCVerification({ route }) {
                         </View>
 
                         {/* Note */}
-                        <View style={styles.noteBox}>
-                            <Icon name="info" size={16} color="#6B7280" />
-                            <Text style={styles.noteText}>{t('kyc.noteText')}</Text>
+                        <View style={[styles.noteBox, { backgroundColor: noteBg }]}>
+                            <Icon name="info" size={16} color={secondaryText} />
+                            <Text style={[styles.noteText, { color: primaryText }]}>{t('kyc.noteText')}</Text>
                         </View>
 
                         {/* Submit Button */}
                         <TouchableOpacity
                             onPress={continueNext}
-                            style={[styles.continueButton, isValid && styles.continueButtonActive]}
+                            style={[
+                                styles.continueButton,
+                                { backgroundColor: isValid ? actionAccent : disabledBtnBg },
+                            ]}
                             disabled={!isValid}
                         >
-                            <Text style={[styles.continueButtonText, isValid && styles.continueButtonTextActive]}>
+                            <Text
+                                style={[
+                                    styles.continueButtonText,
+                                    { color: isValid ? '#FFFFFF' : disabledBtnText },
+                                ]}
+                            >
                                 {t('kyc.submitButton')}
                             </Text>
                         </TouchableOpacity>
@@ -583,7 +692,9 @@ export default function KYCVerification({ route }) {
                             onPress={() => { setShowProgressModal(false); navigation.goBack(); }}
                             style={styles.backButton}
                         >
-                            <Text style={styles.backButtonText}>{t('kyc.goBack')}</Text>
+                            <Text style={[styles.backButtonText, { color: secondaryText }]}>
+                                {t('kyc.goBack')}
+                            </Text>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -593,7 +704,7 @@ export default function KYCVerification({ route }) {
             <Modal visible={showModal} transparent animationType="fade" statusBarTranslucent
                 onRequestClose={() => { if (modalType === 'error') setShowModal(false); }}>
                 <View style={styles.modalOverlay}>
-                    <View style={styles.modalContainer}>
+                    <View style={[styles.modalContainer, { backgroundColor: modalBg }]}>
                         {renderModalContent()}
                     </View>
                 </View>
@@ -602,17 +713,21 @@ export default function KYCVerification({ route }) {
             {/* Progress Modal */}
             <Modal visible={showProgressModal} transparent animationType="fade" statusBarTranslucent onRequestClose={cancelProgress}>
                 <View style={styles.modalOverlay}>
-                    <View style={styles.modalContainer}>
-                        <Text style={styles.modalTitle}>{t('kyc.progressTitle')}</Text>
-                        <Text style={styles.modalMessage}>{t('kyc.progressMessage')}</Text>
+                    <View style={[styles.modalContainer, { backgroundColor: modalBg }]}>
+                        <Text style={[styles.modalTitle, { color: primaryText }]}>{t('kyc.progressTitle')}</Text>
+                        <Text style={[styles.modalMessage, { color: secondaryText }]}>{t('kyc.progressMessage')}</Text>
                         <TouchableOpacity
-                            style={[styles.modalButton, styles.cancelButton]}
+                            style={[
+                                styles.modalButton,
+                                styles.cancelButton,
+                                { backgroundColor: isDarkMode ? withAlpha(actionAccent, 0.2) : '#F3F4F6' },
+                            ]}
                             onPress={async () => {
                                 setShowProgressModal(false);
                                 await fetchKycStatus();
                             }}
                         >
-                            <Text style={styles.cancelButtonText}>
+                            <Text style={[styles.cancelButtonText, { color: primaryText }]}>
                                 {isOnboardingFlow ? t('kyc.exploreApp') : t('kyc.checkStatusGoBack')}
                             </Text>
                         </TouchableOpacity>
@@ -629,51 +744,44 @@ const styles = StyleSheet.create({
     contentContainer: { flexGrow: 1, paddingBottom: 50 },
     inner: { padding: 16, alignItems: 'center', minHeight: '100%' },
     headerSection: { alignItems: 'center', marginVertical: 16, paddingHorizontal: 16 },
-    title: { fontSize: 24, fontWeight: '600', marginBottom: 8, color: '#1F2937', textAlign: 'center' },
-    subtitle: { fontSize: 14, color: '#6B7280', textAlign: 'center', lineHeight: 20 },
+    title: { fontSize: 24, fontWeight: '600', marginBottom: 8, textAlign: 'center' },
+    subtitle: { fontSize: 14, textAlign: 'center', lineHeight: 20 },
     infoBox: {
-        flexDirection: 'row', alignItems: 'flex-start', backgroundColor: '#EEF2FF',
-        padding: 16, borderRadius: 12, borderLeftWidth: 3, borderLeftColor: '#4F46E5',
+        flexDirection: 'row', alignItems: 'flex-start',
+        padding: 16, borderRadius: 12, borderLeftWidth: 3,
         marginBottom: 24, width: '100%', maxWidth: 360,
     },
-    infoText: { flex: 1, fontSize: 13, color: '#4338CA', lineHeight: 18, marginLeft: 12 },
+    infoText: { flex: 1, fontSize: 13, lineHeight: 18, marginLeft: 12 },
     form: { width: '100%', maxWidth: 360 },
     field: { marginBottom: 24, width: '100%' },
-    label: { fontSize: 14, fontWeight: '500', color: '#374151', marginBottom: 8 },
+    label: { fontSize: 14, fontWeight: '500', marginBottom: 8 },
     inputFull: {
-        borderWidth: 1, borderColor: '#D1D5DB', borderRadius: 8,
-        padding: 12, fontSize: 14, minHeight: 48, color: '#1F2937', textAlign: 'left',
+        borderWidth: 1, borderRadius: 8,
+        padding: 12, fontSize: 14, minHeight: 48, textAlign: 'left',
     },
-    inputErrorWrapper: { borderColor: '#DC2626', backgroundColor: '#FEF2F2' },
+    inputErrorWrapper: { borderColor: '#DC2626', backgroundColor: 'rgba(220,38,38,0.12)' },
     errorText: { color: '#DC2626', fontSize: 12, marginTop: 4 },
     dropdownButton: {
         flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-        borderWidth: 1, borderColor: '#D1D5DB', borderRadius: 8, padding: 12, minHeight: 48,
+        borderWidth: 1, borderRadius: 8, padding: 12, minHeight: 48,
     },
-    dropdownButtonActive: { borderColor: '#4F46E5', backgroundColor: '#F5F3FF' },
-    dropdownButtonText: { fontSize: 14, color: '#1F2937' },
-    dropdownPlaceholder: { color: '#6B7280' },
+    dropdownButtonText: { fontSize: 14 },
     dropdownList: {
-        marginTop: 8, borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8,
-        backgroundColor: '#FFF', overflow: 'hidden',
+        marginTop: 8, borderWidth: 1, borderRadius: 8,
+        overflow: 'hidden',
         shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 4,
     },
     dropdownItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16 },
-    dropdownItemBorder: { borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
-    dropdownItemSelected: { backgroundColor: '#F5F3FF' },
-    dropdownItemText: { fontSize: 14, color: '#374151' },
-    dropdownItemTextSelected: { color: '#4F46E5', fontWeight: '500' },
-    noteBox: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: '#F9FAFB', padding: 12, borderRadius: 8, marginBottom: 24 },
-    noteText: { flex: 1, fontSize: 12, color: '#6B7280', lineHeight: 16, marginLeft: 8 },
-    continueButton: { width: '100%', padding: 16, borderRadius: 8, backgroundColor: '#E5E7EB', alignItems: 'center', marginTop: 8 },
-    continueButtonActive: { backgroundColor: '#1F2937' },
-    continueButtonText: { fontSize: 16, fontWeight: '600', color: '#9CA3AF' },
-    continueButtonTextActive: { color: '#FFF' },
+    dropdownItemText: { fontSize: 14 },
+    noteBox: { flexDirection: 'row', alignItems: 'flex-start', padding: 12, borderRadius: 8, marginBottom: 24 },
+    noteText: { flex: 1, fontSize: 12, lineHeight: 16, marginLeft: 8 },
+    continueButton: { width: '100%', padding: 16, borderRadius: 8, alignItems: 'center', marginTop: 8 },
+    continueButtonText: { fontSize: 16, fontWeight: '600' },
     backButton: { width: '100%', padding: 16, alignItems: 'center', marginTop: 12 },
-    backButtonText: { fontSize: 14, fontWeight: '500', color: '#6B7280' },
+    backButtonText: { fontSize: 14, fontWeight: '500' },
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
     modalContainer: {
-        backgroundColor: '#fff', borderRadius: 20, padding: 32, alignItems: 'center',
+        borderRadius: 20, padding: 32, alignItems: 'center',
         width: width * 0.85, maxWidth: 350,
         ...Platform.select({
             ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.2, shadowRadius: 16 },
@@ -685,13 +793,13 @@ const styles = StyleSheet.create({
     successIconBg: { backgroundColor: '#10b981' },
     errorIconBg: { backgroundColor: '#ef4444' },
     resultIconText: { fontSize: 36, color: '#fff', fontWeight: 'bold' },
-    modalTitle: { fontSize: 24, fontWeight: '700', marginBottom: 12, textAlign: 'center', color: '#111827' },
-    modalMessage: { fontSize: 16, color: '#6b7280', textAlign: 'center', lineHeight: 24 },
+    modalTitle: { fontSize: 24, fontWeight: '700', marginBottom: 12, textAlign: 'center' },
+    modalMessage: { fontSize: 16, textAlign: 'center', lineHeight: 24 },
     modalButton: { paddingVertical: 14, paddingHorizontal: 24, borderRadius: 10, marginTop: 16, width: '100%', alignItems: 'center' },
     errorButton: { backgroundColor: '#ef4444' },
-    cancelButton: { backgroundColor: '#F3F4F6', marginTop: 8 },
+    cancelButton: { marginTop: 8 },
     buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-    cancelButtonText: { color: '#6B7280', fontSize: 16, fontWeight: '600' },
+    cancelButtonText: { fontSize: 16, fontWeight: '600' },
     dotsContainer: { flexDirection: 'row', marginTop: 20, gap: 8 },
     dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#d1d5db' },
     dotActive: { backgroundColor: '#6366f1' },

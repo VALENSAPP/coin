@@ -13,6 +13,7 @@ import {
 import { useRoute } from '@react-navigation/native';
 import { useAppTheme } from '../../theme/useApptheme';
 import { getProgressBarColor } from '../../utils/progressBarUtils';
+import { getMissionDaysLeft } from '../../utils/missionDaysLeft';
 import { getTotalDonationAmount } from '../../services/tokens';
 import { pinPost, unpinPost } from '../../services/post';
 import { isPostPinned, setPostPinnedState, sortPostsByPinned } from '../../utils/postPinning';
@@ -43,22 +44,7 @@ const calculateMissionStats = (post, raisedAmountOverride = null) => {
   );
   const progressPercent = goalAmount > 0 ? (currentRaised / goalAmount) * 100 : 0;
 
-  let daysLeft = 0;
-  if (post?.end_time) {
-    try {
-      const end = new Date(post.end_time);
-      const start = post?.start_time ? new Date(post.start_time) : null;
-      const now = new Date();
-
-      if (!Number.isNaN(end.getTime())) {
-        const baseline = start && !Number.isNaN(start.getTime()) && now < start ? start : now;
-        const diff = end - baseline;
-        daysLeft = diff > 0 ? Math.ceil(diff / (1000 * 60 * 60 * 24)) : 0;
-      }
-    } catch (err) {
-      daysLeft = 0;
-    }
-  }
+  const daysLeft = getMissionDaysLeft(post?.end_time);
 
   return { goalAmount, currentRaised, progressPercent, daysLeft };
 };
