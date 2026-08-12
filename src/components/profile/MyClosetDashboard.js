@@ -323,7 +323,7 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
           : Array.isArray(payload?.data)
             ? payload.data
             : [];
-
+      console.log("-----------------list-------------------",list)
       setRecentOrders(list.slice(0, 3).map((order, index) => normalizeBuyerOrder(order, index, t)));
     } catch (error) {
       console.warn('Unable to load recent orders:', error);
@@ -642,13 +642,65 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
   };
 
   const handleOpenOrder = order => {
+    const rawOrder = order.raw || order;
+    const items = Array.isArray(rawOrder?.items)
+      ? rawOrder.items
+      : Array.isArray(rawOrder?.orderItems)
+        ? rawOrder.orderItems
+        : Array.isArray(order?.items)
+          ? order.items
+          : [];
+
+    const itemChoice =
+      items[0]?.selectedShippingChoice ||
+      items[0]?.shippingChoice ||
+      items[0]?.shippingOption ||
+      items[0]?.shippingType ||
+      order?.item?.selectedShippingChoice ||
+      rawOrder?.item?.selectedShippingChoice ||
+      '';
+
+    const isLocalPickupVal = val => {
+      if (!val) return false;
+      const str = String(val).trim().toLowerCase();
+      return (
+        str === 'local-pickup' ||
+        str === 'local_pickup' ||
+        str === 'local_pick' ||
+        str === 'localpick' ||
+        str === 'pickup' ||
+        str === 'local'
+      );
+    };
+
+    const shippingType =
+      order?.shippingType ||
+      order?.shippingOption ||
+      rawOrder?.shippingType ||
+      rawOrder?.shippingOption ||
+      rawOrder?.fulfillmentType ||
+      rawOrder?.deliveryType ||
+      rawOrder?.shippingChoice ||
+      rawOrder?.selectedShippingChoice ||
+      rawOrder?.shipping_option ||
+      rawOrder?.shipping_type ||
+      itemChoice ||
+      '';
+
+    const isLocalPickup =
+      Boolean(order?.isLocalPickup || rawOrder?.isLocalPickup) ||
+      isLocalPickupVal(shippingType) ||
+      isLocalPickupVal(itemChoice) ||
+      items.some(it => isLocalPickupVal(it?.selectedShippingChoice || it?.shippingChoice || it?.shippingOption));
+
     navigation?.navigate?.('ProfileMain', {
       screen: 'MyClosetOrderDetail',
       params: {
-        orderId: order.raw?.id || order.raw?._id || order.id,
-        orderPreview: order.raw,
+        orderId: rawOrder?.id || rawOrder?._id || order.id,
+        orderPreview: rawOrder,
         viewType: 'seller',
         returnTo: 'MyClosetDashboard',
+        isLocalPickup,
       },
     });
   };

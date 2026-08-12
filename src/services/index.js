@@ -46,10 +46,11 @@ export const authInterceptor = axiosInstance.interceptors.request.use(
 
 export const authInterceptorResponse = axiosInstance.interceptors.response.use(
     (response) => {
-        // console.log(response, "res333333333333333333333333")
+        console.log(response, "res333333333333333333333333")
         return response.data;
     },
     async (error) => {
+         console.log(error, "errorjhikjikjikjikjkijkjkoj")
         const fallback = {
             statusCode: 0,
             message: error?.response?.data?.message || error?.message || 'Network error',

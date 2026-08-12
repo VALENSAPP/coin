@@ -23,14 +23,14 @@ import {
   getSellerOrders,
   markOrderProcessing,
   markOrderShipped,
-  markOrderDelivered,
+  deliverLocalPickupOrder,
   getBuyerOrders,
   cancelBuyerOrder,
 } from '../../services/myCloset';
 import ShippingDetailsModal from '../modals/ShippingDetailsModal';
+import DeliverOtpModal from '../modals/DeliverOtpModal';
 
 // ── Status helpers ──────────────────────────────────────────────────────
-// Colors stay fixed; the display label is resolved via t('myClosetOrders.status.<key>') at render time.
 const STATUS_META = {
   pending: { color: '#7c3aed', bg: 'rgba(124,58,237,0.12)' },
   confirmed: { color: '#0891b2', bg: 'rgba(8,145,178,0.12)' },
@@ -135,24 +135,78 @@ const getSellerHandle = order =>
   order?.shop?.username ||
   '';
 
-// `mode` is 'seller' | 'buyer' — controls which counterpart handle we surface on the card
-const normalizeOrder = (order, index, mode, t) => ({
-  id: order?.id || order?._id || String(index),
-  orderNumber: order?.orderNumber || order?.orderId || order?.id || order?._id || index + 1,
-  itemName: getOrderItemName(order, t),
-  itemCount: order?.totalItemCount ?? null,
-  price: formatPrice(getOrderPrice(order)),
-  totalAmount: formatPrice(order?.totalAmount ?? order?.amount ?? order?.total),
-  counterpart: mode === 'seller' ? getBuyerHandle(order) : getSellerHandle(order),
-  date: formatDate(order?.createdAt || order?.orderDate || order?.date),
-  status: normalizeStatus(order?.orderStatus ?? order?.status),
-  buyerName: getBuyerHandle(order),
-  sellerName: getSellerHandle(order),
-  image: getOrderImage(order),
-  raw: order,
-});
+const isLocalPickupVal = val => {
+  if (!val) return false;
+  const str = String(val).trim().toLowerCase();
+  return (
+    str === 'local-pickup' ||
+    str === 'local_pickup' ||
+    str === 'local_pick' ||
+    str === 'localpick' ||
+    str === 'pickup' ||
+    str === 'local'
+  );
+};
 
-// Cancellable statuses on the buyer side — adjust to match your backend's actual rules
+const normalizeOrder = (order, index, mode, t, fulfillmentTab = 'ship-to-deliver') => {
+  const items = Array.isArray(order?.items)
+    ? order.items
+    : Array.isArray(order?.orderItems)
+      ? order.orderItems
+      : [];
+
+  const itemChoice =
+    items[0]?.selectedShippingChoice ||
+    items[0]?.shippingChoice ||
+    items[0]?.shippingOption ||
+    items[0]?.product?.shippingOption ||
+    order?.item?.selectedShippingChoice ||
+    '';
+
+  const shippingType =
+    order?.shippingType ||
+    order?.shippingOption ||
+    order?.fulfillmentType ||
+    order?.shippingChoice ||
+    order?.selectedShippingChoice ||
+    itemChoice ||
+    '';
+
+  const isLocalPickup =
+    fulfillmentTab === 'local-pickup' ||
+    Boolean(order?.isLocalPickup) ||
+    isLocalPickupVal(order?.shippingType) ||
+    isLocalPickupVal(order?.shippingOption) ||
+    isLocalPickupVal(order?.fulfillmentType) ||
+    isLocalPickupVal(order?.shippingChoice) ||
+    isLocalPickupVal(order?.selectedShippingChoice) ||
+    isLocalPickupVal(order?.deliveryType) ||
+    isLocalPickupVal(order?.orderType) ||
+    isLocalPickupVal(order?.shipping_type) ||
+    isLocalPickupVal(order?.shipping_option) ||
+    isLocalPickupVal(order?.shipping_choice) ||
+    isLocalPickupVal(itemChoice) ||
+    items.some(it => isLocalPickupVal(it?.selectedShippingChoice || it?.shippingChoice || it?.shippingOption || it?.product?.shippingOption));
+
+  return {
+    id: order?.id || order?._id || String(index),
+    orderNumber: order?.orderNumber || order?.orderId || order?.id || order?._id || index + 1,
+    itemName: getOrderItemName(order, t),
+    itemCount: order?.totalItemCount ?? null,
+    price: formatPrice(getOrderPrice(order)),
+    totalAmount: formatPrice(order?.totalAmount ?? order?.amount ?? order?.total),
+    counterpart: mode === 'seller' ? getBuyerHandle(order) : getSellerHandle(order),
+    date: formatDate(order?.createdAt || order?.orderDate || order?.date),
+    status: normalizeStatus(order?.orderStatus ?? order?.status),
+    buyerName: getBuyerHandle(order),
+    sellerName: getSellerHandle(order),
+    image: getOrderImage(order),
+    shippingType,
+    isLocalPickup,
+    raw: order,
+  };
+};
+
 const withAlpha = (hex, alpha = 0.12) => {
   const normalized = String(hex || '').replace('#', '');
   if (normalized.length !== 6) return `rgba(124,58,237,${alpha})`;
@@ -215,8 +269,6 @@ const OrderThumb = ({ uri, accent }) => {
   );
 };
 
-// Seller-side status progression — what happens when the seller taps the action button.
-// `label` is resolved via t('myClosetOrders.action.<actionKey>') at render time.
 const STATUS_FLOW = {
   pending: { next: 'processing', actionKey: 'processing' },
   confirmed: { next: 'processing', actionKey: 'processing' },
@@ -226,9 +278,25 @@ const STATUS_FLOW = {
   cancelled: null,
 };
 
+const getFlowStep = (order, mode, fulfillmentTab) => {
+  if (mode !== 'seller') return null;
+  const isLocal = order.isLocalPickup || order.shippingType === 'local-pickup' || fulfillmentTab === 'local-pickup';
+  if (isLocal) {
+    if (order.status === 'pending' || order.status === 'confirmed') {
+      return { next: 'processing', actionKey: 'processing' };
+    }
+    if (order.status === 'processing' || order.status === 'shipped') {
+      return { next: 'delivered', actionKey: 'deliver' };
+    }
+    return null;
+  }
+  return STATUS_FLOW[order.status];
+};
+
 const OrderCard = ({
   order,
   mode,
+  fulfillmentTab,
   accent,
   cardStyle,
   textStyle,
@@ -242,7 +310,7 @@ const OrderCard = ({
 }) => {
   const meta = STATUS_META[order.status];
   const statusLabel = t(`myClosetOrders.status.${order.status}`);
-  const flowStep = mode === 'seller' ? STATUS_FLOW[order.status] : null;
+  const flowStep = getFlowStep(order, mode, fulfillmentTab);
   const nextActionLabel = flowStep ? t(`myClosetOrders.action.${flowStep.actionKey}`) : null;
   const canCancel = mode === 'buyer' && BUYER_CANCELLABLE_STATUSES.includes(order.status);
 
@@ -315,10 +383,20 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
   // Which side of the marketplace we're viewing — defaults to seller for backward compatibility
   const mode = route?.params?.viewType === 'buyer' ? 'buyer' : 'seller';
 
-  const SELLER_TABS = [
+  // Fulfillment tab state: 'ship-to-deliver' or 'local-pickup'
+  const [fulfillmentTab, setFulfillmentTab] = useState('ship-to-deliver');
+  const [deliverOtpModalOrder, setDeliverOtpModalOrder] = useState(null);
+
+  const SELLER_SHIP_TABS = [
     { key: 'all', status: null },
     { key: 'processing', status: 'PROCESSING' },
     { key: 'shipped', status: 'SHIPPED' },
+    { key: 'delivered', status: 'DELIVERED' },
+  ];
+
+  const SELLER_PICKUP_TABS = [
+    { key: 'all', status: null },
+    { key: 'processing', status: 'PROCESSING' },
     { key: 'delivered', status: 'DELIVERED' },
   ];
 
@@ -329,7 +407,11 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
     { key: 'delivered', status: 'DELIVERED' },
   ];
 
-  const tabs = mode === 'buyer' ? BUYER_TABS : SELLER_TABS;
+  const tabs = useMemo(() => {
+    if (mode === 'buyer') return BUYER_TABS;
+    return fulfillmentTab === 'local-pickup' ? SELLER_PICKUP_TABS : SELLER_SHIP_TABS;
+  }, [mode, fulfillmentTab]);
+
   const [allOrders, setAllOrders] = useState([]);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -339,6 +421,13 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
   const [shippingModalOrder, setShippingModalOrder] = useState(null);
   const [pageInfo, setPageInfo] = useState({ page: 1, limit: 10, total: 0, totalPages: 1 });
   const [counts, setCounts] = useState({ all: 0, pending: 0, processing: 0, shipped: 0, delivered: 0 });
+
+  const handleFulfillmentTabChange = useCallback((newTab) => {
+    setFulfillmentTab(newTab);
+    if (newTab === 'local-pickup' && activeTab === 'shipped') {
+      setActiveTab('all');
+    }
+  }, [activeTab]);
 
   const extractList = payload => {
     const data = payload?.data?.data ?? payload?.data?.orders ?? payload?.data ?? payload;
@@ -357,10 +446,14 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
   // Picks the right list endpoint for the active mode
   const fetchOrdersPage = useCallback(
     (page, status) => {
-      const params = { page, status: status || undefined };
+      const params = {
+        page,
+        status: status || undefined,
+        shippingType: mode === 'seller' ? fulfillmentTab : undefined,
+      };
       return mode === 'seller' ? getSellerOrders(params) : getBuyerOrders();
     },
-    [mode],
+    [mode, fulfillmentTab],
   );
 
   // Loads orders for the currently active tab/status, server-side filtered & paginated
@@ -372,7 +465,9 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
         const response = await fetchOrdersPage(page, tabConfig.status);
         const list = extractList(response);
         const pagination = extractPagination(response);
-        const normalized = list.map((order, index) => normalizeOrder(order, index, mode, t));
+        const normalized = list.map((order, index) =>
+          normalizeOrder(order, index, mode, t, fulfillmentTab)
+        );
 
         if (mode === 'buyer') {
           setAllOrders(prev =>
@@ -401,22 +496,18 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
             setAllOrders([]);
           }
         }
-
       } finally {
         append ? setLoadingMore(false) : setLoading(false);
       }
     },
-    [activeTab, fetchOrdersPage, mode, toast, t],
+    [activeTab, fetchOrdersPage, mode, toast, t, tabs, fulfillmentTab],
   );
 
   // Fetches accurate totals for every tab badge in one pass (limit=1, we only need `pagination.total`)
   const loadCounts = useCallback(async () => {
     try {
       const results = await Promise.all(
-        tabs.map(tab => fetchOrdersPage(1, tab.status).then(res => {
-          // limit isn't part of fetchOrdersPage's signature; request it directly here
-          return res;
-        })),
+        tabs.map(tab => fetchOrdersPage(1, tab.status).then(res => res)),
       );
       const nextCounts = {};
       tabs.forEach((tab, index) => {
@@ -427,7 +518,7 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
     } catch (error) {
       // Counts are a nice-to-have; silently skip on failure rather than blocking the list
     }
-  }, [fetchOrdersPage]);
+  }, [fetchOrdersPage, tabs]);
 
   useFocusEffect(
     useCallback(() => {
@@ -436,7 +527,7 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
       if (mode === 'seller') {
         loadCounts();
       }
-    }, [activeTab, mode]),
+    }, [activeTab, mode, fulfillmentTab]),
   );
 
   const handleLoadMore = useCallback(() => {
@@ -450,9 +541,11 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
         orderId: order.raw?.id || order.raw?._id || order.id,
         orderPreview: order.raw,
         viewType: mode,
+        fulfillmentTab: fulfillmentTab,
+        isLocalPickup: order.isLocalPickup || fulfillmentTab === 'local-pickup',
       });
     },
-    [navigation, mode],
+    [navigation, mode, fulfillmentTab],
   );
 
   // `orders` already reflects the active tab's server-side filter, so it doubles as `visibleOrders`.
@@ -487,14 +580,8 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
 
   const handleAdvance = useCallback(
     async (order, extra) => {
-      const ACTION_BY_KEY = {
-        processing: (id) => markOrderProcessing(id),
-        shipped: (id) => markOrderShipped(id, extra),
-        delivered: (id) => markOrderDelivered(id),
-      };
-      const flowStep = STATUS_FLOW[order.status];
-      const action = flowStep ? ACTION_BY_KEY[flowStep.actionKey] : null;
-      if (!action) return;
+      const flowStep = getFlowStep(order, mode, fulfillmentTab);
+      if (!flowStep) return;
 
       // shipped needs carrier/trackingNumber first — open the modal instead of calling immediately
       if (flowStep.actionKey === 'shipped' && !extra) {
@@ -502,26 +589,53 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
         return;
       }
 
+      // Local pickup deliver needs OTP — open OTP modal instead
+      if (flowStep.actionKey === 'deliver' && !extra && (order.isLocalPickup || fulfillmentTab === 'local-pickup')) {
+        setDeliverOtpModalOrder(order);
+        return;
+      }
+
       setAdvancingId(order.id);
       dispatch(showLoader());
       try {
-        const response = await action(order.raw?.id || order.raw?._id || order.id);
-        if (response.statusCode == 200 || response.statusCode == 201) {
-          showToastMessage(toast, 'success', t('myClosetOrders.statusUpdateSuccess'));
+        let response;
+        if (flowStep.actionKey === 'processing') {
+          response = await markOrderProcessing(order.raw?.id || order.raw?._id || order.id);
+        } else if (flowStep.actionKey === 'shipped') {
+          response = await markOrderShipped(order.raw?.id || order.raw?._id || order.id, extra);
+        } else if (flowStep.actionKey === 'deliver') {
+          const otpVal = typeof extra === 'string' ? extra : extra?.otp;
+          response = await deliverLocalPickupOrder(order.raw?.id || order.raw?._id || order.id, otpVal);
+          showToastMessage(
+            toast,
+            'success',
+            t('myClosetOrderDetail.deliverySuccess') || 'Order marked as delivered successfully.',
+          );
         }
-        else {
-          showToastMessage(toast, 'danger', response.message);
+
+        if (flowStep.actionKey !== 'deliver') {
+          if (response?.statusCode == 200 || response?.statusCode == 201) {
+            showToastMessage(toast, 'success', t('myClosetOrders.statusUpdateSuccess'));
+          } else if (response?.message) {
+            showToastMessage(toast, 'danger', response.message);
+          }
         }
+
         await Promise.all([loadOrders(1, false), loadCounts()]);
       } catch (error) {
-        showToastMessage(toast, 'danger', error?.response?.data?.message || error?.message || t('myClosetOrders.statusUpdateError'));
+        showToastMessage(
+          toast,
+          'danger',
+          error?.response?.data?.message || error?.message || t('myClosetOrders.statusUpdateError'),
+        );
       } finally {
         setAdvancingId(null);
         dispatch(hideLoader());
         setShippingModalOrder(null);
+        setDeliverOtpModalOrder(null);
       }
     },
-    [dispatch, loadCounts, loadOrders, toast, t],
+    [dispatch, loadCounts, loadOrders, toast, t, mode, fulfillmentTab],
   );
 
   const handleCancel = useCallback(
@@ -578,7 +692,7 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
           },
         },
       ],
-    })
+    });
   }, [navigation]);
 
   return (
@@ -589,6 +703,72 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
         accent={accent}
         textStyle={textStyle}
       />
+
+      {mode === 'seller' && (
+        <View style={styles.fulfillmentTabsContainer}>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => handleFulfillmentTabChange('local-pickup')}
+            style={[
+              styles.fulfillmentTab,
+              fulfillmentTab === 'local-pickup' && {
+                backgroundColor: accent,
+                borderColor: accent,
+              },
+              fulfillmentTab !== 'local-pickup' && {
+                backgroundColor: isDarkMode ? 'rgba(255,255,255,0.06)' : '#f3f4f6',
+                borderColor: 'transparent',
+              },
+            ]}
+          >
+            <Ionicons
+              name="location-outline"
+              size={16}
+              color={fulfillmentTab === 'local-pickup' ? '#ffffff' : (textStyle?.color || '#374151')}
+              style={{ marginRight: 6 }}
+            />
+            <Text
+              style={[
+                styles.fulfillmentTabText,
+                fulfillmentTab === 'local-pickup' ? { color: '#ffffff', fontWeight: '800' } : mutedTextStyle,
+              ]}
+            >
+              {t('myClosetOrders.fulfillment.localPickup') || 'Local Pickup'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => handleFulfillmentTabChange('ship-to-deliver')}
+            style={[
+              styles.fulfillmentTab,
+              fulfillmentTab === 'ship-to-deliver' && {
+                backgroundColor: accent,
+                borderColor: accent,
+              },
+              fulfillmentTab !== 'ship-to-deliver' && {
+                backgroundColor: isDarkMode ? 'rgba(255,255,255,0.06)' : '#f3f4f6',
+                borderColor: 'transparent',
+              },
+            ]}
+          >
+            <Ionicons
+              name="cube-outline"
+              size={16}
+              color={fulfillmentTab === 'ship-to-deliver' ? '#ffffff' : (textStyle?.color || '#374151')}
+              style={{ marginRight: 6 }}
+            />
+            <Text
+              style={[
+                styles.fulfillmentTabText,
+                fulfillmentTab === 'ship-to-deliver' ? { color: '#ffffff', fontWeight: '800' } : mutedTextStyle,
+              ]}
+            >
+              {t('myClosetOrders.fulfillment.shipToDeliver') || 'Ship by Me'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       <View style={[styles.tabsRow, { borderBottomColor: withAlpha(accent, isDarkMode ? 0.2 : 0.08) }]}>
         {tabs.map(tab => {
@@ -622,6 +802,7 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
               key={order.id}
               order={order}
               mode={mode}
+              fulfillmentTab={fulfillmentTab}
               accent={accent}
               cardStyle={cardStyle}
               textStyle={textStyle}
@@ -674,6 +855,14 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
         onCancel={() => setShippingModalOrder(null)}
         onSubmit={(payload) => handleAdvance(shippingModalOrder, payload)}
       />
+      <DeliverOtpModal
+        visible={!!deliverOtpModalOrder}
+        orderId={deliverOtpModalOrder?.raw?.id || deliverOtpModalOrder?.raw?._id || deliverOtpModalOrder?.id}
+        accent={accent}
+        toast={toast}
+        onCancel={() => setDeliverOtpModalOrder(null)}
+        onSubmit={(otp) => handleAdvance(deliverOtpModalOrder, otp)}
+      />
     </SafeAreaView>
   );
 };
@@ -689,7 +878,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingTop: 10,
-    paddingBottom: 20,
+    paddingBottom: 16,
   },
   headerIconButton: {
     width: 36,
@@ -699,11 +888,31 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontSize: 17, fontWeight: '800' },
 
+  fulfillmentTabsContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    marginBottom: 14,
+    gap: 10,
+  },
+  fulfillmentTab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  fulfillmentTabText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+
   tabsRow: {
     flexDirection: 'row',
     paddingHorizontal: 25,
     borderBottomWidth: 1,
-    
     marginBottom: 8,
   },
   tabItem: {
@@ -755,7 +964,6 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 14,
-    
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
@@ -798,19 +1006,17 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 12, marginTop: 4, textAlign: 'center' },
 
   paginationFooter: {
-    alignItems: 'center',
-    paddingVertical: 14,
-    gap: 10,
-  },
-  paginationText: { fontSize: 12, fontWeight: '600' },
-  loadMoreButton: {
-    minHeight: 40,
-    minWidth: 140,
-    borderRadius: 12,
-    borderWidth: 1,
+    marginTop: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 16,
   },
-  loadMoreText: { fontSize: 13, fontWeight: '800' },
+  paginationText: { fontSize: 12 },
+  loadMoreButton: {
+    marginTop: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  loadMoreText: { fontSize: 12, fontWeight: '700' },
 });
