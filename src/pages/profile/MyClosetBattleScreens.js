@@ -430,6 +430,10 @@ const navigateBackToProfile = (navigation, returnToProfile) => {
 
 const useBattleBackHandler = (navigation, route) =>
   useCallback(() => {
+    if (navigation?.canGoBack?.()) {
+      navigation.goBack();
+      return;
+    }
     if (navigateBackToProfile(navigation, route?.params?.returnToProfile)) {
       return;
     }
@@ -1636,7 +1640,10 @@ export function BattleLiveScreen({ navigation, route }) {
     }
   }, [returnTo, navigation, battleBack]);
   const handleDonePress = useCallback(() => {
-
+    if (navigation.canGoBack?.()) {
+      navigation.goBack();
+      return;
+    }
     if (returnTo) {
       navigateClosetReturn(navigation, returnTo);
       return;
@@ -1655,16 +1662,8 @@ export function BattleLiveScreen({ navigation, route }) {
       });
       return;
     }
-    if (navigation.canGoBack?.()) {
-      if (route?.params?.userProfile == "user") {
-        battleBack();
-      }
-      else {
-        navigation.goBack();
-      }
-      return;
-    }
-  }, [navigation, returnTo, isOwnProfile, launchedFromPreview]);
+    battleBack();
+  }, [navigation, returnTo, isOwnProfile, launchedFromPreview, battleBack]);
 
   const handleBackPress = useCallback(() => {
     if (navigation.canGoBack?.()) {

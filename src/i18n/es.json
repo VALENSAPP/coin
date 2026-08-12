@@ -3712,9 +3712,15 @@
       "delivered": "Entregado",
       "cancelled": "Cancelado"
     },
+    "fulfillment": {
+      "shipToDeliver": "Enviar por mi cuenta",
+      "localPickup": "Recogida local"
+    },
     "action": {
       "processing": "Marcar como en proceso",
       "shipped": "Marcar como enviado",
+      "sendOtp": "Enviar OTP al comprador",
+      "deliver": "Marcar como entregado",
       "delivered": "Marcar como entregado"
     },
     "tabs": {
@@ -3845,6 +3851,7 @@
     "totalLabel": "Total {{amount}}",
     "continueShopping": "Seguir comprando",
     "goToMyOrders": "Ir a Mis Pedidos",
+    "chatWithSeller": "Chatear con el vendedor",
     "steps": {
       "cart": "Carrito",
       "shipping": "Envío",
@@ -4303,6 +4310,14 @@
     "markAsProcessing": "Marcar como en proceso",
     "markAsShipped": "Marcar como enviado",
     "markAsDelivered": "Marcar como entregado",
+    "sendOtpToBuyer": "Enviar OTP al comprador",
+    "enterDeliveryOtp": "Introducir OTP de entrega",
+    "enterOtpSubtitle": "Introduce el OTP proporcionado por el comprador para verificar la entrega mediante recogida local.",
+    "otpLabel": "Código OTP",
+    "otpPlaceholder": "Introducir OTP",
+    "verifyAndDeliver": "Verificar y entregar",
+    "otpSentSuccess": "OTP enviado correctamente al correo electrónico del comprador.",
+    "deliverySuccess": "El pedido se ha marcado como entregado correctamente.",
     "status": {
       "pending": "Por enviar",
       "confirmed": "Confirmado",

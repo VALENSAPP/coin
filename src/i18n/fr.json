@@ -3712,10 +3712,16 @@
       "delivered": "Livrée",
       "cancelled": "Annulée"
     },
+    "fulfillment": {
+      "shipToDeliver": "Expédier moi-même",
+      "localPickup": "Retrait local"
+    },
     "action": {
       "processing": "Marquer comme en cours de traitement",
-      "shipped": "Marquer comme expédiée",
-      "delivered": "Marquer comme livrée"
+      "shipped": "Marquer comme expédié",
+      "sendOtp": "Envoyer l'OTP à l'acheteur",
+      "deliver": "Marquer comme livré",
+      "delivered": "Marquer comme livré"
     },
     "tabs": {
       "all": "Tous",
@@ -3845,6 +3851,7 @@
     "totalLabel": "Total {{amount}}",
     "continueShopping": "Continuer vos achats",
     "goToMyOrders": "Voir mes commandes",
+    "chatWithSeller": "Discuter avec le vendeur",
     "steps": {
       "cart": "Panier",
       "shipping": "Livraison",
@@ -4303,6 +4310,14 @@
     "markAsProcessing": "Marquer comme en cours de traitement",
     "markAsShipped": "Marquer comme expédiée",
     "markAsDelivered": "Marquer comme livrée",
+    "sendOtpToBuyer": "Envoyer l'OTP à l'acheteur",
+    "enterDeliveryOtp": "Saisir l'OTP de livraison",
+    "enterOtpSubtitle": "Saisissez l'OTP fourni par l'acheteur pour vérifier la livraison avec retrait local.",
+    "otpLabel": "Code OTP",
+    "otpPlaceholder": "Saisir l'OTP",
+    "verifyAndDeliver": "Vérifier et livrer",
+    "otpSentSuccess": "L'OTP a été envoyé avec succès à l'adresse e-mail de l'acheteur.",
+    "deliverySuccess": "La commande a été marquée comme livrée avec succès.",
     "status": {
       "pending": "À expédier",
       "confirmed": "Confirmée",

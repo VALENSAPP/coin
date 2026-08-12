@@ -29,6 +29,7 @@ import {
   getClosetChatMessagesApi,
   sendClosetChatMessageApi,
   markClosetChatMessageSeenApi,
+  getClosetChatThreadsApi,
 } from '../../../services/chatMessage';
 import useSocket from '../../../hooks/useSocket';
 import { useLanguage } from '../../../i18n';
@@ -88,7 +89,48 @@ const SafeIcon = ({ name, size = 24, color = '#000', style }) => {
 
 export default function UserClosetChat({ route, navigation }) {
   const routeParams = route?.params || {};
-  const { threadId, otherUser, orderInfo } = routeParams;
+  const { threadId: routeThreadId, otherUser: routeOtherUser, orderInfo: routeOrderInfo, sellerId, seller } = routeParams;
+
+  const [threadId, setThreadId] = useState(routeThreadId || null);
+  const otherUser = routeOtherUser || seller || (sellerId ? { id: sellerId } : null);
+  const orderInfo = routeOrderInfo || (routeParams.orderId ? { orderId: routeParams.orderId } : null);
+  const targetSellerId = sellerId || otherUser?.id || otherUser?.userId;
+
+  useEffect(() => {
+    if (routeThreadId) {
+      setThreadId(routeThreadId);
+    }
+  }, [routeThreadId]);
+
+  useEffect(() => {
+    if (!threadId && (targetSellerId || orderInfo?.orderId)) {
+      const resolveThread = async () => {
+        try {
+          const res = await getClosetChatThreadsApi();
+          const threads = Array.isArray(res?.data) ? res.data : (res?.data?.threads || []);
+          const match = threads.find(t => {
+            const tOtherId = String(t?.otherUser?.id || t?.otherUser?.userId || t?.sellerId || '');
+            const tOrderId = String(t?.orderInfo?.orderId || t?.orderId || '');
+            return (
+              (orderInfo?.orderId && tOrderId === String(orderInfo.orderId)) ||
+              (targetSellerId && tOtherId === String(targetSellerId))
+            );
+          });
+          if (match?.threadId || match?.id) {
+            setThreadId(match.threadId || match.id);
+          } else {
+            const fallbackId = orderInfo?.orderId ? `thread_order_${orderInfo.orderId}` : `thread_${targetSellerId}`;
+            setThreadId(fallbackId);
+          }
+        } catch (err) {
+          console.warn('Error resolving closet chat thread:', err);
+          const fallbackId = orderInfo?.orderId ? `thread_order_${orderInfo.orderId}` : `thread_${targetSellerId}`;
+          setThreadId(fallbackId);
+        }
+      };
+      resolveThread();
+    }
+  }, [threadId, targetSellerId, orderInfo?.orderId]);
 
   const { t } = useLanguage();
   const { bgStyle, textStyle, text, bg, card, border, mutedText, accent, icon } = useAppTheme();

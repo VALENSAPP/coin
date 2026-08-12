@@ -3847,9 +3847,15 @@
       "delivered": "Delivered",
       "cancelled": "Cancelled"
     },
+    "fulfillment": {
+      "shipToDeliver": "Ship by Me",
+      "localPickup": "Local Pickup"
+    },
     "action": {
       "processing": "Mark as Processing",
       "shipped": "Mark as Shipped",
+      "sendOtp": "Send OTP to Buyer",
+      "deliver": "Mark as Delivered",
       "delivered": "Mark as Delivered"
     },
     "tabs": {
@@ -3981,6 +3987,7 @@
     "totalLabel": "Total {{amount}}",
     "continueShopping": "Continue Shopping",
     "goToMyOrders": "Go to My Orders",
+    "chatWithSeller": "Chat with Seller",
     "steps": {
       "cart": "Cart",
       "shipping": "Shipping",
@@ -4440,6 +4447,14 @@
     "markAsProcessing": "Mark as Processing",
     "markAsShipped": "Mark as Shipped",
     "markAsDelivered": "Mark as Delivered",
+    "sendOtpToBuyer": "Send OTP to Buyer",
+    "enterDeliveryOtp": "Enter Delivery OTP",
+    "enterOtpSubtitle": "Enter the OTP provided by the buyer to verify local pickup delivery.",
+    "otpLabel": "OTP Code",
+    "otpPlaceholder": "Enter OTP",
+    "verifyAndDeliver": "Verify & Deliver",
+    "otpSentSuccess": "OTP sent to buyer email successfully.",
+    "deliverySuccess": "Order marked as delivered successfully.",
     "status": {
       "pending": "To ship",
       "confirmed": "Confirmed",

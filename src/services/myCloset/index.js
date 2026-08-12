@@ -272,6 +272,7 @@ export const getSellerOrders = async (params = {}) => {
   if (params.page) query.append('page', params.page);
   if (params.limit) query.append('limit', params.limit);
   if (params.status) query.append('status', params.status);
+  if (params.shippingType) query.append('shippingType', params.shippingType);
   const queryString = query.toString();
   return axiosInstance.get(`seller/orders${queryString ? `?${queryString}` : ''}`);
 };
@@ -288,8 +289,17 @@ export const markOrderShipped = async (orderId, { carrier, trackingNumber } = {}
   return axiosInstance.patch(`seller/orders/${orderId}/ship`, { carrier, trackingNumber });
 };
 
-export const markOrderDelivered = async orderId => {
-  return axiosInstance.patch(`seller/orders/${orderId}/deliver`);
+export const sendDeliveryOtp = async (orderId, expiresInMinutes = 10) => {
+  return axiosInstance.post(`seller/orders/${orderId}/deliver/send-otp`, { expiresInMinutes });
+};
+
+export const deliverLocalPickupOrder = async (orderId, otp) => {
+  return axiosInstance.patch(`seller/orders/${orderId}/deliver`, { otp });
+};
+
+export const markOrderDelivered = async (orderId, data) => {
+  const payload = typeof data === 'string' ? { otp: data } : data;
+  return axiosInstance.patch(`seller/orders/${orderId}/deliver`, payload);
 };
 
 // ── Buyer Orders ────────────────────────────────────────────────

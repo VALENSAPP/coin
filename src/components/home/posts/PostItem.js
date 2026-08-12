@@ -645,6 +645,20 @@ function PostItem({
     }
   };
 
+  // Mission donations become available on the selected start date. Existing
+  // mission posts without a start date keep their current donation behaviour.
+  const hasMissionStarted = startTime => {
+    if (!startTime) return true;
+
+    const startDate = new Date(startTime);
+    if (Number.isNaN(startDate.getTime())) return true;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    startDate.setHours(0, 0, 0, 0);
+    return startDate <= today;
+  };
+
 
   const [daysLeft, setDaysLeft] = useState(() => getDaysLeftFromEndTime(item?.end_time));
   const [walletAddress, setWalletAddress] = useState('');
@@ -1605,6 +1619,7 @@ function PostItem({
 
   const isGoalAmountRaised = goalAmount > 0 && currentRaised >= goalAmount;
   const isCampaignDaysCompleted = goalAmount > 0 && !!item?.end_time && daysLeft <= 0;
+  const isMissionDonationActive = hasMissionStarted(item?.start_time);
 
   const progressStatusLabel = isGoalAmountRaised
     ? t('postItem.goalAmountRaised')
@@ -2576,6 +2591,7 @@ function PostItem({
                 itemUserIdStr &&
                 currentUserIdStr &&
                 itemUserIdStr !== currentUserIdStr &&
+                isMissionDonationActive &&
                 daysLeft > 0 &&
                 item?.end_time && (
                   <TouchableOpacity

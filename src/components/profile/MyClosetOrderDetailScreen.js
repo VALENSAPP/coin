@@ -22,18 +22,18 @@ import {
   markOrderProcessing,
   markOrderShipped,
   markOrderDelivered,
+  deliverLocalPickupOrder,
 } from '../../services/myCloset';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useThemeContext } from '../../theme/ThemeContext';
 import { useLanguage } from '../../i18n';
 import { navigateToUserProfile } from '../../utils/navigateToUserProfile';
 import ShippingDetailsModal from '../modals/ShippingDetailsModal';
+import DeliverOtpModal from '../modals/DeliverOtpModal';
 import { withAlpha } from '../../utils/closetTheme';
 import { DetailImageCarousel } from './MyClosetBuyerFlow';
 
 // ── Status meta + flow (kept in sync with the orders list screen) ─────────
-// Labels are stored as i18n keys and resolved with t() inside the components
-// that render them, since these constants live outside any component.
 const STATUS_META = {
   pending: { labelKey: 'myClosetOrderDetail.status.pending', color: '#7c3aed', bg: 'rgba(124,58,237,0.12)' },
   confirmed: { labelKey: 'myClosetOrderDetail.status.confirmed', color: '#0891b2', bg: 'rgba(8,145,178,0.12)' },
@@ -52,13 +52,28 @@ const STATUS_FLOW = {
   cancelled: null,
 };
 
+const getDetailFlowStep = (order, canUpdateStatus) => {
+  if (!canUpdateStatus || !order) return null;
+  if (order.isLocalPickup) {
+    if (order.status === 'pending' || order.status === 'confirmed') {
+      return { labelKey: 'myClosetOrderDetail.markAsProcessing', actionKey: 'processing' };
+    }
+    if (order.status === 'processing') {
+      return { labelKey: 'myClosetOrderDetail.markAsDelivered', actionKey: 'deliver' };
+    }
+    return null;
+  }
+  return STATUS_FLOW[order.status];
+};
+
 const ACTION_BY_KEY = {
   processing: (id) => markOrderProcessing(id),
   shipped: (id, extra) => markOrderShipped(id, extra),
-  delivered: (id) => markOrderDelivered(id),
+  delivered: (id, extra) => markOrderDelivered(id, extra),
 };
 
-const TIMELINE_STEPS = ['pending', 'processing', 'shipped', 'delivered'];
+const SHIP_TIMELINE_STEPS = ['pending', 'processing', 'shipped', 'delivered'];
+const PICKUP_TIMELINE_STEPS = ['pending', 'processing', 'delivered'];
 
 const normalizeStatus = raw => {
   const value = String(raw || '').trim().toLowerCase();
@@ -127,7 +142,7 @@ const getLineItemName = (line, t) =>
 
 const getLineItemPrice = line => line?.product?.price ?? line?.price ?? 0;
 
-const normalizeOrderDetail = (order, t, viewType) => {
+const normalizeOrderDetail = (order, t, viewType, isLocalPickupRoute = false) => {
   const lineItems = Array.isArray(order?.orderItems)
     ? order.orderItems
     : Array.isArray(order?.items)
@@ -146,17 +161,60 @@ const normalizeOrderDetail = (order, t, viewType) => {
   }));
 
   const address = order?.shippingAddress || order?.address || null;
-  console.log("order------------------",order)
-    const coverImg =
-      firstImage(order?.productImage) ||
-      firstImage(order?.item?.productImage) ||
-      firstImage(order?.items?.[0]?.productImage) ||
-      firstImage(order?.items?.[0]?.product?.images) ||
-      firstImage(order?.items?.[0]?.product?.image) ||
-      firstImage(order?.items?.[0]?.images) ||
-      firstImage(order?.items?.[0]?.image) ||
-      firstImage(order?.image) ||
-      null;
+  const coverImg =
+    firstImage(order?.productImage) ||
+    firstImage(order?.item?.productImage) ||
+    firstImage(order?.items?.[0]?.productImage) ||
+    firstImage(order?.items?.[0]?.product?.images) ||
+    firstImage(order?.items?.[0]?.product?.image) ||
+    firstImage(order?.items?.[0]?.images) ||
+    firstImage(order?.items?.[0]?.image) ||
+    firstImage(order?.image) ||
+    null;
+
+  const isLocalPickupVal = val => {
+    if (!val) return false;
+    const str = String(val).trim().toLowerCase();
+    return (
+      str === 'local-pickup' ||
+      str === 'local_pickup' ||
+      str === 'local_pick' ||
+      str === 'localpick' ||
+      str === 'pickup' ||
+      str === 'local'
+    );
+  };
+
+  const itemChoice =
+    lineItems[0]?.selectedShippingChoice ||
+    lineItems[0]?.shippingChoice ||
+    lineItems[0]?.shippingOption ||
+    lineItems[0]?.shippingType ||
+    lineItems[0]?.product?.shippingOption ||
+    order?.item?.selectedShippingChoice ||
+    '';
+
+  const shippingType =
+    order?.shippingType ||
+    order?.shippingOption ||
+    order?.fulfillmentType ||
+    order?.shippingChoice ||
+    order?.selectedShippingChoice ||
+    order?.deliveryType ||
+    order?.orderType ||
+    order?.shipping_type ||
+    order?.shipping_option ||
+    order?.shipping_choice ||
+    itemChoice ||
+    '';
+
+  const isLocalPickup =
+    Boolean(isLocalPickupRoute) ||
+    Boolean(order?.isLocalPickup) ||
+    isLocalPickupVal(shippingType) ||
+    isLocalPickupVal(itemChoice) ||
+    lineItems.some(it => isLocalPickupVal(it?.selectedShippingChoice || it?.shippingChoice || it?.shippingOption || it?.product?.shippingOption)) ||
+    viewType === 'local-pickup';
 
   return {
     id: order?.id || order?._id,
@@ -179,11 +237,12 @@ const normalizeOrderDetail = (order, t, viewType) => {
     images: Array.from(new Set([coverImg, ...normalizedLines.map(line => line.image)].filter(Boolean))),
     lines: normalizedLines,
     address,
+    shippingType,
+    isLocalPickup,
     raw: order,
   };
 };
 
-// ── Shared atoms (mirroring the buyer flow's design system) ────────────────
 const Header = ({ onBack, title }) => {
   const { accent, textStyle } = useAppTheme();
   const { isDarkMode } = useThemeContext();
@@ -225,7 +284,6 @@ const ImageBox = ({ uri, style, iconSize = 22, resizeMode = FastImage.resizeMode
             onError={() => setLoading(false)}
           />
           {loading ? (
-
             <View style={[styles.imageLoaderOverlay, { backgroundColor: loaderOverlay }]}>
               <ActivityIndicator size="small" color={accent} />
             </View>
@@ -237,7 +295,6 @@ const ImageBox = ({ uri, style, iconSize = 22, resizeMode = FastImage.resizeMode
     </View>
   );
 };
-
 
 const SummaryRow = ({ label, value, bold }) => {
   const { textStyle, mutedTextStyle, accent } = useAppTheme();
@@ -264,25 +321,25 @@ const BottomButton = ({ label, onPress, disabled }) => {
   );
 };
 
-// Small horizontal progress tracker: Pending → Processing → Shipped → Delivered
-const StatusTimeline = ({ status }) => {
+// Small horizontal progress tracker
+const StatusTimeline = ({ status, isLocalPickup }) => {
   const { t } = useLanguage();
   const { accent, mutedTextStyle } = useAppTheme();
   const { isDarkMode } = useThemeContext();
-  const currentIndex = TIMELINE_STEPS.indexOf(status === 'cancelled' ? 'pending' : status);
+  const steps = isLocalPickup ? PICKUP_TIMELINE_STEPS : SHIP_TIMELINE_STEPS;
+  const currentIndex = steps.indexOf(status === 'cancelled' ? 'pending' : status);
   const connectorColor = withAlpha(accent, 0.25);
   const inactiveDot = isDarkMode ? 'rgba(255,255,255,0.12)' : '#e5ddf0';
 
   return (
     <View style={styles.timelineWrap}>
-      {TIMELINE_STEPS.map((step, index) => {
+      {steps.map((step, index) => {
         const done = index < currentIndex;
         const active = index === currentIndex;
         const meta = STATUS_META[step];
         return (
           <React.Fragment key={step}>
             <View style={styles.timelineItem}>
-
               <View style={[styles.timelineDot, { backgroundColor: inactiveDot }, (done || active) && { backgroundColor: accent }]}>
                 {done ? <Ionicons name="checkmark" size={11} color="#fff" /> : null}
               </View>
@@ -290,8 +347,7 @@ const StatusTimeline = ({ status }) => {
                 {t(meta.labelKey)}
               </Text>
             </View>
-            {index < TIMELINE_STEPS.length - 1 && (
-
+            {index < steps.length - 1 && (
               <View
                 style={[
                   styles.timelineConnector,
@@ -317,6 +373,11 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
   const surface = isDarkMode ? card : '#fbf8ff';
   const { t } = useLanguage();
 
+  const isLocalPickupRoute = Boolean(
+    route?.params?.isLocalPickup ||
+    route?.params?.fulfillmentTab === 'local-pickup'
+  );
+
   const handleUserProfile = useCallback(
     (id) => {
       const targetId = id != null ? String(id).trim() : '';
@@ -340,11 +401,14 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
   const viewType = route?.params?.viewType;
   const canUpdateStatus = viewType !== 'buyer';
 
-  const [order, setOrder] = useState(() => orderPreview ? normalizeOrderDetail(orderPreview, t, viewType) : null);
+  const [order, setOrder] = useState(() =>
+    orderPreview ? normalizeOrderDetail(orderPreview, t, viewType, isLocalPickupRoute) : null
+  );
   const [loading, setLoading] = useState(!orderPreview);
   const [error, setError] = useState(null);
   const [advancing, setAdvancing] = useState(false);
   const [shippingModalVisible, setShippingModalVisible] = useState(false);
+  const [otpModalVisible, setOtpModalVisible] = useState(false);
 
   const loadOrder = useCallback(async () => {
     if (!orderId) {
@@ -363,18 +427,18 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
         : await getSellerOrderDetails(orderId);
       const payload = response?.data?.data ?? response?.data ?? response;
       setOrder(prev => {
-         const newOrder = normalizeOrderDetail(payload, t, viewType);
-         if (prev?.buyerImage && !newOrder.buyerImage) newOrder.buyerImage = prev.buyerImage;
-         if (prev?.buyerName && !newOrder.buyerName) newOrder.buyerName = prev.buyerName;
-         if (prev?.buyerId && !newOrder.buyerId) newOrder.buyerId = prev.buyerId;
-         return newOrder;
+        const newOrder = normalizeOrderDetail(payload, t, viewType, isLocalPickupRoute);
+        if (prev?.buyerImage && !newOrder.buyerImage) newOrder.buyerImage = prev.buyerImage;
+        if (prev?.buyerName && !newOrder.buyerName) newOrder.buyerName = prev.buyerName;
+        if (prev?.buyerId && !newOrder.buyerId) newOrder.buyerId = prev.buyerId;
+        return newOrder;
       });
     } catch (err) {
       setError(err?.response?.data?.message || err?.message || t('myClosetOrderDetail.couldNotLoadOrder'));
     } finally {
       setLoading(false);
     }
-  }, [orderId, t, viewType]);
+  }, [orderId, t, viewType, isLocalPickupRoute]);
 
   useFocusEffect(
     useCallback(() => {
@@ -382,35 +446,58 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
     }, [loadOrder]),
   );
 
-  const handleAdvance = useCallback(async (extra) => {
-    if (!canUpdateStatus) return;
-    if (!order) return;
-    const flowStep = STATUS_FLOW[order.status];
-    const action = flowStep ? ACTION_BY_KEY[flowStep.actionKey] : null;
-    if (!action) return;
+  const flowStep = getDetailFlowStep(order, canUpdateStatus);
 
-    if (flowStep.actionKey === 'shipped' && !extra) {
+  const handleAdvance = useCallback(async (extra) => {
+    if (!canUpdateStatus || !order) return;
+    const currentStep = getDetailFlowStep(order, canUpdateStatus);
+    if (!currentStep) return;
+
+    if (currentStep.actionKey === 'shipped' && !extra) {
       setShippingModalVisible(true);
+      return;
+    }
+
+    if (currentStep.actionKey === 'deliver' && !extra && order.isLocalPickup) {
+      setOtpModalVisible(true);
       return;
     }
 
     setAdvancing(true);
     dispatch(showLoader());
     try {
-      const response = await action(order.id, extra);
-      if (response.statusCode == 200 || response.statusCode == 201){
-        showToastMessage(toast, 'success', t('myClosetOrderDetail.orderStatusUpdated'));
-      }
-      else {
-        showToastMessage(toast, 'danger', response.message);
+      let response;
+      if (currentStep.actionKey === 'deliver' && order.isLocalPickup) {
+        const otpVal = typeof extra === 'string' ? extra : extra?.otp;
+        response = await deliverLocalPickupOrder(order.id, otpVal);
+        showToastMessage(
+          toast,
+          'success',
+          t('myClosetOrderDetail.deliverySuccess') || 'Order marked as delivered successfully.',
+        );
+      } else {
+        const action = ACTION_BY_KEY[currentStep.actionKey];
+        if (action) {
+          response = await action(order.id, extra);
+          if (response?.statusCode == 200 || response?.statusCode == 201) {
+            showToastMessage(toast, 'success', t('myClosetOrderDetail.orderStatusUpdated'));
+          } else if (response?.message) {
+            showToastMessage(toast, 'danger', response.message);
+          }
+        }
       }
       await loadOrder();
     } catch (err) {
-      showToastMessage(toast, 'danger', err?.response?.data?.message || err?.message || t('myClosetOrderDetail.unableToUpdateStatus'));
+      showToastMessage(
+        toast,
+        'danger',
+        err?.response?.data?.message || err?.message || t('myClosetOrderDetail.unableToUpdateStatus'),
+      );
     } finally {
       setAdvancing(false);
       dispatch(hideLoader());
       setShippingModalVisible(false);
+      setOtpModalVisible(false);
     }
   }, [canUpdateStatus, dispatch, loadOrder, order, t, toast]);
 
@@ -427,7 +514,7 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
             },
           },
         ],
-      })
+      });
       return;
     }
 
@@ -449,7 +536,6 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
       <SafeAreaView style={[styles.safeArea, bgStyle]}>
         <Header onBack={goBack} title={t('myClosetOrderDetail.headerTitle')} />
         <View style={styles.loaderWrap}>
-
           <ActivityIndicator color={accent} />
         </View>
       </SafeAreaView>
@@ -477,14 +563,12 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
   }
 
   const meta = STATUS_META[order.status];
-  const flowStep = STATUS_FLOW[order.status];
 
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
       <Header onBack={goBack} title={t('myClosetOrderDetail.orderNumberTitle', { orderNumber: order.orderNumber })} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.topRow}>
-
           <Text style={[styles.orderDate, mutedTextStyle]}>{order.createdAt}</Text>
           <View style={[styles.statusBadge, { backgroundColor: meta.bg }]}>
             <Text style={[styles.statusText, { color: meta.color }]}>{t(meta.labelKey)}</Text>
@@ -492,7 +576,6 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
         </View>
 
         <View style={styles.metaRow}>
-
           <View style={[styles.metaPill, { backgroundColor: withAlpha(accent, 0.1) }]}>
             <Text style={[styles.metaLabel, mutedTextStyle]}>{t('myClosetOrderDetail.orderNumberLabel')}</Text>
             <Text style={[styles.metaValue, textStyle]}>#{order.orderNumber}</Text>
@@ -507,8 +590,9 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
           </View>
         </View>
 
-        {order.status !== 'cancelled' && <StatusTimeline status={order.status} />}
-
+        {order.status !== 'cancelled' && (
+          <StatusTimeline status={order.status} isLocalPickup={order.isLocalPickup} />
+        )}
 
         <View style={[styles.card, cardStyle, { borderColor: border, backgroundColor: surface }]}>
           <Text style={[styles.cardTitle, textStyle]}>
@@ -535,7 +619,6 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
         </View>
 
         {order.address ? (
-
           <View style={[styles.card, cardStyle, { borderColor: border, backgroundColor: surface }]}>
             <Text style={[styles.cardTitle, textStyle]}>{t('myClosetOrderDetail.shippingAddress')}</Text>
             <Text style={[styles.addressText, textStyle]}>{order.address.fullName}</Text>
@@ -553,7 +636,6 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
             </Text>
           </View>
         ) : null}
-
 
         <View style={[styles.card, cardStyle, { borderColor: border, backgroundColor: surface }]}>
           <Text style={[styles.cardTitle, textStyle]}>{t('myClosetOrderDetail.items', { count: order.totalItemCount })}</Text>
@@ -575,7 +657,6 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
                   <Text style={[styles.lineName, textStyle]} numberOfLines={2}>
                     {line.name}
                   </Text>
-
                   <Text style={[styles.linePrice, { color: accent }]}>{line.price}</Text>
                   <Text style={[styles.lineQty, mutedTextStyle]}>{t('myClosetOrderDetail.qty', { count: line.quantity })}</Text>
                 </View>
@@ -587,7 +668,6 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
           )}
         </View>
 
-
         <View style={[styles.card, cardStyle, { borderColor: border, backgroundColor: surface }]}>
           <SummaryRow label={t('myClosetOrderDetail.orderTotal')} value={order.totalAmount} bold />
         </View>
@@ -595,7 +675,7 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
         {canUpdateStatus && flowStep ? (
           <View style={[styles.bottomBar, { backgroundColor: bgStyle.backgroundColor, borderTopColor: withAlpha(accent, 0.2) }]}>
             <BottomButton
-              label={advancing ? t('myClosetOrderDetail.updating') : t(flowStep.labelKey)}
+              label={advancing ? t('myClosetOrderDetail.updating') : (t(flowStep.labelKey) || flowStep.labelKey)}
               onPress={() => handleAdvance()}
               disabled={advancing}
             />
@@ -603,13 +683,22 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
         ) : null}
       </ScrollView>
       {canUpdateStatus ? (
-        <ShippingDetailsModal
-          visible={shippingModalVisible}
-
-          text={accent}
-          onCancel={() => setShippingModalVisible(false)}
-          onSubmit={(payload) => handleAdvance(payload)}
-        />
+        <>
+          <ShippingDetailsModal
+            visible={shippingModalVisible}
+            text={accent}
+            onCancel={() => setShippingModalVisible(false)}
+            onSubmit={(payload) => handleAdvance(payload)}
+          />
+          <DeliverOtpModal
+            visible={otpModalVisible}
+            orderId={order.id}
+            accent={accent}
+            toast={toast}
+            onCancel={() => setOtpModalVisible(false)}
+            onSubmit={(otp) => handleAdvance(otp)}
+          />
+        </>
       ) : null}
     </SafeAreaView>
   );
@@ -639,7 +728,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 15,
     fontWeight: '900',
-    
   },
 
   content: { paddingHorizontal: 20, paddingBottom: 120 },
@@ -692,7 +780,6 @@ const styles = StyleSheet.create({
   },
   cardTitle: { fontSize: 13, fontWeight: '900', marginBottom: 10 },
   coverWrap: { marginBottom: 12, width: '100%' },
-  coverThumb: { width: '100%', height: 220, borderRadius: 14, alignSelf: 'stretch' },
 
   buyerRow: { flexDirection: 'row', alignItems: 'center' },
   buyerAvatar: {
@@ -760,4 +847,3 @@ const styles = StyleSheet.create({
   },
   bottomButtonText: { color: '#fff', fontSize: 15, fontWeight: '900' },
 });
-
