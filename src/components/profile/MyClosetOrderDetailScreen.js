@@ -27,6 +27,7 @@ import {
 import { useAppTheme } from '../../theme/useApptheme';
 import { useThemeContext } from '../../theme/ThemeContext';
 import { useLanguage } from '../../i18n';
+import { useTargetClosetScreen, navigateToTargetClosetScreen } from '../../utils/closetNavigation';
 import { navigateToUserProfile } from '../../utils/navigateToUserProfile';
 import ShippingDetailsModal from '../modals/ShippingDetailsModal';
 import DeliverOtpModal from '../modals/DeliverOtpModal';
@@ -501,20 +502,11 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
     }
   }, [canUpdateStatus, dispatch, loadOrder, order, t, toast]);
 
+  const targetScreen = useTargetClosetScreen();
+
   const goBack = useCallback(() => {
     if (returnTo === 'MyClosetDashboard') {
-      navigation.reset({
-        index: 0,
-        routes: [
-          {
-            name: 'MainApp',
-            params: {
-              screen: 'wallet',
-              params: { screen: 'MyCloset' },
-            },
-          },
-        ],
-      });
+      navigateToTargetClosetScreen(navigation, targetScreen);
       return;
     }
 
@@ -528,8 +520,8 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
       return;
     }
 
-    navigation?.navigate?.('MyCloset');
-  }, [navigation, returnTo]);
+    navigation?.navigate?.(targetScreen);
+  }, [navigation, returnTo, targetScreen]);
 
   if (loading) {
     return (

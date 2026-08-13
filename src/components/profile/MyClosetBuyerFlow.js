@@ -59,6 +59,8 @@ import {
   navigateClosetReturn,
   useClosetTheme,
   withClosetNavParams,
+  useTargetClosetScreen,
+  navigateToTargetClosetScreen,
 } from '../../utils/closetNavigation';
 import { formSurfaces, themedCard } from '../../utils/closetTheme';
 import { useToast } from 'react-native-toast-notifications';
@@ -1366,6 +1368,7 @@ const MyClosetBuyerItemsScreen = ({ navigation, route }) => {
   const { isDarkMode } = useThemeContext();
   const surfaces = formSurfaces(isDarkMode);
   const { t } = useLanguage();
+  const targetScreen = useTargetClosetScreen();
   const [items, setItems] = useState(() => getRouteItems(route, t));
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
@@ -1599,10 +1602,7 @@ const MyClosetBuyerItemsScreen = ({ navigation, route }) => {
                     <TouchableOpacity
                       activeOpacity={0.88}
                       style={[styles.manageButton, { borderColor: accent, backgroundColor: card || '#fff' }]}
-                      onPress={() => navigation.navigate('MainApp', {
-                        screen: 'wallet',
-                        params: { screen: 'MyCloset' }
-                      })}
+                      onPress={() => navigateToTargetClosetScreen(navigation, targetScreen)}
                     >
                       <Ionicons name="settings-outline" size={14} color={accent} />
                       <Text style={[styles.manageButtonText, { color: accent }]}>
@@ -4104,6 +4104,7 @@ const MyClosetBuyerOrderReceivedScreen = ({ navigation, route }) => {
   const { text, accent, bgStyle, card, border, mutedText } = useClosetTheme(route);
   const { isDarkMode } = useThemeContext();
   const { t } = useLanguage();
+  const targetScreen = useTargetClosetScreen();
   const returnTo = route?.params?.returnTo;
   const payment = route?.params?.payment ?? null;
   const cart = buildCart(route, t);
@@ -4219,10 +4220,7 @@ const MyClosetBuyerOrderReceivedScreen = ({ navigation, route }) => {
         <TouchableOpacity
           activeOpacity={0.85}
           style={[styles.secondaryButton, themedCard(card, border)]}
-          onPress={() => navigation.navigate('MainApp', {
-            screen: 'wallet',
-            params: { screen: 'MyCloset' }
-          })}
+          onPress={() => navigateToTargetClosetScreen(navigation, targetScreen)}
         >
           <Text style={[styles.secondaryButtonText, { color: text }]}>{t('myClosetBuyer.goToMyOrders')}</Text>
         </TouchableOpacity>

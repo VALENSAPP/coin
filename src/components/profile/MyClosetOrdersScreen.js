@@ -19,6 +19,7 @@ import { showToastMessage } from '../displaytoastmessage';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useThemeContext } from '../../theme/ThemeContext';
 import { useLanguage } from '../../i18n';
+import { useTargetClosetScreen, navigateToTargetClosetScreen } from '../../utils/closetNavigation';
 import {
   getSellerOrders,
   markOrderProcessing,
@@ -680,20 +681,11 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
       ? t('myClosetOrders.emptyTextSeller')
       : t('myClosetOrders.emptyTextBuyer');
 
+  const targetScreen = useTargetClosetScreen();
+
   const handleBack = useCallback(() => {
-    navigation.reset({
-      index: 0,
-      routes: [
-        {
-          name: 'MainApp',
-          params: {
-            screen: 'wallet',
-            params: { screen: 'MyCloset' },
-          },
-        },
-      ],
-    });
-  }, [navigation]);
+    navigateToTargetClosetScreen(navigation, targetScreen);
+  }, [navigation, targetScreen]);
 
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>

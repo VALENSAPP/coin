@@ -37,6 +37,15 @@ const queryClient = new QueryClient();
 // );
 
 const initAppsFlyer = async () => {
+  if (Platform.OS === 'ios') {
+    try {
+      const status = await requestTrackingPermission();
+      console.log('ATT permission status:', status);
+    } catch (error) {
+      console.log('ATT permission error:', error);
+    }
+  }
+
   const options = {
     devKey: 'mFQ3phNqHzSU2JJxv7vA73',
     isDebug: false,
@@ -52,19 +61,8 @@ const initAppsFlyer = async () => {
   appsFlyer.initSdk(
     options,
 
-    async result => {
+    result => {
       console.log('AppsFlyer initialized:', result);
-
-      if (Platform.OS === 'ios') {
-        try {
-          const status = await requestTrackingPermission();
-
-          console.log('ATT permission status:', status);
-        } catch (error) {
-          console.log('ATT permission error:', error);
-        }
-      }
-
       // Start AppsFlyer after ATT request
       appsFlyer.startSdk();
     },

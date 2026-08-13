@@ -6,6 +6,7 @@ import {
   StackActions,
   useNavigation,
   useRoute,
+  useFocusEffect,
 } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -187,56 +188,58 @@ const MyClosetScreen = props => {
   const [hasCreatedShop, setHasCreatedShop] = React.useState(false);
   const [shopDraft, setShopDraft] = React.useState(null);
 
-  useEffect(() => {
-    let isMounted = true;
+  useFocusEffect(
+    useCallback(() => {
+      let isMounted = true;
 
-    const loadShopState = async () => {
-      try {
-        const [profileValue, createdValue, draftValue, closetValue] = await Promise.all([
-          AsyncStorage.getItem('profile'),
-          AsyncStorage.getItem('myClosetCreated'),
-          AsyncStorage.getItem('myClosetDraft'),
-          getMyClosetMe().catch(error => error?.response?.data || null),
-        ]);
+      const loadShopState = async () => {
+        try {
+          const [profileValue, createdValue, draftValue, closetValue] = await Promise.all([
+            AsyncStorage.getItem('profile'),
+            AsyncStorage.getItem('myClosetCreated'),
+            AsyncStorage.getItem('myClosetDraft'),
+            getMyClosetMe().catch(error => error?.response?.data || null),
+          ]);
 
-        if (!isMounted) return;
+          if (!isMounted) return;
 
-        if (profileValue) setStoredProfile(normalizeProfileType(profileValue) || 'user');
+          if (profileValue) setStoredProfile(normalizeProfileType(profileValue) || 'user');
 
-        const closetData = closetValue?.data || closetValue;
-        const hasApiSignal =
-          typeof closetValue?.success === 'boolean' ||
-          typeof closetValue?.statusCode === 'number';
-        const apiReportedNetworkError =
-          closetValue?.statusCode === 0 && closetValue?.error === true;
-        const closetExists =
-          hasApiSignal && !apiReportedNetworkError
-            ? closetValue?.statusCode === 200 &&
-            Boolean(closetData?.shopName || closetData?.id || closetData?.data)
-            : null;
+          const closetData = closetValue?.data || closetValue;
+          const hasApiSignal =
+            typeof closetValue?.success === 'boolean' ||
+            typeof closetValue?.statusCode === 'number';
+          const apiReportedNetworkError =
+            closetValue?.statusCode === 0 && closetValue?.error === true;
+          const closetExists =
+            hasApiSignal && !apiReportedNetworkError
+              ? closetValue?.statusCode === 200 &&
+              Boolean(closetData?.shopName || closetData?.id || closetData?.data)
+              : null;
 
-        setHasCreatedShop(
-          closetExists === null ? createdValue === 'true' : closetExists,
-        );
+          setHasCreatedShop(
+            closetExists === null ? createdValue === 'true' : closetExists,
+          );
 
-        if (draftValue) {
-          try {
-            setShopDraft(JSON.parse(draftValue));
-          } catch {
-            setShopDraft(null);
+          if (draftValue) {
+            try {
+              setShopDraft(JSON.parse(draftValue));
+            } catch {
+              setShopDraft(null);
+            }
           }
+        } catch (error) {
+          console.log('Error loading My Closet state:', error);
         }
-      } catch (error) {
-        console.log('Error loading My Closet state:', error);
-      }
-    };
+      };
 
-    loadShopState();
+      loadShopState();
 
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+      return () => {
+        isMounted = false;
+      };
+    }, [])
+  );
 
   if (hasCreatedShop) {
     return (
@@ -262,56 +265,58 @@ const ShopScreenWrapper = props => {
   const [hasCreatedShop, setHasCreatedShop] = React.useState(false);
   const [shopDraft, setShopDraft] = React.useState(null);
 
-  useEffect(() => {
-    let isMounted = true;
+  useFocusEffect(
+    useCallback(() => {
+      let isMounted = true;
 
-    const loadShopState = async () => {
-      try {
-        const [profileValue, createdValue, draftValue, closetValue] = await Promise.all([
-          AsyncStorage.getItem('profile'),
-          AsyncStorage.getItem('myClosetCreated'),
-          AsyncStorage.getItem('myClosetDraft'),
-          getMyClosetMe().catch(error => error?.response?.data || null),
-        ]);
+      const loadShopState = async () => {
+        try {
+          const [profileValue, createdValue, draftValue, closetValue] = await Promise.all([
+            AsyncStorage.getItem('profile'),
+            AsyncStorage.getItem('myClosetCreated'),
+            AsyncStorage.getItem('myClosetDraft'),
+            getMyClosetMe().catch(error => error?.response?.data || null),
+          ]);
 
-        if (!isMounted) return;
+          if (!isMounted) return;
 
-        if (profileValue) setStoredProfile(normalizeProfileType(profileValue) || 'user');
+          if (profileValue) setStoredProfile(normalizeProfileType(profileValue) || 'user');
 
-        const closetData = closetValue?.data || closetValue;
-        const hasApiSignal =
-          typeof closetValue?.success === 'boolean' ||
-          typeof closetValue?.statusCode === 'number';
-        const apiReportedNetworkError =
-          closetValue?.statusCode === 0 && closetValue?.error === true;
-        const closetExists =
-          hasApiSignal && !apiReportedNetworkError
-            ? closetValue?.statusCode === 200 &&
-            Boolean(closetData?.shopName || closetData?.id || closetData?.data)
-            : null;
+          const closetData = closetValue?.data || closetValue;
+          const hasApiSignal =
+            typeof closetValue?.success === 'boolean' ||
+            typeof closetValue?.statusCode === 'number';
+          const apiReportedNetworkError =
+            closetValue?.statusCode === 0 && closetValue?.error === true;
+          const closetExists =
+            hasApiSignal && !apiReportedNetworkError
+              ? closetValue?.statusCode === 200 &&
+              Boolean(closetData?.shopName || closetData?.id || closetData?.data)
+              : null;
 
-        setHasCreatedShop(
-          closetExists === null ? createdValue === 'true' : closetExists,
-        );
+          setHasCreatedShop(
+            closetExists === null ? createdValue === 'true' : closetExists,
+          );
 
-        if (draftValue) {
-          try {
-            setShopDraft(JSON.parse(draftValue));
-          } catch {
-            setShopDraft(null);
+          if (draftValue) {
+            try {
+              setShopDraft(JSON.parse(draftValue));
+            } catch {
+              setShopDraft(null);
+            }
           }
+        } catch (error) {
+          console.log('Error loading Shop state:', error);
         }
-      } catch (error) {
-        console.log('Error loading Shop state:', error);
-      }
-    };
+      };
 
-    loadShopState();
+      loadShopState();
 
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+      return () => {
+        isMounted = false;
+      };
+    }, [])
+  );
 
   if (hasCreatedShop) {
     return (

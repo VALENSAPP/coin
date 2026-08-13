@@ -2255,6 +2255,8 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
+  - react-native-tracking-transparency (0.1.2):
+    - React
   - react-native-video (6.19.2):
     - boost
     - DoubleConversion
@@ -3867,6 +3869,7 @@ DEPENDENCIES:
   - "react-native-netinfo (from `../node_modules/@react-native-community/netinfo`)"
   - react-native-pager-view (from `../node_modules/react-native-pager-view`)
   - react-native-safe-area-context (from `../node_modules/react-native-safe-area-context`)
+  - react-native-tracking-transparency (from `../node_modules/react-native-tracking-transparency`)
   - react-native-video (from `../node_modules/react-native-video`)
   - react-native-view-shot (from `../node_modules/react-native-view-shot`)
   - react-native-webview (from `../node_modules/react-native-webview`)
@@ -4092,6 +4095,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native-pager-view"
   react-native-safe-area-context:
     :path: "../node_modules/react-native-safe-area-context"
+  react-native-tracking-transparency:
+    :path: "../node_modules/react-native-tracking-transparency"
   react-native-video:
     :path: "../node_modules/react-native-video"
   react-native-view-shot:
@@ -4305,6 +4310,7 @@ SPEC CHECKSUMS:
   react-native-netinfo: 9fad4eedfec9840a10e73ac4591ea1158523309b
   react-native-pager-view: 0e228ec2dfdd87807d125c7bbfb83299edede19c
   react-native-safe-area-context: 7794f18549493f369e4ca4b3cd66843bd050ac66
+  react-native-tracking-transparency: 15eb319f2b982070eb9831582af27d87badfa624
   react-native-video: d7e6372a63833708a2f7a8b48fed59036910428c
   react-native-view-shot: aab9ffbcc2f01035ee8ffd9a00c773e215b35c8b
   react-native-webview: fb55e85095e22e6cfb814a2b122b4860de91a620
