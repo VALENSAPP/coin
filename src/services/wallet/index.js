@@ -161,3 +161,7 @@ export const totalTransactions = async (params) => {
     throw lastError || err || new Error('totalTransactions: no endpoints available');
   }
 }
+
+export const tipRecived = async (data) => {
+  return axiosInstance.get('/billing/tip-graph', data);
+}

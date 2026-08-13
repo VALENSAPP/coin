@@ -12,7 +12,11 @@ import {
 } from 'react-native';
 import { useRoute } from '@react-navigation/native';
 import { useAppTheme } from '../../theme/useApptheme';
-import { getProgressBarColor } from '../../utils/progressBarUtils';
+import {
+  formatMissionProgressPercent,
+  getMissionProgressBarWidth,
+  getProgressBarColor,
+} from '../../utils/progressBarUtils';
 import { getMissionDaysLeft } from '../../utils/missionDaysLeft';
 import { getTotalDonationAmount } from '../../services/tokens';
 import { pinPost, unpinPost } from '../../services/post';
@@ -63,14 +67,14 @@ const MissionProgressBar = ({ progressPercent = 0, goalAmount = 0, currentRaised
           <View
             style={[
               styles.progressBarFill,
-              { width: `${Math.min(progressPercent, 100)}%`, backgroundColor: fillColor },
+              { width: `${getMissionProgressBarWidth(progressPercent)}%`, backgroundColor: fillColor },
             ]}
           />
         </View>
 
         <View style={styles.progressStatsContainer}>
           <View style={styles.statAtStart}>
-            <Text style={styles.statValueSmall} numberOfLines={2} ellipsizeMode="clip">{normalizedProgress.toFixed(1)}% FUNDED</Text>
+            <Text style={styles.statValueSmall} numberOfLines={2} ellipsizeMode="clip">{formatMissionProgressPercent(normalizedProgress)}% FUNDED</Text>
           </View>
           <View style={styles.statAtCenter}>
             <Text style={[styles.statValueSmall,]} numberOfLines={2} ellipsizeMode="clip">${formatAmount(currentRaised)}/ ${formatAmount(goalAmount)} {'\n'}  RAISED</Text>

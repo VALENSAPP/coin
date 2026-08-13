@@ -70,7 +70,7 @@ import { showToastMessage } from '../displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
 import StoryComposer from '../home/story.js/StoryComposer';
 import { getUserCredentials } from '../../services/post';
-import { metaMaskRecived } from '../../services/wallet';
+import { tipRecived } from '../../services/wallet';
 import { battleByUserId, battlePoint } from '../../services/battle';
 import { isBattleLive } from '../../utils/battleCardUtils';
 import { BATTLE_LEVELS, resolveBattleLevel } from '../../utils/battleLevels';
@@ -697,9 +697,10 @@ const ProfilePersonData = ({
   const fetchReceivedSupportAmount = useCallback(async () => {
     try {
       setTotalSupportLoading(true);
-      const response = await metaMaskRecived();
+      const response = await tipRecived();
+      console.log(response,'metamask recivedd dd d d d d d ')
       const rawValue =
-        response?.data?.totalAmount ??
+        response?.data?.totalTipEarning ??
         response?.data?.data?.totalAmount ??
         response?.data?.amount ??
         response?.data?.data?.amount ??

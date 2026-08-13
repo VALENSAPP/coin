@@ -63,7 +63,11 @@ import TipSupportModal from '../../modals/TipSupportModal';
 import { getSupportRecipientWalletAddress } from '../../../utils/walletPaymentSupport';
 import { useWalletConnectSupport } from '../../../context/WalletConnectSupportContext';
 import MissionSupportScreen from '../../modals/DonationModal';
-import { getProgressBarColor } from '../../../utils/progressBarUtils';
+import {
+  formatMissionProgressPercent,
+  getMissionProgressBarWidth,
+  getProgressBarColor,
+} from '../../../utils/progressBarUtils';
 import { isSupportAllowed, normalizeProfileType } from '../../../utils/supportEligibility';
 import HexAvatar from '../story.js/HexAvatar';
 import YoutubePlayer from 'react-native-youtube-iframe';
@@ -2552,7 +2556,7 @@ function PostItem({
                   style={[
                     styles.progressBarFill,
                     {
-                      width: `${Math.min(progressPercent, 100)}%`,
+                      width: `${getMissionProgressBarWidth(progressPercent)}%`,
                       backgroundColor: progressBarColor,
                     },
                   ]}
@@ -2565,7 +2569,7 @@ function PostItem({
                     {isLoadingDonation
                       ? '...'
                       : t('postItem.funded', {
-                        percent: Math.min(progressPercent, 100).toFixed(1),
+                        percent: formatMissionProgressPercent(progressPercent),
                       })}
                   </Text>
                 </View>

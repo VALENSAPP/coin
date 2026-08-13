@@ -3247,30 +3247,49 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
   });
   const pickupItems = cartItemsSnapshot.filter(ci => effectiveChoice(ci) === SHIP_OPTION_LOCAL);
   const pickupLocations = useMemo(() => {
-    const seen = new Set();
-    return pickupItems
-      .map(ci => {
-        const product = ci?.product ?? ci ?? {};
-        const resolvedPickup = pickupAddressMap[cartItemProductId(ci)] || {};
-        const address = resolvedPickup.pickupAddress || product?.pickupAddress || ci?.pickupAddress || null;
-        const sellerName =
-          resolvedPickup.sellerName ||
-          product?.shopName ||
-          product?.sellerName ||
-          product?.user?.name ||
-          '';
-        const key = `${sellerName}::${address || ''}`;
-        if (!address || seen.has(key)) return null;
-        seen.add(key);
-        return {
-          id: ci.id,
-          name: resolvedPickup.itemName || product?.name || product?.title || t('myClosetBuyer.itemFallback'),
+    const locationMap = new Map();
+    pickupItems.forEach(ci => {
+      const product = ci?.product ?? ci ?? {};
+      const resolvedPickup = pickupAddressMap[cartItemProductId(ci)] || {};
+      const address = resolvedPickup.pickupAddress || product?.pickupAddress || ci?.pickupAddress || null;
+      if (!address) return;
+
+      const sellerName =
+        resolvedPickup.sellerName ||
+        product?.shopName ||
+        product?.sellerName ||
+        product?.user?.name ||
+        '';
+      const hours =
+        resolvedPickup.pickupAvailableHours ||
+        product?.pickupAvailableHours ||
+        ci?.pickupAvailableHours ||
+        null;
+      const itemName =
+        resolvedPickup.itemName ||
+        product?.name ||
+        product?.title ||
+        t('myClosetBuyer.itemFallback');
+
+      const key = `${sellerName}::${address}`;
+
+      if (!locationMap.has(key)) {
+        locationMap.set(key, {
+          id: key,
           sellerName,
           address,
-          hours: resolvedPickup.pickupAvailableHours || product?.pickupAvailableHours || ci?.pickupAvailableHours || null,
-        };
-      })
-      .filter(Boolean);
+          hours,
+          items: [],
+        });
+      }
+
+      locationMap.get(key).items.push({
+        id: ci.id,
+        name: itemName,
+      });
+    });
+
+    return Array.from(locationMap.values());
   }, [pickupItems, pickupAddressMap, t]);
 
   const handleSelectChoice = async (cartItemId, choice) => {
@@ -3609,23 +3628,39 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
           <>
             <Text style={[styles.sectionLabel, { color: text }]}>{t('myClosetBuyer.pickupAddress')}</Text>
             {pickupLocations.map(location => (
-              <TouchableOpacity
-                key={`${location.id}-${location.address}`}
-                activeOpacity={0.85}
-                onPress={() => openLocationInMaps(location.address)}
-                style={[styles.reviewCard, themedCard(card, border)]}
+              <View
+                key={location.id}
+                style={[styles.reviewCard, themedCard(card, border), { marginBottom: 12 }]}
               >
                 {location.sellerName ? (
                   <Text style={[styles.addressPhone, { color: mutedText }]}>{location.sellerName}</Text>
                 ) : null}
-                <View style={styles.addressRowWithIcon}>
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={() => openLocationInMaps(location.address)}
+                  style={styles.addressRowWithIcon}
+                >
                   <Text style={[styles.addressText, { color: mutedText, flex: 1 }]}>{location.address}</Text>
                   <Ionicons name="navigate-outline" size={16} color={text} style={{ marginLeft: 6 }} />
-                </View>
+                </TouchableOpacity>
                 {location.hours ? (
-                  <Text style={[styles.addressText, { color: mutedText }]}>{location.hours}</Text>
+                  <Text style={[styles.addressText, { color: mutedText, marginTop: 2 }]}>{location.hours}</Text>
                 ) : null}
-              </TouchableOpacity>
+
+                {/* Items associated with this pickup location */}
+                {location.items?.length > 0 ? (
+                  <View style={{ marginTop: 10, paddingTop: 8, borderTopWidth: 1, borderTopColor: border || 'rgba(0,0,0,0.08)' }}>
+                    {location.items.map(item => (
+                      <View key={item.id} style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                        <Ionicons name="cube-outline" size={14} color={text} style={{ marginRight: 6 }} />
+                        <Text style={[styles.addressText, { color: text, flex: 1 }]} numberOfLines={1}>
+                          {item.name}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
+              </View>
             ))}
           </>
         ) : null}
