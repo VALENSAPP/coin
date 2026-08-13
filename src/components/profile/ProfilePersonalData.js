@@ -697,10 +697,14 @@ const ProfilePersonData = ({
   const fetchReceivedSupportAmount = useCallback(async () => {
     try {
       setTotalSupportLoading(true);
-      const response = await tipRecived();
-      console.log(response,'metamask recivedd dd d d d d d ')
+      const queryId = viewedBattleUserId || targetUserId || userData?.id || userData?._id || userData?.userId || userId;
+      const params = queryId ? { userId: queryId } : {};
+      const response = await tipRecived(params);
+      console.log(response, 'tipRecived recivedd dd d d d d d ');
       const rawValue =
         response?.data?.totalTipEarning ??
+        response?.data?.data?.totalTipEarning ??
+        response?.data?.totalAmount ??
         response?.data?.data?.totalAmount ??
         response?.data?.amount ??
         response?.data?.data?.amount ??
@@ -714,7 +718,7 @@ const ProfilePersonData = ({
     } finally {
       setTotalSupportLoading(false);
     }
-  }, []);
+  }, [viewedBattleUserId, targetUserId, userData, userId]);
 
   const handleToggleTotalSupport = useCallback(() => {
     if (!totalSupportOpen) {
