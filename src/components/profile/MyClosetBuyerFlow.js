@@ -681,7 +681,15 @@ const ImageBox = ({ uri, style, iconSize = 34 }) => (
   </View>
 );
 
-export const DetailImageCarousel = ({ images, onZoomChange, accentColor, imageWidth, imageHeight }) => {
+export const DetailImageCarousel = ({
+  images,
+  onZoomChange,
+  accentColor,
+  imageWidth,
+  imageHeight,
+  showIndicators = true,
+  overlayIndicators = false,
+}) => {
   const iWidth = imageWidth || HERO_IMAGE_WIDTH;
   const iHeight = imageHeight || HERO_IMAGE_HEIGHT;
   const { text: fallbackAccent } = useAppTheme();
@@ -785,47 +793,50 @@ export const DetailImageCarousel = ({ images, onZoomChange, accentColor, imageWi
 
   return (
     <View>
-      <GestureFlatList
-        ref={listRef}
-        data={galleryImages}
-        keyExtractor={(uri, index) => `${uri || 'placeholder'}-${index}`}
-        renderItem={renderItem}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        scrollEnabled={scrollEnabled && galleryImages.length > 1}
-        onScroll={onScroll}
-        scrollEventThrottle={16}
-        decelerationRate="fast"
-        snapToInterval={iWidth}
-        snapToAlignment="start"
-        disableIntervalMomentum
-        directionalLockEnabled
-        nestedScrollEnabled
-        removeClippedSubviews={false}
-        initialNumToRender={galleryImages.length > 1 ? 2 : 1}
-        maxToRenderPerBatch={2}
-        windowSize={3}
-        extraData={activeIndex}
-        style={{ width: iWidth, height: iHeight }}
-        getItemLayout={(_, index) => ({
-          length: iWidth,
-          offset: iWidth * index,
-          index,
-        })}
-      />
-      {galleryImages.length > 1 ? (
-        <View style={styles.photoDots}>
-          {galleryImages.map((_, index) => (
-            <View
-              key={index}
-              style={[styles.photoDot, index === activeIndex && { backgroundColor: text }]}
-            />
-          ))}
-        </View>
-      ) : (
+      <View style={overlayIndicators ? { width: iWidth, height: iHeight, overflow: 'hidden', borderRadius: 18 } : undefined}>
+        <GestureFlatList
+          ref={listRef}
+          data={galleryImages}
+          keyExtractor={(uri, index) => `${uri || 'placeholder'}-${index}`}
+          renderItem={renderItem}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          scrollEnabled={scrollEnabled && galleryImages.length > 1}
+          onScroll={onScroll}
+          scrollEventThrottle={16}
+          decelerationRate="fast"
+          snapToInterval={iWidth}
+          snapToAlignment="start"
+          disableIntervalMomentum
+          directionalLockEnabled
+          nestedScrollEnabled
+          removeClippedSubviews={false}
+          initialNumToRender={galleryImages.length > 1 ? 2 : 1}
+          maxToRenderPerBatch={2}
+          windowSize={3}
+          extraData={activeIndex}
+          style={{ width: iWidth, height: iHeight }}
+          getItemLayout={(_, index) => ({
+            length: iWidth,
+            offset: iWidth * index,
+            index,
+          })}
+        />
+        {showIndicators && galleryImages.length > 1 ? (
+          <View style={[styles.photoDots, overlayIndicators && styles.photoDotsOverlay]}>
+            {galleryImages.map((_, index) => (
+              <View
+                key={index}
+                style={[styles.photoDot, index === activeIndex && { backgroundColor: text }]}
+              />
+            ))}
+          </View>
+        ) : null}
+      </View>
+      {showIndicators && !overlayIndicators && galleryImages.length <= 1 ? (
         <View style={styles.photoDotsSpacer} />
-      )}
+      ) : null}
       <Modal
         visible={fullScreenVisible}
         transparent
@@ -2012,7 +2023,9 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
             accentColor={text}
             onZoomChange={zoomed => setDetailScrollEnabled(!zoomed)}
             imageWidth={Math.round(SCREEN_WIDTH * 0.42)}
-            imageHeight={Math.round(SCREEN_HEIGHT * 0.4)}
+            imageHeight={Math.round(Math.min(SCREEN_HEIGHT * 0.28, SCREEN_WIDTH * 0.42 * 1.35))}
+            showIndicators
+            overlayIndicators
           />
           <View style={styles.detailHeaderInfo}>
             <Text style={[styles.detailName, { color: text }]}>{item.name}</Text>
@@ -4573,11 +4586,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 16,
     alignItems: 'flex-start',
-    marginBottom: 10,
+    marginBottom: 4,
   },
   detailHeaderInfo: {
     flex: 1,
-    justifyContent: 'space-between',
   },
   detailBannerSpacer: {
     height: 10,
@@ -4631,6 +4643,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   photoDots: { flexDirection: 'row', justifyContent: 'center', gap: 7, marginTop: 18, marginBottom: 16 },
+  photoDotsOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 8,
+    marginTop: 0,
+    marginBottom: 0,
+  },
   photoDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#d7cce3' },
   photoDotsSpacer: { height: 42 },
   detailName: { fontSize: 22, fontWeight: '900', color: '#17072d' },
@@ -4661,7 +4681,7 @@ const styles = StyleSheet.create({
   attributeLabel: { marginLeft: 8, width: 90, fontSize: 12, color: MUTED, fontWeight: '700' },
   attributeValue: { flex: 1, fontSize: 12, color: '#17072d', fontWeight: '800' },
 
-  fulfilmentCard: { marginTop: 18, padding: 14, borderWidth: 1, borderRadius: 18 },
+  fulfilmentCard: { marginTop: 8, padding: 14, borderWidth: 1, borderRadius: 18 },
   fulfilmentHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 },
   fulfilmentHeaderCopy: { flex: 1 },
   fulfilmentIcon: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },

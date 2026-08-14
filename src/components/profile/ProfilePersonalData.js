@@ -600,9 +600,16 @@ const ProfilePersonData = ({
 
   const handleSupportNow = useCallback(async () => {
     if (!canSupport) {
+      const creatorName =
+        username ||
+        userData?.userName ||
+        userData?.username ||
+        userData?.displayName ||
+        displayName ||
+        t('profilePersonData.creatorFallback');
       Alert.alert(
         t('profilePersonData.walletNotConnectedTitle'),
-        t('profilePersonData.walletNotConnectedMessage'),
+        t('profilePersonData.walletNotConnectedMessage', { name: creatorName }),
       );
       return;
     }
@@ -613,7 +620,7 @@ const ProfilePersonData = ({
       receiverId: receiverId !== '' ? String(receiverId) : '',
       chain: 'POLYGON',
     });
-  }, [canSupport, recipientWalletAddress, startSupportPayment, userId, targetUserId, userData, t]);
+  }, [canSupport, recipientWalletAddress, startSupportPayment, userId, targetUserId, userData, username, displayName, t]);
 
   const handleSendTip = useCallback(() => {
     setSupportDisclaimerVisible(false);
@@ -1784,6 +1791,7 @@ const ProfilePersonData = ({
         onClose={() => setSupportDisclaimerVisible(false)}
         onSupport={handleSupportNow}
         onTipSupport={handleSendTip}
+        canSupport={canSupport}
       />
       <TipSupportModal
         visible={tipSupportVisible}

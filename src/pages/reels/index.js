@@ -1697,9 +1697,15 @@ export default function FlipsScreen() {
 
   const handleSupportNow = useCallback(async () => {
     if (!recipientWalletAddress) {
+      const creatorName =
+        currentReel?.user ||
+        currentReel?.userName ||
+        currentReel?.username ||
+        currentReel?.displayName ||
+        t('flips.creatorFallback');
       Alert.alert(
         t('flips.walletNotConnectedTitle'),
-        t('flips.walletNotConnectedMessage'),
+        t('flips.walletNotConnectedMessage', { name: creatorName }),
       );
       return;
     }

@@ -332,9 +332,14 @@ export default function FollowersFollowingScreen({ navigation, route }) {
 
   const handleSupportNow = useCallback(async () => {
     if (!canSupport) {
+      const creatorName =
+        selectedSupportUser?.username ||
+        selectedSupportUser?.userName ||
+        selectedSupportUser?.displayName ||
+        t('followersFollowing.creatorFallback');
       Alert.alert(
         t('followersFollowing.walletNotConnectedTitle'),
-        t('followersFollowing.walletNotConnectedMessage'),
+        t('followersFollowing.walletNotConnectedMessage', { name: creatorName }),
       );
       return;
     }
@@ -350,6 +355,9 @@ export default function FollowersFollowingScreen({ navigation, route }) {
     startSupportPayment,
     selfUserId,
     selectedSupportUser?.id,
+    selectedSupportUser?.username,
+    selectedSupportUser?.userName,
+    selectedSupportUser?.displayName,
     t,
   ]);
 

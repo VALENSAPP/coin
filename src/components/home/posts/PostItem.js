@@ -64,6 +64,7 @@ import { getSupportRecipientWalletAddress } from '../../../utils/walletPaymentSu
 import { useWalletConnectSupport } from '../../../context/WalletConnectSupportContext';
 import MissionSupportScreen from '../../modals/DonationModal';
 import { getProgressBarColor } from '../../../utils/progressBarUtils';
+import { getMissionScheduledStartInfo } from '../../../utils/missionDaysLeft';
 import { isSupportAllowed, normalizeProfileType } from '../../../utils/supportEligibility';
 import HexAvatar from '../story.js/HexAvatar';
 import YoutubePlayer from 'react-native-youtube-iframe';
@@ -1100,9 +1101,14 @@ function PostItem({
 
   const handleSupportNow = useCallback(async () => {
     if (!canSupport) {
+      const creatorName =
+        item?.username ||
+        item?.userName ||
+        item?.displayName ||
+        t('postItem.defaultCreatorName');
       Alert.alert(
         t('postItem.walletNotConnectedTitle'),
-        t('postItem.walletNotConnectedMessage'),
+        t('postItem.walletNotConnectedMessage', { name: creatorName }),
       );
       return;
     }
@@ -1620,6 +1626,13 @@ function PostItem({
   const isGoalAmountRaised = goalAmount > 0 && currentRaised >= goalAmount;
   const isCampaignDaysCompleted = goalAmount > 0 && !!item?.end_time && daysLeft <= 0;
   const isMissionDonationActive = hasMissionStarted(item?.start_time);
+  const missionStartInfo = useMemo(
+    () => getMissionScheduledStartInfo(
+      resolveMintTimestamp(item) || item?.createdAt || item?.created_at,
+      item?.start_time,
+    ),
+    [item?.createdAt, item?.created_at, item?.start_time, item?.mintedAt, item?.minted_at, item?.updatedAt, item?.updated_at],
+  );
 
   const progressStatusLabel = isGoalAmountRaised
     ? t('postItem.goalAmountRaised')
@@ -2547,7 +2560,11 @@ function PostItem({
             ) : null}
 
             <View style={styles.progressBarWrapper}>
-              <View style={[styles.progressBarBackground, { backgroundColor: border }]}>
+              <View style={[
+                styles.progressBarBackground,
+                { backgroundColor: border },
+                missionStartInfo ? styles.progressBarBackgroundWithStartNote : null,
+              ]}>
                 <View
                   style={[
                     styles.progressBarFill,
@@ -2585,6 +2602,12 @@ function PostItem({
                   </Text>
                 </View>
               </View>
+
+              {missionStartInfo ? (
+                <Text style={[styles.missionStartsInText, { color: text }]}>
+                  {t('postItem.missionStartsIn', { count: missionStartInfo.daysUntilStart })}
+                </Text>
+              ) : null}
 
               {!hideDonationButton &&
                 !isGoalAmountRaised &&
@@ -3348,6 +3371,9 @@ const styles = StyleSheet.create({
     marginBottom: 50,
     borderRadius: 5,
   },
+  progressBarBackgroundWithStartNote: {
+    marginBottom: 68,
+  },
   progressBarFill: {
     height: '100%',
   },
@@ -3360,6 +3386,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingHorizontal: 0,
+  },
+  missionStartsInText: {
+    position: 'absolute',
+    top: 52,
+    left: 0,
+    right: 0,
+    fontSize: 12,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   statAtStart: {
     alignItems: 'flex-start',
