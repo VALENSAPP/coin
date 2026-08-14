@@ -248,17 +248,28 @@ const ProfileModal = ({ modalVisible, setModalVisible, onStoryUploaded }) => {
       }
     };
 
+    const fromProfile = (() => {
+      try {
+        const parent = navigation.getParent?.();
+        const state = parent?.getState?.();
+        const currentTab = state?.routes?.[state.index]?.name;
+        return currentTab === 'ProfileMain';
+      } catch {
+        return false;
+      }
+    })();
+
     switch (type) {
       case 'mint': // post
         closeThenNavigate('Add', {
           screen: 'Add',
-          params: { returnTo: buildReturnTo() },
+          params: { returnTo: buildReturnTo(), fromProfile },
         });
         break;
       case 'Flips': // reels
         closeThenNavigate('Add', {
           screen: 'Add',
-          params: { type: 'Flips', returnTo: buildReturnTo() },
+          params: { type: 'Flips', returnTo: buildReturnTo(), fromProfile },
         });
         break;
       case 'drops':
