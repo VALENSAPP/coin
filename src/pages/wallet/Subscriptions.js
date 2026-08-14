@@ -685,9 +685,9 @@ const SubventionSetupScreen = () => {
         };
 
         switch (contentType) {
-            case 'posts': navigateToCreate({ postType: 'private', type: 'post' }); break;
-            case 'reels': navigateToCreate({ postType: 'private', type: 'Flips' }); break;
-            case 'videos': navigateToCreate({ postType: 'private', type: 'video' }); break;
+            case 'posts': navigateToCreate({ postType: 'private', type: 'post', fromSubscription: true, returnTo: { tab: 'wallet', screen: 'SubscriptionSetup' } }); break;
+            case 'reels': navigateToCreate({ postType: 'private', type: 'Flips', fromSubscription: true, returnTo: { tab: 'wallet', screen: 'SubscriptionSetup' } }); break;
+            case 'videos': navigateToCreate({ postType: 'private', type: 'video', fromSubscription: true, returnTo: { tab: 'wallet', screen: 'SubscriptionSetup' } }); break;
             case 'ebook': navigation.push('EbookPublisher', { type: 'private', format: 'ebook' }); break;
             case 'stories': handleAddStory(); break;
             default: break;

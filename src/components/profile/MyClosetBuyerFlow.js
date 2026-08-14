@@ -45,6 +45,7 @@ import {
   getRecentPaymentDetails,
   getPaymentDetailsByPaymentId,
   getClosetBattlesPriority,
+  getBuyerOrderDetail,
 } from '../../services/myCloset';
 import { getClosetChatThreadsApi } from '../../services/chatMessage';
 import { useAppTheme } from '../../theme/useApptheme';
@@ -487,7 +488,15 @@ const buildCart = (route, t, overrides = {}) => {
   };
 };
 
-const goBack = (navigation, returnTo, isRouteFromSearch, fromMyOwnProfile) => {
+const goBack = (navigation, returnTo, isRouteFromSearch, fromMyOwnProfile, fromWishlist) => {
+  if (fromWishlist || returnTo?.screen === 'MyClosetBuyerCart') {
+    if (navigation.canGoBack?.()) {
+      navigation.goBack();
+      return;
+    }
+    navigation.navigate('MyClosetBuyerCart', returnTo?.params || {});
+    return;
+  }
   if (isRouteFromSearch || fromMyOwnProfile) {
     navigation.goBack();
     return;
@@ -609,7 +618,7 @@ const BottomBar = ({ children }) => {
 // Shared UI atoms
 // ─────────────────────────────────────────────────────────────────────────────
 
-const Header = ({ navigation, title, rightIcon, onRightPress, returnTo, isOwnProfile, isRouteFromSearch, fromMyOwnProfile }) => {
+const Header = ({ navigation, title, rightIcon, onRightPress, returnTo, isOwnProfile, isRouteFromSearch, fromMyOwnProfile, fromWishlist }) => {
   const { accent } = useAppTheme();
   const { isDarkMode } = useThemeContext();
   const labelColor = isDarkMode ? '#ffffff' : '#17072d';
@@ -618,7 +627,7 @@ const Header = ({ navigation, title, rightIcon, onRightPress, returnTo, isOwnPro
   return (
     <View style={styles.header}>
       <TouchableOpacity
-        onPress={() => goBack(navigation, returnTo, isRouteFromSearch, fromMyOwnProfile)}
+        onPress={() => goBack(navigation, returnTo, isRouteFromSearch, fromMyOwnProfile, fromWishlist)}
         style={[styles.iconButton, { backgroundColor: chipSurface }]}
         activeOpacity={0.8}
       >
@@ -2010,7 +2019,8 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
         onRightPress={handleWishlistPress}
         returnTo={returnTo}
         isOwnProfile={isOwnProfile}
-        fromMyOwnProfile={returnTo.screen !== "SearchHome"}
+        fromWishlist={!!route?.params?.fromWishlist}
+        fromMyOwnProfile={returnTo?.screen !== 'SearchHome'}
       />
       <ScrollView
         contentContainerStyle={styles.detailContent}
@@ -2586,8 +2596,9 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
 
           if (closetItems.length > 0) {
             populatedItems = rawWishlistItems.map(item => {
+              const pid = String(wishlistItemProductId(item));
               const match = closetItems.find(
-                ci => String(ci?.id || ci?._id) === String(item?.productId)
+                ci => String(ci?.id || ci?._id) === pid,
               );
               if (match) {
                 return {
@@ -2758,6 +2769,36 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
     } finally {
       setWishlistActionLoading(null);
     }
+  };
+
+  const handleOpenWishlistProduct = item => {
+    const product = item?.product && (item.product.id || item.product._id || item.product.name)
+      ? item.product
+      : item;
+    const productId = wishlistItemProductId(item);
+    if (!productId && !product) return;
+
+    const cartReturnTo = {
+      screen: 'MyClosetBuyerCart',
+      params: {
+        sellerId: route?.params?.sellerId,
+        seller: route?.params?.seller,
+        closetId: route?.params?.closetId,
+        isOwnProfile: route?.params?.isOwnProfile,
+        isRouteFromSearch: route?.params?.isRouteFromSearch,
+        returnTo: route?.params?.returnTo,
+      },
+    };
+
+    navigation.navigate('MyClosetBuyerItemDetail', withClosetNavParams(route, {
+      item: product?.id || product?._id ? product : { ...product, id: productId, productId },
+      seller: route?.params?.seller,
+      sellerId: route?.params?.sellerId || item?.sellerId,
+      closetId: route?.params?.closetId || item?.closetId,
+      isOwnProfile: route?.params?.isOwnProfile ?? false,
+      fromWishlist: true,
+      returnTo: cartReturnTo,
+    }));
   };
 
   const handleAddWishlistToCart = async item => {
@@ -3035,11 +3076,17 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
 
                 return (
                   <View key={String(productId || item.id || item._id)} style={[styles.wishlistCard, { borderTopColor: border }]}>
-                    <ImageBox uri={thumb} style={styles.wishlistThumb} iconSize={20} />
-                    <View style={styles.wishlistCopy}>
-                      <Text style={[styles.wishlistItemName, { color: text }]} numberOfLines={2}>{title}</Text>
-                      <Text style={[styles.wishlistPrice, { color: text }]}>{price}</Text>
-                    </View>
+                    <TouchableOpacity
+                      style={styles.wishlistProductHit}
+                      activeOpacity={0.85}
+                      onPress={() => handleOpenWishlistProduct(item)}
+                    >
+                      <ImageBox uri={thumb} style={styles.wishlistThumb} iconSize={20} />
+                      <View style={styles.wishlistCopy}>
+                        <Text style={[styles.wishlistItemName, { color: text }]} numberOfLines={2}>{title}</Text>
+                        <Text style={[styles.wishlistPrice, { color: text }]}>{price}</Text>
+                      </View>
+                    </TouchableOpacity>
                     <View style={styles.wishlistActions}>
                       <TouchableOpacity
                         style={[
@@ -4103,8 +4150,37 @@ const MyClosetBuyerOrderReceivedScreen = ({ navigation, route }) => {
       payment?.metadata?.sellerId ||
       null;
 
+    const resolvedOrderId = orderId || payment?.orderId;
+    let trackingNumber =
+      payment?.trackingNumber ||
+      payment?.tracking_number ||
+      payment?.shipping?.trackingNumber ||
+      payment?.metadata?.trackingNumber ||
+      payment?.order?.trackingNumber;
+    let orderNumber =
+      payment?.orderNumber ||
+      payment?.order_number ||
+      payment?.metadata?.orderNumber ||
+      payment?.order?.orderNumber;
+
+    if (resolvedOrderId && (!trackingNumber || !orderNumber)) {
+      try {
+        const detailRes = await getBuyerOrderDetail(resolvedOrderId);
+        const detail = detailRes?.data?.data || detailRes?.data || {};
+        trackingNumber =
+          trackingNumber ||
+          detail.trackingNumber ||
+          detail.tracking_number ||
+          detail.shipping?.trackingNumber;
+        orderNumber =
+          orderNumber || detail.orderNumber || detail.order_number;
+      } catch (_err) {}
+    }
+
     const orderInfo = {
-      orderId: orderId || payment?.orderId,
+      orderId: resolvedOrderId,
+      orderNumber,
+      trackingNumber,
       amount: amount,
       items: items,
       createdAt: payment?.createdAt,
@@ -4786,6 +4862,11 @@ const styles = StyleSheet.create({
   wishlistTitle: { fontSize: 15, fontWeight: '900', color: '#17072d' },
   wishlistCount: { fontSize: 12, fontWeight: '800', color: MUTED },
   wishlistEmptyText: { fontSize: 13, color: MUTED, paddingVertical: 6 },
+  wishlistProductHit: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   wishlistCard: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -293,6 +293,9 @@ const ValensWallet = ({ navigation }) => {
 
                     return {
                         key: String(id),
+                        paymentId: String(
+                            pickFirst(tx?.paymentId, tx?.payment_id, tx?.stripePaymentId, tx?.id, tx?._id, id),
+                        ),
                         icon: resolveIcon(typeLabel),
                         title: String(title),
                         subtitle: subtitle ? String(subtitle) : [typeLabel, status].filter(Boolean).join(' • ') || '—',
@@ -439,6 +442,15 @@ const ValensWallet = ({ navigation }) => {
     const walletIcon = isBusinessProfile
         ? require('../../assets/icons/pngicons/goldenWallet-removebg.png')
         : require('../../assets/icons/pngicons/newWallet.png');
+
+    const handleActivityPress = (activity) => {
+        const paymentId = activity?.paymentId || activity?.key;
+        if (!paymentId) return;
+        navigation.navigate('TransactionDetails', {
+            paymentId,
+            preview: activity,
+        });
+    };
 
     const handleActivityProfilePress = (activity) => {
         if (!activity?.profileUserId) return;
@@ -632,7 +644,12 @@ const ValensWallet = ({ navigation }) => {
                                         ? '#EF4444'
                                         : text;
                             return (
-                                <View key={activity.key} style={[styles.activityRow, cardStyle, { borderColor: `${text}1a` }]}>
+                                <TouchableOpacity
+                                    key={activity.key}
+                                    style={[styles.activityRow, cardStyle, { borderColor: `${text}1a` }]}
+                                    activeOpacity={0.85}
+                                    onPress={() => handleActivityPress(activity)}
+                                >
                                     <TouchableOpacity
                                         style={styles.activityProfilePressable}
                                         activeOpacity={activity.profileUserId ? 0.75 : 1}
@@ -665,8 +682,7 @@ const ValensWallet = ({ navigation }) => {
                                         <Text style={[styles.activityDate, { color: `${text}80` }]}>{activity.date}</Text>
                                     </View>
                                     <Ionicons name="chevron-forward" size={18} color={`${text}66`} style={styles.activityChevron} />
-
-                                </View>
+                                </TouchableOpacity>
                             );
                         })}
                     </View>

@@ -134,6 +134,12 @@ export const transationActivity = async (params) => {
   return axiosInstance.get('billing/received-transactions');
 }
 
+export const getTransactionDetails = async (paymentId) => {
+  return axiosInstance.get('billing/transaction-details', {
+    params: { paymentId },
+  });
+};
+
 export const totalTransactions = async (params) => {
   const candidates = [
     'billing/received-totals-transactions',
