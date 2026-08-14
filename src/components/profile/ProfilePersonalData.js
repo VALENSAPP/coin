@@ -1196,6 +1196,14 @@ const ProfilePersonData = ({
     } else if (returnByTo == 'Search') {
       navigation.navigate(returnByTo);
       return;
+    } else if (returnByTo === 'Activity' || returnByTo === 'ActivityScreen') {
+      const parentNav = navigation.getParent?.();
+      if (parentNav?.navigate) {
+        parentNav.navigate('wallet', { screen: 'Activity' });
+      } else {
+        navigation.navigate('MainApp', { screen: 'wallet', params: { screen: 'Activity' } });
+      }
+      return;
     } else if (returnByTo === 'PostView') {
       // If the user opened this profile from a post inside ProfileMain,
       // go back there instead of dropping them on Home.

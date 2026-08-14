@@ -160,6 +160,7 @@ const ORDER_STATUS_KEYS = {
   shipped: 'myClosetDashboard.orderStatus.shipped',
   delivered: 'myClosetDashboard.orderStatus.delivered',
   cancelled: 'myClosetDashboard.orderStatus.cancelled',
+  localpickup: 'myClosetDashboard.orderStatus.localpickup'
 };
 
 const ORDER_STATUS_COLORS = {
@@ -172,8 +173,9 @@ const ORDER_STATUS_COLORS = {
 };
 
 const normalizeOrderStatus = raw => {
+  console.log("---------raw-----------",raw)
   const value = String(raw || '').trim().toLowerCase();
-  if (['delivered', 'shipped', 'processing', 'confirmed', 'cancelled'].includes(value)) {
+  if (['localpickup','delivered', 'shipped', 'processing', 'confirmed', 'cancelled'].includes(value)) {
     return value;
   }
   return 'pending';

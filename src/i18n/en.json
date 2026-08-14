@@ -3850,7 +3850,8 @@
       "processing": "Processing",
       "shipped": "Shipped",
       "delivered": "Delivered",
-      "cancelled": "Cancelled"
+      "cancelled": "Cancelled",
+      "localpickup": "Localpickup"
     },
     "fulfillment": {
       "shipToDeliver": "Ship by Me",
@@ -4392,7 +4393,8 @@
       "processing": "Processing",
       "shipped": "Shipped",
       "delivered": "Delivered",
-      "cancelled": "Cancelled"
+      "cancelled": "Cancelled",
+      "localpickup":"Localpickup"
     }
   },
   "marketplaceAnalytics": {
@@ -4439,6 +4441,7 @@
     "buyer": "Buyer",
     "seller": "Seller",
     "shippingAddress": "Shipping Address",
+    "pickupLocation": "Pickup Location",
     "items": "Items ({{count}})",
     "itemsCount": "{{count}} item(s)",
     "itemsLabel": "Items",
@@ -4466,7 +4469,8 @@
       "processing": "Processing",
       "shipped": "Shipped",
       "delivered": "Delivered",
-      "cancelled": "Cancelled"
+      "cancelled": "Cancelled",
+      "localpickup": "Localpickup"
     }
   },
   "myClosetEarnings": {

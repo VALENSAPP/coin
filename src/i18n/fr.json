@@ -3719,7 +3719,8 @@
     },
     "fulfillment": {
       "shipToDeliver": "Expédier moi-même",
-      "localPickup": "Retrait local"
+      "localPickup": "Retrait local",
+      "localpickup": "Retrait local"
     },
     "action": {
       "processing": "Marquer comme en cours de traitement",
@@ -4302,6 +4303,7 @@
     "buyer": "Acheteur",
     "seller": "Vendeur",
     "shippingAddress": "Adresse de livraison",
+    "pickupLocation": "Lieu de retrait",
     "items": "Articles ({{count}})",
     "itemsCount": "{{count}} article(s)",
     "itemsLabel": "Articles",
