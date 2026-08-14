@@ -53,10 +53,11 @@ const SupportMethodModal = ({
   );
   const [selectedMethod, setSelectedMethod] = useState('wallet');
 
-  const isWalletMethodDisabled = !canSupport;
   const isWalletSelected = selectedMethod === 'wallet';
   const isTipSelected = selectedMethod === 'tip';
-  const isConnectWalletEnabled = isWalletSelected && canSupport;
+  // Keep Connect Wallet tappable even when recipient has no wallet, so parents can show
+  // the same "{{name}} has not connected a wallet" alert as the profile screen.
+  const isConnectWalletEnabled = isWalletSelected;
   const isSendTipEnabled = isTipSelected;
 
   // Force readable contrast: brand purple/gold is for accents, not body copy in dark mode.
@@ -64,15 +65,16 @@ const SupportMethodModal = ({
   const secondaryText = isDarkMode ? '#C8C4D0' : (mutedText || '#6B7280');
   const actionAccent = accent || '#5a2d82';
   const idleBorder = border || (isDarkMode ? '#444444' : '#E5E7EB');
-  const disabledSurface = isDarkMode ? '#2A2A2A' : '#F3F4F6';
   const disabledButtonBg = isDarkMode ? '#4B5563' : '#9CA3AF';
   const chevronColor = secondaryText;
   const sheetBg = card || (isDarkMode ? '#1E1E1E' : '#FFFFFF');
 
   useEffect(() => {
     if (!visible) return;
-    setSelectedMethod(canSupport ? 'wallet' : 'tip');
-  }, [visible, canSupport]);
+    // Match profile flow: always open on Wallet-to-Wallet so the user can tap Connect Wallet
+    // and see the not-connected message when the recipient has no wallet.
+    setSelectedMethod('wallet');
+  }, [visible]);
 
   const walletBullets = [
     t('supportCreator.walletBullet1'),
@@ -86,7 +88,6 @@ const SupportMethodModal = ({
   ];
 
   const handleWalletCardPress = () => {
-    if (isWalletMethodDisabled) return;
     setSelectedMethod('wallet');
   };
 
@@ -109,13 +110,6 @@ const SupportMethodModal = ({
   };
 
   const walletCardStyle = useMemo(() => {
-    if (isWalletMethodDisabled) {
-      return {
-        borderColor: idleBorder,
-        backgroundColor: disabledSurface,
-        opacity: 0.65,
-      };
-    }
     if (isWalletSelected) {
       return {
         borderColor: actionAccent,
@@ -126,7 +120,7 @@ const SupportMethodModal = ({
       borderColor: idleBorder,
       backgroundColor: sheetBg,
     };
-  }, [isWalletMethodDisabled, isWalletSelected, actionAccent, sheetBg, idleBorder, disabledSurface, isDarkMode]);
+  }, [isWalletSelected, actionAccent, sheetBg, idleBorder, isDarkMode]);
 
   const tipCardStyle = useMemo(() => {
     if (isTipSelected) {
@@ -172,10 +166,9 @@ const SupportMethodModal = ({
             </Text>
 
             <TouchableOpacity
-              activeOpacity={isWalletMethodDisabled ? 1 : 0.9}
+              activeOpacity={0.9}
               style={[styles.methodCard, walletCardStyle]}
               onPress={handleWalletCardPress}
-              disabled={isWalletMethodDisabled}
             >
               <View style={[styles.methodIconWrap, { backgroundColor: withAlpha(actionAccent, 0.14) }]}>
                 <Image

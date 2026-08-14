@@ -106,9 +106,10 @@ export default function FollowCard({
 
   const handleSupportNow = async () => {
     if (!canSupport) {
+      const creatorName = username || t('followCard.defaultCreatorName');
       Alert.alert(
         t('followCard.walletNotConnectedTitle'),
-        t('followCard.walletNotConnectedMessage'),
+        t('followCard.walletNotConnectedMessage', { name: creatorName }),
       );
       return;
     }
