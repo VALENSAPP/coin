@@ -52,18 +52,18 @@ export const ActivityScreen = ({ navigation }) => {
     } else if (diffInSeconds < 3600) {
       const count = Math.floor(diffInSeconds / 60);
       return count === 1
-        ? t('activity.time.minuteAgo', '1m ago')
-        : t('activity.time.minutesAgo', '{{count}}m ago').replace('{{count}}', count);
+        ? t('activity.time.minuteAgo', { count }, '1 minute ago')
+        : t('activity.time.minutesAgo', { count }, '{{count}} minutes ago');
     } else if (diffInSeconds < 86400) {
       const count = Math.floor(diffInSeconds / 3600);
       return count === 1
-        ? t('activity.time.hourAgo', '1h ago')
-        : t('activity.time.hoursAgo', '{{count}}h ago').replace('{{count}}', count);
+        ? t('activity.time.hourAgo', { count }, '1 hour ago')
+        : t('activity.time.hoursAgo', { count }, '{{count}} hours ago');
     } else {
       const count = Math.floor(diffInSeconds / 86400);
       return count === 1
-        ? t('activity.time.dayAgo', '1 day ago')
-        : t('activity.time.daysAgo', '{{count}} days ago').replace('{{count}}', count);
+        ? t('activity.time.dayAgo', { count }, '1 day ago')
+        : t('activity.time.daysAgo', { count }, '{{count}} days ago');
     }
   }, [t]);
 
