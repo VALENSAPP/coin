@@ -34,8 +34,38 @@ import {
 import useSocket from '../../../hooks/useSocket';
 import { useLanguage } from '../../../i18n';
 import HexAvatar from '../../../components/home/story.js/HexAvatar';
+import { getBuyerOrderDetail } from '../../../services/myCloset';
 
 const ONLINE_PLACEHOLDER = 'https://ui-avatars.com/api/?name=User&background=e0e0e0&color=888&size=128';
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const looksLikeUuid = value => UUID_RE.test(String(value || '').trim());
+
+const pickTrackingDisplay = source => {
+  if (!source || typeof source !== 'object') return '';
+  const candidates = [
+    source.trackingNumber,
+    source.tracking_number,
+    source.trackingId,
+    source.tracking_id,
+    source.shipmentTrackingNumber,
+    source.shippingTrackingNumber,
+    source.shipping?.trackingNumber,
+    source.shipping?.tracking_number,
+    source.shipment?.trackingNumber,
+    source.fulfillment?.trackingNumber,
+    source.orderNumber,
+    source.order_number,
+    source.displayOrderNumber,
+  ];
+  for (const raw of candidates) {
+    const text = String(raw || '').trim();
+    if (text && !looksLikeUuid(text)) return text;
+  }
+  return '';
+};
 
 // Fallback icon component
 const FallbackIcon = ({ name, size = 24, color = '#000', style }) => {
@@ -147,13 +177,36 @@ export default function UserClosetChat({ route, navigation }) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [socketReady, setSocketReady] = useState(false);
-
-  // Pagination states
+  const [orderMeta, setOrderMeta] = useState(orderInfo || {});
   const [page, setPage] = useState(1);
   const [totalMessages, setTotalMessages] = useState(0);
   const [limit] = useState(20);
-
   const flatListRef = useRef(null);
+
+  useEffect(() => {
+    setOrderMeta(prev => ({ ...prev, ...(orderInfo || {}) }));
+  }, [orderInfo]);
+
+  useEffect(() => {
+    const resolvedOrderId = orderInfo?.orderId || orderInfo?.id || orderInfo?.order_id;
+    if (!resolvedOrderId) return undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await getBuyerOrderDetail(resolvedOrderId);
+        const data = res?.data?.data || res?.data || {};
+        if (cancelled || !data || typeof data !== 'object') return;
+        setOrderMeta(prev => ({ ...prev, ...data }));
+      } catch (e) {
+        if (__DEV__) {
+          console.warn('[UserClosetChat] Failed to load order tracking', e?.message || e);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [orderInfo?.orderId, orderInfo?.id, orderInfo?.order_id]);
 
   // Ensure socket is initialized with correct user ID
   useEffect(() => {
@@ -620,7 +673,13 @@ export default function UserClosetChat({ route, navigation }) {
             <Text style={[styles.headerTitle, textStyle]}>{username}</Text>
             {orderInfo && (
               <Text style={styles.headerSubtitle} numberOfLines={1}>
-                Order: #{orderInfo.orderNumber || orderInfo.id || orderInfo.orderId || 'Info'} • {orderInfo.orderStatus || 'Active'}
+                {(() => {
+                  const tracking = pickTrackingDisplay(orderMeta);
+                  if (tracking) {
+                    return t('chatMessages.closetOrderTracking', { number: tracking });
+                  }
+                  return t('chatMessages.closetOrderPendingTracking');
+                })()}
               </Text>
             )}
           </View>

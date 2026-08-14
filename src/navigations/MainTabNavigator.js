@@ -136,6 +136,7 @@ import RevenueFromSubscriptions from '../pages/wallet/MyRevenue';
 import MarketplaceAnalytics from '../pages/wallet/MarketplaceAnalytics';
 import ValensWallet from '../pages/wallet/ValensWallet';
 import TransactionActivityScreen from '../pages/wallet/TransactionActivityScreen';
+import TransactionDetailsScreen from '../pages/wallet/TransactionDetailsScreen';
 import TotalEarningsScreen from '../pages/wallet/TotalEarningsScreen';
 import ReferralPointsScreen from '../pages/wallet/ReferralPointsScreen';
 import UseYourPointsScreen from '../pages/wallet/UseYourPointsScreen';
@@ -948,6 +949,11 @@ export default function MainTabNavigator() {
             component={PrivateCircle}
             // ── TRANSLATION CHANGE ───────────────────────────────────────────
             options={{ headerTitle: t('walletStack.privateCircle') }}
+          />
+          <Stack.Screen
+            name="TransactionDetails"
+            component={TransactionDetailsScreen}
+            options={{ headerShown: false }}
           />
           <Stack.Screen
             name="TransactionActivity"

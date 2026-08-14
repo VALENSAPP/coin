@@ -151,6 +151,9 @@ const mapTransactionsToActivity = async (raw) => {
 
     return {
       key: String(id),
+      paymentId: String(
+        pickFirst(tx?.paymentId, tx?.payment_id, tx?.stripePaymentId, tx?.id, tx?._id, id),
+      ),
       icon: resolveIcon(typeLabel),
       title: String(title),
       subtitle: subtitle ? String(subtitle) : [typeLabel, status].filter(Boolean).join(' • ') || '—',
@@ -215,6 +218,15 @@ export default function TransactionActivityScreen() {
 
   const data = useMemo(() => (Array.isArray(activity) ? activity : []), [activity]);
 
+  const handleActivityPress = useCallback((item) => {
+    const paymentId = item?.paymentId || item?.key;
+    if (!paymentId) return;
+    navigation.navigate('TransactionDetails', {
+      paymentId,
+      preview: item,
+    });
+  }, [navigation]);
+
   const handleActivityProfilePress = useCallback((item) => {
     if (!item?.profileUserId) return;
 
@@ -237,7 +249,11 @@ export default function TransactionActivityScreen() {
           : text;
 
     return (
-      <View style={[styles.activityRow, cardStyle, { borderColor: `${text}1a` }]}>
+      <TouchableOpacity
+        style={[styles.activityRow, cardStyle, { borderColor: `${text}1a` }]}
+        activeOpacity={0.85}
+        onPress={() => handleActivityPress(item)}
+      >
         <TouchableOpacity
           style={styles.activityProfilePressable}
           activeOpacity={item.profileUserId ? 0.75 : 1}
@@ -265,9 +281,9 @@ export default function TransactionActivityScreen() {
           <Text style={[styles.activityDate, { color: `${text}80` }]}>{item.date}</Text>
         </View>
         <Ionicons name="chevron-forward" size={18} color={`${text}66`} style={styles.activityChevron} />
-      </View>
+      </TouchableOpacity>
     );
-  }, [cardStyle, handleActivityProfilePress, text]);
+  }, [cardStyle, handleActivityPress, handleActivityProfilePress, text]);
 
   const keyExtractor = useCallback((item, index) => String(item?.key ?? index), []);
 

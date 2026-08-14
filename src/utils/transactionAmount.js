@@ -10,12 +10,16 @@ const CREDIT_TYPES = new Set(['credit', 'in', 'incoming', 'income', 'receive', '
 const DEBIT_TYPES = new Set(['debit', 'out', 'outgoing', 'expense', 'withdraw', 'withdrawal']);
 
 export const resolveTransactionDirection = (tx) => {
-  const direction = String(
-    pickFirst(tx?.type, tx?.direction, tx?.flow, tx?.transactionDirection) || '',
+  const explicit = String(
+    pickFirst(tx?.direction, tx?.flow, tx?.transactionDirection) || '',
   ).toLowerCase();
 
-  if (DEBIT_TYPES.has(direction)) return 'debit';
-  if (CREDIT_TYPES.has(direction)) return 'credit';
+  if (DEBIT_TYPES.has(explicit) || explicit === 'sent' || explicit === 'debit') return 'debit';
+  if (CREDIT_TYPES.has(explicit) || explicit === 'received' || explicit === 'credit') return 'credit';
+
+  const type = String(pickFirst(tx?.type) || '').toLowerCase();
+  if (DEBIT_TYPES.has(type)) return 'debit';
+  if (CREDIT_TYPES.has(type)) return 'credit';
 
   const amount = toNumber(
     pickFirst(tx?.amountUsd, tx?.amountUSD, tx?.amount_usd, tx?.amount, tx?.usdAmount, tx?.value, 0),
