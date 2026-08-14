@@ -45,6 +45,7 @@ import {
   getRecentPaymentDetails,
   getPaymentDetailsByPaymentId,
   getClosetBattlesPriority,
+  toggleMyClosetItemLike,
 } from '../../services/myCloset';
 import { getClosetChatThreadsApi } from '../../services/chatMessage';
 import { useAppTheme } from '../../theme/useApptheme';
@@ -153,8 +154,6 @@ const imageUri = image => {
   if (typeof image === 'string') return image;
   return image?.uri || image?.url || image?.path || null;
 };
-
-const unwrapWishlistItems = response => getWishlistRecordForSeller(response)?.wishlistItems ?? [];
 
 const fastImageSource = uri =>
   uri
@@ -489,12 +488,15 @@ const buildCart = (route, t, overrides = {}) => {
   };
 };
 
-const goBack = (navigation, returnTo, isRouteFromSearch, fromMyOwnProfile) => {
-  if (isRouteFromSearch || fromMyOwnProfile) {
+const goBack = (navigation, returnTo, isRouteFromSearch, fromMyOwnProfile, preferStackBack = false) => {
+  // Only screens that explicitly opt in should restore the previous buyer-flow
+  // step. All existing screens retain their established returnTo behavior.
+  if (preferStackBack || isRouteFromSearch || fromMyOwnProfile) {
     navigation.goBack();
     return;
   }
-  else if (returnTo?.tab == "Search" || returnTo?.screen == "SearchHome") {
+
+  if (returnTo?.tab == "Search" || returnTo?.screen == "SearchHome") {
     navigation.navigate('HomeMain', {
       screen: 'UsersProfile',
       params: {
@@ -611,7 +613,7 @@ const BottomBar = ({ children }) => {
 // Shared UI atoms
 // ─────────────────────────────────────────────────────────────────────────────
 
-const Header = ({ navigation, title, rightIcon, onRightPress, returnTo, isOwnProfile, isRouteFromSearch, fromMyOwnProfile }) => {
+const Header = ({ navigation, title, rightIcon, onRightPress, rightDisabled = false, secondaryRightIcon, onSecondaryRightPress, secondaryRightDisabled = false, returnTo, isOwnProfile, isRouteFromSearch, fromMyOwnProfile, preferStackBack = false }) => {
   const { accent } = useAppTheme();
   const { isDarkMode } = useThemeContext();
   const labelColor = isDarkMode ? '#ffffff' : '#17072d';
@@ -620,7 +622,7 @@ const Header = ({ navigation, title, rightIcon, onRightPress, returnTo, isOwnPro
   return (
     <View style={styles.header}>
       <TouchableOpacity
-        onPress={() => goBack(navigation, returnTo, isRouteFromSearch, fromMyOwnProfile)}
+        onPress={() => goBack(navigation, returnTo, isRouteFromSearch, fromMyOwnProfile, preferStackBack)}
         style={[styles.iconButton, { backgroundColor: chipSurface }]}
         activeOpacity={0.8}
       >
@@ -629,14 +631,33 @@ const Header = ({ navigation, title, rightIcon, onRightPress, returnTo, isOwnPro
       <Text style={[styles.headerTitle, { color: labelColor }]}>{title}</Text>
       {!isOwnProfile &&
         <>
-          {rightIcon ? (
-            <TouchableOpacity
-              onPress={onRightPress}
-              style={[styles.iconButton, { backgroundColor: chipSurface }]}
-              activeOpacity={0.8}
-            >
-              <Ionicons name={rightIcon} size={21} color={accent} />
-            </TouchableOpacity>
+          {rightIcon || secondaryRightIcon ? (
+            <View style={styles.headerActions}>
+              {rightIcon ? (
+                <TouchableOpacity
+                  onPress={onRightPress}
+                  disabled={rightDisabled}
+                  accessibilityRole="button"
+                  accessibilityLabel="Like item"
+                  style={[styles.iconButton, { backgroundColor: chipSurface }, rightDisabled && styles.iconButtonDisabled]}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name={rightIcon} size={21} color={accent} />
+                </TouchableOpacity>
+              ) : null}
+              {secondaryRightIcon ? (
+                <TouchableOpacity
+                  onPress={onSecondaryRightPress}
+                  disabled={secondaryRightDisabled}
+                  accessibilityRole="button"
+                  accessibilityLabel="Add to wishlist"
+                  style={[styles.iconButton, { backgroundColor: chipSurface }, secondaryRightDisabled && styles.iconButtonDisabled]}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name={secondaryRightIcon} size={21} color={accent} />
+                </TouchableOpacity>
+              ) : null}
+            </View>
           ) : (
             <View style={styles.iconButton} />
           )}
@@ -1928,8 +1949,11 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
   const seller = route?.params?.seller || {};
   const isOwnProfile = route?.params?.isOwnProfile ?? false;
   const returnTo = route?.params?.returnTo;
-  const [liked, setLiked] = useState(false);
+  const [liked, setLiked] = useState(Boolean(item.raw?.liked ?? item.raw?.isLiked ?? item.raw?.isLike));
+  const [likeLoading, setLikeLoading] = useState(false);
+  const [wishlisted, setWishlisted] = useState(false);
   const [wishlistLoading, setWishlistLoading] = useState(false);
+  const [wishlistItemId, setWishlistItemId] = useState(null);
   const [detailScrollEnabled, setDetailScrollEnabled] = useState(true);
   const isOutOfStock = Number(item.quantityAvailable) <= 0;
   const productId = item.raw?.id || item.raw?._id || item.id;
@@ -1939,18 +1963,36 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
     .filter((value, index, values) => value && values.indexOf(value) === index)
     .join('\n');
 
+  const handleLikePress = async () => {
+    if (!productId || likeLoading) return;
+    const previousLiked = liked;
+    setLiked(!previousLiked);
+    setLikeLoading(true);
+    try {
+      const response = await toggleMyClosetItemLike(productId);
+      const responseData = response?.data?.data ?? response?.data ?? response;
+      const serverLiked = responseData?.liked ?? responseData?.isLiked ?? responseData?.isLike;
+      if (typeof serverLiked === 'boolean') setLiked(serverLiked);
+    } catch (err) {
+      setLiked(previousLiked);
+      Alert.alert(t('myClosetBuyer.errorTitle'), err?.response?.data?.message || 'Could not update like.');
+    } finally {
+      setLikeLoading(false);
+    }
+  };
+
   useEffect(() => {
     let active = true;
     const loadWishlistState = async () => {
       if (!productId) return;
       try {
         const response = await getWishlist(route?.params?.sellerId);
+        const { match } = findWishlistItemForProduct(response, productId);
         if (!active) return;
-        const wishlistItems = unwrapWishlistItems(response);
-        const match = wishlistItems.some(w => String(wishlistItemProductId(w)) === String(productId));
-        setLiked(match);
+        setWishlisted(Boolean(match));
+        setWishlistItemId(match?.id || match?._id || match?.wishlistItemId || match?.wishlistId || null);
       } catch {
-        if (active) setLiked(false);
+        // Keep the item visible even if its wishlist state cannot be loaded.
       }
     };
     loadWishlistState();
@@ -1959,21 +2001,28 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
 
   const handleWishlistPress = async () => {
     if (!productId || wishlistLoading) return;
+    const previousWishlisted = wishlisted;
+    setWishlisted(!previousWishlisted);
     setWishlistLoading(true);
     try {
-      if (liked) {
-        const response = await getWishlist(route?.params?.sellerId);
-        const wishlistItems = unwrapWishlistItems(response);
-        const match = wishlistItems.find(w => String(wishlistItemProductId(w)) === String(productId));
-        if (match) {
-          await deleteWishlistItem(match.id || match._id || match.wishlistItemId || match.wishlistId);
+      if (previousWishlisted) {
+        let itemId = wishlistItemId || item.raw?.wishlistItemId || item.raw?.wishlistId || item.raw?.wishlist_item_id || item.raw?.wishlistItem?.id;
+        if (!itemId) {
+          const response = await getWishlist(route?.params?.sellerId);
+          const { match } = findWishlistItemForProduct(response, productId);
+          itemId = match?.id || match?._id || match?.wishlistItemId || match?.wishlistId;
         }
-        setLiked(false);
+        if (!itemId) throw new Error('Wishlist item not found.');
+        await deleteWishlistItem(itemId);
+        setWishlistItemId(null);
       } else {
         await addWishlistItem(productId);
-        setLiked(true);
+        const response = await getWishlist(route?.params?.sellerId);
+        const { match } = findWishlistItemForProduct(response, productId);
+        setWishlistItemId(match?.id || match?._id || match?.wishlistItemId || match?.wishlistId || null);
       }
     } catch (err) {
+      setWishlisted(previousWishlisted);
       Alert.alert(t('myClosetBuyer.errorTitle'), err?.response?.data?.message || 'Could not update wishlist.');
     } finally {
       setWishlistLoading(false);
@@ -1996,7 +2045,11 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
         navigation={navigation}
         title={t('myClosetBuyer.myClosetTitle')}
         rightIcon={liked ? 'heart' : 'heart-outline'}
-        onRightPress={handleWishlistPress}
+        onRightPress={handleLikePress}
+        rightDisabled={likeLoading}
+        secondaryRightIcon={wishlisted ? 'bookmark' : 'bookmark-outline'}
+        onSecondaryRightPress={handleWishlistPress}
+        secondaryRightDisabled={wishlistLoading}
         returnTo={returnTo}
         isOwnProfile={isOwnProfile}
         fromMyOwnProfile={returnTo.screen !== "SearchHome"}
@@ -3158,7 +3211,13 @@ const MyClosetBuyerCheckoutScreen = ({ navigation, route }) => {
 
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
-      <Header navigation={navigation} title={t('myClosetBuyer.checkoutTitle')} returnTo={returnTo} isRouteFromSearch={isRouteFromSearch} />
+      <Header
+        navigation={navigation}
+        title={t('myClosetBuyer.checkoutTitle')}
+        returnTo={returnTo}
+        isRouteFromSearch={isRouteFromSearch}
+        preferStackBack
+      />
       <ScrollView contentContainerStyle={styles.checkoutContent} showsVerticalScrollIndicator={false}>
         <CheckoutSteps current={0} includeShipping={true} accentColor={accent} />
         <OrderSummary cart={cart} editable onEditCart={handleEditCart} accentColor={text} />
@@ -3441,7 +3500,13 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
 
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
-      <Header navigation={navigation} title={t('myClosetBuyer.shippingInformationTitle')} returnTo={returnTo} isRouteFromSearch={isRouteFromSearch} />
+      <Header
+        navigation={navigation}
+        title={t('myClosetBuyer.shippingInformationTitle')}
+        returnTo={returnTo}
+        isRouteFromSearch={isRouteFromSearch}
+        preferStackBack
+      />
       <ScrollView
         contentContainerStyle={styles.checkoutContent}
         showsVerticalScrollIndicator={false}
@@ -4291,6 +4356,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  iconButtonDisabled: { opacity: 0.55 },
+  headerActions: { flexDirection: 'row', gap: 8 },
   headerTitle: {
     flex: 1,
     textAlign: 'center',

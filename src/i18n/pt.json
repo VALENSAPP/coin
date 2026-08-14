@@ -3715,7 +3715,8 @@
       "processing": "Em processamento",
       "shipped": "Enviado",
       "delivered": "Entregue",
-      "cancelled": "Cancelado"
+      "cancelled": "Cancelado",
+      "localpickup": "Recolha local"
     },
     "fulfillment": {
       "shipToDeliver": "Enviar por minha conta",
@@ -4316,6 +4317,7 @@
     "buyer": "Comprador",
     "seller": "Vendedor",
     "shippingAddress": "Endereço de entrega",
+    "pickupLocation": "Local de retirada",
     "items": "Itens ({{count}})",
     "itemsCount": "{{count}} item(ns)",
     "itemsLabel": "Itens",

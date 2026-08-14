@@ -3715,7 +3715,8 @@
       "processing": "In elaborazione",
       "shipped": "Spedito",
       "delivered": "Consegnato",
-      "cancelled": "Annullato"
+      "cancelled": "Annullato",
+      "localpickup": "Ritiro locale"
     },
     "fulfillment": {
       "shipToDeliver": "Spedisci personalmente",
@@ -4315,6 +4316,7 @@
     "buyer": "Acquirente",
     "seller": "Venditore",
     "shippingAddress": "Adresse de livraison",
+    "pickupLocation": "Luogo di ritiro",
     "items": "Articles ({{count}})",
     "itemsCount": "{{count}} article(s)",
     "itemsLabel": "Articles",
