@@ -10,8 +10,6 @@ import {
   View,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, useRoute } from '@react-navigation/native';
 import { useToast } from 'react-native-toast-notifications';
 import { useLanguage } from '../../i18n';
 import { getPredictionQuestions } from '../../services/battle';
@@ -21,7 +19,6 @@ import { useThemeContext } from '../../theme/ThemeContext';
 
 const BORDER = '#D1D5DB';
 const MUTED = '#6B7280';
-const PROVIDERS = ['ALL', 'POLYMARKET', 'KALSHI'];
 
 const toTitleCase = value =>
   String(value || '')
@@ -38,24 +35,20 @@ const formatCloseTime = value => {
   return `${day}/${month}/${year}`;
 };
 
-export default function PredictionQuestionsScreen() {
-  const navigation = useNavigation();
-  const route = useRoute();
+export default function PredictionQuestionsScreen({
+  category,
+  profile,
+  onBack,
+  onSelectQuestion,
+}) {
   const toast = useToast();
   const { t } = useLanguage();
-  const routeParams = useMemo(
-    () => route?.params?.params || route?.params || {},
-    [route?.params],
-  );
-  const category = routeParams.category;
-  const profile = routeParams.profile;
   const { bgStyle, accent, card, border, mutedText } = useAppTheme(profile);
   const { isDarkMode } = useThemeContext();
   const labelColor = isDarkMode ? '#ffffff' : '#111827';
   const inputBackground = isDarkMode ? 'rgba(255,255,255,0.08)' : (card || '#FFFFFF');
   const themeBorder = border || BORDER;
 
-  const [provider, setProvider] = useState('ALL');
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -89,7 +82,6 @@ export default function PredictionQuestionsScreen() {
       try {
         const response = await getPredictionQuestions({
           category,
-          provider: provider === 'ALL' ? undefined : provider,
           page: nextPage,
           limit: 20,
         });
@@ -114,49 +106,15 @@ export default function PredictionQuestionsScreen() {
         setLoadingMore(false);
       }
     },
-    [category, provider],
+    [category, t, toast],
   );
 
   useEffect(() => {
     fetchQuestions({ nextPage: 1 });
-  }, [category, provider]);
+  }, [fetchQuestions]);
 
   const handleSelectQuestion = question => {
-    // Navigating by screen name pops back to OpenBattle (already in the
-    // stack) and merges these params into it.
-    navigation.navigate('OpenBattle', {
-      params: {
-        ...routeParams,
-        selectedPredictionQuestion: question,
-      },
-    });
-  };
-
-  const renderProviderTab = key => {
-    const isSelected = provider === key;
-    return (
-      <TouchableOpacity
-        key={key}
-        onPress={() => setProvider(key)}
-        style={[
-          styles.providerTab,
-          {
-            backgroundColor: isSelected ? accent : inputBackground,
-            borderColor: isSelected ? accent : themeBorder,
-          },
-        ]}
-        activeOpacity={0.85}
-      >
-        <Text
-          style={[
-            styles.providerTabText,
-            { color: isSelected ? '#fff' : mutedText },
-          ]}
-        >
-          {toTitleCase(key)}
-        </Text>
-      </TouchableOpacity>
-    );
+    onSelectQuestion?.(question);
   };
 
   const renderQuestion = ({ item }) => (
@@ -207,10 +165,10 @@ export default function PredictionQuestionsScreen() {
   );
 
   return (
-    <SafeAreaView style={[styles.container, bgStyle]}>
+    <View style={[styles.container, bgStyle]}>
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => navigation.goBack()}
+          onPress={onBack}
           style={styles.headerIconBtn}
         >
           <Ionicons name="chevron-back" size={24} color={accent} />
@@ -242,10 +200,6 @@ export default function PredictionQuestionsScreen() {
           </TouchableOpacity>
         )}
       </View>
-
-      {/* <View style={styles.providerRow}>
-        {PROVIDERS.map(renderProviderTab)}
-      </View> */}
 
       {loading ? (
         <View style={styles.centerState}>
@@ -288,7 +242,7 @@ export default function PredictionQuestionsScreen() {
           }
         />
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -325,19 +279,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  providerRow: {
-    flexDirection: 'row',
-    gap: 8,
-    paddingHorizontal: 14,
-    paddingBottom: 8,
-  },
-  providerTab: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  providerTabText: { fontSize: 12, fontWeight: '700' },
   listContent: { paddingHorizontal: 14, paddingBottom: 24, paddingTop: 4 },
   questionCard: {
     borderWidth: 1,

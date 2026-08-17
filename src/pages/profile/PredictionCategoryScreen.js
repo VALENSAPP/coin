@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -10,8 +10,6 @@ import {
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, useRoute } from '@react-navigation/native';
 import { useToast } from 'react-native-toast-notifications';
 import { useLanguage } from '../../i18n';
 import { getPredictionCategories } from '../../services/battle';
@@ -36,16 +34,13 @@ const toTitleCase = value =>
     .toLowerCase()
     .replace(/(^|\s)\S/g, char => char.toUpperCase());
 
-export default function PredictionCategoryScreen() {
-  const navigation = useNavigation();
-  const route = useRoute();
+export default function PredictionCategoryScreen({
+  profile,
+  onBack,
+  onSelectCategory,
+}) {
   const toast = useToast();
   const { t } = useLanguage();
-  const routeParams = useMemo(
-    () => route?.params?.params || route?.params || {},
-    [route?.params],
-  );
-  const profile = routeParams.profile;
   const { bgStyle, accent, card, border, mutedText } = useAppTheme(profile);
   const { isDarkMode } = useThemeContext();
   const labelColor = isDarkMode ? '#ffffff' : '#111827';
@@ -57,7 +52,7 @@ export default function PredictionCategoryScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const fetchCategories = async ({ isRefresh = false } = {}) => {
+  const fetchCategories = useCallback(async ({ isRefresh = false } = {}) => {
     isRefresh ? setRefreshing(true) : setLoading(true);
     try {
       const response = await getPredictionCategories();
@@ -77,20 +72,14 @@ export default function PredictionCategoryScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [t, toast]);
 
   useEffect(() => {
     fetchCategories();
-  }, []);
+  }, [fetchCategories]);
 
   const handleSelectCategory = category => {
-    navigation.navigate('PredictionQuestions', {
-      params: {
-        category,
-        profile,
-        isCompanyProfile: routeParams.isCompanyProfile,
-      },
-    });
+    onSelectCategory?.(category);
   };
 
   const renderCategory = ({ item }) => (
@@ -126,10 +115,10 @@ export default function PredictionCategoryScreen() {
   );
 
   return (
-    <SafeAreaView style={[styles.container, bgStyle]}>
+    <View style={[styles.container, bgStyle]}>
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => navigation.goBack()}
+          onPress={onBack}
           style={styles.headerIconBtn}
         >
           <Ionicons name="chevron-back" size={24} color={accent} />
@@ -173,7 +162,7 @@ export default function PredictionCategoryScreen() {
           }
         />
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 

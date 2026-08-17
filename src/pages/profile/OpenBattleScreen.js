@@ -31,6 +31,8 @@ import { getAllUser } from '../../services/users';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useThemeContext } from '../../theme/ThemeContext';
+import PredictionCategoryScreen from './PredictionCategoryScreen';
+import PredictionQuestionsScreen from './PredictionQuestionsScreen';
 
 const PRIMARY_GRADIENT = ['#513189bd', '#e54ba0']; // user
 const COMPANY_GRADIENT = ['#C9A15a', '#C9A15a'];   // company
@@ -176,6 +178,7 @@ export default function OpenBattleScreen() {
   const [selectedInviteUser, setSelectedInviteUser] = useState(null);
   const [imagePickerIndex, setImagePickerIndex] = useState(null);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const [predictionPickerCategory, setPredictionPickerCategory] = useState(null);
   const inviteSearchTimeoutRef = useRef(null);
   const imagePickerSheetRef = useRef(null);
   const [viewerUserId, setViewerUserId] = useState('');
@@ -193,9 +196,6 @@ export default function OpenBattleScreen() {
   const inputBackground = isDarkMode ? 'rgba(255,255,255,0.08)' : (card || '#FFFFFF');
   const themeBorder = border || BORDER;
   const profile = routeParams.profile;
-  const isCompanyProfile =
-    routeParams?.isCompanyProfile === true ||
-    String(routeParams?.isCompanyProfile).toLowerCase() === 'true';
   const isPoll = form.format === 'POLL';
   const isHeadToHead = form.format === 'HEAD_TO_HEAD';
   const isPrediction = form.battleType === 'PREDICTION';
@@ -360,40 +360,6 @@ export default function OpenBattleScreen() {
       cancelled = true;
     };
   }, [isEditMode, routeParams, viewerUserId]);
-
-  useEffect(() => {
-    const question = routeParams.selectedPredictionQuestion;
-    if (!question) {
-      return;
-    }
-
-    const optionTexts = Array.isArray(question.options) && question.options.length >= 2
-      ? question.options
-      : ['Yes', 'No'];
-
-    setForm(prev => ({
-      ...prev,
-      format: 'POLL',
-      battleType: 'PREDICTION',
-      question: pickFirst(question.question, prev.question),
-      options: optionTexts.slice(0, MAX_POLL_OPTIONS).map(text => ({ text, image: null })),
-      endTime: question.closeTime ? new Date(question.closeTime) : prev.endTime,
-      predictionMeta: {
-        provider: pickFirst(question.provider, ''),
-        externalMarketId: pickFirst(question.externalMarketId, ''),
-        externalEventId: pickFirst(question.externalEventId, ''),
-        category: pickFirst(question.category, ''),
-        closeTime: pickFirst(question.closeTime, ''),
-      },
-    }));
-    setErrors({});
-
-    // Clear the param so re-entering this screen later doesn't re-apply it.
-    navigation.setParams({
-      params: { ...routeParams, selectedPredictionQuestion: undefined },
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [routeParams.selectedPredictionQuestion]);
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -1029,6 +995,55 @@ export default function OpenBattleScreen() {
     }
   };
 
+  const handleSelectPredictionQuestion = question => {
+    const optionTexts = Array.isArray(question?.options) && question.options.length >= 2
+      ? question.options
+      : ['Yes', 'No'];
+
+    setForm(prev => ({
+      ...prev,
+      format: 'POLL',
+      battleType: 'PREDICTION',
+      question: pickFirst(question?.question, prev.question),
+      options: optionTexts.slice(0, MAX_POLL_OPTIONS).map(text => ({ text, image: null })),
+      endTime: question?.closeTime ? new Date(question.closeTime) : prev.endTime,
+      predictionMeta: {
+        provider: pickFirst(question?.provider, ''),
+        externalMarketId: pickFirst(question?.externalMarketId, ''),
+        externalEventId: pickFirst(question?.externalEventId, ''),
+        category: pickFirst(question?.category, predictionPickerCategory, ''),
+        closeTime: pickFirst(question?.closeTime, ''),
+      },
+    }));
+    setErrors({});
+    setPredictionPickerCategory(null);
+  };
+
+  if (predictionPickerCategory) {
+    return (
+      <SafeAreaView style={[styles.container, bgStyle]}>
+        <PredictionQuestionsScreen
+          category={predictionPickerCategory}
+          profile={profile}
+          onBack={() => setPredictionPickerCategory(null)}
+          onSelectQuestion={handleSelectPredictionQuestion}
+        />
+      </SafeAreaView>
+    );
+  }
+
+  if (predictionPickerCategory === '') {
+    return (
+      <SafeAreaView style={[styles.container, bgStyle]}>
+        <PredictionCategoryScreen
+          profile={profile}
+          onBack={() => setPredictionPickerCategory(null)}
+          onSelectCategory={setPredictionPickerCategory}
+        />
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={[styles.container, bgStyle]}>
       <KeyboardAvoidingView
@@ -1162,12 +1177,10 @@ export default function OpenBattleScreen() {
             </View>
           </View>
 
+          {!isPrediction && (
           <View
-            style={[
-              styles.section,
-              (isEditMode || isPrediction) && styles.readOnlySection,
-            ]}
-            pointerEvents={isEditMode || isPrediction ? 'none' : 'auto'}
+            style={[styles.section, isEditMode && styles.readOnlySection]}
+            pointerEvents={isEditMode ? 'none' : 'auto'}
           >
             <Text style={[styles.sectionTitle, { color: labelColor }]}>
               {t('openBattle.battleFormatSection')}
@@ -1224,6 +1237,7 @@ export default function OpenBattleScreen() {
               })}
             </View>
           </View>
+          )}
 
           {isPrediction ? (
             <View style={styles.section}>
@@ -1249,9 +1263,7 @@ export default function OpenBattleScreen() {
                     <TouchableOpacity
                       disabled={isEditMode}
                       onPress={() =>
-                        navigation.navigate('PredictionCategories', {
-                          params: { profile, isCompanyProfile },
-                        })
+                        setPredictionPickerCategory('')
                       }
                     >
                       <Text style={{ color: accent, fontWeight: '800', fontSize: 12 }}>
@@ -1285,9 +1297,7 @@ export default function OpenBattleScreen() {
                     },
                   ]}
                   onPress={() =>
-                    navigation.navigate('PredictionCategories', {
-                      params: { profile, isCompanyProfile },
-                    })
+                    setPredictionPickerCategory('')
                   }
                 >
                   <Text style={[styles.dateText, { color: mutedText }]}>
