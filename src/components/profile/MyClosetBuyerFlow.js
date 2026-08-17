@@ -82,6 +82,30 @@ const SHIP_OPTION_SHIP = 'ship_items';
 const SHIP_OPTION_LOCAL = 'local_pick';
 const SHIP_OPTION_BOTH = 'both';
 
+const formatPickupAvailableHours = value => {
+  if (!value) return '';
+
+  let hours = value;
+  if (typeof value === 'string') {
+    try {
+      hours = JSON.parse(value);
+    } catch {
+      // Keep supporting pickup-hour values returned by older API responses.
+      return value.trim();
+    }
+  }
+
+  if (!hours || typeof hours !== 'object') return '';
+
+  const weekday = [hours.weekdayStart, hours.weekdayEnd].filter(Boolean).join(' – ');
+  const weekend = [hours.weekendStart, hours.weekendEnd].filter(Boolean).join(' – ');
+
+  return [
+    weekday && `Mon–Fri: ${weekday}`,
+    weekend && `Sat–Sun: ${weekend}`,
+  ].filter(Boolean).join('\n');
+};
+
 const allowedShippingChoices = shippingOption => {
   if (shippingOption === SHIP_OPTION_BOTH) return [SHIP_OPTION_SHIP, SHIP_OPTION_LOCAL];
   if (shippingOption === SHIP_OPTION_LOCAL) return [SHIP_OPTION_LOCAL];
@@ -399,7 +423,7 @@ const normalizeItem = (item = {}, index = 0, t) => ({
   pickUpCity: item?.pickUpCity ?? item?.pickupCity ?? '',
   pickupLocation: item?.pickupLocation ?? '',
   pickupAddress: item?.pickupAddress ?? '',
-  pickupAvailableHours: item?.pickupAvailableHours ?? item?.pickupHours ?? '',
+  pickupAvailableHours: formatPickupAvailableHours(item?.pickupAvailableHours ?? item?.pickupHours),
   sellerName: item?.sellerName || item?.userName || item?.ownerName || '',
   createdAt: item?.createdAt || item?.created_at || item?.postedAt || item?.dateAdded || null,
 });
@@ -501,7 +525,13 @@ const goBack = (navigation, returnTo, isRouteFromSearch, fromMyOwnProfile, prefe
     return;
   }
   if (preferStackBack || isRouteFromSearch || fromMyOwnProfile) {
-    navigation.goBack();
+    if (navigation.canGoBack?.()) {
+      navigation.goBack();
+      return;
+    }
+    // A product can be opened directly from a battle notification/deep link.
+    // In that case there is no stack entry, so use the supplied return route.
+    navigateClosetReturn(navigation, returnTo);
     return;
   }
 
@@ -2073,7 +2103,8 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
         returnTo={returnTo}
         isOwnProfile={isOwnProfile}
         fromWishlist={!!route?.params?.fromWishlist}
-        fromMyOwnProfile={returnTo?.screen !== 'SearchHome'}
+        fromMyOwnProfile={!route?.params?.preferStackBack && returnTo?.screen !== 'SearchHome'}
+        preferStackBack={Boolean(route?.params?.preferStackBack)}
       />
       <ScrollView
         contentContainerStyle={styles.detailContent}
@@ -2961,9 +2992,31 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
   };
 
   const handleContinueShopping = () => {
+    const cartProduct = cartItems[0]?.product || localCart?.item?.raw || localCart?.item || {};
+    const sellerId =
+      cartProduct?.sellerId ||
+      cartProduct?.userId ||
+      cartProduct?.seller?.id ||
+      cartProduct?.seller?._id ||
+      cartItems[0]?.sellerId ||
+      route?.params?.sellerId ||
+      route?.params?.seller?.id;
+
+    if (sellerId) {
+      navigateClosetReturn(navigation, {
+        tab: 'HomeMain',
+        screen: 'UsersProfile',
+        params: {
+          userId: sellerId,
+          initialTab: 'closet',
+        },
+      });
+      return;
+    }
+
     route.params?.onGoBack?.({ initialTab: 'closet' });
-    navigation.goBack();
-  }
+    if (navigation.canGoBack?.()) navigation.goBack();
+  };
 
   const isEmpty = !cartLoading && cartItems.length === 0;
   const wishlistEmpty = !wishlistLoading && wishlistItems.length === 0;
@@ -3379,11 +3432,12 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
         product?.sellerName ||
         product?.user?.name ||
         '';
-      const hours =
+      const hours = formatPickupAvailableHours(
         resolvedPickup.pickupAvailableHours ||
         product?.pickupAvailableHours ||
         ci?.pickupAvailableHours ||
-        null;
+        null,
+      );
       const itemName =
         resolvedPickup.itemName ||
         product?.name ||

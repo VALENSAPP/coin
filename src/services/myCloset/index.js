@@ -77,7 +77,6 @@ const normalizeItemShippingOption = value => {
   return 'ship_items';
 };
 
-const formatPickupHours = hours => String(hours || '').trim();
 const parseFee = fee => Number(fee) || 0;
 
 /**
@@ -125,7 +124,10 @@ const buildItemPayload = draft => {
     if (draft.pickUpCity) payload.append('pickUpCity', String(draft.pickUpCity).trim());
     if (draft.pickupLocation) payload.append('pickupLocation', String(draft.pickupLocation).trim());
     payload.append('pickupAddress', String(draft.pickupAddress || '').trim());
-    payload.append('pickupAvailableHours', formatPickupHours(draft.pickupHours ?? draft.pickupAvailableHours));
+    payload.append(
+      'pickupAvailableHours',
+      JSON.stringify(draft.pickupHours),
+    );
     payload.append('buyerChatEnabled', String(draft.buyerChatEnabled ?? true));
   }
 

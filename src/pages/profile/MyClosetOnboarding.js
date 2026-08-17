@@ -3009,7 +3009,9 @@ const deliverySummaryLines = useMemo(() => {
     setIsPublishing(true);
     dispatch(showLoader());
     try {
+      console.log('[MyCloset] Creating item with draft:', draft);
       const response = await createMyClosetItem(draft);
+      console.log('[MyCloset] Create item API response:', response);
       const statusCode = response?.statusCode;
 
       if (statusCode === 200 || statusCode === 201) {
@@ -3026,6 +3028,10 @@ const deliverySummaryLines = useMemo(() => {
         response?.message || t('myClosetAddItemReview.publishFailure'),
       );
     } catch (error) {
+      console.error(
+        '[MyCloset] Create item API error:',
+        error?.response?.data || error?.message || error,
+      );
       showToastMessage(
         toast,
         'danger',
