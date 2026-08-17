@@ -721,7 +721,20 @@
     "chooseFromGallerySubtitle": "Selecciona una imagen existente",
     "takeAPhoto": "Tomar una foto",
     "takeAPhotoSubtitle": "Captura una nueva imagen",
-    "cancel": "Cancelar"
+    "cancel": "Cancelar",
+    "battleTypeSection": "Tipo de batalla",
+    "predictionCategoryTitle": "Elige una categoría",
+    "predictionCategorySubtitle": "Elige una categoría para explorar mercados de predicción activos",
+    "predictionNoCategories": "No hay categorías disponibles",
+    "predictionCloses": "Cierra",
+    "predictionNoQuestions": "No se encontraron preguntas",
+    "predictionMarketLabel": "Mercado de predicción",
+    "predictionSelectMarket": "Selecciona un mercado activo sobre el que quieras hacer una predicción",
+    "predictionChangeMarket": "Cambiar",
+    "predictionMarketHelper": "La pregunta y los resultados se obtienen del mercado de origen y quedan bloqueados.",
+    "predictionMarketRequired": "Selecciona un mercado de predicción para continuar",
+    "predictionSearchPlaceholder": "Buscar preguntas",
+    "predictionNoSearchResults": "Ninguna pregunta coincide con tu búsqueda"
   },
   "profileBattle": {
     "defaultTitle": "Batalla"
@@ -3395,6 +3408,7 @@
     "noEndDate": "Sin fecha de finalización",
     "ends": "Termina:",
     "poll": "Encuesta",
+    "prediction": "Predicción",
     "battleMode": "Modo Battle 🔥",
     "waiting": "Esperando...",
     "openSlot": "Espacio abierto",
@@ -4294,7 +4308,8 @@
       "processing": "En proceso",
       "shipped": "Enviado",
       "delivered": "Entregado",
-      "cancelled": "Cancelado"
+      "cancelled": "Cancelado",
+      "localpickup": "Recogida local"
     }
   },
   "marketplaceAnalytics": {
@@ -4369,7 +4384,8 @@
       "processing": "En proceso",
       "shipped": "Enviado",
       "delivered": "Entregado",
-      "cancelled": "Cancelado"
+      "cancelled": "Cancelado",
+      "localpickup": "Recogida local"
     }
   },
   "myClosetEarnings": {

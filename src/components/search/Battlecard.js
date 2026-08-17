@@ -184,7 +184,11 @@ const ModeBadge = ({ format, ended, isLive, t }) => {
         <View style={[styles.modeBadge, !ended && { backgroundColor: accentLight }, ended && styles.modeBadgeEnded]}>
             {!ended && (isLive ? <LiveDot /> : <View style={styles.modeBadgeDotOrange} />)}
             <Text style={[styles.modeBadgeText, !ended && { color: accentSoftText }, ended && styles.modeBadgeTextEnded]} numberOfLines={2}>
-                {format === 'POLL' ? t('battleCard.poll') : t('battleCard.battleMode')}
+                {format === 'POLL'
+                    ? t('battleCard.poll')
+                    : format === 'PREDICTION'
+                        ? t('battleCard.prediction')
+                        : t('battleCard.battleMode')}
             </Text>
         </View>
     );
@@ -359,7 +363,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
         () => (Array.isArray(item?.options) ? item.options : []).map(opt => String(opt?.label || opt || '')),
         [item?.options],
     );
-
+    console.log("itemitemitemitemitemitemitemitem",item)
     const optionPercents = useMemo(() => {
         const countsSource = item?.voteCounts && Object.keys(item.voteCounts).length > 0
             ? item.voteCounts
@@ -405,7 +409,12 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
                             </View>
                         )}
                     </View>
-                    <ModeBadge format="POLL" ended={ended} isLive={item.isLive} t={t} />
+                    <ModeBadge
+                        format={item.raw?.battleType === 'PREDICTION' ? 'PREDICTION' : 'POLL'}
+                        ended={ended}
+                        isLive={item.isLive}
+                        t={t}
+                    />
                 </View>
 
                 <TimerBadge endTime={item.endTime} ended={ended} t={t} />
