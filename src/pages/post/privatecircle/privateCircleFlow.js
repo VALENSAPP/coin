@@ -7,7 +7,9 @@ export const continuePrivateMint = (navigation, memberIds = []) => {
         params: {
           privateCircleReady: true,
           privateCircleMemberIds: memberIds,
-          postType: 'private'
+          postType: 'private',
+          fromPrivateContent: true,
+          returnTo: { tab: 'ProfileMain', screen: 'Profile', params: { initialTab: 'privateContent' } },
         },
       },
     ],

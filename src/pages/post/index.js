@@ -827,6 +827,46 @@ const cropImage = (imageUri, index) => {
       <View style={[styles.headerRow, bgStyle, { shadowColor: text, borderBottomColor: border }]}>
         <TouchableOpacity
           onPress={() => {
+            const parentNav = navigation.getParent?.() || navigation;
+            const fromSubscription =
+              route?.params?.fromSubscription === true ||
+              (returnTo && typeof returnTo === 'object' && returnTo.screen === 'SubscriptionSetup');
+            const fromPrivateContent =
+              route?.params?.fromPrivateContent === true;
+            const fromProfileUpload =
+              route?.params?.fromProfile === true ||
+              (returnTo && typeof returnTo === 'object' &&
+                (returnTo.tab === 'ProfileMain' ||
+                  returnTo.screen === 'Profile' ||
+                  returnTo.tab === 'Profile'));
+
+            if (fromSubscription) {
+              parentNav.navigate('wallet', { screen: 'SubscriptionSetup' });
+              return;
+            }
+
+            if (fromPrivateContent) {
+              parentNav.navigate('ProfileMain', {
+                screen: 'Profile',
+                params: { initialTab: 'privateContent' },
+              });
+              return;
+            }
+
+            if (fromProfileUpload) {
+              if (returnTo && typeof returnTo === 'object' && returnTo.tab) {
+                parentNav.navigate(
+                  returnTo.tab,
+                  returnTo.screen
+                    ? { screen: returnTo.screen, params: returnTo.params }
+                    : undefined,
+                );
+                return;
+              }
+              parentNav.navigate('ProfileMain', { screen: 'Profile' });
+              return;
+            }
+
             setShowTypeModal(true);
             // if (navigation.canGoBack()) {
             //   navigation.goBack();

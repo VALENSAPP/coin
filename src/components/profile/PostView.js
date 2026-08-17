@@ -1100,15 +1100,16 @@ export default function PostView({ postData = [], userData = {} }) {
         raiseAmount: item.raiseAmount ?? 0,
         goalAmount: item.goalAmount ?? 100000,
         daysLeft: item.daysLeft ?? 0,
-        start_time: item.start_time ?? null,
-        end_time: item.end_time ?? null,
+        start_time: item.start_time ?? item.startTime ?? null,
+        end_time: item.end_time ?? item.endTime ?? null,
         tokenBalance: item.tokenBalance ?? 0,
         totalDonation: donationTotalsByPostId[String(item.id)] ?? item.totalDonation ?? 0,
         profile:
           typeof item?.profile === 'string' && item.profile.toLowerCase() === 'company'
             ? 'company'
             : 'user',
-        createdAt: item.createdAt,
+        createdAt: item.createdAt ?? item.created_at ?? null,
+        created_at: item.created_at ?? item.createdAt ?? null,
         location: item.location || item.Location || '',
         type: item.type || item.postType || 'normal',
         postType: item.postType || item.type || 'normal',

@@ -46,6 +46,7 @@ import {
   getPaymentDetailsByPaymentId,
   getClosetBattlesPriority,
   toggleMyClosetItemLike,
+  getBuyerOrderDetail,
 } from '../../services/myCloset';
 import { getClosetChatThreadsApi } from '../../services/chatMessage';
 import { useAppTheme } from '../../theme/useApptheme';
@@ -488,9 +489,17 @@ const buildCart = (route, t, overrides = {}) => {
   };
 };
 
-const goBack = (navigation, returnTo, isRouteFromSearch, fromMyOwnProfile, preferStackBack = false) => {
+const goBack = (navigation, returnTo, isRouteFromSearch, fromMyOwnProfile, preferStackBack = false, fromWishlist) => {
   // Only screens that explicitly opt in should restore the previous buyer-flow
   // step. All existing screens retain their established returnTo behavior.
+    if (fromWishlist || returnTo?.screen === 'MyClosetBuyerCart') {
+    if (navigation.canGoBack?.()) {
+      navigation.goBack();
+      return;
+    }
+    navigation.navigate('MyClosetBuyerCart', returnTo?.params || {});
+    return;
+  }
   if (preferStackBack || isRouteFromSearch || fromMyOwnProfile) {
     navigation.goBack();
     return;
@@ -613,7 +622,7 @@ const BottomBar = ({ children }) => {
 // Shared UI atoms
 // ─────────────────────────────────────────────────────────────────────────────
 
-const Header = ({ navigation, title, rightIcon, onRightPress, rightDisabled = false, secondaryRightIcon, onSecondaryRightPress, secondaryRightDisabled = false, returnTo, isOwnProfile, isRouteFromSearch, fromMyOwnProfile, preferStackBack = false }) => {
+const Header = ({ navigation, title, rightIcon, onRightPress, rightDisabled = false, secondaryRightIcon, onSecondaryRightPress, secondaryRightDisabled = false, returnTo, isOwnProfile, isRouteFromSearch, fromMyOwnProfile, preferStackBack = false , fromWishlist}) => {
   const { accent } = useAppTheme();
   const { isDarkMode } = useThemeContext();
   const labelColor = isDarkMode ? '#ffffff' : '#17072d';
@@ -622,7 +631,7 @@ const Header = ({ navigation, title, rightIcon, onRightPress, rightDisabled = fa
   return (
     <View style={styles.header}>
       <TouchableOpacity
-        onPress={() => goBack(navigation, returnTo, isRouteFromSearch, fromMyOwnProfile, preferStackBack)}
+        onPress={() => goBack(navigation, returnTo, isRouteFromSearch, fromMyOwnProfile, preferStackBack, fromWishlist)}
         style={[styles.iconButton, { backgroundColor: chipSurface }]}
         activeOpacity={0.8}
       >
@@ -704,7 +713,15 @@ const ImageBox = ({ uri, style, iconSize = 34 }) => (
   </View>
 );
 
-export const DetailImageCarousel = ({ images, onZoomChange, accentColor, imageWidth, imageHeight }) => {
+export const DetailImageCarousel = ({
+  images,
+  onZoomChange,
+  accentColor,
+  imageWidth,
+  imageHeight,
+  showIndicators = true,
+  overlayIndicators = false,
+}) => {
   const iWidth = imageWidth || HERO_IMAGE_WIDTH;
   const iHeight = imageHeight || HERO_IMAGE_HEIGHT;
   const { text: fallbackAccent } = useAppTheme();
@@ -808,47 +825,50 @@ export const DetailImageCarousel = ({ images, onZoomChange, accentColor, imageWi
 
   return (
     <View>
-      <GestureFlatList
-        ref={listRef}
-        data={galleryImages}
-        keyExtractor={(uri, index) => `${uri || 'placeholder'}-${index}`}
-        renderItem={renderItem}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        scrollEnabled={scrollEnabled && galleryImages.length > 1}
-        onScroll={onScroll}
-        scrollEventThrottle={16}
-        decelerationRate="fast"
-        snapToInterval={iWidth}
-        snapToAlignment="start"
-        disableIntervalMomentum
-        directionalLockEnabled
-        nestedScrollEnabled
-        removeClippedSubviews={false}
-        initialNumToRender={galleryImages.length > 1 ? 2 : 1}
-        maxToRenderPerBatch={2}
-        windowSize={3}
-        extraData={activeIndex}
-        style={{ width: iWidth, height: iHeight }}
-        getItemLayout={(_, index) => ({
-          length: iWidth,
-          offset: iWidth * index,
-          index,
-        })}
-      />
-      {galleryImages.length > 1 ? (
-        <View style={styles.photoDots}>
-          {galleryImages.map((_, index) => (
-            <View
-              key={index}
-              style={[styles.photoDot, index === activeIndex && { backgroundColor: text }]}
-            />
-          ))}
-        </View>
-      ) : (
+      <View style={overlayIndicators ? { width: iWidth, height: iHeight, overflow: 'hidden', borderRadius: 18 } : undefined}>
+        <GestureFlatList
+          ref={listRef}
+          data={galleryImages}
+          keyExtractor={(uri, index) => `${uri || 'placeholder'}-${index}`}
+          renderItem={renderItem}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          scrollEnabled={scrollEnabled && galleryImages.length > 1}
+          onScroll={onScroll}
+          scrollEventThrottle={16}
+          decelerationRate="fast"
+          snapToInterval={iWidth}
+          snapToAlignment="start"
+          disableIntervalMomentum
+          directionalLockEnabled
+          nestedScrollEnabled
+          removeClippedSubviews={false}
+          initialNumToRender={galleryImages.length > 1 ? 2 : 1}
+          maxToRenderPerBatch={2}
+          windowSize={3}
+          extraData={activeIndex}
+          style={{ width: iWidth, height: iHeight }}
+          getItemLayout={(_, index) => ({
+            length: iWidth,
+            offset: iWidth * index,
+            index,
+          })}
+        />
+        {showIndicators && galleryImages.length > 1 ? (
+          <View style={[styles.photoDots, overlayIndicators && styles.photoDotsOverlay]}>
+            {galleryImages.map((_, index) => (
+              <View
+                key={index}
+                style={[styles.photoDot, index === activeIndex && { backgroundColor: text }]}
+              />
+            ))}
+          </View>
+        ) : null}
+      </View>
+      {showIndicators && !overlayIndicators && galleryImages.length <= 1 ? (
         <View style={styles.photoDotsSpacer} />
-      )}
+      ) : null}
       <Modal
         visible={fullScreenVisible}
         transparent
@@ -2052,7 +2072,8 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
         secondaryRightDisabled={wishlistLoading}
         returnTo={returnTo}
         isOwnProfile={isOwnProfile}
-        fromMyOwnProfile={returnTo.screen !== "SearchHome"}
+        fromWishlist={!!route?.params?.fromWishlist}
+        fromMyOwnProfile={returnTo?.screen !== 'SearchHome'}
       />
       <ScrollView
         contentContainerStyle={styles.detailContent}
@@ -2065,7 +2086,9 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
             accentColor={text}
             onZoomChange={zoomed => setDetailScrollEnabled(!zoomed)}
             imageWidth={Math.round(SCREEN_WIDTH * 0.42)}
-            imageHeight={Math.round(SCREEN_HEIGHT * 0.4)}
+            imageHeight={Math.round(Math.min(SCREEN_HEIGHT * 0.28, SCREEN_WIDTH * 0.42 * 1.35))}
+            showIndicators
+            overlayIndicators
           />
           <View style={styles.detailHeaderInfo}>
             <Text style={[styles.detailName, { color: text }]}>{item.name}</Text>
@@ -2626,8 +2649,9 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
 
           if (closetItems.length > 0) {
             populatedItems = rawWishlistItems.map(item => {
+              const pid = String(wishlistItemProductId(item));
               const match = closetItems.find(
-                ci => String(ci?.id || ci?._id) === String(item?.productId)
+                ci => String(ci?.id || ci?._id) === pid,
               );
               if (match) {
                 return {
@@ -2798,6 +2822,36 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
     } finally {
       setWishlistActionLoading(null);
     }
+  };
+
+  const handleOpenWishlistProduct = item => {
+    const product = item?.product && (item.product.id || item.product._id || item.product.name)
+      ? item.product
+      : item;
+    const productId = wishlistItemProductId(item);
+    if (!productId && !product) return;
+
+    const cartReturnTo = {
+      screen: 'MyClosetBuyerCart',
+      params: {
+        sellerId: route?.params?.sellerId,
+        seller: route?.params?.seller,
+        closetId: route?.params?.closetId,
+        isOwnProfile: route?.params?.isOwnProfile,
+        isRouteFromSearch: route?.params?.isRouteFromSearch,
+        returnTo: route?.params?.returnTo,
+      },
+    };
+
+    navigation.navigate('MyClosetBuyerItemDetail', withClosetNavParams(route, {
+      item: product?.id || product?._id ? product : { ...product, id: productId, productId },
+      seller: route?.params?.seller,
+      sellerId: route?.params?.sellerId || item?.sellerId,
+      closetId: route?.params?.closetId || item?.closetId,
+      isOwnProfile: route?.params?.isOwnProfile ?? false,
+      fromWishlist: true,
+      returnTo: cartReturnTo,
+    }));
   };
 
   const handleAddWishlistToCart = async item => {
@@ -3075,11 +3129,17 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
 
                 return (
                   <View key={String(productId || item.id || item._id)} style={[styles.wishlistCard, { borderTopColor: border }]}>
-                    <ImageBox uri={thumb} style={styles.wishlistThumb} iconSize={20} />
-                    <View style={styles.wishlistCopy}>
-                      <Text style={[styles.wishlistItemName, { color: text }]} numberOfLines={2}>{title}</Text>
-                      <Text style={[styles.wishlistPrice, { color: text }]}>{price}</Text>
-                    </View>
+                    <TouchableOpacity
+                      style={styles.wishlistProductHit}
+                      activeOpacity={0.85}
+                      onPress={() => handleOpenWishlistProduct(item)}
+                    >
+                      <ImageBox uri={thumb} style={styles.wishlistThumb} iconSize={20} />
+                      <View style={styles.wishlistCopy}>
+                        <Text style={[styles.wishlistItemName, { color: text }]} numberOfLines={2}>{title}</Text>
+                        <Text style={[styles.wishlistPrice, { color: text }]}>{price}</Text>
+                      </View>
+                    </TouchableOpacity>
                     <View style={styles.wishlistActions}>
                       <TouchableOpacity
                         style={[
@@ -4191,8 +4251,37 @@ const MyClosetBuyerOrderReceivedScreen = ({ navigation, route }) => {
       payment?.metadata?.sellerId ||
       null;
 
+    const resolvedOrderId = orderId || payment?.orderId;
+    let trackingNumber =
+      payment?.trackingNumber ||
+      payment?.tracking_number ||
+      payment?.shipping?.trackingNumber ||
+      payment?.metadata?.trackingNumber ||
+      payment?.order?.trackingNumber;
+    let orderNumber =
+      payment?.orderNumber ||
+      payment?.order_number ||
+      payment?.metadata?.orderNumber ||
+      payment?.order?.orderNumber;
+
+    if (resolvedOrderId && (!trackingNumber || !orderNumber)) {
+      try {
+        const detailRes = await getBuyerOrderDetail(resolvedOrderId);
+        const detail = detailRes?.data?.data || detailRes?.data || {};
+        trackingNumber =
+          trackingNumber ||
+          detail.trackingNumber ||
+          detail.tracking_number ||
+          detail.shipping?.trackingNumber;
+        orderNumber =
+          orderNumber || detail.orderNumber || detail.order_number;
+      } catch (_err) {}
+    }
+
     const orderInfo = {
-      orderId: orderId || payment?.orderId,
+      orderId: resolvedOrderId,
+      orderNumber,
+      trackingNumber,
       amount: amount,
       items: items,
       createdAt: payment?.createdAt,
@@ -4673,11 +4762,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 16,
     alignItems: 'flex-start',
-    marginBottom: 10,
+    marginBottom: 4,
   },
   detailHeaderInfo: {
     flex: 1,
-    justifyContent: 'space-between',
   },
   detailBannerSpacer: {
     height: 10,
@@ -4731,6 +4819,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   photoDots: { flexDirection: 'row', justifyContent: 'center', gap: 7, marginTop: 18, marginBottom: 16 },
+  photoDotsOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 8,
+    marginTop: 0,
+    marginBottom: 0,
+  },
   photoDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#d7cce3' },
   photoDotsSpacer: { height: 42 },
   detailName: { fontSize: 22, fontWeight: '900', color: '#17072d' },
@@ -4761,7 +4857,7 @@ const styles = StyleSheet.create({
   attributeLabel: { marginLeft: 8, width: 90, fontSize: 12, color: MUTED, fontWeight: '700' },
   attributeValue: { flex: 1, fontSize: 12, color: '#17072d', fontWeight: '800' },
 
-  fulfilmentCard: { marginTop: 18, padding: 14, borderWidth: 1, borderRadius: 18 },
+  fulfilmentCard: { marginTop: 8, padding: 14, borderWidth: 1, borderRadius: 18 },
   fulfilmentHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 },
   fulfilmentHeaderCopy: { flex: 1 },
   fulfilmentIcon: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
@@ -4866,6 +4962,11 @@ const styles = StyleSheet.create({
   wishlistTitle: { fontSize: 15, fontWeight: '900', color: '#17072d' },
   wishlistCount: { fontSize: 12, fontWeight: '800', color: MUTED },
   wishlistEmptyText: { fontSize: 13, color: MUTED, paddingVertical: 6 },
+  wishlistProductHit: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   wishlistCard: {
     flexDirection: 'row',
     alignItems: 'center',
