@@ -167,3 +167,12 @@ export const totalTransactions = async (params) => {
     throw lastError || err || new Error('totalTransactions: no endpoints available');
   }
 }
+
+export const tipRecived = async (data) => {
+  const payload = typeof data === 'string' ? { userId: data } : (data?.userId ? { userId: data.userId } : data || {});
+  try {
+    return await axiosInstance.post('/billing/total-tip-earning', payload);
+  } catch (err) {
+    return await axiosInstance.post('/total-tip-earning', payload);
+  }
+};

@@ -32,6 +32,7 @@ import { showToastMessage } from '../displaytoastmessage';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useThemeContext } from '../../theme/ThemeContext';
 import { useLanguage } from '../../i18n';
+import { useTargetClosetScreen, navigateToTargetClosetScreen } from '../../utils/closetNavigation';
 import {
   deleteMyClosetItem,
   getMyClosetItems,
@@ -336,16 +337,15 @@ const MyClosetItemsManagementScreen = ({ navigation, route }) => {
   const section = route?.params?.section || 'items';
   const returnTo = route?.params?.returnTo;
 
+  const targetScreen = useTargetClosetScreen();
+
   const handleBack = useCallback(() => {
     if (returnTo === 'MyClosetDashboard') {
-      navigation.navigate('MainApp', {
-        screen: 'wallet',
-        params: { screen: 'MyCloset' },
-      });
+      navigateToTargetClosetScreen(navigation, targetScreen);
       return;
     }
     navigation.goBack();
-  }, [navigation, returnTo]);
+  }, [navigation, returnTo, targetScreen]);
 
   const loadItems = useCallback(async () => {
     setLoading(true);
@@ -661,17 +661,16 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
     [draft.pickUpCity],
   );
 
+  const targetScreen = useTargetClosetScreen();
+
   const handleBack = useCallback(() => {
     if (returnTo === 'MyClosetDashboard') {
-      navigation.navigate('MainApp', {
-        screen: 'wallet',
-        params: { screen: 'MyCloset' },
-      });
+      navigateToTargetClosetScreen(navigation, targetScreen);
       return;
     }
 
     navigation.goBack();
-  }, [navigation, returnTo]);
+  }, [navigation, returnTo, targetScreen]);
 
   const handleSave = useCallback(async () => {
     if (!draft.id) return;

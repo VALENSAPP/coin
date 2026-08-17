@@ -45,6 +45,7 @@ import {
   getRecentPaymentDetails,
   getPaymentDetailsByPaymentId,
   getClosetBattlesPriority,
+  toggleMyClosetItemLike,
   getBuyerOrderDetail,
 } from '../../services/myCloset';
 import { getClosetChatThreadsApi } from '../../services/chatMessage';
@@ -60,6 +61,8 @@ import {
   navigateClosetReturn,
   useClosetTheme,
   withClosetNavParams,
+  useTargetClosetScreen,
+  navigateToTargetClosetScreen,
 } from '../../utils/closetNavigation';
 import { formSurfaces, themedCard } from '../../utils/closetTheme';
 import { useToast } from 'react-native-toast-notifications';
@@ -152,8 +155,6 @@ const imageUri = image => {
   if (typeof image === 'string') return image;
   return image?.uri || image?.url || image?.path || null;
 };
-
-const unwrapWishlistItems = response => getWishlistRecordForSeller(response)?.wishlistItems ?? [];
 
 const fastImageSource = uri =>
   uri
@@ -488,8 +489,10 @@ const buildCart = (route, t, overrides = {}) => {
   };
 };
 
-const goBack = (navigation, returnTo, isRouteFromSearch, fromMyOwnProfile, fromWishlist) => {
-  if (fromWishlist || returnTo?.screen === 'MyClosetBuyerCart') {
+const goBack = (navigation, returnTo, isRouteFromSearch, fromMyOwnProfile, preferStackBack = false, fromWishlist) => {
+  // Only screens that explicitly opt in should restore the previous buyer-flow
+  // step. All existing screens retain their established returnTo behavior.
+    if (fromWishlist || returnTo?.screen === 'MyClosetBuyerCart') {
     if (navigation.canGoBack?.()) {
       navigation.goBack();
       return;
@@ -497,11 +500,12 @@ const goBack = (navigation, returnTo, isRouteFromSearch, fromMyOwnProfile, fromW
     navigation.navigate('MyClosetBuyerCart', returnTo?.params || {});
     return;
   }
-  if (isRouteFromSearch || fromMyOwnProfile) {
+  if (preferStackBack || isRouteFromSearch || fromMyOwnProfile) {
     navigation.goBack();
     return;
   }
-  else if (returnTo?.tab == "Search" || returnTo?.screen == "SearchHome") {
+
+  if (returnTo?.tab == "Search" || returnTo?.screen == "SearchHome") {
     navigation.navigate('HomeMain', {
       screen: 'UsersProfile',
       params: {
@@ -618,7 +622,7 @@ const BottomBar = ({ children }) => {
 // Shared UI atoms
 // ─────────────────────────────────────────────────────────────────────────────
 
-const Header = ({ navigation, title, rightIcon, onRightPress, returnTo, isOwnProfile, isRouteFromSearch, fromMyOwnProfile, fromWishlist }) => {
+const Header = ({ navigation, title, rightIcon, onRightPress, rightDisabled = false, secondaryRightIcon, onSecondaryRightPress, secondaryRightDisabled = false, returnTo, isOwnProfile, isRouteFromSearch, fromMyOwnProfile, preferStackBack = false , fromWishlist}) => {
   const { accent } = useAppTheme();
   const { isDarkMode } = useThemeContext();
   const labelColor = isDarkMode ? '#ffffff' : '#17072d';
@@ -627,7 +631,7 @@ const Header = ({ navigation, title, rightIcon, onRightPress, returnTo, isOwnPro
   return (
     <View style={styles.header}>
       <TouchableOpacity
-        onPress={() => goBack(navigation, returnTo, isRouteFromSearch, fromMyOwnProfile, fromWishlist)}
+        onPress={() => goBack(navigation, returnTo, isRouteFromSearch, fromMyOwnProfile, preferStackBack, fromWishlist)}
         style={[styles.iconButton, { backgroundColor: chipSurface }]}
         activeOpacity={0.8}
       >
@@ -636,14 +640,33 @@ const Header = ({ navigation, title, rightIcon, onRightPress, returnTo, isOwnPro
       <Text style={[styles.headerTitle, { color: labelColor }]}>{title}</Text>
       {!isOwnProfile &&
         <>
-          {rightIcon ? (
-            <TouchableOpacity
-              onPress={onRightPress}
-              style={[styles.iconButton, { backgroundColor: chipSurface }]}
-              activeOpacity={0.8}
-            >
-              <Ionicons name={rightIcon} size={21} color={accent} />
-            </TouchableOpacity>
+          {rightIcon || secondaryRightIcon ? (
+            <View style={styles.headerActions}>
+              {rightIcon ? (
+                <TouchableOpacity
+                  onPress={onRightPress}
+                  disabled={rightDisabled}
+                  accessibilityRole="button"
+                  accessibilityLabel="Like item"
+                  style={[styles.iconButton, { backgroundColor: chipSurface }, rightDisabled && styles.iconButtonDisabled]}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name={rightIcon} size={21} color={accent} />
+                </TouchableOpacity>
+              ) : null}
+              {secondaryRightIcon ? (
+                <TouchableOpacity
+                  onPress={onSecondaryRightPress}
+                  disabled={secondaryRightDisabled}
+                  accessibilityRole="button"
+                  accessibilityLabel="Add to wishlist"
+                  style={[styles.iconButton, { backgroundColor: chipSurface }, secondaryRightDisabled && styles.iconButtonDisabled]}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name={secondaryRightIcon} size={21} color={accent} />
+                </TouchableOpacity>
+              ) : null}
+            </View>
           ) : (
             <View style={styles.iconButton} />
           )}
@@ -1386,6 +1409,7 @@ const MyClosetBuyerItemsScreen = ({ navigation, route }) => {
   const { isDarkMode } = useThemeContext();
   const surfaces = formSurfaces(isDarkMode);
   const { t } = useLanguage();
+  const targetScreen = useTargetClosetScreen();
   const [items, setItems] = useState(() => getRouteItems(route, t));
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
@@ -1619,10 +1643,7 @@ const MyClosetBuyerItemsScreen = ({ navigation, route }) => {
                     <TouchableOpacity
                       activeOpacity={0.88}
                       style={[styles.manageButton, { borderColor: accent, backgroundColor: card || '#fff' }]}
-                      onPress={() => navigation.navigate('MainApp', {
-                        screen: 'wallet',
-                        params: { screen: 'MyCloset' }
-                      })}
+                      onPress={() => navigateToTargetClosetScreen(navigation, targetScreen)}
                     >
                       <Ionicons name="settings-outline" size={14} color={accent} />
                       <Text style={[styles.manageButtonText, { color: accent }]}>
@@ -1948,8 +1969,11 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
   const seller = route?.params?.seller || {};
   const isOwnProfile = route?.params?.isOwnProfile ?? false;
   const returnTo = route?.params?.returnTo;
-  const [liked, setLiked] = useState(false);
+  const [liked, setLiked] = useState(Boolean(item.raw?.liked ?? item.raw?.isLiked ?? item.raw?.isLike));
+  const [likeLoading, setLikeLoading] = useState(false);
+  const [wishlisted, setWishlisted] = useState(false);
   const [wishlistLoading, setWishlistLoading] = useState(false);
+  const [wishlistItemId, setWishlistItemId] = useState(null);
   const [detailScrollEnabled, setDetailScrollEnabled] = useState(true);
   const isOutOfStock = Number(item.quantityAvailable) <= 0;
   const productId = item.raw?.id || item.raw?._id || item.id;
@@ -1959,18 +1983,36 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
     .filter((value, index, values) => value && values.indexOf(value) === index)
     .join('\n');
 
+  const handleLikePress = async () => {
+    if (!productId || likeLoading) return;
+    const previousLiked = liked;
+    setLiked(!previousLiked);
+    setLikeLoading(true);
+    try {
+      const response = await toggleMyClosetItemLike(productId);
+      const responseData = response?.data?.data ?? response?.data ?? response;
+      const serverLiked = responseData?.liked ?? responseData?.isLiked ?? responseData?.isLike;
+      if (typeof serverLiked === 'boolean') setLiked(serverLiked);
+    } catch (err) {
+      setLiked(previousLiked);
+      Alert.alert(t('myClosetBuyer.errorTitle'), err?.response?.data?.message || 'Could not update like.');
+    } finally {
+      setLikeLoading(false);
+    }
+  };
+
   useEffect(() => {
     let active = true;
     const loadWishlistState = async () => {
       if (!productId) return;
       try {
         const response = await getWishlist(route?.params?.sellerId);
+        const { match } = findWishlistItemForProduct(response, productId);
         if (!active) return;
-        const wishlistItems = unwrapWishlistItems(response);
-        const match = wishlistItems.some(w => String(wishlistItemProductId(w)) === String(productId));
-        setLiked(match);
+        setWishlisted(Boolean(match));
+        setWishlistItemId(match?.id || match?._id || match?.wishlistItemId || match?.wishlistId || null);
       } catch {
-        if (active) setLiked(false);
+        // Keep the item visible even if its wishlist state cannot be loaded.
       }
     };
     loadWishlistState();
@@ -1979,21 +2021,28 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
 
   const handleWishlistPress = async () => {
     if (!productId || wishlistLoading) return;
+    const previousWishlisted = wishlisted;
+    setWishlisted(!previousWishlisted);
     setWishlistLoading(true);
     try {
-      if (liked) {
-        const response = await getWishlist(route?.params?.sellerId);
-        const wishlistItems = unwrapWishlistItems(response);
-        const match = wishlistItems.find(w => String(wishlistItemProductId(w)) === String(productId));
-        if (match) {
-          await deleteWishlistItem(match.id || match._id || match.wishlistItemId || match.wishlistId);
+      if (previousWishlisted) {
+        let itemId = wishlistItemId || item.raw?.wishlistItemId || item.raw?.wishlistId || item.raw?.wishlist_item_id || item.raw?.wishlistItem?.id;
+        if (!itemId) {
+          const response = await getWishlist(route?.params?.sellerId);
+          const { match } = findWishlistItemForProduct(response, productId);
+          itemId = match?.id || match?._id || match?.wishlistItemId || match?.wishlistId;
         }
-        setLiked(false);
+        if (!itemId) throw new Error('Wishlist item not found.');
+        await deleteWishlistItem(itemId);
+        setWishlistItemId(null);
       } else {
         await addWishlistItem(productId);
-        setLiked(true);
+        const response = await getWishlist(route?.params?.sellerId);
+        const { match } = findWishlistItemForProduct(response, productId);
+        setWishlistItemId(match?.id || match?._id || match?.wishlistItemId || match?.wishlistId || null);
       }
     } catch (err) {
+      setWishlisted(previousWishlisted);
       Alert.alert(t('myClosetBuyer.errorTitle'), err?.response?.data?.message || 'Could not update wishlist.');
     } finally {
       setWishlistLoading(false);
@@ -2016,7 +2065,11 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
         navigation={navigation}
         title={t('myClosetBuyer.myClosetTitle')}
         rightIcon={liked ? 'heart' : 'heart-outline'}
-        onRightPress={handleWishlistPress}
+        onRightPress={handleLikePress}
+        rightDisabled={likeLoading}
+        secondaryRightIcon={wishlisted ? 'bookmark' : 'bookmark-outline'}
+        onSecondaryRightPress={handleWishlistPress}
+        secondaryRightDisabled={wishlistLoading}
         returnTo={returnTo}
         isOwnProfile={isOwnProfile}
         fromWishlist={!!route?.params?.fromWishlist}
@@ -3218,7 +3271,13 @@ const MyClosetBuyerCheckoutScreen = ({ navigation, route }) => {
 
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
-      <Header navigation={navigation} title={t('myClosetBuyer.checkoutTitle')} returnTo={returnTo} isRouteFromSearch={isRouteFromSearch} />
+      <Header
+        navigation={navigation}
+        title={t('myClosetBuyer.checkoutTitle')}
+        returnTo={returnTo}
+        isRouteFromSearch={isRouteFromSearch}
+        preferStackBack
+      />
       <ScrollView contentContainerStyle={styles.checkoutContent} showsVerticalScrollIndicator={false}>
         <CheckoutSteps current={0} includeShipping={true} accentColor={accent} />
         <OrderSummary cart={cart} editable onEditCart={handleEditCart} accentColor={text} />
@@ -3307,30 +3366,49 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
   });
   const pickupItems = cartItemsSnapshot.filter(ci => effectiveChoice(ci) === SHIP_OPTION_LOCAL);
   const pickupLocations = useMemo(() => {
-    const seen = new Set();
-    return pickupItems
-      .map(ci => {
-        const product = ci?.product ?? ci ?? {};
-        const resolvedPickup = pickupAddressMap[cartItemProductId(ci)] || {};
-        const address = resolvedPickup.pickupAddress || product?.pickupAddress || ci?.pickupAddress || null;
-        const sellerName =
-          resolvedPickup.sellerName ||
-          product?.shopName ||
-          product?.sellerName ||
-          product?.user?.name ||
-          '';
-        const key = `${sellerName}::${address || ''}`;
-        if (!address || seen.has(key)) return null;
-        seen.add(key);
-        return {
-          id: ci.id,
-          name: resolvedPickup.itemName || product?.name || product?.title || t('myClosetBuyer.itemFallback'),
+    const locationMap = new Map();
+    pickupItems.forEach(ci => {
+      const product = ci?.product ?? ci ?? {};
+      const resolvedPickup = pickupAddressMap[cartItemProductId(ci)] || {};
+      const address = resolvedPickup.pickupAddress || product?.pickupAddress || ci?.pickupAddress || null;
+      if (!address) return;
+
+      const sellerName =
+        resolvedPickup.sellerName ||
+        product?.shopName ||
+        product?.sellerName ||
+        product?.user?.name ||
+        '';
+      const hours =
+        resolvedPickup.pickupAvailableHours ||
+        product?.pickupAvailableHours ||
+        ci?.pickupAvailableHours ||
+        null;
+      const itemName =
+        resolvedPickup.itemName ||
+        product?.name ||
+        product?.title ||
+        t('myClosetBuyer.itemFallback');
+
+      const key = `${sellerName}::${address}`;
+
+      if (!locationMap.has(key)) {
+        locationMap.set(key, {
+          id: key,
           sellerName,
           address,
-          hours: resolvedPickup.pickupAvailableHours || product?.pickupAvailableHours || ci?.pickupAvailableHours || null,
-        };
-      })
-      .filter(Boolean);
+          hours,
+          items: [],
+        });
+      }
+
+      locationMap.get(key).items.push({
+        id: ci.id,
+        name: itemName,
+      });
+    });
+
+    return Array.from(locationMap.values());
   }, [pickupItems, pickupAddressMap, t]);
 
   const handleSelectChoice = async (cartItemId, choice) => {
@@ -3482,7 +3560,13 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
 
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
-      <Header navigation={navigation} title={t('myClosetBuyer.shippingInformationTitle')} returnTo={returnTo} isRouteFromSearch={isRouteFromSearch} />
+      <Header
+        navigation={navigation}
+        title={t('myClosetBuyer.shippingInformationTitle')}
+        returnTo={returnTo}
+        isRouteFromSearch={isRouteFromSearch}
+        preferStackBack
+      />
       <ScrollView
         contentContainerStyle={styles.checkoutContent}
         showsVerticalScrollIndicator={false}
@@ -3669,23 +3753,39 @@ const MyClosetBuyerShippingScreen = ({ navigation, route }) => {
           <>
             <Text style={[styles.sectionLabel, { color: text }]}>{t('myClosetBuyer.pickupAddress')}</Text>
             {pickupLocations.map(location => (
-              <TouchableOpacity
-                key={`${location.id}-${location.address}`}
-                activeOpacity={0.85}
-                onPress={() => openLocationInMaps(location.address)}
-                style={[styles.reviewCard, themedCard(card, border)]}
+              <View
+                key={location.id}
+                style={[styles.reviewCard, themedCard(card, border), { marginBottom: 12 }]}
               >
                 {location.sellerName ? (
                   <Text style={[styles.addressPhone, { color: mutedText }]}>{location.sellerName}</Text>
                 ) : null}
-                <View style={styles.addressRowWithIcon}>
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={() => openLocationInMaps(location.address)}
+                  style={styles.addressRowWithIcon}
+                >
                   <Text style={[styles.addressText, { color: mutedText, flex: 1 }]}>{location.address}</Text>
                   <Ionicons name="navigate-outline" size={16} color={text} style={{ marginLeft: 6 }} />
-                </View>
+                </TouchableOpacity>
                 {location.hours ? (
-                  <Text style={[styles.addressText, { color: mutedText }]}>{location.hours}</Text>
+                  <Text style={[styles.addressText, { color: mutedText, marginTop: 2 }]}>{location.hours}</Text>
                 ) : null}
-              </TouchableOpacity>
+
+                {/* Items associated with this pickup location */}
+                {location.items?.length > 0 ? (
+                  <View style={{ marginTop: 10, paddingTop: 8, borderTopWidth: 1, borderTopColor: border || 'rgba(0,0,0,0.08)' }}>
+                    {location.items.map(item => (
+                      <View key={item.id} style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                        <Ionicons name="cube-outline" size={14} color={text} style={{ marginRight: 6 }} />
+                        <Text style={[styles.addressText, { color: text, flex: 1 }]} numberOfLines={1}>
+                          {item.name}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
+              </View>
             ))}
           </>
         ) : null}
@@ -4129,6 +4229,7 @@ const MyClosetBuyerOrderReceivedScreen = ({ navigation, route }) => {
   const { text, accent, bgStyle, card, border, mutedText } = useClosetTheme(route);
   const { isDarkMode } = useThemeContext();
   const { t } = useLanguage();
+  const targetScreen = useTargetClosetScreen();
   const returnTo = route?.params?.returnTo;
   const payment = route?.params?.payment ?? null;
   const cart = buildCart(route, t);
@@ -4273,10 +4374,7 @@ const MyClosetBuyerOrderReceivedScreen = ({ navigation, route }) => {
         <TouchableOpacity
           activeOpacity={0.85}
           style={[styles.secondaryButton, themedCard(card, border)]}
-          onPress={() => navigation.navigate('MainApp', {
-            screen: 'wallet',
-            params: { screen: 'MyCloset' }
-          })}
+          onPress={() => navigateToTargetClosetScreen(navigation, targetScreen)}
         >
           <Text style={[styles.secondaryButtonText, { color: text }]}>{t('myClosetBuyer.goToMyOrders')}</Text>
         </TouchableOpacity>
@@ -4347,6 +4445,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  iconButtonDisabled: { opacity: 0.55 },
+  headerActions: { flexDirection: 'row', gap: 8 },
   headerTitle: {
     flex: 1,
     textAlign: 'center',

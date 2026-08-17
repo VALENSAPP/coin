@@ -15,6 +15,7 @@ import RNFS from 'react-native-fs';
 import { useFocusEffect, useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { withAlpha } from '../../utils/closetTheme';
+import { useTargetClosetScreen, navigateToTargetClosetScreen } from '../../utils/closetNavigation';
 
 const MAX_PDF_SIZE_BYTES = 100 * 1024 * 1024;
 
@@ -559,13 +560,9 @@ const EbookPublisher = ({ navigation }) => {
   const earningsAmount = Number(String(amount || '0')) || 0;
   const platformFee = rootMode ? earningsAmount * 0.1 : 0;
   const sellerEarnings = rootMode ? Math.max(0, earningsAmount - platformFee) : 0;
+  const targetScreen = useTargetClosetScreen();
   const handleGoToCloset = () => {
-    navigation?.navigate?.('MainApp', {
-      screen: 'wallet',
-      params: {
-        screen: 'MyCloset',
-      },
-    });
+    navigateToTargetClosetScreen(navigation, targetScreen);
   };
 
   const renderUploadAndDetailsBlock = () => (

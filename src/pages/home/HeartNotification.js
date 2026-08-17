@@ -29,6 +29,7 @@ import { getFansubscriptionStatus } from '../../services/stirpe';
 import { useLanguage } from '../../i18n';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getPrivateCircleDashboard, getPvtCircleMembers, isPrivateCircleApiSuccess, parsePrivateCircleDashboard, parsePrivateCircleSetup } from '../../services/privatecircle';
+import { resolveOrderIdFromPaymentId } from '../../services/myCloset';
 
 const { width } = Dimensions.get('window');
 
@@ -49,6 +50,42 @@ const pickFirstString = (...values) => {
 const formatDisplayString = (text) => {
   if (!text) return '';
   return String(text).replace(/_/g, ' ');
+};
+
+// Marketplace order notifications are sent to a seller when an order is paid,
+// and to the buyer as the seller advances the order through fulfilment.
+const getOrderNotificationViewType = type => {
+  switch (normalizeNotificationType(type)) {
+    case 'marketplace_order_paid':
+      return 'seller';
+    case 'seller_order_processing':
+    case 'seller_order_shipped':
+    case 'seller_order_delivered':
+      return 'buyer';
+    default:
+      return null;
+  }
+};
+
+const extractOrderReferenceFromNotification = item => {
+  const data = item?.raw?.data || item?.data || {};
+
+  return {
+    orderId: pickFirstString(
+      data.orderId,
+      data.order_id,
+      data.order?.id,
+      data.order?._id,
+      item?.raw?.orderId,
+      item?.raw?.order_id,
+    ),
+    paymentId: pickFirstString(
+      data.paymentId,
+      data.payment_id,
+      data.payment?.id,
+      data.payment?._id,
+    ),
+  };
 };
 
 const extractPostIdFromNotification = item => {
@@ -343,6 +380,7 @@ export default function Notifications() {
     if (normalizedType.includes('follow')) return '👥';
     if (normalizedType.includes('comment')) return '💬';
     if (normalizedType.includes('like')) return '❤️';
+    if (normalizedType.includes('order')) return '📦';
     switch (normalizedType) {
       case 'mint':
         return '🎨';
@@ -377,11 +415,16 @@ export default function Notifications() {
 
   useFocusEffect(
     useCallback(() => {
-      getNotification();
-      getBattleNotifications();
+      getNotification(false);
+      getBattleNotifications(false);
       markAllOnFocusRef.current = true;
     }, []),
   );
+
+  useEffect(() => {
+    getNotification(true);
+    getBattleNotifications(true);
+  }, []);
 
   useEffect(() => {
     const subscription = DeviceEventEmitter.addListener('BATTLE_INVITE_HANDLED', event => {
@@ -407,7 +450,7 @@ export default function Notifications() {
           };
         }),
       );
-      getBattleNotifications();
+      getBattleNotifications(false);
       getNotification(false);
     });
 
@@ -429,22 +472,22 @@ export default function Notifications() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([getNotification(false), getBattleNotifications()]);
+    await Promise.all([getNotification(false), getBattleNotifications(false)]);
     setRefreshing(false);
   }, []);
 
-  const getNotification = async (showLoader = true) => {
+  const getNotification = async (showLoader = false) => {
     try {
-      if (showLoader) setIsLoading(true);
+      if (showLoader && !notifications.length) setIsLoading(true);
       const response = await getAllNotifactions();
       const rawPayload =
-        response?.notifications ??
-        response?.data?.notifications ??
-        response?.data ??
-        response ??
-        [];
+        (Array.isArray(response?.notifications) ? response.notifications : null) ??
+        (Array.isArray(response?.data?.notifications) ? response.data.notifications : null) ??
+        (Array.isArray(response?.data?.data) ? response.data.data : null) ??
+        (Array.isArray(response?.data) ? response.data : null) ??
+        (Array.isArray(response) ? response : []);
       const raw = Array.isArray(rawPayload) ? rawPayload : [];
-
+      console.log("raw----------------------------", raw);
       const mapped = raw.map(item => {
         const data = item?.data || {};
         const type = data?.type ?? item?.type ?? 'notification';
@@ -471,27 +514,26 @@ export default function Notifications() {
     } catch (err) {
       console.log(err, 'error getting notifications');
     } finally {
-      if (showLoader) setIsLoading(false);
+      setIsLoading(false);
     }
   };
 
-  const getBattleNotifications = async () => {
+  const getBattleNotifications = async (showLoader = false) => {
     try {
-      setBattleLoading(true);
+      if (showLoader && !battleNotifications.length) setBattleLoading(true);
       const response = await battleNotification();
       const rawPayload =
-        response?.notifications ??
-        response?.data?.notifications ??
-        response?.data?.battles ??
-        response?.data ??
-        response ??
-        [];
+        (Array.isArray(response?.notifications) ? response.notifications : null) ??
+        (Array.isArray(response?.data?.notifications) ? response.data.notifications : null) ??
+        (Array.isArray(response?.data?.battles) ? response.data.battles : null) ??
+        (Array.isArray(response?.data?.data) ? response.data.data : null) ??
+        (Array.isArray(response?.data) ? response.data : null) ??
+        (Array.isArray(response) ? response : []);
       const raw = Array.isArray(rawPayload) ? rawPayload : [];
 
       setBattleNotifications(raw.map(item => normalizeBattleNotification(item, t)));
     } catch (err) {
       console.log(err, 'error getting battle notifications');
-      setBattleNotifications([]);
     } finally {
       setBattleLoading(false);
     }
@@ -1109,7 +1151,39 @@ export default function Notifications() {
         markAsRead(item.id);
         console.log(item, 'pressed notification');
 
-        if (normalizeNotificationType(item.type) === 'private_circle_growing') {
+        const normType = normalizeNotificationType(item.type);
+
+        const viewType = getOrderNotificationViewType(normType);
+        if (viewType) {
+          const orderReference = extractOrderReferenceFromNotification(item);
+          console.log("orderReference------------------",orderReference)
+          let orderId = orderReference.orderId;
+          const { paymentId } = orderReference;
+
+          if (!orderId && paymentId) {
+            try {
+              const resolved = await resolveOrderIdFromPaymentId(paymentId, viewType);
+              if (resolved) orderId = resolved;
+            } catch (err) {
+              console.log('Error resolving orderId from paymentId on click:', err);
+            }
+          }
+
+          if (orderId || paymentId) {
+            navigation.navigate('ProfileMain', {
+              screen: 'MyClosetOrderDetail',
+              params: {
+                orderId: orderId || paymentId,
+                paymentId,
+                viewType,
+                returnTo: { tab: 'HomeMain', screen: 'HeartNotification' },
+              },
+            });
+            return;
+          }
+        }
+
+        if (normType === 'private_circle_growing') {
           const joinedUserId = item?.raw?.data?.joinedUserId;
           if (joinedUserId) {
             navigation.navigate('UsersProfile', { userId: joinedUserId });

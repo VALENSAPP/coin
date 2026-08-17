@@ -19,6 +19,7 @@ import { showToastMessage } from '../displaytoastmessage';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useThemeContext } from '../../theme/ThemeContext';
 import { useLanguage } from '../../i18n';
+import { useTargetClosetScreen, navigateToTargetClosetScreen } from '../../utils/closetNavigation';
 import {
   getSellerOrders,
   markOrderProcessing,
@@ -38,6 +39,7 @@ const STATUS_META = {
   shipped: { color: '#2563eb', bg: 'rgba(37,99,235,0.12)' },
   delivered: { color: '#16a34a', bg: 'rgba(22,163,74,0.12)' },
   cancelled: { color: '#dc2626', bg: 'rgba(220,38,38,0.12)' },
+  localpickup: { color: '#0f766e', bg: 'rgba(15,118,110,0.12)' },
 };
 
 const normalizeStatus = raw => {
@@ -47,6 +49,7 @@ const normalizeStatus = raw => {
   if (value === 'processing') return 'processing';
   if (value === 'confirmed') return 'confirmed';
   if (value === 'cancelled') return 'cancelled';
+  if (value === 'localpickup') return 'localpickup';
   return 'pending';
 };
 
@@ -308,7 +311,7 @@ const OrderCard = ({
   advancing,
   t,
 }) => {
-  const meta = STATUS_META[order.status];
+  const meta = STATUS_META[order.status] || STATUS_META.pending;
   const statusLabel = t(`myClosetOrders.status.${order.status}`);
   const flowStep = getFlowStep(order, mode, fulfillmentTab);
   const nextActionLabel = flowStep ? t(`myClosetOrders.action.${flowStep.actionKey}`) : null;
@@ -680,20 +683,11 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
       ? t('myClosetOrders.emptyTextSeller')
       : t('myClosetOrders.emptyTextBuyer');
 
+  const targetScreen = useTargetClosetScreen();
+
   const handleBack = useCallback(() => {
-    navigation.reset({
-      index: 0,
-      routes: [
-        {
-          name: 'MainApp',
-          params: {
-            screen: 'wallet',
-            params: { screen: 'MyCloset' },
-          },
-        },
-      ],
-    });
-  }, [navigation]);
+    navigateToTargetClosetScreen(navigation, targetScreen);
+  }, [navigation, targetScreen]);
 
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>

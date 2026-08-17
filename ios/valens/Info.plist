@@ -13,7 +13,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>NSUserTrackingUsageDescription</key>
-    <string>We use your information to measure advertising performance.</string>
+	<string>Valens requests permission to track your activity across apps and websites to measure the performance of our advertising campaigns. For example, this helps us understand whether an ad led to an app install.</string>
 	<key>CFBundleName</key>
 	<string>$(PRODUCT_NAME)</string>
 	<key>CFBundlePackageType</key>
@@ -97,7 +97,7 @@
 	<key>NSCalendarsUsageDescription</key>
 	<string>This app requires access to your calendar to support related functionality.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>Valens uses your camera when you choose to take and upload a profile photo during profile setup, or to create a post, story, chat, or closet listing.</string>
+	<string>Valens uses your camera to let you take a photo or video to upload as your profile photo, in a post or story, in a chat, or in a closet listing. For example, you can take a photo of an item and add it to a closet listing.</string>
 	<key>NSContactsUsageDescription</key>
 	<string>This app requires access to contacts to support communication-related features.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
@@ -111,7 +111,7 @@
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Valens saves images and videos you choose to download, such as a shared profile image or media from a post, to your photo library.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Valens accesses photos and videos you select from your library to upload a profile photo during profile setup, or to create a post, story, chat, or closet listing.</string>
+	<string>Valens accesses only the photos and videos you select from your library to upload as your profile photo, in a post or story, in a chat, or in a closet listing. For example, you can select an existing item photo and add it to a closet listing.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>This app requires speech recognition to enable voice-related features.</string>
 	<key>RCTNewArchEnabled</key>

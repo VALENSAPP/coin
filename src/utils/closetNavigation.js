@@ -1,3 +1,6 @@
+import React, { useState, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSelector } from 'react-redux';
 import { useAppTheme } from '../theme/useApptheme';
 
 export const normalizeProfileType = profile => {
@@ -5,6 +8,53 @@ export const normalizeProfileType = profile => {
   if (normalized === 'company') return 'company';
   if (normalized === 'user' || normalized === 'normal') return 'user';
   return normalized || undefined;
+};
+
+export const useResolvedCompanyProfile = () => {
+  const reduxProfile = useSelector(state => state?.userProfile?.userProfile);
+  const [storedProfile, setStoredProfile] = useState('');
+
+  useEffect(() => {
+    AsyncStorage.getItem('profile').then(value => {
+      if (value) setStoredProfile(value);
+    });
+  }, []);
+
+  const resolvedProfile = String(
+    reduxProfile && reduxProfile !== 'normal' ? reduxProfile : storedProfile || 'user',
+  ).toLowerCase();
+
+  return resolvedProfile === 'company';
+};
+
+export const useTargetClosetScreen = () => {
+  const isCompany = useResolvedCompanyProfile();
+  return isCompany ? 'Shop' : 'MyCloset';
+};
+
+export const navigateToTargetClosetScreen = (navigation, targetScreen, extraParams = {}) => {
+  if (!navigation) return;
+  const targetParams = Object.keys(extraParams).length > 0 ? { screen: targetScreen, params: extraParams } : { screen: targetScreen };
+
+  try {
+    navigation.navigate('wallet', targetParams);
+    return;
+  } catch (_e) {}
+
+  try {
+    const parent = navigation.getParent?.();
+    if (parent) {
+      parent.navigate('wallet', targetParams);
+      return;
+    }
+  } catch (_e) {}
+
+  try {
+    navigation.navigate('MainApp', {
+      screen: 'wallet',
+      params: targetParams,
+    });
+  } catch (_e) {}
 };
 
 export const getClosetRouteProfile = route =>

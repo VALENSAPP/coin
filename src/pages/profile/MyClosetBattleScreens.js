@@ -24,6 +24,8 @@ import {
   useClosetTheme,
   withClosetNavParams,
   themeGradient,
+  useTargetClosetScreen,
+  navigateToTargetClosetScreen,
 } from '../../utils/closetNavigation';
 import { formSurfaces, selectedSurface, themedCard } from '../../utils/closetTheme';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
@@ -668,12 +670,10 @@ export function CreateBattleScreen({ navigation, route }) {
   const sellerId = route?.params?.sellerId;
   const headerTitle = route?.params?.headerTitle || t('battle.headerTitle');
   const nextRoute = route?.params?.nextRoute || 'BattleSetup';
+  const targetScreen = useTargetClosetScreen();
   const handleBack = useCallback(() => {
-    navigation.navigate('MainApp', {
-      screen: 'wallet',
-      params: { screen: 'MyCloset' },
-    });
-  }, [navigation]);
+    navigateToTargetClosetScreen(navigation, targetScreen);
+  }, [navigation, targetScreen]);
 
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -1012,6 +1012,7 @@ export function BattlePreviewScreen({ navigation, route }) {
   const selectedItems = route?.params?.selectedItems;
   const { duration, whoCanVote } = route?.params || {};
   const handleBack = useBattleBackHandler(navigation, route);
+  const targetScreen = useTargetClosetScreen();
 
   // Maps the duration pill chosen in BattleSetupScreen to a days count for display.
   const DURATION_DAYS = { '24 HOURS': 1, '3 DAYS': 3, '7 DAYS': 7 };
@@ -1067,10 +1068,7 @@ export function BattlePreviewScreen({ navigation, route }) {
       //   selectedItems,
       //   launchedFromPreview: true,
       // });
-      navigation.navigate('MainApp', {
-        screen: 'wallet',
-        params: { screen: 'MyCloset' }
-      })
+      navigateToTargetClosetScreen(navigation, targetScreen);
     } catch (err) {
       const status = err?.response?.status;
       const message = err?.response?.data?.message;
@@ -1620,6 +1618,7 @@ export function BattleLiveScreen({ navigation, route }) {
   const launchedFromPreview = route?.params?.launchedFromPreview ?? false;
   const cameFromCard = !!initialBattle;
   const battleBack = useBattleBackHandler(navigation, route);
+  const targetScreen = useTargetClosetScreen();
 
   console.log("-----------------initialBattle-----------------", initialBattle)
   const handleBack = useCallback(() => {
@@ -1649,21 +1648,15 @@ export function BattleLiveScreen({ navigation, route }) {
       return;
     }
     if (launchedFromPreview) {
-      navigation.navigate('MainApp', {
-        screen: 'wallet',
-        params: { screen: 'MyCloset' },
-      });
+      navigateToTargetClosetScreen(navigation, targetScreen);
       return;
     }
     if (isOwnProfile) {
-      navigation.navigate('MainApp', {
-        screen: 'wallet',
-        params: { screen: 'MyCloset' },
-      });
+      navigateToTargetClosetScreen(navigation, targetScreen);
       return;
     }
     battleBack();
-  }, [navigation, returnTo, isOwnProfile, launchedFromPreview, battleBack]);
+  }, [navigation, returnTo, isOwnProfile, launchedFromPreview, battleBack, targetScreen]);
 
   const handleBackPress = useCallback(() => {
     if (navigation.canGoBack?.()) {
@@ -2930,7 +2923,8 @@ export function BattleCreatedSuccessScreen({ navigation, route }) {
   const accent = text || PURPLE;
   const primaryText = text || TEXT;
   const subtleMuted = mutedText || surfaces.mutedColor;
-  const handleBack = () => navigation.navigate('MainApp', { screen: 'wallet', params: { screen: 'MyCloset' } });
+  const targetScreen = useTargetClosetScreen();
+  const handleBack = () => navigateToTargetClosetScreen(navigation, targetScreen);
 
   const selectedItems = route?.params?.selectedItems || [];
   const leftItem = selectedItems?.[0];
@@ -2986,10 +2980,7 @@ export function BattleCreatedSuccessScreen({ navigation, route }) {
           </View>
         </View>
 
-        <TouchableOpacity activeOpacity={0.9} onPress={() => navigation.navigate('MainApp', {
-          screen: 'wallet',
-          params: { screen: 'MyCloset' }
-        })}>
+        <TouchableOpacity activeOpacity={0.9} onPress={() => navigateToTargetClosetScreen(navigation, targetScreen)}>
           <LinearGradient colors={[accent, text]} style={styles.primaryButton}>
             <Text style={styles.primaryButtonText}>{t('battle.backToCloset', 'Back To Closet')}</Text>
           </LinearGradient>
@@ -3208,6 +3199,7 @@ export function ChallengeAcceptedScreen({ navigation, route }) {
   const accent = text || PURPLE;
   const primaryText = text || TEXT;
   const subtleMuted = mutedText || surfaces.mutedColor;
+  const targetScreen = useTargetClosetScreen();
 
   const { battleId, status = 'accepted' } = route?.params || {};
   const [battle, setBattle] = useState(route?.params?.battle || null);
@@ -3293,7 +3285,7 @@ export function ChallengeAcceptedScreen({ navigation, route }) {
         {/* Buttons */}
         <TouchableOpacity
           activeOpacity={0.9}
-          onPress={() => navigation.navigate('MainApp', { screen: 'wallet', params: { screen: 'MyCloset' } })}
+          onPress={() => navigateToTargetClosetScreen(navigation, targetScreen)}
           style={{ width: '100%', marginBottom: 12 }}
         >
           <LinearGradient colors={[accent, text]} style={styles.actionBtn}>

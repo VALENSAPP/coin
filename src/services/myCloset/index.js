@@ -150,6 +150,11 @@ export const deleteMyClosetItem = async itemId => {
   return axiosInstance.delete(`mycloset/items/${itemId}`);
 };
 
+// Toggles the authenticated user's like for a closet item.
+export const toggleMyClosetItemLike = async itemId => {
+  return axiosInstance.post(`mycloset/items/${itemId}/like`);
+};
+
 const appendShopField = (formData, key, value) => {
   if (value == null) return;
   const stringValue = String(value).trim();
@@ -347,6 +352,88 @@ export const getRecentPaymentDetails = async () => {
 
 export const getPaymentDetailsByPaymentId = async (paymentId) => {
   return axiosInstance.get(`/payment/${paymentId}`);
+};
+
+export const resolveOrderIdFromPaymentId = async (paymentId, viewType = 'seller') => {
+  if (!paymentId) return null;
+  const target = String(paymentId).toLowerCase().trim();
+
+  try {
+    const pRes = await getPaymentDetailsByPaymentId(paymentId);
+    const pData = pRes?.data?.data ?? pRes?.data ?? pRes;
+    const foundId =
+      pData?.orderId ||
+      pData?.order_id ||
+      pData?.order?.id ||
+      pData?.order?._id ||
+      pData?.payment?.orderId ||
+      pData?.payment?.order_id;
+    if (foundId) return foundId;
+  } catch (e) {
+    console.log('getPaymentDetailsByPaymentId failed:', e?.message || e);
+  }
+
+  if (viewType === 'seller') {
+    try {
+      const sRes = await getSellerOrders({ limit: 100 });
+      const sData = sRes?.data?.orders ?? sRes?.data?.data ?? sRes?.data ?? (Array.isArray(sRes) ? sRes : []);
+      const sList = Array.isArray(sData) ? sData : Array.isArray(sData?.orders) ? sData.orders : [];
+      const match = sList.find(o => {
+        const pId = String(o?.paymentId || o?.payment_id || o?.payment?.id || o?.payment?._id || o?.payment || '').toLowerCase().trim();
+        const oId = String(o?.id || o?._id || '').toLowerCase().trim();
+        return pId === target || oId === target;
+      });
+      if (match) return match.id || match._id;
+    } catch (e) {
+      console.log('getSellerOrders search failed:', e?.message || e);
+    }
+  } else {
+    try {
+      const bRes = await getBuyerOrders();
+      const bData = bRes?.data?.orders ?? bRes?.data?.data ?? bRes?.data ?? (Array.isArray(bRes) ? bRes : []);
+      const bList = Array.isArray(bData) ? bData : Array.isArray(bData?.orders) ? bData.orders : [];
+      const match = bList.find(o => {
+        const pId = String(o?.paymentId || o?.payment_id || o?.payment?.id || o?.payment?._id || o?.payment || '').toLowerCase().trim();
+        const oId = String(o?.id || o?._id || '').toLowerCase().trim();
+        return pId === target || oId === target;
+      });
+      if (match) return match.id || match._id;
+    } catch (e) {
+      console.log('getBuyerOrders search failed:', e?.message || e);
+    }
+  }
+
+  if (viewType === 'seller') {
+    try {
+      const bRes = await getBuyerOrders();
+      const bData = bRes?.data?.orders ?? bRes?.data?.data ?? bRes?.data ?? (Array.isArray(bRes) ? bRes : []);
+      const bList = Array.isArray(bData) ? bData : Array.isArray(bData?.orders) ? bData.orders : [];
+      const match = bList.find(o => {
+        const pId = String(o?.paymentId || o?.payment_id || o?.payment?.id || o?.payment?._id || o?.payment || '').toLowerCase().trim();
+        const oId = String(o?.id || o?._id || '').toLowerCase().trim();
+        return pId === target || oId === target;
+      });
+      if (match) return match.id || match._id;
+    } catch (e) {
+      console.log('getBuyerOrders fallback search failed:', e?.message || e);
+    }
+  } else {
+    try {
+      const sRes = await getSellerOrders({ limit: 100 });
+      const sData = sRes?.data?.orders ?? sRes?.data?.data ?? sRes?.data ?? (Array.isArray(sRes) ? sRes : []);
+      const sList = Array.isArray(sData) ? sData : Array.isArray(sData?.orders) ? sData.orders : [];
+      const match = sList.find(o => {
+        const pId = String(o?.paymentId || o?.payment_id || o?.payment?.id || o?.payment?._id || o?.payment || '').toLowerCase().trim();
+        const oId = String(o?.id || o?._id || '').toLowerCase().trim();
+        return pId === target || oId === target;
+      });
+      if (match) return match.id || match._id;
+    } catch (e) {
+      console.log('getSellerOrders fallback search failed:', e?.message || e);
+    }
+  }
+
+  return null;
 };
 
 // Marketplace Battle APIs

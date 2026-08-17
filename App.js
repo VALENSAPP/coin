@@ -16,7 +16,10 @@ import { WalletConnectSupportProvider } from './src/context/WalletConnectSupport
 import { ThemeProvider } from './src/theme/ThemeContext';
 import { LanguageProvider } from './src/i18n';
 import appsFlyer from 'react-native-appsflyer';
-import {requestTrackingPermission} from 'react-native-tracking-transparency';
+import {
+  getTrackingStatus,
+  requestTrackingPermission,
+} from 'react-native-tracking-transparency';
 
 const queryClient = new QueryClient();
 
@@ -37,6 +40,26 @@ const queryClient = new QueryClient();
 // );
 
 const initAppsFlyer = async () => {
+  if (Platform.OS === 'ios') {
+    try {
+      let status = await getTrackingStatus();
+      if (status === 'not-determined') {
+        status = await requestTrackingPermission();
+      }
+      console.log('ATT permission status:', status);
+
+      // Do not initialize the attribution SDK on iOS 14+ unless the user has
+      // explicitly authorized tracking. This prevents IDFA-based tracking when
+      // permission is denied or restricted.
+      if (status !== 'authorized' && status !== 'unavailable') {
+        return;
+      }
+    } catch (error) {
+      console.log('ATT permission error:', error);
+      return;
+    }
+  }
+
   const options = {
     devKey: 'mFQ3phNqHzSU2JJxv7vA73',
     isDebug: false,
@@ -52,20 +75,9 @@ const initAppsFlyer = async () => {
   appsFlyer.initSdk(
     options,
 
-    async result => {
+    result => {
       console.log('AppsFlyer initialized:', result);
-
-      if (Platform.OS === 'ios') {
-        try {
-          const status = await requestTrackingPermission();
-
-          console.log('ATT permission status:', status);
-        } catch (error) {
-          console.log('ATT permission error:', error);
-        }
-      }
-
-      // Start AppsFlyer after ATT request
+      // The iOS ATT gate above has completed before AppsFlyer is started.
       appsFlyer.startSdk();
     },
 

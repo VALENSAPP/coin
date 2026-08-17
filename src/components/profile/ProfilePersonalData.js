@@ -70,7 +70,7 @@ import { showToastMessage } from '../displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
 import StoryComposer from '../home/story.js/StoryComposer';
 import { getUserCredentials } from '../../services/post';
-import { metaMaskRecived } from '../../services/wallet';
+import { tipRecived } from '../../services/wallet';
 import { battleByUserId, battlePoint } from '../../services/battle';
 import { isBattleLive } from '../../utils/battleCardUtils';
 import { BATTLE_LEVELS, resolveBattleLevel } from '../../utils/battleLevels';
@@ -704,8 +704,13 @@ const ProfilePersonData = ({
   const fetchReceivedSupportAmount = useCallback(async () => {
     try {
       setTotalSupportLoading(true);
-      const response = await metaMaskRecived();
+      const queryId = viewedBattleUserId || targetUserId || userData?.id || userData?._id || userData?.userId || userId;
+      const params = queryId ? { userId: queryId } : {};
+      const response = await tipRecived(params);
+      console.log(response, 'tipRecived recivedd dd d d d d d ');
       const rawValue =
+        response?.data?.totalTipEarning ??
+        response?.data?.data?.totalTipEarning ??
         response?.data?.totalAmount ??
         response?.data?.data?.totalAmount ??
         response?.data?.amount ??
@@ -720,7 +725,7 @@ const ProfilePersonData = ({
     } finally {
       setTotalSupportLoading(false);
     }
-  }, []);
+  }, [viewedBattleUserId, targetUserId, userData, userId]);
 
   const handleToggleTotalSupport = useCallback(() => {
     if (!totalSupportOpen) {
@@ -1197,6 +1202,14 @@ const ProfilePersonData = ({
       return;
     } else if (returnByTo == 'Search') {
       navigation.navigate(returnByTo);
+      return;
+    } else if (returnByTo === 'Activity' || returnByTo === 'ActivityScreen') {
+      const parentNav = navigation.getParent?.();
+      if (parentNav?.navigate) {
+        parentNav.navigate('wallet', { screen: 'Activity' });
+      } else {
+        navigation.navigate('MainApp', { screen: 'wallet', params: { screen: 'Activity' } });
+      }
       return;
     } else if (returnByTo === 'PostView') {
       // If the user opened this profile from a post inside ProfileMain,

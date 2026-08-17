@@ -19,6 +19,10 @@ import { showToastMessage } from '../displaytoastmessage';
 import {
   getSellerOrderDetails,
   getBuyerOrderDetail,
+  getPaymentDetailsByPaymentId,
+  getSellerOrders,
+  getBuyerOrders,
+  resolveOrderIdFromPaymentId,
   markOrderProcessing,
   markOrderShipped,
   markOrderDelivered,
@@ -27,6 +31,7 @@ import {
 import { useAppTheme } from '../../theme/useApptheme';
 import { useThemeContext } from '../../theme/ThemeContext';
 import { useLanguage } from '../../i18n';
+import { useTargetClosetScreen, navigateToTargetClosetScreen } from '../../utils/closetNavigation';
 import { navigateToUserProfile } from '../../utils/navigateToUserProfile';
 import ShippingDetailsModal from '../modals/ShippingDetailsModal';
 import DeliverOtpModal from '../modals/DeliverOtpModal';
@@ -149,7 +154,15 @@ const normalizeOrderDetail = (order, t, viewType, isLocalPickupRoute = false) =>
       ? order.items
       : Array.isArray(order?.cartItems)
         ? order.cartItems
-        : [];
+        : Array.isArray(order?.products)
+          ? order.products
+          : Array.isArray(order?.cart?.items)
+            ? order.cart.items
+            : order?.item
+              ? [order.item]
+              : order?.product
+                ? [order.product]
+                : [];
 
   const normalizedLines = lineItems.map((line, index) => ({
     id: line?.id || line?._id || String(index),
@@ -241,6 +254,48 @@ const normalizeOrderDetail = (order, t, viewType, isLocalPickupRoute = false) =>
     isLocalPickup,
     raw: order,
   };
+};
+
+const extractOrderPayload = response => {
+  const payload = response?.data?.data ?? response?.data ?? response;
+  return payload?.order ?? payload?.sellerOrder ?? payload?.orderDetails ?? payload;
+};
+
+const isOrderPayload = payload => {
+  if (!payload || payload?.error || Number(payload?.statusCode) >= 400) {
+    return false;
+  }
+
+  return Boolean(
+    payload?.id ||
+      payload?._id ||
+      payload?.orderId ||
+      payload?.orderNumber ||
+      payload?.orderItems ||
+      payload?.items ||
+      payload?.cartItems,
+  );
+};
+
+const findOrderByReferences = (orders, references) => {
+  const targets = new Set(
+    references
+      .filter(Boolean)
+      .map(value => String(value).toLowerCase().trim()),
+  );
+
+  return orders.find(order => {
+    const orderId = String(order?.id || order?._id || order?.orderId || '')
+      .toLowerCase()
+      .trim();
+    const paymentId = String(
+      order?.paymentId || order?.payment_id || order?.payment?.id || '',
+    )
+      .toLowerCase()
+      .trim();
+
+    return targets.has(orderId) || targets.has(paymentId);
+  });
 };
 
 const Header = ({ onBack, title }) => {
@@ -365,6 +420,7 @@ const StatusTimeline = ({ status, isLocalPickup }) => {
 
 const MyClosetOrderDetailScreen = ({ navigation, route }) => {
   const orderId = route?.params?.orderId;
+  const paymentId = route?.params?.paymentId;
   const returnTo = route?.params?.returnTo;
   const toast = useToast();
   const dispatch = useDispatch();
@@ -411,39 +467,106 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
   const [otpModalVisible, setOtpModalVisible] = useState(false);
 
   const loadOrder = useCallback(async () => {
-    if (!orderId) {
+    let resolvedOrderId = orderId;
+
+    if (!resolvedOrderId && paymentId) {
+      try {
+        setLoading(true);
+        resolvedOrderId = await resolveOrderIdFromPaymentId(paymentId, viewType);
+      } catch (err) {
+        console.log('Error resolving paymentId in MyClosetOrderDetailScreen:', err);
+      }
+    }
+
+    const targetId = resolvedOrderId || paymentId;
+
+    if (!targetId) {
       setError(t('myClosetOrderDetail.missingOrderReference'));
       setLoading(false);
       return;
     }
+
     setOrder(prev => {
       if (!prev) setLoading(true);
       return prev;
     });
     setError(null);
-    try {
-      const response = viewType === 'buyer'
-        ? await getBuyerOrderDetail(orderId)
-        : await getSellerOrderDetails(orderId);
-      const payload = response?.data?.data ?? response?.data ?? response;
+
+    let rawPayload = null;
+
+    // Tier 1: Try order detail API using resolvedOrderId
+    if (resolvedOrderId) {
+      try {
+        const response = viewType === 'buyer'
+          ? await getBuyerOrderDetail(resolvedOrderId)
+          : await getSellerOrderDetails(resolvedOrderId);
+        const detailPayload = extractOrderPayload(response);
+        if (isOrderPayload(detailPayload)) {
+          rawPayload = detailPayload;
+        }
+      } catch (err) {
+        console.log('Order detail endpoint failed, trying fallbacks:', err?.message || err);
+      }
+    }
+
+    // Tier 2: Try payment detail API using paymentId
+    if (!rawPayload && paymentId) {
+      try {
+        const pRes = await getPaymentDetailsByPaymentId(paymentId);
+        const pData = extractOrderPayload(pRes);
+        if (isOrderPayload(pData)) {
+          rawPayload = pData;
+        }
+      } catch (err) {
+        console.log('Payment detail endpoint failed:', err?.message || err);
+      }
+    }
+
+    // Tier 3: Try seller orders list
+    if (!rawPayload && viewType === 'seller') {
+      try {
+        const sRes = await getSellerOrders({ limit: 100 });
+        const sData = sRes?.data?.orders ?? sRes?.data?.data ?? sRes?.data ?? (Array.isArray(sRes) ? sRes : []);
+        const sList = Array.isArray(sData) ? sData : Array.isArray(sData?.orders) ? sData.orders : [];
+        const match = findOrderByReferences(sList, [resolvedOrderId, orderId, paymentId]);
+        if (isOrderPayload(match)) rawPayload = match;
+      } catch (err) {
+        console.log('Seller orders list fallback failed:', err?.message || err);
+      }
+    }
+
+    // Tier 4: Try buyer orders list
+    if (!rawPayload) {
+      try {
+        const bRes = await getBuyerOrders();
+        const bData = bRes?.data?.orders ?? bRes?.data?.data ?? bRes?.data ?? (Array.isArray(bRes) ? bRes : []);
+        const bList = Array.isArray(bData) ? bData : Array.isArray(bData?.orders) ? bData.orders : [];
+        const match = findOrderByReferences(bList, [resolvedOrderId, orderId, paymentId]);
+        if (isOrderPayload(match)) rawPayload = match;
+      } catch (err) {
+        console.log('Buyer orders list fallback failed:', err?.message || err);
+      }
+    }
+
+    if (rawPayload) {
       setOrder(prev => {
-        const newOrder = normalizeOrderDetail(payload, t, viewType, isLocalPickupRoute);
+        const newOrder = normalizeOrderDetail(rawPayload, t, viewType, isLocalPickupRoute);
         if (prev?.buyerImage && !newOrder.buyerImage) newOrder.buyerImage = prev.buyerImage;
         if (prev?.buyerName && !newOrder.buyerName) newOrder.buyerName = prev.buyerName;
         if (prev?.buyerId && !newOrder.buyerId) newOrder.buyerId = prev.buyerId;
         return newOrder;
       });
-    } catch (err) {
-      setError(err?.response?.data?.message || err?.message || t('myClosetOrderDetail.couldNotLoadOrder'));
-    } finally {
-      setLoading(false);
+      setError(null);
+    } else {
+      setError(t('myClosetOrderDetail.couldNotLoadOrder'));
     }
-  }, [orderId, t, viewType, isLocalPickupRoute]);
+    setLoading(false);
+  }, [orderId, paymentId, t, viewType, isLocalPickupRoute]);
 
   useFocusEffect(
     useCallback(() => {
       loadOrder();
-    }, [loadOrder]),
+    }, [loadOrder])
   );
 
   const flowStep = getDetailFlowStep(order, canUpdateStatus);
@@ -501,19 +624,32 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
     }
   }, [canUpdateStatus, dispatch, loadOrder, order, t, toast]);
 
+  const targetScreen = useTargetClosetScreen();
+
   const goBack = useCallback(() => {
+    if (
+      returnTo === 'HeartNotification' ||
+      returnTo?.screen === 'HeartNotification' ||
+      (typeof returnTo === 'object' && returnTo?.screen === 'HeartNotification')
+    ) {
+      if (navigation?.canGoBack?.()) {
+        navigation.goBack();
+      }
+      navigation.navigate('HomeMain', {
+        screen: 'HeartNotification',
+      });
+      return;
+    }
+
     if (returnTo === 'MyClosetDashboard') {
-      navigation.reset({
-        index: 0,
-        routes: [
-          {
-            name: 'MainApp',
-            params: {
-              screen: 'wallet',
-              params: { screen: 'MyCloset' },
-            },
-          },
-        ],
+      navigateToTargetClosetScreen(navigation, targetScreen);
+      return;
+    }
+
+    if (typeof returnTo === 'object' && returnTo?.tab && returnTo?.screen) {
+      navigation.navigate(returnTo.tab, {
+        screen: returnTo.screen,
+        params: returnTo.params,
       });
       return;
     }
@@ -528,8 +664,8 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
       return;
     }
 
-    navigation?.navigate?.('MyCloset');
-  }, [navigation, returnTo]);
+    navigation?.navigate?.(targetScreen);
+  }, [navigation, returnTo, targetScreen]);
 
   if (loading) {
     return (
@@ -620,7 +756,9 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
 
         {order.address ? (
           <View style={[styles.card, cardStyle, { borderColor: border, backgroundColor: surface }]}>
-            <Text style={[styles.cardTitle, textStyle]}>{t('myClosetOrderDetail.shippingAddress')}</Text>
+            <Text style={[styles.cardTitle, textStyle]}>
+              {t(order.isLocalPickup ? 'myClosetOrderDetail.pickupLocation' : 'myClosetOrderDetail.shippingAddress')}
+            </Text>
             <Text style={[styles.addressText, textStyle]}>{order.address.fullName}</Text>
             {order.address.phoneNumber ? (
               <Text style={[styles.addressSub, mutedTextStyle]}>{order.address.phoneNumber}</Text>

@@ -677,52 +677,86 @@ const AndroidBattleRow = ({ children, style, cardWidth = CARD_WIDTH, cardGap = C
     }, [isCarouselEnabled, startContinuousScroll]);
 
     const panResponder = useMemo(() => PanResponder.create({
-    onStartShouldSetPanResponder: () => false,
-    onStartShouldSetPanResponderCapture: () => false,
-    onMoveShouldSetPanResponder: (_, gestureState) => {
-        const { dx, dy } = gestureState;
-        return Math.abs(dx) > 4 && Math.abs(dx) > Math.abs(dy) * 1.5; // slightly more responsive
-    },
-    onMoveShouldSetPanResponderCapture: () => false,
-    onPanResponderTerminationRequest: () => false, 
+        onStartShouldSetPanResponder: () => false,
+        onStartShouldSetPanResponderCapture: () => false,
+        onMoveShouldSetPanResponder: (_, gestureState) => {
+            const { dx, dy } = gestureState;
+            return Math.abs(dx) > 4 && Math.abs(dx) > Math.abs(dy) * 1.5; // slightly more responsive
+        },
+        onMoveShouldSetPanResponderCapture: () => false,
+        onPanResponderTerminationRequest: () => false,
 
-            onPanResponderGrant: () => {
-    isDraggingRef.current = true;
-    animRef.current?.stop();
-    translateX.stopAnimation(); // just halts it, no need to wait for the callback
-    if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+        onPanResponderGrant: () => {
+            isDraggingRef.current = true;
+            animRef.current?.stop();
+            translateX.stopAnimation(); // just halts it, no need to wait for the callback
+            if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
 
-    // synchronous read — no bridge round-trip, no stale baseline
-    dragStartOffsetRef.current = animOffsetRef.current;
-    translateX.setValue(animOffsetRef.current);
-},
+            // synchronous read — no bridge round-trip, no stale baseline
+            dragStartOffsetRef.current = animOffsetRef.current;
+            translateX.setValue(animOffsetRef.current);
+        },
 
-            onPanResponderMove: (_, gestureState) => {
-                let next = dragStartOffsetRef.current + gestureState.dx;
-                if (next > totalWidth) next = totalWidth;
-                if (next < -totalWidth * 2) next = -totalWidth * 2;
-                translateX.setValue(next);
-                animOffsetRef.current = next;
-            },
+        onPanResponderMove: (_, gestureState) => {
+            let next = dragStartOffsetRef.current + gestureState.dx;
+            if (next > totalWidth) next = totalWidth;
+            if (next < -totalWidth * 2) next = -totalWidth * 2;
+            translateX.setValue(next);
+            animOffsetRef.current = next;
+        },
 
-            onPanResponderRelease: () => {
-                isDraggingRef.current = false;
-                // Do not snap to a card boundary: rounding here was pulling a
-                // manual swipe back to the previous battle.
+        onPanResponderRelease: (_, gestureState) => {
+            isDraggingRef.current = false;
+
+            const velocity = gestureState.vx; // px/ms, RN's native unit for this
+            const startOffset = animOffsetRef.current;
+
+            // Project extra travel distance from the release velocity, so a fast
+            // flick keeps gliding instead of stopping dead where the finger lifted.
+            const FLING_MULTIPLIER = 220;              // tune: higher = glides further
+            const MAX_FLING_DISTANCE = cardWidth * 2.5; // safety cap
+            let flingDistance = velocity * FLING_MULTIPLIER;
+            flingDistance = Math.max(-MAX_FLING_DISTANCE, Math.min(MAX_FLING_DISTANCE, flingDistance));
+
+            let target = startOffset + flingDistance;
+            // keep within the tripled loop range so we never scroll into empty space
+            target = Math.max(-totalWidth * 2, Math.min(totalWidth, target));
+
+            const distance = Math.abs(target - startOffset);
+            const duration = Math.max(150, Math.min(600, distance / 0.6));
+
+            if (Math.abs(velocity) > 0.12 && distance > 4) {
+                animRef.current?.stop();
+                animRef.current = Animated.timing(translateX, {
+                    toValue: target,
+                    duration,
+                    easing: Easing.out(Easing.cubic),
+                    useNativeDriver: true,
+                    isInteraction: false,
+                });
+                animRef.current.start(({ finished }) => {
+                    const finalOffset = normalizeLoopOffset(animOffsetRef.current);
+                    animOffsetRef.current = finalOffset;
+                    translateX.setValue(finalOffset);
+                    resumeAutoScroll(finalOffset);
+                });
+            } else {
+                // slow drag / tap-release — keep existing snap-in-place behavior
                 const finalOffset = normalizeLoopOffset(animOffsetRef.current);
                 animOffsetRef.current = finalOffset;
                 translateX.setValue(finalOffset);
                 resumeAutoScroll(finalOffset);
-            },
+            }
+        },
 
-            onPanResponderTerminate: () => {
-                isDraggingRef.current = false;
-                const finalOffset = normalizeLoopOffset(animOffsetRef.current);
-                animOffsetRef.current = finalOffset;
-                translateX.setValue(finalOffset);
-                resumeAutoScroll(finalOffset);
-            },
-        }), [normalizeLoopOffset, resumeAutoScroll, totalWidth, translateX]);
+        onPanResponderTerminate: () => {
+            isDraggingRef.current = false;
+            const finalOffset = normalizeLoopOffset(animOffsetRef.current);
+            animOffsetRef.current = finalOffset;
+            translateX.setValue(finalOffset);
+            resumeAutoScroll(finalOffset);
+        },
+    }), [normalizeLoopOffset, resumeAutoScroll, totalWidth, translateX]);
 
     useEffect(() => () => {
         animRef.current?.stop();

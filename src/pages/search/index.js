@@ -61,7 +61,11 @@ import styles from './Style';
 import { useBusinessProfileTheme } from '../../theme/useBusinessProfileTheme';
 import { useThemeContext } from '../../theme/ThemeContext';
 import { normalizeProfileType } from '../../utils/supportEligibility';
-import { getProgressBarColor } from '../../utils/progressBarUtils';
+import {
+  formatMissionProgressPercent,
+  getMissionProgressBarWidth,
+  getProgressBarColor,
+} from '../../utils/progressBarUtils';
 import { getMissionDaysLeft } from '../../utils/missionDaysLeft';
 import { getTotalDonationAmount } from '../../services/tokens';
 import { battleByUserId, exploretBattle } from '../../services/battle';
@@ -324,12 +328,12 @@ const MissionProgressBar = memo(({ progressPercent = 0, goalAmount = 0, currentR
     <View style={styles.progressSection}>
       <View style={styles.progressBarWrapper}>
         <View style={styles.progressBarBackground}>
-          <View style={[styles.progressBarFill, { width: `${normalizedProgress}%`, backgroundColor: fillColor }]} />
+          <View style={[styles.progressBarFill, { width: `${getMissionProgressBarWidth(normalizedProgress)}%`, backgroundColor: fillColor }]} />
         </View>
         <View style={styles.progressStatsContainer}>
           <View style={styles.statAtStart}>
             <Text style={styles.statValueSmall} numberOfLines={2} ellipsizeMode="clip">
-              {normalizedProgress.toFixed(1)}% FUNDED
+              {formatMissionProgressPercent(normalizedProgress)}% FUNDED
             </Text>
           </View>
           <View style={styles.statAtCenter}>

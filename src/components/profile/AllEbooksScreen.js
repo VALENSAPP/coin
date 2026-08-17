@@ -7,6 +7,7 @@ import { formSurfaces, selectedSurface, themedCard } from '../../utils/closetThe
 import { useIsFocused, useNavigation, useRoute } from '@react-navigation/native';
 import { getMarketPlaceEbook, getMarketplaceEbooksByClosetId } from '../../services/post';
 import { getMyClosetById } from '../../services/myCloset';
+import { useTargetClosetScreen, navigateToTargetClosetScreen } from '../../utils/closetNavigation';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const themeStyles = {
@@ -248,12 +249,11 @@ const AllEbooksScreen = () => {
     }
   }, [purchasedMap, isOwnProfile, navigation, userData, loggedInUserId, route?.params, resolvedAuthorName]);
 
+  const targetScreen = useTargetClosetScreen();
+
   const handleBackPress = () => {
     if (returnTo === 'MyClosetDashboard') {
-      navigation.navigate('MainApp', {
-        screen: 'wallet',
-        params: { screen: 'MyCloset' },
-      });
+      navigateToTargetClosetScreen(navigation, targetScreen);
       return;
     }
 

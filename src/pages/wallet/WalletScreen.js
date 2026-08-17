@@ -79,7 +79,7 @@ export default function WalletComponent() {
                 ? t('walletScreen.dragonflyVerified')
                 : t('walletScreen.profileNotVerified'),
         };
-    }, [userData?.kyc, userData?.subscriptionStatus]);
+    }, [t, userData?.kyc]);
     const DragonflyIcon = useMemo(() => {
         const followerCount = Number(
             userData?.totalFollowers ??
@@ -407,7 +407,7 @@ export default function WalletComponent() {
     return (
         <SafeAreaView style={[styles.container, bgStyle]}>
             <ScrollView
-                contentContainerStyle={{ paddingBottom: 10, marginTop: Platform.OS === "ios" ? 20 : 0 }}
+                contentContainerStyle={{ paddingBottom: '5%', marginTop: Platform.OS === "ios" ? 20 : 0 }}
                 showsVerticalScrollIndicator={false}
             >
                 <View style={{ paddingHorizontal: 15 }}>
@@ -476,27 +476,57 @@ export default function WalletComponent() {
                     </View>
 
                     <View style={styles.infoBoxesRow}>
-                        <View style={[styles.infoCard, cardStyle, { borderColor: accent, borderWidth: StyleSheet.hairlineWidth }]}> 
+                        <View style={[styles.infoCard, cardStyle, { borderColor: accent, borderWidth: StyleSheet.hairlineWidth }]}>
                             <View style={styles.infoCardHeader}>
+                                <View style={[styles.infoCardIcon, { backgroundColor: `${accent}18`, borderColor: `${accent}35` }]}>
+                                    <Ionicons name="information" size={25} color={accent} />
+                                </View>
                                 <Text style={[styles.infoCardTitle, labelStyle]}>
                                     {t('walletScreen.missionPostTitle')}
                                 </Text>
-                                {/* <MaterialCommunityIcons name="dots-horizontal" size={16} color={accent} /> */}
                             </View>
                             <Text style={[styles.infoCardText, accentTextStyle]}>
                                 {t('walletScreen.missionPostDescription')}
                             </Text>
                         </View>
-                        <View style={[styles.infoCard, styles.infoCardSpacing, cardStyle, { borderColor: accent, borderWidth: StyleSheet.hairlineWidth }]}> 
+                        <View style={[styles.infoCard, styles.infoCardSpacing, cardStyle, { borderColor: accent, borderWidth: StyleSheet.hairlineWidth }]}>
                             <View style={styles.infoCardHeader}>
+                                <View style={[styles.infoCardIcon, { backgroundColor: `${accent}18`, borderColor: `${accent}35` }]}>
+                                    <Ionicons name="document-text-outline" size={25} color={accent} />
+                                </View>
                                 <Text style={[styles.infoCardTitle, labelStyle]}>
-                                    {t('walletScreen.missionPriceTitle')}
+                                    {t('walletScreen.missionRulesTitle')}
                                 </Text>
-                                {/* <MaterialCommunityIcons name="dots-horizontal" size={16} color={accent} /> */}
                             </View>
-                            <Text style={[styles.infoCardText, accentTextStyle]}>
-                                {t('walletScreen.missionPriceDescription')}
-                            </Text>
+                            <View style={styles.missionRulesList}>
+                                <View style={styles.missionRule}>
+                                    <View style={[styles.missionRuleIcon, { backgroundColor: `${accent}18`, borderColor: `${accent}35` }]}>
+                                        <MaterialCommunityIcons name="crown-outline" size={31} color={accent} />
+                                    </View>
+                                    <View style={styles.missionRuleContent}>
+                                        <Text style={[styles.missionRuleTitle, labelStyle]}>{t('walletScreen.monthlyMembersTitle')}</Text>
+                                        <Text style={[styles.missionRuleText, accentTextStyle]}>{t('walletScreen.monthlyMembersDescription')}</Text>
+                                    </View>
+                                </View>
+                                <View style={[styles.missionRule, styles.missionRuleBorder, { borderTopColor: border }]}>
+                                    <View style={[styles.missionRuleIcon, { backgroundColor: `${accent}18`, borderColor: `${accent}35` }]}>
+                                        <MaterialCommunityIcons name="tag-outline" size={31} color={accent} />
+                                    </View>
+                                    <View style={styles.missionRuleContent}>
+                                        <Text style={[styles.missionRuleTitle, labelStyle]}>{t('walletScreen.nonMembersTitle')}</Text>
+                                        <Text style={[styles.missionRuleText, accentTextStyle]}>{t('walletScreen.nonMembersDescription')}</Text>
+                                    </View>
+                                </View>
+                                <View style={[styles.missionRule, styles.missionRuleBorder, { borderTopColor: border }]}>
+                                    <View style={[styles.missionRuleIcon, { backgroundColor: `${accent}18`, borderColor: `${accent}35` }]}>
+                                        <Ionicons name="calendar-outline" size={31} color={accent} />
+                                    </View>
+                                    <View style={styles.missionRuleContent}>
+                                        <Text style={[styles.missionRuleTitle, labelStyle]}>{t('walletScreen.monthlyLimitTitle')}</Text>
+                                        <Text style={[styles.missionRuleText, accentTextStyle]}>{t('walletScreen.monthlyLimitDescription')}</Text>
+                                    </View>
+                                </View>
+                            </View>
                         </View>
                     </View>
                 </View>
@@ -576,6 +606,7 @@ const styles = StyleSheet.create({
         flex: 1,
         paddingTop: 20,
         paddingBottom: 50,
+        marginBottom:'5%'
     },
     profileSection: {
         flexDirection: "row",
@@ -678,10 +709,11 @@ const styles = StyleSheet.create({
     },
     infoCard: {
         width: '100%',
-        borderRadius: 14,
-        padding: 14,
+        borderRadius: 20,
+        padding: 18,
         minHeight: 90,
         elevation: 10,
+
     },
     infoCardSpacing: {
         marginTop: 12,
@@ -697,17 +729,58 @@ const styles = StyleSheet.create({
     },
     infoCardHeader: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 6,
+        marginBottom: 4,
+        gap: 12,
+    },
+    infoCardIcon: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        borderWidth: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     infoCardTitle: {
-        fontSize: 14,
-        fontWeight: '700',
+        fontSize: 18,
+        fontWeight: '800',
     },
     infoCardText: {
-        fontSize: 13,
-        lineHeight: 18,
+        fontSize: 14,
+        lineHeight: 15,
+        fontWeight: '600',
+    },
+    missionRulesList: {
+        marginTop: 4,
+        marginLeft:'10%'
+    },
+    missionRule: {
+        flexDirection: 'row',
+        gap: 16,
+        paddingVertical: 16,
+    },
+    missionRuleBorder: {
+        borderTopWidth: 1,
+    },
+    missionRuleContent: {
+        flex: 1,
+    },
+    missionRuleIcon: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        borderWidth: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    missionRuleTitle: {
+        fontSize: 18,
+        fontWeight: '800',
+        marginBottom: 6,
+    },
+    missionRuleText: {
+        fontSize: 15,
+        lineHeight: 22,
         fontWeight: '500',
     },
     referralUsageText: {

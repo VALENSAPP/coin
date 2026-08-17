@@ -30,6 +30,7 @@ import {
 } from '../../services/myCloset';
 import { Header, CHALLENGE_ITEMS } from './MyClosetBattleScreens';
 import { formSurfaces, selectedSurface, themedCard } from '../../utils/closetTheme';
+import { useTargetClosetScreen, navigateToTargetClosetScreen } from '../../utils/closetNavigation';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 import { BASE_URL } from '../../config/urls';
 
@@ -147,6 +148,7 @@ export function BattleInsightsActionsScreen({ navigation, route }) {
   const surface = card || surfaces.listSurface;
   const { t } = useLanguage();
   const accent = text || PURPLE;
+  const targetScreen = useTargetClosetScreen();
   const winnerItem = route?.params?.winnerItem || {
     name: 'Mini Shoulder Bag',
     price: '$85',
@@ -385,7 +387,7 @@ export function PromotionExpiredScreen({ navigation, winnerItem, battleId }) {
 
         <TouchableOpacity
           activeOpacity={0.9}
-          onPress={() => navigation.navigate('wallet', { screen: 'MyCloset' })}
+          onPress={() => navigateToTargetClosetScreen(navigation, targetScreen)}
           style={[styles.secondaryButton, { borderColor: border || surfaces.listBorder, backgroundColor: surface }]}
         >
           <Ionicons name="refresh-outline" size={16} color={accent} style={{ marginRight: 8 }} />
@@ -536,6 +538,7 @@ export function ReviewBoostScreen({ navigation, route }) {
   const { t } = useLanguage();
   const toast = useToast();
   const accent = text || PURPLE;
+  const targetScreen = useTargetClosetScreen();
   const { winnerItem, showBadge, pinOnTop, selectedPackage, battleId, boostPackage } = route?.params || {};
   const [submitting, setSubmitting] = useState(false);
   const pkg = boostPackage || FALLBACK_BOOST_PACKAGES.find(p => p.id === selectedPackage) || FALLBACK_BOOST_PACKAGES[1];
@@ -625,7 +628,7 @@ export function ReviewBoostScreen({ navigation, route }) {
 
         if (isPaid) {
           Alert.alert(t('boost.boostedTitle'), t('boost.boostedMessage'), [
-            { text: t('boost.done'), onPress: () => navigation.navigate('wallet', { screen: 'MyCloset', params: { boostedItemId: winnerItem?.id } }) },
+            { text: t('boost.done'), onPress: () => navigateToTargetClosetScreen(navigation, targetScreen, { boostedItemId: winnerItem?.id }) }
           ]);
         }
         return;
@@ -874,6 +877,7 @@ export function PreviewPromotionScreen({ navigation, route }) {
   const { t } = useLanguage();
   const toast = useToast();
   const accent = text || PURPLE;
+  const targetScreen = useTargetClosetScreen();
   const { winnerItem, discount, duration, message, promotionType, battleId } = route?.params || {};
   const isFreeShipping = promotionType === 'freeShipping';
   const promoImage = getPromoImage(winnerItem);
@@ -899,7 +903,7 @@ export function PreviewPromotionScreen({ navigation, route }) {
         throw new Error(response?.data?.message || response?.message || 'Unable to launch promotion');
       }
       Alert.alert(t('promotion.liveTitle'), t('promotion.liveMessage'), [
-        { text: t('boost.done'), onPress: () => navigation.navigate('wallet', { screen: 'MyCloset', params: { promotedItemId: winnerItem?.id } }) },
+        { text: t('boost.done'), onPress: () => navigateToTargetClosetScreen(navigation, targetScreen, { promotedItemId: winnerItem?.id }) }
       ]);
     } catch (error) {
       showToastMessage(toast, 'danger', error?.response?.data?.message || error?.message || 'Please try again.');
