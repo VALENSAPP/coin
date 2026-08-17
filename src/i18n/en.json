@@ -723,7 +723,20 @@
     "chooseFromGallerySubtitle": "Select an existing image",
     "takeAPhoto": "Take a Photo",
     "takeAPhotoSubtitle": "Capture a new image",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "battleTypeSection": "Battle Type",
+    "predictionCategoryTitle": "Choose a Category",
+    "predictionCategorySubtitle": "Pick a category to browse live prediction markets",
+    "predictionNoCategories": "No categories available",
+    "predictionCloses": "Closes",
+    "predictionNoQuestions": "No questions found",
+    "predictionMarketLabel": "Prediction Market",
+    "predictionSelectMarket": "Select a live market to predict on",
+    "predictionChangeMarket": "Change",
+    "predictionMarketHelper": "The question and outcomes are pulled from the source market and locked.",
+    "predictionMarketRequired": "Select a prediction market to continue",
+    "predictionSearchPlaceholder": "Search questions",
+    "predictionNoSearchResults": "No questions match your search"
   },
   "profileBattle": {
     "defaultTitle": "Battle"
@@ -4432,7 +4445,7 @@
       "shipped": "Shipped",
       "delivered": "Delivered",
       "cancelled": "Cancelled",
-      "localpickup":"Localpickup"
+      "localpickup": "Localpickup"
     }
   },
   "marketplaceAnalytics": {

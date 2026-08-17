@@ -52,6 +52,7 @@ const createInitialForm = () => ({
   isPublic: true,
   invitedUserId: '',
   stake: '',
+  predictionMeta: null, // { provider, externalMarketId, externalEventId, category, closeTime }
 });
 
 const pickFirst = (...values) =>
@@ -133,6 +134,15 @@ const buildFormFromBattle = battle => {
       const stakeValue = pickFirst(battle?.stakeAmount, battle?.stake, '');
       return stakeValue === '' || stakeValue == null ? '' : String(stakeValue);
     })(),
+    predictionMeta: battle?.predictionProvider || battle?.provider || battle?.externalMarketId
+      ? {
+        provider: pickFirst(battle?.predictionProvider, battle?.provider, ''),
+        externalMarketId: pickFirst(battle?.externalMarketId, ''),
+        externalEventId: pickFirst(battle?.externalEventId, ''),
+        category: pickFirst(battle?.predictionCategory, battle?.category, ''),
+        closeTime: pickFirst(battle?.closeTime, ''),
+      }
+      : null,
   };
 };
 
@@ -188,6 +198,7 @@ export default function OpenBattleScreen() {
     String(routeParams?.isCompanyProfile).toLowerCase() === 'true';
   const isPoll = form.format === 'POLL';
   const isHeadToHead = form.format === 'HEAD_TO_HEAD';
+  const isPrediction = form.battleType === 'PREDICTION';
   const filledOptions = useMemo(
     () => getFilledOptions(form.options),
     [form.options],
@@ -349,6 +360,40 @@ export default function OpenBattleScreen() {
       cancelled = true;
     };
   }, [isEditMode, routeParams, viewerUserId]);
+
+  useEffect(() => {
+    const question = routeParams.selectedPredictionQuestion;
+    if (!question) {
+      return;
+    }
+
+    const optionTexts = Array.isArray(question.options) && question.options.length >= 2
+      ? question.options
+      : ['Yes', 'No'];
+
+    setForm(prev => ({
+      ...prev,
+      format: 'POLL',
+      battleType: 'PREDICTION',
+      question: pickFirst(question.question, prev.question),
+      options: optionTexts.slice(0, MAX_POLL_OPTIONS).map(text => ({ text, image: null })),
+      endTime: question.closeTime ? new Date(question.closeTime) : prev.endTime,
+      predictionMeta: {
+        provider: pickFirst(question.provider, ''),
+        externalMarketId: pickFirst(question.externalMarketId, ''),
+        externalEventId: pickFirst(question.externalEventId, ''),
+        category: pickFirst(question.category, ''),
+        closeTime: pickFirst(question.closeTime, ''),
+      },
+    }));
+    setErrors({});
+
+    // Clear the param so re-entering this screen later doesn't re-apply it.
+    navigation.setParams({
+      params: { ...routeParams, selectedPredictionQuestion: undefined },
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeParams.selectedPredictionQuestion]);
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -607,6 +652,25 @@ export default function OpenBattleScreen() {
         };
       }
 
+      if (field === 'battleType') {
+        if (value !== 'PREDICTION' && prev.battleType === 'PREDICTION') {
+          return {
+            ...prev,
+            battleType: value,
+            predictionMeta: null,
+            question: '',
+            options: [
+              { text: '', image: null },
+              { text: '', image: null },
+            ],
+          };
+        }
+        return {
+          ...prev,
+          battleType: value,
+        };
+      }
+
       return {
         ...prev,
         [field]: value,
@@ -774,6 +838,11 @@ export default function OpenBattleScreen() {
       nextErrors.stake = t('openBattle.stakeInvalid');
     }
 
+    if (isPrediction && !form.predictionMeta?.externalMarketId) {
+      nextErrors.predictionMarket =
+        t('openBattle.predictionMarketRequired') || 'Select a prediction market to continue';
+    }
+
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   };
@@ -892,6 +961,13 @@ export default function OpenBattleScreen() {
       payload.stake = Number(form.stake);
     }
 
+    if (isPrediction && form.predictionMeta) {
+      payload.predictionProvider = form.predictionMeta.provider;
+      payload.externalMarketId = form.predictionMeta.externalMarketId;
+      payload.externalEventId = form.predictionMeta.externalEventId;
+      payload.predictionCategory = form.predictionMeta.category;
+    }
+
     setSubmitting(true);
     console.log('Submitting battle with payload:', payload);
     try {
@@ -967,28 +1043,28 @@ export default function OpenBattleScreen() {
                 navigation.navigate('ProfileMain', {
                   screen: 'Profile',
                 });
-              } 
+              }
               // console.log()
               else if (route?.params?.returnByTo == "Search") {
                 navigation.navigate('HomeMain', {
-                screen: 'UsersProfile',
-                params: {
-                  userId: route?.params?.invitedUserId,
-                  // username: user?.userName || user?.username || '',
-                  returnTo: 'Search',
-                },
-              });
-              } 
+                  screen: 'UsersProfile',
+                  params: {
+                    userId: route?.params?.invitedUserId,
+                    // username: user?.userName || user?.username || '',
+                    returnTo: 'Search',
+                  },
+                });
+              }
               else if (route?.params?.returnByTo == "Home") {
                 navigation.navigate('HomeMain', {
-                screen: 'UsersProfile',
-                params: {
-                  userId: route?.params?.invitedUserId,
-                  // username: user?.userName || user?.username || '',
-                  returnTo: 'Home',
-                },
-              });
-              } 
+                  screen: 'UsersProfile',
+                  params: {
+                    userId: route?.params?.invitedUserId,
+                    // username: user?.userName || user?.username || '',
+                    returnTo: 'Home',
+                  },
+                });
+              }
               else {
                 navigation.goBack();
               }
@@ -1030,6 +1106,69 @@ export default function OpenBattleScreen() {
           </View>
 
           <View style={[styles.section, isEditMode && styles.readOnlySection]} pointerEvents={isEditMode ? 'none' : 'auto'}>
+            <Text style={[styles.sectionTitle, { color: labelColor }]}>
+              {t('openBattle.battleTypeSection') || 'Battle Type'}
+            </Text>
+            <View style={styles.formatRow}>
+              {battleTypeOptions.map(option => {
+                const isSelected = form.battleType === option.key;
+                const Wrapper = isSelected ? LinearGradient : View;
+                const wrapperProps = isSelected
+                  ? {
+                    colors: gradientColors,
+                    start: { x: 0, y: 0 },
+                    end: { x: 1, y: 0 },
+                  }
+                  : {};
+
+                return (
+                  <TouchableOpacity
+                    key={option.key}
+                    style={styles.formatCell}
+                    onPress={() => updateField('battleType', option.key)}
+                    activeOpacity={0.88}
+                    disabled={isEditMode}
+                  >
+                    <Wrapper
+                      {...wrapperProps}
+                      style={[
+                        styles.formatCard,
+                        !isSelected && {
+                          backgroundColor: inputBackground,
+                          borderColor: themeBorder,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.formatTitle,
+                          { color: isSelected ? '#fff' : labelColor },
+                        ]}
+                      >
+                        {option.title}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.formatSubtitle,
+                          { color: isSelected ? '#F3F4F6' : mutedText },
+                        ]}
+                      >
+                        {option.subtitle}
+                      </Text>
+                    </Wrapper>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+
+          <View
+            style={[
+              styles.section,
+              (isEditMode || isPrediction) && styles.readOnlySection,
+            ]}
+            pointerEvents={isEditMode || isPrediction ? 'none' : 'auto'}
+          >
             <Text style={[styles.sectionTitle, { color: labelColor }]}>
               {t('openBattle.battleFormatSection')}
             </Text>
@@ -1086,30 +1225,112 @@ export default function OpenBattleScreen() {
             </View>
           </View>
 
-          <View style={styles.section}>
-            <Text style={[styles.label, { color: labelColor }]}>{t('openBattle.questionLabel')}</Text>
-            <TextInput
-              style={[
-                styles.input,
-                styles.questionInput,
-                {
-                  backgroundColor: inputBackground,
-                  color: labelColor,
-                  borderColor: errors.question ? ERROR : themeBorder,
-                },
-              ]}
-              placeholder={t('openBattle.questionPlaceholder')}
-              placeholderTextColor={mutedText}
-              multiline
-              value={form.question}
-              onChangeText={value => updateField('question', value)}
-            />
-            {!!errors.question && (
-              <Text style={[styles.errorText, { marginTop: 8 }]}>{errors.question}</Text>
-            )}
-          </View>
+          {isPrediction ? (
+            <View style={styles.section}>
+              <Text style={[styles.label, { color: labelColor }]}>
+                {t('openBattle.predictionMarketLabel') || 'Prediction Market'}
+              </Text>
 
-          {(isPoll || isHeadToHead) && (
+              {form.predictionMeta?.externalMarketId ? (
+                <View
+                  style={[
+                    styles.input,
+                    {
+                      minHeight: 96,
+                      backgroundColor: inputBackground,
+                      borderColor: errors.predictionMarket ? ERROR : themeBorder,
+                    },
+                  ]}
+                >
+                  <View style={styles.rowBetween}>
+                    <Text style={[styles.selectedUserSubtitle, { flex: 1, color: accent }]} numberOfLines={1}>
+                      {form.predictionMeta.category ? `${form.predictionMeta.category}` : ''}
+                    </Text>
+                    <TouchableOpacity
+                      disabled={isEditMode}
+                      onPress={() =>
+                        navigation.navigate('PredictionCategories', {
+                          params: { profile, isCompanyProfile },
+                        })
+                      }
+                    >
+                      <Text style={{ color: accent, fontWeight: '800', fontSize: 12 }}>
+                        {t('openBattle.predictionChangeMarket') || 'Change'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                  <Text style={{ color: labelColor, fontWeight: '700', fontSize: 14, marginTop: 8 }}>
+                    {form.question}
+                  </Text>
+                  <View style={styles.optionsRowPreview}>
+                    {form.options.map((opt, index) => (
+                      <View key={`pred-opt-${index}`} style={[styles.optionChipPreview, { borderColor: themeBorder }]}>
+                        <Text style={{ color: labelColor, fontSize: 12, fontWeight: '700' }}>
+                          {opt.text}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  activeOpacity={0.88}
+                  disabled={isEditMode}
+                  style={[
+                    styles.input,
+                    styles.dateInput,
+                    {
+                      backgroundColor: inputBackground,
+                      borderColor: errors.predictionMarket ? ERROR : themeBorder,
+                    },
+                  ]}
+                  onPress={() =>
+                    navigation.navigate('PredictionCategories', {
+                      params: { profile, isCompanyProfile },
+                    })
+                  }
+                >
+                  <Text style={[styles.dateText, { color: mutedText }]}>
+                    {t('openBattle.predictionSelectMarket') || 'Select a live market to predict on'}
+                  </Text>
+                  <Ionicons name="chevron-forward" size={20} color={mutedText} />
+                </TouchableOpacity>
+              )}
+
+              {!!errors.predictionMarket && (
+                <Text style={[styles.errorText, { marginTop: 8 }]}>{errors.predictionMarket}</Text>
+              )}
+              <Text style={styles.helperText}>
+                {t('openBattle.predictionMarketHelper') ||
+                  'The question and outcomes are pulled from the source market and locked.'}
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.section}>
+              <Text style={[styles.label, { color: labelColor }]}>{t('openBattle.questionLabel')}</Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  styles.questionInput,
+                  {
+                    backgroundColor: inputBackground,
+                    color: labelColor,
+                    borderColor: errors.question ? ERROR : themeBorder,
+                  },
+                ]}
+                placeholder={t('openBattle.questionPlaceholder')}
+                placeholderTextColor={mutedText}
+                multiline
+                value={form.question}
+                onChangeText={value => updateField('question', value)}
+              />
+              {!!errors.question && (
+                <Text style={[styles.errorText, { marginTop: 8 }]}>{errors.question}</Text>
+              )}
+            </View>
+          )}
+
+          {!isPrediction && (isPoll || isHeadToHead) && (
             <View style={styles.section}>
               <View style={styles.rowBetween}>
                 <Text style={[styles.label, { color: labelColor }]}>
@@ -1262,14 +1483,14 @@ export default function OpenBattleScreen() {
                       updateField('invitedUserId', '');
                     }}
                   >
-                    <Ionicons name="close-circle" size={22} color="#7C3AED" />
+                    <Ionicons name="close-circle" size={22} color={accent} />
                   </TouchableOpacity>
                 </View>
               ) : null}
 
               {!selectedInviteUser && inviteSearchLoading ? (
                 <View style={styles.searchStateWrap}>
-                  <ActivityIndicator size="small" color="#7C3AED" />
+                  <ActivityIndicator size="small" color={accent} />
                 </View>
               ) : null}
 
@@ -1297,7 +1518,7 @@ export default function OpenBattleScreen() {
                   setDatePickerOpen(true);
                 }
               }}
-              disabled={isEditMode}
+              disabled={isEditMode || isPrediction}
             >
               <Text
                 style={[
@@ -1984,5 +2205,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#7C3AED',
     marginTop: 2,
+  },
+  optionsRowPreview: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 10,
+  },
+  optionChipPreview: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
 });

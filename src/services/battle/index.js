@@ -38,6 +38,30 @@ const normalizeBattlePayload = (data = {}) => {
         payload.invitedUserChoice = invitedUserChoice;
     }
 
+    // Prediction battle fields — were previously dropped, causing
+    // "Prediction category required" even when the caller sent them.
+    if (data?.battleType === 'PREDICTION') {
+        const predictionProvider = data?.predictionProvider?.trim?.() ?? '';
+        if (predictionProvider) {
+            payload.predictionProvider = predictionProvider;
+        }
+
+        const externalMarketId = data?.externalMarketId?.trim?.() ?? '';
+        if (externalMarketId) {
+            payload.externalMarketId = externalMarketId;
+        }
+
+        const externalEventId = data?.externalEventId?.trim?.() ?? '';
+        if (externalEventId) {
+            payload.externalEventId = externalEventId;
+        }
+
+        const predictionCategory = data?.predictionCategory?.trim?.() ?? '';
+        if (predictionCategory) {
+            payload.predictionCategory = predictionCategory;
+        }
+    }
+
     return payload;
 };
 
@@ -119,3 +143,28 @@ export const removeCommentHighlight = async (data) => {
 export const filtterBattle = async (params) => {
     return axiosInstance.get('battle/myBattleTracking', { params });
 };
+
+export async function getPredictionCategories() {
+  return axiosInstance.get('battle/prediction/categories');
+}
+ 
+/**
+ * Get third-party prediction questions by category.
+ * GET /battle/prediction/questions?category=&provider=&page=&limit=
+ * Response: { statusCode, success, data: { data: [...], pagination? } }
+ */
+export async function getPredictionQuestions(params = {}) {
+  const { category, provider, page = 1, limit = 20 } = params;
+ 
+  if (!category) {
+    return Promise.reject(new Error('category is required'));
+  }
+ 
+  const query = { category, page, limit };
+  if (provider) {
+    query.provider = provider;
+  }
+ 
+  return axiosInstance.get('battle/prediction/questions', { params: query });
+}
+ 

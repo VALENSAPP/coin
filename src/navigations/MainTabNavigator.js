@@ -179,6 +179,8 @@ import {
   ReviewBoostScreen,
 } from '../pages/profile/Myclosetbattleinsightsscreens';
 import { normalizeProfileType } from '../utils/closetNavigation';
+import PredictionCategoryScreen from '../pages/profile/PredictionCategoryScreen';
+import PredictionQuestionsScreen from '../pages/profile/PredictionQuestionsScreen';
 
 const VIEWED_PROFILE_THEME_EVENT = 'VIEWED_PROFILE_THEME';
 
@@ -745,6 +747,16 @@ export default function MainTabNavigator() {
         <Stack.Screen
           name="OpenBattle"
           component={OpenBattleScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="PredictionCategories"
+          component={PredictionCategoryScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="PredictionQuestions"
+          component={PredictionQuestionsScreen}
           options={{ headerShown: false }}
         />
         <Stack.Screen

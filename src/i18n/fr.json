@@ -721,7 +721,20 @@
     "chooseFromGallerySubtitle": "Sélectionnez une image existante",
     "takeAPhoto": "Prendre une photo",
     "takeAPhotoSubtitle": "Capturez une nouvelle image",
-    "cancel": "Annuler"
+    "cancel": "Annuler",
+    "battleTypeSection": "Type de bataille",
+    "predictionCategoryTitle": "Choisissez une catégorie",
+    "predictionCategorySubtitle": "Choisissez une catégorie pour parcourir les marchés de prédiction en direct",
+    "predictionNoCategories": "Aucune catégorie disponible",
+    "predictionCloses": "Ferme",
+    "predictionNoQuestions": "Aucune question trouvée",
+    "predictionMarketLabel": "Marché de prédiction",
+    "predictionSelectMarket": "Sélectionnez un marché en direct sur lequel faire une prédiction",
+    "predictionChangeMarket": "Modifier",
+    "predictionMarketHelper": "La question et les résultats proviennent du marché source et sont verrouillés.",
+    "predictionMarketRequired": "Sélectionnez un marché de prédiction pour continuer",
+    "predictionSearchPlaceholder": "Rechercher des questions",
+    "predictionNoSearchResults": "Aucune question ne correspond à votre recherche"
   },
   "profileBattle": {
     "defaultTitle": "Battle"
@@ -3753,7 +3766,8 @@
       "processing": "En cours de traitement",
       "shipped": "Expédiée",
       "delivered": "Livrée",
-      "cancelled": "Annulée"
+      "cancelled": "Annulée",
+      "localpickup": "Retrait local"
     },
     "fulfillment": {
       "shipToDeliver": "Expédier moi-même",
@@ -4294,7 +4308,8 @@
       "processing": "En cours de traitement",
       "shipped": "Expédiée",
       "delivered": "Livrée",
-      "cancelled": "Annulée"
+      "cancelled": "Annulée",
+      "localpickup": "Retrait local"
     }
   },
   "marketplaceAnalytics": {
@@ -4369,7 +4384,8 @@
       "processing": "En cours de traitement",
       "shipped": "Expédiée",
       "delivered": "Livrée",
-      "cancelled": "Annulée"
+      "cancelled": "Annulée",
+      "localpickup": "Retrait local"
     }
   },
   "myClosetEarnings": {
