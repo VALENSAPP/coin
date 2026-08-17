@@ -14,6 +14,8 @@ import {
   TextInput,
   TouchableOpacity,
   Pressable,
+  KeyboardAvoidingView,
+  Platform,
   Dimensions,
   View,
 } from 'react-native';
@@ -21,7 +23,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Video from 'react-native-video';
 import { useToast } from 'react-native-toast-notifications';
-import { postLikeStory, postCommentStory } from '../../../services/stories';
 import { sendMessage as sendChatMessage } from '../../../services/chatMessage';
 import ShareModal from '../../../components/modals/ShareModal';
 
@@ -48,6 +49,7 @@ const withAlpha = (hex, alpha = 0.12) => {
   return `rgba(${r},${g},${b},${alpha})`;
 };
 
+const HIGHLIGHT_QUICK_REACTIONS = ['\u{1F602}', '\u{1F60D}', '\u{1F525}', '\u{1F44F}', '\u{1F44D}', '\u{1F64C}'];
 
 const isVideoMedia = value => {
   if (!value || typeof value !== 'string') {
@@ -75,11 +77,12 @@ const normalizeHighlightMedia = media => {
   return media
     .flatMap((item, index) => {
       if (typeof item === 'string') {
-        return [{
-          id: `media_${index}`,
-          uri: item,
-          type: isVideoMedia(item) ? 'video' : 'image',
-          storyId: null,
+      return [{
+        id: `media_${index}`,
+        uri: item,
+        type: isVideoMedia(item) ? 'video' : 'image',
+        storyId: null,
+        ownerId: null,
         }];
       }
 
@@ -104,6 +107,7 @@ const normalizeHighlightMedia = media => {
               item?.id ||
               item?._id ||
               null,
+            ownerId: item?.userId || item?.ownerId || item?.user?.id || item?.story?.userId || item?.story?.user?.id || null,
           }));
       }
 
@@ -132,6 +136,7 @@ const normalizeHighlightMedia = media => {
           item?.id ||
           item?._id ||
           null,
+        ownerId: item?.userId || item?.ownerId || item?.user?.id || item?.story?.userId || item?.story?.user?.id || null,
       }];
     })
     .filter(Boolean);
@@ -157,6 +162,7 @@ const normalizeHighlightItem = (item, index = 0) => {
       null,
     stories,
     storyCount: stories.length,
+    ownerId: item?.userId || item?.ownerId || item?.user?.id || item?.createdBy || null,
   };
 };
 
@@ -221,6 +227,8 @@ const HighlightsScreen = ({ navigation, route }) => {
   const [currentUserId, setCurrentUserId] = useState(null);
   const [likes, setLikes] = useState({});
   const [comments, setComments] = useState({});
+  const [replyText, setReplyText] = useState('');
+  const [replySending, setReplySending] = useState(false);
   const [selectedShareStory, setSelectedShareStory] = useState(null);
   const shareRef = React.useRef(null);
   const [activeHighlight, setActiveHighlight] = useState(null);
@@ -271,6 +279,7 @@ const HighlightsScreen = ({ navigation, route }) => {
         Promise.allSettled(
           userHighlights.map(async hl => {
             const res = await getHighlight({ highlightId: hl.id });
+            console.log(res,'getHighlightgetHighlightgetHighlightgetHighlightgetHighlight')
             const detail = normalizeHighlightsResponse(res?.data)[0];
             return detail ? { ...hl, ...detail } : hl;
           }),
@@ -347,6 +356,8 @@ const HighlightsScreen = ({ navigation, route }) => {
     setViewerVisible(false);
     setViewerStories([]);
     setViewerIndex(0);
+    setReplyText('');
+    setReplySending(false);
     setActiveHighlight(null);
     setLoadingDetail(false);
   }, []);
@@ -423,6 +434,13 @@ const HighlightsScreen = ({ navigation, route }) => {
   }, [closeViewer]);
 
   const currentStory = viewerStories[viewerIndex];
+  const highlightOwnerId = currentStory?.ownerId || activeHighlight?.ownerId || routeUserId;
+  const canReplyToHighlight = Boolean(
+    currentStory &&
+    highlightOwnerId &&
+    currentUserId &&
+    String(highlightOwnerId) !== String(currentUserId),
+  );
   const totalStories = useMemo(
     () => highlights.reduce((sum, item) => sum + (item.storyCount || 0), 0),
     [highlights],
@@ -578,40 +596,48 @@ const HighlightsScreen = ({ navigation, route }) => {
     ]);
   }, [activeHighlight, closeViewer, currentStory, t, toast, viewerIndex, viewerStories]);
 
-  const onToggleLike = useCallback(async (ownerId, storyId, nextLiked) => {
-    const clean = String(storyId || '').replace(/_\d+$/, '');
-    try {
-      const res = await postLikeStory({ storyId: clean });
-      if (res?.success) {
-        const key = `${ownerId}:${storyId}`;
-        setLikes(prev => {
-          const curr = prev[key] || { liked: false, count: 0 };
-          let count = curr.count || 0;
-          if (nextLiked && !curr.liked) count += 1;
-          if (!nextLiked && curr.liked && count > 0) count -= 1;
-          return { ...prev, [key]: { liked: nextLiked, count } };
-        });
-      }
-    } catch (_e) { }
+  const onToggleLike = useCallback((ownerId, storyId, nextLiked) => {
+    // Highlights use archived Drops. The live-story endpoint rejects them with
+    // "Story not found", so this is intentionally a local viewer reaction.
+    const key = `${ownerId}:${storyId}`;
+    setLikes(prev => {
+      const curr = prev[key] || { liked: false, count: 0 };
+      let count = curr.count || 0;
+      if (nextLiked && !curr.liked) count += 1;
+      if (!nextLiked && curr.liked && count > 0) count -= 1;
+      return { ...prev, [key]: { liked: nextLiked, count } };
+    });
   }, []);
 
   const onAddComment = useCallback(async (ownerId, storyId, text) => {
     const cleanText = String(text || '').trim();
-    if (!cleanText) return;
-    const clean = String(storyId || '').replace(/_\d+$/, '');
+    if (!cleanText) return false;
     try {
-      const res = await postCommentStory({ comment: cleanText, storyId: clean });
-      if (res?.success) {
-        const key = `${ownerId}:${storyId}`;
-        setComments(prev => ({ ...prev, [key]: [...(prev[key] || []), { user: 'you', text: cleanText, ts: Date.now() }] }));
-        try {
-          if (ownerId && currentUserId && String(ownerId) !== String(currentUserId)) {
-            await sendChatMessage({ senderId: currentUserId, receiverId: ownerId, message: cleanText, type: 'CHAT' });
-          }
-        } catch (_e) { }
-      }
-    } catch (_e) { }
-  }, [currentUserId]);
+      if (!ownerId || !currentUserId || String(ownerId) === String(currentUserId)) return false;
+      await sendChatMessage({ senderId: currentUserId, receiverId: ownerId, message: cleanText, type: 'CHAT' });
+      const key = `${ownerId}:${storyId}`;
+      setComments(prev => ({ ...prev, [key]: [...(prev[key] || []), { user: 'you', text: cleanText, ts: Date.now() }] }));
+      return true;
+    } catch (_e) {
+      showToastMessage(toast, 'danger', 'Could not send your reply.');
+    }
+    return false;
+  }, [currentUserId, toast]);
+
+  const sendHighlightReply = useCallback(async (message) => {
+    const cleanMessage = String(message || '').trim();
+    if (!cleanMessage || !currentStory?.storyId || !highlightOwnerId || replySending) return;
+
+    setReplySending(true);
+    try {
+      const sent = await onAddComment(highlightOwnerId, currentStory.storyId, cleanMessage);
+                  console.log(sent,'sentsentsentsentsenth')
+
+      if (sent) setReplyText('');
+    } finally {
+      setReplySending(false);
+    }
+  }, [currentStory?.storyId, highlightOwnerId, onAddComment, replySending]);
 
   const renderBubble = item => (
     <TouchableOpacity
@@ -971,6 +997,52 @@ const HighlightsScreen = ({ navigation, route }) => {
               )}
             </Pressable>
           )}
+
+          {canReplyToHighlight ? (
+            <KeyboardAvoidingView
+              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+              style={styles.storyReplyBar}
+            >
+              <View style={styles.storyReactionRow}>
+                {HIGHLIGHT_QUICK_REACTIONS.map(emoji => (
+                  <TouchableOpacity
+                    key={emoji}
+                    style={styles.storyReactionButton}
+                    activeOpacity={0.75}
+                    disabled={replySending}
+                    onPress={() => sendHighlightReply(emoji)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`React ${emoji}`}
+                  >
+                    <Text style={styles.storyReactionEmoji}>{emoji}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <View style={styles.storyReplyRow}>
+                <TextInput
+                  value={replyText}
+                  onChangeText={setReplyText}
+                  placeholder="Add a reply…"
+                  placeholderTextColor="rgba(255,255,255,0.65)"
+                  style={styles.storyReplyInput}
+                  returnKeyType="send"
+                  editable={!replySending}
+                  onSubmitEditing={() => sendHighlightReply(replyText)}
+                  accessibilityLabel="Reply to this Drop"
+                />
+                <TouchableOpacity
+                  style={[styles.storyReplySendButton, (!replyText.trim() || replySending) && styles.storyReplySendButtonDisabled]}
+                  activeOpacity={0.8}
+                  disabled={!replyText.trim() || replySending}
+                  onPress={() => sendHighlightReply(replyText)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Send reply"
+                >
+                  {replySending ? <ActivityIndicator size="small" color="#111827" /> : <Icon name="send" size={18} color="#111827" />}
+                </TouchableOpacity>
+              </View>
+            </KeyboardAvoidingView>
+          ) : null}
 
           {currentStory && !readOnly ? (
             <View style={styles.viewerFooter}>
@@ -1440,6 +1512,59 @@ const styles = StyleSheet.create({
   fullMedia: {
     width: '100%',
     height: '100%',
+  },
+  storyReplyBar: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    bottom: 24,
+  },
+  storyReactionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  storyReactionButton: {
+    width: 42,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.42)',
+  },
+  storyReactionEmoji: {
+    fontSize: 20,
+  },
+  storyReplyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 24,
+    paddingLeft: 16,
+    paddingRight: 5,
+    minHeight: 50,
+    backgroundColor: 'rgba(0,0,0,0.58)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.42)',
+  },
+  storyReplyInput: {
+    flex: 1,
+    color: '#fff',
+    fontSize: 15,
+    paddingVertical: 10,
+    maxHeight: 90,
+  },
+  storyReplySendButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+  },
+  storyReplySendButtonDisabled: {
+    opacity: 0.45,
   },
   managerOverlay: {
     flex: 1,

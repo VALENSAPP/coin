@@ -237,6 +237,13 @@ const participantToItem = (participant, raw, idx) => {
     }
   }
 
+  const sellerId =
+    product?.userId ||
+    product?.sellerId ||
+    (idx === 0
+      ? raw?.sellerId || raw?.seller?.id || raw?.seller?._id
+      : raw?.opponentSellerId || raw?.opponentSeller?.id || raw?.opponentSeller?._id);
+
   return {
     id: participant?.productId || participant?.product?.id,
     participantId: participant?.id,
@@ -250,6 +257,9 @@ const participantToItem = (participant, raw, idx) => {
     userName,
     shopName,
     sellerName: raw?.sellerName,
+    sellerId,
+    // Keep the complete API product available when the card is opened.
+    raw: product,
   };
 };
 
@@ -469,9 +479,41 @@ export const PhoneFrame = ({ children }) => {
   );
 };
 
-export const BattleCard = ({ left, right, showWinner = false, winnerPercent, accent = PURPLE, textColor = TEXT, isDarkMode = false, card, border }) => {
+export const BattleCard = ({ left, right, showWinner = false, winnerPercent, accent = PURPLE, textColor = TEXT, isDarkMode = false, card, border, onLeftPress, onRightPress }) => {
   const { t } = useLanguage();
   const confettiBg = isDarkMode ? (card || 'rgba(255,255,255,0.08)') : '#FBF3FF';
+  const ProductTile = ({ item, onPress, iconName }) => {
+    const content = (
+      <>
+        <CachedImageBox
+          uri={item.image}
+          style={styles.itemThumb}
+          placeholderStyle={styles.itemThumbPlaceholder}
+          iconName={iconName}
+        />
+        <Text style={[styles.itemName, { color: textColor }]}>{item.name}</Text>
+        <Text style={[styles.itemPrice, { color: accent }]}>{item.price}</Text>
+        {(item.shopName || item.userName || item.sellerName) ? (
+          <Text style={[styles.itemSeller, { color: isDarkMode ? '#AAAAAA' : '#666666', fontSize: 12, marginTop: 4, textAlign: 'center' }]} numberOfLines={1}>
+            {item.shopName || item.userName || item.sellerName}
+          </Text>
+        ) : null}
+        {showWinner &&
+          <View style={{
+            backgroundColor: '#fbbf24', borderRadius: 999, paddingHorizontal: 10,
+            paddingVertical: 5, marginTop: 6, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Text style={{ fontSize: 10, fontWeight: '900', color: '#111827', letterSpacing: 0.2, textAlign: 'center' }}>🏆 Winner</Text>
+          </View>}
+      </>
+    );
+
+    return onPress ? (
+      <TouchableOpacity style={styles.itemTile} activeOpacity={0.75} onPress={onPress} accessibilityRole="button" accessibilityLabel={`View ${item.name}`}>
+        {content}
+      </TouchableOpacity>
+    ) : <View style={styles.itemTile}>{content}</View>;
+  };
   return (
     <View style={styles.cardBlock}>
       {showWinner ? (
@@ -502,52 +544,9 @@ export const BattleCard = ({ left, right, showWinner = false, winnerPercent, acc
         </View>
       ) : null}
       <View style={styles.vsGrid}>
-        <View style={styles.itemTile}>
-          <CachedImageBox
-            uri={left.image}
-            style={styles.itemThumb}
-            placeholderStyle={styles.itemThumbPlaceholder}
-            iconName="bag-outline"
-          />
-          <Text style={[styles.itemName, { color: textColor }]}>{left.name}</Text>
-          <Text style={[styles.itemPrice, { color: accent }]}>{left.price}</Text>
-          {(left.shopName || left.userName || left.sellerName) ? (
-            <Text style={[styles.itemSeller, { color: isDarkMode ? '#AAAAAA' : '#666666', fontSize: 12, marginTop: 4, textAlign: 'center' }]} numberOfLines={1}>
-              {left.shopName || left.userName || left.sellerName}
-            </Text>
-          ) : null}
-          {showWinner &&
-            // <Text style={[styles.winnerBadge, { color: textColor, marginTop: 5 }]}>🏆 {t('battle.winner')}</Text>
-            <TouchableOpacity style={{
-              backgroundColor: '#fbbf24',
-              borderRadius: 999,
-              paddingHorizontal: 10,
-              paddingVertical: 5,
-              marginTop: 6,
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}>
-              <Text style={{ fontSize: 10, fontWeight: '900', color: '#111827', letterSpacing: 0.2, textAlign: 'center' }}>🏆 Winner</Text>
-            </TouchableOpacity>
-          }
-        </View>
+        <ProductTile item={left} onPress={onLeftPress} iconName="bag-outline" />
         <View style={[styles.vsBubble, { backgroundColor: accent }]}><Text style={styles.vsText}>{t('battle.vs')}</Text></View>
-        <View style={styles.itemTile}>
-          <CachedImageBox
-            uri={right.image}
-            style={styles.itemThumb}
-            placeholderStyle={styles.itemThumbPlaceholder}
-            iconName="bag-handle-outline"
-          />
-          <Text style={[styles.itemName, { color: textColor }]}>{right.name}</Text>
-          <Text style={[styles.itemPrice, { color: accent }]}>{right.price}</Text>
-          {(right.shopName || right.userName || right.sellerName) ? (
-            <Text style={[styles.itemSeller, { color: isDarkMode ? '#AAAAAA' : '#666666', fontSize: 12, marginTop: 4, textAlign: 'center' }]} numberOfLines={1}>
-              {right.shopName || right.userName || right.sellerName}
-            </Text>
-          ) : null}
-        </View>
+        <ProductTile item={right} onPress={onRightPress} iconName="bag-handle-outline" />
       </View>
     </View>
   );
@@ -1778,6 +1777,43 @@ export function BattleLiveScreen({ navigation, route }) {
     : Number(leftItem?.votePercentage ?? leftItem?.pct ?? leftVotePercent);
   const showWinnerCard = battleIsResolved && !!winnerSide;
 
+  const openBattleProduct = useCallback((battleItem) => {
+    const product = battleItem?.raw || battleItem;
+    const sellerId =
+      battleItem?.sellerId ||
+      product?.sellerId ||
+      product?.userId ||
+      product?.seller?.id ||
+      product?.seller?._id;
+    const productOwnerId = sellerId ? String(sellerId) : '';
+    const isOwnItem = Boolean(productOwnerId && currentUserId && productOwnerId === String(currentUserId));
+
+    navigation.navigate('MyClosetBuyerItemDetail', {
+      item: product,
+      seller: {
+        id: sellerId,
+        displayName: battleItem?.shopName || battleItem?.sellerName || battleItem?.userName,
+        userName: battleItem?.userName,
+      },
+      sellerId,
+      // This controls the purchase CTA in the item-detail screen.
+      isOwnProfile: isOwnItem,
+      // Prefer popping the stack; the route below is used if this screen was
+      // opened directly and has no back-stack entry.
+      preferStackBack: true,
+      returnTo: {
+        screen: 'BattleLive',
+        params: {
+          battleId,
+          question,
+          selectedItems,
+          isOwnProfile,
+          returnTo,
+        },
+      },
+    });
+  }, [battleId, currentUserId, isOwnProfile, navigation, question, returnTo, selectedItems]);
+
   const checkExistingVote = useCallback(async () => {
     if (!battleId) return;
     setCheckingVote(true);
@@ -2130,6 +2166,8 @@ export function BattleLiveScreen({ navigation, route }) {
         isDarkMode={isDarkMode}
         card={surface}
         border={border || BORDER}
+        onLeftPress={() => openBattleProduct(showWinnerCard ? winnerItem : leftItem)}
+        onRightPress={() => openBattleProduct(showWinnerCard ? runnerUpItem : rightItem)}
       />
 
       {/* Vote choice buttons with live counts */}
