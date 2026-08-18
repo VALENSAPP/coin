@@ -453,7 +453,6 @@ const splitHeaderNameLines = (label, maxCharsPerLine) => {
 };
 
 const ACTIVITY_UNFOLLOW_PINK = '#db2777';
-const ACTIVITY_SUPPORT_LINE = '#8b5cf6';
 /** Min horizontal space per segment; chart widens (scroll) when points would crowd */
 const ACTIVITY_CHART_POINT_GAP = 58;
 /** Minimum px between visible x-axis labels */
@@ -680,6 +679,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
   const { bgStyle, textStyle, text, card, cardStyle, bg, mutedText, accent, icon, border } = useAppTheme(
     isBusinessProfile ? 'company' : undefined,
   );
+  const activitySupportLine = accent;
   const { isDarkMode } = useThemeContext();
   const [userWalletData, setUserWalletData] = useState({
     stripeCustomerId: '',
@@ -1389,6 +1389,9 @@ export const WalletDashboardScreen = ({ navigation }) => {
     const metaActionText = isMetaMaskConnected
       ? t('walletDashboard.metamask.tapToDisconnect')
       : t('walletDashboard.metamask.tapToConnect');
+    const supportCardTitle = isSupportCard && typeof item.title === 'string'
+      ? item.title.replace(/\s+/, '\n')
+      : item.title;
 
     if (isMetaMaskCard) {
       const normalizedWalletType = String(connectedWalletType || '').trim().toLowerCase();
@@ -1578,8 +1581,13 @@ export const WalletDashboardScreen = ({ navigation }) => {
             </View>
             {isSupportCard ? (
               <View style={styles.kpiSubscriptionTitleWrap}>
-                <Text style={[styles.kpiSubscriptionTitleLine, { color: gradientText }]}>
-                  {item.title}
+                <Text
+                  style={[styles.kpiSubscriptionTitleLine, { color: gradientText }]}
+                  numberOfLines={2}
+                  maxFontSizeMultiplier={1}
+                  adjustsFontSizeToFit={false}
+                >
+                  {supportCardTitle}
                 </Text>
               </View>
             ) : (
@@ -1977,11 +1985,11 @@ export const WalletDashboardScreen = ({ navigation }) => {
                 </View>
               </View>
 
-              <View style={[styles.activityMetricCard, styles.activityMetricCardCompact, { backgroundColor: activityMetricCardBg, borderColor: `${ACTIVITY_SUPPORT_LINE}33` }]}>
-                <View style={[styles.activityMetricIconWrap, styles.activityMetricIconWrapCompact, { backgroundColor: `${ACTIVITY_SUPPORT_LINE}22` }]}>
-                  <Ionicons name="wallet" size={14} color={ACTIVITY_SUPPORT_LINE} />
+              <View style={[styles.activityMetricCard, styles.activityMetricCardCompact, { backgroundColor: activityMetricCardBg, borderColor: `${activitySupportLine}33` }]}>
+                <View style={[styles.activityMetricIconWrap, styles.activityMetricIconWrapCompact, { backgroundColor: `${activitySupportLine}22` }]}>
+                  <Ionicons name="wallet" size={14} color={activitySupportLine} />
                 </View>
-                <Text style={[styles.activityMetricValue, styles.activityMetricValueCompact, { color: ACTIVITY_SUPPORT_LINE }]}>
+                <Text style={[styles.activityMetricValue, styles.activityMetricValueCompact, { color: activitySupportLine }]}>
                   {formatSupportUsd(supportReceivedUsd)}
                 </Text>
                 <Text style={[styles.activityMetricLabel, styles.activityMetricLabelCompact, { color: mutedText }]} numberOfLines={1}>
@@ -2064,7 +2072,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
                 <Text style={[styles.activityLegendText, { color: mutedText }]}>Followers</Text>
               </View>
               <View style={styles.activityLegendItem}>
-                <View style={[styles.activityLegendDot, { backgroundColor: ACTIVITY_SUPPORT_LINE }]} />
+                <View style={[styles.activityLegendDot, { backgroundColor: activitySupportLine }]} />
                 <Text style={[styles.activityLegendText, { color: mutedText }]}>Support trend</Text>
               </View>
               <View style={styles.activityLegendItem}>
@@ -2102,7 +2110,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
                     chartHeight={activityChartH}
                     colorFollowers={text}
                     colorUnfollowers={ACTIVITY_UNFOLLOW_PINK}
-                    colorSupport={ACTIVITY_SUPPORT_LINE}
+                    colorSupport={activitySupportLine}
                     range={FOLLOWERS_RANGE_BY_PERIOD[activityPeriod] ?? 'weekly'}
                   />
                 </ScrollView>

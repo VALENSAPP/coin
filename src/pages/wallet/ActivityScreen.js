@@ -28,7 +28,7 @@ export const ActivityScreen = ({ navigation }) => {
   const [activeFilter, setActiveFilter] = useState('all');
   const [activities, setActivities] = useState([]);
   const [notificationsMuted, setNotificationsMuted] = useState(false);
-  const { bgStyle, textStyle, text, cardStyle, mutedText, accent, border } = useBusinessProfileTheme();
+  const { bgStyle, textStyle, text, } = useBusinessProfileTheme();
   const { t } = useLanguage();
 
   const brandPurple = '#513189';
@@ -278,7 +278,7 @@ export const ActivityScreen = ({ navigation }) => {
         {/* Middle Text Content */}
         <View style={styles.activityContentBox}>
           <Text style={styles.activityActionText} numberOfLines={2}>
-            <Text style={[styles.userNameBold, { color: isDarkMode ? '#F3F4F6' : '#513189' }]}>
+            <Text style={[styles.userNameBold, { color: text }]}>
               {item.userName}{' '}
             </Text>
             <Text style={[styles.actionNormalText, { color: isDarkMode ? '#D1D5DB' : '#374151' }]}>
@@ -324,7 +324,7 @@ export const ActivityScreen = ({ navigation }) => {
                 style={[
                   styles.filterPillButton,
                   isActive
-                    ? { backgroundColor: brandPurple, borderColor: brandPurple }
+                    ? { backgroundColor:text, borderColor: text }
                     : {
                         backgroundColor: isDarkMode ? '#1E1B2E' : '#FFFFFF',
                         borderColor: isDarkMode ? '#2D2844' : '#E5E7EB',
@@ -357,7 +357,7 @@ export const ActivityScreen = ({ navigation }) => {
 
         {/* Activity Section */}
         <View style={styles.sectionContainer}>
-          <Text style={[styles.sectionTitleText, { color: isDarkMode ? '#F3F4F6' : '#513189' }]}>
+          <Text style={[styles.sectionTitleText, { color:text }]}>
             {getSectionTitle()}
           </Text>
           <FlatList
