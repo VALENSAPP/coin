@@ -4394,6 +4394,7 @@
     "deliverySuccess": "O pedido foi marcado como entregue com sucesso.",
     "status": {
       "pending": "Da spedire",
+      "pickup": "Retirada",
       "confirmed": "Confermato",
       "processing": "In elaborazione",
       "shipped": "Spedito",

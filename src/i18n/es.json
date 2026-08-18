@@ -4380,6 +4380,7 @@
     "deliverySuccess": "El pedido se ha marcado como entregado correctamente.",
     "status": {
       "pending": "Por enviar",
+      "pickup": "Recogida",
       "confirmed": "Confirmado",
       "processing": "En proceso",
       "shipped": "Enviado",

@@ -4393,6 +4393,7 @@
     "deliverySuccess": "L'ordine è stato contrassegnato come consegnato correttamente.",
     "status": {
       "pending": "À expédier",
+      "pickup": "Ritiro",
       "confirmed": "Confirmée",
       "processing": "En cours de traitement",
       "shipped": "Expédiée",

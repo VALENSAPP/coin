@@ -739,11 +739,11 @@ export const displayFcmAsExpandable = async (remoteMessage) => {
         };
 
     } else {
-        // ── FALLBACK ──────────────────────────────────────────────────────
-        title = data?.expandedTitle ?? fcmTitle ?? 'Notification';
-        body = fcmBody ?? data?.expandedBody ?? '';
-        bigText = data?.expandedBody ?? body;
-        bigTitle = data?.expandedTitle ?? title;
+        // Generic notifications, including marketplace battle challenges
+        title = fcmTitle || data?.expandedTitle || 'Notification';
+        body = fcmBody || data?.expandedBody || '';
+        bigText = data?.expandedBody || body;
+        bigTitle = undefined;
         imageUrl = data?.image_url;
         subtitle = data?.subtitle;
     }

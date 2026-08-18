@@ -147,6 +147,30 @@ const getLineItemName = (line, t) =>
 
 const getLineItemPrice = line => line?.product?.price ?? line?.price ?? 0;
 
+const formatPickupAvailableHours = value => {
+  if (!value) return '';
+
+  let hours = value;
+  if (typeof value === 'string') {
+    try {
+      hours = JSON.parse(value);
+    } catch {
+      // Keep supporting pickup-hour values returned by older API responses.
+      return value.trim();
+    }
+  }
+
+  if (!hours || typeof hours !== 'object') return '';
+
+  const weekday = [hours.weekdayStart, hours.weekdayEnd].filter(Boolean).join(' – ');
+  const weekend = [hours.weekendStart, hours.weekendEnd].filter(Boolean).join(' – ');
+
+  return [
+    weekday && `Mon–Fri: ${weekday}`,
+    weekend && `Sat–Sun: ${weekend}`,
+  ].filter(Boolean).join('\n');
+};
+
 const normalizeOrderDetail = (order, t, viewType, isLocalPickupRoute = false) => {
   const lineItems = Array.isArray(order?.orderItems)
     ? order.orderItems
@@ -229,6 +253,22 @@ const normalizeOrderDetail = (order, t, viewType, isLocalPickupRoute = false) =>
     lineItems.some(it => isLocalPickupVal(it?.selectedShippingChoice || it?.shippingChoice || it?.shippingOption || it?.product?.shippingOption)) ||
     viewType === 'local-pickup';
 
+  const pickupAddress =
+    order?.pickupAddress ||
+    lineItems?.[0]?.pickupAddress ||
+    order?.items?.[0]?.pickupAddress ||
+    order?.orderItems?.[0]?.pickupAddress ||
+    null;
+
+  const pickupAvailableHoursRaw =
+    order?.pickupAvailableHours ||
+    lineItems?.[0]?.pickupAvailableHours ||
+    order?.items?.[0]?.pickupAvailableHours ||
+    order?.orderItems?.[0]?.pickupAvailableHours ||
+    null;
+
+  const pickupAvailableHours = formatPickupAvailableHours(pickupAvailableHoursRaw);
+
   return {
     id: order?.id || order?._id,
     orderNumber: order?.orderNumber || order?.orderId || order?.id,
@@ -252,6 +292,8 @@ const normalizeOrderDetail = (order, t, viewType, isLocalPickupRoute = false) =>
     address,
     shippingType,
     isLocalPickup,
+    pickupAddress,
+    pickupAvailableHours,
     raw: order,
   };
 };
@@ -399,7 +441,7 @@ const StatusTimeline = ({ status, isLocalPickup }) => {
                 {done ? <Ionicons name="checkmark" size={11} color="#fff" /> : null}
               </View>
               <Text style={[styles.timelineLabel, mutedTextStyle, active && { color: accent, fontWeight: '900' }]}>
-                {t(meta.labelKey)}
+                {isLocalPickup && index === 0 ? t('myClosetOrderDetail.status.pickup') : t(meta.labelKey)}
               </Text>
             </View>
             {index < steps.length - 1 && (
@@ -700,6 +742,7 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
 
   const meta = STATUS_META[order.status];
 
+  console.log("order----------------------------",order)
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
       <Header onBack={goBack} title={t('myClosetOrderDetail.orderNumberTitle', { orderNumber: order.orderNumber })} />
@@ -707,7 +750,11 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
         <View style={styles.topRow}>
           <Text style={[styles.orderDate, mutedTextStyle]}>{order.createdAt}</Text>
           <View style={[styles.statusBadge, { backgroundColor: meta.bg }]}>
-            <Text style={[styles.statusText, { color: meta.color }]}>{t(meta.labelKey)}</Text>
+            <Text style={[styles.statusText, { color: meta.color }]}>
+              {order.isLocalPickup && (order.status === 'pending' || order.status === 'confirmed')
+                ? t('myClosetOrderDetail.status.pickup')
+                : t(meta.labelKey)}
+            </Text>
           </View>
         </View>
 
@@ -754,10 +801,43 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
           </TouchableOpacity>
         </View>
 
-        {order.address ? (
+        {order.isLocalPickup ? (
+          order.pickupAddress ? (
+            <View style={[styles.card, cardStyle, { borderColor: border, backgroundColor: surface }]}>
+              <Text style={[styles.cardTitle, textStyle]}>
+                {t('myClosetOrderDetail.pickupLocation')}
+              </Text>
+              <Text style={[styles.addressSub, mutedTextStyle, { marginTop: 4 }]}>{order.pickupAddress}</Text>
+              {order.pickupAvailableHours ? (
+                <Text style={[styles.addressSub, mutedTextStyle, { marginTop: 4 }]}>
+                  {order.pickupAvailableHours}
+                </Text>
+              ) : null}
+            </View>
+          ) : order.address ? (
+            <View style={[styles.card, cardStyle, { borderColor: border, backgroundColor: surface }]}>
+              <Text style={[styles.cardTitle, textStyle]}>
+                {t('myClosetOrderDetail.pickupLocation')}
+              </Text>
+              <Text style={[styles.addressText, textStyle]}>{order.address.fullName}</Text>
+              {order.address.phoneNumber ? (
+                <Text style={[styles.addressSub, mutedTextStyle]}>{order.address.phoneNumber}</Text>
+              ) : null}
+              <Text style={[styles.addressSub, mutedTextStyle]}>{order.address.addressLine1}</Text>
+              {order.address.addressLine2 ? (
+                <Text style={[styles.addressSub, mutedTextStyle]}>{order.address.addressLine2}</Text>
+              ) : null}
+              <Text style={[styles.addressSub, mutedTextStyle]}>
+                {[order.address.city, order.address.state, order.address.postalCode]
+                  .filter(Boolean)
+                  .join(', ')}
+              </Text>
+            </View>
+          ) : null
+        ) : order.address ? (
           <View style={[styles.card, cardStyle, { borderColor: border, backgroundColor: surface }]}>
             <Text style={[styles.cardTitle, textStyle]}>
-              {t(order.isLocalPickup ? 'myClosetOrderDetail.pickupLocation' : 'myClosetOrderDetail.shippingAddress')}
+              {t('myClosetOrderDetail.shippingAddress')}
             </Text>
             <Text style={[styles.addressText, textStyle]}>{order.address.fullName}</Text>
             {order.address.phoneNumber ? (

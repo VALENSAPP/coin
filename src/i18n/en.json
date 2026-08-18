@@ -4517,6 +4517,7 @@
     "deliverySuccess": "Order marked as delivered successfully.",
     "status": {
       "pending": "To ship",
+      "pickup": "Pickup",
       "confirmed": "Confirmed",
       "processing": "Processing",
       "shipped": "Shipped",

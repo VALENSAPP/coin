@@ -4381,6 +4381,7 @@
     "deliverySuccess": "La commande a été marquée comme livrée avec succès.",
     "status": {
       "pending": "À expédier",
+      "pickup": "Retrait",
       "confirmed": "Confirmée",
       "processing": "En cours de traitement",
       "shipped": "Expédiée",
