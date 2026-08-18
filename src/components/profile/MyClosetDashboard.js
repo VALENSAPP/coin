@@ -21,6 +21,8 @@ import {
   getSellerOrders,
   getBuyerOrders,
   getUnviewedOrderIds,
+  markAllOrdersAsViewed,
+  markOrderAsViewed,
   getSellerDashboard,
   getMarketplaceOverview,
   getMyClosetMe,
@@ -643,6 +645,11 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
   };
 
   const handleViewAllOrders = () => {
+    setUnviewedOrderIds([]);
+    markAllOrdersAsViewed().catch(error => {
+      console.warn('Unable to mark all seller orders as viewed:', error);
+    });
+
     navigation?.navigate?.('ProfileMain', {
       screen: 'MyClosetOrders',
       params: { viewType: 'seller' },
@@ -661,6 +668,17 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
 
   const handleOpenOrder = order => {
     const rawOrder = order.raw || order;
+    const openedOrderId = rawOrder?.id || rawOrder?._id || order?.id;
+
+    if (openedOrderId) {
+      setUnviewedOrderIds(currentIds =>
+        currentIds.filter(id => id !== String(openedOrderId)),
+      );
+      markOrderAsViewed(openedOrderId).catch(error => {
+        console.warn('Unable to mark seller order as viewed:', error);
+      });
+    }
+
     const items = Array.isArray(rawOrder?.items)
       ? rawOrder.items
       : Array.isArray(rawOrder?.orderItems)
@@ -994,14 +1012,7 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
                 </View>
                 <View style={styles.itemCopy}>
                   <Text style={[styles.itemName, textStyle]} numberOfLines={1}>{item.name}</Text>
-                  <View style={styles.orderNumberRow}>
-                    <Text style={[styles.itemOrder, mutedTextStyle]}>{item.order}</Text>
-                    {unviewedOrderIds.includes(String(item.id || item.raw?.id || item.raw?._id)) ? (
-                      <View style={[styles.newOrderBadge, { backgroundColor: accent }]}>
-                        <Text style={styles.newOrderBadgeText}>{t('myClosetDashboard.newOrderBadge')}</Text>
-                      </View>
-                    ) : null}
-                  </View>
+                  <Text style={[styles.itemOrder, mutedTextStyle]}>{item.order}</Text>
                   <Text style={[styles.itemMeta, mutedTextStyle]} numberOfLines={1}>
                     {item.buyerName}
                     {item.createdAt ? ` • ${new Date(item.createdAt).toLocaleDateString()}` : ''}
@@ -1012,7 +1023,14 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
                     <Text style={[styles.statusText, { color: text }]}>{item.status}</Text>
                   </View>
                   <Text style={[styles.orderPrice, textStyle]}>{item.totalAmount}</Text>
-                  <Text style={[styles.orderCount, mutedTextStyle]}>{item.totalItemCount} item{item.totalItemCount === 1 ? '' : 's'}</Text>
+                  <View style={styles.orderCountRow}>
+                    <Text style={[styles.orderCount, mutedTextStyle]}>{item.totalItemCount} item{item.totalItemCount === 1 ? '' : 's'}</Text>
+                    {unviewedOrderIds.includes(String(item.id || item.raw?.id || item.raw?._id)) ? (
+                      <View style={[styles.newOrderBadge, { backgroundColor: accent }]}>
+                        <Text style={styles.newOrderBadgeText}>{t('myClosetDashboard.newOrderBadge')}</Text>
+                      </View>
+                    ) : null}
+                  </View>
                 </View>
               </TouchableOpacity>
             ))}
@@ -1439,7 +1457,6 @@ const styles = StyleSheet.create({
   },
   itemCopy: { flex: 1 },
   itemName: { fontSize: 14, fontWeight: '700' },
-  orderNumberRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   itemOrder: { marginTop: 2, fontSize: 12, fontWeight: '500' },
   newOrderBadge: {
     marginTop: 2,
@@ -1457,6 +1474,7 @@ const styles = StyleSheet.create({
   },
   statusText: { fontSize: 11, fontWeight: '700' },
   orderPrice: { fontSize: 13, fontWeight: '700' },
+  orderCountRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 6 },
   orderCount: { fontSize: 11, fontWeight: '600' },
 
   // Items grid
