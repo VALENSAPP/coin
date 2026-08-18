@@ -52,6 +52,7 @@ import ValensWallet from '../pages/wallet/ValensWallet';
 import PrivateCircle from '../components/profile/PrivateCircle';
 import { useLanguage } from '../i18n';
 import { lockProfile } from '../services/kycverification';
+import { getUnviewedOrderIds } from '../services/myCloset';
 import WhiteScreen from '../pages/authentication/WhiteScreen';
 import { useThemeContext } from '../theme/ThemeContext';
 import { normalizeProfileType } from '../utils/closetNavigation';
@@ -91,6 +92,36 @@ const CustomDrawerContent = (props) => {
   const { t } = useLanguage();
   const reduxProfile = useSelector(state => state.userProfile.userProfile);
   const [storedProfile, setStoredProfile] = React.useState('');
+  const [unviewedCount, setUnviewedCount] = React.useState(0);
+
+  const checkUnviewedOrders = React.useCallback(async () => {
+    console.log('API CALL: getUnviewedOrderIds started');
+    try {
+      const res = await getUnviewedOrderIds();
+      console.log('API CALL: getUnviewedOrderIds success response:', res?.data ?? res);
+      const data = res?.data?.data ?? res?.data ?? res;
+      const countVal = Number(
+        data?.count ??
+        data?.total ??
+        data?.unviewedCount ??
+        (Array.isArray(data?.unviewedIds) ? data.unviewedIds.length : 0) ??
+        (Array.isArray(data?.ids) ? data.ids.length : 0) ??
+        0
+      );
+      setUnviewedCount(countVal);
+    } catch (err) {
+      console.log('API CALL: getUnviewedOrderIds error:', err?.response?.data ?? err?.message ?? err);
+    }
+  }, []);
+
+  useEffect(() => {
+    checkUnviewedOrders();
+    const unsubscribe = props.navigation.addListener('state', () => {
+      checkUnviewedOrders();
+    });
+    return unsubscribe;
+  }, [props.navigation, checkUnviewedOrders]);
+
   const resolvedProfile = normalizeProfileType(
     reduxProfile && reduxProfile !== 'normal' ? reduxProfile : storedProfile || 'user',
   );
@@ -249,6 +280,9 @@ const CustomDrawerContent = (props) => {
         )}
         <Text style={{ fontSize: 15, color: drawerColors.inactive, fontWeight: '600' }}>
           {isCompanyProfile ? t('drawerNav.shop') : t('drawerNav.myCloset')}
+          {!isCompanyProfile && unviewedCount > 0 && (
+            <Text style={{ color: accent }}> | {t('myClosetDashboard.newOrder')}</Text>
+          )}
         </Text>
         {isCompanyProfile && (
           <View style={{ marginLeft: 8, backgroundColor: '#E0E7FF', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 12 }}>

@@ -4418,6 +4418,8 @@
     "orderItemFallback": "Order item",
     "orderItemsCount": "{{count}} item(s)",
     "orderNumber": "Order #{{number}}",
+    "newOrderBadge": "NEW",
+    "newOrder": "New Order",
     "stats": {
       "views": "Views",
       "likes": "Likes",

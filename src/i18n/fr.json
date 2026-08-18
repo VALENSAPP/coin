@@ -4282,6 +4282,8 @@
     "orderItemFallback": "Article de la commande",
     "orderItemsCount": "{{count}} article(s)",
     "orderNumber": "Commande n°{{number}}",
+    "newOrderBadge": "NOUVEAU",
+    "newOrder": "Nouvelle commande",
     "stats": {
       "views": "Vues",
       "likes": "Mentions J'aime",

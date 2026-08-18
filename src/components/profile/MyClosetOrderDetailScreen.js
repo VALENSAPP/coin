@@ -27,6 +27,7 @@ import {
   markOrderShipped,
   markOrderDelivered,
   deliverLocalPickupOrder,
+  markOrderAsViewed,
 } from '../../services/myCloset';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useThemeContext } from '../../theme/ThemeContext';
@@ -599,6 +600,17 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
         return newOrder;
       });
       setError(null);
+
+      if (viewType !== 'buyer' && resolvedOrderId) {
+        console.log(`API CALL: markOrderAsViewed started for orderId: ${resolvedOrderId}`);
+        markOrderAsViewed(resolvedOrderId)
+          .then(res => {
+            console.log(`API CALL: markOrderAsViewed success response for ${resolvedOrderId}:`, res?.data ?? res);
+          })
+          .catch(err => {
+            console.log(`API CALL: markOrderAsViewed error for ${resolvedOrderId}:`, err?.response?.data ?? err?.message ?? err);
+          });
+      }
     } else {
       setError(t('myClosetOrderDetail.couldNotLoadOrder'));
     }

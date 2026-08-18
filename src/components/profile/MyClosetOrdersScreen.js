@@ -27,6 +27,7 @@ import {
   deliverLocalPickupOrder,
   getBuyerOrders,
   cancelBuyerOrder,
+  getUnviewedOrderIds,
 } from '../../services/myCloset';
 import ShippingDetailsModal from '../modals/ShippingDetailsModal';
 import DeliverOtpModal from '../modals/DeliverOtpModal';
@@ -310,6 +311,7 @@ const OrderCard = ({
   onOpen,
   advancing,
   t,
+  isNew,
 }) => {
   const meta = STATUS_META[order.status] || STATUS_META.pending;
   const statusLabel = t(`myClosetOrders.status.${order.status}`);
@@ -321,7 +323,14 @@ const OrderCard = ({
     <View style={[styles.orderCard, cardStyle, { borderColor: border || withAlpha(accent, 0.12) }]}>
       <TouchableOpacity activeOpacity={0.8} onPress={() => onOpen(order)}>
         <View style={styles.orderCardTop}>
-          <Text style={[styles.orderNumber, mutedTextStyle]}>#{order.orderNumber}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Text style={[styles.orderNumber, mutedTextStyle]}>#{order.orderNumber}</Text>
+            {isNew && (
+              <View style={{ backgroundColor: accent, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 }}>
+                <Text style={{ fontSize: 9, color: '#fff', fontWeight: 'bold' }}>{t('myClosetDashboard.newOrderBadge')}</Text>
+              </View>
+            )}
+          </View>
           <View style={[styles.statusBadge, { backgroundColor: meta.bg }]}>
             <Text style={[styles.statusText, { color: meta.color }]}>{statusLabel}</Text>
           </View>
@@ -424,6 +433,7 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
   const [shippingModalOrder, setShippingModalOrder] = useState(null);
   const [pageInfo, setPageInfo] = useState({ page: 1, limit: 10, total: 0, totalPages: 1 });
   const [counts, setCounts] = useState({ all: 0, pending: 0, processing: 0, shipped: 0, delivered: 0 });
+  const [unviewedIds, setUnviewedIds] = useState([]);
 
   const handleFulfillmentTabChange = useCallback((newTab) => {
     setFulfillmentTab(newTab);
@@ -523,14 +533,35 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
     }
   }, [fetchOrdersPage, tabs]);
 
+  // The API returns the seller order IDs that have not yet been opened. Keep
+  // these separate from the list response so the matching card can show NEW.
+  const loadUnviewedOrderIds = useCallback(async () => {
+    if (mode !== 'seller') {
+      setUnviewedIds([]);
+      return;
+    }
+
+    try {
+      const response = await getUnviewedOrderIds();
+      const data = response?.data?.data ?? response?.data ?? response;
+      const ids = data?.unviewedOrderIds ?? data?.unviewedIds ?? data?.ids ?? [];
+      setUnviewedIds(Array.isArray(ids) ? ids.map(id => String(id)) : []);
+    } catch (error) {
+      // A badge is supplementary; do not block the order list if it fails.
+      console.log('API CALL: getUnviewedOrderIds error:', error?.response?.data ?? error?.message ?? error);
+      setUnviewedIds([]);
+    }
+  }, [mode]);
+
   useFocusEffect(
     useCallback(() => {
       loadOrders(1, false);
 
       if (mode === 'seller') {
         loadCounts();
+        loadUnviewedOrderIds();
       }
-    }, [activeTab, mode, fulfillmentTab]),
+    }, [mode, loadCounts, loadOrders, loadUnviewedOrderIds]),
   );
 
   const handleLoadMore = useCallback(() => {
@@ -807,6 +838,7 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
               onCancel={handleCancel}
               onOpen={handleOpenOrder}
               t={t}
+              isNew={mode === 'seller' && unviewedIds.includes(String(order.raw?.id || order.raw?._id || order.id))}
             />
           ))
         ) : (

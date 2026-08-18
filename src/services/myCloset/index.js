@@ -288,6 +288,18 @@ export const getSellerOrderDetails = async orderId => {
   return axiosInstance.get(`seller/orders/${orderId}`);
 };
 
+export const getUnviewedOrderIds = async () => {
+  return axiosInstance.get('seller/orders/unviewed-ids');
+};
+
+export const markAllOrdersAsViewed = async () => {
+  return axiosInstance.patch('seller/orders/mark-all-viewed');
+};
+
+export const markOrderAsViewed = async orderId => {
+  return axiosInstance.patch(`seller/orders/${orderId}/view`);
+};
+
 export const markOrderProcessing = async orderId => {
   return axiosInstance.patch(`seller/orders/${orderId}/processing`);
 };

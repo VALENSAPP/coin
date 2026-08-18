@@ -20,6 +20,7 @@ import {
   getMyClosetItems,
   getSellerOrders,
   getBuyerOrders,
+  getUnviewedOrderIds,
   getSellerDashboard,
   getMarketplaceOverview,
   getMyClosetMe,
@@ -259,6 +260,7 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
   const [itemsLoading, setItemsLoading] = useState(false);
   const [recentOrders, setRecentOrders] = useState([]);            // Seller: orders received
   const [ordersLoading, setOrdersLoading] = useState(false);
+  const [unviewedOrderIds, setUnviewedOrderIds] = useState([]);
   const [buyerOrders, setBuyerOrders] = useState([]);         // Buyer: orders placed
   const [dashboardData, setDashboardData] = useState(null);
   const [dashboardLoading, setDashboardLoading] = useState(false);
@@ -334,6 +336,19 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
       setOrdersLoading(false);
     }
   }, [t]);
+
+  const loadUnviewedOrderIds = useCallback(async () => {
+    try {
+      const response = await getUnviewedOrderIds();
+      const data = response?.data?.data ?? response?.data ?? response;
+      const ids = data?.unviewedOrderIds ?? data?.unviewedIds ?? data?.ids ?? [];
+      setUnviewedOrderIds(Array.isArray(ids) ? ids.map(id => String(id)) : []);
+    } catch (error) {
+      // The badge is supplementary and must not block dashboard orders.
+      console.warn('Unable to load unviewed order IDs:', error);
+      setUnviewedOrderIds([]);
+    }
+  }, []);
 
   const loadBuyerOrders = useCallback(async () => {
     setBuyerOrdersLoading(true);
@@ -524,12 +539,13 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
       checkShopState();
       loadClosetItems();
       loadRecentOrders();
+      loadUnviewedOrderIds();
       loadBuyerOrders();
       loadDashboard();
       loadMarketplaceOverview(overviewRange);
       loadBattlePerformance();
       loadPriorityBattles();
-    }, [loadClosetItems, loadPriorityBattles, loadRecentOrders, loadBuyerOrders, loadDashboard, loadMarketplaceOverview, loadBattlePerformance, overviewRange]),
+    }, [loadClosetItems, loadPriorityBattles, loadRecentOrders, loadUnviewedOrderIds, loadBuyerOrders, loadDashboard, loadMarketplaceOverview, loadBattlePerformance, overviewRange]),
   );
 
   useEffect(() => {
@@ -978,7 +994,14 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
                 </View>
                 <View style={styles.itemCopy}>
                   <Text style={[styles.itemName, textStyle]} numberOfLines={1}>{item.name}</Text>
-                  <Text style={[styles.itemOrder, mutedTextStyle]}>{item.order}</Text>
+                  <View style={styles.orderNumberRow}>
+                    <Text style={[styles.itemOrder, mutedTextStyle]}>{item.order}</Text>
+                    {unviewedOrderIds.includes(String(item.id || item.raw?.id || item.raw?._id)) ? (
+                      <View style={[styles.newOrderBadge, { backgroundColor: accent }]}>
+                        <Text style={styles.newOrderBadgeText}>{t('myClosetDashboard.newOrderBadge')}</Text>
+                      </View>
+                    ) : null}
+                  </View>
                   <Text style={[styles.itemMeta, mutedTextStyle]} numberOfLines={1}>
                     {item.buyerName}
                     {item.createdAt ? ` • ${new Date(item.createdAt).toLocaleDateString()}` : ''}
@@ -1416,7 +1439,15 @@ const styles = StyleSheet.create({
   },
   itemCopy: { flex: 1 },
   itemName: { fontSize: 14, fontWeight: '700' },
+  orderNumberRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   itemOrder: { marginTop: 2, fontSize: 12, fontWeight: '500' },
+  newOrderBadge: {
+    marginTop: 2,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  newOrderBadgeText: { color: '#fff', fontSize: 9, fontWeight: '800' },
   itemMeta: { marginTop: 2, fontSize: 11, fontWeight: '500' },
   orderRight: { alignItems: 'flex-end', gap: 4 },
   statusBadge: {
