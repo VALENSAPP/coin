@@ -1801,6 +1801,7 @@ const BuyerItemCard = ({ item, accent, t, onPress, onToggleWishlist, sellerId, t
     try {
       if (nextLiked) {
         await addWishlistItem(productId);
+        await toggleMyClosetItemLike(productId);
         const refresh = await getWishlist(sellerId);
         const { match } = findWishlistItemForProduct(refresh, productId);
         setWishlistItemId(match?.id || match?._id || match?.wishlistItemId || match?.wishlistId || null);
@@ -2067,6 +2068,9 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
         setWishlistItemId(null);
       } else {
         await addWishlistItem(productId);
+        await toggleMyClosetItemLike(productId);
+        // Wishlisting also likes the item, so update the header heart immediately.
+        setLiked(true);
         const response = await getWishlist(route?.params?.sellerId);
         const { match } = findWishlistItemForProduct(response, productId);
         setWishlistItemId(match?.id || match?._id || match?.wishlistItemId || match?.wishlistId || null);
@@ -2131,6 +2135,7 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
                 { icon: 'shield-checkmark-outline', label: t('myClosetBuyer.condition'), value: item.condition },
                 { icon: 'pricetag-outline', label: t('myClosetBuyer.brand'), value: item.brand },
                 { icon: 'albums-outline', label: t('myClosetBuyer.category'), value: item.category },
+                { icon: 'cube-outline', label: t('myClosetBuyer.quantity'), value: t('myClosetBuyer.onlyAvailable', { count: item.quantityAvailable }) },
               ].map(attr => (
                 <View key={attr.label} style={styles.attributeRow}>
                   <Ionicons name={attr.icon} size={15} color={text} />
@@ -2846,6 +2851,7 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
         }
       } else {
         await addWishlistItem(productId);
+        await toggleMyClosetItemLike(productId);
         await fetchWishlist();
       }
     } catch (err) {
@@ -4293,7 +4299,21 @@ const MyClosetBuyerOrderReceivedScreen = ({ navigation, route }) => {
   const orderId = payment?.orderId || route?.params?.orderId;
   const amount = payment?.amount != null ? payment.amount / 100 : cart.total; // amount is in cents per your sample
   const orderDate = payment?.createdAt ? new Date(payment.createdAt) : new Date();
-  const items = payment?.metadata?.items ?? [];
+  const items = Array.isArray(payment?.metadata?.items) ? payment.metadata.items : [];
+  const purchasedItems = route?.params?.cartItemsSnapshot || payment?.metadata?.items || payment?.items || [];
+  const isLocalPickupOrder = Boolean(route?.params?.isLocalPickup) ||
+    Object.keys(route?.params?.pickupAddressMap || {}).length > 0 ||
+    purchasedItems.some(item => {
+    const choice = item?.selectedShippingChoice || item?.shippingChoice || item?.shippingOption || item?.product?.shippingOption;
+    return [SHIP_OPTION_LOCAL, 'local-pickup', 'local_pickup', 'pickup'].includes(String(choice || '').toLowerCase());
+  });
+  const sellerName =
+    route?.params?.seller?.displayName ||
+    route?.params?.seller?.userName ||
+    route?.params?.seller?.username ||
+    payment?.sellerName ||
+    payment?.metadata?.sellerName ||
+    t('myClosetBuyer.closetSellerFallback');
 
   const handleChatWithSeller = useCallback(async () => {
     const sellerObj = route?.params?.seller || null;
@@ -4418,6 +4438,22 @@ const MyClosetBuyerOrderReceivedScreen = ({ navigation, route }) => {
             {t('myClosetBuyer.totalLabel', { amount: currency(amount) })}
           </Text>
         </View>
+        {isLocalPickupOrder ? (
+          <View style={[styles.pickupSuccessMessage, themedCard(card, border)]}>
+            <Text style={[styles.pickupSuccessTitle, { color: text }]}>
+              {t('myClosetBuyer.pickupSuccessTitle')}
+            </Text>
+            <Text style={[styles.pickupSuccessText, { color: mutedText }]}>
+              {t('myClosetBuyer.pickupSuccessPreparing', { sellerName })}
+            </Text>
+            <Text style={[styles.pickupSuccessText, { color: mutedText }]}>
+              {t('myClosetBuyer.pickupSuccessInstructions')}
+            </Text>
+            <Text style={[styles.pickupSuccessText, { color: mutedText }]}>
+              {t('myClosetBuyer.pickupSuccessChat')}
+            </Text>
+          </View>
+        ) : null}
       </ScrollView>
       <BottomBar>
         <BottomButton
@@ -5184,6 +5220,15 @@ const styles = StyleSheet.create({
   orderId: { fontSize: 13, color: '#17072d', fontWeight: '900' },
   orderDate: { marginTop: 4, fontSize: 11, color: MUTED },
   receivedTotal: { marginTop: 12, fontSize: 13, fontWeight: '900' },
+  pickupSuccessMessage: {
+    alignSelf: 'stretch',
+    marginTop: 18,
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 16,
+  },
+  pickupSuccessTitle: { fontSize: 17, fontWeight: '900', lineHeight: 24 },
+  pickupSuccessText: { marginTop: 14, fontSize: 14, lineHeight: 21 },
 
   secondaryButton: { minHeight: 48, borderRadius: 13, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: BORDER, marginTop: 10 },
   secondaryButtonText: { fontSize: 14, fontWeight: '900' },

@@ -195,10 +195,20 @@ const PICKUP_LOCATIONS_BY_CITY = {
   ],
 };
 
-const PICKUP_TIME_OPTIONS = [
-  '8:00 AM', '9:00 AM', '10:00 AM', '11:00 AM', '12:00 PM',
-  '1:00 PM', '2:00 PM', '3:00 PM', '4:00 PM', '5:00 PM',
-  '6:00 PM', '7:00 PM', '8:00 PM',
+
+const PICKUP_TIME_GRID_OPTIONS = [
+  '8:00 AM', '8:30 AM', '9:00 AM', '9:30 AM', '10:00 AM', '10:30 AM',
+  '11:00 AM', '11:30 AM', '12:00 PM', '12:30 PM', '1:00 PM', '1:30 PM',
+  '2:00 PM', '2:30 PM', '3:00 PM', '3:30 PM', '4:00 PM', '4:30 PM',
+  '5:00 PM', '5:30 PM', '6:00 PM', '6:30 PM', '7:00 PM', '7:30 PM',
+  '8:00 PM',
+];
+
+const PICKUP_DAYS = [
+  { label: 'Mon', group: 'weekday' }, { label: 'Tue', group: 'weekday' },
+  { label: 'Wed', group: 'weekday' }, { label: 'Thu', group: 'weekday' },
+  { label: 'Fri', group: 'weekday' }, { label: 'Sat', group: 'weekend' },
+  { label: 'Sun', group: 'weekend' },
 ];
 
 const DEFAULT_PICKUP_HOURS = {
@@ -2300,6 +2310,8 @@ const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
     draft.pickupHours || DEFAULT_PICKUP_HOURS,
   );
   const [hoursExpanded, setHoursExpanded] = useState(false);
+  const [selectedPickupDay, setSelectedPickupDay] = useState('Mon');
+  const [pickupTimeTarget, setPickupTimeTarget] = useState('start');
   const [buyerChatEnabled, setBuyerChatEnabled] = useState(
     draft.buyerChatEnabled ?? true,
   );
@@ -2313,6 +2325,9 @@ const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
     () => (PICKUP_LOCATIONS_BY_CITY[pickUpCity] || []).map(place => place.label),
     [pickUpCity],
   );
+  const selectedPickupDayConfig = PICKUP_DAYS.find(day => day.label === selectedPickupDay) || PICKUP_DAYS[0];
+  const pickupTimeKey = `${selectedPickupDayConfig.group}${pickupTimeTarget === 'start' ? 'Start' : 'End'}`;
+  const selectedPickupTime = pickupHours[pickupTimeKey];
 
   const nextDraft = useMemo(
     () => ({
@@ -2804,82 +2819,58 @@ const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
                   ]}
                 >
                   <Text style={[styles.hoursEditorLabel, { color: surfaces.labelColor }]}>
-                    {t('myClosetAddItemShipping.weekdaysLabel')}
+                    {t('myClosetAddItemShipping.selectDay') || 'Select day'}
                   </Text>
-                  <View style={styles.hoursEditorRow}>
-                    <View style={styles.hoursEditorField}>
-                      <DropdownRow
-                        label={t('myClosetAddItemShipping.opensLabel')}
-                        placeholder={t('myClosetAddItemShipping.startTimePlaceholder')}
-                        value={pickupHours.weekdayStart}
-                        expanded={expandedField === 'weekdayStart'}
-                        onToggle={() =>
-                          setExpandedField(prev => (prev === 'weekdayStart' ? null : 'weekdayStart'))
-                        }
-                        onSelect={item => {
-                          setPickupHours(prev => ({ ...prev, weekdayStart: item }));
-                          setExpandedField(null);
-                        }}
-                        options={PICKUP_TIME_OPTIONS}
-                        text={text}
-                      />
-                    </View>
-                    <View style={styles.hoursEditorField}>
-                      <DropdownRow
-                        label={t('myClosetAddItemShipping.closesLabel')}
-                        placeholder={t('myClosetAddItemShipping.endTimePlaceholder')}
-                        value={pickupHours.weekdayEnd}
-                        expanded={expandedField === 'weekdayEnd'}
-                        onToggle={() =>
-                          setExpandedField(prev => (prev === 'weekdayEnd' ? null : 'weekdayEnd'))
-                        }
-                        onSelect={item => {
-                          setPickupHours(prev => ({ ...prev, weekdayEnd: item }));
-                          setExpandedField(null);
-                        }}
-                        options={PICKUP_TIME_OPTIONS}
-                        text={text}
-                      />
-                    </View>
+                  <View style={styles.pickupDayGrid}>
+                    {PICKUP_DAYS.map(day => {
+                      const selected = day.label === selectedPickupDay;
+                      return (
+                        <TouchableOpacity
+                          key={day.label}
+                          activeOpacity={0.85}
+                          onPress={() => setSelectedPickupDay(day.label)}
+                          style={[styles.pickupDayButton, { borderColor: selected ? accent : surfaces.listBorder, backgroundColor: selected ? accent : surfaces.inputSurface }]}
+                        >
+                          <Text style={[styles.pickupDayButtonText, { color: selected ? '#fff' : surfaces.labelColor }]}>{day.label}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                  <View style={styles.pickupTimeTargetRow}>
+                    {['start', 'end'].map(target => {
+                      const selected = target === pickupTimeTarget;
+                      const label = target === 'start'
+                        ? (t('myClosetAddItemShipping.opensLabel') || 'Opens')
+                        : (t('myClosetAddItemShipping.closesLabel') || 'Closes');
+                      return (
+                        <TouchableOpacity
+                          key={target}
+                          activeOpacity={0.85}
+                          onPress={() => setPickupTimeTarget(target)}
+                          style={[styles.pickupTimeTargetButton, { borderColor: selected ? accent : surfaces.listBorder, backgroundColor: selected ? withAlpha(accent, 0.13) : surfaces.inputSurface }]}
+                        >
+                          <Text style={[styles.pickupTimeTargetText, { color: selected ? accent : surfaces.labelColor }]}>{label}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
                   </View>
                   <Text style={[styles.hoursEditorLabel, { color: surfaces.labelColor }]}>
-                    {t('myClosetAddItemShipping.weekendsLabel')}
+                    {t('myClosetAddItemShipping.selectTime') || 'Select time'}
                   </Text>
-                  <View style={styles.hoursEditorRow}>
-                    <View style={styles.hoursEditorField}>
-                      <DropdownRow
-                        label={t('myClosetAddItemShipping.opensLabel')}
-                        placeholder={t('myClosetAddItemShipping.startTimePlaceholder')}
-                        value={pickupHours.weekendStart}
-                        expanded={expandedField === 'weekendStart'}
-                        onToggle={() =>
-                          setExpandedField(prev => (prev === 'weekendStart' ? null : 'weekendStart'))
-                        }
-                        onSelect={item => {
-                          setPickupHours(prev => ({ ...prev, weekendStart: item }));
-                          setExpandedField(null);
-                        }}
-                        options={PICKUP_TIME_OPTIONS}
-                        text={text}
-                      />
-                    </View>
-                    <View style={styles.hoursEditorField}>
-                      <DropdownRow
-                        label={t('myClosetAddItemShipping.closesLabel')}
-                        placeholder={t('myClosetAddItemShipping.endTimePlaceholder')}
-                        value={pickupHours.weekendEnd}
-                        expanded={expandedField === 'weekendEnd'}
-                        onToggle={() =>
-                          setExpandedField(prev => (prev === 'weekendEnd' ? null : 'weekendEnd'))
-                        }
-                        onSelect={item => {
-                          setPickupHours(prev => ({ ...prev, weekendEnd: item }));
-                          setExpandedField(null);
-                        }}
-                        options={PICKUP_TIME_OPTIONS}
-                        text={text}
-                      />
-                    </View>
+                  <View style={styles.pickupTimeGrid}>
+                    {PICKUP_TIME_GRID_OPTIONS.map(time => {
+                      const selected = time === selectedPickupTime;
+                      return (
+                        <TouchableOpacity
+                          key={time}
+                          activeOpacity={0.85}
+                          onPress={() => setPickupHours(prev => ({ ...prev, [pickupTimeKey]: time }))}
+                          style={[styles.pickupTimeButton, { borderColor: selected ? accent : surfaces.listBorder, backgroundColor: selected ? accent : surfaces.inputSurface }]}
+                        >
+                          <Text style={[styles.pickupTimeButtonText, { color: selected ? '#fff' : surfaces.labelColor }]}>{time}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
                   </View>
                 </View>
               ) : null}
@@ -3872,6 +3863,42 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     marginBottom: 8,
   },
+  pickupDayGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 7,
+    marginBottom: 14,
+  },
+  pickupDayButton: {
+    minWidth: 42,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  pickupDayButtonText: { fontSize: 12, fontWeight: '800' },
+  pickupTimeTargetRow: { flexDirection: 'row', gap: 8, marginBottom: 14 },
+  pickupTimeTargetButton: {
+    flex: 1,
+    minHeight: 38,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pickupTimeTargetText: { fontSize: 12, fontWeight: '900' },
+  pickupTimeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  pickupTimeButton: {
+    // Four columns plus the three 8px gaps fit within the pickup card.
+    width: '22%',
+    minHeight: 38,
+    borderRadius: 9,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pickupTimeButtonText: { fontSize: 11, fontWeight: '800' },
   hoursEditorRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

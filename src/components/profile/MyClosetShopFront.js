@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   View,
   Image,
+  Linking,
 } from 'react-native';
 import FastImage from 'react-native-fast-image';
 import { useFocusEffect, useRoute } from '@react-navigation/native';
@@ -26,6 +27,7 @@ import {
   getWishlist,
   addWishlistItem,
   deleteWishlistItem,
+  toggleMyClosetItemLike,
 } from '../../services/myCloset';
 import { Alert } from 'react-native';
 import {
@@ -232,7 +234,7 @@ const isLiveShopBattle = (battle) => {
   const status = String(battle?.status || '').trim().toUpperCase();
   return Boolean(
     battle?.isLive || battle?.live ||
-      ['LIVE', 'ACTIVE', 'IN_PROGRESS', 'IN-PROGRESS', 'ONGOING'].includes(status),
+    ['LIVE', 'ACTIVE', 'IN_PROGRESS', 'IN-PROGRESS', 'ONGOING'].includes(status),
   );
 };
 
@@ -252,7 +254,7 @@ const BATTLES_FALLBACK = [
 ];
 
 export const BattleSlide = ({ battle, accent, t, onPress, card, border, textColor, mutedText, isDark, thumbSurface, mutedColor, loadingOverlayColor, customWidth, imageSize }) => {
-  console.log(battle,'battlesssssss')
+  console.log(battle, 'battlesssssss')
   let winnerSide = battle?.left?.isWinner ? 'left' : battle?.right?.isWinner ? 'right' : null;
   const isPending =
     String(battle?.status || '').toUpperCase() === 'LIVE' &&
@@ -346,7 +348,7 @@ export const BattleSlide = ({ battle, accent, t, onPress, card, border, textColo
           <Text style={[s.fighterName, { color: textColor }]} numberOfLines={2}>{battle.right.name}</Text>
           <Text style={[s.fighterPrice, { color: textColor }]}>{battle.right.price}</Text>
           <View style={s.userRow}>
-            <Text style={[s.pctRed, {color: accent}]}>{battle.right.pct}%</Text>
+            <Text style={[s.pctRed, { color: accent }]}>{battle.right.pct}%</Text>
           </View>
           {renderWinnerBadge('right')}
         </View>
@@ -406,6 +408,7 @@ const ItemTile = ({
       const productId = item.raw?.productId || item.raw?.product?.id || item.raw?.id || item.raw?._id || item.key;
       if (nextLiked) {
         await addWishlistItem(productId);
+        await toggleMyClosetItemLike(productId);
         const refresh = await getWishlist(sellerId);
         const { match } = findWishlistItemForProduct(refresh, productId);
         setWishlistItemId(match?.id || match?._id || match?.wishlistItemId || match?.wishlistId || null);
@@ -712,6 +715,7 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
         const closetRes = await getMyClosetById({ userId: targetUserId }).catch(() => null);
         const apiCloset = unwrapMyClosetResponse(closetRes);
         const closetRecord = apiCloset?.closetDetails || apiCloset || null;
+        console.log("----------------------closetRecord----------------------", closetRecord)
         setClosetDetails(closetRecord);
 
         resolvedClosetId = apiCloset?.closetId ?? closetRecord?.id ?? closetRecord?._id ?? null;
@@ -789,6 +793,16 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
   const shopLogo = useMemo(() => {
     return closetDetails?.shopLogo || '';
   }, [closetDetails?.shopLogo]);
+
+  const shopLocation = useMemo(() => {
+    return closetDetails?.location || '';
+  }, [closetDetails?.location]);
+
+  const openLocationInMaps = () => {
+    if (!shopLocation) return;
+    const query = encodeURIComponent(shopLocation);
+    Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${query}`).catch(() => { });
+  };
 
   const tiles = useMemo(() =>
     items.slice(0, 6).map((it, i) => ({
@@ -999,19 +1013,36 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
           style={[s.banner, cardStyle, { borderColor: border, borderWidth: StyleSheet.hairlineWidth }]}
           onPress={goStorefront}
         >
-          {shopLogo ? (
-            <Image source={{ uri: shopLogo }} style={[s.previewLogo, { backgroundColor: logoSurface }]} />
-          ) : (
-            <View style={[s.bannerIcon, { backgroundColor: `${brand}18` }]}>
-              <Ionicons name="storefront-outline" size={26} color={brand} />
+          <View style={s.bannerTopRow}>
+            {shopLogo ? (
+              <Image source={{ uri: shopLogo }} style={[s.previewLogo, { backgroundColor: logoSurface }]} />
+            ) : (
+              <View style={[s.bannerIcon, { backgroundColor: `${brand}18` }]}>
+                <Ionicons name="storefront-outline" size={26} color={brand} />
+              </View>
+            )}
+            <View style={s.bannerBody}>
+              <Text style={[s.bannerTitle, { color: text }]}>{shopName}</Text>
+              <Text style={[s.bannerSub, { color: mutedText }]}>
+                {shopDescription ? shopDescription : t('myClosetShopFront.shopOwnerBannerSubtitle')}
+              </Text>
             </View>
-          )}
-          <View style={s.bannerBody}>
-            <Text style={[s.bannerTitle, { color: text }]}>{shopName}</Text>
-            <Text style={[s.bannerSub, { color: mutedText }]}>
-              {shopDescription ? shopDescription : t('myClosetShopFront.shopOwnerBannerSubtitle')}
-            </Text>
           </View>
+          {!!shopLocation && (
+            <>
+              <View style={[s.bannerDivider, { backgroundColor: border }]} />
+              <TouchableOpacity
+                activeOpacity={0.7}
+                accessibilityRole="link"
+                accessibilityLabel={`Open ${shopLocation} in maps`}
+                onPress={openLocationInMaps}
+                style={s.bannerLocation}
+              >
+                <Ionicons name="location-outline" size={17} color={text} />
+                <Text style={[s.bannerLocationText, { color: text }]}>{shopLocation}</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </TouchableOpacity>
       ) : (
         <TouchableOpacity
@@ -1019,19 +1050,36 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
           style={[s.banner, cardStyle, { borderColor: border, borderWidth: StyleSheet.hairlineWidth }]}
           onPress={goStorefront}
         >
-          {shopLogo ? (
-            <Image source={{ uri: shopLogo }} style={[s.previewLogo, { backgroundColor: logoSurface }]} />
-          ) : (
-            <View style={[s.bannerIcon, { backgroundColor: `${brand}18` }]}>
-              <Ionicons name="bag-handle" size={26} color={brand} />
+          <View style={s.bannerTopRow}>
+            {shopLogo ? (
+              <Image source={{ uri: shopLogo }} style={[s.previewLogo, { backgroundColor: logoSurface }]} />
+            ) : (
+              <View style={[s.bannerIcon, { backgroundColor: `${brand}18` }]}>
+                <Ionicons name="bag-handle" size={26} color={brand} />
+              </View>
+            )}
+            <View style={s.bannerBody}>
+              <Text style={[s.bannerTitle, { color: text }]}>{shopName}</Text>
+              <Text style={[s.bannerSub, { color: mutedText }]}>
+                {shopDescription ? shopDescription : t('myClosetShopFront.userBannerSubtitle')}
+              </Text>
             </View>
-          )}
-          <View style={s.bannerBody}>
-            <Text style={[s.bannerTitle, { color: text }]}>{shopName}</Text>
-            <Text style={[s.bannerSub, { color: mutedText }]}>
-              {shopDescription ? shopDescription : t('myClosetShopFront.userBannerSubtitle')}
-            </Text>
           </View>
+          {!!shopLocation && (
+            <>
+              <View style={[s.bannerDivider, { backgroundColor: border }]} />
+              <TouchableOpacity
+                activeOpacity={0.7}
+                accessibilityRole="link"
+                accessibilityLabel={`Open ${shopLocation} in maps`}
+                onPress={openLocationInMaps}
+                style={s.bannerLocation}
+              >
+                <Ionicons name="location-outline" size={17} color={text} />
+                <Text style={[s.bannerLocationText, { color: text }]}>{shopLocation}</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </TouchableOpacity>
       )}
 
@@ -1394,15 +1442,17 @@ const s = StyleSheet.create({
     marginRight: 10
   },
   banner: {
-    flexDirection: 'row', alignItems: 'center',
     margin: 12, padding: 14,
     borderRadius: 16,
-
   },
+  bannerTopRow: { flexDirection: 'row', alignItems: 'center' },
   bannerIcon: { width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
   bannerBody: { flex: 1 },
   bannerTitle: { fontSize: 16, fontWeight: '800', marginBottom: 3 },
   bannerSub: { fontSize: 12, lineHeight: 17 },
+  bannerDivider: { height: StyleSheet.hairlineWidth, marginTop: 10, marginBottom: 10 },
+  bannerLocation: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  bannerLocationText: { flex: 1, fontSize: 12, lineHeight: 16, fontWeight: '800' },
 
   /* section */
   section: { marginBottom: 20 },
