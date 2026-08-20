@@ -108,7 +108,7 @@ const normalizeDeepLinkUrl = (incomingUrl = '') =>
 // Component
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default function Main() {
+export default function Main({ onSplashFinish }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isNavigationReady, setIsNavigationReady] = useState(false);
   const [welcomeModalVisible, setWelcomeModalVisible] = useState(false);
@@ -154,7 +154,8 @@ export default function Main() {
   const handleSplashFinish = React.useCallback(() => {
     setIsLoading(false);
     requestPostSplashPermissions();
-  }, [requestPostSplashPermissions]);
+    onSplashFinish?.();
+  }, [onSplashFinish, requestPostSplashPermissions]);
 
   const { activeNotification, showNotificationToast, dismissNotificationToast } =
     useNotificationToast();

@@ -1,5 +1,4 @@
-
-import React, { useEffect } from 'react';
+import React, { useCallback, useRef } from 'react';
 import Main from './src';
 import store from './src/redux/store/store';
 import { Provider } from 'react-redux';
@@ -23,52 +22,37 @@ import {
 
 const queryClient = new QueryClient();
 
-// const options = {
-//   devKey: 'mFQ3phNqHzSU2JJxv7vA73',
-//   isDebug: true,
-//   appId: 'id6752780902', // iOS only
-// };
-
-// appsFlyer.initSdk(
-//   options,
-//   (result) => {
-//     console.log('AppFlyerrr',result);
-//   },
-//   (error) => {
-//     console.log(error);
-//   }
-// );
-
+// Request ATT permission on iOS 14+, then start AppsFlyer regardless of the result.
+// Apple requires ATTrackingManager.requestTrackingAuthorization to be called before
+// any tracking activity begins. AppsFlyer handles limited attribution automatically
+// when the user denies or restricts tracking.
 const initAppsFlyer = async () => {
   if (Platform.OS === 'ios') {
     try {
-      let status = await getTrackingStatus();
-      if (status === 'not-determined') {
-        status = await requestTrackingPermission();
-      }
-      console.log('ATT permission status:', status);
-
-      // Do not initialize the attribution SDK on iOS 14+ unless the user has
-      // explicitly authorized tracking. This prevents IDFA-based tracking when
-      // permission is denied or restricted.
-      if (status !== 'authorized' && status !== 'unavailable') {
-        return;
+      const trackingStatus = await getTrackingStatus();
+      if (trackingStatus === 'not-determined') {
+        // Show the iOS ATT permission dialog
+        const result = await requestTrackingPermission();
+        console.log('ATT permission result:', result);
+      } else {
+        console.log('ATT permission status already set:', trackingStatus);
       }
     } catch (error) {
+      // Do not bail out – always proceed to start AppsFlyer
       console.log('ATT permission error:', error);
-      return;
     }
   }
 
+  // Always initialise and start AppsFlyer regardless of ATT outcome.
   const options = {
     devKey: 'mFQ3phNqHzSU2JJxv7vA73',
     isDebug: false,
     appId: 'id6752780902',
 
-    // iOS ATT
+    // iOS ATT – SDK waits this many seconds for ATT before starting
     timeToWaitForATTUserAuthorization: 10,
 
-    // Start manually after ATT
+    // Start manually after the ATT request above completes
     manualStart: true,
   };
 
@@ -77,7 +61,6 @@ const initAppsFlyer = async () => {
 
     result => {
       console.log('AppsFlyer initialized:', result);
-      // The iOS ATT gate above has completed before AppsFlyer is started.
       appsFlyer.startSdk();
     },
 
@@ -87,12 +70,15 @@ const initAppsFlyer = async () => {
   );
 };
 
-
 const App = () => {
+  const appsFlyerInitializedRef = useRef(false);
 
-    useEffect(() => {
+  const handleSplashFinish = useCallback(() => {
+    if (appsFlyerInitializedRef.current) return;
+    appsFlyerInitializedRef.current = true;
     initAppsFlyer();
   }, []);
+
   return (
     <StripeProvider publishableKey="pk_live_51RinJmI6058y7xM226kIAHWD0PyowTEpFBfeQW4b0ndCGyf40mAa30h8QF2mNsjJVufEaCPXyqPO5bb0XsifW6y500MOhQvXoW">
       <SafeAreaProvider style={styles.container}>
@@ -114,7 +100,7 @@ const App = () => {
                     <Loader>
                       <LanguageProvider>
                         <WalletConnectSupportProvider>
-                          <Main />
+                          <Main onSplashFinish={handleSplashFinish} />
                         </WalletConnectSupportProvider>
                       </LanguageProvider>
                     </Loader>
