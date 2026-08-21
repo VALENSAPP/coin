@@ -169,6 +169,19 @@ const currency = value => {
   return Number.isNaN(numeric) ? text : `$${numeric.toFixed(2)}`;
 };
 
+const formatEstimatedShippingTime = value => {
+  if (!value) return '';
+
+  const raw = String(value).trim();
+  if (!raw) return '';
+
+  return raw
+    .replace(/\s*-\s*/g, ' - ')
+    .replace(/\s*\|\s*/g, ' | ')
+    .replace(/\s+/g, ' ')
+    .trim();
+};
+
 const numberFromPrice = value => {
   const numeric = Number(String(value ?? 0).replace(/[^0-9.]/g, ''));
   return Number.isNaN(numeric) ? 0 : numeric;
@@ -2183,7 +2196,7 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
                         ) : null}
                         {item.estimatedShippingTime ? (
                           <Text style={[styles.fulfilmentMetaText, { color: text }]}>
-                            {t('myClosetBuyer.estimatedDelivery')}: {item.estimatedShippingTime}
+                            {t('myClosetBuyer.estimatedDelivery')}: {formatEstimatedShippingTime(item.estimatedShippingTime)}
                           </Text>
                         ) : null}
                       </View>
