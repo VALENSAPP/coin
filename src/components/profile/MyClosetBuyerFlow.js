@@ -4314,12 +4314,26 @@ const MyClosetBuyerOrderReceivedScreen = ({ navigation, route }) => {
   const orderDate = payment?.createdAt ? new Date(payment.createdAt) : new Date();
   const items = Array.isArray(payment?.metadata?.items) ? payment.metadata.items : [];
   const purchasedItems = route?.params?.cartItemsSnapshot || payment?.metadata?.items || payment?.items || [];
-  const isLocalPickupOrder = Boolean(route?.params?.isLocalPickup) ||
+  const normalizedFulfillmentChoice = choice => String(choice || '').trim().toLowerCase();
+  const isLocalPickupChoice = choice =>
+    [SHIP_OPTION_LOCAL, 'local-pickup', 'local_pickup', 'pickup'].includes(normalizedFulfillmentChoice(choice));
+  const isShippingChoice = choice =>
+    [SHIP_OPTION_SHIP, 'ship', 'shipping', 'standard', 'express'].includes(normalizedFulfillmentChoice(choice));
+  const fulfillmentChoices = purchasedItems.map(item =>
+    item?.selectedShippingChoice ||
+    item?.shippingChoice ||
+    item?.shippingOption ||
+    item?.product?.shippingOption ||
+    null,
+  );
+  const hasPickupItems =
+    Boolean(route?.params?.isLocalPickup) ||
     Object.keys(route?.params?.pickupAddressMap || {}).length > 0 ||
-    purchasedItems.some(item => {
-    const choice = item?.selectedShippingChoice || item?.shippingChoice || item?.shippingOption || item?.product?.shippingOption;
-    return [SHIP_OPTION_LOCAL, 'local-pickup', 'local_pickup', 'pickup'].includes(String(choice || '').toLowerCase());
-  });
+    fulfillmentChoices.some(isLocalPickupChoice);
+  const hasShippingItems =
+    fulfillmentChoices.some(isShippingChoice) ||
+    (!hasPickupItems && purchasedItems.length > 0);
+  const hasMixedFulfillment = hasShippingItems && hasPickupItems;
   const sellerName =
     route?.params?.seller?.displayName ||
     route?.params?.seller?.userName ||
@@ -4451,7 +4465,41 @@ const MyClosetBuyerOrderReceivedScreen = ({ navigation, route }) => {
             {t('myClosetBuyer.totalLabel', { amount: currency(amount) })}
           </Text>
         </View>
-        {isLocalPickupOrder ? (
+        {hasMixedFulfillment ? (
+          <View style={[styles.pickupSuccessMessage, themedCard(card, border)]}>
+            <Text style={[styles.pickupSuccessTitle, { color: text }]}>
+              {t('myClosetBuyer.mixedSuccessTitle')}
+            </Text>
+            <Text style={[styles.pickupSuccessText, { color: mutedText }]}>
+              {t('myClosetBuyer.mixedSuccessPreparing', { sellerName })}
+            </Text>
+            <Text style={[styles.pickupSuccessText, { color: mutedText }]}>
+              {t('myClosetBuyer.mixedSuccessShippingInstructions')}
+            </Text>
+            <Text style={[styles.pickupSuccessText, { color: mutedText }]}>
+              {t('myClosetBuyer.mixedSuccessPickupInstructions')}
+            </Text>
+            <Text style={[styles.pickupSuccessText, { color: mutedText }]}>
+              {t('myClosetBuyer.mixedSuccessChat')}
+            </Text>
+          </View>
+        ) : hasShippingItems ? (
+          <View style={[styles.pickupSuccessMessage, themedCard(card, border)]}>
+            <Text style={[styles.pickupSuccessTitle, { color: text }]}>
+              {t('myClosetBuyer.shippingSuccessTitle')}
+            </Text>
+            <Text style={[styles.pickupSuccessText, { color: mutedText }]}>
+              {t('myClosetBuyer.shippingSuccessPreparing', { sellerName })}
+            </Text>
+            <Text style={[styles.pickupSuccessText, { color: mutedText }]}>
+              {t('myClosetBuyer.shippingSuccessInstructions')}
+            </Text>
+            <Text style={[styles.pickupSuccessText, { color: mutedText }]}>
+              {t('myClosetBuyer.shippingSuccessChat')}
+            </Text>
+          </View>
+        ) : null}
+        {hasPickupItems ? (
           <View style={[styles.pickupSuccessMessage, themedCard(card, border)]}>
             <Text style={[styles.pickupSuccessTitle, { color: text }]}>
               {t('myClosetBuyer.pickupSuccessTitle')}
