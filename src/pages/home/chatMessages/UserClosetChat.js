@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -123,8 +123,22 @@ export default function UserClosetChat({ route, navigation }) {
 
   const [threadId, setThreadId] = useState(routeThreadId || null);
   const otherUser = routeOtherUser || seller || (sellerId ? { id: sellerId } : null);
-  const orderInfo = routeOrderInfo || (routeParams.orderId ? { orderId: routeParams.orderId } : null);
+  const orderInfo = useMemo(
+    () => routeOrderInfo || (routeParams.orderId ? { orderId: routeParams.orderId } : null),
+    [routeOrderInfo, routeParams.orderId],
+  );
   const targetSellerId = sellerId || otherUser?.id || otherUser?.userId;
+
+  const handleBack = useCallback(() => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
+
+    if (routeParams.returnTo) {
+      navigation.navigate(routeParams.returnTo, routeParams.returnParams || {});
+    }
+  }, [navigation, routeParams.returnParams, routeParams.returnTo]);
 
   useEffect(() => {
     if (routeThreadId) {
@@ -658,7 +672,7 @@ export default function UserClosetChat({ route, navigation }) {
       <StatusBar backgroundColor={bg} barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
           <SafeIcon name="arrow-back" size={24} color={icon} />
         </TouchableOpacity>
 

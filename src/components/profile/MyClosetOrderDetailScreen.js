@@ -172,6 +172,24 @@ const formatPickupAvailableHours = value => {
   ].filter(Boolean).join('\n');
 };
 
+const getAddressLines = address => {
+  if (!address) return [];
+  if (typeof address === 'string') return address.trim() ? [address.trim()] : [];
+  if (typeof address !== 'object') return [String(address)];
+
+  const locality = [address.city, address.state, address.postalCode || address.zipCode]
+    .filter(Boolean)
+    .join(', ');
+  return [
+    address.fullName || address.name || address.locationName || address.title,
+    address.phoneNumber || address.phone,
+    address.addressLine1 || address.line1 || address.street,
+    address.addressLine2 || address.line2,
+    locality,
+    address.country,
+  ].filter((line, index, lines) => line && lines.indexOf(line) === index);
+};
+
 const normalizeOrderDetail = (order, t, viewType, isLocalPickupRoute = false) => {
   const lineItems = Array.isArray(order?.orderItems)
     ? order.orderItems
@@ -261,6 +279,13 @@ const normalizeOrderDetail = (order, t, viewType, isLocalPickupRoute = false) =>
     order?.orderItems?.[0]?.pickupAddress ||
     null;
 
+  const pickupLocationName =
+    order?.pickupLocation ||
+    lineItems?.[0]?.pickupLocation ||
+    order?.items?.[0]?.pickupLocation ||
+    order?.orderItems?.[0]?.pickupLocation ||
+    '';
+
   const pickupAvailableHoursRaw =
     order?.pickupAvailableHours ||
     lineItems?.[0]?.pickupAvailableHours ||
@@ -293,7 +318,9 @@ const normalizeOrderDetail = (order, t, viewType, isLocalPickupRoute = false) =>
     address,
     shippingType,
     isLocalPickup,
+    pickupLocationName,
     pickupAddress,
+    pickupAddressLines: getAddressLines(pickupAddress),
     pickupAvailableHours,
     raw: order,
   };
@@ -311,12 +338,12 @@ const isOrderPayload = payload => {
 
   return Boolean(
     payload?.id ||
-      payload?._id ||
-      payload?.orderId ||
-      payload?.orderNumber ||
-      payload?.orderItems ||
-      payload?.items ||
-      payload?.cartItems,
+    payload?._id ||
+    payload?.orderId ||
+    payload?.orderNumber ||
+    payload?.orderItems ||
+    payload?.items ||
+    payload?.cartItems,
   );
 };
 
@@ -461,6 +488,60 @@ const StatusTimeline = ({ status, isLocalPickup }) => {
   );
 };
 
+const AddressDetailsCard = ({ address, title, accent, border, cardStyle, surface, textStyle, mutedTextStyle, t }) => {
+  const addressLines = getAddressLines(address);
+  const recipient = address?.fullName || address?.name || addressLines[0];
+  const phone = address?.phoneNumber || address?.phone;
+  const locationLines = addressLines.filter(line => line !== recipient && line !== phone);
+  const location = locationLines.join(' · ');
+  return (
+    <View style={[styles.card, cardStyle, { borderColor: border, backgroundColor: surface }]}>
+      <Text style={[styles.cardTitle, textStyle]}>{title}</Text>
+      {recipient ? (
+        <>
+          <View style={styles.pickupDetailRow}>
+            <View style={[styles.pickupDetailIcon, { backgroundColor: withAlpha(accent, 0.09) }]}>
+              <Ionicons name="person-outline" size={20} color={accent} />
+            </View>
+            <View style={styles.pickupDetailCopy}>
+              <Text style={[styles.pickupDetailTitle, textStyle]}>{recipient}</Text>
+              <Text style={[styles.pickupDetailSubtitle, mutedTextStyle]}>{t('myClosetOrderDetail.recipient')}</Text>
+            </View>
+          </View>
+          {location || phone ? <View style={[styles.pickupDivider, { backgroundColor: border }]} /> : null}
+        </>
+      ) : null}
+      {location ? (
+        <>
+          <View style={styles.pickupDetailRow}>
+            <View style={[styles.pickupDetailIcon, { backgroundColor: withAlpha(accent, 0.09) }]}>
+              <Ionicons name="location-outline" size={21} color={accent} />
+            </View>
+            <View style={styles.pickupDetailCopy}>
+              <Text style={[styles.pickupDetailTitle, textStyle]} numberOfLines={2}>{locationLines[0]}</Text>
+              {locationLines.slice(1).length ? (
+                <Text style={[styles.pickupDetailSubtitle, mutedTextStyle]} numberOfLines={2}>{locationLines.slice(1).join(' · ')}</Text>
+              ) : null}
+            </View>
+          </View>
+          {phone ? <View style={[styles.pickupDivider, { backgroundColor: border }]} /> : null}
+        </>
+      ) : null}
+      {phone ? (
+        <View style={styles.pickupDetailRow}>
+          <View style={[styles.pickupDetailIcon, { backgroundColor: withAlpha(accent, 0.09) }]}>
+            <Ionicons name="call-outline" size={19} color={accent} />
+          </View>
+          <View style={styles.pickupDetailCopy}>
+            <Text style={[styles.pickupDetailTitle, textStyle]}>{phone}</Text>
+            <Text style={[styles.pickupDetailSubtitle, mutedTextStyle]}>{t('myClosetOrderDetail.contactNumber')}</Text>
+          </View>
+        </View>
+      ) : null}
+    </View>
+  );
+};
+
 const MyClosetOrderDetailScreen = ({ navigation, route }) => {
   const orderId = route?.params?.orderId;
   const paymentId = route?.params?.paymentId;
@@ -508,6 +589,30 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
   const [advancing, setAdvancing] = useState(false);
   const [shippingModalVisible, setShippingModalVisible] = useState(false);
   const [otpModalVisible, setOtpModalVisible] = useState(false);
+
+  const handleClosetChat = useCallback(() => {
+    if (!order?.buyerId) return;
+
+    navigation.navigate('UserClosetChat', {
+      otherUser: {
+        id: order.buyerId,
+        userId: order.buyerId,
+        displayName: order.buyerName,
+        username: order.buyerName,
+        avatar: imageUri(order.buyerImage),
+        image: imageUri(order.buyerImage),
+      },
+      orderInfo: {
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        amount: order.totalAmount,
+        items: order.lines,
+        createdAt: order.raw?.createdAt || order.raw?.orderDate,
+      },
+      returnTo: 'MyClosetOrderDetail',
+      returnParams: route?.params,
+    });
+  }, [navigation, order, route?.params]);
 
   const loadOrder = useCallback(async () => {
     let resolvedOrderId = orderId;
@@ -753,8 +858,11 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
   }
 
   const meta = STATUS_META[order.status];
+  const pickupAddressLines = order.pickupAddressLines || [];
+  const pickupAddressTitle = pickupAddressLines[0] || t('myClosetOrderDetail.pickupPoint');
+  const pickupAddressSubtitle = pickupAddressLines.slice(1).join(' · ');
 
-  console.log("order----------------------------",order)
+  console.log("order----------------------------", order)
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
       <Header onBack={goBack} title={t('myClosetOrderDetail.orderNumberTitle', { orderNumber: order.orderNumber })} />
@@ -793,7 +901,7 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
           <Text style={[styles.cardTitle, textStyle]}>
             {canUpdateStatus ? t('myClosetOrderDetail.buyer') : t('myClosetOrderDetail.seller')}
           </Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.buyerRow}
             activeOpacity={0.7}
             onPress={() => handleUserProfile(order.buyerId)}
@@ -811,60 +919,97 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
             </View>
             <Text style={[styles.buyerName, textStyle]}>{toTitleCase(order.buyerName)}</Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            disabled={!order.buyerId}
+            onPress={handleClosetChat}
+            style={[styles.chatButton, { borderColor: accent }, !order.buyerId && styles.disabledButton]}
+          >
+            <Ionicons name="chatbubble-ellipses-outline" size={19} color={accent} />
+            <Text style={[styles.chatButtonText, { color: accent }]}>
+              {canUpdateStatus
+                ? t('myClosetOrderDetail.chatNowWithBuyer')
+                : t('myClosetOrderDetail.chatNowWithSeller')}
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {order.isLocalPickup ? (
-          order.pickupAddress ? (
+          order.pickupAddress || order.pickupLocationName ? (
             <View style={[styles.card, cardStyle, { borderColor: border, backgroundColor: surface }]}>
               <Text style={[styles.cardTitle, textStyle]}>
                 {t('myClosetOrderDetail.pickupLocation')}
               </Text>
-              <Text style={[styles.addressSub, mutedTextStyle, { marginTop: 4 }]}>{order.pickupAddress}</Text>
+              {order.pickupLocationName &&
+                <View style={styles.pickupDetailRow}>
+                  <View style={[styles.pickupDetailIcon, { backgroundColor: withAlpha(accent, 0.09) }]}>
+                    <Ionicons name="storefront-outline" size={20} color={accent} />
+                  </View>
+                  <View style={styles.pickupDetailCopy}>
+                    <Text style={[styles.pickupDetailTitle, textStyle]}>
+                      {order.pickupLocationName || t('myClosetOrderDetail.pickupPoint')}
+                    </Text>
+                    <Text style={[styles.pickupDetailSubtitle, mutedTextStyle]}>
+                      {t('myClosetOrderDetail.pickupPoint')}
+                    </Text>
+                  </View>
+                  {/* <Ionicons name="chevron-forward" size={20} color={mutedTextStyle.color || '#777'} /> */}
+                </View>
+              }
+              <View style={[styles.pickupDivider, { backgroundColor: border }]} />
+              <View style={styles.pickupDetailRow}>
+                <View style={[styles.pickupDetailIcon, { backgroundColor: withAlpha(accent, 0.09) }]}>
+                  <Ionicons name="location-outline" size={21} color={accent} />
+                </View>
+                <View style={styles.pickupDetailCopy}>
+                  <Text style={[styles.pickupDetailTitle, textStyle]} numberOfLines={2}>{pickupAddressTitle}</Text>
+                  {pickupAddressSubtitle ? (
+                    <Text style={[styles.pickupDetailSubtitle, mutedTextStyle]} numberOfLines={2}>{pickupAddressSubtitle}</Text>
+                  ) : null}
+                </View>
+                {/* <Ionicons name="chevron-forward" size={20} color={mutedTextStyle.color || '#777'} /> */}
+              </View>
               {order.pickupAvailableHours ? (
-                <Text style={[styles.addressSub, mutedTextStyle, { marginTop: 4 }]}>
-                  {order.pickupAvailableHours}
-                </Text>
+                <>
+                  <View style={[styles.pickupDivider, { backgroundColor: border }]} />
+                  <View style={styles.pickupDetailRow}>
+                    <View style={[styles.pickupDetailIcon, { backgroundColor: withAlpha(accent, 0.09) }]}>
+                      <Ionicons name="time-outline" size={21} color={accent} />
+                    </View>
+                    <View style={styles.pickupDetailCopy}>
+                      <Text style={[styles.pickupDetailTitle, textStyle]}>{t('myClosetOrderDetail.pickupHours')}</Text>
+                      <Text style={[styles.pickupDetailSubtitle, mutedTextStyle]}>{order.pickupAvailableHours}</Text>
+                    </View>
+                    {/* <Ionicons name="chevron-forward" size={20} color={mutedTextStyle.color || '#777'} /> */}
+                  </View>
+                </>
               ) : null}
             </View>
           ) : order.address ? (
-            <View style={[styles.card, cardStyle, { borderColor: border, backgroundColor: surface }]}>
-              <Text style={[styles.cardTitle, textStyle]}>
-                {t('myClosetOrderDetail.pickupLocation')}
-              </Text>
-              <Text style={[styles.addressText, textStyle]}>{order.address.fullName}</Text>
-              {order.address.phoneNumber ? (
-                <Text style={[styles.addressSub, mutedTextStyle]}>{order.address.phoneNumber}</Text>
-              ) : null}
-              <Text style={[styles.addressSub, mutedTextStyle]}>{order.address.addressLine1}</Text>
-              {order.address.addressLine2 ? (
-                <Text style={[styles.addressSub, mutedTextStyle]}>{order.address.addressLine2}</Text>
-              ) : null}
-              <Text style={[styles.addressSub, mutedTextStyle]}>
-                {[order.address.city, order.address.state, order.address.postalCode]
-                  .filter(Boolean)
-                  .join(', ')}
-              </Text>
-            </View>
+            <AddressDetailsCard
+              address={order.address}
+              title={t('myClosetOrderDetail.pickupLocation')}
+              accent={accent}
+              border={border}
+              cardStyle={cardStyle}
+              surface={surface}
+              textStyle={textStyle}
+              mutedTextStyle={mutedTextStyle}
+              t={t}
+            />
           ) : null
         ) : order.address ? (
-          <View style={[styles.card, cardStyle, { borderColor: border, backgroundColor: surface }]}>
-            <Text style={[styles.cardTitle, textStyle]}>
-              {t('myClosetOrderDetail.shippingAddress')}
-            </Text>
-            <Text style={[styles.addressText, textStyle]}>{order.address.fullName}</Text>
-            {order.address.phoneNumber ? (
-              <Text style={[styles.addressSub, mutedTextStyle]}>{order.address.phoneNumber}</Text>
-            ) : null}
-            <Text style={[styles.addressSub, mutedTextStyle]}>{order.address.addressLine1}</Text>
-            {order.address.addressLine2 ? (
-              <Text style={[styles.addressSub, mutedTextStyle]}>{order.address.addressLine2}</Text>
-            ) : null}
-            <Text style={[styles.addressSub, mutedTextStyle]}>
-              {[order.address.city, order.address.state, order.address.postalCode]
-                .filter(Boolean)
-                .join(', ')}
-            </Text>
-          </View>
+          <AddressDetailsCard
+            address={order.address}
+            title={t('myClosetOrderDetail.shippingAddress')}
+            accent={accent}
+            border={border}
+            cardStyle={cardStyle}
+            surface={surface}
+            textStyle={textStyle}
+            mutedTextStyle={mutedTextStyle}
+            t={t}
+          />
         ) : null}
 
         <View style={[styles.card, cardStyle, { borderColor: border, backgroundColor: surface }]}>
@@ -1021,6 +1166,33 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   buyerName: { fontSize: 13, fontWeight: '800' },
+  chatButton: {
+    minHeight: 42,
+    marginTop: 14,
+    borderWidth: 1,
+    borderRadius: 11,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+  },
+  chatButtonText: { fontSize: 13, fontWeight: '900' },
+  disabledButton: { opacity: 0.45 },
+
+  pickupDetailRow: { flexDirection: 'row', alignItems: 'center', minHeight: 62 },
+  pickupDetailIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 11,
+  },
+  pickupDetailCopy: { flex: 1, paddingRight: 8 },
+  pickupDetailTitle: { fontSize: 13, fontWeight: '900' },
+  pickupDetailSubtitle: { marginTop: 2, fontSize: 11, lineHeight: 16 },
+  pickupDivider: { height: StyleSheet.hairlineWidth, marginLeft: 53 },
 
   addressText: { fontSize: 13, fontWeight: '900', marginBottom: 3 },
   addressSub: { fontSize: 12, lineHeight: 17 },

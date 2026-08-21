@@ -583,6 +583,7 @@ export default function MainTabNavigator() {
         <Stack.Screen name="PreviewPromotion" component={PreviewPromotionScreen} />
         <Stack.Screen name="MyClosetOrders" component={MyClosetOrdersScreen} />
         <Stack.Screen name="MyClosetOrderDetail" component={MyClosetOrderDetailScreen} />
+        <Stack.Screen name="UserClosetChat" component={UserClosetChat} />
         <Stack.Screen name="MyClosetEarnings" component={MyClosetEarningsScreen} options={{ headerShown: false }} />
         <Stack.Screen name="MyClosetBuyerItems" component={MyClosetBuyerItemsScreen} />
         <Stack.Screen name="MyClosetBattles" component={MyClosetBattlesScreen} />
