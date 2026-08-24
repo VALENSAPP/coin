@@ -1227,6 +1227,15 @@ const ProfilePersonData = ({
         navigation.navigate('MainApp', { screen: 'wallet', params: { screen: 'TransactionDetails', params } });
       }
       return;
+    } else if (returnByTo === 'BattleLive') {
+      const params = screenParams?.returnParams;
+      const parentNav = navigation.getParent?.();
+      if (parentNav?.navigate) {
+        parentNav.navigate('ProfileMain', { screen: 'BattleLive', params });
+      } else {
+        navigation.navigate('ProfileMain', { screen: 'BattleLive', params });
+      }
+      return;
     } else if (returnByTo === 'PostView') {
       // If the user opened this profile from a post inside ProfileMain,
       // go back there instead of dropping them on Home.

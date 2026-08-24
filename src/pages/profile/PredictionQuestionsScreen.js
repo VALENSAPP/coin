@@ -56,6 +56,10 @@ export default function PredictionQuestionsScreen({
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [searchText, setSearchText] = useState('');
+  const [subCategoryInput, setSubCategoryInput] = useState('');
+  const [leagueInput, setLeagueInput] = useState('');
+  const [subCategoryFilter, setSubCategoryFilter] = useState('');
+  const [leagueFilter, setLeagueFilter] = useState('');
 
   const filteredQuestions = useMemo(() => {
     const trimmed = searchText.trim().toLowerCase();
@@ -82,6 +86,8 @@ export default function PredictionQuestionsScreen({
       try {
         const response = await getPredictionQuestions({
           category,
+          subCategory: subCategoryFilter,
+          league: leagueFilter,
           page: nextPage,
           limit: 20,
         });
@@ -106,7 +112,7 @@ export default function PredictionQuestionsScreen({
         setLoadingMore(false);
       }
     },
-    [category, t, toast],
+    [category, subCategoryFilter, leagueFilter, t, toast],
   );
 
   useEffect(() => {
@@ -200,6 +206,60 @@ export default function PredictionQuestionsScreen({
           </TouchableOpacity>
         )}
       </View>
+
+      {category?.toUpperCase() === 'SPORTS' && (
+        <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 14, marginBottom: 8 }}>
+          <View
+            style={[
+              styles.searchInputWrap,
+              { flex: 1, marginHorizontal: 0, marginBottom: 0, backgroundColor: inputBackground, borderColor: themeBorder },
+            ]}
+          >
+            <TextInput
+              style={[styles.searchInput, { color: labelColor }]}
+              placeholder={t('openBattle.subCategoryPlaceholder') || 'Sports Name (e.g. cricket)'}
+              placeholderTextColor={mutedText}
+              value={subCategoryInput}
+              onChangeText={setSubCategoryInput}
+              onSubmitEditing={() => setSubCategoryFilter(subCategoryInput)}
+              returnKeyType="search"
+            />
+            {!!subCategoryInput && (
+              <TouchableOpacity
+                onPress={() => { setSubCategoryInput(''); setSubCategoryFilter(''); }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name="close-circle" size={18} color={mutedText} />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          <View
+            style={[
+              styles.searchInputWrap,
+              { flex: 1, marginHorizontal: 0, marginBottom: 0, backgroundColor: inputBackground, borderColor: themeBorder },
+            ]}
+          >
+            <TextInput
+              style={[styles.searchInput, { color: labelColor }]}
+              placeholder={t('openBattle.leaguePlaceholder') || 'League (e.g. ipl)'}
+              placeholderTextColor={mutedText}
+              value={leagueInput}
+              onChangeText={setLeagueInput}
+              onSubmitEditing={() => setLeagueFilter(leagueInput)}
+              returnKeyType="search"
+            />
+            {!!leagueInput && (
+              <TouchableOpacity
+                onPress={() => { setLeagueInput(''); setLeagueFilter(''); }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name="close-circle" size={18} color={mutedText} />
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      )}
 
       {loading ? (
         <View style={styles.centerState}>

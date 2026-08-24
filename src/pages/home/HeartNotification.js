@@ -58,6 +58,7 @@ const getOrderNotificationViewType = type => {
   switch (normalizeNotificationType(type)) {
     case 'marketplace_order_paid':
       return 'seller';
+    case 'marketplace_order_placed':
     case 'seller_order_processing':
     case 'seller_order_shipped':
     case 'seller_order_delivered':

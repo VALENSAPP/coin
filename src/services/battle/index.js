@@ -154,7 +154,7 @@ export async function getPredictionCategories() {
  * Response: { statusCode, success, data: { data: [...], pagination? } }
  */
 export async function getPredictionQuestions(params = {}) {
-  const { category, provider, page = 1, limit = 20 } = params;
+  const { category, subCategory, league, provider, page = 1, limit = 20 } = params;
  
   if (!category) {
     return Promise.reject(new Error('category is required'));
@@ -163,6 +163,12 @@ export async function getPredictionQuestions(params = {}) {
   const query = { category, page, limit };
   if (provider) {
     query.provider = provider;
+  }
+  if (subCategory) {
+    query.subCategory = subCategory;
+  }
+  if (league) {
+    query.league = league;
   }
  
   return axiosInstance.get('battle/prediction/questions', { params: query });

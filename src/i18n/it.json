@@ -734,7 +734,9 @@
     "predictionMarketHelper": "La domanda e i risultati vengono presi dal mercato di origine e sono bloccati.",
     "predictionMarketRequired": "Seleziona un mercato di previsione per continuare",
     "predictionSearchPlaceholder": "Cerca domande",
-    "predictionNoSearchResults": "Nessuna domanda corrisponde alla tua ricerca"
+    "predictionNoSearchResults": "Nessuna domanda corrisponde alla tua ricerca",
+    "subCategoryPlaceholder": "Nome dello sport (es. cricket)",
+    "leaguePlaceholder": "Lega (es. ipl)"
   },
   "profileBattle": {
     "defaultTitle": "Battaglia"

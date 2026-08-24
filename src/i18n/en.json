@@ -736,7 +736,9 @@
     "predictionMarketHelper": "The question and outcomes are pulled from the source market and locked.",
     "predictionMarketRequired": "Select a prediction market to continue",
     "predictionSearchPlaceholder": "Search questions",
-    "predictionNoSearchResults": "No questions match your search"
+    "predictionNoSearchResults": "No questions match your search",
+    "subCategoryPlaceholder": "Sports Name (e.g. cricket)",
+    "leaguePlaceholder": "League (e.g. ipl)"
   },
   "profileBattle": {
     "defaultTitle": "Battle"

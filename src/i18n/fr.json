@@ -734,7 +734,9 @@
     "predictionMarketHelper": "La question et les résultats proviennent du marché source et sont verrouillés.",
     "predictionMarketRequired": "Sélectionnez un marché de prédiction pour continuer",
     "predictionSearchPlaceholder": "Rechercher des questions",
-    "predictionNoSearchResults": "Aucune question ne correspond à votre recherche"
+    "predictionNoSearchResults": "Aucune question ne correspond à votre recherche",
+    "subCategoryPlaceholder": "Nom du sport (ex. cricket)",
+    "leaguePlaceholder": "Ligue (ex. ipl)"
   },
   "profileBattle": {
     "defaultTitle": "Battle"
