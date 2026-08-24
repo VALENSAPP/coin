@@ -1659,15 +1659,22 @@ export function BattleLiveScreen({ navigation, route }) {
   }, [navigation, returnTo, isOwnProfile, launchedFromPreview, battleBack, targetScreen]);
 
   const handleSellerPress = useCallback(() => {
-    const targetId = rightProfileId ? String(rightProfileId).trim() : '';
+    const targetId = battle?.createdBy ? String(battle.createdBy).trim() : '';
     if (!targetId) return;
 
     void navigateToUserProfile(navigation, targetId, {
-      returnTo: route?.name,
-      returnParams: route?.params || {},
+      returnTo: 'BattleLive',
+      returnParams: {
+        battleId,
+        question,
+        selectedItems,
+        isOwnProfile,
+        returnTo,
+        ...route?.params
+      },
       battleLive: true,
     });
-  }, [navigation, route?.name, route?.params, rightProfileId]);
+  }, [navigation, route?.params, battle?.createdBy, battleId, question, selectedItems, isOwnProfile, returnTo]);
 
   const handleBackPress = useCallback(() => {
     if (navigation.canGoBack?.()) {
@@ -2168,7 +2175,7 @@ export function BattleLiveScreen({ navigation, route }) {
       </View>
 
       {(battle?.creatorName || battle?.creatorAvatar || battle?.creatorShopName || battle?.sellerName) ? (
-        <View style={liveStyles.creatorRow}>
+        <TouchableOpacity activeOpacity={0.8} onPress={handleSellerPress} style={liveStyles.creatorRow}>
           <HexAvatar uri={battle.creatorAvatar} size={44} borderWidth={1} borderColor={accent} />
           <View style={liveStyles.creatorDetails}>
             <Text style={[liveStyles.creatorLabel, { color: mutedText }]}>{t('battle.battleBy') || 'Battle By'}</Text>
@@ -2181,7 +2188,7 @@ export function BattleLiveScreen({ navigation, route }) {
               </Text>
             ) : null}
           </View>
-        </View>
+        </TouchableOpacity>
       ) : null}
       <Text style={[liveStyles.question, { color: primaryText }]}>{question}</Text>
       <Text style={[liveStyles.questionSub, { color: subtleMuted }]}>{t('battle.voteSwipeHint') || 'Your vote swipe others decide'}</Text>
@@ -2995,8 +3002,24 @@ export function BattleCreatedSuccessScreen({ navigation, route }) {
   const handleBack = () => navigateToTargetClosetScreen(navigation, targetScreen);
 
   const selectedItems = route?.params?.selectedItems || [];
-  const leftItem = selectedItems?.[0];
-  const rightItem = selectedItems?.[1];
+  const leftItem = selectedItems?.[0] || {};
+  const rightItem = selectedItems?.[1] || {};
+
+  const leftProfileId =
+    leftItem?.sellerId ||
+    leftItem?.userId ||
+    leftItem?.creatorId ||
+    leftItem?.ownerId ||
+    leftItem?.id ||
+    "";
+
+  const rightProfileId =
+    rightItem?.sellerId ||
+    rightItem?.userId ||
+    rightItem?.creatorId ||
+    rightItem?.ownerId ||
+    rightItem?.id ||
+    "";
 
   return (
     <View style={[styles.screen, bgStyle, { backgroundColor: bg || SOFT_BG }]}>
@@ -3047,7 +3070,15 @@ export function BattleCreatedSuccessScreen({ navigation, route }) {
 
           <TouchableOpacity
             activeOpacity={0.8}
-            onPress={handleSellerPress}
+            onPress={() => {
+              const targetId = rightProfileId ? String(rightProfileId).trim() : '';
+              if (!targetId) return;
+              void navigateToUserProfile(navigation, targetId, {
+                returnTo: route?.name,
+                returnParams: route?.params || {},
+                battleLive: true,
+              });
+            }}
             disabled={!rightProfileId}
             style={{ flex: 1, alignItems: 'center', opacity: rightProfileId ? 1 : 0.9 }}
           >

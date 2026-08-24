@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   View,
   Dimensions,
+  Linking,
 } from 'react-native';
 import FastImage from 'react-native-fast-image';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -447,14 +448,14 @@ const BottomButton = ({ label, onPress, disabled }) => {
 };
 
 // Small horizontal progress tracker
-const StatusTimeline = ({ status, isLocalPickup }) => {
+const StatusTimeline = ({ status, isLocalPickup, surface }) => {
   const { t } = useLanguage();
   const { accent, mutedTextStyle } = useAppTheme();
   const { isDarkMode } = useThemeContext();
   const steps = isLocalPickup ? PICKUP_TIMELINE_STEPS : SHIP_TIMELINE_STEPS;
   const currentIndex = steps.indexOf(status === 'cancelled' ? 'pending' : status);
   const connectorColor = withAlpha(accent, 0.25);
-  const inactiveDot = isDarkMode ? 'rgba(255,255,255,0.12)' : '#e5ddf0';
+  const inactiveDot = isDarkMode ? 'rgba(255,255,255,0.12)' : surface;
 
   return (
     <View style={styles.timelineWrap}>
@@ -494,6 +495,13 @@ const AddressDetailsCard = ({ address, title, accent, border, cardStyle, surface
   const phone = address?.phoneNumber || address?.phone;
   const locationLines = addressLines.filter(line => line !== recipient && line !== phone);
   const location = locationLines.join(' · ');
+
+  const openLocationInMaps = () => {
+    if (!location) return;
+    const query = encodeURIComponent(location);
+    Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${query}`).catch(() => { });
+  };
+
   return (
     <View style={[styles.card, cardStyle, { borderColor: border, backgroundColor: surface }]}>
       <Text style={[styles.cardTitle, textStyle]}>{title}</Text>
@@ -513,7 +521,7 @@ const AddressDetailsCard = ({ address, title, accent, border, cardStyle, surface
       ) : null}
       {location ? (
         <>
-          <View style={styles.pickupDetailRow}>
+          <TouchableOpacity activeOpacity={0.7} onPress={openLocationInMaps} style={styles.pickupDetailRow}>
             <View style={[styles.pickupDetailIcon, { backgroundColor: withAlpha(accent, 0.09) }]}>
               <Ionicons name="location-outline" size={21} color={accent} />
             </View>
@@ -523,7 +531,7 @@ const AddressDetailsCard = ({ address, title, accent, border, cardStyle, surface
                 <Text style={[styles.pickupDetailSubtitle, mutedTextStyle]} numberOfLines={2}>{locationLines.slice(1).join(' · ')}</Text>
               ) : null}
             </View>
-          </View>
+          </TouchableOpacity>
           {phone ? <View style={[styles.pickupDivider, { backgroundColor: border }]} /> : null}
         </>
       ) : null}
@@ -862,6 +870,13 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
   const pickupAddressTitle = pickupAddressLines[0] || t('myClosetOrderDetail.pickupPoint');
   const pickupAddressSubtitle = pickupAddressLines.slice(1).join(' · ');
 
+  const openPickupLocationInMaps = () => {
+    const fullAddress = pickupAddressLines.join(', ');
+    if (!fullAddress) return;
+    const query = encodeURIComponent(fullAddress);
+    Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${query}`).catch(() => { });
+  };
+
   console.log("order----------------------------", order)
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
@@ -894,10 +909,10 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
         </View>
 
         {order.status !== 'cancelled' && (
-          <StatusTimeline status={order.status} isLocalPickup={order.isLocalPickup} />
+          <StatusTimeline status={order.status} isLocalPickup={order.isLocalPickup} surface={withAlpha(accent, 0.1)} />
         )}
 
-        <View style={[styles.card, cardStyle, { borderColor: border, backgroundColor: surface }]}>
+        <View style={[styles.card, cardStyle, { borderColor: border, backgroundColor: withAlpha(accent, 0.1) }]}>
           <Text style={[styles.cardTitle, textStyle]}>
             {canUpdateStatus ? t('myClosetOrderDetail.buyer') : t('myClosetOrderDetail.seller')}
           </Text>
@@ -936,7 +951,7 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
 
         {order.isLocalPickup ? (
           order.pickupAddress || order.pickupLocationName ? (
-            <View style={[styles.card, cardStyle, { borderColor: border, backgroundColor: surface }]}>
+            <View style={[styles.card, cardStyle, { borderColor: border, backgroundColor: withAlpha(accent, 0.1) }]}>
               <Text style={[styles.cardTitle, textStyle]}>
                 {t('myClosetOrderDetail.pickupLocation')}
               </Text>
@@ -957,7 +972,7 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
                 </View>
               }
               <View style={[styles.pickupDivider, { backgroundColor: border }]} />
-              <View style={styles.pickupDetailRow}>
+              <TouchableOpacity activeOpacity={0.7} onPress={openPickupLocationInMaps} style={styles.pickupDetailRow}>
                 <View style={[styles.pickupDetailIcon, { backgroundColor: withAlpha(accent, 0.09) }]}>
                   <Ionicons name="location-outline" size={21} color={accent} />
                 </View>
@@ -968,7 +983,7 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
                   ) : null}
                 </View>
                 {/* <Ionicons name="chevron-forward" size={20} color={mutedTextStyle.color || '#777'} /> */}
-              </View>
+              </TouchableOpacity>
               {order.pickupAvailableHours ? (
                 <>
                   <View style={[styles.pickupDivider, { backgroundColor: border }]} />
@@ -992,7 +1007,7 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
               accent={accent}
               border={border}
               cardStyle={cardStyle}
-              surface={surface}
+              surface={withAlpha(accent, 0.1)}
               textStyle={textStyle}
               mutedTextStyle={mutedTextStyle}
               t={t}
@@ -1005,14 +1020,14 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
             accent={accent}
             border={border}
             cardStyle={cardStyle}
-            surface={surface}
+            surface={withAlpha(accent, 0.1)}
             textStyle={textStyle}
             mutedTextStyle={mutedTextStyle}
             t={t}
           />
         ) : null}
 
-        <View style={[styles.card, cardStyle, { borderColor: border, backgroundColor: surface }]}>
+        <View style={[styles.card, cardStyle, { borderColor: border, backgroundColor: withAlpha(accent, 0.1) }]}>
           <Text style={[styles.cardTitle, textStyle]}>{t('myClosetOrderDetail.items', { count: order.totalItemCount })}</Text>
           {order.images?.length ? (
             <View style={styles.coverWrap}>
@@ -1043,7 +1058,7 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
           )}
         </View>
 
-        <View style={[styles.card, cardStyle, { borderColor: border, backgroundColor: surface }]}>
+        <View style={[styles.card, cardStyle, { borderColor: border, backgroundColor: withAlpha(accent, 0.1) }]}>
           <SummaryRow label={t('myClosetOrderDetail.orderTotal')} value={order.totalAmount} bold />
         </View>
 
@@ -1176,6 +1191,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     paddingHorizontal: 12,
+    backgroundColor: '#fff'
   },
   chatButtonText: { fontSize: 13, fontWeight: '900' },
   disabledButton: { opacity: 0.45 },

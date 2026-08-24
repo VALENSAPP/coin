@@ -1200,8 +1200,15 @@ const ProfilePersonData = ({
     if (profileBattleReturnRoutes.has(returnByTo)) {
       navigation.navigate('ProfileMain', { screen: returnByTo });
       return;
-    } else if (returnByTo == 'Search') {
-      navigation.navigate(returnByTo);
+    } else if (returnByTo == 'Search' || returnByTo == 'SearchHome') {
+      const stackName = screenParams?.stackName || 'Search';
+      const params = screenParams?.returnParams;
+      const parentNav = navigation.getParent?.();
+      if (parentNav?.navigate) {
+        parentNav.navigate(stackName, { screen: 'SearchHome', params });
+      } else {
+        navigation.navigate(stackName, { screen: 'SearchHome', params });
+      }
       return;
     } else if (returnByTo === 'Activity' || returnByTo === 'ActivityScreen') {
       const parentNav = navigation.getParent?.();
@@ -1209,6 +1216,24 @@ const ProfilePersonData = ({
         parentNav.navigate('wallet', { screen: 'Activity' });
       } else {
         navigation.navigate('MainApp', { screen: 'wallet', params: { screen: 'Activity' } });
+      }
+      return;
+    } else if (returnByTo === 'TransactionDetails') {
+      const params = screenParams?.returnParams;
+      const parentNav = navigation.getParent?.();
+      if (parentNav?.navigate) {
+        parentNav.navigate('wallet', { screen: 'TransactionDetails', params });
+      } else {
+        navigation.navigate('MainApp', { screen: 'wallet', params: { screen: 'TransactionDetails', params } });
+      }
+      return;
+    } else if (returnByTo === 'BattleLive') {
+      const params = screenParams?.returnParams;
+      const parentNav = navigation.getParent?.();
+      if (parentNav?.navigate) {
+        parentNav.navigate('ProfileMain', { screen: 'BattleLive', params });
+      } else {
+        navigation.navigate('ProfileMain', { screen: 'BattleLive', params });
       }
       return;
     } else if (returnByTo === 'PostView') {

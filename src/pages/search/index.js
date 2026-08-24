@@ -41,11 +41,12 @@ import {
   Pressable,
   DeviceEventEmitter,
   StyleSheet,
+  Alert,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
-import { getAllUser } from '../../services/users';
+import { clearSearchHistory, deleteSearchHistoryItem, getAllUser, getSearchHistory, postSearchHistory } from '../../services/users';
 import { getSearchPagePost } from '../../services/home';
 import {
   useIsFocused,
@@ -747,6 +748,11 @@ const SearchScreen = () => {
   const [userId, setUserId] = useState(null);
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [searchText, setSearchText] = useState('');
+  const searchTextRef = useRef('');
+  const [searchHistory, setSearchHistory] = useState([]);
+  const [showSearchHistory, setShowSearchHistory] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyDeletingId, setHistoryDeletingId] = useState(null);
   const [posts, setPosts] = useState([]);
   const [playingVideoIndexes, setPlayingVideoIndexes] = useState(new Set());
   const [previewPost, setPreviewPost] = useState(null);
@@ -777,6 +783,7 @@ const SearchScreen = () => {
   const scrollOffsetRef = useRef(0);
   const toastRef = useRef(toast);
   const activeSearchRequestIdRef = useRef(0);
+  const historyRequestIdRef = useRef(0);
 
   const {
     isBusinessProfile,
@@ -904,9 +911,16 @@ const SearchScreen = () => {
   useEffect(() => {
     if (isScreenFocused) {
       setSearchText('');
+      setShowSearchHistory(false);
       fetchUserData();
     }
   }, [fetchUserData, isScreenFocused]);
+
+  useEffect(() => {
+    if (showSearchHistory) {
+      fetchSearchHistory();
+    }
+  }, [fetchSearchHistory, showSearchHistory]);
 
   // ─── User search ────────────────────────────────────────────────────────────
   const searchUsers = useCallback(async searchQuery => {
@@ -927,6 +941,7 @@ const SearchScreen = () => {
         getAllUser({ ...params, limit: USER_SEARCH_LIMIT }).catch(() => ({
           statusCode: 0,
         }));
+        console.log(fetchUserSlice,'serch reposeeneneen')
       const [byUserName, byDisplayName, byName, byBusinessName] = await Promise.all([
         fetchUserSlice({ userName: searchQuery }),
         fetchUserSlice({ displayName: searchQuery }),
@@ -990,6 +1005,7 @@ const SearchScreen = () => {
 
   const handleSearch = useCallback(value => {
     setSearchText(value);
+    searchTextRef.current = value;
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
     if (!value.trim()) {
       activeSearchRequestIdRef.current = 0;
@@ -1001,6 +1017,134 @@ const SearchScreen = () => {
     }
     searchTimeoutRef.current = setTimeout(() => searchUsers(value), 500);
   }, [searchUsers]);
+
+  const normalizeSearchHistory = useCallback((payload) => {
+    const root = payload?.data ?? payload;
+    const list =
+      (Array.isArray(root?.data) && root.data) ||
+      (Array.isArray(root?.history) && root.history) ||
+      (Array.isArray(root?.searchHistory) && root.searchHistory) ||
+      (Array.isArray(root?.items) && root.items) ||
+      (Array.isArray(root) && root) ||
+      [];
+
+    return list
+      .map(item => {
+        const id = String(item?.id ?? item?._id ?? item?.searchId ?? item?.historyId ?? '').trim();
+        const name = String(
+          item?.userName ??
+          item?.username ??
+          item?.name ??
+          item?.displayName ??
+          item?.query ??
+          item?.term ??
+          '',
+        ).trim();
+        return { id, name, raw: item };
+      })
+      .filter(item => item.id || item.name);
+  }, []);
+
+  const fetchSearchHistory = useCallback(async () => {
+    const requestId = ++historyRequestIdRef.current;
+    setHistoryLoading(true);
+    try {
+      const response = await getSearchHistory();
+      console.log(response,'datsa in get serch hostosys')
+      if (requestId !== historyRequestIdRef.current) return;
+      setSearchHistory(normalizeSearchHistory(response));
+    } catch (_error) {
+      if (requestId !== historyRequestIdRef.current) return;
+      setSearchHistory([]);
+    } finally {
+      if (requestId === historyRequestIdRef.current) {
+        setHistoryLoading(false);
+      }
+    }
+  }, [normalizeSearchHistory]);
+
+  const handleSearchSubmit = useCallback(() => {
+    Keyboard.dismiss();
+    const currentSearch = searchTextRef.current;
+    if (currentSearch && currentSearch.trim().length > 0) {
+      const payload = { query: currentSearch.trim() };
+      console.log('[postSearchHistory] Request payload on submit:', payload);
+      postSearchHistory(payload)
+        .then(res => {
+          console.log('[postSearchHistory] Response on submit:', res?.data || res);
+          fetchSearchHistory();
+        })
+        .catch(err => console.log('[postSearchHistory] Error on submit:', err?.response?.data || err));
+    }
+  }, [fetchSearchHistory]);
+
+  const openSearchHistory = useCallback(() => {
+    setShowSearchHistory(true);
+    if (!searchHistory.length && !historyLoading) {
+      fetchSearchHistory();
+    }
+  }, [fetchSearchHistory, historyLoading, searchHistory.length]);
+
+  const runHistorySearch = useCallback((name) => {
+    const next = String(name || '').trim();
+    if (!next) return;
+    setSearchText(next);
+    searchTextRef.current = next;
+    setShowSearchHistory(false);
+    setHasSearched(false);
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    searchTimeoutRef.current = setTimeout(() => searchUsers(next), 0);
+  }, [searchUsers]);
+
+  const handleDeleteSearchHistoryItem = useCallback((item) => {
+    const id = item?.id;
+    if (!id) return;
+    Alert.alert(
+      'Delete search history?',
+      `Remove "${item?.name || 'this item'}" from your search history?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setHistoryDeletingId(id);
+              await deleteSearchHistoryItem(id);
+              setSearchHistory(prev => prev.filter(historyItem => historyItem.id !== id));
+            } catch (error) {
+              showToastMessage(toast, 'danger', error?.response?.data?.message || 'Failed to delete search history item');
+            } finally {
+              setHistoryDeletingId(null);
+            }
+          },
+        },
+      ],
+    );
+  }, [toast]);
+
+  const handleClearSearchHistory = useCallback(() => {
+    Alert.alert(
+      'Clear search history?',
+      'This will remove all of your search history.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await clearSearchHistory();
+              setSearchHistory([]);
+              setShowSearchHistory(false);
+            } catch (error) {
+              showToastMessage(toast, 'danger', error?.response?.data?.message || 'Failed to clear search history');
+            }
+          },
+        },
+      ],
+    );
+  }, [toast]);
 
   // ─── OPTIMIZATION 5: Fetch posts + donations IN PARALLEL ───────────────────
   const fetchPosts = useCallback(async (pageToFetch = 1, isLoadMore = false) => {
@@ -1237,10 +1381,28 @@ const SearchScreen = () => {
       return;
     }
 
+    // Call API to record search history
+    const currentSearch = searchTextRef.current || '';
+    const payload = {
+      query: currentSearch.trim(),
+      searchedUserId: String(targetId)
+    };
+    console.log('[postSearchHistory] Request payload:', payload);
+    postSearchHistory(payload)
+      .then(res => {
+        console.log('[postSearchHistory] Response:', res?.data || res);
+        fetchSearchHistory();
+      })
+      .catch(err => console.log('[postSearchHistory] Error:', err?.response?.data || err));
+
     if (String(targetId) === String(userId || '')) {
       navigation.navigate('ProfileMain', {
         screen: 'Profile',
-        params: { returnTo: route?.name, returnParams: route?.params },
+        params: { 
+          returnTo: 'Search', 
+          returnParams: route?.params,
+          stackName: 'Search'
+        },
       });
       return;
     }
@@ -1249,11 +1411,13 @@ const SearchScreen = () => {
       params: {
         userId: String(targetId),
         username: user?.userName || user?.username || '',
-        returnTo: route?.name,
+        returnTo: 'Search',
+        returnParams: route?.params,
+        stackName: 'Search',
         battleLive: Boolean(user?.battleLive || user?.isBattleLive) || Number(String(targetId).slice(-1)) % 3 === 0,
       },
     });
-  }, [navigation, route?.name, route?.params, userId, t]);
+  }, [navigation, route?.name, route?.params, userId, t, fetchSearchHistory]);
 
   const handlePostPress = useCallback((item, isVideo) => {
     const uniqueKey = Date.now().toString();
@@ -1706,8 +1870,9 @@ const SearchScreen = () => {
                   placeholderTextColor={mutedText}
                   value={searchText}
                   onChangeText={handleSearch}
+                  onFocus={openSearchHistory}
                   returnKeyType="search"
-                  onSubmitEditing={Keyboard.dismiss}
+                  onSubmitEditing={handleSearchSubmit}
                 />
                 {searchText.length > 0 && (
                   <TouchableOpacity onPress={() => handleSearch('')}>
@@ -1715,6 +1880,91 @@ const SearchScreen = () => {
                   </TouchableOpacity>
                 )}
               </View>
+
+              {showSearchHistory && searchText.trim().length === 0 ? (
+                <View style={[styles.searchHistoryPanel, { backgroundColor: card, borderColor: border }]}>
+                  <View style={styles.searchHistoryHeader}>
+                    <Text style={[styles.searchHistoryTitle, textStyle]}>Recent searches</Text>
+                    <TouchableOpacity
+                      onPress={handleClearSearchHistory}
+                      disabled={searchHistory.length === 0}
+                      activeOpacity={0.7}
+                    >
+                      <Text
+                        style={[
+                          styles.searchHistoryClear,
+                          { color: accent, opacity: searchHistory.length === 0 ? 0.4 : 1 },
+                        ]}
+                      >
+                        Clear all
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {historyLoading ? (
+                    <View style={styles.searchHistoryEmptyState}>
+                      <ActivityIndicator size="small" color={accent} />
+                    </View>
+                  ) : searchHistory.length > 0 ? (
+                    searchHistory.map(item => {
+                      const searchedUser = item.raw?.searchedUser;
+                      
+                      return (
+                      <View key={item.id || item.name} style={styles.searchHistoryRow}>
+                        <TouchableOpacity
+                          style={styles.searchHistoryNameWrap}
+                          onPress={() => {
+                            if (searchedUser) {
+                              handleUserProfile(searchedUser);
+                            } else {
+                              runHistorySearch(item.name);
+                            }
+                          }}
+                          activeOpacity={0.8}
+                        >
+                          {searchedUser ? (
+                            <>
+                              <HexAvatar
+                                uri={normalizeImageUrl(searchedUser.image) || require('../../assets/icons/pngicons/user.png')}
+                                size={24}
+                                borderWidth={1}
+                                borderColor={border}
+                              />
+                              <Text style={[styles.searchHistoryName, textStyle, { marginLeft: 8 }]} numberOfLines={1}>
+                                {searchedUser.displayName || searchedUser.userName}
+                              </Text>
+                            </>
+                          ) : (
+                            <>
+                              <Icon name="time-outline" size={16} color={mutedText} style={{ marginRight: 8 }} />
+                              <Text style={[styles.searchHistoryName, textStyle]} numberOfLines={1}>
+                                {item.name}
+                              </Text>
+                            </>
+                          )}
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() => handleDeleteSearchHistoryItem(item)}
+                          disabled={historyDeletingId === item.id}
+                          style={styles.searchHistoryDeleteBtn}
+                          activeOpacity={0.7}
+                        >
+                          {historyDeletingId === item.id ? (
+                            <ActivityIndicator size="small" color={mutedText} />
+                          ) : (
+                            <Icon name="close" size={18} color={mutedText} />
+                          )}
+                        </TouchableOpacity>
+                      </View>
+                      );
+                    })
+                  ) : (
+                    <View style={styles.searchHistoryEmptyState}>
+                      <Text style={[styles.emptySubtitle, mutedTextStyle]}>No recent searches yet.</Text>
+                    </View>
+                  )}
+                </View>
+              ) : null}
 
               {/* Battle Explore bar + collapse control */}
               {!isSearchActive && (

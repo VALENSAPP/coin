@@ -21,6 +21,8 @@ import { getTransactionDetails } from '../../services/wallet';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useLanguage } from '../../i18n';
 import { resolveTransactionDirection } from '../../utils/transactionAmount';
+import { Dragonfly } from '../../assets/icons';
+import { navigateToUserProfile } from '../../utils/navigateToUserProfile';
 
 const pickFirst = (...values) =>
   values.find(value => value !== undefined && value !== null && value !== '');
@@ -53,7 +55,7 @@ const formatDetailDate = value => {
     minute: '2-digit',
     hour12: true,
   });
-  return parts.replace(', ', ' • ').replace(', ', ' • ');
+  return parts.replace(', ', ' at ').replace(', ', ' at ');
 };
 
 const titleCase = value =>
@@ -81,7 +83,7 @@ const formatTypeLabel = (raw, t) => {
 
 const formatPaymentMethod = (raw, t) => {
   const value = String(raw || '').trim();
-  if (!value) return t('transactionDetails.valensBalance');
+  if (!value) return 'Stripe'; // Default to Stripe as per image style if not present or just Valens balance
   if (value.toLowerCase() === 'stripe') return 'Stripe';
   if (value.toLowerCase() === 'valens' || value.toLowerCase().includes('balance')) {
     return t('transactionDetails.valensBalance');
@@ -150,10 +152,14 @@ const normalizeDetails = (payload, preview = {}, t) => {
     amountTone,
     date: formatDetailDate(pickFirst(data.createdAt, previewSafe.createdAt)) || previewSafe.date || '',
     period,
+    fromId: fromParty.id,
     fromName: pickFirst(fromParty.displayName, t('transactionDetails.valensWallet')),
     fromHandle: fromParty.handle,
+    fromImage: fromParty.image,
+    toId: toParty.id,
     toName: pickFirst(toParty.displayName, t('transactionDetails.valensWallet')),
     toHandle: toParty.handle,
+    toImage: toParty.image,
     paymentMethod: formatPaymentMethod(data.paymentMethod, t),
     transactionId: String(pickFirst(data.transactionId, data.paymentId, previewSafe.paymentId, previewSafe.key, '')),
     paymentId: String(pickFirst(data.paymentId, previewSafe.paymentId, '')),
@@ -171,23 +177,29 @@ const statusMeta = (status, typeLabel, isReceived, t) => {
   if (status.includes('fail') || status.includes('cancel') || status.includes('error')) {
     return {
       color: '#EF4444',
+      bg: '#FEE2E2',
       icon: 'close',
       title: t('transactionDetails.statusFailed'),
+      label: 'Failed',
       message: t('transactionDetails.statusMessageFailed', { type: typeLabel }),
     };
   }
   if (status.includes('pend') || status.includes('process')) {
     return {
       color: '#D97706',
+      bg: '#FEF3C7',
       icon: 'time',
       title: t('transactionDetails.statusPending'),
+      label: 'Pending',
       message: t('transactionDetails.statusMessagePending', { type: typeLabel }),
     };
   }
   return {
     color: '#22C55E',
+    bg: '#DCFCE7',
     icon: 'checkmark',
     title: t('transactionDetails.statusSucceeded'),
+    label: 'Completed',
     message: isReceived
       ? t('transactionDetails.statusMessageReceived', { type: typeLabel })
       : t('transactionDetails.statusMessageSucceeded', { type: typeLabel }),
@@ -244,7 +256,7 @@ export default function TransactionDetailsScreen() {
   );
 
   const amountColor =
-    details.amountTone === 'positive' ? '#22C55E' : details.amountTone === 'negative' ? '#EF4444' : text;
+    details.amountTone === 'positive' ? '#22C55E' : details.amountTone === 'negative' ? text : text;
 
   const copyId = () => {
     if (!details.transactionId) return;
@@ -260,10 +272,30 @@ export default function TransactionDetailsScreen() {
     });
   };
 
-  const row = (label, value, valueColor, valueStyle) => (
-    <View style={styles.summaryRow}>
-      <Text style={[styles.rowLabel, { color: mutedText }]}>{label}</Text>
-      <Text style={[styles.rowValue, { color: valueColor || text }, valueStyle]} numberOfLines={2}>
+  const handleProfilePress = (userId) => {
+    if (!userId) return;
+    navigateToUserProfile(navigation, userId, {
+      returnTo: 'TransactionDetails',
+      returnParams: route.params,
+    });
+  };
+
+  const StatusBadge = () => (
+    <View style={[styles.statusBadge, { backgroundColor: status.bg }]}>
+      <Ionicons name={status.icon} size={14} color={status.color} />
+      <Text style={[styles.statusBadgeText, { color: status.color }]}>{status.label}</Text>
+    </View>
+  );
+
+  const row = (iconName, label, value, valueColor, valueStyle, labelStyle) => (
+    <View style={styles.detailRow}>
+      <View style={styles.detailLeft}>
+        <View style={styles.detailIconContainer}>
+          <Ionicons name={iconName} size={18} color={accent || text} style={{ opacity: 0.7 }} />
+        </View>
+        <Text style={[styles.detailLabel, { color: mutedText }, labelStyle]}>{label}</Text>
+      </View>
+      <Text style={[styles.detailValue, { color: valueColor || text }, valueStyle]} numberOfLines={1}>
         {value || '—'}
       </Text>
     </View>
@@ -271,11 +303,11 @@ export default function TransactionDetailsScreen() {
 
   return (
     <SafeAreaView style={[styles.safe, bgStyle]} edges={['top']}>
-      <View style={[styles.header, { borderBottomColor: border }]}>
+      <View style={[styles.header, { borderBottomColor: 'transparent' }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerBtn} hitSlop={12}>
-          <Ionicons name="chevron-back" size={26} color={icon || text} />
+          <Ionicons name="chevron-back" size={26} color={accent || text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: text }]}>{t('transactionDetails.title')}</Text>
+        <Text style={[styles.headerTitle, { color: accent || text }]}>Transaction Receipt</Text>
         <View style={styles.headerBtn} />
       </View>
 
@@ -285,112 +317,144 @@ export default function TransactionDetailsScreen() {
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          <View style={styles.profileHeader}>
-            <HexAvatar
-              uri={details.profileImage}
-              size={48}
-              borderWidth={1.5}
-              borderColor={text}
-            />
-            <View style={styles.profileText}>
-              <Text style={[styles.name, { color: accent || text }]} numberOfLines={1}>
-                {details.displayName}
-              </Text>
-              {!!details.handle && (
-                <Text style={[styles.handle, { color: mutedText }]} numberOfLines={1}>
-                  {details.handle}
-                </Text>
-              )}
-              <Text style={[styles.meta, { color: mutedText }]} numberOfLines={1}>
-                {[details.typeLabel, titleCase(details.status)].filter(Boolean).join(' • ')}
-              </Text>
-            </View>
-            <Text style={[styles.headerAmount, { color: amountColor }]}>{details.amount}</Text>
-          </View>
-
-          <View style={[styles.card, { backgroundColor: card, borderColor: border }]}>
-            <View style={styles.statusRow}>
-              <View style={[styles.statusIcon, { backgroundColor: status.color }]}>
-                <Ionicons name={status.icon} size={18} color="#fff" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.statusTitle, { color: status.color }]}>{status.title}</Text>
-                <Text style={[styles.statusMessage, { color: mutedText }]}>{status.message}</Text>
-              </View>
-            </View>
-            {!!details.date && (
-              <>
-                <View style={[styles.divider, { backgroundColor: border }]} />
-                <Text style={[styles.dateCentered, { color: mutedText }]}>{details.date}</Text>
-              </>
-            )}
-          </View>
-
-          <Text style={[styles.sectionTitle, { color: accent || text }]}>
-            {t('transactionDetails.summaryTitle')}
-          </Text>
-          <View style={[styles.card, { backgroundColor: card, borderColor: border }]}>
-            {row(t('transactionDetails.type'), details.typeLabel, accent || text, styles.boldValue)}
-            {row(t('transactionDetails.amount'), details.amount, amountColor, styles.boldValue)}
-            {row(t('transactionDetails.fee'), details.fee, mutedText)}
-            {!!details.period && row(t('transactionDetails.period'), details.period, mutedText)}
-            <View style={[styles.divider, { backgroundColor: border }]} />
-            <View style={styles.summaryRow}>
-              <Text style={[styles.totalLabel, { color: text }]}>{t('transactionDetails.total')}</Text>
-              <Text style={[styles.totalValue, { color: amountColor }]}>{details.total}</Text>
-            </View>
-          </View>
-
-          <View style={[styles.card, { backgroundColor: card, borderColor: border }]}>
-            <View style={styles.summaryRow}>
-              <Text style={[styles.rowLabel, { color: mutedText }]}>{t('transactionDetails.from')}</Text>
-              <View style={styles.toWrap}>
-                <Text style={[styles.rowValue, styles.boldValue, { color: accent || text }]} numberOfLines={1}>
-                  {details.fromName}
-                </Text>
-                {!!details.fromHandle && (
-                  <Text style={[styles.handle, { color: mutedText, textAlign: 'right' }]} numberOfLines={1}>
-                    {details.fromHandle}
-                  </Text>
+          <View style={[styles.receiptCard, { backgroundColor: card }]}>
+            
+            {/* Top Logo and Status */}
+            <View style={styles.cardHeader}>
+              <View style={styles.logoContainer}>
+                {Dragonfly ? (
+                  <Dragonfly width={32} height={32} color={accent || '#5B21B6'} />
+                ) : (
+                  <Ionicons name="color-wand" size={28} color={accent || '#5B21B6'} />
                 )}
+                <Text style={[styles.logoText, { color: accent || '#5B21B6' }]}>VALENS</Text>
               </View>
+              <StatusBadge />
             </View>
-            <View style={styles.summaryRow}>
-              <Text style={[styles.rowLabel, { color: mutedText }]}>{t('transactionDetails.to')}</Text>
-              <View style={styles.toWrap}>
-                <Text style={[styles.rowValue, styles.boldValue, { color: accent || text }]} numberOfLines={1}>
-                  {details.toName}
+
+            {/* Title and Date Row */}
+            <View style={styles.titleRow}>
+              <View style={styles.titleLeft}>
+                <Text style={[styles.successTitle, { color: accent || text }]}>
+                  {details.status === 'succeeded' ? 'Transaction successful' : status.title}
                 </Text>
-                {!!details.toHandle && (
-                  <Text style={[styles.handle, { color: mutedText, textAlign: 'right' }]} numberOfLines={1}>
-                    {details.toHandle}
-                  </Text>
-                )}
+                <Text style={[styles.successSubtitle, { color: mutedText }]}>
+                  Thank you for using Valens.
+                </Text>
+              </View>
+              <View style={styles.titleRight}>
+                <Text style={[styles.receiptDateLabel, { color: mutedText }]}>Receipt Date</Text>
+                <Text style={[styles.receiptDateValue, { color: text }]}>{details.date}</Text>
               </View>
             </View>
-            {row(t('transactionDetails.paymentMethod'), details.paymentMethod, text, styles.boldValue)}
-            <View style={styles.summaryRow}>
-              <Text style={[styles.rowLabel, { color: mutedText }]}>{t('transactionDetails.transactionId')}</Text>
-              <TouchableOpacity onPress={copyId} style={styles.copyRow} activeOpacity={0.8}>
-                <Text style={[styles.txnId, { color: accent || text }]} numberOfLines={1}>
+
+            {/* Transaction ID Box */}
+            <View style={[styles.txnBox, { backgroundColor: `${accent}10` || '#F3F0FF' }]}>
+              <View style={styles.txnIconWrap}>
+                <Ionicons name="document-text-outline" size={20} color={accent || '#5B21B6'} />
+              </View>
+              <View style={styles.txnTextWrap}>
+                <Text style={[styles.txnLabel, { color: mutedText }]}>Transaction ID</Text>
+                <Text style={[styles.txnValue, { color: accent || '#5B21B6' }]} numberOfLines={1}>
                   {details.transactionId || '—'}
                 </Text>
-                <Ionicons name="copy-outline" size={16} color={accent || text} />
+              </View>
+              <TouchableOpacity onPress={copyId} style={styles.copyBtn} hitSlop={10}>
+                <Ionicons name="copy-outline" size={20} color={accent || '#5B21B6'} />
               </TouchableOpacity>
             </View>
+
+            {/* From / To Section */}
+            <View style={styles.partiesRow}>
+              <View style={styles.partyCol}>
+                <Text style={[styles.partyLabel, { color: mutedText }]}>From</Text>
+                <TouchableOpacity 
+                  style={styles.partyProfile}
+                  onPress={() => handleProfilePress(details.fromId)}
+                  activeOpacity={details.fromId ? 0.7 : 1}
+                >
+                  <HexAvatar uri={details.fromImage} size={44} borderWidth={1} borderColor={border} />
+                  <View style={styles.partyInfo}>
+                    <Text style={[styles.partyName, { color: accent || text }]} numberOfLines={1}>
+                      {details.fromName}
+                    </Text>
+                    {!!details.fromHandle && (
+                      <Text style={[styles.partyHandle, { color: mutedText }]} numberOfLines={1}>
+                        {details.fromHandle}
+                      </Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              </View>
+              
+              <View style={styles.arrowContainer}>
+                <View style={[styles.arrowCircle, { backgroundColor: `${accent}15` || '#F3F0FF' }]}>
+                  <Ionicons name="arrow-forward" size={16} color={accent || '#5B21B6'} />
+                </View>
+              </View>
+              
+              <View style={styles.partyCol}>
+                <Text style={[styles.partyLabel, { color: mutedText, textAlign: 'right' }]}>To</Text>
+                <TouchableOpacity 
+                  style={styles.partyProfileRight}
+                  onPress={() => handleProfilePress(details.toId)}
+                  activeOpacity={details.toId ? 0.7 : 1}
+                >
+                  <HexAvatar uri={details.toImage} size={44} borderWidth={1} borderColor={border} />
+                  <View style={styles.partyInfoRight}>
+                    <Text style={[styles.partyName, { color: accent || text }]} numberOfLines={1}>
+                      {details.toName}
+                    </Text>
+                    {!!details.toHandle && (
+                      <Text style={[styles.partyHandle, { color: mutedText }]} numberOfLines={1}>
+                        {details.toHandle}
+                      </Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={[styles.divider, { backgroundColor: border }]} />
+
+            {/* Details List */}
+            <View style={styles.detailsList}>
+              {row('heart-outline', 'Type', details.typeLabel, accent || text, styles.boldValue)}
+              {row('time-outline', 'Amount', details.amount, amountColor, styles.boldValue)}
+              {/* {row('pie-chart-outline', 'Valens Fee (5%)', details.fee, text, styles.boldValue)} */}
+              {row('calendar-outline', 'Total Received', details.total, amountColor, styles.totalValue, styles.totalLabel)}
+              {row('card-outline', 'Payment Method', details.paymentMethod, accent || text, styles.boldValue)}
+              {row('calendar-outline', 'Date & Time', details.date, text, styles.boldValue)}
+              
+              {/* Custom Status Row */}
+              <View style={styles.detailRow}>
+                <View style={styles.detailLeft}>
+                  <View style={styles.detailIconContainer}>
+                    <Ionicons name="shield-checkmark-outline" size={18} color={accent || text} style={{ opacity: 0.7 }} />
+                  </View>
+                  <Text style={[styles.detailLabel, { color: mutedText }]}>Status</Text>
+                </View>
+                <StatusBadge />
+              </View>
+            </View>
+
+            {/* Official Receipt Notice */}
+            <View style={[styles.noticeBox, { backgroundColor: `${accent}10` || '#F3F0FF' }]}>
+              <Ionicons name="shield-checkmark-outline" size={24} color={accent || '#5B21B6'} style={styles.noticeIcon} />
+              <View style={styles.noticeTextWrap}>
+                <Text style={[styles.noticeTitle, { color: accent || '#5B21B6' }]}>
+                  This is an official receipt for your records.
+                </Text>
+                <Text style={[styles.noticeBody, { color: mutedText }]}>
+                  No physical goods or services were provided in exchange for this donation.
+                </Text>
+              </View>
+            </View>
+
           </View>
 
-          {!!details.note && (
-            <View style={[styles.card, { backgroundColor: card, borderColor: border }]}>
-              <Text style={[styles.rowLabel, { color: mutedText, marginBottom: 6 }]}>
-                {t('transactionDetails.note')}
-              </Text>
-              <Text style={[styles.noteText, { color: text }]}>{details.note}</Text>
-            </View>
-          )}
-
           <TouchableOpacity
-            style={[styles.helpCard, { backgroundColor: `${accent || text}14`, borderColor: `${accent || text}22` }]}
+            style={[styles.helpCard, { backgroundColor: card }]}
             onPress={openHelp}
             activeOpacity={0.85}
           >
@@ -398,7 +462,7 @@ export default function TransactionDetailsScreen() {
               <Ionicons name="help" size={18} color="#fff" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.helpTitle, { color: text }]}>{t('transactionDetails.needHelp')}</Text>
+              <Text style={[styles.helpTitle, { color: accent || text }]}>{t('transactionDetails.needHelp')}</Text>
               <Text style={[styles.helpSubtitle, { color: mutedText }]}>{t('transactionDetails.helpBody')}</Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color={mutedText} />
@@ -410,73 +474,244 @@ export default function TransactionDetailsScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
+  safe: { flex: 1, backgroundColor: '#F9F8FD' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 8,
     paddingVertical: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   headerBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { flex: 1, textAlign: 'center', fontSize: 18, fontWeight: '800' },
+  headerTitle: { flex: 1, textAlign: 'center', fontSize: 16, fontWeight: '700' },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   content: { padding: 16, paddingBottom: 36 },
-  profileHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  profileText: { flex: 1, minWidth: 0, marginLeft: 10, marginRight: 8 },
-  name: { fontSize: 16, fontWeight: '800' },
-  handle: { fontSize: 13, fontWeight: '600', marginTop: 1 },
-  meta: { fontSize: 13, marginTop: 2 },
-  headerAmount: { fontSize: 18, fontWeight: '800' },
-  card: {
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 14,
-    marginBottom: 14,
+  
+  receiptCard: {
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 3,
+    marginBottom: 20,
   },
-  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  statusIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 24,
+  },
+  logoContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 8,
   },
-  statusTitle: { fontSize: 16, fontWeight: '800' },
-  statusMessage: { fontSize: 13, marginTop: 2 },
-  divider: { height: StyleSheet.hairlineWidth, marginVertical: 12 },
-  dateCentered: { textAlign: 'center', fontSize: 13, fontWeight: '600' },
-  sectionTitle: { fontSize: 16, fontWeight: '800', marginBottom: 10 },
-  summaryRow: {
+  logoText: {
+    fontSize: 22,
+    fontWeight: '300',
+    letterSpacing: 1,
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+    gap: 4,
+  },
+  statusBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  
+  titleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    marginBottom: 20,
+  },
+  titleLeft: {
+    flex: 1,
+    paddingRight: 12,
+  },
+  successTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  successSubtitle: {
+    fontSize: 12,
+  },
+  titleRight: {
+    alignItems: 'flex-end',
+  },
+  receiptDateLabel: {
+    fontSize: 10,
+    marginBottom: 2,
+  },
+  receiptDateValue: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  
+  txnBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 24,
+  },
+  txnIconWrap: {
+    marginRight: 12,
+  },
+  txnTextWrap: {
+    flex: 1,
+  },
+  txnLabel: {
+    fontSize: 11,
+    marginBottom: 2,
+  },
+  txnValue: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  copyBtn: {
+    padding: 4,
+  },
+  
+  partiesRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    paddingVertical: 6,
-    gap: 12,
   },
-  rowLabel: { fontSize: 14, fontWeight: '600' },
-  rowValue: { fontSize: 14, fontWeight: '700', flexShrink: 1, textAlign: 'right' },
-  boldValue: { fontWeight: '800' },
-  totalLabel: { fontSize: 16, fontWeight: '800' },
-  totalValue: { fontSize: 16, fontWeight: '800' },
-  toWrap: { flex: 1, alignItems: 'flex-end' },
-  copyRow: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 6 },
-  txnId: { fontSize: 13, fontWeight: '700', maxWidth: '72%' },
-  noteText: { fontSize: 15, fontWeight: '600', lineHeight: 22 },
+  partyCol: {
+    flex: 1,
+  },
+  partyLabel: {
+    fontSize: 12,
+    marginBottom: 8,
+  },
+  partyProfile: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  partyInfo: {
+    marginLeft: 8,
+    flex: 1,
+  },
+  partyProfileRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  partyInfoRight: {
+    marginLeft: 8,
+    flex: 1,
+  },
+  partyName: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  partyHandle: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  
+  arrowContainer: {
+    paddingHorizontal: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+    height: 44, // Match avatar height
+    marginTop: 24, // Push down below label
+  },
+  arrowCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    marginVertical: 20,
+    opacity: 0.5,
+  },
+  
+  detailsList: {
+    gap: 16,
+    marginBottom: 24,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  detailLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  detailIconContainer: {
+    width: 24,
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  detailLabel: {
+    fontSize: 14,
+  },
+  detailValue: {
+    fontSize: 14,
+  },
+  boldValue: {
+    fontWeight: '700',
+  },
+  totalLabel: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#5B21B6',
+  },
+  totalValue: {
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  
+  noticeBox: {
+    flexDirection: 'row',
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'flex-start',
+    marginTop: 8,
+  },
+  noticeIcon: {
+    marginRight: 12,
+    marginTop: 2,
+  },
+  noticeTextWrap: {
+    flex: 1,
+  },
+  noticeTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  noticeBody: {
+    fontSize: 11,
+    lineHeight: 16,
+  },
+  
   helpCard: {
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 16,
-    borderWidth: 1,
-    padding: 14,
+    padding: 16,
     gap: 12,
-    marginTop: 4,
-    marginBottom: '5%',
   },
   helpIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },

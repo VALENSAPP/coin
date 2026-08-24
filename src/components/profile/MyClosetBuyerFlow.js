@@ -2027,6 +2027,12 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
     .filter((value, index, values) => value && values.indexOf(value) === index)
     .join('\n');
 
+  const openLocationInMaps = () => {
+    if (!pickupAddress) return;
+    const query = encodeURIComponent(pickupAddress);
+    Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${query}`).catch(() => { });
+  };
+
   const handleLikePress = async () => {
     if (!productId || likeLoading) return;
     const previousLiked = liked;
@@ -2206,7 +2212,7 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
               ) : null}
 
               {offersPickup ? (
-                <View style={styles.fulfilmentOption}>
+                <TouchableOpacity activeOpacity={0.7} onPress={openLocationInMaps} style={styles.fulfilmentOption}>
                   <View style={[styles.fulfilmentIconSmall, { backgroundColor: withAlphaFlow(accent, 0.1) }]}>
                     <Ionicons name="location-outline" size={21} color={accent} />
                   </View>
@@ -2215,7 +2221,7 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
                     <Text style={[styles.fulfilmentOptionSubtitle, { color: mutedText }]}>{t('myClosetBuyer.pickupLocationHelper')}</Text>
                     {pickupAddress ? <Text style={[styles.pickupAddressDetail, { color: text }]}>{pickupAddress}</Text> : null}
                   </View>
-                </View>
+                </TouchableOpacity>
               ) : null}
             </View>
           </View>
@@ -4499,7 +4505,7 @@ const MyClosetBuyerOrderReceivedScreen = ({ navigation, route }) => {
             </Text>
           </View>
         ) : null}
-        {hasPickupItems ? (
+        {!hasMixedFulfillment && hasPickupItems ? (
           <View style={[styles.pickupSuccessMessage, themedCard(card, border)]}>
             <Text style={[styles.pickupSuccessTitle, { color: text }]}>
               {t('myClosetBuyer.pickupSuccessTitle')}
