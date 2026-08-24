@@ -22,3 +22,15 @@ export async function searchUsers(query) {
   if (!q) return { success: true, data: [] };
   return axiosInstance.get('user/search', { params: { query: q } });
 }
+
+export async function getSearchHistory() {
+  return axiosInstance.get('/user/search/history', { params: { limit: 20 } });
+}
+
+export async function clearSearchHistory() {
+  return axiosInstance.delete('/user/search/history/clear-all');
+}
+
+export async function deleteSearchHistoryItem(id) {
+  return axiosInstance.delete(`/user/search/history/${id}`);
+}

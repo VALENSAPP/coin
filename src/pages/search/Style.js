@@ -31,6 +31,58 @@ export default StyleSheet.create({
     fontWeight: '500',
   },
 
+  searchHistoryPanel: {
+    borderWidth: 1,
+    borderRadius: 16,
+    marginBottom: 14,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  searchHistoryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  searchHistoryTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  searchHistoryClear: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  searchHistoryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    gap: 10,
+  },
+  searchHistoryNameWrap: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 28,
+  },
+  searchHistoryName: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  searchHistoryDeleteBtn: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 16,
+  },
+  searchHistoryEmptyState: {
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
   battleExploreSection: {
     flexShrink: 0,
   },
