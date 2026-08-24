@@ -46,7 +46,7 @@ import {
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
-import { clearSearchHistory, deleteSearchHistoryItem, getAllUser, getSearchHistory } from '../../services/users';
+import { clearSearchHistory, deleteSearchHistoryItem, getAllUser, getSearchHistory, postSearchHistory } from '../../services/users';
 import { getSearchPagePost } from '../../services/home';
 import {
   useIsFocused,
@@ -748,6 +748,7 @@ const SearchScreen = () => {
   const [userId, setUserId] = useState(null);
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [searchText, setSearchText] = useState('');
+  const searchTextRef = useRef('');
   const [searchHistory, setSearchHistory] = useState([]);
   const [showSearchHistory, setShowSearchHistory] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -940,6 +941,7 @@ const SearchScreen = () => {
         getAllUser({ ...params, limit: USER_SEARCH_LIMIT }).catch(() => ({
           statusCode: 0,
         }));
+        console.log(fetchUserSlice,'serch reposeeneneen')
       const [byUserName, byDisplayName, byName, byBusinessName] = await Promise.all([
         fetchUserSlice({ userName: searchQuery }),
         fetchUserSlice({ displayName: searchQuery }),
@@ -1003,6 +1005,7 @@ const SearchScreen = () => {
 
   const handleSearch = useCallback(value => {
     setSearchText(value);
+    searchTextRef.current = value;
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
     if (!value.trim()) {
       activeSearchRequestIdRef.current = 0;
@@ -1060,6 +1063,21 @@ const SearchScreen = () => {
     }
   }, [normalizeSearchHistory]);
 
+  const handleSearchSubmit = useCallback(() => {
+    Keyboard.dismiss();
+    const currentSearch = searchTextRef.current;
+    if (currentSearch && currentSearch.trim().length > 0) {
+      const payload = { query: currentSearch.trim() };
+      console.log('[postSearchHistory] Request payload on submit:', payload);
+      postSearchHistory(payload)
+        .then(res => {
+          console.log('[postSearchHistory] Response on submit:', res?.data || res);
+          fetchSearchHistory();
+        })
+        .catch(err => console.log('[postSearchHistory] Error on submit:', err?.response?.data || err));
+    }
+  }, [fetchSearchHistory]);
+
   const openSearchHistory = useCallback(() => {
     setShowSearchHistory(true);
     if (!searchHistory.length && !historyLoading) {
@@ -1071,6 +1089,7 @@ const SearchScreen = () => {
     const next = String(name || '').trim();
     if (!next) return;
     setSearchText(next);
+    searchTextRef.current = next;
     setShowSearchHistory(false);
     setHasSearched(false);
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
@@ -1362,10 +1381,28 @@ const SearchScreen = () => {
       return;
     }
 
+    // Call API to record search history
+    const currentSearch = searchTextRef.current || '';
+    const payload = {
+      query: currentSearch.trim(),
+      searchedUserId: String(targetId)
+    };
+    console.log('[postSearchHistory] Request payload:', payload);
+    postSearchHistory(payload)
+      .then(res => {
+        console.log('[postSearchHistory] Response:', res?.data || res);
+        fetchSearchHistory();
+      })
+      .catch(err => console.log('[postSearchHistory] Error:', err?.response?.data || err));
+
     if (String(targetId) === String(userId || '')) {
       navigation.navigate('ProfileMain', {
         screen: 'Profile',
-        params: { returnTo: route?.name, returnParams: route?.params },
+        params: { 
+          returnTo: 'Search', 
+          returnParams: route?.params,
+          stackName: 'Search'
+        },
       });
       return;
     }
@@ -1374,11 +1411,13 @@ const SearchScreen = () => {
       params: {
         userId: String(targetId),
         username: user?.userName || user?.username || '',
-        returnTo: route?.name,
+        returnTo: 'Search',
+        returnParams: route?.params,
+        stackName: 'Search',
         battleLive: Boolean(user?.battleLive || user?.isBattleLive) || Number(String(targetId).slice(-1)) % 3 === 0,
       },
     });
-  }, [navigation, route?.name, route?.params, userId, t]);
+  }, [navigation, route?.name, route?.params, userId, t, fetchSearchHistory]);
 
   const handlePostPress = useCallback((item, isVideo) => {
     const uniqueKey = Date.now().toString();
@@ -1833,7 +1872,7 @@ const SearchScreen = () => {
                   onChangeText={handleSearch}
                   onFocus={openSearchHistory}
                   returnKeyType="search"
-                  onSubmitEditing={Keyboard.dismiss}
+                  onSubmitEditing={handleSearchSubmit}
                 />
                 {searchText.length > 0 && (
                   <TouchableOpacity onPress={() => handleSearch('')}>
@@ -1867,17 +1906,42 @@ const SearchScreen = () => {
                       <ActivityIndicator size="small" color={accent} />
                     </View>
                   ) : searchHistory.length > 0 ? (
-                    searchHistory.map(item => (
+                    searchHistory.map(item => {
+                      const searchedUser = item.raw?.searchedUser;
+                      
+                      return (
                       <View key={item.id || item.name} style={styles.searchHistoryRow}>
                         <TouchableOpacity
                           style={styles.searchHistoryNameWrap}
-                          onPress={() => runHistorySearch(item.name)}
+                          onPress={() => {
+                            if (searchedUser) {
+                              handleUserProfile(searchedUser);
+                            } else {
+                              runHistorySearch(item.name);
+                            }
+                          }}
                           activeOpacity={0.8}
                         >
-                          <Icon name="time-outline" size={16} color={mutedText} style={{ marginRight: 8 }} />
-                          <Text style={[styles.searchHistoryName, textStyle]} numberOfLines={1}>
-                            {item.name}
-                          </Text>
+                          {searchedUser ? (
+                            <>
+                              <HexAvatar
+                                uri={normalizeImageUrl(searchedUser.image) || require('../../assets/icons/pngicons/user.png')}
+                                size={24}
+                                borderWidth={1}
+                                borderColor={border}
+                              />
+                              <Text style={[styles.searchHistoryName, textStyle, { marginLeft: 8 }]} numberOfLines={1}>
+                                {searchedUser.displayName || searchedUser.userName}
+                              </Text>
+                            </>
+                          ) : (
+                            <>
+                              <Icon name="time-outline" size={16} color={mutedText} style={{ marginRight: 8 }} />
+                              <Text style={[styles.searchHistoryName, textStyle]} numberOfLines={1}>
+                                {item.name}
+                              </Text>
+                            </>
+                          )}
                         </TouchableOpacity>
                         <TouchableOpacity
                           onPress={() => handleDeleteSearchHistoryItem(item)}
@@ -1892,7 +1956,8 @@ const SearchScreen = () => {
                           )}
                         </TouchableOpacity>
                       </View>
-                    ))
+                      );
+                    })
                   ) : (
                     <View style={styles.searchHistoryEmptyState}>
                       <Text style={[styles.emptySubtitle, mutedTextStyle]}>No recent searches yet.</Text>

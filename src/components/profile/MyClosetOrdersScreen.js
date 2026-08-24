@@ -31,6 +31,7 @@ import {
 } from '../../services/myCloset';
 import ShippingDetailsModal from '../modals/ShippingDetailsModal';
 import DeliverOtpModal from '../modals/DeliverOtpModal';
+import CancelOrderModal from '../modals/CancelOrderModal';
 
 // ── Status helpers ──────────────────────────────────────────────────────
 const STATUS_META = {
@@ -431,6 +432,7 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
   const [activeTab, setActiveTab] = useState('all');
   const [advancingId, setAdvancingId] = useState(null);
   const [shippingModalOrder, setShippingModalOrder] = useState(null);
+  const [cancelModalOrder, setCancelModalOrder] = useState(null);
   const [pageInfo, setPageInfo] = useState({ page: 1, limit: 10, total: 0, totalPages: 1 });
   const [counts, setCounts] = useState({ all: 0, pending: 0, processing: 0, shipped: 0, delivered: 0 });
   const [unviewedIds, setUnviewedIds] = useState([]);
@@ -672,37 +674,29 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
     [dispatch, loadCounts, loadOrders, toast, t, mode, fulfillmentTab],
   );
 
-  const handleCancel = useCallback(
-    order => {
-      Alert.alert(
-        t('myClosetOrders.cancelConfirmTitle'),
-        t('myClosetOrders.cancelConfirmMessage'),
-        [
-          { text: t('myClosetOrders.keepOrder'), style: 'cancel' },
-          {
-            text: t('myClosetOrders.cancelOrderButton'),
-            style: 'destructive',
-            onPress: async () => {
-              setAdvancingId(order.id);
-              dispatch(showLoader());
-              try {
-                await cancelBuyerOrder(order.raw?.id || order.raw?._id || order.id);
-                showToastMessage(toast, 'success', t('myClosetOrders.cancelSuccess'));
-                await Promise.all([loadOrders(1, false), loadCounts()]);
-              } catch (error) {
-                showToastMessage(
-                  toast,
-                  'danger',
-                  error?.response?.data?.message || error?.message || t('myClosetOrders.cancelError'),
-                );
-              } finally {
-                setAdvancingId(null);
-                dispatch(hideLoader());
-              }
-            },
-          },
-        ],
-      );
+  const handleCancel = useCallback((order) => {
+    setCancelModalOrder(order);
+  }, []);
+
+  const handleConfirmCancel = useCallback(
+    async (order, reason, comments) => {
+      setAdvancingId(order.id);
+      dispatch(showLoader());
+      try {
+        await cancelBuyerOrder(order.raw?.id || order.raw?._id || order.id, { reason, comments });
+        await Promise.all([loadOrders(1, false), loadCounts()]);
+        // The modal handles its own success state now
+      } catch (error) {
+        showToastMessage(
+          toast,
+          'danger',
+          error?.response?.data?.message || error?.message || t('myClosetOrders.cancelError'),
+        );
+        throw error; // Re-throw to let the modal know
+      } finally {
+        setAdvancingId(null);
+        dispatch(hideLoader());
+      }
     },
     [dispatch, loadCounts, loadOrders, toast, t],
   );
@@ -888,6 +882,12 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
         toast={toast}
         onCancel={() => setDeliverOtpModalOrder(null)}
         onSubmit={(otp) => handleAdvance(deliverOtpModalOrder, otp)}
+      />
+      <CancelOrderModal
+        visible={!!cancelModalOrder}
+        onClose={() => setCancelModalOrder(null)}
+        order={cancelModalOrder}
+        onConfirmCancel={handleConfirmCancel}
       />
     </SafeAreaView>
   );

@@ -281,14 +281,14 @@ const CustomDrawerContent = (props) => {
         <Text style={{ fontSize: 15, color: drawerColors.inactive, fontWeight: '600' }}>
           {isCompanyProfile ? t('drawerNav.shop') : t('drawerNav.myCloset')}
           {!isCompanyProfile && unviewedCount > 0 && (
-            <Text style={{ color: accent }}> | {t('myClosetDashboard.newOrder')}</Text>
+            <Text style={{ color: accent }}> |  {t('myClosetDashboard.newOrder')}  [{unviewedCount}]</Text>
           )}
         </Text>
-        {isCompanyProfile && (
+        {/* {unviewedCount > 0 && (
           <View style={{ marginLeft: 8, backgroundColor: '#E0E7FF', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 12 }}>
-            <Text style={{ fontSize: 10, color: '#4F46E5', fontWeight: 'bold' }}>NEW</Text>
+            <Text style={{ fontSize: 10, color: '#4F46E5', fontWeight: 'bold' }}>{unviewedCount} NEW</Text>
           </View>
-        )}
+        )} */}
       </TouchableOpacity>
 
       <TouchableOpacity

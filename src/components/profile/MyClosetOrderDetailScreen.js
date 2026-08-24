@@ -447,14 +447,14 @@ const BottomButton = ({ label, onPress, disabled }) => {
 };
 
 // Small horizontal progress tracker
-const StatusTimeline = ({ status, isLocalPickup }) => {
+const StatusTimeline = ({ status, isLocalPickup, surface }) => {
   const { t } = useLanguage();
   const { accent, mutedTextStyle } = useAppTheme();
   const { isDarkMode } = useThemeContext();
   const steps = isLocalPickup ? PICKUP_TIMELINE_STEPS : SHIP_TIMELINE_STEPS;
   const currentIndex = steps.indexOf(status === 'cancelled' ? 'pending' : status);
   const connectorColor = withAlpha(accent, 0.25);
-  const inactiveDot = isDarkMode ? 'rgba(255,255,255,0.12)' : '#e5ddf0';
+  const inactiveDot = isDarkMode ? 'rgba(255,255,255,0.12)' : surface;
 
   return (
     <View style={styles.timelineWrap}>
@@ -894,10 +894,10 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
         </View>
 
         {order.status !== 'cancelled' && (
-          <StatusTimeline status={order.status} isLocalPickup={order.isLocalPickup} />
+          <StatusTimeline status={order.status} isLocalPickup={order.isLocalPickup} surface={withAlpha(accent, 0.1)} />
         )}
 
-        <View style={[styles.card, cardStyle, { borderColor: border, backgroundColor: surface }]}>
+        <View style={[styles.card, cardStyle, { borderColor: border, backgroundColor: withAlpha(accent, 0.1) }]}>
           <Text style={[styles.cardTitle, textStyle]}>
             {canUpdateStatus ? t('myClosetOrderDetail.buyer') : t('myClosetOrderDetail.seller')}
           </Text>
@@ -936,7 +936,7 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
 
         {order.isLocalPickup ? (
           order.pickupAddress || order.pickupLocationName ? (
-            <View style={[styles.card, cardStyle, { borderColor: border, backgroundColor: surface }]}>
+            <View style={[styles.card, cardStyle, { borderColor: border, backgroundColor: withAlpha(accent, 0.1) }]}>
               <Text style={[styles.cardTitle, textStyle]}>
                 {t('myClosetOrderDetail.pickupLocation')}
               </Text>
@@ -992,7 +992,7 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
               accent={accent}
               border={border}
               cardStyle={cardStyle}
-              surface={surface}
+              surface={withAlpha(accent, 0.1)}
               textStyle={textStyle}
               mutedTextStyle={mutedTextStyle}
               t={t}
@@ -1005,14 +1005,14 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
             accent={accent}
             border={border}
             cardStyle={cardStyle}
-            surface={surface}
+            surface={withAlpha(accent, 0.1)}
             textStyle={textStyle}
             mutedTextStyle={mutedTextStyle}
             t={t}
           />
         ) : null}
 
-        <View style={[styles.card, cardStyle, { borderColor: border, backgroundColor: surface }]}>
+        <View style={[styles.card, cardStyle, { borderColor: border, backgroundColor: withAlpha(accent, 0.1) }]}>
           <Text style={[styles.cardTitle, textStyle]}>{t('myClosetOrderDetail.items', { count: order.totalItemCount })}</Text>
           {order.images?.length ? (
             <View style={styles.coverWrap}>
@@ -1043,7 +1043,7 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
           )}
         </View>
 
-        <View style={[styles.card, cardStyle, { borderColor: border, backgroundColor: surface }]}>
+        <View style={[styles.card, cardStyle, { borderColor: border, backgroundColor: withAlpha(accent, 0.1) }]}>
           <SummaryRow label={t('myClosetOrderDetail.orderTotal')} value={order.totalAmount} bold />
         </View>
 
@@ -1176,6 +1176,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     paddingHorizontal: 12,
+    backgroundColor: '#fff'
   },
   chatButtonText: { fontSize: 13, fontWeight: '900' },
   disabledButton: { opacity: 0.45 },

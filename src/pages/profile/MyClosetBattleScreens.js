@@ -2995,8 +2995,24 @@ export function BattleCreatedSuccessScreen({ navigation, route }) {
   const handleBack = () => navigateToTargetClosetScreen(navigation, targetScreen);
 
   const selectedItems = route?.params?.selectedItems || [];
-  const leftItem = selectedItems?.[0];
-  const rightItem = selectedItems?.[1];
+  const leftItem = selectedItems?.[0] || {};
+  const rightItem = selectedItems?.[1] || {};
+
+  const leftProfileId =
+    leftItem?.sellerId ||
+    leftItem?.userId ||
+    leftItem?.creatorId ||
+    leftItem?.ownerId ||
+    leftItem?.id ||
+    "";
+
+  const rightProfileId =
+    rightItem?.sellerId ||
+    rightItem?.userId ||
+    rightItem?.creatorId ||
+    rightItem?.ownerId ||
+    rightItem?.id ||
+    "";
 
   return (
     <View style={[styles.screen, bgStyle, { backgroundColor: bg || SOFT_BG }]}>
@@ -3047,7 +3063,15 @@ export function BattleCreatedSuccessScreen({ navigation, route }) {
 
           <TouchableOpacity
             activeOpacity={0.8}
-            onPress={handleSellerPress}
+            onPress={() => {
+              const targetId = rightProfileId ? String(rightProfileId).trim() : '';
+              if (!targetId) return;
+              void navigateToUserProfile(navigation, targetId, {
+                returnTo: route?.name,
+                returnParams: route?.params || {},
+                battleLive: true,
+              });
+            }}
             disabled={!rightProfileId}
             style={{ flex: 1, alignItems: 'center', opacity: rightProfileId ? 1 : 0.9 }}
           >

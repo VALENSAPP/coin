@@ -24,7 +24,11 @@ export async function searchUsers(query) {
 }
 
 export async function getSearchHistory() {
-  return axiosInstance.get('/user/search/history', { params: { limit: 20 } });
+  return axiosInstance.get('user/search/history', { params: { limit: 20 } });
+}
+
+export async function postSearchHistory(data) {
+  return axiosInstance.post('user/search/history', data);
 }
 
 export async function clearSearchHistory() {

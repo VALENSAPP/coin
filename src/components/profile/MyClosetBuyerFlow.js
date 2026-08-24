@@ -4499,7 +4499,7 @@ const MyClosetBuyerOrderReceivedScreen = ({ navigation, route }) => {
             </Text>
           </View>
         ) : null}
-        {hasPickupItems ? (
+        {!hasMixedFulfillment && hasPickupItems ? (
           <View style={[styles.pickupSuccessMessage, themedCard(card, border)]}>
             <Text style={[styles.pickupSuccessTitle, { color: text }]}>
               {t('myClosetBuyer.pickupSuccessTitle')}
