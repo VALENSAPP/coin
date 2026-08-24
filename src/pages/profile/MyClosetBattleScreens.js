@@ -27,6 +27,7 @@ import {
   useTargetClosetScreen,
   navigateToTargetClosetScreen,
 } from '../../utils/closetNavigation';
+import { navigateToUserProfile } from '../../utils/navigateToUserProfile';
 import { formSurfaces, selectedSurface, themedCard } from '../../utils/closetTheme';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { useFocusEffect } from '@react-navigation/native';
@@ -1657,6 +1658,17 @@ export function BattleLiveScreen({ navigation, route }) {
     battleBack();
   }, [navigation, returnTo, isOwnProfile, launchedFromPreview, battleBack, targetScreen]);
 
+  const handleSellerPress = useCallback(() => {
+    const targetId = rightProfileId ? String(rightProfileId).trim() : '';
+    if (!targetId) return;
+
+    void navigateToUserProfile(navigation, targetId, {
+      returnTo: route?.name,
+      returnParams: route?.params || {},
+      battleLive: true,
+    });
+  }, [navigation, route?.name, route?.params, rightProfileId]);
+
   const handleBackPress = useCallback(() => {
     if (navigation.canGoBack?.()) {
       navigation.goBack();
@@ -1708,6 +1720,24 @@ export function BattleLiveScreen({ navigation, route }) {
   console.log("selectedItems---------------------------", selectedItems)
   const leftItem = selectedItems[0] || {};
   const rightItem = selectedItems[1] || {};
+  const leftProfileId =
+    leftItem?.sellerId ||
+    leftItem?.userId ||
+    leftItem?.creatorId ||
+    leftItem?.ownerId ||
+    leftItem?.id ||
+    route?.params?.sellerId ||
+    route?.params?.userId ||
+    '';
+  const rightProfileId =
+    rightItem?.sellerId ||
+    rightItem?.userId ||
+    rightItem?.creatorId ||
+    rightItem?.ownerId ||
+    rightItem?.id ||
+    route?.params?.sellerId ||
+    route?.params?.userId ||
+    '';
   const leftVoteCount = Number(leftItem?.voteCount ?? 0);
   const rightVoteCount = Number(rightItem?.voteCount ?? 0);
   const totalItemVotes = leftVoteCount + rightVoteCount;
@@ -2991,23 +3021,45 @@ export function BattleCreatedSuccessScreen({ navigation, route }) {
         </View>
 
         <View style={[styles.aboutCard, themedCard(idleSurface, border || surfaces.listBorder), { padding: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
-          <View style={{ flex: 1, alignItems: 'center' }}>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => {
+              const targetId = leftProfileId ? String(leftProfileId).trim() : '';
+              if (!targetId) return;
+              void navigateToUserProfile(navigation, targetId, {
+                returnTo: route?.name,
+                returnParams: route?.params || {},
+                battleLive: true,
+              });
+            }}
+            disabled={!leftProfileId}
+            style={{ flex: 1, alignItems: 'center', opacity: leftProfileId ? 1 : 0.9 }}
+          >
             <FastImage source={fastImageSource(leftItem?.image)} style={{ width: 80, height: 80, borderRadius: 12 }} />
             <Text style={{ color: primaryText, fontWeight: '800', fontSize: 12, marginTop: 8, textAlign: 'center' }} numberOfLines={2}>{leftItem?.name || 'Item Name'}</Text>
             <Text style={{ color: primaryText, fontWeight: '900', fontSize: 12, marginTop: 4 }}>{leftItem?.price || '$0.00'}</Text>
             <Text style={{ color: subtleMuted, fontSize: 10, marginTop: 2 }}>{t('battle.yourItem', 'Your item')}</Text>
-          </View>
+          </TouchableOpacity>
 
           <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: idleSurface, borderWidth: 1, borderColor: border || surfaces.listBorder, alignItems: 'center', justifyContent: 'center', marginHorizontal: 10 }}>
             <Text style={{ color: accent, fontWeight: '900', fontSize: 12 }}>VS</Text>
           </View>
 
-          <View style={{ flex: 1, alignItems: 'center' }}>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={handleSellerPress}
+            disabled={!rightProfileId}
+            style={{ flex: 1, alignItems: 'center', opacity: rightProfileId ? 1 : 0.9 }}
+          >
             <FastImage source={fastImageSource(rightItem?.image)} style={{ width: 80, height: 80, borderRadius: 12 }} />
-            <Text style={{ color: primaryText, fontWeight: '800', fontSize: 12, marginTop: 8, textAlign: 'center' }} numberOfLines={2}>{rightItem?.name || 'Item Name'}</Text>
+            <Text style={{ color: primaryText, fontWeight: '800', fontSize: 12, marginTop: 8, textAlign: 'center' }} numberOfLines={2}>
+              {rightItem?.name || 'Item Name'}
+            </Text>
             <Text style={{ color: primaryText, fontWeight: '900', fontSize: 12, marginTop: 4 }}>{rightItem?.price || '$0.00'}</Text>
-            <Text style={{ color: subtleMuted, fontSize: 10, marginTop: 2 }}>{rightItem?.shopName || rightItem?.userName || rightItem?.sellerName || 'Style Hub'}</Text>
-          </View>
+            <Text style={{ color: subtleMuted, fontSize: 10, marginTop: 2 }} numberOfLines={1}>
+              {rightItem?.shopName || rightItem?.userName || rightItem?.sellerName || 'Style Hub'}
+            </Text>
+          </TouchableOpacity>
         </View>
 
         <View style={{ alignItems: 'center', marginTop: 20, marginBottom: 20 }}>
