@@ -1657,25 +1657,6 @@ export function BattleLiveScreen({ navigation, route }) {
     }
     battleBack();
   }, [navigation, returnTo, isOwnProfile, launchedFromPreview, battleBack, targetScreen]);
-
-  const handleSellerPress = useCallback(() => {
-    const targetId = battle?.createdBy ? String(battle.createdBy).trim() : '';
-    if (!targetId) return;
-
-    void navigateToUserProfile(navigation, targetId, {
-      returnTo: 'BattleLive',
-      returnParams: {
-        battleId,
-        question,
-        selectedItems,
-        isOwnProfile,
-        returnTo,
-        ...route?.params
-      },
-      battleLive: true,
-    });
-  }, [navigation, route?.params, battle?.createdBy, battleId, question, selectedItems, isOwnProfile, returnTo]);
-
   const handleBackPress = useCallback(() => {
     if (navigation.canGoBack?.()) {
       navigation.goBack();
@@ -1813,6 +1794,28 @@ export function BattleLiveScreen({ navigation, route }) {
     ? Number(rightItem?.votePercentage ?? rightItem?.pct ?? rightVotePercent)
     : Number(leftItem?.votePercentage ?? leftItem?.pct ?? leftVotePercent);
   const showWinnerCard = battleIsResolved && !!winnerSide;
+
+  const handleSellerPress = useCallback(() => {
+    console.log(battle,'data in battle')
+    const targetId = battle?.createdBy ? String(battle.createdBy).trim() : '';
+    console.log(targetId,'data in targetId')
+
+    if (!targetId) return;
+
+    void navigateToUserProfile(navigation, targetId, {
+      returnTo: 'BattleLive',
+      returnParams: {
+        battleId,
+        question,
+        selectedItems,
+        isOwnProfile,
+        returnTo,
+        ...route?.params
+      },
+      battleLive: true,
+    });
+  }, [navigation, route?.params, battle?.createdBy, battleId, question, selectedItems, isOwnProfile, returnTo]);
+
 
   const openBattleProduct = useCallback((battleItem) => {
     const product = battleItem?.raw || battleItem;
@@ -2175,7 +2178,7 @@ export function BattleLiveScreen({ navigation, route }) {
       </View>
 
       {(battle?.creatorName || battle?.creatorAvatar || battle?.creatorShopName || battle?.sellerName) ? (
-        <TouchableOpacity activeOpacity={0.8} onPress={handleSellerPress} style={liveStyles.creatorRow}>
+        <TouchableOpacity activeOpacity={0.8} onPress={()=> handleSellerPress()} style={liveStyles.creatorRow}>
           <HexAvatar uri={battle.creatorAvatar} size={44} borderWidth={1} borderColor={accent} />
           <View style={liveStyles.creatorDetails}>
             <Text style={[liveStyles.creatorLabel, { color: mutedText }]}>{t('battle.battleBy') || 'Battle By'}</Text>
