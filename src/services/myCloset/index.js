@@ -77,7 +77,12 @@ const normalizeItemShippingOption = value => {
   return 'ship_items';
 };
 
-const parseFee = fee => Number(fee) || 0;
+const parseFee = (fee) => {
+  if (fee === null || fee === undefined || fee === '') return 0;
+  const cleaned = String(fee).replace(/[^0-9.]/g, '');
+  const parsed = parseFloat(cleaned);
+  return Number.isNaN(parsed) ? 0 : parsed;
+};
 
 /**
  * Single source of truth for building the /mycloset/items multipart payload.

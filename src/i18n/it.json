@@ -4304,7 +4304,8 @@
       "views": "Visualizzazioni",
       "likes": "Mi piace",
       "orders": "Ordini",
-      "revenue": "Entrate"
+      "revenue": "Entrate",
+      "cancelledOrders": "Ordini annullati"
     },
     "overview": {
       "items": "Articoli",
