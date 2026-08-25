@@ -4441,7 +4441,8 @@
       "views": "Views",
       "likes": "Likes",
       "orders": "Orders",
-      "revenue": "Revenue"
+      "revenue": "Revenue",
+      "cancelledOrders": "Cancelled Orders"
     },
     "overview": {
       "items": "Items",

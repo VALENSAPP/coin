@@ -80,6 +80,13 @@ const buildStatCards = (data, t) => ([
     delta: formatDelta(data?.changes?.revenuePercent),
     icon: 'cash-outline',
   },
+   {
+    key: 'cancelledorders',
+    label: t('myClosetDashboard.stats.cancelledOrders'),
+    value: String(data?.cancelledOrders ?? 0),
+    delta: formatDelta(data?.changes?.cancelledOrdersPercent ?? 0),
+    icon: 'close-circle-outline',
+  },
 ]);
 
 // This still comes from the general /dashboard endpoint (totalItems/sold/rating aren't

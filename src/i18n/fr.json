@@ -4305,7 +4305,8 @@
       "views": "Vues",
       "likes": "Mentions J'aime",
       "orders": "Commandes",
-      "revenue": "Revenus"
+      "revenue": "Revenus",
+      "cancelledOrders": "Commandes annulées"
     },
     "overview": {
       "items": "Articles",
