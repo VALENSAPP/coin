@@ -3754,6 +3754,7 @@
     "cancelConfirmMessage": "Cette action est irréversible.",
     "keepOrder": "Conserver la commande",
     "cancelOrderButton": "Annuler la commande",
+    "cancellationRequested": "Annulation demandée",
     "cancelSuccess": "Commande annulée.",
     "cancelError": "Impossible d'annuler la commande.",
     "buyerLabel": "Acheteur",

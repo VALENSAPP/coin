@@ -3754,6 +3754,7 @@
     "cancelConfirmMessage": "Esta acción no se puede deshacer.",
     "keepOrder": "Conservar pedido",
     "cancelOrderButton": "Cancelar pedido",
+    "cancellationRequested": "Cancelación solicitada",
     "cancelSuccess": "Pedido cancelado.",
     "cancelError": "No se pudo cancelar el pedido.",
     "buyerLabel": "Comprador",
