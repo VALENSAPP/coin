@@ -208,6 +208,7 @@ const normalizeOrder = (order, index, mode, t, fulfillmentTab = 'ship-to-deliver
     image: getOrderImage(order),
     shippingType,
     isLocalPickup,
+    cancellationStatus: order?.cancellationStatus,
     raw: order,
   };
 };
@@ -221,7 +222,7 @@ const withAlpha = (hex, alpha = 0.12) => {
   return `rgba(${r},${g},${b},${alpha})`;
 };
 
-const BUYER_CANCELLABLE_STATUSES = ['pending', 'confirmed', 'processing'];
+const BUYER_CANCELLABLE_STATUSES = ['pending', 'processing'];
 
 const OrdersHeader = ({ onBack, title, accent, textStyle }) => {
   const { isDarkMode } = useThemeContext();
@@ -313,12 +314,14 @@ const OrderCard = ({
   advancing,
   t,
   isNew,
+  onCancelRequested,
 }) => {
   const meta = STATUS_META[order.status] || STATUS_META.pending;
   const statusLabel = t(`myClosetOrders.status.${order.status}`);
   const flowStep = getFlowStep(order, mode, fulfillmentTab);
   const nextActionLabel = flowStep ? t(`myClosetOrders.action.${flowStep.actionKey}`) : null;
-  const canCancel = mode === 'buyer' && BUYER_CANCELLABLE_STATUSES.includes(order.status);
+  const canCancel = mode === 'buyer' && BUYER_CANCELLABLE_STATUSES.includes(order.status) && order.cancellationStatus !== 'REQUESTED';
+  const isCancelRequested = order.cancellationStatus === 'REQUESTED';
 
   return (
     <View style={[styles.orderCard, cardStyle, { borderColor: border || withAlpha(accent, 0.12) }]}>
@@ -358,7 +361,7 @@ const OrderCard = ({
         </View>
       </TouchableOpacity>
 
-      {nextActionLabel ? (
+      {nextActionLabel && !isCancelRequested ? (
         <TouchableOpacity
           activeOpacity={0.85}
           disabled={advancing}
@@ -380,6 +383,19 @@ const OrderCard = ({
           ]}
         >
           <Text style={[styles.advanceButtonText, { color: '#dc2626' }]}>{t('myClosetOrders.cancelOrderButton')}</Text>
+        </TouchableOpacity>
+      ) : null}
+
+      {isCancelRequested ? (
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() => onCancelRequested && onCancelRequested(order)}
+          style={[
+            styles.advanceButton,
+            { borderColor: '#d97706', opacity: 1 },
+          ]}
+        >
+          <Text style={[styles.advanceButtonText, { color: '#d97706' }]}>{t('myClosetOrders.cancellationRequested') || 'Cancellation Requested'}</Text>
         </TouchableOpacity>
       ) : null}
     </View>
@@ -481,6 +497,7 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
       append ? setLoadingMore(true) : setLoading(true);
       try {
         const response = await fetchOrdersPage(page, tabConfig.status);
+        console.log("response for buyer ordersssssssssssssss", response)
         const list = extractList(response);
         const pagination = extractPagination(response);
         const normalized = list.map((order, index) =>
@@ -587,6 +604,17 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
     [navigation, mode, fulfillmentTab],
   );
 
+  const handleCancelRequested = useCallback(
+    order => {
+      navigation?.navigate?.('CancellationRequest', {
+        orderId: order.raw?.id || order.raw?._id || order.id,
+        orderPreview: order.raw,
+        viewType: mode,
+      });
+    },
+    [navigation, mode],
+  );
+
   // `orders` already reflects the active tab's server-side filter, so it doubles as `visibleOrders`.
   const visibleOrders = useMemo(() => {
     if (mode !== 'buyer') return orders;
@@ -690,7 +718,9 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
       setAdvancingId(order.id);
       dispatch(showLoader());
       try {
-        await cancelBuyerOrder(order.raw?.id || order.raw?._id || order.id, { reason, comments });
+        const isOther = reason === t('cancelOrderModal.reasons.other');
+        const finalReason = (isOther && comments.trim()) ? comments.trim() : reason;
+        await cancelBuyerOrder(order.raw?.id || order.raw?._id || order.id, { reason: finalReason });
         await Promise.all([loadOrders(1, false), loadCounts()]);
         // The modal handles its own success state now
       } catch (error) {
@@ -840,6 +870,7 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
               onAdvance={handleAdvance}
               onCancel={handleCancel}
               onOpen={handleOpenOrder}
+              onCancelRequested={handleCancelRequested}
               t={t}
               isNew={mode === 'seller' && unviewedIds.includes(String(order.raw?.id || order.raw?._id || order.id))}
             />
