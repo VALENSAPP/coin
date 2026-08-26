@@ -3734,7 +3734,11 @@
     "pickupAvailableHoursLabel": "Horário de retirada",
     "pickupAvailableHoursPlaceholder": "ex. Seg-Sex 09:00-17:00",
     "buyerChatEnabledLabel": "Chat do comprador ativado",
-    "buyerChatEnabledPlaceholder": "Selecione sim ou não"
+    "buyerChatEnabledPlaceholder": "Selecione sim ou não",
+    "cancelPolicyTitle": "Política de cancelamento",
+    "cancelPolicyText": "Os pedidos podem ser cancelados antes de serem retirados ou entregues. O comprador e o vendedor devem aceitar o cancelamento.",
+    "howItWorksTitle": "Como funciona",
+    "howItWorksText": "Se o comprador ou o vendedor solicitar um cancelamento, a outra parte será informada. Ambos devem aceitar para que o cancelamento seja efetuado."
   },
   "myClosetOrders": {
     "headerSales": "Minhas vendas",
@@ -3788,7 +3792,8 @@
       "processing": "Em processamento",
       "shipped": "Enviado",
       "shipMe": "Envie para mim",
-      "delivered": "Entregue"
+      "delivered": "Entregue",
+      "cancelled": "Cancelado"
     }
   },
   "myClosetBuyer": {
@@ -3988,7 +3993,14 @@
     "winningPercentageLabel": "Percentual de vitória",
     "resultLabel": "Resultado",
     "winnerLabel": "Vencedor",
-    "battleResultsNote": "Este item foi o favorito da comunidade e venceu com {{pct}}% dos votos."
+    "battleResultsNote": "Este item foi o favorito da comunidade e venceu com {{pct}}% dos votos.",
+    "cancelPolicyTitle": "Política de cancelamento",
+    "cancelPolicyBold": "Os pedidos podem ser cancelados antes de serem retirados ou entregues. ",
+    "cancelPolicyRest": "O comprador e o vendedor devem aceitar o cancelamento.",
+    "howItWorksTitle": "Como funciona",
+    "howItWorksText": "Se o comprador ou o vendedor solicitar um cancelamento, a outra parte será notificada. Ambos devem aceitar para que o cancelamento prossiga.",
+    "agreeCancelPolicy": "Li e concordo com a política de cancelamento acima.",
+    "agreeCancelPolicyError": "Aceite a política de cancelamento para continuar."
   },
   "myClosetShared": {
     "headerTitle": "Meu Closet",

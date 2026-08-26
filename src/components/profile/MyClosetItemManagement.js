@@ -566,6 +566,8 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
   const [pickupTimeTarget, setPickupTimeTarget] = useState('start');
   const [errors, setErrors] = useState({});
 
+  const [howItWorksExpanded, setHowItWorksExpanded] = useState(false);
+
   useEffect(() => {
     setDraft(toEditableItem(item));
   }, [item]);
@@ -1099,6 +1101,45 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
           />
         </View>
 
+        <View style={[styles.cancelPolicyCard, cardStyle, { borderColor: withAlpha(accent, 0.16) }]}>
+          <View style={styles.cancelPolicyHeader}>
+            <View style={[styles.cancelPolicyIconWrap, { backgroundColor: withAlpha(accent, 0.1) }]}>
+              <Ionicons name="shield-checkmark-outline" size={18} color={accent} />
+            </View>
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={[styles.cancelPolicyTitle, { color: accent }]}>
+                {t('myClosetItemEditor.cancelPolicyTitle') || 'Cancel policy'}
+              </Text>
+              <Text style={[styles.cancelPolicyText, mutedTextStyle]}>
+                {t('myClosetItemEditor.cancelPolicyText') ||
+                  'Orders can be canceled before they are picked up or delivered. Buyer and seller must agree to cancel.'}
+              </Text>
+            </View>
+          </View>
+
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => setHowItWorksExpanded(prev => !prev)}
+            style={[styles.howItWorksRow, bgStyle]}
+          >
+            <View style={[styles.howItWorksIconWrap, { backgroundColor: '#fff' }]}>
+              <Ionicons name="people-outline" size={16} color={accent} />
+            </View>
+            <View style={{ flex: 1, marginLeft: 10 }}>
+              <Text style={[styles.howItWorksTitle, textStyle]}>
+                {t('myClosetItemEditor.howItWorksTitle') || 'How it works'}
+              </Text>
+              {howItWorksExpanded ? (
+                <Text style={[styles.howItWorksText, mutedTextStyle]}>
+                  {t('myClosetItemEditor.howItWorksText') ||
+                    'If either the buyer or seller requests a cancellation, the other party will be notified. Both must agree for the cancellation to proceed.'}
+                </Text>
+              ) : null}
+            </View>
+            <Ionicons name={howItWorksExpanded ? 'chevron-up' : 'chevron-down'} size={18} color={textStyle?.color || accent} />
+          </TouchableOpacity>
+        </View>
+
         <View style={styles.actionStack}>
           <TouchableOpacity
             activeOpacity={0.9}
@@ -1355,5 +1396,55 @@ const styles = StyleSheet.create({
     color: '#dc2626',
     fontSize: 15,
     fontWeight: '800',
+  },
+  cancelPolicyCard: {
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 14,
+    marginTop: 14,
+  },
+  cancelPolicyHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 14,
+  },
+  cancelPolicyIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelPolicyTitle: {
+    fontSize: 14,
+    fontWeight: '900',
+    marginBottom: 4,
+  },
+  cancelPolicyText: {
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  howItWorksRow: {
+    borderRadius: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  howItWorksIconWrap: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  howItWorksTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  howItWorksText: {
+    fontSize: 11,
+    lineHeight: 15,
+    marginTop: 4,
   },
 });

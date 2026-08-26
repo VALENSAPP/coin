@@ -405,12 +405,14 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
     { key: 'processing', status: 'PROCESSING' },
     { key: 'shipped', status: 'SHIPPED' },
     { key: 'delivered', status: 'DELIVERED' },
+    { key: 'cancelled', status: 'CANCELLED' },
   ];
 
   const SELLER_PICKUP_TABS = [
     { key: 'all', status: null },
     { key: 'processing', status: 'PROCESSING' },
     { key: 'delivered', status: 'DELIVERED' },
+    { key: 'cancelled', status: 'CANCELLED' },
   ];
 
   const BUYER_TABS = [
@@ -418,6 +420,7 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
     { key: 'processing', status: 'PROCESSING' },
     { key: 'shipMe', status: 'SHIPPED' },
     { key: 'delivered', status: 'DELIVERED' },
+    { key: 'cancelled', status: 'CANCELLED' },
   ];
 
   const tabs = useMemo(() => {
@@ -598,6 +601,9 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
       case 'delivered':
         return allOrders.filter(o => o.status === 'delivered');
 
+      case 'cancelled':
+        return allOrders.filter(o => o.status === 'cancelled');
+
       default:
         return allOrders;
     }
@@ -611,6 +617,7 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
       processing: allOrders.filter(o => o.status === 'processing').length,
       shipMe: allOrders.filter(o => o.status === 'shipped').length,
       delivered: allOrders.filter(o => o.status === 'delivered').length,
+      cancelled: allOrders.filter(o => o.status === 'cancelled').length,
     });
   }, [allOrders, mode]);
 
@@ -790,24 +797,26 @@ const MyClosetOrdersScreen = ({ navigation, route }) => {
       )}
 
       <View style={[styles.tabsRow, { borderBottomColor: withAlpha(accent, isDarkMode ? 0.2 : 0.08) }]}>
-        {tabs.map(tab => {
-          const isActive = activeTab === tab.key;
-          const count = counts[tab.key];
-          return (
-            <TouchableOpacity
-              key={tab.key}
-              activeOpacity={0.85}
-              onPress={() => setActiveTab(tab.key)}
-              style={styles.tabItem}
-            >
-              <Text style={[styles.tabLabel, mutedTextStyle, isActive && { color: accent, fontWeight: '800' }]}>
-                {t(`myClosetOrders.tabs.${tab.key}`)}
-                {tab.key !== 'all' ? ` (${count})` : ''}
-              </Text>
-              {isActive && <View style={[styles.tabUnderline, { backgroundColor: accent }]} />}
-            </TouchableOpacity>
-          );
-        })}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          {tabs.map(tab => {
+            const isActive = activeTab === tab.key;
+            const count = counts[tab.key];
+            return (
+              <TouchableOpacity
+                key={tab.key}
+                activeOpacity={0.85}
+                onPress={() => setActiveTab(tab.key)}
+                style={styles.tabItem}
+              >
+                <Text style={[styles.tabLabel, mutedTextStyle, isActive && { color: accent, fontWeight: '800' }]}>
+                  {t(`myClosetOrders.tabs.${tab.key}`)}
+                  {tab.key !== 'all' ? ` (${count})` : ''}
+                </Text>
+                {isActive && <View style={[styles.tabUnderline, { backgroundColor: accent }]} />}
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
       </View>
 
       <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>

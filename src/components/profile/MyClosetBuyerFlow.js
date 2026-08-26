@@ -529,7 +529,7 @@ const buildCart = (route, t, overrides = {}) => {
 const goBack = (navigation, returnTo, isRouteFromSearch, fromMyOwnProfile, preferStackBack = false, fromWishlist) => {
   // Only screens that explicitly opt in should restore the previous buyer-flow
   // step. All existing screens retain their established returnTo behavior.
-    if (fromWishlist || returnTo?.screen === 'MyClosetBuyerCart') {
+  if (fromWishlist || returnTo?.screen === 'MyClosetBuyerCart') {
     if (navigation.canGoBack?.()) {
       navigation.goBack();
       return;
@@ -665,8 +665,8 @@ const BottomBar = ({ children }) => {
 // Shared UI atoms
 // ─────────────────────────────────────────────────────────────────────────────
 
-const Header = ({ navigation, title, rightIcon, onRightPress, rightDisabled = false, secondaryRightIcon, onSecondaryRightPress, secondaryRightDisabled = false, returnTo, isOwnProfile, isRouteFromSearch, fromMyOwnProfile, preferStackBack = false , fromWishlist}) => {
-  const { accent } = useAppTheme();
+const Header = ({ navigation, title, rightIcon, onRightPress, rightDisabled = false, secondaryRightIcon, onSecondaryRightPress, secondaryRightDisabled = false, returnTo, isOwnProfile, isRouteFromSearch, fromMyOwnProfile, preferStackBack = false, fromWishlist, color }) => {
+  // const { accent } = useAppTheme();
   const { isDarkMode } = useThemeContext();
   const labelColor = isDarkMode ? '#ffffff' : '#17072d';
   const chipSurface = isDarkMode ? 'rgba(255,255,255,0.08)' : '#ffffff';
@@ -678,7 +678,7 @@ const Header = ({ navigation, title, rightIcon, onRightPress, rightDisabled = fa
         style={[styles.iconButton, { backgroundColor: chipSurface }]}
         activeOpacity={0.8}
       >
-        <Ionicons name="chevron-back" size={22} color={accent} />
+        <Ionicons name="chevron-back" size={22} color={color} />
       </TouchableOpacity>
       <Text style={[styles.headerTitle, { color: labelColor }]}>{title}</Text>
       {!isOwnProfile &&
@@ -694,7 +694,7 @@ const Header = ({ navigation, title, rightIcon, onRightPress, rightDisabled = fa
                   style={[styles.iconButton, { backgroundColor: chipSurface }, rightDisabled && styles.iconButtonDisabled]}
                   activeOpacity={0.8}
                 >
-                  <Ionicons name={rightIcon} size={21} color={accent} />
+                  <Ionicons name={rightIcon} size={21} color={color} />
                 </TouchableOpacity>
               ) : null}
               {secondaryRightIcon ? (
@@ -706,7 +706,7 @@ const Header = ({ navigation, title, rightIcon, onRightPress, rightDisabled = fa
                   style={[styles.iconButton, { backgroundColor: chipSurface }, secondaryRightDisabled && styles.iconButtonDisabled]}
                   activeOpacity={0.8}
                 >
-                  <Ionicons name={secondaryRightIcon} size={21} color={accent} />
+                  <Ionicons name={secondaryRightIcon} size={21} color={color} />
                 </TouchableOpacity>
               ) : null}
             </View>
@@ -3072,6 +3072,7 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
         onRightPress={handleClearCart}
         returnTo={returnTo}
         isRouteFromSearch={isRouteFromSearch}
+        color={text}
       />
 
       {cartLoading ? (
@@ -3176,7 +3177,7 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
                       activeOpacity={0.7}
                       disabled={isActing}
                     >
-                      <Ionicons name="trash-outline" size={20} color={mutedText || '#8b5e9f'} />
+                      <Ionicons name="trash-outline" size={20} color={text} />
                     </TouchableOpacity>
                   </View>
                 );
@@ -4072,6 +4073,8 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
   const isRouteFromSearch = route?.params?.isRouteFromSearch;
   const cart = buildCart(route, t);
   const [checking, setChecking] = useState(false);
+  const [agreedToCancelPolicy, setAgreedToCancelPolicy] = useState(false);
+  const [cancelPolicyError, setCancelPolicyError] = useState(false);
   // shippingAddress passed from Shipping screen via nextCart
   const addr = route?.params?.shippingAddress ?? null;
   console.log('route?.params?.cartItemsSnapshot, route?.params?.shippingOptionsMap:', route?.params?.cartItemsSnapshot, route?.params?.shippingOptionsMap);
@@ -4160,6 +4163,13 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
       Alert.alert(t('myClosetBuyer.errorTitle'), t('myClosetBuyer.checkoutError'));
       return;
     }
+
+    if (!agreedToCancelPolicy) {
+      setCancelPolicyError(true);
+      return;
+    }
+    setCancelPolicyError(false);
+
     // addressId is required only when this order actually needs shipping
     if (requiresShipping && !addressId) {
       Alert.alert(t('myClosetBuyer.selectAddressTitle'), t('myClosetBuyer.selectAddressMessage'));
@@ -4288,6 +4298,64 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
           <Text style={[styles.radioLabel, { color: text }]}>{t('myClosetBuyer.secureCheckout')}</Text>
         </View>
         <OrderSummary cart={cart} compact accentColor={text} />
+        <View style={styles.reviewSectionHeader}>
+          <Text style={[styles.sectionLabel, { color: text }]}>{t('myClosetBuyer.cancelPolicyTitle') || 'Cancel Policy'}</Text>
+        </View>
+        <View style={[styles.cancelPolicyCard, themedCard(card, border)]}>
+          <View style={styles.cancelPolicyHeader}>
+            <View style={[styles.cancelPolicyIconWrap, bgStyle]}>
+              <Ionicons name="shield-checkmark-outline" size={18} color={accent} />
+            </View>
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={[styles.cancelPolicyText, { color: text }]}>
+                <Text style={styles.cancelPolicyTextBold}>
+                  {t('myClosetBuyer.cancelPolicyBold') || 'Orders can be canceled before they are picked up or delivered. '}
+                </Text>
+                {t('myClosetBuyer.cancelPolicyRest') || 'Buyer and seller must agree to cancel.'}
+              </Text>
+            </View>
+          </View>
+
+          <View style={[styles.howItWorksRow, bgStyle]}>
+            <View style={[styles.howItWorksIconWrap, { backgroundColor: '#fff' }]}>
+              <Ionicons name="people-outline" size={16} color={accent} />
+            </View>
+            <View style={{ flex: 1, marginLeft: 10 }}>
+              <Text style={[styles.howItWorksTitle, { color: accent }]}>
+                {t('myClosetBuyer.howItWorksTitle') || 'How it works'}
+              </Text>
+              <Text style={[styles.howItWorksText, { color: mutedText }]}>
+                {t('myClosetBuyer.howItWorksText') ||
+                  'If either the buyer or seller requests a cancellation, the other party will be notified. Both must agree for the cancellation to proceed.'}
+              </Text>
+            </View>
+          </View>
+
+          <TouchableOpacity
+            activeOpacity={0.8}
+            style={styles.agreeRow}
+            onPress={() => {
+              setAgreedToCancelPolicy(prev => !prev);
+              if (!agreedToCancelPolicy) setCancelPolicyError(false);
+            }}
+          >
+            <Ionicons
+              name={agreedToCancelPolicy ? 'checkbox' : 'square-outline'}
+              size={22}
+              color={agreedToCancelPolicy ? accent : (cancelPolicyError ? '#dc2626' : mutedText)}
+            />
+            <Text style={[styles.agreeText, { color: text }]}>
+              {t('myClosetBuyer.agreeCancelPolicy') || 'I have read and agree to the cancel policy above.'}
+            </Text>
+          </TouchableOpacity>
+
+          {cancelPolicyError ? (
+            <Text style={styles.agreeErrorText}>
+              {t('myClosetBuyer.agreeCancelPolicyError') || 'Please agree to the cancel policy to continue.'}
+            </Text>
+          ) : null}
+        </View>
+
         <Text style={[styles.termsText, { color: mutedText }]}>
           {t('myClosetBuyer.termsText')}
         </Text>
@@ -4298,6 +4366,7 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
           icon="lock-closed-outline"
           onPress={checking ? undefined : handleContinue}
           accentColor={accent}
+          disabled={checking || !agreedToCancelPolicy}
         />
       </BottomBar>
     </SafeAreaView>
@@ -4382,7 +4451,7 @@ const MyClosetBuyerOrderReceivedScreen = ({ navigation, route }) => {
           detail.shipping?.trackingNumber;
         orderNumber =
           orderNumber || detail.orderNumber || detail.order_number;
-      } catch (_err) {}
+      } catch (_err) { }
     }
 
     const orderInfo = {
@@ -4411,7 +4480,7 @@ const MyClosetBuyerOrderReceivedScreen = ({ navigation, route }) => {
       if (match?.threadId || match?.id) {
         threadId = match.threadId || match.id;
       }
-    } catch (_err) {}
+    } catch (_err) { }
 
     navigation.navigate('UserClosetChat', {
       threadId: threadId || (orderId ? `thread_order_${orderId}` : resolvedSellerId ? `thread_${resolvedSellerId}` : undefined),
@@ -5374,4 +5443,70 @@ const styles = StyleSheet.create({
   },
   fixedShipTitle: { fontSize: 12, fontWeight: '900' },
   fixedShipSub: { fontSize: 11, color: MUTED, marginTop: 2 },
+  cancelPolicyCard: {
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 14,
+    marginBottom: 14,
+  },
+  cancelPolicyHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 14,
+  },
+  cancelPolicyIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelPolicyText: {
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  cancelPolicyTextBold: {
+    fontWeight: '800',
+  },
+  howItWorksRow: {
+    borderRadius: 14,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    marginBottom: 14,
+  },
+  howItWorksIconWrap: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  howItWorksTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  howItWorksText: {
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  agreeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  agreeText: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginLeft: 10,
+    flex: 1,
+  },
+  agreeErrorText: {
+    color: '#dc2626',
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 6,
+    marginLeft: 32,
+  },
 });
