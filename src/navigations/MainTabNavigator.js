@@ -164,6 +164,7 @@ import {
 } from '../components/profile/MyClosetBuyerFlow';
 import MyClosetOrdersScreen from '../components/profile/MyClosetOrdersScreen';
 import MyClosetOrderDetailScreen from '../components/profile/MyClosetOrderDetailScreen';
+import CancellationRequestScreen from '../components/profile/CancellationRequestScreen';
 import ShopScreen from '../pages/wallet/ShopScreen';
 import PrivateCircle from '../components/profile/PrivateCircle';
 import LanguageSelectionScreen from '../pages/settings/LanguageSelectionScreen';
@@ -583,6 +584,7 @@ export default function MainTabNavigator() {
         <Stack.Screen name="PreviewPromotion" component={PreviewPromotionScreen} />
         <Stack.Screen name="MyClosetOrders" component={MyClosetOrdersScreen} />
         <Stack.Screen name="MyClosetOrderDetail" component={MyClosetOrderDetailScreen} />
+        <Stack.Screen name="CancellationRequest" component={CancellationRequestScreen} />
         <Stack.Screen name="UserClosetChat" component={UserClosetChat} />
         <Stack.Screen name="MyClosetEarnings" component={MyClosetEarningsScreen} options={{ headerShown: false }} />
         <Stack.Screen name="MyClosetBuyerItems" component={MyClosetBuyerItemsScreen} />

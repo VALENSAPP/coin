@@ -3754,6 +3754,7 @@
     "cancelConfirmMessage": "Questa azione non può essere annullata.",
     "keepOrder": "Mantieni ordine",
     "cancelOrderButton": "Annulla ordine",
+    "cancellationRequested": "Cancellazione richiesta",
     "cancelSuccess": "Ordine annullato.",
     "cancelError": "Impossibile annullare l'ordine.",
     "buyerLabel": "Acquirente",
