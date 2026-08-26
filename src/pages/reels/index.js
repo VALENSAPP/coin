@@ -99,6 +99,8 @@ import {
   getPostMusicForSlide,
   getMusicTrimPlaybackWindowFromTrim,
 } from '../../utils/postSoundtracks';
+import { downloadMedia, getMediaFilename, isVideoMedia } from '../../utils/mediaDownload';
+import { BASE_URL } from '../../config/urls';
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 const MAX_REEL_PINCH = 3.5;
@@ -142,6 +144,25 @@ const resolveReelMusicLabel = raw => {
     return String(music);
   }
   return 'Original Audio';
+};
+
+const isPrivateReel = reel => {
+  if (!reel || typeof reel !== 'object') return false;
+  const visibleTo = String(reel.visibleTo ?? reel.visible_to ?? '').trim();
+  if (visibleTo) return true;
+  const type = String(reel.postType ?? reel.post_type ?? reel.type ?? '').trim().toLowerCase();
+  return type === 'private';
+};
+
+const normalizeReelMediaUrl = value => {
+  if (!value || typeof value !== 'string') return '';
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('file://') || trimmed.startsWith('data:')) {
+    return trimmed;
+  }
+  if (trimmed.startsWith('/')) return `${BASE_URL}${trimmed}`;
+  return `${BASE_URL}/${trimmed}`;
 };
 
 /**
@@ -1951,6 +1972,32 @@ export default function FlipsScreen() {
     moreOptionsSheetRef.current?.open();
   }, []);
 
+  const handleDownloadReel = useCallback(
+    async reel => {
+      if (!reel || isPrivateReel(reel)) {
+        showToastMessage(toast, 'danger', t('flips.somethingWentWrong'));
+        return;
+      }
+
+      const mediaUrl = normalizeReelMediaUrl(
+        reel?.video || reel?.images?.[0] || reel?.image || '',
+      );
+      if (!mediaUrl) {
+        showToastMessage(toast, 'danger', t('flips.somethingWentWrong'));
+        return;
+      }
+
+      console.log('[Flips] downloading reel media:', mediaUrl);
+      await downloadMedia(
+        mediaUrl,
+        getMediaFilename(mediaUrl, 0),
+        isVideoMedia({ uri: mediaUrl, type: reel?.type }),
+        toast,
+      );
+    },
+    [t, toast],
+  );
+
   const openShareSheet = useCallback(() => {
     shareRef.current?.open?.();
   }, []);
@@ -2469,7 +2516,21 @@ export default function FlipsScreen() {
                     ? t('flips.saved')
                     : t('flips.save')}
                 </Text>
-              </TouchableOpacity>
+                </TouchableOpacity>
+              {!isPrivateReel(activeReel) && (
+                <TouchableOpacity
+                  style={[styles.moreOption, { borderBottomColor: sheetTheme.borderColor }]}
+                  onPress={() => {
+                    const reel = reels.find(r => r.id === selectedReelId) || reels[currentIndex];
+                    moreOptionsSheetRef.current?.close();
+                    void handleDownloadReel(reel);
+                  }}>
+                  <Icon name="download-outline" size={24} color={sheetTheme.iconColor} />
+                  <Text style={[styles.moreOptionText, { color: sheetTheme.labelColor }]}>
+                    {t('Download')}
+                  </Text>
+                </TouchableOpacity>
+              )}
               {canDeleteActiveReel && (
                 <TouchableOpacity
                   style={[styles.moreOption, { borderBottomColor: sheetTheme.borderColor }]}
