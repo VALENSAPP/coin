@@ -3734,7 +3734,11 @@
     "pickupAvailableHoursLabel": "Orari di ritiro",
     "pickupAvailableHoursPlaceholder": "es. Lun-Ven 09:00-17:00",
     "buyerChatEnabledLabel": "Chat acquirente abilitata",
-    "buyerChatEnabledPlaceholder": "Seleziona sì o no"
+    "buyerChatEnabledPlaceholder": "Seleziona sì o no",
+    "cancelPolicyTitle": "Politica di cancellazione",
+    "cancelPolicyText": "Gli ordini possono essere annullati prima di essere ritirati o consegnati. Sia l'acquirente che il venditore devono accettare la cancellazione.",
+    "howItWorksTitle": "Come funziona",
+    "howItWorksText": "Se l'acquirente o il venditore richiede una cancellazione, l'altra parte verrà informata. Entrambi devono accettare affinché la cancellazione venga effettuata."
   },
   "myClosetOrders": {
     "headerSales": "Le mie vendite",
@@ -3788,7 +3792,8 @@
       "processing": "In elaborazione",
       "shipped": "Spedito",
       "shipMe": "Spediscimi",
-      "delivered": "Consegnato"
+      "delivered": "Consegnato",
+      "cancelled": "Annullato"
     }
   },
   "myClosetBuyer": {
@@ -3987,7 +3992,14 @@
     "winningPercentageLabel": "Percentuale di vittoria",
     "resultLabel": "Risultato",
     "winnerLabel": "Vincitore",
-    "battleResultsNote": "Questo articolo è stato il preferito della community e ha vinto con il {{pct}}% dei voti."
+    "battleResultsNote": "Questo articolo è stato il preferito della community e ha vinto con il {{pct}}% dei voti.",
+    "cancelPolicyTitle": "Politica di cancellazione",
+    "cancelPolicyBold": "Gli ordini possono essere annullati prima di essere ritirati o consegnati. ",
+    "cancelPolicyRest": "L'acquirente e il venditore devono accettare la cancellazione.",
+    "howItWorksTitle": "Come funziona",
+    "howItWorksText": "Se l'acquirente o il venditore richiede una cancellazione, l'altra parte verrà informata. Entrambi devono accettare affinché la cancellazione possa procedere.",
+    "agreeCancelPolicy": "Ho letto e accetto la politica di cancellazione sopra riportata.",
+    "agreeCancelPolicyError": "Accetta la politica di cancellazione per continuare."
   },
   "myClosetShared": {
     "headerTitle": "Il mio Armadio",

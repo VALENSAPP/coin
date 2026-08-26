@@ -3869,7 +3869,11 @@
     "pickupAvailableHoursLabel": "Pickup available hours",
     "pickupAvailableHoursPlaceholder": "e.g. Mon-Fri 09:00-17:00",
     "buyerChatEnabledLabel": "Buyer chat enabled",
-    "buyerChatEnabledPlaceholder": "Select yes or no"
+    "buyerChatEnabledPlaceholder": "Select yes or no",
+    "cancelPolicyTitle": "Cancel policy",
+    "cancelPolicyText": "Orders can be canceled before they are picked up or delivered. Buyer and seller must agree to cancel.",
+    "howItWorksTitle": "How it works",
+    "howItWorksText": "If either the buyer or seller requests a cancellation, the other party will be notified. Both must agree for the cancellation to proceed."
   },
   "myClosetOrders": {
     "headerSales": "My Sales",
@@ -3923,7 +3927,8 @@
       "processing": "Processing",
       "shipped": "Shipped",
       "shipMe": "Ship Me",
-      "delivered": "Delivered"
+      "delivered": "Delivered",
+      "cancelled": "Canceled"
     }
   },
   "myClosetBuyer": {
@@ -4124,7 +4129,14 @@
     "winningPercentageLabel": "Winning Percentage",
     "resultLabel": "Result",
     "winnerLabel": "Winner",
-    "battleResultsNote": "This item was the community favorite and won with {{pct}}% of the votes."
+    "battleResultsNote": "This item was the community favorite and won with {{pct}}% of the votes.",
+    "cancelPolicyTitle": "Cancel Policy",
+    "cancelPolicyBold": "Orders can be canceled before they are picked up or delivered. ",
+    "cancelPolicyRest": "Buyer and seller must agree to cancel.",
+    "howItWorksTitle": "How it works",
+    "howItWorksText": "If either the buyer or seller requests a cancellation, the other party will be notified. Both must agree for the cancellation to proceed.",
+    "agreeCancelPolicy": "I have read and agree to the cancel policy above.",
+    "agreeCancelPolicyError": "Please agree to the cancel policy to continue."
   },
   "myClosetShared": {
     "headerTitle": "My Closet",

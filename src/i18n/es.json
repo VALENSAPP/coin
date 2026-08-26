@@ -3734,7 +3734,11 @@
     "pickupAvailableHoursLabel": "Horario de recogida",
     "pickupAvailableHoursPlaceholder": "ej. Lun-Vie 09:00-17:00",
     "buyerChatEnabledLabel": "Chat de comprador habilitado",
-    "buyerChatEnabledPlaceholder": "Seleccione sí o no"
+    "buyerChatEnabledPlaceholder": "Seleccione sí o no",
+    "cancelPolicyTitle": "Política de cancelación",
+    "cancelPolicyText": "Los pedidos se pueden cancelar antes de que se recojan o entreguen. El comprador y el vendedor deben acordar la cancelación.",
+    "howItWorksTitle": "Cómo funciona",
+    "howItWorksText": "Si el comprador o el vendedor solicita una cancelación, se notificará a la otra parte. Ambos deben estar de acuerdo para que la cancelación proceda."
   },
   "myClosetOrders": {
     "headerSales": "Mis ventas",
@@ -3788,7 +3792,8 @@
       "processing": "En proceso",
       "shipped": "Enviado",
       "shipMe": "Envíame",
-      "delivered": "Entregado"
+      "delivered": "Entregado",
+      "cancelled": "Cancelado"
     }
   },
   "myClosetBuyer": {
@@ -3987,7 +3992,14 @@
     "winningPercentageLabel": "Porcentaje de victoria",
     "resultLabel": "Resultado",
     "winnerLabel": "Ganador",
-    "battleResultsNote": "Este artículo fue el favorito de la comunidad y ganó con el {{pct}}% de los votos."
+    "battleResultsNote": "Este artículo fue el favorito de la comunidad y ganó con el {{pct}}% de los votos.",
+    "cancelPolicyTitle": "Política de cancelación",
+    "cancelPolicyBold": "Los pedidos pueden cancelarse antes de ser recogidos o entregados. ",
+    "cancelPolicyRest": "El comprador y el vendedor deben aceptar la cancelación.",
+    "howItWorksTitle": "Cómo funciona",
+    "howItWorksText": "Si el comprador o el vendedor solicita una cancelación, la otra parte será notificada. Ambos deben aceptar para que la cancelación se lleve a cabo.",
+    "agreeCancelPolicy": "He leído y acepto la política de cancelación anterior.",
+    "agreeCancelPolicyError": "Acepta la política de cancelación para continuar."
   },
   "myClosetShared": {
     "headerTitle": "Mi Armario",
