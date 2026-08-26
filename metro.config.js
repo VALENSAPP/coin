@@ -31,6 +31,12 @@ function resolveValtioCjs(moduleName) {
   return file ? path.join(root, file) : null;
 }
 
+/** Metro is resolving date-fns to its ESM index, but this install only bundles the CJS entry reliably. */
+function resolveDateFnsCjs(moduleName) {
+  if (moduleName !== 'date-fns') return null;
+  return path.join(__dirname, 'node_modules', 'date-fns', 'index.cjs');
+}
+
 module.exports = (async () => {
   const {
     resolver: { sourceExts, assetExts },
@@ -54,6 +60,10 @@ module.exports = (async () => {
         const cjs = resolveValtioCjs(moduleName);
         if (cjs) {
           return { filePath: cjs, type: 'sourceFile' };
+        }
+        const dateFns = resolveDateFnsCjs(moduleName);
+        if (dateFns) {
+          return { filePath: dateFns, type: 'sourceFile' };
         }
         return metroResolve(context, moduleName, platform);
       },
