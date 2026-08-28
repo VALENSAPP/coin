@@ -304,7 +304,8 @@ ios/DerivedData/
 *.apk
 *.aab
 ios/build/
-ios/Pods/Target Support Files/*
+ios/Pods/
+ios/bundler/
 ios/*.xcworkspace/xcuserdata/
 ios/*.xcodeproj/xcuserdata/
 ios/DerivedData/
