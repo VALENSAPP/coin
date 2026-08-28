@@ -1,0 +1,444 @@
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  ScrollView,
+  Modal,
+  TouchableOpacity,
+  KeyboardAvoidingView,
+  ActivityIndicator,
+  Platform,
+  Linking,
+  DeviceEventEmitter,
+} from 'react-native';
+import Ionicons from 'react-native-vector-icons/Ionicons';
+import InAppBrowser from 'react-native-inappbrowser-reborn';
+import { useDispatch } from 'react-redux';
+import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
+import { sendTip } from '../../services/stirpe';
+import { showToastMessage } from '../displaytoastmessage';
+import { useToast } from 'react-native-toast-notifications';
+import {
+  getPaymentSessionUrl,
+  STRIPE_BROWSER_OPTIONS,
+} from '../../utils/stripeOnboarding';
+import { useStripeCustomer } from '../../hooks/useStripeCustomer';
+import StripePaymentMethodModal from './StripePaymentMethodModal';
+import { useAppTheme } from '../../theme/useApptheme';
+import { useThemeContext } from '../../theme/ThemeContext';
+import { useLanguage } from '../../i18n';
+
+const AMOUNTS = [5, 10, 25, 50];
+const MIN_TIP_AMOUNT = 0.5;
+
+const withAlpha = (hex, alpha = 0.12) => {
+  if (!hex || typeof hex !== 'string' || !hex.startsWith('#')) {
+    return `rgba(90, 45, 130, ${alpha})`;
+  }
+  const normalized = hex.replace('#', '');
+  const full = normalized.length === 3
+    ? normalized.split('').map((c) => c + c).join('')
+    : normalized;
+  const int = parseInt(full, 16);
+  if (Number.isNaN(int)) return `rgba(90, 45, 130, ${alpha})`;
+  const r = (int >> 16) & 255;
+  const g = (int >> 8) & 255;
+  const b = int & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+
+export default function TipSupportModal({
+  visible,
+  onClose,
+  creatorName = 'Creator',
+  vendorId,
+  onTipSuccess,
+}) {
+  const toast = useToast();
+  const dispatch = useDispatch();
+  const { t } = useLanguage();
+  const { isDarkMode } = useThemeContext();
+  const { text, card, cardStyle, accent, mutedText, border } = useAppTheme();
+  const {
+    requireStripeCustomerForPayment,
+    openPaymentConnectionAndRefresh,
+  } = useStripeCustomer();
+
+  const [selectedAmount, setSelectedAmount] = useState(null);
+  const [customAmount, setCustomAmount] = useState('');
+  const [isButtonLoading, setIsButtonLoading] = useState(false);
+  const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
+  const paymentCompletedRef = useRef(false);
+
+  const finalAmount = Number(selectedAmount || customAmount);
+  const isAmountValid = finalAmount >= MIN_TIP_AMOUNT;
+  const primaryText = isDarkMode ? '#F5F0FF' : (text || '#111827');
+  const secondaryText = isDarkMode ? '#C8C4D0' : (mutedText || '#6B7280');
+  const actionAccent = accent || '#5a2d82';
+  const idleBorder = border || (isDarkMode ? '#444444' : '#D1D5DB');
+  const sheetBg = card || (isDarkMode ? '#1E1E1E' : '#FFFFFF');
+
+  const resetForm = () => {
+    setCustomAmount('');
+    setSelectedAmount(null);
+    setIsButtonLoading(false);
+    paymentCompletedRef.current = false;
+  };
+
+  useEffect(() => {
+    if (!visible) {
+      resetForm();
+      return undefined;
+    }
+
+    const subscription = DeviceEventEmitter.addListener('PAYMENT_COMPLETED', () => {
+      paymentCompletedRef.current = true;
+      setIsButtonLoading(false);
+      dispatch(hideLoader());
+      onTipSuccess?.();
+      setCustomAmount('');
+      setSelectedAmount(null);
+      onClose?.();
+      showToastMessage(toast, 'success', t('tipSupportScreen.tipSuccess'));
+    });
+
+    return () => subscription.remove();
+  }, [visible, onClose, onTipSuccess, dispatch, toast, t]);
+
+  const openCheckoutSession = useCallback(async (url) => {
+    try {
+      paymentCompletedRef.current = false;
+      if (await InAppBrowser.isAvailable()) {
+        await InAppBrowser.open(url, { ...STRIPE_BROWSER_OPTIONS, forceCloseOnRedirection: true });
+        if (!paymentCompletedRef.current) {
+          // showToastMessage(toast, 'danger', stripeErrorMessages.PAYMENT_CANCELLED);
+        }
+      } else {
+        await Linking.openURL(url);
+      }
+    } catch (err) {
+      // showToastMessage(toast, 'danger', err?.message || stripeErrorMessages.SESSION_FAILED);
+    } finally {
+      setIsButtonLoading(false);
+      dispatch(hideLoader());
+    }
+  }, [dispatch]);
+
+  const handleConfirm = async () => {
+    if (!vendorId) {
+      showToastMessage(toast, 'danger', t('tipSupportScreen.missingCreator'));
+      return;
+    }
+
+    if (!isAmountValid) {
+      showToastMessage(toast, 'danger', t('tipSupportScreen.minAmountError'));
+      return;
+    }
+
+    const canProceed = await requireStripeCustomerForPayment();
+    if (!canProceed) {
+      setShowPaymentMethodModal(true);
+      return;
+    }
+
+    setIsButtonLoading(true);
+    dispatch(showLoader());
+
+    try {
+      const response = await sendTip({
+        amount: Number(finalAmount),
+        receiverUserId: String(vendorId),
+      });
+      console.log('sendTip response:', response);
+      const url = getPaymentSessionUrl(response);
+
+      if (!url) {
+        setIsButtonLoading(false);
+        dispatch(hideLoader());
+        return;
+      }
+
+      await openCheckoutSession(url);
+    } catch (error) {
+      setIsButtonLoading(false);
+      dispatch(hideLoader());
+    }
+  };
+
+  const isSelected = (amt) => selectedAmount === amt;
+  const isCustomSelected = Boolean(customAmount);
+
+  return (
+    <>
+      <Modal
+        visible={visible}
+        transparent
+        animationType="slide"
+        onRequestClose={onClose}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.flex}
+        >
+          <View style={styles.overlay}>
+            <View style={[styles.sheet, cardStyle, { backgroundColor: sheetBg }]}>
+              <View style={styles.headerRow}>
+                <TouchableOpacity onPress={onClose} hitSlop={12} style={styles.headerIconBtn}>
+                  <Ionicons name="arrow-back" size={22} color={primaryText} />
+                </TouchableOpacity>
+                <View style={styles.headerTitleWrap}>
+                  <Text style={[styles.title, { color: primaryText }]}>
+                    {t('tipSupportScreen.title')}
+                  </Text>
+                  <View style={styles.subtitleRow}>
+                    <Text style={[styles.subtitle, { color: secondaryText }]}>
+                      {t('tipSupportScreen.subtitle', { creatorName })}
+                    </Text>
+                    <Ionicons name="heart" size={14} color={actionAccent} style={styles.subtitleHeart} />
+                  </View>
+                </View>
+                <TouchableOpacity onPress={onClose} hitSlop={12} style={styles.headerIconBtn}>
+                  <Ionicons name="close" size={24} color={primaryText} />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.scrollContent}
+                keyboardShouldPersistTaps="handled"
+              >
+                <Text style={[styles.amountLabel, { color: primaryText }]}>
+                  {t('tipSupportScreen.amountLabel')}
+                </Text>
+
+                <View style={styles.amountGrid}>
+                  {AMOUNTS.map((amt) => (
+                    <TouchableOpacity
+                      key={amt}
+                      style={[
+                        styles.amountBox,
+                        { borderColor: idleBorder, backgroundColor: sheetBg },
+                        isSelected(amt) && {
+                          borderColor: actionAccent,
+                          backgroundColor: withAlpha(actionAccent, isDarkMode ? 0.22 : 0.12),
+                        },
+                      ]}
+                      onPress={() => {
+                        setSelectedAmount(amt);
+                        setCustomAmount('');
+                      }}
+                    >
+                      <Text style={[styles.amountText, { color: primaryText }]}>${amt}</Text>
+                    </TouchableOpacity>
+                  ))}
+
+                  <View
+                    style={[
+                      styles.customBox,
+                      { borderColor: idleBorder, backgroundColor: sheetBg },
+                      isCustomSelected && {
+                        borderColor: actionAccent,
+                        backgroundColor: withAlpha(actionAccent, isDarkMode ? 0.22 : 0.12),
+                      },
+                    ]}
+                  >
+                    <TextInput
+                      keyboardType="decimal-pad"
+                      style={[styles.customInput, { color: primaryText }]}
+                      value={customAmount}
+                      onChangeText={(val) => {
+                        setCustomAmount(val);
+                        setSelectedAmount(null);
+                      }}
+                      placeholder={t('tipSupportScreen.customAmountPlaceholder')}
+                      placeholderTextColor={secondaryText}
+                    />
+                    <Ionicons name="pencil" size={16} color={secondaryText} />
+                  </View>
+                </View>
+
+                <View style={[styles.infoBox, { backgroundColor: withAlpha(actionAccent, isDarkMode ? 0.2 : 0.12) }]}>
+                  <Ionicons name="information-circle" size={20} color={actionAccent} />
+                  <Text style={[styles.infoText, { color: secondaryText }]}>
+                    {t('tipSupportScreen.disclaimer')}
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  style={[
+                    styles.continueBtn,
+                    { backgroundColor: actionAccent },
+                    (isButtonLoading || !isAmountValid) && styles.continueBtnDisabled,
+                  ]}
+                  onPress={handleConfirm}
+                  disabled={isButtonLoading || !isAmountValid}
+                  activeOpacity={0.9}
+                >
+                  {isButtonLoading ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <>
+                      <Ionicons name="lock-closed" size={18} color="#FFFFFF" />
+                      <Text style={styles.continueText}>{t('tipSupportScreen.continueButton')}</Text>
+                      <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
+                    </>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.maybeLaterBtn} onPress={onClose}>
+                  <Text style={[styles.maybeLaterText, { color: secondaryText }]}>
+                    {t('tipSupportScreen.maybeLater')}
+                  </Text>
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      <StripePaymentMethodModal
+        visible={showPaymentMethodModal}
+        onClose={() => setShowPaymentMethodModal(false)}
+        onConnectStripe={async () => {
+          try {
+            await openPaymentConnectionAndRefresh();
+          } catch (e) {
+            // showToastMessage(toast, 'danger', e?.message || stripeErrorMessages.ONBOARDING_FAILED);
+          }
+        }}
+      />
+    </>
+  );
+}
+
+const styles = StyleSheet.create({
+  flex: { flex: 1 },
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(12, 8, 20, 0.45)',
+    justifyContent: 'flex-end',
+  },
+  sheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '92%',
+    paddingBottom: 24,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
+  },
+  headerIconBtn: {
+    width: 32,
+    paddingTop: 2,
+  },
+  headerTitleWrap: {
+    flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: 8,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  subtitle: {
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  subtitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
+  },
+  subtitleHeart: {
+    marginLeft: 4,
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 12,
+  },
+  amountLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  amountGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  amountBox: {
+    width: '48%',
+    borderWidth: 1.5,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  amountText: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  customBox: {
+    width: '48%',
+    borderWidth: 1.5,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  customInput: {
+    flex: 1,
+    fontSize: 15,
+    paddingVertical: 0,
+  },
+  infoBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 20,
+    gap: 10,
+  },
+  infoText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  continueBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    borderRadius: 14,
+    paddingVertical: 16,
+    marginBottom: 14,
+  },
+  continueBtnDisabled: {
+    opacity: 0.65,
+  },
+  continueText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  maybeLaterBtn: {
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  maybeLaterText: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+});

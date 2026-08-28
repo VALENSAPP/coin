@@ -1,0 +1,381 @@
+import React, { useMemo } from 'react';
+import {
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
+import Icon from 'react-native-vector-icons/MaterialIcons';
+import Ionicons from 'react-native-vector-icons/Ionicons';
+import { useRoute } from '@react-navigation/native';
+import { useAppTheme } from '../../theme/useApptheme';
+import { useThemeContext } from '../../theme/ThemeContext';
+import { normalizeProfileType } from '../../utils/supportEligibility';
+import { useLanguage } from '../../i18n';
+
+const withAlpha = (hex, alpha) => {
+  if (typeof hex === 'string' && /^#[0-9A-Fa-f]{6}$/.test(hex)) {
+    return `${hex}${alpha}`;
+  }
+  return hex;
+};
+
+const pickFirst = (...values) =>
+  values.find(value => value !== undefined && value !== null && value !== '');
+
+const buildRewardData = (battle, t) => {
+  const stake = Number(pickFirst(battle?.stake, battle?.stakeAmount, 0));
+  const battleType = String(
+    pickFirst(battle?.battleType, 'OPINION'),
+  ).toUpperCase();
+  const victoryBonus = Math.max(Math.round(stake * 0.5), 100);
+  const engagementBonus = Math.max(Math.round(stake * 0.25), 50);
+  const accuracyBonus =
+    battleType === 'PREDICTION' ? Math.max(Math.round(stake * 0.25), 50) : 0;
+  const totalReward = victoryBonus + engagementBonus + accuracyBonus;
+
+  return {
+    title: pickFirst(battle?.title, battle?.question, t('battleReward.headerTitle')),
+    reward: `${totalReward} Points`,
+    rank: '#1',
+    status:
+      battleType === 'PREDICTION'
+        ? t('battleReward.accuracyRewardUnlocked')
+        : t('battleReward.communityRewardUnlocked'),
+    summary:
+      battleType === 'PREDICTION'
+        ? t('battleReward.predictionSummary')
+        : t('battleReward.opinionSummary'),
+    breakdown: [
+      { label: t('battleReward.victoryBonus'), value: `+${victoryBonus}` },
+      { label: t('battleReward.engagementBonus'), value: `+${engagementBonus}` },
+      ...(accuracyBonus
+        ? [{ label: t('battleReward.accuracyBonus'), value: `+${accuracyBonus}` }]
+        : []),
+    ],
+    perks: [
+      t('battleReward.perkCredPoints'),
+      t('battleReward.perkBattlePerformance'),
+      battleType === 'PREDICTION'
+        ? t('battleReward.perkPredictionAccuracy')
+        : t('battleReward.perkCommunityRep'),
+    ],
+  };
+};
+
+export default function BattleReward({ navigation }) {
+  const route = useRoute();
+  const { t } = useLanguage();
+  const resolvedProfileType = normalizeProfileType(route?.params?.profile);
+  const { bgStyle, accent, card, mutedText } = useAppTheme(resolvedProfileType);
+  const { isDarkMode } = useThemeContext();
+  const labelColor = isDarkMode ? '#ffffff' : '#111827';
+
+  const rewardData = useMemo(
+    () => buildRewardData(route?.params?.battle, t),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [route?.params?.battle, t],
+  );
+
+  const palette = useMemo(() => {
+    const primary = accent || '#5a2d82';
+    const secondary =
+      primary.toLowerCase() === '#c9a15a' ? '#b8924f' : '#8f54f7';
+
+    return {
+      primary,
+      secondary,
+      surface: card || (isDarkMode ? '#1E1E1E' : '#fff'),
+      muted: mutedText || withAlpha(primary, 'B5'),
+      soft: isDarkMode ? withAlpha(primary, '24') : withAlpha(primary, '18'),
+      warm: '#ffd184',
+      warmText: '#97591a',
+    };
+  }, [accent, card, isDarkMode, mutedText]);
+
+  return (
+    <SafeAreaView style={[styles.safeArea, bgStyle]}>
+      <ScrollView
+        style={[styles.container, bgStyle]}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={styles.headerIconBtn}
+          >
+            <Icon name="arrow-back-ios-new" size={20} color={accent} />
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, { color: labelColor }]}>
+            {t('battleReward.headerTitle')}
+          </Text>
+          <TouchableOpacity style={styles.headerIconBtn}>
+            <Ionicons name="gift-outline" size={20} color={accent} />
+          </TouchableOpacity>
+        </View>
+
+        <Text style={[styles.subTitle, { color: accent }]}>
+          {rewardData.title}
+        </Text>
+
+        {/* Hero Banner */}
+        <LinearGradient
+          colors={[palette.secondary, palette.primary, palette.secondary]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.rewardHero}
+        >
+          <View
+            style={[styles.rewardGlowTop, { backgroundColor: palette.soft }]}
+          />
+          <View
+            style={[
+              styles.rewardGlowBottom,
+              { backgroundColor: withAlpha(palette.secondary, '14') },
+            ]}
+          />
+
+          <View
+            style={[
+              styles.crownWrap,
+              { backgroundColor: withAlpha('#FFFFFF', '2A') },
+            ]}
+          >
+            <Ionicons name="trophy-outline" size={34} color={palette.warm} />
+          </View>
+          <Text style={styles.rewardBadgeText}>{rewardData.status}</Text>
+          <Text style={styles.rewardRank}>
+            {t('battleReward.battleRank').replace('{{rank}}', rewardData.rank)}
+          </Text>
+        </LinearGradient>
+
+        {/* Reward Summary Card */}
+        <View
+          style={[
+            styles.infoCard,
+            { backgroundColor: palette.surface, shadowColor: palette.primary },
+          ]}
+        >
+          <Text style={[styles.infoTitle, { color: labelColor }]}>
+            {t('battleReward.rewardSummaryTitle')}
+          </Text>
+          <Text style={[styles.infoText, { color: palette.muted }]}>
+            {rewardData.summary}
+          </Text>
+        </View>
+
+        {/* Points Breakdown Card */}
+        <View
+          style={[
+            styles.infoCard,
+            { backgroundColor: palette.surface, shadowColor: palette.primary },
+          ]}
+        >
+          <Text style={[styles.infoTitle, { color: labelColor }]}>
+            {t('battleReward.pointsBreakdownTitle')}
+          </Text>
+          {rewardData.breakdown.map(item => (
+            <View key={item.label} style={styles.breakdownRow}>
+              <Text style={[styles.breakdownLabel, { color: palette.muted }]}>
+                {item.label}
+              </Text>
+              <Text style={[styles.breakdownValue, { color: accent }]}>
+                {item.value}
+              </Text>
+            </View>
+          ))}
+        </View>
+
+        {/* Unlocked Perks Card */}
+        <View
+          style={[
+            styles.infoCard,
+            { backgroundColor: palette.surface, shadowColor: palette.primary },
+          ]}
+        >
+          <Text style={[styles.infoTitle, { color: labelColor }]}>
+            {t('battleReward.unlockedPerksTitle')}
+          </Text>
+          {rewardData.perks.map(item => (
+            <View key={item} style={styles.perkRow}>
+              <View
+                style={[styles.perkDot, { backgroundColor: palette.primary }]}
+              />
+              <Text style={[styles.perkText, { color: palette.muted }]}>
+                {item}
+              </Text>
+            </View>
+          ))}
+        </View>
+
+        {/* Collect Reward Button */}
+        <TouchableOpacity activeOpacity={0.88} style={styles.claimButton}>
+          <LinearGradient
+            colors={[palette.primary, palette.secondary]}
+            start={{ x: 0, y: 0.5 }}
+            end={{ x: 1, y: 0.5 }}
+            style={styles.claimButton}
+          >
+            <Text style={styles.claimButtonText}>
+              {t('battleReward.collectReward')}
+            </Text>
+          </LinearGradient>
+        </TouchableOpacity>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    marginTop: '10%',
+  },
+  container: {
+    flex: 1,
+  },
+  contentContainer: {
+    paddingHorizontal: 18,
+    paddingTop: 8,
+    paddingBottom: 28,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  headerIconBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  subTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 16,
+    lineHeight: 25,
+  },
+  rewardHero: {
+    borderRadius: 24,
+    paddingVertical: 24,
+    paddingHorizontal: 18,
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  rewardGlowTop: {
+    position: 'absolute',
+    top: -30,
+    left: -10,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+  },
+  rewardGlowBottom: {
+    position: 'absolute',
+    right: -20,
+    bottom: -30,
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+  },
+  crownWrap: {
+    width: 72,
+    height: 80,
+    borderRadius: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  rewardBadgeText: {
+    color: '#f3ebff',
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  rewardMainValue: {
+    color: '#fff',
+    fontSize: 34,
+    fontWeight: '900',
+    marginBottom: 4,
+  },
+  rewardRank: {
+    color: '#e8dcff',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  infoCard: {
+    marginTop: 14,
+    borderRadius: 20,
+    padding: 16,
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 3,
+  },
+  infoTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    marginBottom: 10,
+  },
+  infoText: {
+    fontSize: 14,
+    lineHeight: 22,
+  },
+  breakdownRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  breakdownLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  breakdownValue: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  perkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 7,
+  },
+  perkDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 10,
+  },
+  perkText: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 21,
+  },
+  claimButton: {
+    marginTop: 18,
+    borderRadius: 20,
+    height: 40,
+    width: '100%',
+    justifyContent:'center',
+    alignItems: 'center',
+    marginBottom: '10%',
+  },
+  claimButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '900',
+    letterSpacing: 0.4,
+  },
+});

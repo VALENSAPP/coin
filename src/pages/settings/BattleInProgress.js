@@ -1,0 +1,3587 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  StackActions,
+  useFocusEffect,
+  useNavigation,
+  useRoute,
+} from '@react-navigation/native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Animated,
+  Dimensions,
+  Image,
+  Keyboard,
+  Modal,
+  Platform,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  Pressable,
+  TouchableWithoutFeedback,
+  View,
+  DeviceEventEmitter,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+import Svg, { ClipPath, Polygon, Image as SvgImage, Defs } from 'react-native-svg';
+import LinearGradient from 'react-native-linear-gradient';
+import ImageZoom from 'react-native-image-pan-zoom';
+import Ionicons from 'react-native-vector-icons/Ionicons';
+import Icon from 'react-native-vector-icons/MaterialIcons';
+import HighlightText from '@sanar/react-native-highlight-text';
+import {
+  commentLike,
+  commentUpload,
+  commentHighlight,
+  removeCommentHighlight,
+  getbattle,
+  predictBattle,
+  replyCommentBattle,
+  voteBattle,
+  battlePoint,
+  voteHeadtoHead,
+  voteHeadtoHeadOpponent,
+  acceptBattle,
+  declinetBattle,
+  unpinComment,
+  pinComment,
+} from '../../services/battle';
+import { getUserCredentials } from '../../services/post';
+import { useAppTheme } from '../../theme/useApptheme';
+import { useThemeContext } from '../../theme/ThemeContext';
+import { normalizeProfileType } from '../../utils/supportEligibility';
+import HexAvatar from '../../components/home/story.js/HexAvatar';
+import { Vsbanner } from '../../assets/icons';
+import { useLanguage } from '../../i18n';
+import { BASE_URL } from '../../config/urls';
+
+const isMeaningfulValue = value => {
+  if (value === undefined || value === null) return false;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return (
+      !!trimmed &&
+      trimmed.toLowerCase() !== 'undefined' &&
+      trimmed.toLowerCase() !== 'null'
+    );
+  }
+  return true;
+};
+
+const FALLBACK_AVATAR = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
+const pickFirst = (...values) => values.find(isMeaningfulValue);
+
+const withAlpha = (hex, alpha) => {
+  if (typeof hex === 'string' && /^#[0-9A-Fa-f]{6}$/.test(hex)) {
+    return `${hex}${alpha}`;
+  }
+  return hex;
+};
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const OPTION_IMAGE_PREVIEW_SIZE = Math.min(Math.round(SCREEN_WIDTH * 0.84), 360);
+
+const HexagonImage = ({ uri, size = 110, borderColor = 'rgba(255,255,255,0.4)', fallback }) => {
+  const hexagonPoints = `${size / 2},0 ${size},${size / 4} ${size},${(size * 3) / 4} ${size / 2},${size} 0,${(size * 3) / 4} 0,${size / 4}`;
+  return (
+    <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      <Defs>
+        <ClipPath id="hexagon">
+          <Polygon points={hexagonPoints} />
+        </ClipPath>
+      </Defs>
+      {uri ? (
+        <SvgImage
+          x="0" y="0" width={size} height={size}
+          href={{ uri }}
+          clipPath="url(#hexagon)"
+          preserveAspectRatio="xMidYMid slice"
+        />
+      ) : fallback ? fallback : null}
+      <Polygon points={hexagonPoints} fill="none" stroke={borderColor} strokeWidth="2" />
+    </Svg>
+  );
+};
+
+const normalizeOption = (option, index) => {
+  if (typeof option === 'string') {
+    return { id: `${index}`, label: option, votes: 0, likes: 0, percentage: 0 };
+  }
+  const label = pickFirst(
+    option?.side, option?.label, option?.text, option?.value,
+    option?.name, option?.title, option?.option, `Option ${index + 1}`,
+  );
+  return {
+    id: String(pickFirst(option?.id, option?._id, index)),
+    label: String(label),
+    side: String(label),
+    votes: Number(pickFirst(option?.votes, option?.voteCount, option?._count?.votes, 0)),
+    likes: Number(pickFirst(option?.likes, option?.likeCount, 0)),
+    percentage: Number(pickFirst(option?.percentage, option?.votePercentage, 0)),
+  };
+};
+
+const normalizeSideKey = value => String(value || '').trim().toLowerCase();
+
+const getOptionSelectionKey = (option, index) => {
+  const optionId = String(option?.id || '');
+  const optionSide = normalizeSideKey(pickFirst(option?.side, option?.label, ''));
+  return `option-${index}-${optionId}-${optionSide}`;
+};
+
+const getCountFromSideMap = (counts = {}, sideValue = '') => {
+  if (!counts || typeof counts !== 'object') return undefined;
+  const side = String(sideValue || '').trim();
+  if (!side) return undefined;
+  if (Object.prototype.hasOwnProperty.call(counts, side)) {
+    const directValue = Number(counts[side]);
+    return Number.isFinite(directValue) ? directValue : undefined;
+  }
+  const normalizedTarget = normalizeSideKey(side);
+  const matchedKey = Object.keys(counts).find(key => normalizeSideKey(key) === normalizedTarget);
+  if (!matchedKey) return undefined;
+  const normalizedValue = Number(counts[matchedKey]);
+  return Number.isFinite(normalizedValue) ? normalizedValue : undefined;
+};
+
+const buildSideMetrics = entries => {
+  return (Array.isArray(entries) ? entries : []).reduce((acc, entry) => {
+    const key = normalizeSideKey(pickFirst(entry?.side, entry?.label, entry?.option, ''));
+    if (!key) return acc;
+    if (!acc[key]) acc[key] = { count: 0, likes: 0 };
+    acc[key].count += 1;
+    acc[key].likes += Number(pickFirst(
+      entry?.likesCount, entry?.likeCount,
+      Array.isArray(entry?.likes) ? entry.likes.length : undefined, 0,
+    ));
+    return acc;
+  }, {});
+};
+
+const isHeadToHeadParticipantUserId = (userId, creatorId, invitedUserId) => {
+  const id = String(userId || '');
+  if (!id) return false;
+  return id === String(creatorId || '') || id === String(invitedUserId || '');
+};
+
+const filterHeadToHeadCountableEntries = (entries, format, creatorId, invitedUserId) => {
+  if (format !== 'HEAD_TO_HEAD') return Array.isArray(entries) ? entries : [];
+  return (Array.isArray(entries) ? entries : []).filter(entry => {
+    const userId = String(pickFirst(entry?.userId, entry?.user?.id, entry?.user?._id, '') || '');
+    return !isHeadToHeadParticipantUserId(userId, creatorId, invitedUserId);
+  });
+};
+
+const resolveEntityId = (value) => {
+  if (value === undefined || value === null) return '';
+  if (typeof value === 'string' || typeof value === 'number') return String(value);
+  return String(pickFirst(value?.id, value?._id, value?.userId, value?.UserId, value?.user?.id, value?.user?._id, ''));
+};
+
+const normalizeLikeCount = (comment) => {
+  if (Array.isArray(comment?.likes)) return comment.likes.length;
+  const numericCount = Number(pickFirst(
+    comment?.likeCount, comment?.likesCount, comment?._count?.likes, comment?.likes, 0,
+  ));
+  return Number.isFinite(numericCount) ? numericCount : 0;
+};
+
+const normalizeCommentLikedState = (comment, currentUserId = '') => {
+  const explicitLikeState = pickFirst(
+    comment?.isLiked, comment?.likedByMe, comment?.isLike, comment?.hasLiked, undefined,
+  );
+  if (typeof explicitLikeState === 'boolean') return explicitLikeState;
+  if (typeof explicitLikeState === 'string') {
+    const normalizedValue = explicitLikeState.trim().toLowerCase();
+    if (normalizedValue === 'true') return true;
+    if (normalizedValue === 'false') return false;
+  }
+  if (!currentUserId) return false;
+  const likesList = Array.isArray(comment?.likes)
+    ? comment.likes
+    : Array.isArray(comment?.likedUsers) ? comment.likedUsers : [];
+  return likesList.some((entry) => resolveEntityId(entry) === String(currentUserId));
+};
+
+const normalizeCommentPinnedState = comment => {
+  const parsePinnedValue = value => {
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'string') {
+      const normalized = value.trim().toLowerCase();
+      return normalized === 'true' || normalized === '1' || normalized === 'yes';
+    }
+    if (typeof value === 'number') return value === 1;
+    return false;
+  };
+
+  return [
+    comment?.pin,
+    comment?.pinned,
+    comment?.isPinned,
+    comment?.isPin,
+    comment?.pinnedComment,
+  ].some(parsePinnedValue);
+};
+
+const normalizeCommentHighlights = comment => {
+  const raw = comment?.highlights ?? comment?.highlightRanges ?? comment?.highlight ?? [];
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map(entry => ({
+      startIndex: Number(entry?.startIndex ?? entry?.start ?? 0),
+      endIndex: Number(entry?.endIndex ?? entry?.end ?? 0),
+    }))
+    .filter(entry => Number.isFinite(entry.startIndex) && Number.isFinite(entry.endIndex) && entry.endIndex > entry.startIndex);
+};
+
+const mergeHighlightRanges = (ranges = []) => {
+  const sortedRanges = (Array.isArray(ranges) ? ranges : [])
+    .map(range => ({
+      startIndex: Math.min(Number(range?.startIndex ?? range?.start ?? 0), Number(range?.endIndex ?? range?.end ?? 0)),
+      endIndex: Math.max(Number(range?.startIndex ?? range?.start ?? 0), Number(range?.endIndex ?? range?.end ?? 0)),
+    }))
+    .filter(range => Number.isFinite(range.startIndex) && Number.isFinite(range.endIndex) && range.endIndex > range.startIndex)
+    .sort((a, b) => a.startIndex - b.startIndex || a.endIndex - b.endIndex);
+
+  return sortedRanges.reduce((merged, range) => {
+    const last = merged[merged.length - 1];
+    if (!last || range.startIndex > last.endIndex) {
+      merged.push(range);
+      return merged;
+    }
+
+    last.endIndex = Math.max(last.endIndex, range.endIndex);
+    return merged;
+  }, []);
+};
+
+const getHighlightSearchWords = (message, highlights = []) => {
+  const textValue = String(message || '');
+  return [...new Set(
+    highlights
+      .map(({ startIndex, endIndex }) => textValue.slice(startIndex, endIndex).trim())
+      .filter(Boolean),
+  )];
+};
+
+const escapeRegExp = value => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const getCommentReplyEntries = comment => {
+  if (Array.isArray(comment?.replies)) return comment.replies;
+  if (Array.isArray(comment?.children)) return comment.children;
+  return [];
+};
+
+const enrichBattleCommentLikes = (comments = [], storedId = '') =>
+  (Array.isArray(comments) ? comments : []).map(comment => ({
+    ...comment,
+    isLiked: Array.isArray(comment?.likes) &&
+      comment.likes.some(like => String(like?.userId) === String(storedId)),
+    replies: enrichBattleCommentLikes(getCommentReplyEntries(comment), storedId),
+  }));
+
+const flattenReplies = (entries, currentUserId = '') =>
+  (Array.isArray(entries) ? entries : []).reduce((acc, reply, index) => {
+    const normalizedReply = normalizeComment(reply, index, currentUserId);
+    const nestedReplies = Array.isArray(normalizedReply.replies) ? normalizedReply.replies : [];
+    acc.push({ ...normalizedReply, replies: [] });
+    if (nestedReplies.length > 0) acc.push(...flattenReplies(nestedReplies, currentUserId));
+    return acc;
+  }, []);
+
+const normalizeComment = (comment, index = 0, currentUserId = '') => ({
+  id: String(pickFirst(comment?.id, comment?._id, index)),
+  parentId: String(pickFirst(comment?.parentId, comment?.parentCommentId, '')),
+  message: pickFirst(comment?.message, comment?.comment, comment?.text, ''),
+  likes: normalizeLikeCount(comment),
+  isLiked: normalizeCommentLikedState(comment, currentUserId),
+  pinned: normalizeCommentPinnedState(comment),
+  pin: normalizeCommentPinnedState(comment),
+  userId: String(pickFirst(
+    comment?.userId, comment?.user?.id, comment?.user?._id,
+    comment?.author?.id, comment?.author?._id, comment?.authorId, '',
+  )),
+  authorName: pickFirst(
+    comment?.user?.name, comment?.user?.displayName, comment?.user?.userName,
+    comment?.author?.name, comment?.authorName, 'Valens User',
+  ),
+  authorHandle: pickFirst(
+    comment?.user?.userName, comment?.user?.username,
+    comment?.author?.userName, comment?.authorHandle, '',
+  ),
+  avatar: pickFirst(
+    comment?.user?.avatar, comment?.user?.image, comment?.user?.profilePicture,
+    comment?.author?.avatar, '',
+  ),
+  createdAt: pickFirst(comment?.createdAt, comment?.updatedAt, ''),
+  replies: flattenReplies(getCommentReplyEntries(comment), currentUserId),
+  highlights: normalizeCommentHighlights(comment),
+  side: '',
+});
+
+const updateCommentTree = (comments, targetId, updater) =>
+  (Array.isArray(comments) ? comments : []).map(comment => {
+    if (comment.id === targetId) return updater(comment);
+    if (Array.isArray(comment.replies) && comment.replies.length > 0) {
+      return { ...comment, replies: updateCommentTree(comment.replies, targetId, updater) };
+    }
+    return comment;
+  });
+
+const findCommentInTree = (comments, targetId) => {
+  for (const comment of Array.isArray(comments) ? comments : []) {
+    if (comment.id === targetId) return comment;
+    const nestedMatch = findCommentInTree(comment.replies, targetId);
+    if (nestedMatch) return nestedMatch;
+  }
+  return null;
+};
+
+const enrichCommentsWithVoteSide = (comments = [], votesOrPredictions = [], explicitUserSides = {}) => {
+  const userVoteMap = {};
+  Object.entries(explicitUserSides || {}).forEach(([userId, side]) => {
+    if (isMeaningfulValue(userId) && isMeaningfulValue(side)) {
+      userVoteMap[String(userId)] = String(side);
+    }
+  });
+  (Array.isArray(votesOrPredictions) ? votesOrPredictions : []).forEach(entry => {
+    const userId = String(pickFirst(entry?.userId, entry?.user?.id, entry?.user?._id, ''));
+    const side = pickFirst(entry?.side, entry?.label, entry?.option, entry?.choice, entry?.position, '');
+    if (userId && isMeaningfulValue(side)) userVoteMap[userId] = String(side);
+  });
+  const enrichComment = (comment, isRoot = true) => ({
+    ...comment,
+    side: isRoot ? userVoteMap[comment.userId] || '' : '',
+    replies: Array.isArray(comment.replies)
+      ? comment.replies.map(reply => enrichComment(reply, false))
+      : [],
+  });
+  return (Array.isArray(comments) ? comments : []).map(comment => enrichComment(comment));
+};
+
+const normalizeBattle = (raw, currentUserId = '') => {
+  const headToHeadSides = raw?.headToHeadSides && typeof raw.headToHeadSides === 'object'
+    ? raw.headToHeadSides
+    : null;
+  const headToHeadCreator = headToHeadSides?.creator || headToHeadSides?.createdBy || {};
+  const headToHeadInvited = headToHeadSides?.invitedUser || headToHeadSides?.opponent || {};
+  const creatorChoice = pickFirst(
+    raw?.creatorChoice,
+    raw?.creatorLockedOption,
+    headToHeadCreator?.side,
+    headToHeadCreator?.choice,
+    headToHeadCreator?.position,
+    '',
+  );
+  const creatorId = String(pickFirst(raw?.creatorId, raw?.createdById, raw?.creator?.id, raw?.creator?._id, ''));
+  const invitedUserChoice = pickFirst(
+    raw?.invitedUserChoice,
+    raw?.opponentChoice,
+    headToHeadInvited?.side,
+    headToHeadInvited?.choice,
+    headToHeadInvited?.position,
+    '',
+  );
+  const invitedUserId = String(pickFirst(
+    raw?.invitedUser?.id,
+    raw?.invitedUser?._id,
+    headToHeadInvited?.userId,
+    headToHeadInvited?.user?.id,
+    headToHeadInvited?.user?._id,
+    raw?.invites?.[0]?.invitedUserId,
+    raw?.invites?.[0]?.invited?.id,
+    raw?.invites?.[0]?.invited?._id,
+    '',
+  ));
+  const invitationId = String(pickFirst(
+    raw?.invitationId,
+    raw?.invitation_id,
+    raw?.inviteId,
+    raw?.invite_id,
+    raw?.battleInviteId,
+    raw?.battle_invite_id,
+    raw?.invites?.[0]?.invitationId,
+    raw?.invites?.[0]?.invitation_id,
+    raw?.invites?.[0]?.inviteId,
+    raw?.invites?.[0]?.invite_id,
+    raw?.invites?.[0]?.id,
+    raw?.invites?.[0]?._id,
+    '',
+  ));
+  const rawResolvedAt = pickFirst(raw?.resolvedAt, raw?.resultResolvedAt, '');
+  const rawClosedAt = pickFirst(raw?.closedAt, raw?.battleClosedAt, '');
+  const statusSource = pickFirst(raw?.battleStatus, raw?.status, 'OPEN');
+  const status = String(statusSource || 'OPEN').trim().toUpperCase();
+  const battleType = String(pickFirst(raw?.battleType, raw?.type, 'OPINION')).toUpperCase();
+  const format = String(pickFirst(raw?.format, 'POLL')).toUpperCase();
+  const participantEntries = Array.isArray(raw?.participants) ? raw.participants : [];
+  const predictionEntries = Array.isArray(raw?.predictions) ? raw.predictions : [];
+  const voteEntries = Array.isArray(raw?.votes) ? raw.votes : [];
+  const rawVoteCounts =
+    raw?.voteCounts && typeof raw.voteCounts === 'object' ? raw.voteCounts : {};
+  const rawPredictionCounts =
+    raw?.predictionCounts && typeof raw.predictionCounts === 'object' ? raw.predictionCounts : {};
+  const countableVoteEntries = filterHeadToHeadCountableEntries(voteEntries, format, creatorId, invitedUserId);
+  const countablePredictionEntries = filterHeadToHeadCountableEntries(
+    predictionEntries,
+    format,
+    creatorId,
+    invitedUserId,
+  );
+  const sideMetricsSource = format === 'POLL'
+    ? (countablePredictionEntries.length > 0
+      ? countablePredictionEntries
+      : format === 'HEAD_TO_HEAD' ? [] : participantEntries)
+    : (countableVoteEntries.length > 0
+      ? countableVoteEntries
+      : format === 'HEAD_TO_HEAD' ? [] : participantEntries);
+  const sideMetrics = buildSideMetrics(sideMetricsSource);
+  const rawOptions = Array.isArray(raw?.options) ? raw.options : [];
+  const fallbackSides = [
+    creatorChoice,
+    invitedUserChoice,
+  ].filter(Boolean);
+  const derivedSides = Object.keys(sideMetrics);
+  const baseOptions = rawOptions.length > 0 ? rawOptions : fallbackSides;
+  const optionsSource = baseOptions.length > 0 ? baseOptions : derivedSides.length > 0 ? derivedSides : [];
+  const normalizedComments = (Array.isArray(raw?.comments) ? raw.comments : []).map(
+    (comment, index) => normalizeComment(comment, index, currentUserId),
+  );
+  const votesOrPredictionsForComments = format === 'POLL'
+    ? predictionEntries.length > 0 ? predictionEntries : participantEntries
+    : voteEntries.length > 0 ? voteEntries : participantEntries;
+  const explicitCommentSides = {
+    ...(creatorId && isMeaningfulValue(creatorChoice) ? { [creatorId]: creatorChoice } : {}),
+    ...(invitedUserId && isMeaningfulValue(invitedUserChoice) ? { [invitedUserId]: invitedUserChoice } : {}),
+  };
+  const comments = enrichCommentsWithVoteSide(normalizedComments, votesOrPredictionsForComments, explicitCommentSides);
+  const options = optionsSource.map((option, index) => {
+    const normalizedOption = normalizeOption(option, index);
+    const sideKey = normalizeSideKey(pickFirst(normalizedOption?.side, normalizedOption?.label, ''));
+    const metric = sideMetrics[sideKey] || { count: 0, likes: 0 };
+    const sideLabel = pickFirst(normalizedOption?.side, normalizedOption?.label, '');
+    const headToHeadVotes = format === 'HEAD_TO_HEAD'
+      ? pickFirst(
+        getCountFromSideMap(rawVoteCounts, sideLabel),
+        getCountFromSideMap(rawPredictionCounts, sideLabel),
+      )
+      : undefined;
+    return {
+      ...normalizedOption,
+      votes: Number(pickFirst(headToHeadVotes, normalizedOption?.votes, metric.count, 0)),
+      likes: Number(pickFirst(normalizedOption?.likes, metric.likes, 0)),
+    };
+  });
+  const calculatedTotalVotes = options.reduce((sum, option) => sum + Number(option.votes || 0), 0);
+  const rawVoteCountsTotal = Object.values(rawVoteCounts).reduce(
+    (sum, value) => sum + (Number(value) || 0),
+    0,
+  );
+  const rawPredictionCountsTotal = Object.values(rawPredictionCounts).reduce(
+    (sum, value) => sum + (Number(value) || 0),
+    0,
+  );
+  const headToHeadDerivedTotal = Math.max(
+    calculatedTotalVotes,
+    rawVoteCountsTotal,
+    rawPredictionCountsTotal,
+  );
+  const totalVotes = Number(pickFirst(
+    format === 'HEAD_TO_HEAD' && headToHeadDerivedTotal > 0 ? headToHeadDerivedTotal : undefined,
+    raw?.totalVotes,
+    raw?.votesCount,
+    format === 'POLL' ? raw?._count?.participants : undefined,
+    format === 'POLL' && participantEntries.length > 0 ? participantEntries.length : undefined,
+    format === 'POLL' && predictionEntries.length > 0 ? predictionEntries.length : undefined,
+    calculatedTotalVotes,
+    0,
+  ));
+  const normalizedVoteCounts = format === 'HEAD_TO_HEAD'
+    ? (Object.keys(rawVoteCounts).length > 0 ? rawVoteCounts : options.reduce((acc, option) => {
+      const key = String(pickFirst(option?.side, option?.label, '')).trim();
+      if (key) acc[key] = Number(option.votes || 0);
+      return acc;
+    }, {}))
+    : (raw?.voteCounts && typeof raw.voteCounts === 'object' ? raw.voteCounts : {});
+  const normalizedPredictionCounts = format === 'HEAD_TO_HEAD'
+    ? (Object.keys(rawPredictionCounts).length > 0 ? rawPredictionCounts : options.reduce((acc, option) => {
+      const key = String(pickFirst(option?.side, option?.label, '')).trim();
+      if (key) acc[key] = Number(option.votes || 0);
+      return acc;
+    }, {}))
+    : (raw?.predictionCounts && typeof raw.predictionCounts === 'object' ? raw.predictionCounts : {});
+  const normalizedOptions = options.map(option => ({
+    ...option,
+    percentage: totalVotes > 0
+      ? Math.round((Number(option.votes || 0) / totalVotes) * 100)
+      : Number(option.percentage || 0),
+  }));
+
+  return {
+    id: String(pickFirst(raw?.id, raw?._id, raw?.battleId, '')),
+    title: pickFirst(raw?.title, raw?.question, 'Untitled battle'),
+    question: pickFirst(raw?.question, raw?.title, 'Untitled battle'),
+    description: pickFirst(raw?.description, raw?.caption, ''),
+    format, battleType, status,
+    resolvedAt: rawResolvedAt,
+    closedAt: rawClosedAt,
+    participants: participantEntries,
+    predictions: predictionEntries,
+    votes: voteEntries,
+    options: normalizedOptions,
+    totalVotes,
+    primaryCount: totalVotes,
+    primaryCountLabel: format === 'HEAD_TO_HEAD' ? 'votes' : 'participants',
+    totalComments: Number(pickFirst(raw?.totalComments, raw?._count?.comments, comments.length, 0)),
+    stake: Number(pickFirst(raw?.stakeAmount, raw?.stake, raw?.pot, 0)),
+    createdAt: pickFirst(raw?.createdAt, raw?.created_at, raw?.createdDate, ''),
+    endTime: pickFirst(raw?.endTime, raw?.endsAt, ''),
+    creatorChoice,
+    invitedUserChoice: String(pickFirst(invitedUserChoice, '')),
+    creatorId,
+    invitedUserId,
+    invitationId,
+    resultValue: pickFirst(raw?.resultValue, raw?.actualResult, raw?.winningOption, ''),
+    winningSide: String(pickFirst(raw?.winningSide, raw?.resultValue, raw?.actualResult, '')),
+    winnerUserId: String(pickFirst(raw?.winnerUserId, raw?.winner?.id, raw?.winner?._id, '')),
+    winnerName: pickFirst(raw?.winner?.name, raw?.winner?.displayName, raw?.winner?.userName, raw?.winnerName, ''),
+    creator: {
+      name: pickFirst(raw?.creator?.name, raw?.creator?.displayName, raw?.creator?.userName, 'Creator'),
+      handle: pickFirst(raw?.creator?.userName, raw?.creator?.username, ''),
+      avatar: pickFirst(raw?.creator?.avatar, raw?.creator?.image, raw?.creator?.profilePicture, ''),
+    },
+    invitedUser: {
+      name: pickFirst(
+        raw?.invitedUser?.name,
+        raw?.invitedUser?.displayName,
+        raw?.invitedUser?.userName,
+        headToHeadInvited?.user?.name,
+        headToHeadInvited?.user?.displayName,
+        headToHeadInvited?.user?.userName,
+        raw?.invites?.[0]?.invited?.displayName,
+        raw?.invites?.[0]?.invited?.userName,
+        'Opponent',
+      ),
+      handle: pickFirst(
+        raw?.invitedUser?.userName,
+        raw?.invitedUser?.username,
+        headToHeadInvited?.user?.userName,
+        raw?.invites?.[0]?.invited?.userName,
+        '',
+      ),
+      avatar: pickFirst(
+        raw?.invitedUser?.avatar,
+        raw?.invitedUser?.image,
+        raw?.invitedUser?.profilePicture,
+        headToHeadInvited?.user?.avatar,
+        headToHeadInvited?.user?.image,
+        raw?.invites?.[0]?.invited?.image,
+        '',
+      ),
+    },
+    predictionCounts: normalizedPredictionCounts,
+    voteCounts: normalizedVoteCounts,
+    optionImages: Array.isArray(raw?.optionImages) ? raw.optionImages.filter(Boolean) : [],
+    comments,
+    headToHeadSides: headToHeadSides || undefined,
+  };
+};
+
+const getStatusTone = (status, t) => {
+  const normalized = String(status || '').toLowerCase();
+  if (normalized.includes('cancel') || normalized.includes('declin') || normalized.includes('reject'))
+    return { label: t('battleInProgress.statusCancelled'), color: '#EF4444' };
+  if (normalized.includes('live') || normalized.includes('progress'))
+    return { label: t('battleInProgress.statusLive'), color: '#22C55E' };
+  if (normalized.includes('finish') || normalized.includes('closed') || normalized.includes('resolved'))
+    return { label: t('battleInProgress.statusFinished'), color: '#4B5563' };
+  if (normalized.includes('result'))
+    return { label: t('battleInProgress.statusResult'), color: '#8B5CF6' };
+  return { label: t('battleInProgress.statusOpen'), color: '#0F766E' };
+};
+
+const formatBattleTime = (value, t) => {
+  if (!value) return t('battleInProgress.endTimeNotSet');
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return t('battleInProgress.endTimeNotSet');
+
+  const diffMs = parsed.getTime() - Date.now();
+  if (!Number.isFinite(diffMs) || diffMs <= 0) {
+    return t?.('battleCard.ended') || 'Ended';
+  }
+
+  const totalMinutes = Math.max(1, Math.ceil(diffMs / (60 * 1000)));
+  const totalHours = Math.floor(totalMinutes / 60);
+  const days = Math.floor(totalHours / 24);
+  const hours = totalHours % 24;
+  const mins = totalMinutes % 60;
+
+  if (days > 0) return t?.('battleCard.endsInDays', { days }) || `Ends in ${days}d`;
+  if (totalHours > 0) return t?.('battleCard.endsInHours', { hours: totalHours }) || `Ends in ${totalHours}h`;
+  return t?.('battleCard.endsInMins', { mins }) || `Ends in ${mins}m`;
+};
+
+const formatStakeAmount = value => {
+  const parsed = Number(value);
+  const safeValue = Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+  return safeValue.toLocaleString(undefined, {
+    maximumFractionDigits: 2,
+  });
+};
+
+const BATTLE_QUESTION_EDIT_WINDOW_MS = 5 * 60 * 1000;
+
+const isSuccessfulResponse = response =>
+  (typeof response?.status === 'number' && response.status >= 200 && response.status < 300) ||
+  (typeof response?.statusCode === 'number' && response.statusCode >= 200 && response.statusCode < 300) ||
+  response?.success === true ||
+  response?.error === false;
+
+export default function BattleInProgress() {
+  const navigation = useNavigation();
+  const route = useRoute();
+  const { t } = useLanguage();
+  const { profile } = route.params || {};
+  const resolvedProfileType = normalizeProfileType(profile);
+  const { bgStyle, textStyle, cardStyle, accent, card, border, mutedText, bg } = useAppTheme(resolvedProfileType);
+  const { isDarkMode } = useThemeContext();
+  const labelColor = isDarkMode ? '#ffffff' : '#111827';
+  const inputSurface = isDarkMode ? 'rgba(255,255,255,0.08)' : card;
+  const optionSurface = isDarkMode ? 'rgba(255,255,255,0.06)' : '#F9FAFB';
+  const optionBorder = isDarkMode ? border : '#E5E7EB';
+  const routeBattle = useMemo(() => route?.params?.battle || {}, [route?.params?.battle]);
+  const hasInitialBattleData = Object.keys(routeBattle || {}).length > 0;
+  const battleId = route?.params?.battleId || routeBattle.id || routeBattle._id || routeBattle.battleId || '';
+  const [currentUserId, setCurrentUserId] = useState('');
+  const [battle, setBattle] = useState(() => normalizeBattle(routeBattle, ''));
+  const [selectedOption, setSelectedOption] = useState(() => String(route?.params?.selectedOption || ''));
+  const [optionImagePreviewVisible, setOptionImagePreviewVisible] = useState(false);
+  const [optionImagePreviewUri, setOptionImagePreviewUri] = useState('');
+  const [argumentText, setArgumentText] = useState('');
+  const [commentText, setCommentText] = useState('');
+  const [replyText, setReplyText] = useState('');
+  const [replyingToComment, setReplyingToComment] = useState(null);
+  const [expandedReplies, setExpandedReplies] = useState({});
+  const [loading, setLoading] = useState(!hasInitialBattleData);
+  const [refreshing, setRefreshing] = useState(false);
+  const [submittingVote, setSubmittingVote] = useState(false);
+  const [submittingDecline, setSubmittingDecline] = useState(false);
+  const [creatorSelectionLocked, setCreatorSelectionLocked] = useState(false);
+  const [submittingComment, setSubmittingComment] = useState(false);
+  const [likingCommentId, setLikingCommentId] = useState('');
+  const [pinningCommentId, setPinningCommentId] = useState('');
+  const [commentTextSelections, setCommentTextSelections] = useState({});
+  const [submittingHighlightAction, setSubmittingHighlightAction] = useState('');
+  const [keepActiveSelectedStyle, setKeepActiveSelectedStyle] = useState(false);
+  const [participantUserData, setParticipantUserData] = useState({});
+  const [participantBattleStats, setParticipantBattleStats] = useState({});
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const replyInputRef = useRef(null);
+  const scrollRef = useRef(null);
+  const commentSelectionFrameRef = useRef(null);
+  const pendingCommentSelectionRef = useRef({});
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const statusPulseAnim = useRef(new Animated.Value(1)).current;
+  const endTimePulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => () => {
+    if (commentSelectionFrameRef.current) {
+      cancelAnimationFrame(commentSelectionFrameRef.current);
+    }
+  }, []);
+
+  const scheduleCommentSelectionUpdate = useCallback((commentId, nextSelection) => {
+    if (!commentId) return;
+
+    const hasRealSelection = nextSelection && nextSelection.end > nextSelection.start;
+
+    pendingCommentSelectionRef.current[commentId] = nextSelection;
+
+    if (commentSelectionFrameRef.current) return;
+
+    commentSelectionFrameRef.current = requestAnimationFrame(() => {
+      commentSelectionFrameRef.current = null;
+      const pendingSelections = pendingCommentSelectionRef.current;
+      pendingCommentSelectionRef.current = {};
+      setCommentTextSelections(prev => {
+        const next = { ...prev };
+        Object.entries(pendingSelections).forEach(([id, selection]) => {
+          const isRealSelection = selection && selection.end > selection.start;
+          if (isRealSelection) {
+            // Clear all OTHER comments' selections first
+            Object.keys(next).forEach(existingId => {
+              if (existingId !== id) {
+                next[existingId] = { start: 0, end: 0 };
+              }
+            });
+          }
+          next[id] = selection;
+        });
+        return next;
+      });
+    });
+  }, []);
+
+  const palette = useMemo(() => {
+    const primary = accent || '#5a2d82';
+    const secondary = primary.toLowerCase() === '#c9a15a' ? '#b8924f' : '#8f54f7';
+    return {
+      primary,
+      secondary,
+      surface: card || (isDarkMode ? '#1E1E1E' : '#FFFFFF'),
+      textMuted: mutedText || withAlpha(primary, '99'),
+      border: border || withAlpha(primary, '22'),
+      soft: isDarkMode ? withAlpha(primary, '24') : withAlpha(primary, '10'),
+      buttonGradient: primary.toLowerCase() === '#c9a15a'
+        ? ['#b8924f', '#C9A15a']
+        : ['#513189', '#8f54f7'],
+    };
+  }, [accent, border, card, isDarkMode, mutedText]);
+
+  const statusMeta = useMemo(
+    () => getStatusTone(battle.status, t),
+    [battle.status, t],
+  );
+  const isLiveStatus = useMemo(() => {
+    const normalized = String(battle.status || '').toLowerCase();
+    return normalized.includes('live') || normalized.includes('progress');
+  }, [battle.status]);
+
+  const canViewResults = useMemo(() => {
+    const normalized = String(battle?.status || '').trim().toLowerCase();
+    if (!normalized) return false;
+    if (normalized.includes('open') || normalized.includes('live') || normalized.includes('progress')) return false;
+    return (
+      normalized.includes('resolved') ||
+      normalized.includes('result') ||
+      normalized.includes('finish') ||
+      normalized.includes('closed')
+    );
+  }, [battle?.status]);
+  const isBattleCancelled = useMemo(() => {
+    const normalized = String(battle?.status || '').trim().toLowerCase();
+    if (!normalized) return false;
+    return normalized.includes('cancel') || normalized.includes('declin') || normalized.includes('reject');
+  }, [battle?.status]);
+  const isPrediction = battle.format === 'POLL';
+  const isHeadToHead = battle.format === 'HEAD_TO_HEAD';
+  const resolvedBattleId = String(pickFirst(
+    battle?.id, route?.params?.battleId, routeBattle.id, routeBattle._id, routeBattle.battleId, '',
+  ));
+  const resolvedInvitationId = String(pickFirst(
+    battle?.invitationId,
+    route?.params?.invitationId,
+    route?.params?.inviteId,
+    routeBattle?.invitationId,
+    routeBattle?.inviteId,
+    routeBattle?.invites?.[0]?.invitationId,
+    routeBattle?.invites?.[0]?.inviteId,
+    routeBattle?.invites?.[0]?.id,
+    routeBattle?.invites?.[0]?._id,
+    '',
+  ));
+
+  const headToHeadAssignedSide = useMemo(() => {
+    if (!isHeadToHead) return '';
+    const normalizedCurrentUser = String(currentUserId || '');
+    if (!normalizedCurrentUser) return '';
+
+    const normalizedCreatorId = String(battle?.creatorId || '');
+    const normalizedInvitedId = String(battle?.invitedUserId || '');
+    const isParticipant =
+      (normalizedCreatorId && normalizedCurrentUser === normalizedCreatorId) ||
+      (normalizedInvitedId && normalizedCurrentUser === normalizedInvitedId);
+
+    if (!isParticipant) return '';
+
+    const sides = battle?.headToHeadSides || null;
+
+    const resolveSideFromEntry = (entry) => String(pickFirst(
+      entry?.side,
+      entry?.label,
+      entry?.option,
+      entry?.choice,
+      entry?.value,
+      '',
+    ));
+
+    const scanHeadToHeadSides = (sidesObj) => {
+      if (!sidesObj || typeof sidesObj !== 'object') return '';
+      const values = Object.values(sidesObj);
+      for (const entry of values) {
+        if (!entry || typeof entry !== 'object') continue;
+        const entryUserId = resolveEntityId(pickFirst(entry?.userId, entry?.user, entry?.invitedUser, entry?.creator));
+        if (entryUserId && String(entryUserId) === normalizedCurrentUser) {
+          const side = resolveSideFromEntry(entry);
+          if (side) return side;
+        }
+      }
+      return '';
+    };
+
+    if (sides && typeof sides === 'object') {
+      if (normalizedCreatorId && normalizedCurrentUser === normalizedCreatorId) {
+        const creatorEntry = pickFirst(sides?.creator, sides?.createdBy, sides?.owner, null);
+        const side = String(pickFirst(
+          resolveSideFromEntry(creatorEntry),
+          sides?.creatorSide,
+          sides?.creatorChoice,
+          battle?.creatorChoice,
+          '',
+        ));
+        if (side) return side;
+      }
+
+      if (normalizedInvitedId && normalizedCurrentUser === normalizedInvitedId) {
+        const invitedEntry = pickFirst(sides?.invitedUser, sides?.invited, sides?.opponent, null);
+        const explicitSide = String(pickFirst(
+          resolveSideFromEntry(invitedEntry),
+          sides?.invitedUserSide,
+          sides?.invitedSide,
+          sides?.opponentSide,
+          sides?.invitedUserChoice,
+          battle?.invitedUserChoice,
+          '',
+        ));
+        if (explicitSide) return explicitSide;
+
+        const creatorSide = String(pickFirst(
+          sides?.creatorSide,
+          resolveSideFromEntry(pickFirst(sides?.creator, sides?.createdBy, sides?.owner, null)),
+          sides?.creatorChoice,
+          battle?.creatorChoice,
+          '',
+        ));
+        if (creatorSide) {
+          const normalizedCreatorSide = normalizeSideKey(creatorSide);
+          const otherOption = (Array.isArray(battle?.options) ? battle.options : []).find((option) => {
+            const optionSide = String(pickFirst(option?.side, option?.label, option, ''));
+            return normalizeSideKey(optionSide) && normalizeSideKey(optionSide) !== normalizedCreatorSide;
+          });
+          if (otherOption) {
+            return String(pickFirst(otherOption?.side, otherOption?.label, otherOption, ''));
+          }
+        }
+      }
+
+      const scanned = scanHeadToHeadSides(sides);
+      if (scanned) return scanned;
+    }
+
+    const participantMatch = (Array.isArray(battle?.participants) ? battle.participants : [])
+      .find(entry => resolveEntityId(entry) === normalizedCurrentUser || String(entry?.userId || '') === normalizedCurrentUser);
+    return String(pickFirst(participantMatch?.side, battle?.creatorChoice, battle?.invitedUserChoice, ''));
+  }, [battle?.headToHeadSides, battle?.participants, currentUserId, isHeadToHead]);
+
+  const isHeadToHeadOpponent = useMemo(() => {
+    if (!isHeadToHead) return false;
+    if (!currentUserId) return false;
+    return String(currentUserId) === String(battle.invitedUserId);
+  }, [battle.invitedUserId, currentUserId, isHeadToHead]);
+
+  const isHeadToHeadCreator = useMemo(() => {
+    if (!isHeadToHead) return false;
+    if (!currentUserId) return false;
+    return String(currentUserId) === String(battle.creatorId);
+  }, [battle.creatorId, currentUserId, isHeadToHead]);
+
+  const isBattleCreator = useMemo(() => {
+    if (!currentUserId) return false;
+    return String(currentUserId) === String(battle.creatorId || battle.creator?.id || battle.creator?._id || '');
+  }, [battle.creatorId, battle.creator, currentUserId]);
+
+  const canManageCommentHighlights = useMemo(() => {
+    if (!currentUserId) return false;
+    if (isHeadToHead) return isHeadToHeadCreator || isHeadToHeadOpponent;
+    if (isPrediction) return isBattleCreator;
+    return false;
+  }, [currentUserId, isBattleCreator, isHeadToHead, isHeadToHeadCreator, isHeadToHeadOpponent, isPrediction]);
+
+  const [editWindowNow, setEditWindowNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!battle.createdAt || !isBattleCreator) return undefined;
+    const interval = setInterval(() => setEditWindowNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, [battle.createdAt, isBattleCreator]);
+  const canEditBattleQuestion = useMemo(() => {
+    if (!isBattleCreator || isBattleCancelled || canViewResults || isLiveStatus) return false;
+    if (!battle.createdAt) return false;
+
+    const createdMs = new Date(battle.createdAt).getTime();
+    if (Number.isNaN(createdMs)) return false;
+
+    return editWindowNow - createdMs < BATTLE_QUESTION_EDIT_WINDOW_MS;
+  }, [
+    battle.createdAt,
+    canViewResults,
+    editWindowNow,
+    isBattleCancelled,
+    isBattleCreator,
+    isLiveStatus,
+  ]);
+
+  const handleEditBattleQuestion = useCallback(() => {
+    if (!resolvedBattleId) return;
+
+    navigation.navigate('OpenBattle', {
+      editMode: true,
+      battleId: resolvedBattleId,
+      battle,
+      profile: resolvedProfileType,
+    });
+  }, [battle, navigation, resolvedBattleId, resolvedProfileType]);
+  const userVotedSelection = useMemo(() => {
+    if (!currentUserId) return { side: '', optionId: '' };
+    const matchByUserId = entry => String(pickFirst(
+      entry?.userId, entry?.user?.id, entry?.user?._id,
+      entry?.user?.userId, entry?.user?.UserId, '',
+    )) === String(currentUserId);
+    const submittedEntries = isPrediction
+      ? (Array.isArray(battle?.predictions) ? battle.predictions : [])
+      : (Array.isArray(battle?.votes) ? battle.votes : []);
+    const matchedEntry = submittedEntries.find(matchByUserId);
+    if (!matchedEntry) return { side: '', optionId: '' };
+    return {
+      side: String(pickFirst(matchedEntry?.side, matchedEntry?.label, matchedEntry?.option, '')),
+      optionId: String(pickFirst(matchedEntry?.optionId, '')),
+    };
+  }, [battle?.predictions, battle?.votes, currentUserId, isPrediction]);
+
+  const hasUserSelectionLocked = useMemo(
+    () => Boolean(userVotedSelection.side || userVotedSelection.optionId),
+    [userVotedSelection.optionId, userVotedSelection.side],
+  );
+
+  const hasUserVoted = useMemo(() => {
+    if (!currentUserId) return false;
+
+    // Poll / prediction flow (uses predictions list)
+    if (isPrediction) {
+      return hasUserSelectionLocked;
+    }
+
+    // Head-to-head flow: invited user "accept" should unlock commenting even if
+    // the API doesn't expose a vote entry immediately.
+    if (isHeadToHead) {
+      const normalizedUserId = String(currentUserId || '');
+      const sides = battle?.headToHeadSides || {};
+      const fromCreator = normalizedUserId && String(sides?.creator?.userId || '') === normalizedUserId
+        ? String(sides?.creator?.openingArgument || '')
+        : '';
+      const fromInvited = normalizedUserId && String(sides?.invitedUser?.userId || '') === normalizedUserId
+        ? String(sides?.invitedUser?.openingArgument || '')
+        : '';
+      const participantEntry = (Array.isArray(battle?.participants) ? battle.participants : [])
+        .find(entry =>
+          String(pickFirst(entry?.userId, entry?.user?.id, entry?.user?._id, '')) === normalizedUserId,
+        );
+      const fromParticipant = String(participantEntry?.openingArgument || '');
+      const openingCandidate = pickFirst(fromCreator, fromInvited, fromParticipant);
+      const hasOpeningArgument = Boolean(String(openingCandidate || '').trim());
+      const hasVoteEntry = (Array.isArray(battle?.votes) ? battle.votes : []).some(entry => {
+        const entryUserId = String(pickFirst(entry?.userId, entry?.user?.id, entry?.user?._id, ''));
+        return entryUserId === normalizedUserId;
+      });
+
+      if (isHeadToHeadOpponent) {
+        return Boolean(participantEntry) || hasOpeningArgument || hasVoteEntry;
+      }
+
+      return hasOpeningArgument || hasVoteEntry;
+    }
+
+    // Default (non-head-to-head voting uses votes list)
+    return hasUserSelectionLocked;
+  }, [
+    battle?.headToHeadSides,
+    battle?.participants,
+    battle?.votes,
+    currentUserId,
+    isHeadToHead,
+    isHeadToHeadOpponent,
+    isPrediction,
+    hasUserSelectionLocked,
+    userVotedSelection.optionId,
+    userVotedSelection.side,
+  ]);
+
+  const shouldShowAcceptBattleCta = useMemo(() => {
+    if (!isHeadToHead) return false;
+    if (!isHeadToHeadOpponent) return false;
+    if (hasUserVoted) return false;
+    if (canViewResults) return false;
+    if (isBattleCancelled) return false
+
+    const normalizedStatus = String(battle?.status || '').toLowerCase();
+    const isLive = normalizedStatus.includes('live') || normalizedStatus.includes('progress');
+    if (isLive) return false;
+
+    const participants = Array.isArray(battle?.participants) ? battle.participants : [];
+    const hasCurrentUserInParticipants = participants.some(entry =>
+      String(pickFirst(entry?.userId, entry?.user?.id, entry?.user?._id, '')) === String(currentUserId || ''),
+    );
+
+    // "Accept battle" is only meaningful before the invited user has joined/acted.
+    return participants.length < 2 || !hasCurrentUserInParticipants;
+  }, [
+    battle?.participants,
+    canViewResults,
+    currentUserId,
+    hasUserVoted,
+    isHeadToHead,
+    isHeadToHeadOpponent,
+  ]);
+
+  const closeOptionImagePreview = useCallback(() => {
+    setOptionImagePreviewVisible(false);
+    setOptionImagePreviewUri('');
+  }, []);
+
+  const openOptionImagePreview = useCallback((uri) => {
+    if (uri) {
+      setOptionImagePreviewUri(uri);
+      setOptionImagePreviewVisible(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isLiveStatus) {
+      statusPulseAnim.setValue(1);
+      return undefined;
+    }
+
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(statusPulseAnim, {
+          toValue: 0.35,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(statusPulseAnim, {
+          toValue: 1,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    pulse.start();
+
+    return () => pulse.stop();
+  }, [isLiveStatus, statusPulseAnim]);
+
+  const endTimeInfo = useMemo(() => {
+    if (isBattleCancelled) {
+      return {
+        relative: t?.('battleCard.ended') || 'Ended',
+        absolute: '',
+        isEndingSoon: false,
+      };
+    }
+    const relative = formatBattleTime(battle?.endTime, t);
+    const parsed = battle?.endTime ? new Date(battle.endTime) : null;
+    const isValid = parsed && !Number.isNaN(parsed.getTime());
+    const diffMs = isValid ? parsed.getTime() - Date.now() : NaN;
+    const isEndingSoon = Number.isFinite(diffMs) && diffMs > 0 && diffMs <= 60 * 60 * 1000;
+    return {
+      relative,
+      absolute: isValid ? parsed.toLocaleString() : '',
+      isEndingSoon,
+    };
+  }, [battle?.endTime, isBattleCancelled, t]);
+
+  useEffect(() => {
+    if (!endTimeInfo.isEndingSoon) {
+      endTimePulseAnim.setValue(1);
+      return undefined;
+    }
+
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(endTimePulseAnim, {
+          toValue: 0.2,
+          duration: 550,
+          useNativeDriver: true,
+        }),
+        Animated.timing(endTimePulseAnim, {
+          toValue: 1,
+          duration: 550,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    pulse.start();
+
+    return () => pulse.stop();
+  }, [endTimeInfo.isEndingSoon, endTimePulseAnim]);
+
+  const fetchBattle = useCallback(async (isSilent = false) => {
+    if (!battleId) { setLoading(false); return; }
+    if (!isSilent && !hasInitialBattleData) setLoading(true);
+    try {
+      const response = await getbattle({ params: { battleId } });
+      console.log(response, 'dtaa in this getbattle im getbattle kya a getbattle krta hu ')
+      const storedId = await AsyncStorage.getItem('userId');
+      const rawBattle = response?.data?.battle || response?.data?.data || response?.data || response?.battle || routeBattle;
+      const enrichedBattle = {
+        ...rawBattle,
+        comments: enrichBattleCommentLikes(rawBattle?.comments || [], storedId),
+      };
+      setBattle(normalizeBattle(enrichedBattle, storedId || currentUserId));
+    } catch (error) {
+      if (!routeBattle || !Object.keys(routeBattle).length) {
+        Alert.alert(
+          t('battleInProgress.loadingError'),
+          error?.response?.data?.message || error?.message || t('battleInProgress.tryAgain'),
+        );
+      }
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [battleId, currentUserId, hasInitialBattleData, routeBattle, t]);
+
+  useEffect(() => { getbattle(); }, []);
+  useEffect(() => {
+    AsyncStorage.getItem('userId').then(value => setCurrentUserId(String(value || '')));
+  }, []);
+  useEffect(() => { fetchBattle(); }, [fetchBattle]);
+  useEffect(() => {
+    const routeSelectedOption = String(route?.params?.selectedOption || '');
+    if (routeSelectedOption) setSelectedOption(routeSelectedOption);
+  }, [route?.params?.selectedOption]);
+
+  useEffect(() => {
+    const fetchParticipantData = async () => {
+      if (!Array.isArray(battle.participants) || battle.participants.length < 2) return;
+      try {
+        const participant0 = battle.participants[0];
+        const participant1 = battle.participants[1];
+        const [res0, res1, points0, points1] = await Promise.all([
+          getUserCredentials(participant0?.userId),
+          getUserCredentials(participant1?.userId),
+          battlePoint({ params: { userId: participant0?.userId } }),
+          battlePoint({ params: { userId: participant1?.userId } }),
+        ]);
+        const userData0 = res0?.statusCode === 200 ? (res0.data?.user || res0.data || {}) : {};
+        const userData1 = res1?.statusCode === 200 ? (res1.data?.user || res1.data || {}) : {};
+        const formatImageUrl = (image) => {
+          if (!image) return '';
+          let url = String(image).trim();
+          if (url.startsWith('http://') || url.startsWith('https://')) return url;
+          if (url.startsWith('/')) return `${BASE_URL}${url}`;
+          else return `${BASE_URL}/${url}`;
+        };
+
+        const normalizePointPayload = (response) => {
+          const rawData = response?.data?.data || response?.data || response || {};
+          const totals = rawData?.totals || {};
+          return {
+            level: String(rawData?.level || 'Rookie'),
+            points: Number(totals?.totalBattlePoints || rawData?.points || 0),
+            credibility: Number(rawData?.credibilityScore || rawData?.credibility || 0),
+          };
+        };
+
+        const stats0 = normalizePointPayload(points0);
+        const stats1 = normalizePointPayload(points1);
+
+        setParticipantUserData({
+          [participant0?.userId]: {
+            name: userData0?.displayName || userData0?.name || null,
+            image: formatImageUrl(userData0?.image),
+            userId: participant0?.userId,
+          },
+          [participant1?.userId]: {
+            name: userData1?.displayName || userData1?.name || null,
+            image: formatImageUrl(userData1?.image),
+            userId: participant1?.userId,
+          },
+        });
+        setParticipantBattleStats({
+          [participant0?.userId]: stats0,
+          [participant1?.userId]: stats1,
+        });
+      } catch (error) {
+        console.error('Error fetching participant credentials:', error);
+      }
+    };
+    fetchParticipantData();
+  }, [battle.participants]);
+
+  useEffect(() => {
+    if (userVotedSelection.optionId) { setSelectedOption(userVotedSelection.optionId); return; }
+    if (userVotedSelection.side) setSelectedOption(userVotedSelection.side);
+  }, [userVotedSelection.optionId, userVotedSelection.side]);
+
+  useEffect(() => {
+    if (!isHeadToHead) return;
+    if (!currentUserId) return;
+    if (hasUserVoted) return;
+    if (!Array.isArray(battle.options) || battle.options.length === 0) return;
+
+    // For head-to-head, only auto-preselect for the invited user (opponent) to avoid
+    // locking the creator into a side before they choose.
+    const isInvitedUser = String(currentUserId) === String(battle.invitedUserId);
+    if (!isInvitedUser) return;
+
+    const lockedSide = String(headToHeadAssignedSide || '').trim();
+    if (!lockedSide) return;
+
+    const normalizedLockedSide = normalizeSideKey(lockedSide);
+    const matchIndex = battle.options.findIndex((option) => {
+      const optionSide = String(pickFirst(option?.side, option?.label, ''));
+      return normalizeSideKey(optionSide) === normalizedLockedSide;
+    });
+    if (matchIndex < 0) return;
+
+    const matchOption = battle.options[matchIndex];
+    const nextSelection = getOptionSelectionKey(matchOption, matchIndex);
+    if (!selectedOption) {
+      setSelectedOption(nextSelection);
+      return;
+    }
+
+    // If selectedOption is a raw side value (e.g. "A"), normalize it to the option key.
+    if (normalizeSideKey(selectedOption) === normalizedLockedSide) {
+      setSelectedOption(nextSelection);
+    }
+  }, [
+    battle.creatorId,
+    battle.invitedUserId,
+    battle.options,
+    currentUserId,
+    headToHeadAssignedSide,
+    hasUserVoted,
+    isHeadToHead,
+    selectedOption,
+  ]);
+
+  useEffect(() => {
+    if (hasUserVoted && keepActiveSelectedStyle) {
+      const timer = setTimeout(() => setKeepActiveSelectedStyle(false), 500);
+      return () => clearTimeout(timer);
+    }
+  }, [hasUserVoted, keepActiveSelectedStyle]);
+
+  useFocusEffect(useCallback(() => {
+    const barStyle = isDarkMode ? 'light-content' : 'dark-content';
+    StatusBar.setBarStyle(barStyle, true);
+    if (Platform.OS === 'android') {
+      // RN 0.76+ / Android 15 edge-to-edge ignores opaque statusBarColor —
+      // draw the themed screen behind a transparent status bar instead.
+      StatusBar.setTranslucent(true);
+      StatusBar.setBackgroundColor('transparent', true);
+    }
+    setExpandedReplies({});
+    if (battleId) {
+      fetchBattle(true);
+    }
+    return () => setExpandedReplies({});
+  }, [battleId, fetchBattle, isDarkMode]));
+
+  useEffect(() => { setExpandedReplies({}); }, [resolvedBattleId]);
+
+  useEffect(() => {
+    // Reset local creator lock when switching battles/screens.
+    setCreatorSelectionLocked(false);
+  }, [resolvedBattleId]);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSubscription = Keyboard.addListener(showEvent, () => setIsKeyboardVisible(true));
+    const hideSubscription = Keyboard.addListener(hideEvent, () => setIsKeyboardVisible(false));
+    return () => { showSubscription.remove(); hideSubscription.remove(); };
+  }, []);
+
+  const handleOpenReply = useCallback(comment => {
+    setReplyingToComment({
+      id: comment?.id || '',
+      authorName: comment?.authorName || t('battleInProgress.fallbackUser'),
+    });
+    setReplyText('');
+    setTimeout(() => {
+      replyInputRef.current?.focus?.();
+      scrollRef.current?.update?.();
+    }, 120);
+  }, [t]);
+
+  const handleOpenCommentAuthorProfile = useCallback(
+    userId => {
+      const targetUserId = String(userId || '').trim();
+      if (!targetUserId) return;
+
+      if (targetUserId === String(currentUserId || '')) {
+        navigation.navigate('ProfileMain', { screen: 'Profile' });
+        return;
+      }
+
+      const currentRoute = route?.name || 'BattleInProgress';
+      navigation.navigate('HomeMain', {
+        screen: 'UsersProfile',
+        params: {
+          userId: targetUserId,
+          returnTo: currentRoute,
+        },
+      });
+    },
+    [currentUserId, navigation, route?.name],
+  );
+
+  const toggleReplies = useCallback(commentId => {
+    setExpandedReplies(prev => ({ ...prev, [commentId]: !prev[commentId] }));
+  }, []);
+
+  const handleHeroCardPressIn = () => {
+    Animated.spring(scaleAnim, { toValue: 0.97, useNativeDriver: true }).start();
+  };
+  const handleHeroCardPressOut = () => {
+    Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true }).start();
+  };
+
+  const handleVote = async () => {
+    const finalBattleId = resolvedBattleId || battleId;
+    const selectedOptionKey = String(selectedOption || '');
+    const effectiveSelectedOptionKey = selectedOptionKey;
+    const trimmedArgument = argumentText.trim();
+
+    const resolveSelectedBattleOption = (options = [], selectionKey = '') => {
+      const normalizedSelectionKey = String(selectionKey || '');
+      const found = (Array.isArray(options) ? options : []).find((option, index) => {
+        const optionKey = getOptionSelectionKey(option, index);
+        return (
+          optionKey === normalizedSelectionKey ||
+          String(option?.side || '') === normalizedSelectionKey ||
+          String(option?.label || '') === normalizedSelectionKey ||
+          String(option?.id || '') === normalizedSelectionKey
+        );
+      });
+      return found || null;
+    };
+
+    if (!finalBattleId) {
+      Alert.alert(t('battleInProgress.voteAlertMissingBattle'), t('battleInProgress.voteAlertMissingBattleMsg'));
+      return;
+    }
+    if (!effectiveSelectedOptionKey) {
+      Alert.alert(
+        t('battleInProgress.voteAlertSelectOption'),
+        isPrediction
+          ? t('battleInProgress.voteAlertSelectPredictionMsg')
+          : t('battleInProgress.voteAlertSelectVoteMsg'),
+      );
+      return;
+    }
+    const selectedBattleOption = resolveSelectedBattleOption(battle.options, effectiveSelectedOptionKey);
+    const finalSelectedOption = String(pickFirst(
+      selectedBattleOption?.side,
+      selectedBattleOption?.label,
+      effectiveSelectedOptionKey,
+    ));
+    let payload;
+    if (isPrediction) {
+      payload = {
+        battleId: finalBattleId,
+        side: finalSelectedOption,
+        justification: trimmedArgument || 'No justification provided',
+        comment: trimmedArgument,
+        sourceUrl: '',
+      };
+    } else {
+      payload = {
+        battleId: finalBattleId,
+        optionId: String(selectedBattleOption?.id || ''),
+        side: finalSelectedOption,
+        comment: trimmedArgument,
+      };
+    }
+    setSubmittingVote(true);
+    try {
+      const applyLocalVoteUpdate = () => {
+        setBattle(prev => {
+          if (!prev) return prev;
+
+          const selectedEntry = resolveSelectedBattleOption(prev.options, effectiveSelectedOptionKey);
+
+          const nextOptions = (Array.isArray(prev.options) ? prev.options : []).map((option, index) => {
+            const isSelected = selectedEntry
+              ? String(option?.id || '') === String(selectedEntry?.id || '') &&
+                getOptionSelectionKey(option, index) === getOptionSelectionKey(selectedEntry, prev.options.indexOf(selectedEntry))
+              : false;
+
+            if (!isSelected) return option;
+
+            const currentVotes = Number(option?.votes || 0);
+            return {
+              ...option,
+              votes: currentVotes + 1,
+            };
+          });
+
+          const nextTotalVotes = Number(prev.totalVotes || 0) + 1;
+          const nextVoteCounts = { ...(prev.voteCounts || {}) };
+          const nextPredictionCounts = { ...(prev.predictionCounts || {}) };
+          const targetCounts = isPrediction ? nextPredictionCounts : nextVoteCounts;
+          const selectedKey = String(pickFirst(
+            selectedEntry?.side,
+            selectedEntry?.label,
+            effectiveSelectedOptionKey,
+          )).trim();
+
+          if (selectedKey) {
+            targetCounts[selectedKey] = Number(targetCounts[selectedKey] || 0) + 1;
+            if (selectedEntry?.id) targetCounts[String(selectedEntry.id)] = Number(targetCounts[String(selectedEntry.id)] || 0) + 1;
+            if (selectedEntry?.label) targetCounts[String(selectedEntry.label)] = Number(targetCounts[String(selectedEntry.label)] || 0) + 1;
+            if (selectedEntry?.side) targetCounts[String(selectedEntry.side)] = Number(targetCounts[String(selectedEntry.side)] || 0) + 1;
+          }
+
+          const recomputedOptions = nextOptions.map(option => ({
+            ...option,
+            percentage: nextTotalVotes > 0
+              ? Math.round((Number(option.votes || 0) / nextTotalVotes) * 100)
+              : Number(option.percentage || 0),
+          }));
+
+          return {
+            ...prev,
+            options: recomputedOptions,
+            totalVotes: nextTotalVotes,
+            primaryCount: nextTotalVotes,
+            voteCounts: nextVoteCounts,
+            predictionCounts: nextPredictionCounts,
+          };
+        });
+      };
+
+      let response;
+      if (isPrediction) response = await predictBattle(payload);
+      else if (isHeadToHead && isHeadToHeadOpponent) {
+        response = await voteHeadtoHeadOpponent({ battleId: finalBattleId, comment: trimmedArgument });
+      } else if (isHeadToHead && isHeadToHeadCreator) {
+        response = await voteHeadtoHead(payload);
+      } else {
+        response = await voteBattle(payload);
+      }
+      if (!isSuccessfulResponse(response)) {
+        Alert.alert(
+          isPrediction ? t('battleInProgress.predictionNotSubmitted') : t('battleInProgress.voteNotSubmitted'),
+          response?.message || t('battleInProgress.tryAgain'),
+        );
+        return;
+      }
+      setArgumentText('');
+      setKeepActiveSelectedStyle(true);
+      if (isHeadToHead && isHeadToHeadCreator) setCreatorSelectionLocked(true);
+      applyLocalVoteUpdate();
+      await fetchBattle(true);
+
+      Alert.alert(
+        isPrediction ? t('battleInProgress.predictionSubmitted') : t('battleInProgress.voteSubmitted'),
+        isPrediction ? t('battleInProgress.predictionSubmittedMsg') : t('battleInProgress.voteSubmittedMsg'),
+      );
+    } catch (error) {
+      Alert.alert(
+        isPrediction ? t('battleInProgress.predictionNotSubmitted') : t('battleInProgress.voteNotSubmitted'),
+        error?.response?.data?.message || error?.message || t('battleInProgress.tryAgain'),
+      );
+    } finally {
+      setSubmittingVote(false);
+    }
+  };
+
+  const emitBattleInviteHandled = useCallback((status) => {
+    DeviceEventEmitter.emit('BATTLE_INVITE_HANDLED', {
+      battleId: resolvedBattleId || battleId,
+      invitationId: resolvedInvitationId,
+      status,
+    });
+  }, [battleId, resolvedBattleId, resolvedInvitationId]);
+
+  const handleAcceptBattle = async () => {
+    const finalBattleId = resolvedBattleId || battleId;
+    if (!finalBattleId) {
+      Alert.alert(t('battleInProgress.voteAlertMissingBattle'), t('battleInProgress.voteAlertMissingBattleMsg'));
+      return;
+    }
+    if (submittingVote) return;
+
+    setSubmittingVote(true);
+    try {
+      const trimmedArgument = String(argumentText || '').trim();
+      if (!trimmedArgument) {
+        Alert.alert('Add comment', 'Please add your comment to accept the battle.');
+        return;
+      }
+
+      // If the battle is already live (or the user already accepted from notifications),
+      // `battle/accept` can return "Invite not found". In that case, proceed to submit the opponent position.
+      const normalizedStatus = String(battle?.status || '').toLowerCase();
+      const isLive = normalizedStatus.includes('live') || normalizedStatus.includes('progress');
+
+      if (!isLive) {
+        const acceptPayload = {
+          battleId: finalBattleId,
+          ...(resolvedInvitationId ? { invitationId: resolvedInvitationId } : {}),
+          ...(battle?.invitedUserId ? { invitedUserId: battle.invitedUserId } : {}),
+        };
+        let accepted = null;
+        let acceptInviteAlreadyHandled = false;
+        try {
+          accepted = await acceptBattle(acceptPayload);
+        } catch (acceptError) {
+          const msg = String(acceptError?.response?.data?.message || acceptError?.message || '').toLowerCase();
+          const statusCode = Number(acceptError?.response?.status || acceptError?.statusCode || acceptError?.status || 0);
+          const inviteNotFound = statusCode === 404 || msg.includes('invite not found') || msg.includes('invitation not found');
+          if (!inviteNotFound) throw acceptError;
+          acceptInviteAlreadyHandled = true;
+        }
+        if (!acceptInviteAlreadyHandled && !isSuccessfulResponse(accepted)) {
+          const msg = String(accepted?.message || accepted?.data?.message || '').toLowerCase();
+          const statusCode = Number(accepted?.statusCode || accepted?.status || 0);
+          const inviteNotFound = statusCode === 404 || msg.includes('invite not found') || msg.includes('invitation not found');
+          if (!inviteNotFound) {
+            Alert.alert(t('battleInProgress.voteNotSubmitted'), accepted?.message || t('battleInProgress.tryAgain'));
+            return;
+          }
+        }
+        emitBattleInviteHandled('LIVE');
+      } else {
+        emitBattleInviteHandled('LIVE');
+      }
+
+      const response = await voteHeadtoHeadOpponent({ battleId: finalBattleId, comment: trimmedArgument });
+      if (!isSuccessfulResponse(response)) {
+        Alert.alert(t('battleInProgress.voteNotSubmitted'), response?.message || t('battleInProgress.tryAgain'));
+        return;
+      }
+      setArgumentText('');
+      setKeepActiveSelectedStyle(true);
+      emitBattleInviteHandled('LIVE');
+      await fetchBattle(true);
+    } catch (error) {
+      Alert.alert(
+        t('battleInProgress.voteNotSubmitted'),
+        error?.response?.data?.message || error?.message || t('battleInProgress.tryAgain'),
+      );
+    } finally {
+      setSubmittingVote(false);
+    }
+  };
+
+  const handlePinComment = async (commentId) => {
+    const finalBattleId = resolvedBattleId || battleId;
+    if (!finalBattleId || !commentId) return;
+    if (pinningCommentId) return;
+    setPinningCommentId(commentId);
+    const previousComment = findCommentInTree(battle.comments, commentId);
+    const wasPinned = normalizeCommentPinnedState(previousComment);
+    // optimistic update
+    setBattle(prev => ({
+      ...prev,
+      comments: updateCommentTree(prev.comments, commentId, item => ({ ...item, pinned: true, pin: true })),
+    }));
+    try {
+      const response = await pinComment({ battleId: finalBattleId, commentId });
+      console.log(response, 'popin')
+
+      if (!isSuccessfulResponse(response)) {
+        const errorMessage = String(response?.message || response?.data?.message || 'Unable to pin comment.');
+        setBattle(prev => ({
+          ...prev,
+          comments: updateCommentTree(prev.comments, commentId, item => ({ ...item, pinned: wasPinned, pin: wasPinned })),
+        }));
+        Alert.alert('Pin failed', errorMessage);
+      } else {
+        await fetchBattle(true);
+      }
+    } catch (error) {
+      const errorMessage = String(error?.response?.data?.message || error?.message || 'Unable to pin comment.');
+      setBattle(prev => ({
+        ...prev,
+        comments: updateCommentTree(prev.comments, commentId, item => ({ ...item, pinned: wasPinned, pin: wasPinned })),
+      }));
+      Alert.alert('Pin failed', errorMessage);
+    } finally {
+      setPinningCommentId('');
+    }
+  };
+
+  const handleUnpinComment = async (commentId) => {
+    const finalBattleId = resolvedBattleId || battleId;
+    if (!finalBattleId || !commentId) return;
+    if (pinningCommentId) return;
+    setPinningCommentId(commentId);
+    const previousComment = findCommentInTree(battle.comments, commentId);
+    const wasPinned = normalizeCommentPinnedState(previousComment);
+    // optimistic update
+    setBattle(prev => ({
+      ...prev,
+      comments: updateCommentTree(prev.comments, commentId, item => ({ ...item, pinned: false, pin: false })),
+    }));
+    try {
+      const response = await unpinComment({ battleId: finalBattleId, commentId });
+      console.log(response, 'unpin')
+      if (!isSuccessfulResponse(response)) {
+        const errorMessage = String(response?.message || response?.data?.message || 'Unable to unpin comment.');
+        setBattle(prev => ({
+          ...prev,
+          comments: updateCommentTree(prev.comments, commentId, item => ({ ...item, pinned: wasPinned, pin: wasPinned })),
+        }));
+        Alert.alert('Unpin failed', errorMessage);
+      } else {
+        await fetchBattle(true);
+      }
+    } catch (error) {
+      const errorMessage = String(error?.response?.data?.message || error?.message || 'Unable to unpin comment.');
+      setBattle(prev => ({
+        ...prev,
+        comments: updateCommentTree(prev.comments, commentId, item => ({ ...item, pinned: wasPinned, pin: wasPinned })),
+      }));
+      Alert.alert('Unpin failed', errorMessage);
+    } finally {
+      setPinningCommentId('');
+    }
+  };
+  const handleDeclineBattle = async () => {
+    const finalBattleId = resolvedBattleId || battleId;
+    if (!finalBattleId) {
+      Alert.alert(t('battleInProgress.voteAlertMissingBattle'), t('battleInProgress.voteAlertMissingBattleMsg'));
+      return;
+    }
+    if (submittingDecline || submittingVote) return;
+
+    setSubmittingDecline(true);
+    try {
+      const declinePayload = {
+        battleId: finalBattleId,
+        ...(resolvedInvitationId ? { invitationId: resolvedInvitationId } : {}),
+        ...(battle?.invitedUserId ? { invitedUserId: battle.invitedUserId } : {}),
+      };
+      const response = await declinetBattle(declinePayload);
+      console.log(response, 'data in declieneeen')
+      if (!isSuccessfulResponse(response)) {
+        const msg = String(response?.message || response?.data?.message || '').toLowerCase();
+        const statusCode = Number(response?.statusCode || response?.status || 0);
+        const inviteNotFound = statusCode === 404 || msg.includes('invite not found');
+        if (inviteNotFound) {
+          emitBattleInviteHandled('DECLINED');
+          navigation.goBack();
+          return;
+        }
+        Alert.alert(t('battleInProgress.voteNotSubmitted'), response?.message || t('battleInProgress.tryAgain'));
+        return;
+      }
+      emitBattleInviteHandled('DECLINED');
+      navigation.goBack();
+    } catch (error) {
+      const msg = String(error?.response?.data?.message || error?.message || '').toLowerCase();
+      if (msg.includes('invite not found') || msg.includes('invitation not found')) {
+        emitBattleInviteHandled('DECLINED');
+        navigation.goBack();
+        return;
+      }
+      Alert.alert(
+        t('battleInProgress.voteNotSubmitted'),
+        error?.response?.data?.message || error?.message || t('battleInProgress.tryAgain'),
+      );
+    } finally {
+      setSubmittingDecline(false);
+    }
+  };
+
+  const handlePostComment = async () => {
+    const message = commentText.trim();
+    if (!message || !battleId) return;
+    setSubmittingComment(true);
+    try {
+      const response = await commentUpload({ battleId, comment: message, message });
+      if (!isSuccessfulResponse(response)) {
+        Alert.alert(t('battleInProgress.commentNotPosted'), response?.message || t('battleInProgress.tryAgain'));
+        return;
+      }
+      setCommentText('');
+      await fetchBattle(true);
+    } catch (error) {
+      Alert.alert(
+        t('battleInProgress.commentNotPosted'),
+        error?.response?.data?.message || error?.message || t('battleInProgress.tryAgain'),
+      );
+    } finally {
+      setSubmittingComment(false);
+    }
+  };
+
+  const handlePostReply = async () => {
+    const message = replyText.trim();
+    if (!message || !battleId || !replyingToComment?.id) return;
+    const parentCommentId = replyingToComment.id;
+    setSubmittingComment(true);
+    try {
+      const response = await replyCommentBattle({ battleId, comment: message, parentCommentId });
+      if (!isSuccessfulResponse(response)) {
+        Alert.alert(t('battleInProgress.replyNotPosted'), response?.message || t('battleInProgress.tryAgain'));
+        return;
+      }
+      setReplyText('');
+      setReplyingToComment(null);
+      setExpandedReplies(prev => ({ ...prev, [parentCommentId]: false }));
+      await fetchBattle(true);
+    } catch (error) {
+      Alert.alert(
+        t('battleInProgress.replyNotPosted'),
+        error?.response?.data?.message || error?.message || t('battleInProgress.tryAgain'),
+      );
+    } finally {
+      setSubmittingComment(false);
+    }
+  };
+
+  const isOwnComment = useCallback(
+    (userId) => String(userId || '') === String(currentUserId || ''),
+    [currentUserId],
+  );
+
+  const handleCommentLike = async (commentId) => {
+    if (!commentId || !battleId) return;
+    const targetComment = findCommentInTree(battle.comments, commentId);
+    if (!targetComment) return;
+    if (isOwnComment(targetComment.userId)) return;
+    setLikingCommentId(commentId);
+    const previousCommentState = {
+      isLiked: !!targetComment.isLiked,
+      likes: Number.isFinite(Number(targetComment.likes)) ? Number(targetComment.likes) : 0,
+    };
+    setBattle(prevBattle => ({
+      ...prevBattle,
+      comments: updateCommentTree(prevBattle.comments, commentId, item => ({
+        ...item,
+        isLiked: !previousCommentState.isLiked,
+        likes: previousCommentState.isLiked
+          ? Math.max(previousCommentState.likes - 1, 0)
+          : previousCommentState.likes + 1,
+      })),
+    }));
+    try {
+      const response = await commentLike({ battleId, commentId });
+      if (!isSuccessfulResponse(response)) throw new Error('Like failed');
+      await fetchBattle(true);
+    } catch (error) {
+      setBattle(prevBattle => ({
+        ...prevBattle,
+        comments: updateCommentTree(prevBattle.comments, commentId, item => ({
+          ...item,
+          isLiked: previousCommentState.isLiked,
+          likes: previousCommentState.likes,
+        })),
+      }));
+      Alert.alert(
+        t('battleInProgress.likeCommentFailed'),
+        error?.response?.data?.message || error?.message || t('battleInProgress.tryAgain'),
+      );
+    } finally {
+      setLikingCommentId('');
+    }
+  };
+
+  const confirmTogglePin = useCallback((comment) => {
+    if (!comment) return;
+    const pinned = normalizeCommentPinnedState(comment);
+    const title = pinned ? 'Unpin comment' : 'Pin comment';
+    const message = pinned ? 'Unpin this comment?' : 'Pin this comment?';
+    Alert.alert(title, message, [
+      { text: pinned ? 'Unpin' : 'Pin', onPress: () => (pinned ? handleUnpinComment(comment.id) : handlePinComment(comment.id)) },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  }, [handlePinComment, handleUnpinComment]);
+
+  const applyCommentHighlightForComment = useCallback(async (comment, selection) => {
+    const finalBattleId = resolvedBattleId || battleId;
+    if (!finalBattleId || !comment?.id || submittingHighlightAction) return;
+
+    const startIndex = Math.min(selection?.start ?? 0, selection?.end ?? 0);
+    const endIndex = Math.max(selection?.start ?? 0, selection?.end ?? 0);
+    if (endIndex <= startIndex) {
+      Alert.alert('Highlight comment', 'Select the text you want to highlight.');
+      return;
+    }
+
+    const existingHighlights = normalizeCommentHighlights(comment);
+    const nextHighlights = mergeHighlightRanges([...existingHighlights, { startIndex, endIndex }]);
+
+    setSubmittingHighlightAction('highlight');
+    setBattle(prev => ({
+      ...prev,
+      comments: updateCommentTree(prev.comments, comment.id, item => ({
+        ...item,
+        highlights: nextHighlights,
+      })),
+    }));
+
+    try {
+      const response = await commentHighlight({
+        battleId: finalBattleId,
+        commentId: comment.id,
+        highlights: nextHighlights,
+      });
+      if (!isSuccessfulResponse(response)) {
+        throw new Error(response?.message || response?.data?.message || 'Unable to highlight comment.');
+      }
+      setCommentTextSelections(prev => {
+        const next = { ...prev };
+        delete next[comment.id];
+        return next;
+      });
+      await fetchBattle(true);
+    } catch (error) {
+      setBattle(prev => ({
+        ...prev,
+        comments: updateCommentTree(prev.comments, comment.id, item => ({
+          ...item,
+          highlights: existingHighlights,
+        })),
+      }));
+      Alert.alert(
+        'Highlight failed',
+        error?.response?.data?.message || error?.message || 'Unable to highlight comment.',
+      );
+    } finally {
+      setSubmittingHighlightAction('');
+    }
+  }, [battleId, fetchBattle, resolvedBattleId, submittingHighlightAction]);
+
+  const handleRemoveCommentHighlight = useCallback(async commentId => {
+    const finalBattleId = resolvedBattleId || battleId;
+    if (!finalBattleId || !commentId || submittingHighlightAction) return;
+
+    const previousComment = findCommentInTree(battle.comments, commentId);
+    const previousHighlights = normalizeCommentHighlights(previousComment);
+
+    setSubmittingHighlightAction('remove');
+    setBattle(prev => ({
+      ...prev,
+      comments: updateCommentTree(prev.comments, commentId, item => ({
+        ...item,
+        highlights: [],
+      })),
+    }));
+
+    try {
+      const response = await removeCommentHighlight({
+        battleId: finalBattleId,
+        commentId,
+      });
+      if (!isSuccessfulResponse(response)) {
+        throw new Error(response?.message || response?.data?.message || 'Unable to remove highlight.');
+      }
+      setCommentTextSelections(prev => {
+        const next = { ...prev };
+        delete next[commentId];
+        return next;
+      });
+      await fetchBattle(true);
+    } catch (error) {
+      setBattle(prev => ({
+        ...prev,
+        comments: updateCommentTree(prev.comments, commentId, item => ({
+          ...item,
+          highlights: previousHighlights,
+        })),
+      }));
+      Alert.alert(
+        'Remove highlight failed',
+        error?.response?.data?.message || error?.message || 'Unable to remove highlight.',
+      );
+    } finally {
+      setSubmittingHighlightAction('');
+    }
+  }, [battle.comments, battleId, fetchBattle, resolvedBattleId, submittingHighlightAction]);
+
+  const renderCommentMessage = useCallback((comment, paletteColors) => {
+    const message = String(comment?.message || '');
+    if (!message) return null;
+
+    const highlights = normalizeCommentHighlights(comment);
+    const searchWords = getHighlightSearchWords(message, highlights).map(escapeRegExp);
+    const hasHighlights = searchWords.length > 0;
+    const selection = commentTextSelections[comment.id] || { start: 0, end: 0 };
+    const hasSelection = selection.end > selection.start;
+    const selectedSnippet = hasSelection
+      ? message.slice(Math.min(selection.start, selection.end), Math.max(selection.start, selection.end)).trim()
+      : '';
+    const selectionStart = Math.min(selection?.start ?? 0, selection?.end ?? 0);
+    const selectionEnd = Math.max(selection?.start ?? 0, selection?.end ?? 0);
+    const selectionOverlapsHighlight = hasSelection && highlights.some(range => (
+      Number.isFinite(range?.startIndex) &&
+      Number.isFinite(range?.endIndex) &&
+      range.endIndex > selectionStart &&
+      range.startIndex < selectionEnd
+    ));
+
+    if (canManageCommentHighlights) {
+      return (
+        <View style={styles.commentMessageWrap} collapsable={false}>
+          <View style={styles.commentMessageStack}>
+            {hasHighlights ? (
+              <HighlightText
+                pointerEvents="none"
+                style={[styles.commentMessage, textStyle, styles.commentMessageUnderlay]}
+                textToHighlight={message}
+                searchWords={searchWords}
+                highlightStyle={styles.commentHighlightMark}
+              />
+            ) : null}
+            <TextInput
+              key={`comment-select-${comment.id}`}
+              value={message}
+              editable
+              multiline
+              scrollEnabled={false}
+              showSoftInputOnFocus={false}
+              caretHidden={!hasSelection}
+              selectTextOnFocus={false}
+              contextMenuHidden={false}
+              importantForAutofill="no"
+              underlineColorAndroid="transparent"
+              onChangeText={() => { }}
+              style={[
+                styles.commentMessage,
+                styles.commentMessageSelectable,
+                textStyle,
+                hasHighlights && styles.commentMessageSelectableOverlay,
+              ]}
+              onSelectionChange={({ nativeEvent: { selection: nextSelection } }) => {
+                scheduleCommentSelectionUpdate(comment.id, nextSelection);
+              }}
+            />
+          </View>
+          {hasSelection ? (
+            <View style={styles.commentHighlightActions}>
+              {!!selectedSnippet && (
+                <Text style={[styles.commentHighlightPreview, { color: paletteColors.textMuted }]} numberOfLines={2}>
+                  "{selectedSnippet}"
+                </Text>
+              )}
+              <View style={styles.commentHighlightActionRow}>
+                <TouchableOpacity
+                  style={[styles.commentHighlightActionButton, styles.commentHighlightActionPrimary, { backgroundColor: paletteColors.primary }]}
+                  onPress={() => applyCommentHighlightForComment(comment, selection)}
+                  disabled={submittingHighlightAction === 'highlight' || submittingHighlightAction === 'remove'}
+                >
+                  {submittingHighlightAction === 'highlight' ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.commentHighlightActionPrimaryText}>Highlight</Text>
+                  )}
+                </TouchableOpacity>
+                {selectionOverlapsHighlight ? (
+                  <TouchableOpacity
+                    style={[styles.commentHighlightActionButton, styles.commentHighlightActionDanger, { backgroundColor: '#DC2626' }]}
+                    onPress={() => handleRemoveCommentHighlight(comment.id)}
+                    disabled={submittingHighlightAction === 'highlight' || submittingHighlightAction === 'remove'}
+                  >
+                    {submittingHighlightAction === 'remove' ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <Text style={styles.commentHighlightActionPrimaryText}>Remove</Text>
+                    )}
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+            </View>
+          ) : (
+            <Text style={[styles.commentHighlightHint, { color: paletteColors.textMuted }]}>
+              {/* {hasHighlights
+                ? 'Select more text below to add another highlight.'
+                : 'Press and hold the comment text, then drag the handles to select.'} */}
+            </Text>
+          )}
+        </View>
+      );
+    }
+
+    if (hasHighlights) {
+      return (
+        <HighlightText
+          style={[styles.commentMessage, textStyle]}
+          textToHighlight={message}
+          searchWords={searchWords}
+          highlightStyle={styles.commentHighlightMark}
+        />
+      );
+    }
+
+    return <Text style={[styles.commentMessage, textStyle]} selectable>{message}</Text>;
+  }, [
+    applyCommentHighlightForComment,
+    canManageCommentHighlights,
+    commentTextSelections,
+    submittingHighlightAction,
+    textStyle,
+  ]);
+
+  const sideCommentActions = useMemo(() => {
+    const options = Array.isArray(battle?.options) ? battle.options : [];
+    const participants = Array.isArray(battle?.participants) ? battle.participants : [];
+    const comments = Array.isArray(battle?.comments) ? battle.comments : [];
+    const sides = battle?.headToHeadSides || {};
+
+    if (!isHeadToHead) return [];
+
+    const openingForUser = (userId, participant) => {
+      const safeUserId = String(userId || '');
+      const fromCreator = safeUserId && String(sides?.creator?.userId || '') === safeUserId
+        ? sides?.creator?.openingArgument
+        : '';
+      const fromInvited = safeUserId && String(sides?.invitedUser?.userId || '') === safeUserId
+        ? sides?.invitedUser?.openingArgument
+        : '';
+      const firstUserComment = comments.find(comment =>
+        String(comment?.userId || '') === safeUserId && String(comment?.message || '').trim(),
+      );
+      return String(pickFirst(
+        fromCreator,
+        fromInvited,
+        participant?.openingArgument,
+        firstUserComment?.message,
+        '',
+      ));
+    };
+
+    const likesForSide = side => {
+      const normalizedSide = normalizeSideKey(side);
+      if (!normalizedSide) return 0;
+      return comments.reduce((total, comment) => {
+        if (normalizeSideKey(comment?.side) !== normalizedSide) return total;
+        return total + normalizeLikeCount(comment);
+      }, 0);
+    };
+
+    const participantActions = participants
+      .slice(0, 2)
+      .map((participant, index) => {
+        const userId = String(pickFirst(participant?.userId, participant?.user?.id, participant?.user?._id, ''));
+        const option = options[index] || {};
+        const isCreatorParticipant = userId && String(userId) === String(battle?.creatorId || '');
+        const isInvitedParticipant = userId && String(userId) === String(battle?.invitedUserId || '');
+        const side = String(pickFirst(
+          participant?.side,
+          isCreatorParticipant ? battle?.creatorChoice : '',
+          isInvitedParticipant ? battle?.invitedUserChoice : '',
+          option?.side,
+          option?.label,
+          '',
+        ));
+        if (!side) return null;
+
+        const displayName = String(pickFirst(
+          participantUserData?.[userId]?.name,
+          participant?.user?.displayName,
+          participant?.user?.name,
+          isCreatorParticipant ? battle?.creator?.name : '',
+          isInvitedParticipant ? battle?.invitedUser?.name : '',
+          side,
+        ));
+        const opening = openingForUser(userId, participant);
+
+        return {
+          key: `${userId || index}-${side}`,
+          label: `${displayName} Says:`,
+          preview: opening,
+          selectedUserComment: opening,
+          userId,
+          side,
+          sideLabel: displayName,
+          likesCount: likesForSide(side),
+        };
+      })
+      .filter(Boolean);
+
+    if (participantActions.length > 0) return participantActions;
+
+    return options.slice(0, 2).map((option, index) => {
+      const side = String(pickFirst(option?.side, option?.label, `Side ${index + 1}`));
+      return {
+        key: `${index}-${side}`,
+        label: `${side} Says:`,
+        preview: '',
+        side,
+        sideLabel: side,
+        likesCount: likesForSide(side),
+      };
+    });
+  }, [
+    battle?.creator?.name,
+    battle?.creatorChoice,
+    battle?.creatorId,
+    battle?.comments,
+    battle?.headToHeadSides,
+    battle?.invitedUser?.name,
+    battle?.invitedUserChoice,
+    battle?.invitedUserId,
+    battle?.options,
+    battle?.participants,
+    isHeadToHead,
+    participantUserData,
+  ]);
+
+  const handleBackPress = () => {
+    const backTarget = route.params?.returnTo;
+    const returnParams = route.params?.returnParams;
+    const entryPoint = route.params?.entryPoint;
+
+    if (backTarget) {
+      if (typeof backTarget === 'object' && backTarget?.tab) {
+        navigation.navigate(backTarget.tab, backTarget.screen ? { screen: backTarget.screen, params: backTarget.params } : undefined);
+        return;
+      }
+
+      if (backTarget === 'Search' || backTarget === 'SearchHome') {
+        navigation.navigate('Search', {
+          screen: 'SearchHome',
+          params: returnParams,
+        });
+        return;
+      }
+
+      navigation.navigate(backTarget, returnParams);
+      return;
+    }
+
+    if (entryPoint === 'notifications') {
+      navigation.dispatch(StackActions.pop(1));
+      navigation.getParent()?.navigate('HomeMain', {
+        screen: 'HeartNotification',
+      });
+      return;
+    }
+
+    navigation.goBack();
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={[styles.loaderWrap, bgStyle]}>
+        <ActivityIndicator size="large" color={accent} />
+      </SafeAreaView>
+    );
+  }
+
+  // ─── render helpers ────────────────────────────────────────────────────────
+
+  const renderReplyItem = reply => (
+    <View
+      key={reply.id}
+      style={[styles.replyCard, { backgroundColor: withAlpha(palette.primary, '08'), borderColor: palette.border }]}
+    >
+      <View style={styles.commentHeader}>
+        <View style={styles.commentAuthorIdentity}>
+          <TouchableOpacity activeOpacity={0.75} onPress={() => handleOpenCommentAuthorProfile(reply.userId)}>
+            {reply.avatar ? (
+              <Image source={{ uri: reply.avatar }} style={styles.commentAvatar} />
+            ) : (
+              <View style={[styles.commentAvatar, styles.commentAvatarFallback]}>
+                <Ionicons name="person-outline" size={16} color="#FFFFFF" />
+              </View>
+            )}
+          </TouchableOpacity>
+          <View style={styles.commentAuthorTextWrap}>
+            <View style={styles.commentAuthorTopRow}>
+              <TouchableOpacity
+                activeOpacity={0.75}
+                style={styles.commentAuthorNameRow}
+                onPress={() => handleOpenCommentAuthorProfile(reply.userId)}
+              >
+                <Text style={[styles.commentAuthorName, textStyle, styles.commentAuthorNameFlex]} numberOfLines={1} ellipsizeMode="tail">
+                  {reply.authorName}
+                </Text>
+              </TouchableOpacity>
+              <View style={styles.commentHeaderActions}>
+                <TouchableOpacity style={styles.replyTrigger} onPress={() => handleOpenReply(reply)}>
+                  <Text style={[styles.replyTriggerText, { color: palette.primary }]}>{t('battleInProgress.replyTrigger')}</Text>
+                </TouchableOpacity>
+                {!isOwnComment(reply.userId) && (
+                  <TouchableOpacity style={styles.commentLikeButton} onPress={() => handleCommentLike(reply.id)} disabled={likingCommentId === reply.id}>
+                    {likingCommentId === reply.id ? (
+                      <ActivityIndicator size="small" color={palette.primary} />
+                    ) : (
+                      <>
+                          <Ionicons name={reply.isLiked ? 'heart' : 'heart-outline'} size={18} color={reply.isLiked ? '#E11D48' : mutedText} />
+                        <Text style={[styles.commentLikeText, { color: reply.isLiked ? '#E11D48' : mutedText }]}>
+                          {Number.isFinite(Number(reply.likes)) ? Number(reply.likes) : 0}
+                        </Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+            {!!reply.authorHandle && (
+              <TouchableOpacity activeOpacity={0.75} onPress={() => handleOpenCommentAuthorProfile(reply.userId)}>
+                <Text style={[styles.commentAuthorHandle, { color: palette.textMuted }]}>@{reply.authorHandle}</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      </View>
+      {renderCommentMessage(reply, palette)}
+      {replyingToComment?.id === reply.id && (
+        <View style={styles.replyComposer}>
+          <Text style={[styles.replyComposerLabel, { color: palette.textMuted }]}>
+            {t('battleInProgress.replyingTo').replace('{{name}}', replyingToComment.authorName)}
+          </Text>
+          <TextInput
+            ref={replyInputRef}
+            value={replyText}
+            onChangeText={setReplyText}
+            placeholder={t('battleInProgress.replyPlaceholder')}
+            placeholderTextColor="#9CA3AF"
+            multiline
+            style={[
+              styles.replyInput,
+              {
+                color: labelColor,
+                backgroundColor: inputSurface,
+                borderColor: palette.border,
+              },
+            ]}
+          />
+          <View style={styles.replyActions}>
+            <TouchableOpacity
+              style={[styles.replySecondaryButton, { borderColor: palette.border }]}
+              onPress={() => { setReplyingToComment(null); setReplyText(''); }}
+            >
+              <Text style={[styles.replySecondaryButtonText, { color: palette.textMuted }]}>
+                {t('battleInProgress.cancelReply')}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.replyPrimaryButton, { backgroundColor: palette.primary }]}
+              onPress={handlePostReply}
+              disabled={submittingComment}
+            >
+              {submittingComment
+                ? <ActivityIndicator size="small" color="#FFFFFF" />
+                : <Text style={styles.replyPrimaryButtonText}>{t('battleInProgress.postReply')}</Text>
+              }
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+    </View>
+  );
+
+  const renderCommentItem = comment => {
+    const hasReplies = Array.isArray(comment.replies) && comment.replies.length > 0;
+    const isExpanded = !!expandedReplies[comment.id];
+    const visibleReplies = hasReplies && isExpanded ? comment.replies : [];
+    const repliesCount = hasReplies ? comment.replies.length : 0;
+    const isPinned = normalizeCommentPinnedState(comment);
+
+    const commentHighlights = normalizeCommentHighlights(comment);
+
+    return (
+      <View
+        key={comment.id}
+        style={[styles.commentCard, { backgroundColor: palette.soft, borderColor: palette.border }]}
+      >
+        <View style={styles.commentHeader}>
+          <View style={styles.commentAuthorIdentity}>
+            <TouchableOpacity activeOpacity={0.75} onPress={() => handleOpenCommentAuthorProfile(comment.userId)}>
+              {comment.avatar ? (
+                <Image source={{ uri: comment.avatar }} style={styles.commentAvatar} />
+              ) : (
+                <View style={[styles.commentAvatar, styles.commentAvatarFallback]}>
+                  <Ionicons name="person-outline" size={16} color="#FFFFFF" />
+                </View>
+              )}
+            </TouchableOpacity>
+            <View style={styles.commentAuthorTextWrap}>
+              <View style={styles.commentAuthorTopRow}>
+                <TouchableOpacity
+                  activeOpacity={0.75}
+                  style={styles.commentAuthorNameRow}
+                  onPress={() => handleOpenCommentAuthorProfile(comment.userId)}
+                >
+                  <Text style={[styles.commentAuthorName, textStyle, styles.commentAuthorNameFlex]} numberOfLines={1} ellipsizeMode="tail">
+                    {comment.authorName}
+                  </Text>
+                  {isPinned && (
+                    <Ionicons name="pin" size={14} color={palette.primary} style={{ marginLeft: 8 }} />
+                  )}
+                  {!!comment.side && (
+                    <View style={[styles.commentVoteSideBadge, {
+                      backgroundColor: palette.primary,
+                      marginRight: Platform.OS === 'ios' ? 14 : 10,
+                    }]}>
+                      <Text style={styles.commentVoteSideBadgeText}>{comment.side}</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+                <View style={styles.commentHeaderActions}>
+                  <TouchableOpacity style={styles.replyTrigger} onPress={() => handleOpenReply(comment)}>
+                    <Text style={[styles.replyTriggerText, { color: palette.primary }]}>{t('battleInProgress.replyTrigger')}</Text>
+                  </TouchableOpacity>
+                  {!isOwnComment(comment.userId) && (
+                    <TouchableOpacity style={styles.commentLikeButton} onPress={() => handleCommentLike(comment.id)} disabled={likingCommentId === comment.id}>
+                      {likingCommentId === comment.id ? (
+                        <ActivityIndicator size="small" color={palette.primary} />
+                      ) : (
+                        <>
+                          <Ionicons name={comment.isLiked ? 'heart' : 'heart-outline'} size={18} color={comment.isLiked ? '#E11D48' : mutedText} />
+                          <Text style={[styles.commentLikeText, { color: comment.isLiked ? '#E11D48' : mutedText }]}>
+                            {Number.isFinite(Number(comment.likes)) ? Number(comment.likes) : 0}
+                          </Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  )}
+                  {canManageCommentHighlights && commentHighlights.length > 0 && (
+                    <TouchableOpacity
+                      style={styles.commentRemoveHighlightButton}
+                      onPress={() => handleRemoveCommentHighlight(comment.id)}
+                      disabled={submittingHighlightAction === 'remove' || submittingHighlightAction === 'highlight'}
+                    >
+                      <Ionicons name="close-circle" size={18} color="#DC2626" />
+                    </TouchableOpacity>
+                  )}
+                  {isBattleCreator && (
+                    <TouchableOpacity
+                      style={styles.commentMenuButton}
+                      onPress={() => confirmTogglePin(comment)}
+                      disabled={pinningCommentId === comment.id}
+                    >
+                      {pinningCommentId === comment.id ? (
+                        <ActivityIndicator size="small" color={palette.primary} />
+                      ) : (
+                        <Ionicons name="ellipsis-vertical" size={18} color={palette.primary} />
+                      )}
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+              {!!comment.authorHandle && (
+                <TouchableOpacity activeOpacity={0.75} onPress={() => handleOpenCommentAuthorProfile(comment.userId)}>
+                  <Text style={[styles.commentAuthorHandle, { color: palette.textMuted }]}>@{comment.authorHandle}</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        </View>
+        {renderCommentMessage(comment, palette)}
+        {hasReplies && !isExpanded && (
+          <TouchableOpacity style={styles.viewRepliesButton} onPress={() => toggleReplies(comment.id)}>
+            <Text style={[styles.viewRepliesText, { color: palette.primary }]}>
+              {t('battleInProgress.viewReplies').replace('{{count}}', repliesCount)}
+            </Text>
+          </TouchableOpacity>
+        )}
+        {hasReplies && isExpanded && (
+          <TouchableOpacity style={styles.viewRepliesButton} onPress={() => toggleReplies(comment.id)}>
+            <Text style={[styles.viewRepliesText, { color: palette.primary }]}>
+              {t('battleInProgress.hideReplies')}
+            </Text>
+          </TouchableOpacity>
+        )}
+        {replyingToComment?.id === comment.id && (
+          <View style={styles.replyComposer}>
+            <Text style={[styles.replyComposerLabel, { color: palette.textMuted }]}>
+              {t('battleInProgress.replyingTo').replace('{{name}}', replyingToComment.authorName)}
+            </Text>
+            <TextInput
+              ref={replyInputRef}
+              value={replyText}
+              onChangeText={setReplyText}
+              placeholder={t('battleInProgress.replyPlaceholder')}
+              placeholderTextColor={mutedText}
+              multiline
+              style={[
+              styles.replyInput,
+              {
+                color: labelColor,
+                backgroundColor: inputSurface,
+                borderColor: palette.border,
+              },
+            ]}
+            />
+            <View style={styles.replyActions}>
+              <TouchableOpacity
+                style={[styles.replySecondaryButton, { borderColor: palette.border, backgroundColor: inputSurface }]}
+                onPress={() => { setReplyingToComment(null); setReplyText(''); }}
+              >
+                <Text style={[styles.replySecondaryButtonText, { color: palette.textMuted }]}>
+                  {t('battleInProgress.cancelReply')}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.replyPrimaryButton, { backgroundColor: palette.primary }]}
+                onPress={handlePostReply}
+                disabled={submittingComment}
+              >
+                {submittingComment
+                  ? <ActivityIndicator size="small" color="#FFFFFF" />
+                  : <Text style={styles.replyPrimaryButtonText}>{t('battleInProgress.postReply')}</Text>
+                }
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+        {Array.isArray(visibleReplies) && visibleReplies.length > 0 && (
+          <View style={styles.repliesSection}>{visibleReplies.map(renderReplyItem)}</View>
+        )}
+      </View>
+    );
+  };
+
+  // ─── render hero card ──────────────────────────────────────────────────────
+  const renderHeroCard = () => (
+    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+      <View style={styles.heroTopRow}>
+        <View style={[styles.statusPill, { backgroundColor: withAlpha(statusMeta.color, '1F') }]}>
+          <Animated.View style={[styles.statusDot, { backgroundColor: statusMeta.color, opacity: statusPulseAnim }]} />
+          <Text style={[styles.statusPillText, { color: endTimeInfo.relative == 'Ended' ? '#4B5563' : statusMeta.color }]}>{endTimeInfo.relative == 'Ended' ? 'Closed' : statusMeta.label}</Text>
+        </View>
+        <View style={[styles.timerPill, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(107,95,166,0.12)' }]}>
+          <Ionicons name="time-outline" size={12} color={mutedText} />
+          {endTimeInfo.isEndingSoon && (
+            <Animated.View style={[styles.endTimeDot, { opacity: endTimePulseAnim }]} />
+          )}
+          <View style={styles.timerTextWrap}>
+            <Text
+              style={[
+                styles.timerPillText,
+                { color: endTimeInfo.isEndingSoon ? '#EF4444' : labelColor },
+              ]}
+              numberOfLines={1}
+            >
+              {endTimeInfo.relative}
+            </Text>
+            {!!endTimeInfo.absolute && (
+              <Text style={[styles.timerPillSubText, { color: mutedText }]} numberOfLines={1}>
+                {endTimeInfo.absolute}
+              </Text>
+            )}
+          </View>
+        </View>
+      </View>
+      <View>
+        <Text style={[styles.heroTitle, { color: labelColor }]}>{battle.title}</Text>
+      </View>
+      <View>
+        <View style={styles.heroInfoRow}>
+          <View style={styles.heroInfoChip}>
+            <Ionicons name="people-outline" size={12} color={mutedText} />
+            <Text style={[styles.heroInfoText, { color: mutedText }]}>{battle.primaryCount} {battle.primaryCountLabel}</Text>
+          </View>
+          <View style={styles.heroInfoChip}>
+            <Ionicons name="calendar-outline" size={12} color={mutedText} />
+            <Text style={[styles.heroInfoText, { color: mutedText }]}>{battle.format === 'HEAD_TO_HEAD' ? 'Head-to-Head' : 'Battle Poll'}</Text>
+          </View>
+          <View style={styles.heroInfoChip}>
+            <Ionicons name="flash" size={12} color={mutedText} />
+            <Text style={[styles.heroInfoText, { color: mutedText }]}>
+              Stakes: {formatStakeAmount(battle.stake)}
+            </Text>
+          </View>
+          {canEditBattleQuestion ? (
+            <TouchableOpacity
+              style={[
+                styles.editBattleButton,
+                {
+                  borderColor: palette.border,
+                  backgroundColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.85)',
+                },
+              ]}
+              onPress={handleEditBattleQuestion}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="create-outline" size={13} color={accent} />
+              <Text style={[styles.editBattleButtonText, { color: accent }]}>
+                {t('battleInProgress.editQuestion')}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+      </View>
+      <TouchableOpacity activeOpacity={0.9} onPressIn={handleHeroCardPressIn} onPressOut={handleHeroCardPressOut}>
+        <LinearGradient
+          colors={[palette.secondary, palette.primary, palette.secondary]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.heroCard}
+        >
+          {/* Creator row */}
+          <TouchableOpacity
+            activeOpacity={0.75}
+            style={styles.heroCreatorRow}
+            onPress={() => handleOpenCommentAuthorProfile(battle.creatorId)}
+          >
+            <HexAvatar uri={battle.creator?.avatar || FALLBACK_AVATAR} size={28} borderWidth={2} borderColor="rgba(255,255,255,0.7)" />
+            <View style={{ marginLeft: 8, flexShrink: 1 }}>
+              <View style={styles.heroCreatorNameRow}>
+                <Text style={styles.heroCreatorName} numberOfLines={1}>{battle.creator?.name}</Text>
+                <View style={styles.heroLiveIndicatorWrap}>
+                  <Animated.View
+                    style={[
+                      styles.heroLiveIndicator,
+                      {
+                        backgroundColor: endTimeInfo.relative == 'Ended' ? '#EF4444' : statusMeta.color,
+                        shadowColor: endTimeInfo.relative == 'Ended' ? '#EF4444' : statusMeta.color,
+                        opacity: statusPulseAnim,
+                      },
+                    ]}
+                  />
+                  <Text style={[
+                    styles.heroLiveIndicatorText,
+                    { color: endTimeInfo.relative == 'Ended' ? '#EF4444' : statusMeta.color },
+                  ]}>
+                    {endTimeInfo.relative == 'Ended' ? 'Closed' : statusMeta.label}
+                  </Text>
+                </View>
+              </View>
+              {!!battle.creator?.handle && (
+                <Text style={styles.heroCreatorHandle} numberOfLines={1}>@{battle.creator.handle}</Text>
+              )}
+            </View>
+          </TouchableOpacity>
+          {/* Top row */}
+          {/* <View style={styles.heroTopRow}>
+            <View style={[styles.statusPill, { backgroundColor: withAlpha(statusMeta.color, '1F') }]}>
+              <Animated.View style={[styles.statusDot, { backgroundColor: statusMeta.color, opacity: statusPulseAnim }]} />
+              <Text style={[styles.statusPillText, { color: statusMeta.color }]}>{statusMeta.label}</Text>
+            </View>
+            <View style={styles.timerPill}>
+              <Ionicons name="time-outline" size={12} color="#fff" />
+              <Text style={styles.timerPillText}>{formatBattleTime(battle.endTime, t)}</Text>
+            </View>
+          </View> */}
+
+          {/* Title + description */}
+          {!!isHeadToHead && (() => {
+            const creatorName = String(battle?.creator?.name || '').trim();
+            const creatorId = String(battle?.creatorId || battle?.creator?.id || '').trim();
+            const participants = Array.isArray(battle?.participants) ? battle.participants : [];
+            const opponent = participants.find(p => String(p?.userId || '') && String(p?.userId || '') !== creatorId);
+            const opponentName = String(
+              pickFirst(
+                participantUserData?.[opponent?.userId]?.name,
+                battle?.opponent?.name,
+                battle?.invitedUser?.name,
+                battle?.user2?.name,
+                '',
+              ),
+            ).trim();
+            if (!creatorName || !opponentName) return null;
+            return (
+              <Text style={styles.heroChallengeLine} numberOfLines={2}>
+                <Text style={styles.heroChallengeStrong}>{creatorName}</Text>
+                {' challenged '}
+                <Text style={styles.heroChallengeStrong}>{opponentName}</Text>
+              </Text>
+            );
+          })()}
+          {/* <Text style={styles.heroTitle}>{battle.title}</Text> */}
+          {!!battle.description && <Text style={styles.heroDescription}>{battle.description}</Text>}
+
+          {/* Meta chips */}
+          {/* <View style={styles.heroInfoRow}>
+            <View style={styles.heroInfoChip}>
+              <Ionicons name="people-outline" size={12} color="#fff" />
+              <Text style={styles.heroInfoText}>
+                {battle.primaryCount} {t(battle.primaryCountLabel === 'votes' ? 'battleInProgress.primaryLabelVotes' : 'battleInProgress.primaryLabelParticipants')}
+              </Text>
+            </View>
+            <View style={styles.heroInfoChip}>
+              <Ionicons name="calendar-outline" size={12} color="#fff" />
+              <Text style={styles.heroInfoText}>
+                {battle.format === 'HEAD_TO_HEAD'
+                  ? t('battleInProgress.formatHeadToHead')
+                  : t('battleInProgress.formatPoll')}
+              </Text>
+            </View>
+            <View style={styles.heroInfoChip}>
+              <Ionicons name="flash" size={12} color="#fff" />
+              <Text style={styles.heroInfoText}>
+                Stakes: {formatStakeAmount(battle.stake)}
+              </Text>
+            </View>
+          </View> */}
+
+          {/* Duel player cards */}
+          {isHeadToHead && Array.isArray(battle.participants) && battle.participants.length >= 2 && (
+            <View style={{ position: 'relative', marginBottom: 14 }}>
+              <View style={styles.duelRow}>
+                {(() => {
+                  const p0 = battle.participants[0];
+                  const p1 = battle.participants[1];
+                  const d0 = participantUserData[p0?.userId] || {};
+                  const d1 = participantUserData[p1?.userId] || {};
+                  const sides = battle?.headToHeadSides || {};
+                  const openingForUser = (userId, participant) => {
+                    const safeUserId = String(userId || '');
+                    const fromCreator = safeUserId && String(sides?.creator?.userId || '') === safeUserId
+                      ? sides?.creator?.openingArgument
+                      : '';
+                    const fromInvited = safeUserId && String(sides?.invitedUser?.userId || '') === safeUserId
+                      ? sides?.invitedUser?.openingArgument
+                      : '';
+                    const firstUserComment = (Array.isArray(battle?.comments) ? battle.comments : []).find(comment =>
+                      String(comment?.userId || '') === safeUserId && String(comment?.message || '').trim(),
+                    );
+                    return pickFirst(fromCreator, fromInvited, participant?.openingArgument, firstUserComment?.message, '');
+                  };
+                  const opening0 = openingForUser(p0?.userId, p0);
+                  const opening1 = openingForUser(p1?.userId, p1);
+                  const navigateToUser = (userId) => {
+                    if (currentUserId === userId) navigation.navigate('ProfileMain', { screen: 'Profile' });
+                    else navigation.navigate('HomeMain', {
+                      screen: 'UsersProfile',
+                      params: { userId, returnTo: route?.name || 'BattleInProgress' },
+                    });
+                  };
+                  return (
+                    <>
+                      <TouchableOpacity activeOpacity={0.75} onPress={() => navigateToUser(p0?.userId)} style={styles.duelPlayerCard}>
+                        <LinearGradient
+                          colors={['rgba(59,130,246,0.38)', 'rgba(29,78,216,0.18)']}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                          style={styles.duelPlayerCardBg}
+                        />
+                        <View style={styles.cornerBadgeTopLeft}>
+                          <Ionicons name="shield" size={16} color="#fff" />
+                        </View>
+                        <View style={styles.avatarBadgeWrap}>
+                          <HexAvatar uri={d0?.image || FALLBACK_AVATAR} size={64} borderWidth={2} borderColor="rgba(255,255,255,0.85)" />
+                          {!!participantBattleStats?.[p0?.userId]?.level && (
+                            <View style={styles.playerBadge}>
+                              <Ionicons name="ribbon" size={12} color="#111827" />
+                              <Text style={styles.playerBadgeText} numberOfLines={1}>
+                                {String(participantBattleStats[p0.userId].level).slice(0, 10)}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                        <Text style={styles.playerName} numberOfLines={2}> {d0?.name || t('battleInProgress.fallbackUser')}</Text>
+                        <Text style={styles.playerPoints} numberOfLines={1}>
+                          {Number(participantBattleStats?.[p0?.userId]?.points || 0).toLocaleString()} pts
+                        </Text>
+                        <View style={styles.playerSidePill}>
+                          <Text style={styles.playerSidePillText}>{p0?.side}</Text>
+                        </View>
+                        <View>
+                          <Text style={[styles.playerName, { color: '#fff' }]}>{d0?.name || 'User'} Says:</Text>
+                        </View>
+                        {!!opening0 && (
+                          <Text style={styles.playerOpeningArgument} numberOfLines={3}>
+                            {opening0}
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+
+                      <View style={styles.duelVsWrapOverlay}>
+                        <Vsbanner height={80} width={80} />
+                        <Text style={[styles.duelVsText, { position: 'absolute' }]}>VS</Text>
+                      </View>
+
+                      <TouchableOpacity activeOpacity={0.75} onPress={() => navigateToUser(p1?.userId)} style={styles.duelPlayerCard}>
+                        <LinearGradient
+                          colors={['rgba(244,114,182,0.38)', 'rgba(219,39,119,0.18)']}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                          style={styles.duelPlayerCardBg}
+                        />
+                        <View style={styles.cornerBadgeTopRight}>
+                          <Ionicons name="flash" size={16} color="#fff" />
+                        </View>
+                        <View style={styles.avatarBadgeWrap}>
+                          <HexAvatar uri={d1?.image || FALLBACK_AVATAR} size={64} borderWidth={2} borderColor="rgba(255,255,255,0.85)" />
+                          {!!participantBattleStats?.[p1?.userId]?.level && (
+                            <View style={styles.playerBadge}>
+                              <Ionicons name="ribbon" size={12} color="#111827" />
+                              <Text style={styles.playerBadgeText} numberOfLines={1}>
+                                {String(participantBattleStats[p1.userId].level).slice(0, 10)}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                        <Text style={styles.playerName} numberOfLines={2}>{d1?.name || t('battleInProgress.fallbackUser')}</Text>
+                        <Text style={styles.playerPoints} numberOfLines={1}>
+                          {Number(participantBattleStats?.[p1?.userId]?.points || 0).toLocaleString()} pts
+                        </Text>
+                        <View style={styles.playerSidePill}>
+                          <Text style={styles.playerSidePillText}>{p1?.side}</Text>
+                        </View>
+                        <View>
+                          <Text style={[styles.playerName, { color: '#fff' }]}>{d1?.name || 'User'} Says:</Text>
+                        </View>
+                        {!!opening1 && (
+                          <Text style={styles.playerOpeningArgument} numberOfLines={3}>
+                            {opening1}
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                    </>
+                  );
+                })()}
+              </View>
+            </View>
+          )}
+
+          {/* Progress bar */}
+          <View style={styles.progressCard}>
+            {(() => {
+              const options = Array.isArray(battle.options) ? battle.options : [];
+
+              const getOptionVoteCount = (option = {}) => {
+                const label = String(pickFirst(option?.label, option?.side, '')).trim();
+                const side = String(pickFirst(option?.side, option?.label, '')).trim();
+                return Number(pickFirst(
+                  getCountFromSideMap(battle?.voteCounts, side),
+                  getCountFromSideMap(battle?.predictionCounts, side),
+                  getCountFromSideMap(battle?.voteCounts, label),
+                  getCountFromSideMap(battle?.predictionCounts, label),
+                  option?.votes,
+                  option?.voteCount,
+                  option?._count?.votes,
+                  0,
+                ));
+              };
+
+              // Head-to-head has exactly 2 sides; keep existing behavior.
+              // Polls can have many options; show only the top 2 by votes/predictions.
+              const displayOptions = isPrediction
+                ? [...options]
+                  .map((opt, index) => ({ opt, index, count: getOptionVoteCount(opt) }))
+                  .sort((a, b) => (b.count - a.count) || (a.index - b.index))
+                  .slice(0, 2)
+                  .map(x => x.opt)
+                : options.slice(0, 2);
+
+              const leftOption = displayOptions[0] || {};
+              const rightOption = displayOptions[1] || {};
+              const leftLabel = String(pickFirst(leftOption?.label, leftOption?.side, 'Option 1'));
+              const rightLabel = String(pickFirst(rightOption?.label, rightOption?.side, 'Option 2'));
+              const leftVotes = getOptionVoteCount(leftOption);
+              const rightVotes = getOptionVoteCount(rightOption);
+              const total = leftVotes + rightVotes;
+              const leftPct = total > 0 ? Math.round((leftVotes / total) * 100) : 0;
+              const rightPct = total > 0 ? 100 - leftPct : 0;
+              const hasVotes = total > 0;
+
+              return (
+                <>
+                  <View style={styles.progressTopRow}>
+                    <View>
+                      <Text style={styles.progressPctLeft}>
+                        {hasVotes ? `${leftPct}%` : '—'}
+                      </Text>
+                      <Text style={styles.progressVotes}>
+                        {hasVotes ? `${leftVotes} ${t('battleInProgress.votesLabel')}` : (t('battleInProgress.noVotesYet', 'No votes yet'))}
+                      </Text>
+                    </View>
+                    {/* <View style={styles.progressMidCol}>
+                      {total > 0 && leftPct === rightPct && (
+                        <Text style={styles.progressTiedLabel}>{t('battleInProgress.tiedLabel')}</Text>
+                      )}
+                    </View> */}
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text style={styles.progressPctRight}>
+                        {hasVotes ? `${rightPct}%` : '—'}
+                      </Text>
+                      <Text style={styles.progressVotes}>
+                        {hasVotes ? `${rightVotes} ${t('battleInProgress.votesLabel')}` : (t('battleInProgress.noVotesYet', 'No votes yet'))}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.progressBarTrack}>
+                    <View style={[styles.progressBarLeft, { flex: leftPct || 1 }]} />
+                    <View style={[styles.progressBarRight, { flex: rightPct || 1 }]} />
+                  </View>
+                  <View style={styles.progressBottomRow}>
+                    <View style={styles.sideTagLeft}><Text style={styles.sideTagText}>{leftLabel}</Text></View>
+                    <View style={styles.sideTagRight}><Text style={styles.sideTagText}>{rightLabel}</Text></View>
+                  </View>
+                </>
+              );
+            })()}
+          </View>
+        </LinearGradient>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+
+  // ─── render how to win ─────────────────────────────────────────────────────
+
+  const renderHowToWinCard = () => (
+    <View style={[styles.howToWinCard, cardStyle, { shadowColor: palette.primary }]}>
+      <Text style={[styles.howToWinTitle, { color: labelColor }]}>
+        {t('battleInProgress.howToWinTitle')}
+      </Text>
+      <View style={styles.howToWinRow}>
+        {[
+          {
+            icon: 'checkmark-circle',
+            label: t('battleInProgress.howToWinVoteLabel'),
+            desc: t('battleInProgress.howToWinVoteDesc'),
+          },
+          {
+            icon: 'chatbubble-ellipses',
+            label: t('battleInProgress.howToWinCommentLabel'),
+            desc: t('battleInProgress.howToWinCommentDesc'),
+          },
+          {
+            icon: 'star',
+            label: t('battleInProgress.howToWinAccurateLabel'),
+            desc: t('battleInProgress.howToWinAccurateDesc'),
+          },
+        ].map((item, i) => (
+          <View key={i} style={[styles.howToWinItem, cardStyle, { borderColor: palette.border, borderWidth: 1 }]}>
+            <View style={[styles.howToWinIconCircle, { backgroundColor: accent }]}>
+              <Ionicons name={item.icon} size={14} color="#fff" />
+            </View>
+            <Text style={[styles.howToWinItemLabel, { color: accent }]}>{item.label}</Text>
+            <Text style={[styles.howToWinItemDesc, { color: mutedText }]}>{item.desc}</Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+
+  // ─── main render ──────────────────────────────────────────────────────────
+
+  return (
+    <View style={[styles.root, { backgroundColor: bg || '#121212' }]}>
+      <StatusBar
+        translucent
+        backgroundColor="transparent"
+        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
+      />
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: bg || '#121212' }]} edges={['top', 'bottom']}>
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+        <KeyboardAwareScrollView
+          style={[styles.container, bgStyle]}
+          contentContainerStyle={[
+            styles.contentContainer,
+            styles.keyboardAwareContentContainer,
+            isKeyboardVisible && Platform.OS === 'android' && styles.keyboardOpenContentContainer,
+          ]}
+          showsVerticalScrollIndicator={false}
+          refreshControl={null}
+          ref={scrollRef}
+          keyboardShouldPersistTaps="always"
+          nestedScrollEnabled={Platform.OS === 'android'}
+          keyboardDismissMode="none"
+          enableOnAndroid
+          enableAutomaticScroll
+          enableResetScrollToCoords={false}
+          extraScrollHeight={Platform.OS === 'ios' ? 0 : 32}
+          keyboardOpeningTime={0}
+        >
+          {/* Header */}
+          <View style={styles.header}>
+            <TouchableOpacity onPress={handleBackPress} style={styles.headerIconBtn}>
+              <Icon name="arrow-back-ios-new" size={20} color={accent} />
+            </TouchableOpacity>
+            <Text style={[styles.headerTitle, { color: labelColor }]}>
+              {isBattleCancelled
+                ? t('battleInProgress.battleCancelled')
+                : (canViewResults ? t('battleInProgress.battleEnded') : t('battleInProgress.screenTitle'))}
+            </Text>
+            <TouchableOpacity
+              onPress={() => { setRefreshing(true); fetchBattle(true); }}
+              style={styles.headerIconBtn}
+            >
+              {refreshing
+                ? <ActivityIndicator size="small" color={accent} />
+                : <Ionicons name="refresh-outline" size={20} color={accent} />
+              }
+            </TouchableOpacity>
+          </View>
+
+          {renderHeroCard()}
+          {renderHowToWinCard()}
+
+          {/* Winner Logic */}
+          <View style={[styles.infoCard, cardStyle, { shadowColor: palette.primary }]}>
+            <Text style={[styles.sectionTitle, { color: labelColor }]}>
+              {t('battleInProgress.winnerLogicTitle')}
+            </Text>
+            <Text style={[styles.infoText, { color: mutedText }]}>
+              {isPrediction
+                ? t('battleInProgress.winnerLogicPrediction')
+                : t('battleInProgress.winnerLogicOpinion')}
+            </Text>
+            {!!battle.resultValue && (
+              <Text style={[styles.resultText, { color: mutedText }]}>
+                {t('battleInProgress.currentResultSignal').replace('{{value}}', battle.resultValue)}
+              </Text>
+            )}
+            {!!battle.winnerName && (
+              <Text style={[styles.resultText, { color: mutedText }]}>
+                {t('battleInProgress.winner').replace('{{name}}', battle.winnerName)}
+              </Text>
+            )}
+          </View>
+
+          {/* Choose Your Side / Make Prediction (hide when resolved or after user voted) */}
+          {!canViewResults && !hasUserVoted ? (
+            <View style={[styles.infoCard, cardStyle, { shadowColor: palette.primary }]}>
+              <View style={styles.sectionTitleRow}>
+                <Text style={[styles.sectionTitle, { color: labelColor }]}>
+                  {isPrediction ? t('battleInProgress.makePrediction') : t('battleInProgress.chooseYourSide')}
+                </Text>
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={() => {
+                    navigation.navigate('BattleVoteDetails', {
+                      battleId: resolvedBattleId || battleId,
+                      battle,
+                      profile,
+                    });
+                  }}
+                  style={[styles.viewVotesBtn, { borderColor: palette.border }]}
+                >
+                  <Text style={[styles.viewVotesText, { color: palette.primary }]}>
+                    View votes
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              <View style={[styles.optionGrid, { width: '100%' }]}>
+                {battle.options.map((option, index) => {
+                  const optionImage = battle.optionImages?.[index];
+                  const optionSide = String(pickFirst(option?.side, option?.label, ''));
+                  const optionSelectionKey = getOptionSelectionKey(option, index);
+                  // Use the same selected color styling as poll battles (single theme accent),
+                  // instead of the legacy head-to-head blue/pink accents.
+                  const headToHeadAccent = { accent: palette.primary, soft: palette.soft };
+                  const normalizedSelected = normalizeSideKey(selectedOption);
+                  const normalizedOptionSide = normalizeSideKey(optionSide);
+                  const isSelectedByTap = selectedOption === optionSelectionKey;
+                  const isSelectedByInitialValue =
+                    (normalizedOptionSide && normalizedSelected && normalizedOptionSide === normalizedSelected) ||
+                    (option.id && selectedOption === String(option.id));
+                  const isSelectedByVote =
+                    (userVotedSelection.optionId && userVotedSelection.optionId === String(option.id)) ||
+                    (userVotedSelection.side && normalizedOptionSide && normalizeSideKey(userVotedSelection.side) === normalizedOptionSide);
+                  const isSelectedByAssignedSide =
+                    isHeadToHead &&
+                    !!headToHeadAssignedSide &&
+                    normalizedOptionSide &&
+                    normalizeSideKey(headToHeadAssignedSide) === normalizedOptionSide;
+                  const isSelected = hasUserSelectionLocked
+                    ? isSelectedByVote
+                    : isSelectedByAssignedSide || isSelectedByTap || isSelectedByInitialValue;
+                  const useVotedGrayStyle = hasUserSelectionLocked && !keepActiveSelectedStyle;
+                  const isHeadToHeadParticipant = isHeadToHead && (isHeadToHeadCreator || isHeadToHeadOpponent);
+                  // Only lock the opposite option for the invited user (opponent) when we know their assigned side.
+                  // The creator should be able to choose either side until they vote.
+                  const canLockToAssignedSide = isHeadToHeadOpponent && !!headToHeadAssignedSide;
+                  const isMyHeadToHeadSide =
+                    canLockToAssignedSide &&
+                    normalizedOptionSide &&
+                    normalizeSideKey(headToHeadAssignedSide) === normalizedOptionSide;
+                  // Creator UX: don't lock on tap; lock only after a successful submit.
+                  // (Some APIs don't immediately return a votes entry, so we keep a local lock.)
+                  const creatorHasPickedSide = isHeadToHeadCreator && creatorSelectionLocked && !!selectedOption;
+                  const isCreatorPickedThisOption =
+                    selectedOption === optionSelectionKey ||
+                    (normalizedOptionSide && normalizeSideKey(selectedOption) === normalizedOptionSide);
+                  // Only lock options when we actually know the assigned side.
+                  // Otherwise allow selecting either option (same behavior as poll).
+                  const shouldDisable =
+                    endTimeInfo.relative == 'Ended' ||
+                    isBattleCancelled ||
+                    hasUserSelectionLocked ||
+                    (canLockToAssignedSide && !isMyHeadToHeadSide) ||
+                    (creatorHasPickedSide && !isCreatorPickedThisOption);
+                  return (
+                    <TouchableOpacity
+                      key={`${battle.id}-${option.id}-${index}`}
+                      disabled={shouldDisable}
+                      activeOpacity={0.88}
+                      style={[
+                        styles.optionPillCard,
+                        {
+                          borderColor: isSelected ? (useVotedGrayStyle ? optionBorder : headToHeadAccent.accent) : optionBorder,
+                          backgroundColor: isSelected
+                            ? (useVotedGrayStyle ? (isDarkMode ? 'rgba(255,255,255,0.04)' : '#F3F4F6') : headToHeadAccent.soft)
+                            : optionSurface,
+                          opacity: shouldDisable && !isSelected ? 0.6 : 1,
+                          width: '100%',
+                        },
+                      ]}
+                      onPress={() => { if (!shouldDisable) setSelectedOption(optionSelectionKey); }}
+                    >
+                      <TouchableOpacity
+                        activeOpacity={0.9}
+                        style={styles.optionPillAvatarWrap}
+                        onPress={(e) => { e?.stopPropagation?.(); openOptionImagePreview(optionImage || option.image); }}
+                      >
+                        <HexAvatar
+                          uri={optionImage || option.image}
+                          size={36}
+                          borderWidth={2}
+                          borderColor={isSelected ? headToHeadAccent.accent : optionBorder}
+                          fallback={
+                            <View style={[
+                              styles.optionPillAvatarFallback,
+                              {
+                                borderColor: isSelected ? (useVotedGrayStyle ? optionBorder : headToHeadAccent.accent) : optionBorder,
+                                backgroundColor: isSelected ? (useVotedGrayStyle ? (isDarkMode ? 'rgba(255,255,255,0.04)' : '#E5E7EB') : headToHeadAccent.soft) : (isDarkMode ? 'rgba(255,255,255,0.06)' : '#EDE9F6'),
+                              },
+                            ]}>
+                              <Ionicons name="person" size={18} color={isSelected ? headToHeadAccent.accent : mutedText} />
+                            </View>
+                          }
+                        />
+                      </TouchableOpacity>
+                      <Text
+                        style={[
+                          styles.optionPillLabel,
+                          { color: isSelected ? (useVotedGrayStyle ? labelColor : headToHeadAccent.accent) : labelColor },
+                        ]}
+                        onPress={() => { if (!shouldDisable) setSelectedOption(optionSelectionKey); }}
+                      >
+                        {option.label}
+                      </Text>
+                      <View style={[
+                        styles.optionPillRadio,
+                        {
+                          borderColor: isSelected ? (useVotedGrayStyle ? mutedText : headToHeadAccent.accent) : optionBorder,
+                          backgroundColor: isSelected ? (useVotedGrayStyle ? mutedText : headToHeadAccent.accent) : (isDarkMode ? 'transparent' : '#FFFFFF'),
+                          opacity: hasUserSelectionLocked && !isSelected ? 0.3 : 1,
+                        },
+                      ]} />
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              <Text style={[styles.argumentLabel, { color: mutedText }]}>
+                {hasUserVoted ? 'Comment' : 'Your argument'}
+              </Text>
+              <TextInput
+                editable={isBattleCancelled || endTimeInfo.relative == 'Ended' ? false : true}
+                value={hasUserVoted ? commentText : argumentText}
+                onChangeText={hasUserVoted ? setCommentText : setArgumentText}
+                onFocus={() => scrollRef.current?.update?.()}
+                placeholder={
+                  hasUserVoted
+                    ? t('battleInProgress.commentPlaceholder')
+                    : isPrediction
+                      ? t('battleInProgress.predictionReasoningPlaceholder')
+                      : t('battleInProgress.argumentPlaceholder')
+                }
+                placeholderTextColor={mutedText}
+                multiline
+                style={[
+                  styles.argumentInput,
+                  {
+                    color: labelColor,
+                    backgroundColor: inputSurface,
+                    borderColor: palette.border,
+                  },
+                ]}
+              />
+
+              <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={
+                  shouldShowAcceptBattleCta
+                    ? handleAcceptBattle
+                    : (hasUserVoted ? handlePostComment : handleVote)
+                }
+                disabled={
+                  submittingVote ||
+                  (shouldShowAcceptBattleCta && !argumentText?.trim()) ||
+                  (!shouldShowAcceptBattleCta && !hasUserVoted && !argumentText?.trim()) ||
+                  (hasUserVoted && !commentText?.trim())
+                }
+                style={{
+                  opacity: (
+                    submittingVote ||
+                    (shouldShowAcceptBattleCta && !argumentText?.trim()) ||
+                    (!shouldShowAcceptBattleCta && !hasUserVoted && !argumentText?.trim()) ||
+                    (hasUserVoted && !commentText?.trim())
+                  ) ? 0.5 : 1,
+                }}
+              >
+                <LinearGradient
+                  colors={palette.buttonGradient}
+                  start={{ x: 0, y: 0.5 }}
+                  end={{ x: 1, y: 0.5 }}
+                  style={styles.primaryButton}
+                >
+                  {submittingVote
+                    ? <ActivityIndicator size="small" color="#FFFFFF" />
+                    : <Text style={styles.primaryButtonText}>
+                      {hasUserVoted
+                        ? t('battleInProgress.addComment')
+                        : isPrediction
+                          ? t('battleInProgress.submitPrediction')
+                          : shouldShowAcceptBattleCta
+                            ? t('battleInProgress.acceptBattle')
+                            : (isHeadToHead && isHeadToHeadCreator && !creatorSelectionLocked
+                              ? 'Activate battle'
+                              : t('battleInProgress.voteInBattle'))}
+                    </Text>
+                  }
+                </LinearGradient>
+              </TouchableOpacity>
+              <View style={{ marginTop: 20 }} >
+                {shouldShowAcceptBattleCta ? (
+                  <TouchableOpacity
+                    activeOpacity={0.9}
+                    onPress={handleDeclineBattle}
+                    disabled={submittingVote || submittingDecline}
+                    style={{ opacity: (submittingVote || submittingDecline) ? 0.5 : 1, marginTop: 10 }}
+                  >
+                    <View style={[styles.inviteSecondaryButton, cardStyle, { borderColor: palette.primary }]}>
+                      <Text style={[styles.secondaryButtonText, { color: palette.primary }]}>
+                        {t('battleInProgress.declineBattle')}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+            </View>
+          ) : null}
+          {isHeadToHead && isLiveStatus && sideCommentActions.length > 0 ? (
+            <View style={styles.sideCommentActionsRow}>
+              {sideCommentActions.map(action => (
+                <TouchableOpacity
+                  key={action.key}
+                  activeOpacity={0.9}
+                  style={[styles.sideCommentButton, cardStyle, { borderColor: palette.border }]}
+                  onPress={() => navigation.navigate('BattleVoteDetails', {
+                    battleId: resolvedBattleId || battleId,
+                    battle,
+                    profile,
+                    mode: 'comments',
+                    selectedSide: action.side,
+                    selectedSideLabel: action.label,
+                    selectedSpeakerLabel: action.sideLabel,
+                    selectedUserId: action.userId,
+                    selectedUserComment: action.selectedUserComment,
+                  })}
+                >
+                  <View style={styles.sideCommentButtonTopRow}>
+                    <Text style={[styles.sideCommentButtonText, { color: palette.primary }]} numberOfLines={1} ellipsizeMode="tail"> 
+                      {action.label}
+                    </Text>
+                    <View style={styles.sideCommentLikeButton}>
+                      <Ionicons name="heart" size={16} color="#E11D48" />
+                      <Text style={styles.sideCommentLikeText}>
+                        {Number.isFinite(Number(action.likesCount)) ? Number(action.likesCount) : 0}
+                      </Text>
+                    </View>
+                  </View>
+                  {!!action.preview && (
+                    <Text style={[styles.sideCommentPreviewText, { color: palette.textMuted }]} numberOfLines={2}>
+                      {action.preview}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : null}
+          {/* Comments (hide when resolved) */}
+          {!canViewResults ? (
+            <View style={[styles.infoCard, cardStyle, { shadowColor: palette.primary, marginBottom: Platform.OS === 'android' ? '18%' : 0 }]}>
+              {battle.comments.length > 0
+                ? battle.comments.map(comment => renderCommentItem(comment))
+                : (
+                  <Text style={[styles.emptyCommentText, { color: mutedText }]}>
+                    {t('battleInProgress.noCommentsYet')}
+                  </Text>
+                )
+              }
+            </View>
+          ) : null}
+
+          {/* Bottom actions */}
+          {canViewResults ? (
+            <View style={styles.bottomActions}>
+              <TouchableOpacity
+                style={[styles.secondaryButton, cardStyle, { borderColor: palette.primary }]}
+                onPress={() => navigation.navigate('BattleResults', {
+                  battleId: battle.id || battleId,
+                  battle,
+                  predictionCounts: battle?.predictionCounts || {},
+                  optionVoteCount: battle?.voteCounts || {},
+                  voteCounts: battle?.voteCounts || {},
+                  winnerUserId: battle?.winnerUserId || '',
+                  winningSide: battle?.winningSide || '',
+                  entryPoint: route?.params?.entryPoint || 'battle_progress',
+                  profile,
+                })}
+              >
+                <Text style={[styles.secondaryButtonText, { color: palette.primary }]}>
+                  {t('battleInProgress.viewResults')}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
+        </KeyboardAwareScrollView>
+      </TouchableWithoutFeedback>
+
+      {/* Image preview modal */}
+      <Modal
+        visible={optionImagePreviewVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeOptionImagePreview}
+      >
+        <Pressable style={styles.optionImagePreviewBackdrop} onPress={closeOptionImagePreview}>
+          <TouchableOpacity
+            accessibilityRole="button"
+            activeOpacity={0.85}
+            onPress={closeOptionImagePreview}
+            style={styles.optionImagePreviewCloseBtn}
+          >
+            <Ionicons name="close" size={26} color="#FFFFFF" />
+          </TouchableOpacity>
+          <Pressable
+            style={styles.optionImagePreviewZoomHost}
+            onPress={(e) => e?.stopPropagation?.()}
+          >
+            {!!optionImagePreviewUri && (
+              <ImageZoom
+                cropWidth={SCREEN_WIDTH}
+                cropHeight={SCREEN_HEIGHT}
+                imageWidth={OPTION_IMAGE_PREVIEW_SIZE}
+                imageHeight={OPTION_IMAGE_PREVIEW_SIZE}
+                enableCenterFocus
+              >
+                <View style={styles.optionImagePreviewHexWrap}>
+                  <HexAvatar
+                    uri={optionImagePreviewUri || FALLBACK_AVATAR}
+                    size={OPTION_IMAGE_PREVIEW_SIZE}
+                    borderWidth={2}
+                    borderColor="rgba(255,255,255,0.6)"
+                  />
+                </View>
+              </ImageZoom>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </SafeAreaView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  root: { flex: 1 },
+  safeArea: { flex: 1 },
+  loaderWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  container: { flex: 1 },
+  contentContainer: { paddingHorizontal: 18, paddingTop: 12, paddingBottom: 34 },
+  keyboardAwareContentContainer: { flexGrow: 1 },
+  keyboardOpenContentContainer: Platform.select({
+    android: { paddingBottom: 130 },
+    default: {},
+  }),
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
+  headerIconBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { fontSize: 18, fontWeight: '800' },
+
+  // ── Hero card (light lavender) ──
+  heroCard: {
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+    marginBottom: 12,
+    overflow: Platform.OS === 'ios' ? 'hidden' : 'visible',
+  },
+  heroCreatorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 8,
+    marginBottom: 10,
+  },
+  heroCreatorName: {
+    flexShrink: 1,
+    minWidth: 0,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  heroCreatorNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minWidth: 0,
+  },
+  heroLiveIndicatorWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 0,
+    marginLeft: 5,
+  },
+  heroLiveIndicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    flexShrink: 0,
+    backgroundColor: '#22C55E',
+    shadowColor: '#22C55E',
+    shadowOpacity: 0.9,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 4,
+  },
+  heroLiveIndicatorText: {
+    color: '#22C55E',
+    fontSize: 9,
+    fontWeight: '800',
+    marginLeft: 3,
+  },
+  heroCreatorHandle: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: 'rgba(255,255,255,0.7)',
+    marginTop: 1,
+  },
+  heroTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  statusPill: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(232,64,64,0.12)', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4, gap: 5 },
+  statusDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#e84040' },
+  statusPillText: { fontSize: 11, fontWeight: '700', color: '#e84040', letterSpacing: 0.4 },
+  timerPill: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(107,95,166,0.12)', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4, gap: 4 },
+  timerPillText: { fontSize: 11, fontWeight: '600', color: "#000" },
+  timerTextWrap: { flexDirection: 'column', alignItems: 'flex-start', minWidth: 0 },
+  timerPillSubText: { fontSize: 10, fontWeight: '600', marginTop: 0, includeFontPadding: false },
+  endTimeDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#EF4444', marginLeft: 2 },
+  heroChallengeLine: { color: 'rgba(255,255,255,0.9)', fontSize: 13, fontWeight: '600', marginBottom: 6, marginHorizontal: 8 },
+  heroChallengeStrong: { color: '#FFFFFF', fontWeight: '900' },
+  heroTitle: { color: "#000", fontSize: 20, fontWeight: '800', lineHeight: 28, marginBottom: 4, marginHorizontal: 8 },
+  heroDescription: { color: "#fff", fontSize: 13, lineHeight: 19, marginBottom: 8 },
+  heroInfoRow: { flexDirection: 'row', gap: 8, marginBottom: 12, flexWrap: 'wrap' },
+  heroInfoChip: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(107,95,166,0.1)', borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3 },
+  heroInfoText: { color: "#000", fontSize: 11, fontWeight: '600' },
+  editBattleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    backgroundColor: 'rgba(255,255,255,0.85)',
+  },
+  editBattleButtonText: { fontSize: 11, fontWeight: '700' },
+  heroMetaRight: { alignItems: 'flex-end' },
+
+  // Duel
+  duelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4, paddingLeft: 5, paddingRight: 15 },
+  duelVsWrapOverlay: {
+    position: 'absolute',
+    top: '60%',
+    left: '57%',
+    marginLeft: -60,
+    marginTop: -60,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+  },
+  duelVsText: {
+    color: '#FFFFFF',
+    fontSize: 30,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+  duelPlayerCard: { flex: 1, maxWidth: '44%', borderRadius: 14, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.32)', paddingVertical: 12, paddingHorizontal: 10, alignItems: 'center', gap: 6, overflow: 'hidden' },
+  duelPlayerCardBg: { ...StyleSheet.absoluteFillObject, borderRadius: 14 },
+  avatarBadgeWrap: { position: 'relative', alignItems: 'center', justifyContent: 'center' },
+  playerBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.92)', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: 'rgba(17,24,39,0.12)', },
+  playerBadgeText: { fontSize: 10, fontWeight: '800', color: '#111827', maxWidth: 72 },
+  playerName: { color: '#FFFFFF', fontSize: 13, fontWeight: '800', textAlign: 'center' },
+  playerPoints: { color: 'rgba(255,255,255,0.92)', fontSize: 11, fontWeight: '700', marginTop: -2 },
+  playerOpeningArgument: { color: 'rgba(255,255,255,0.95)', fontSize: 11, fontWeight: '600', textAlign: 'center', },
+  playerSidePill: { backgroundColor: '#ede8fb', borderRadius: 20, paddingHorizontal: 8, paddingVertical: 2 },
+  playerSidePillText: { color: '#6b5fa6', fontSize: 11, fontWeight: '600' },
+  vsOverlay: { position: 'absolute', left: '50%', top: '50%', marginLeft: -18, marginTop: -18, zIndex: 10 },
+  vsBadge: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#6b3fa0', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#ede8fb' },
+  vsText: { color: '#fff', fontSize: 11, fontWeight: '900', letterSpacing: 0.5 },
+
+  // Progress
+  progressCard: { borderRadius: 12, borderWidth: 1, borderColor: '#d3d1d1', padding: 12, marginBottom: 22, marginRight: 15, marginLeft: 5 },
+  progressTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 },
+  progressMidCol: { alignItems: 'center', flex: 1, paddingHorizontal: 6 },
+  progressTiedLabel: { fontSize: 12, fontWeight: '700', color: '#fff' },
+  progressSubLabel: { fontSize: 10, color: '#fff', marginTop: 2 },
+  progressPctLeft: { fontSize: 18, fontWeight: '700', color: '#22c55e' },
+  progressPctRight: { fontSize: 18, fontWeight: '700', color: '#ef4444' },
+  progressVotes: { fontSize: 10, color: '#fff', marginTop: 1 },
+  progressBarTrack: { height: 8, borderRadius: 99, overflow: 'hidden', flexDirection: 'row', gap: 1, marginBottom: 6 },
+  progressBarLeft: { backgroundColor: '#22c55e', borderTopLeftRadius: 99, borderBottomLeftRadius: 99 },
+  progressBarRight: { backgroundColor: '#ef4444', borderTopRightRadius: 99, borderBottomRightRadius: 99 },
+  progressBottomRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  sideTagLeft: { backgroundColor: '#e8f5e9', borderRadius: 20, paddingHorizontal: 8, paddingVertical: 2 },
+  sideTagRight: { backgroundColor: '#fde8e8', borderRadius: 20, paddingHorizontal: 8, paddingVertical: 2 },
+  sideTagText: { fontSize: 10, fontWeight: '600', color: '#374151' },
+
+  // Stats row
+  statsRow: { flexDirection: 'row', justifyContent: 'space-around', paddingTop: 10, borderTopWidth: 1, borderTopColor: '#d4ccf0' },
+  statItem: { alignItems: 'center', gap: 3 },
+  statValue: { fontSize: 15, fontWeight: '700', color: '#1a1040' },
+  statLabel: { fontSize: 10, color: '#7c6fb0', textAlign: 'center' },
+
+  // How to Win — horizontal
+  howToWinCard: { borderRadius: 16, padding: 14, marginBottom: 14, shadowOpacity: 0.06, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 2 },
+  howToWinTitle: { fontSize: 15, fontWeight: '800', marginBottom: 10 },
+  howToWinRow: { flexDirection: 'row', gap: 8 },
+  howToWinItem: { flex: 1, borderRadius: 12, padding: 10, alignItems: 'center', gap: 5 },
+  howToWinIconCircle: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+  howToWinItemLabel: { fontSize: 11, fontWeight: '700', textAlign: 'center' },
+  howToWinItemDesc: { fontSize: 10, textAlign: 'center', lineHeight: 14 },
+
+  // Info card
+  infoCard: { borderRadius: 20, padding: 16, marginBottom: 14, shadowOpacity: 0.08, shadowRadius: 12, shadowOffset: { width: 0, height: 5 }, elevation: 3 },
+  sectionTitle: { fontSize: 17, fontWeight: '800', marginBottom: 10 },
+  infoText: { fontSize: 14, lineHeight: 21 },
+  resultText: { fontSize: 13, fontWeight: '700', marginTop: 8 },
+
+  // Option pills
+  optionGrid: { flexDirection: 'column', gap: 10, marginBottom: 6 },
+  optionPillCard: { flexDirection: 'row', alignItems: 'center', minHeight: 56, borderRadius: 15, borderWidth: 1.5, paddingVertical: 8, paddingHorizontal: 10, gap: 8 },
+  optionPillAvatarWrap: { flexShrink: 0 },
+  optionPillAvatarFallback: { width: 36, height: 36, borderRadius: 18, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  optionPillLabel: { flex: 1, fontSize: 13, fontWeight: '700' },
+  optionPillRadio: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, flexShrink: 0 },
+  argumentLabel: { fontSize: 12, fontWeight: '800', marginTop: 10, marginBottom: 6 },
+
+  // Argument input + button
+  argumentInput: { minHeight: 90, borderRadius: 16, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, textAlignVertical: 'top', marginTop: 14, marginBottom: 14 },
+  primaryButton: { minHeight: 46, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  primaryButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '900', letterSpacing: 0.3 },
+
+  // Comments
+  commentCard: { borderRadius: 16, backgroundColor: '#F9FAFB', borderWidth: 1, padding: 14, marginBottom: 10 },
+  replyCard: { borderRadius: 14, borderWidth: 1, padding: 12, marginTop: 10 },
+  repliesSection: { marginTop: 10, marginLeft: 18 },
+  commentHeader: { marginBottom: 8 },
+  commentAuthorIdentity: { flexDirection: 'row', alignItems: 'flex-start', flex: 1, minWidth: 0 },
+  commentAuthorTopRow: { flexDirection: 'row', alignItems: 'center', minHeight: 18 },
+  commentHeaderActions: { flexDirection: 'row', alignItems: 'center', flexShrink: 0, marginLeft: 6 },
+  commentMenuButton: { width: 16, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: 14, marginLeft: 8 },
+  commentAvatar: { width: 34, height: 34, borderRadius: 17, marginRight: 10 },
+  commentAvatarFallback: { backgroundColor: '#9CA3AF', alignItems: 'center', justifyContent: 'center' },
+  commentAuthorTextWrap: { flex: 1, minWidth: 0 },
+  commentAuthorNameRow: { flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 0 },
+  commentAuthorNameFlex: { flexShrink: 1, minWidth: 0 },
+  commentVoteSideBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, marginLeft: 6 },
+  commentVoteSideBadgeText: { color: '#FFFFFF', fontSize: 11, fontWeight: '600', lineHeight: 14 },
+  commentAuthorName: { fontSize: 13, fontWeight: '800', color: '#111827', lineHeight: 16, includeFontPadding: false },
+  commentAuthorHandle: { fontSize: 11, fontWeight: '700', color: '#6B7280', marginTop: 0, lineHeight: 14, includeFontPadding: false },
+  replyTrigger: { paddingHorizontal: 6, paddingVertical: 0, borderRadius: 999, justifyContent: 'center' },
+  replyTriggerText: { fontSize: 12, fontWeight: '800', lineHeight: 16, includeFontPadding: false },
+  commentLikeButton: { flexDirection: 'row', alignItems: 'center', minWidth: 36, justifyContent: 'flex-end', paddingVertical: 0, marginLeft: 4 },
+  commentLikeText: { fontSize: 12, fontWeight: '700', color: '#6B7280', marginLeft: 4, lineHeight: 16 },
+  commentMessage: { fontSize: 14, lineHeight: 20, color: '#374151' },
+  commentMessageWrap: { marginTop: 2 },
+  commentMessageStack: { position: 'relative' },
+  commentMessageUnderlay: { position: 'absolute', top: 0, left: 0, right: 0 },
+  commentMessageSelectable: {
+    padding: 0,
+    margin: 0,
+    borderWidth: 0,
+    backgroundColor: 'transparent',
+    textAlignVertical: 'top',
+  },
+  commentMessageSelectableOverlay: {
+    color: Platform.OS === 'ios' ? 'transparent' : 'rgba(0,0,0,0.01)',
+  },
+  commentHighlightMark: { backgroundColor: '#FDE68A' },
+  commentHighlightHint: { fontSize: 11, lineHeight: 15, marginTop: 6, fontStyle: 'italic' },
+  commentHighlightActions: { marginTop: 8 },
+  commentHighlightPreview: { fontSize: 12, lineHeight: 16, marginBottom: 6 },
+  commentHighlightActionRow: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },
+  commentHighlightActionButton: {
+    minWidth: 72,
+    height: 34,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
+  commentHighlightActionText: { fontSize: 12, fontWeight: '700' },
+  commentHighlightActionPrimary: { borderWidth: 0 },
+  commentHighlightActionPrimaryText: { color: '#FFFFFF', fontSize: 12, fontWeight: '800' },
+  commentRemoveHighlightButton: { marginLeft: 6, padding: 2 },
+  viewRepliesButton: { alignSelf: 'flex-start', marginTop: 10 },
+  viewRepliesText: { fontSize: 12, fontWeight: '800' },
+  commentInlineActions: { marginLeft: 'auto', flexDirection: 'row', alignItems: 'center', gap: 10 },
+  replyComposer: { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#E5E7EB' },
+  replyComposerLabel: { fontSize: 12, fontWeight: '700', marginBottom: 8 },
+  replyInput: { minHeight: 88, borderRadius: 14, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, textAlignVertical: 'top' },
+  replyActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 10 },
+  replySecondaryButton: { minWidth: 82, height: 40, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 },
+  replySecondaryButtonText: { fontSize: 13, fontWeight: '700' },
+  replyPrimaryButton: { minWidth: 82, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 },
+  replyPrimaryButtonText: { color: '#FFFFFF', fontSize: 13, fontWeight: '800' },
+  emptyCommentText: { fontSize: 13, lineHeight: 19 },
+
+  // Bottom
+  bottomActions: {
+    flexDirection: 'row', gap: 10,
+    marginBottom: Platform.OS === 'ios' ? '10%' : '20%'
+  },
+  secondaryButton: { flex: 1, minHeight: 46, borderRadius: 16, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  secondaryButtonText: { fontSize: 14, fontWeight: '800' },
+  inviteSecondaryButton: { minHeight: 46, borderRadius: 16, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF'},
+  sideCommentActionsRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
+  sideCommentButton: { flex: 1, minHeight: 62, borderRadius: 14, borderWidth: 1.5, alignItems: 'stretch', justifyContent: 'center', backgroundColor: '#FFFFFF', paddingHorizontal: 10, paddingVertical: 8 },
+  sideCommentButtonTopRow: { flexDirection: 'row', alignItems: 'center', minWidth: 0 },
+  sideCommentButtonText: { flex: 1, minWidth: 0, fontSize: 13, fontWeight: '900', lineHeight: 18 },
+  sideCommentLikeButton: { flexDirection: 'row', alignItems: 'center', flexShrink: 0, marginLeft: 6, paddingTop: 1 },
+  sideCommentLikeText: { color: '#E11D48', fontSize: 12, fontWeight: '700', marginLeft: 4, lineHeight: 16 },
+  sideCommentPreviewText: { fontSize: 11, fontWeight: '700', lineHeight: 15, marginTop: 3 },
+
+  // Image preview modal
+  optionImagePreviewBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' },
+  optionImagePreviewCloseBtn: { position: 'absolute', top: 44, right: 18, width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.12)', zIndex: 10 },
+  optionImagePreviewZoomHost: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' },
+  optionImagePreviewHexWrap: { width: OPTION_IMAGE_PREVIEW_SIZE, height: OPTION_IMAGE_PREVIEW_SIZE, alignItems: 'center', justifyContent: 'center' },
+  sectionTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 6 },
+  viewVotesBtn: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 999, borderWidth: 1, backgroundColor: 'rgba(255,255,255,0.06)' },
+  viewVotesText: { fontSize: 12, fontWeight: '900' },
+  cornerBadgeTopLeft: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 0.2,
+    borderColor: 'rgba(255,255,255,0.9)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+    shadowColor: '#7C3AED',
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  cornerBadgeTopRight: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 0.2,
+    borderColor: 'rgba(255,255,255,0.9)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+    shadowColor: '#DB2777',
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+});

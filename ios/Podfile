@@ -34,5 +34,41 @@ target 'valens' do
       :mac_catalyst_enabled => false,
       # :ccache_enabled => true
     )
+
+    installer.pods_project.targets.each do |target|
+      if target.name == 'fmt'
+        target.build_configurations.each do |config|
+          config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'c++14'
+        end
+      end
+    end
+
+    # Xcode 26+: StripeSwiftInterop.h must match Swift's STPPaymentStatus (NSInteger).
+    stripe_interop = File.join(__dir__, '..', 'node_modules/@stripe/stripe-react-native/ios/StripeSwiftInterop.h')
+    if File.exist?(stripe_interop)
+      text = File.read(stripe_interop)
+      patched = text.gsub(
+        'typedef NS_ENUM(NSUInteger, STPPaymentStatus);',
+        'typedef NS_ENUM(NSInteger, STPPaymentStatus);'
+      )
+      if patched != text
+        File.write(stripe_interop, patched)
+        Pod::UI.puts 'Patched StripeSwiftInterop.h for Xcode 26 (STPPaymentStatus NSInteger)'.green
+      end
+    end
+
+    installer.pods_project.targets.each do |target|
+      if target.name == 'StripePayments'
+        target.build_phases.each do |phase|
+          if phase.is_a?(Xcodeproj::Project::Object::PBXHeadersBuildPhase)
+            phase.files.each do |file|
+              if file.file_ref && file.file_ref.path && file.file_ref.path.include?('Stripe3DS2')
+                phase.remove_build_file(file)
+              end
+            end
+          end
+        end
+      end
+    end
   end
 end

@@ -1,0 +1,1306 @@
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Image, Alert, ActivityIndicator, DeviceEventEmitter } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+import Ionicons from 'react-native-vector-icons/Ionicons';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
+import { useAppTheme } from '../../theme/useApptheme';
+import { useThemeContext } from '../../theme/ThemeContext';
+import { formSurfaces, themedCard, withAlpha } from '../../utils/closetTheme';
+import { normalizeProfileType } from '../../utils/supportEligibility';
+import { useLanguage } from '../../i18n';
+import useScreenshotProtection from '../../hooks/useScreenshotProtection';
+import FileViewer from 'react-native-file-viewer';
+import RNFS from 'react-native-fs';
+import InAppBrowser from 'react-native-inappbrowser-reborn';
+import HexAvatar from '../home/story.js/HexAvatar';
+import {
+  deletePost,
+  getPostlikes,
+  likePost,
+  savePost,
+  unSavePost,
+  getComments,
+  postComment,
+  deleteComment,
+  getMarketplaceEbookById,
+  getMarketPlaceEbookById,
+  deleteMarketplaceEbook,
+} from '../../services/post';
+import { useToast } from 'react-native-toast-notifications';
+import { showToastMessage } from '../displaytoastmessage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { navigateClosetReturn } from '../../utils/closetNavigation';
+
+const chaptersFallback = [
+  'Build your personal brand',
+  'Create content that connects',
+  'Monetize your knowledge',
+  'Grow your audience',
+];
+
+const isValidEbookObject = (value) => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  if (value.error === true) return false;
+  if (typeof value.statusCode === 'number' && value.statusCode >= 400) return false;
+  return Boolean(
+    value.id ||
+      value._id ||
+      value.caption ||
+      value.title ||
+      value.ebookpdf ||
+      value.ebookPdf ||
+      value.text ||
+      value.description ||
+      (Array.isArray(value.images) && value.images.length > 0),
+  );
+};
+
+const extractEbookFromResponse = (res) => {
+  const candidates = [
+    res?.data?.ebook,
+    res?.data?.post,
+    res?.data?.data?.ebook,
+    res?.data?.data?.post,
+    res?.ebook,
+    res?.post,
+    res?.data?.data,
+    res?.data,
+    res,
+  ];
+  for (const candidate of candidates) {
+    if (isValidEbookObject(candidate)) return candidate;
+  }
+  return null;
+};
+
+const isMarketplaceEbookItem = (item) => {
+  if (!item || typeof item !== 'object') return false;
+  if (item.closetId || item.marketplaceEbookId || item.marketplaceId) return true;
+  if (item.isMarketplace === true || item.isMarketplace === 'true') return true;
+  const source = String(item.source || '').toLowerCase();
+  if (source === 'marketplace' || source === 'closet') return true;
+  return false;
+};
+
+const getDescription = (ebookItem) => {
+  const textField = ebookItem?.text ?? ebookItem?.description;
+  if (!textField) return 'No description available';
+
+  if (typeof textField === 'string') {
+    try {
+      const parsed = JSON.parse(textField);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed[0];
+      }
+    } catch (e) {
+      return textField || 'No description available';
+    }
+  }
+
+  if (Array.isArray(textField) && textField.length > 0) {
+    return textField[0];
+  }
+
+  return 'No description available';
+};
+
+const formatDate = (dateString) => {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  const now = new Date();
+  const diff = now - date;
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+
+  if (minutes < 60) return `${minutes}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  if (days < 7) return `${days}d ago`;
+  return date.toLocaleDateString();
+};
+
+const VIEWED_PROFILE_THEME_EVENT = 'VIEWED_PROFILE_THEME';
+
+const formatDisplayName = (value) => {
+  const text = String(value || '').trim();
+  if (!text) return '';
+  return text.charAt(0).toUpperCase() + text.slice(1);
+};
+
+const flattenEbookComments = (items, depth = 0) =>
+  (Array.isArray(items) ? items : []).reduce((all, item) => {
+    all.push({ ...item, depth });
+    if (Array.isArray(item?.replies) && item.replies.length) {
+      all.push(...flattenEbookComments(item.replies, depth + 1));
+    }
+    return all;
+  }, []);
+
+const EbookDetailScreen = () => {
+  const navigation = useNavigation();
+  const route = useRoute();
+  const routeUserData = route?.params?.userData;
+  const [ebookData, setEbookData] = useState(route?.params?.ebook || {});
+  const ebook = useMemo(() => {
+    const profileName =
+      routeUserData?.userName ||
+      routeUserData?.displayName ||
+      routeUserData?.name ||
+      '';
+    const profileImage =
+      routeUserData?.profileImage ||
+      routeUserData?.avatar ||
+      routeUserData?.image ||
+      routeUserData?.profilePic ||
+      '';
+    const profileUserId = routeUserData?.id || routeUserData?.userId || null;
+    return {
+      ...ebookData,
+      userName: ebookData?.userName || profileName || '',
+      userImage: ebookData?.userImage || ebookData?.avatar || profileImage || '',
+      userId: ebookData?.userId || profileUserId || ebookData?.user?.id || null,
+    };
+  }, [ebookData, routeUserData]);
+  const fromRootNavigator = route?.params?.fromRootNavigator;
+  const fromEbookPublisher = route?.params?.fromEbookPublisher === true;
+  const fromMyClosetShopFront = route?.params?.from === 'MyClosetShopFront';
+  const fromAllEbooksScreen = route?.params?.from === 'AllEbooks' || route?.params?.sourceScreen === 'AllEbooks' || route?.params?.from === 'MyClosetDashboard';
+
+  useEffect(() => {
+    if (route?.params?.ebook) {
+      setEbookData(prev => ({ ...prev, ...route.params.ebook }));
+    }
+  }, [route?.params?.ebook]);
+
+  useEffect(() => {
+    const fetchEbookDetail = async () => {
+      const ebookId = String(
+        route?.params?.ebook?.id ||
+          route?.params?.ebook?._id ||
+          ebookData?.id ||
+          ebookData?._id ||
+          '',
+      ).trim();
+      if (!ebookId) return;
+
+      const sourceItem = route?.params?.ebook || ebookData;
+      const preferMarketplace = isMarketplaceEbookItem(sourceItem);
+
+      try {
+        let resolvedEbook = null;
+
+        if (preferMarketplace) {
+          const marketplaceRes = await getMarketplaceEbookById(ebookId);
+          resolvedEbook = extractEbookFromResponse(marketplaceRes);
+        } else {
+          const postRes = await getMarketPlaceEbookById(ebookId);
+          resolvedEbook = extractEbookFromResponse(postRes);
+          if (!resolvedEbook) {
+            const marketplaceRes = await getMarketplaceEbookById(ebookId);
+            resolvedEbook = extractEbookFromResponse(marketplaceRes);
+          }
+        }
+
+        if (resolvedEbook) {
+          setEbookData(prev => ({
+            ...(prev && typeof prev === 'object' ? prev : {}),
+            ...resolvedEbook,
+          }));
+        }
+      } catch (error) {
+        console.log('Failed to fetch ebook by ID:', error);
+      }
+    };
+
+    fetchEbookDetail();
+    // ebookData is intentionally read as a fallback when navigation supplies
+    // only an e-book id; re-running after the fetched merge would loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [route?.params?.ebook?.id, route?.params?.ebook?._id]);
+  const routeLoggedInUserId = route?.params?.loggedInUserId;
+  const profileThemeType = normalizeProfileType(
+    routeUserData?.profile || ebook?.profile,
+  );
+  const {
+    bgStyle,
+    text,
+    textStyle,
+    card,
+    cardStyle,
+    border,
+    mutedText,
+    mutedTextStyle,
+    accent,
+  } = useAppTheme(profileThemeType === 'company' ? 'company' : 'user');
+  const { isDarkMode } = useThemeContext();
+  const surfaces = formSurfaces(isDarkMode);
+  const brandAccent = accent || '#5A2D82';
+  const primaryText = text || (isDarkMode ? '#ffffff' : '#111827');
+  const muted = mutedText || surfaces.mutedColor;
+  const surface = card || surfaces.listSurface;
+  const surfaceBorder = border || surfaces.listBorder;
+  const { t } = useLanguage();
+  const toast = useToast();
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [holdScreenshotProtection, setHoldScreenshotProtection] = useState(false);
+  const commentInputRef = useRef(null);
+
+  const title = ebook.caption || ebook.title || 'E-book';
+  const userName = formatDisplayName(
+    ebook.purchasedFrom ||
+    route?.params?.username ||
+    ebook.userName ||
+    ebook.username ||
+    ebook.creator?.name ||
+    ebook.creator?.username ||
+    ebook.user?.name ||
+    ebook.user?.username ||
+    routeUserData?.shopName ||
+    routeUserData?.shopUsername ||
+    routeUserData?.displayName ||
+    'Unknown Author'
+  );
+  const userAvatarSource = useMemo(() => {
+    const uri = ebook.userImage || ebook.avatar || ebook.user?.avatar || ebook.user?.image || ebook.creator?.avatar || ebook.creator?.image;
+    if (uri && typeof uri === 'string' && uri.trim().length > 0) {
+      return { uri: uri.trim() };
+    }
+    return require('../../assets/icons/pngicons/blackUser.png');
+  }, [ebook]);
+  const description = getDescription(ebook);
+
+  const pdfUrl = useMemo(() => {
+    let rawPdf =
+      ebook.ebookpdf ||
+      ebook.ebookPdf ||
+      ebook.pdfUrl ||
+      ebook.pdf ||
+      ebook.fileUrl;
+    if (!rawPdf) {
+      const mediaList = [
+        ...(Array.isArray(ebook.images) ? ebook.images : []),
+        ebook.image,
+        ebook.video,
+        ebook.media,
+      ].filter(Boolean);
+      rawPdf = mediaList.find(m => typeof m === 'string' && /\.pdf(\?|$)/i.test(m));
+    }
+    if (!rawPdf || typeof rawPdf !== 'string') return null;
+
+    const trimmed = rawPdf.trim();
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return trimmed;
+    }
+    return `https://${trimmed}`;
+  }, [ebook]);
+
+  const coverImage = useMemo(() => {
+    const rawCover = ebook.images?.[0] || ebook.image || null;
+    if (typeof rawCover === 'string' && /\.pdf(\?|$)/i.test(rawCover)) {
+      return null;
+    }
+    return rawCover;
+  }, [ebook]);
+
+  const allowDownload = useMemo(() => {
+    if (!pdfUrl) return false;
+    const val = ebook.allowDownload ?? ebook.isAllowDownload;
+    return val === true || val === 'true';
+  }, [ebook.allowDownload, ebook.isAllowDownload, pdfUrl]);
+  const [isLiked, setIsLiked] = useState(!!ebook?.isLike);
+  const [likes, setLikes] = useState(ebook?.likeCount || 0);
+
+  const [isSaved, setIsSaved] = useState(ebook?.isSaved || false);
+  const [comments, setComments] = useState(ebook?.commentCount || 0);
+  const [currentUserId, setCurrentUserId] = useState(null);
+  const [liking, setLiking] = useState(false);
+  const [commentItems, setCommentItems] = useState([]);
+  const [commentText, setCommentText] = useState('');
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [commentPosting, setCommentPosting] = useState(false);
+  const [deletingCommentIds, setDeletingCommentIds] = useState(new Set());
+  const createdAt = formatDate(ebook.createdAt);
+  const viewerUserId = currentUserId ?? routeLoggedInUserId ?? null;
+  const canShowComments = !fromEbookPublisher && !fromMyClosetShopFront && !fromAllEbooksScreen;
+  const isOwner = useMemo(() => {
+    if (!viewerUserId || !ebook?.userId) return false;
+    return String(viewerUserId) === String(ebook.userId);
+  }, [viewerUserId, ebook?.userId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const profileType = normalizeProfileType(routeUserData?.profile || ebook?.profile);
+      if (profileType) {
+        DeviceEventEmitter.emit(VIEWED_PROFILE_THEME_EVENT, { profileType });
+      }
+
+      return () => {
+        DeviceEventEmitter.emit(VIEWED_PROFILE_THEME_EVENT, { profileType: null });
+      };
+    }, [routeUserData?.profile, ebook?.profile]),
+  );
+
+  const handleBackPress = useCallback(() => {
+    const backTarget = route?.params?.returnTo;
+    const tabNav = navigation.getParent?.() || navigation;
+
+    // Explicit cross-tab navigation back to EbookPublisher
+    if (fromEbookPublisher) {
+      tabNav.navigate('wallet', {
+        screen: 'EbookPublisher',
+      });
+      return;
+    }
+
+    // If we have a standard navigation stack history, use it. This correctly
+    // returns to the previous screen (e.g. returning to another user's profile)
+    // without messing up the navigation state by forcing a new screen push.
+    if (navigation.canGoBack?.()) {
+      navigation.goBack();
+      return;
+    }
+
+    // Fallback logic for when there is no back stack (e.g. deep linking)
+
+    if (backTarget?.tab && backTarget?.screen) {
+      tabNav.navigate(backTarget.tab, {
+        screen: backTarget.screen,
+        params: backTarget.params || {},
+      });
+      return;
+    }
+
+    if (backTarget) {
+      navigateClosetReturn(navigation, backTarget);
+      return;
+    }
+
+    if (fromMyClosetShopFront) {
+      tabNav.navigate('ProfileMain', {
+        screen: 'Profile',
+        params: { initialTab: 'closet' },
+      });
+      return;
+    }
+
+    const returnUserId = String(
+      route?.params?.returnUserId ||
+        routeUserData?.id ||
+        routeUserData?.userId ||
+        '',
+    ).trim();
+    const viewerId = String(routeLoggedInUserId || currentUserId || '').trim();
+
+    // Fallback: other user's profile → UsersProfile (not own Profile tab).
+    if (returnUserId && (!viewerId || returnUserId !== viewerId)) {
+      tabNav.navigate('HomeMain', {
+        screen: 'UsersProfile',
+        params: {
+          userId: returnUserId,
+          initialTab: route?.params?.fromProfileTab || 'privateContent',
+        },
+      });
+      return;
+    }
+
+    tabNav.navigate('ProfileMain', { screen: 'Profile' });
+  }, [
+    navigation,
+    route?.params?.returnTo,
+    route?.params?.returnUserId,
+    route?.params?.fromProfileTab,
+    routeUserData?.id,
+    routeUserData?.userId,
+    routeLoggedInUserId,
+    currentUserId,
+    fromEbookPublisher,
+    fromMyClosetShopFront,
+  ]);
+
+  useScreenshotProtection({
+    enabled: !isOwner && !fromEbookPublisher && !fromMyClosetShopFront && !fromAllEbooksScreen,
+    holdProtection: holdScreenshotProtection,
+    title: t('postView.screenshotWarningTitle'),
+    message: t('postView.screenshotWarningMessage'),
+  });
+
+  useEffect(() => {
+    setIsLiked(!!ebook?.isLike);
+    setLikes(ebook?.likeCount || 0);
+    setIsSaved(!!ebook?.isSaved);
+    setComments(ebook?.commentCount || 0);
+  }, [ebook?.id, ebook?.isLike, ebook?.isLikeCount, ebook?.likeCount, ebook?.isSaved, ebook?.commentCount]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const id = await AsyncStorage.getItem('userId');
+        setCurrentUserId(id ? String(id) : null);
+      } catch (e) {
+        console.log('Read userId failed', e);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    const loadLikeState = async () => {
+      if (!ebook?.id) return;
+      try {
+        const res = await getPostlikes(String(ebook.id));
+        const payload = res?.data ?? res;
+        const list = Array.isArray(payload?.data)
+          ? payload.data
+          : Array.isArray(payload)
+            ? payload
+            : Array.isArray(payload?.likes)
+              ? payload.likes
+              : [];
+        const serverCount =
+          payload?.likesCount ??
+          payload?.totalLikes ??
+          payload?.count ??
+          list.length;
+
+        const viewerId = currentUserId ? String(currentUserId) : '';
+        const serverLiked = list.some(item => {
+          const itemUserId = String(item?.userId ?? item?.user?.id ?? item?.likedBy ?? '');
+          if (!viewerId) return !!item?.liked || !!item?.isLike;
+          return itemUserId && itemUserId === viewerId;
+        }) || !!payload?.liked || !!payload?.isLike;
+
+        if (mounted) {
+          setLikes(Number(serverCount) || 0);
+          setIsLiked(serverLiked);
+        }
+      } catch (error) {
+        console.log('Load like state error', error);
+      }
+    };
+
+    loadLikeState();
+    return () => {
+      mounted = false;
+    };
+  }, [ebook?.id, currentUserId]);
+
+  const handleLike = useCallback(async () => {
+    if (!ebook?.id || liking) return;
+
+    const prevLiked = isLiked;
+    const prevLikes = likes;
+    const nextLiked = !prevLiked;
+
+    setIsLiked(nextLiked);
+    setLikes(Math.max(0, prevLikes + (nextLiked ? 1 : -1)));
+    setLiking(true);
+
+    try {
+      const res = await likePost(String(ebook.id));
+      const serverLiked = res?.data?.liked;
+      const serverCount = res?.data?.likesCount ?? res?.data?.totalLikes;
+
+      if (typeof serverLiked === 'boolean') {
+        setIsLiked(serverLiked);
+      }
+      if (serverCount !== undefined) {
+        setLikes(Math.max(0, Number(serverCount) || 0));
+      }
+    } catch (error) {
+      setIsLiked(prevLiked);
+      setLikes(prevLikes);
+      console.log('Like Error', error);
+      showToastMessage(
+        toast,
+        'danger',
+        error?.response?.data?.message || 'Unable to update like',
+      );
+    } finally {
+      setLiking(false);
+    }
+  }, [ebook?.id, isLiked, likes, liking, toast]);
+  const handleSave = async () => {
+    try {
+      if (isSaved) {
+        await unSavePost(ebook.id);
+        setIsSaved(false);
+      } else {
+        await savePost(ebook.id);
+        setIsSaved(true);
+      }
+    } catch (error) {
+      console.log('Save Error', error);
+    }
+  };
+  const fetchEbookComments = useCallback(async () => {
+    if (!ebook?.id || !canShowComments) return;
+    setCommentsLoading(true);
+    try {
+      const response = await getComments(String(ebook.id));
+      const rawComments = response?.data?.comments ?? response?.data?.data?.comments ?? [];
+      const flattened = flattenEbookComments(rawComments);
+      setCommentItems(flattened);
+      setComments(Math.max(0, flattened.length));
+    } catch (error) {
+      console.log('Load e-book comments error:', error);
+    } finally {
+      setCommentsLoading(false);
+    }
+  }, [ebook?.id, canShowComments]);
+
+  useEffect(() => {
+    fetchEbookComments();
+  }, [fetchEbookComments]);
+
+  const handleOpenComments = useCallback(() => {
+    if (!canShowComments) return;
+    commentInputRef.current?.focus();
+  }, [canShowComments]);
+
+  const handlePostComment = useCallback(async () => {
+    const message = commentText.trim();
+    if (!ebook?.id || !message || commentPosting) return;
+
+    setCommentPosting(true);
+    try {
+      const response = await postComment(String(ebook.id), message);
+      if (response?.success === false) {
+        throw new Error(response?.data?.message || 'Unable to post comment');
+      }
+      setCommentText('');
+      await fetchEbookComments();
+    } catch (error) {
+      showToastMessage(toast, 'danger', error?.response?.data?.message || error?.message || 'Unable to post comment');
+    } finally {
+      setCommentPosting(false);
+    }
+  }, [commentPosting, commentText, ebook?.id, fetchEbookComments, toast]);
+
+  const handleDeleteComment = useCallback((comment) => {
+    const commentId = comment?.id || comment?._id;
+    if (!commentId || deletingCommentIds.has(String(commentId))) return;
+
+    Alert.alert('Delete comment', 'Are you sure you want to delete this comment?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          setDeletingCommentIds(prev => new Set(prev).add(String(commentId)));
+          try {
+            const response = await deleteComment(String(commentId), String(ebook.id));
+            if (response?.success === false) {
+              throw new Error(response?.data?.message || 'Unable to delete comment');
+            }
+            await fetchEbookComments();
+          } catch (error) {
+            showToastMessage(toast, 'danger', error?.response?.data?.message || error?.message || 'Unable to delete comment');
+          } finally {
+            setDeletingCommentIds(prev => {
+              const next = new Set(prev);
+              next.delete(String(commentId));
+              return next;
+            });
+          }
+        },
+      },
+    ]);
+  }, [deletingCommentIds, ebook?.id, fetchEbookComments, toast]);
+
+  const handleCommentProfilePress = useCallback((commentUserId) => {
+    if (!commentUserId) return;
+    const returnParams = {
+      ...route?.params,
+      ebook: ebookData,
+      userData: routeUserData,
+    };
+    const parentNavigation = navigation.getParent?.();
+    const parentState = navigation.getParent?.()?.getState?.();
+    const stackName = route?.params?.stackName || parentState?.routes?.[parentState.index]?.name;
+    const params = {
+      userId: String(commentUserId),
+      returnTo: 'EbookDetail',
+      returnParams,
+      stackName,
+    };
+
+    if (parentNavigation?.navigate) {
+      parentNavigation.navigate('HomeMain', { screen: 'UsersProfile', params });
+      return;
+    }
+    navigation.navigate('HomeMain', { screen: 'UsersProfile', params });
+  }, [ebookData, navigation, route?.params, routeUserData]);
+  const handleDelete = () => {
+    Alert.alert(
+      'Delete E-book',
+      'Are you sure you want to delete this e-book?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const resolvedUserId = currentUserId || (await AsyncStorage.getItem('userId'));
+              const userId = resolvedUserId ? String(resolvedUserId) : '';
+              const postId = ebook?.id ? String(ebook.id) : '';
+
+              if (!postId || !userId) {
+                showToastMessage(
+                  toast,
+                  'danger',
+                  'Unable to delete this e-book right now.',
+                );
+                return;
+              }
+
+              let res;
+              const fromNav = route?.params?.from;
+              if (fromNav === 'MyClosetShopFront' || fromNav === 'Shop') {
+                res = await deleteMarketplaceEbook(postId);
+              } else {
+                res = await deletePost(postId, userId);
+              }
+              const ok = res?.statusCode === 200 && (res?.success ?? true);
+
+              if (!ok) {
+                showToastMessage(
+                  toast,
+                  'danger',
+                  res?.data?.message || res?.message || 'Failed to delete e-book',
+                );
+                return;
+              }
+
+              showToastMessage(
+                toast,
+                'success',
+                res?.data?.message || 'E-book deleted successfully',
+              );
+              navigation.goBack();
+            } catch (error) {
+              console.log('Delete Error', error);
+              showToastMessage(
+                toast,
+                'danger',
+                error?.response?.data?.message || error?.message || 'Delete failed',
+              );
+            }
+          },
+        },
+      ],
+    );
+  };
+  const handleReadBook = async () => {
+    console.log('📖 Attempting to read ebook. Passed params:', { ebook, pdfUrl });
+    if (!pdfUrl) {
+      Alert.alert('Error', 'Ebook PDF URL is not available');
+      return;
+    }
+    try {
+      if (await InAppBrowser.isAvailable()) {
+        await InAppBrowser.open(pdfUrl, {
+          dismissButtonStyle: 'close',
+          readerMode: false,
+          animated: true,
+          modalEnabled: true,
+          enableBarCollapsing: true,
+        });
+      } else {
+        Alert.alert('Error', 'InAppBrowser is not available on this device');
+      }
+    } catch (err) {
+      console.log('InAppBrowser opening failed:', err);
+      Alert.alert('Error', 'Unable to open ebook. Invalid or unreachable PDF link.');
+    }
+  };
+  const chapters = useMemo(() => {
+    if (ebook.tableContent) {
+      if (typeof ebook.tableContent === 'string') {
+        return ebook.tableContent.split(',').map(ch => ch.trim()).filter(ch => ch !== '');
+      }
+      if (Array.isArray(ebook.tableContent)) {
+        return ebook.tableContent.filter(ch => ch !== '');
+      }
+    }
+    return chaptersFallback;
+  }, [ebook.tableContent]);
+
+  const handleDownloadPdf = async () => {
+    if (!pdfUrl) {
+      Alert.alert('Error', 'PDF URL not available');
+      return;
+    }
+
+    try {
+      setIsDownloading(true);
+      const fileName = `${title.replace(/\s+/g, '_')}.pdf`;
+      const filePath = `${RNFS.DocumentDirectoryPath}/${fileName}`;
+
+      const downloadResult = await RNFS.downloadFile({
+        fromUrl: pdfUrl,
+        toFile: filePath,
+        progress: (res) => {
+          const progress = Math.floor((res.bytesWritten / res.contentLength) * 100);
+          console.log(`PDF Download progress: ${progress}%`);
+        },
+      }).promise;
+
+      if (downloadResult.statusCode === 200) {
+        Alert.alert('Success', `PDF downloaded successfully`);
+        if (!isOwner) {
+          setHoldScreenshotProtection(true);
+        }
+        try {
+          await FileViewer.open(filePath, {
+            displayName: fileName,
+            showOpenWithDialog: true,
+          });
+        } finally {
+          if (!isOwner) {
+            setHoldScreenshotProtection(false);
+          }
+        }
+      } else {
+        Alert.alert('Error', 'Failed to download PDF');
+      }
+    } catch (error) {
+      console.log('Download error:', error);
+      Alert.alert('Download Failed', error.message || 'Unable to download PDF');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  return (
+    <View style={[styles.screen, bgStyle]}>
+      <KeyboardAvoidingView
+        style={styles.screen}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+      <KeyboardAwareScrollView
+        contentContainerStyle={[styles.content, canShowComments && styles.contentWithCommentComposer]}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        enableOnAndroid
+        extraScrollHeight={24}
+      >
+        <View style={styles.headerRow}>
+          <TouchableOpacity
+            onPress={handleBackPress}
+            style={[styles.backBtn, cardStyle, { borderColor: surfaceBorder, borderWidth: StyleSheet.hairlineWidth }]}
+          >
+            <Ionicons name="arrow-back" size={20} color={primaryText} />
+          </TouchableOpacity>
+          <View style={styles.authorWrap}>
+            <View style={styles.avatarStack}>
+              <Image source={userAvatarSource} style={styles.avatar} />
+            </View>
+            <View style={styles.authorTextWrap}>
+              <View style={styles.authorTopLine}>
+                <Text style={[styles.authorName, textStyle]}>{userName}</Text>
+              </View>
+              <Text style={[styles.metaText, mutedTextStyle]}>{createdAt}</Text>
+            </View>
+            {!fromEbookPublisher && !fromMyClosetShopFront && !fromAllEbooksScreen ? (
+              <View style={[styles.subscriberPill, cardStyle, { borderColor: surfaceBorder }]}>
+                <Text style={[styles.subscriberPillText, textStyle]}>Subscribers</Text>
+              </View>
+            ) : null}
+            {isOwner ? (
+              <View>
+                <TouchableOpacity
+                  onPress={handleDelete}
+                  style={[
+                    styles.deleteButton,
+                    {
+                      backgroundColor: isDarkMode ? withAlpha('#DC2626', 0.15) : '#FEE2E2',
+                      borderColor: isDarkMode ? withAlpha('#DC2626', 0.4) : '#FCA5A5',
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name="trash-outline"
+                    size={18}
+                    color="#DC2626"
+                  />
+                </TouchableOpacity>
+              </View>
+            ) : null}
+          </View>
+        </View>
+
+        <Text style={[styles.postText, textStyle]}>
+          {description}
+        </Text>
+
+        <View style={[styles.previewCard, themedCard(surface, surfaceBorder)]}>
+          <View style={styles.cardLeft}>
+            {coverImage ? (
+              <Image source={{ uri: coverImage }} style={styles.cover} resizeMode="cover" />
+            ) : (
+              <View style={[styles.cover, { backgroundColor: brandAccent }]}>
+                <Text style={styles.coverText} numberOfLines={3}>{title}</Text>
+                <Text style={styles.coverSub}>E-book</Text>
+                <Text style={styles.coverAuthor}>{userName.toUpperCase()}</Text>
+              </View>
+            )}
+          </View>
+          <View style={styles.cardRight}>
+            <Text style={[styles.ebookTitle, textStyle]}>{title}</Text>
+            <Text style={[styles.byline, mutedTextStyle]}>By {userName}</Text>
+            <Text style={[styles.description, mutedTextStyle]}>
+              {description}
+            </Text>
+            <View style={styles.metricsRow}>
+              <Text style={[styles.metric, textStyle]}>📚 {chapters.length} Chapters</Text>
+            </View>
+          </View>
+        </View>
+
+        {chapters.length > 0 ? (
+          <View style={[styles.chaptersCard, themedCard(surface, surfaceBorder)]}>
+            <Text style={[styles.sectionTitle, textStyle]}>Table of Contents</Text>
+            {chapters.map((ch, idx) => (
+              <View
+                key={`${idx}-${ch}`}
+                style={[
+                  styles.learnItem,
+                  idx < chapters.length - 1 && {
+                    borderBottomWidth: StyleSheet.hairlineWidth,
+                    borderBottomColor: surfaces.itemBorder,
+                  },
+                ]}
+              >
+                <Ionicons name="bookmark-outline" size={14} color={brandAccent} style={styles.chapterIcon} />
+                <Text style={[styles.chapterText, mutedTextStyle]}>
+                  {idx + 1}. {ch}
+                </Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+
+        {allowDownload && (
+          <TouchableOpacity
+            style={[styles.downloadButton, { backgroundColor: brandAccent }]}
+            onPress={handleDownloadPdf}
+            disabled={isDownloading}
+          >
+            {isDownloading ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <>
+                <Ionicons name="download-outline" size={16} color="#fff" />
+                <Text style={styles.downloadButtonText}>Download PDF</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        )}
+
+        <TouchableOpacity
+          style={[styles.readButton, { backgroundColor: brandAccent, borderColor: brandAccent }]}
+          onPress={handleReadBook}
+        >
+          <Ionicons name="book-outline" size={16} color="#fff" />
+          <Text style={styles.readButtonText}>Read e-book</Text>
+        </TouchableOpacity>
+
+        {!fromEbookPublisher && !fromMyClosetShopFront && !fromAllEbooksScreen ? (
+          <View style={styles.actionsRow}>
+            <TouchableOpacity
+              style={styles.actionBtn}
+              onPress={handleLike}
+            >
+              <Ionicons
+                name={isLiked ? 'heart' : 'heart-outline'}
+                size={25}
+                color={isLiked ? '#ef4444' : muted}
+              />
+              <Text style={[styles.actionCount, mutedTextStyle]}>{likes}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionBtn} onPress={handleOpenComments}>
+              <Ionicons name="chatbubble-outline" size={25} color={muted} />
+              <Text style={[styles.actionCount, mutedTextStyle]}>{comments}</Text>
+            </TouchableOpacity>
+            <View style={styles.actionSpacer} />
+            <TouchableOpacity
+              style={styles.bookmarkBtn}
+              onPress={handleSave}
+            >
+              <Ionicons
+                name={isSaved ? 'bookmark' : 'bookmark-outline'}
+                size={25}
+                color={isSaved ? brandAccent : muted}
+              />
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
+        {canShowComments ? (
+          <View style={[styles.commentsSection, { borderTopColor: surfaceBorder }]}>
+            <Text style={[styles.commentsTitle, textStyle]}>Comments ({comments})</Text>
+            {commentsLoading ? (
+              <ActivityIndicator size="small" color={brandAccent} style={styles.commentsLoader} />
+            ) : commentItems.length > 0 ? (
+              commentItems.map(comment => {
+                const commentId = String(comment?.id || comment?._id || '');
+                const commentUserId = String(comment?.userId ?? comment?.user?.id ?? '');
+                const isOwnComment = Boolean(currentUserId && commentUserId && commentUserId === String(currentUserId));
+                const commentName = formatDisplayName(comment?.displayName || comment?.user?.displayName || comment?.user?.userName || comment?.userName || comment?.username || 'Unknown');
+                const commentAvatar = comment?.image || comment?.user?.image || comment?.user?.avatar || '';
+                return (
+                  <View key={commentId} style={[styles.commentItem, { borderBottomColor: surfaceBorder, marginLeft: Math.min(comment.depth || 0, 2) * 18 }]}>
+                    <TouchableOpacity
+                      onPress={() => handleCommentProfilePress(commentUserId)}
+                      disabled={!commentUserId}
+                      accessibilityRole="button"
+                    >
+                      <HexAvatar uri={commentAvatar} size={34} borderWidth={1} borderColor={brandAccent} />
+                    </TouchableOpacity>
+                    <View style={styles.commentItemBody}>
+                      <View style={styles.commentItemHeader}>
+                        <TouchableOpacity onPress={() => handleCommentProfilePress(commentUserId)} disabled={!commentUserId}>
+                          <Text style={[styles.commentUsername, textStyle]}>{commentName}</Text>
+                        </TouchableOpacity>
+                        <Text style={[styles.commentTime, mutedTextStyle]}>{formatDate(comment?.createdAt)}</Text>
+                      </View>
+                      <Text style={[styles.commentBodyText, textStyle]}>{comment?.comment || ''}</Text>
+                    </View>
+                    {isOwnComment ? (
+                      <TouchableOpacity
+                        onPress={() => handleDeleteComment(comment)}
+                        disabled={deletingCommentIds.has(commentId)}
+                        style={styles.commentDeleteButton}
+                        accessibilityLabel="Delete comment"
+                      >
+                        {deletingCommentIds.has(commentId) ? (
+                          <ActivityIndicator size="small" color="#DC2626" />
+                        ) : (
+                          <Ionicons name="trash-outline" size={18} color="#DC2626" />
+                        )}
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+                );
+              })
+            ) : (
+              <Text style={[styles.noCommentsText, mutedTextStyle]}>Be the first to comment.</Text>
+            )}
+          </View>
+        ) : null}
+      </KeyboardAwareScrollView>
+
+      {canShowComments ? (
+        <View style={[styles.commentComposer, { backgroundColor: surface, borderTopColor: surfaceBorder }]}>
+          <TextInput
+            ref={commentInputRef}
+            value={commentText}
+            onChangeText={setCommentText}
+            placeholder="Add a comment..."
+            placeholderTextColor={muted}
+            style={[styles.commentInput, { color: primaryText, backgroundColor: isDarkMode ? withAlpha('#ffffff', 0.08) : '#F5F3F7', borderColor: surfaceBorder }]}
+            multiline
+            maxLength={1000}
+          />
+          <TouchableOpacity
+            onPress={handlePostComment}
+            disabled={!commentText.trim() || commentPosting}
+            style={[styles.commentSendButton, { backgroundColor: brandAccent }, (!commentText.trim() || commentPosting) && styles.commentSendButtonDisabled]}
+            accessibilityLabel="Post comment"
+          >
+            {commentPosting ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="send" size={18} color="#fff" />}
+          </TouchableOpacity>
+        </View>
+      ) : null}
+      </KeyboardAvoidingView>
+    </View>
+  );
+};
+
+export default memo(EbookDetailScreen);
+
+const styles = StyleSheet.create({
+  screen: { flex: 1 },
+  content: {
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingBottom: 24,
+
+  },
+  contentWithCommentComposer: {
+    paddingBottom: 96,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    marginTop: '10%'
+  },
+  backBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  authorWrap: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 15,
+    marginTop: 15
+  },
+  avatarStack: {
+    marginRight: 10,
+    position: 'relative',
+  },
+  avatar: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+  },
+  onlineDot: {
+    position: 'absolute',
+    right: -1,
+    bottom: -1,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#4ade80',
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+  authorTextWrap: { flex: 1 },
+  authorTopLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  authorName: { fontSize: 15, fontWeight: '800' },
+  metaText: { fontSize: 11, marginTop: 1 },
+  subscriberPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    borderWidth: 1,
+    marginLeft: 8,
+  },
+  subscriberPillText: { fontSize: 11, fontWeight: '700' },
+  menuBtn: {
+    width: 34,
+    height: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  postText: {
+    fontSize: 15,
+    lineHeight: 22,
+    marginBottom: 12,
+  },
+  previewCard: {
+    flexDirection: 'row',
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 12,
+    shadowColor: '#000',
+    shadowOpacity: 0.03,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 1,
+  },
+  cardLeft: { marginRight: 12 },
+  cover: {
+    width: 112,
+    height: 160,
+    borderRadius: 10,
+    justifyContent: 'space-between',
+  },
+  coverText: { color: '#fff', fontSize: 15, fontWeight: '700', lineHeight: 20 },
+  coverSub: { color: '#E8DAF7', fontSize: 10, fontWeight: '600' },
+  coverAuthor: { color: '#fff', fontSize: 10, letterSpacing: 1.1 },
+  cardRight: { flex: 1 },
+  ebookTitle: { fontSize: 17, fontWeight: '800', marginBottom: 4 },
+  byline: { fontSize: 12, marginBottom: 10 },
+  description: { fontSize: 13, lineHeight: 19, marginBottom: 10 },
+  metricsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    flexWrap: 'wrap',
+  },
+  metric: { fontSize: 11, fontWeight: '700' },
+  readButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingVertical: 11,
+    gap: 6,
+    marginTop: 14,
+  },
+  readButtonText: { fontWeight: '800', color: "#fff" },
+  downloadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 14,
+    paddingVertical: 11,
+    gap: 6,
+    marginTop: 10,
+  },
+  downloadButtonText: { color: '#fff', fontWeight: '800', fontSize: 14 },
+  actionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: 14,
+    paddingBottom: 10,
+    gap: 12,
+    marginLeft:10,
+    marginTop:10,
+  },
+  actionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  actionCount: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  actionSpacer: { flex: 1 },
+  bookmarkBtn: {
+    width: 34,
+    alignItems: 'flex-end',
+    marginRight:10,
+  },
+  sectionTitle: { fontSize: 15, fontWeight: '800', marginBottom: 10, marginTop: 6 },
+  chaptersCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 12,
+    marginTop: 14,
+  },
+  learnList: {
+    paddingBottom: 14,
+  },
+  learnItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 7,
+  },
+  chapterIcon: {
+    marginRight: 8,
+  },
+  learnBullet: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  chapterText: { fontSize: 13, fontWeight: '600', flex: 1 },
+  commentsSection: {
+    marginTop: 14,
+    paddingTop: 14,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  commentsTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    marginBottom: 8,
+  },
+  commentsLoader: {
+    paddingVertical: 18,
+  },
+  noCommentsText: {
+    fontSize: 13,
+    paddingVertical: 14,
+  },
+  commentItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  commentItemBody: {
+    flex: 1,
+    marginLeft: 10,
+  },
+  commentItemHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  commentUsername: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  commentTime: {
+    fontSize: 11,
+    flexShrink: 1,
+  },
+  commentBodyText: {
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 3,
+  },
+  commentDeleteButton: {
+    padding: 6,
+    marginLeft: 4,
+  },
+  commentComposer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderLeftWidth: 0,
+    borderRightWidth: 0,
+    borderBottomWidth: 0,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  commentInput: {
+    flex: 1,
+    minHeight: 40,
+    maxHeight: 96,
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    fontSize: 14,
+    textAlignVertical: 'center',
+  },
+  commentSendButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+  },
+  commentSendButtonDisabled: {
+    opacity: 0.45,
+  },
+  deleteButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 10,
+    borderWidth: 1,
+    shadowColor: '#DC2626',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+});
