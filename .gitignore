@@ -305,6 +305,7 @@ ios/DerivedData/
 *.aab
 ios/build/
 ios/Pods/
+ios/Podfile.lock
 ios/bundler/
 ios/*.xcworkspace/xcuserdata/
 ios/*.xcodeproj/xcuserdata/

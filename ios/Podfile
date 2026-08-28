@@ -35,11 +35,54 @@ target 'valens' do
       # :ccache_enabled => true
     )
 
+    # Xcode 26 / Clang: fmt's C++20 consteval format strings fail to compile.
     installer.pods_project.targets.each do |target|
       if target.name == 'fmt'
         target.build_configurations.each do |config|
-          config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'c++14'
+          config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'c++17'
+          defs = config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] || ['$(inherited)']
+          defs = [defs] unless defs.is_a?(Array)
+          defs << 'FMT_USE_CONSTEVAL=0' unless defs.any? { |d| d.to_s.include?('FMT_USE_CONSTEVAL') }
+          config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] = defs
         end
+      end
+    end
+    Dir.glob(File.join(installer.sandbox.root, 'Target Support Files/fmt/*.xcconfig')).each do |path|
+      text = File.read(path)
+      text.gsub!(/CLANG_CXX_LANGUAGE_STANDARD\s*=\s*c\+\+\d+/, 'CLANG_CXX_LANGUAGE_STANDARD = c++17')
+      unless text.include?('FMT_USE_CONSTEVAL')
+        text.gsub!(
+          /GCC_PREPROCESSOR_DEFINITIONS\s*=\s*(.*)$/,
+          'GCC_PREPROCESSOR_DEFINITIONS = \\1 FMT_USE_CONSTEVAL=0'
+        )
+        unless text.include?('FMT_USE_CONSTEVAL')
+          text << "\nGCC_PREPROCESSOR_DEFINITIONS = $(inherited) FMT_USE_CONSTEVAL=0\n"
+        end
+      end
+      File.write(path, text)
+    end
+    fmt_base = File.join(installer.sandbox.root, 'fmt/include/fmt/base.h')
+    if File.exist?(fmt_base)
+      text = File.read(fmt_base)
+      unless text.include?("#ifndef FMT_USE_CONSTEVAL\n#if !defined(__cpp_lib_is_constant_evaluated)")
+        text.sub!(
+          "// Detect consteval, C++20 constexpr extensions and std::is_constant_evaluated.\n#if !defined(__cpp_lib_is_constant_evaluated)",
+          "// Detect consteval, C++20 constexpr extensions and std::is_constant_evaluated.\n#ifndef FMT_USE_CONSTEVAL\n#if !defined(__cpp_lib_is_constant_evaluated)"
+        )
+        text.sub!(
+          "#else\n#  define FMT_USE_CONSTEVAL 0\n#endif\n#if FMT_USE_CONSTEVAL",
+          "#else\n#  define FMT_USE_CONSTEVAL 0\n#endif\n#endif\n#if FMT_USE_CONSTEVAL"
+        )
+        File.write(fmt_base, text)
+        Pod::UI.puts 'Patched fmt/base.h to honor FMT_USE_CONSTEVAL=0'.green
+      end
+    end
+    fmt_pch = File.join(installer.sandbox.root, 'Target Support Files/fmt/fmt-prefix.pch')
+    if File.exist?(fmt_pch)
+      pch = File.read(fmt_pch)
+      unless pch.include?('FMT_USE_CONSTEVAL')
+        pch.sub!('#ifdef __OBJC__', "#ifdef __cplusplus\n#ifndef FMT_USE_CONSTEVAL\n#define FMT_USE_CONSTEVAL 0\n#endif\n#endif\n\n#ifdef __OBJC__")
+        File.write(fmt_pch, pch)
       end
     end
 
