@@ -1,556 +1,137 @@
-import React, { useRef, useEffect, useLayoutEffect, useCallback, useMemo, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
   View,
   Text,
   Image,
   TouchableOpacity,
+  FlatList,
   Animated,
   StyleSheet,
   Dimensions,
-  useWindowDimensions,
-  Linking,
-  ActivityIndicator,
-  Modal,
-  TouchableWithoutFeedback,
-  AppState,
-  Alert,
-  Platform,
 } from 'react-native';
 import {
-  GestureHandlerRootView,
   PanGestureHandler,
   PinchGestureHandler,
-  TapGestureHandler,
   State,
-  FlatList,
-  Gesture,
-  GestureDetector,
 } from 'react-native-gesture-handler';
-import { runOnJS } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Feather from 'react-native-vector-icons/Feather';
-import Video, { ViewType } from 'react-native-video';
-import { WhiteDragonfly, Thumbup, Comments, ShareIcom } from '../../../assets/icons';
-import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
+import Video from 'react-native-video';
+import { WhiteDragonfly } from '../../../assets/icons';
+import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ShareModal from '../../modals/ShareModal';
+import { ActivityIndicator } from 'react-native';
 import { getDragonflyIcon } from '../../profile/ProfilePersonalData';
+import { hideLoader, showLoader } from '../../../redux/actions/LoaderAction';
 import { showToastMessage } from '../../displaytoastmessage';
 import { useDispatch } from 'react-redux';
 import { useToast } from 'react-native-toast-notifications';
-import {
-  getUserCredentials,
-  getUserDashboard,
-  getTrustScrore,
-  getvotesDetail,
-  unVote,
-  voteTrust,
-  editPost,
-  getPostlikes,
-} from '../../../services/post';
-import {
-  formatMintedDateTime,
-  getMintLabelKey,
-  resolveMintTimestamp,
-} from '../../../utils/postMintDisplay';
-import { useAppTheme } from '../../../theme/useApptheme';
-import { useThemeContext } from '../../../theme/ThemeContext';
-import { getTotalDonationAmount } from '../../../services/tokens';
-import BuyersListModal from '../../modals/BuyerList';
-import FastImage from 'react-native-fast-image';
-import SupportCreatorModal from '../../modals/SupportCreatorModal';
-import TipSupportModal from '../../modals/TipSupportModal';
-import { getSupportRecipientWalletAddress } from '../../../utils/walletPaymentSupport';
-import { useWalletConnectSupport } from '../../../context/WalletConnectSupportContext';
-import MissionSupportScreen from '../../modals/DonationModal';
-import {
-  formatMissionProgressPercent,
-  getMissionProgressBarWidth,
-  getProgressBarColor,
-} from '../../../utils/progressBarUtils';
-import { getMissionScheduledStartInfo } from '../../../utils/missionDaysLeft';
-import { isSupportAllowed, normalizeProfileType } from '../../../utils/supportEligibility';
-import HexAvatar from '../story.js/HexAvatar';
-import YoutubePlayer from 'react-native-youtube-iframe';
-import { parsePostMeta, getPostMusicForSlide, getPostSlidePreviewState, getMusicTrimPlaybackWindowFromTrim } from '../../../utils/postSoundtracks';
-import { postSupportsLocation } from '../../../utils/hydratePostForEditor';
-import PostMediaTextOverlays from '../../post/PostMediaTextOverlays';
-import {
-  DEFAULT_FEED_MEDIA_HEIGHT,
-  measureFeedMediaItemHeight,
-  resolveFeedMediaHeight,
-} from '../../../utils/feedMediaDimensions';
-import { useLanguage } from '../../../i18n';
-import { navigateToUserProfile } from '../../../utils/navigateToUserProfile';
-import { parseText } from '../../../utils/commentUtils';
-import { resolveUserIdFromUsername } from '../../../utils/mentionUtils';
-import { normalizePostHashtags } from '../../../utils/hashtagUtils';
-import TrustCommentModal from '../../modals/TrustCommentModal';
-import PostLocationModal from '../../modals/PostLocationModal';
-import { resolveIsTrustPost } from '../../../utils/trustPost';
+import { getUserCredentials } from '../../../services/post';
 
 const { width } = Dimensions.get('window');
-const AnimatedFastImage = Animated.createAnimatedComponent(FastImage);
-const TRUST_OPTIONS = [
-  { type: 'agree', labelKey: 'postItem.trustAgree', detailKey: 'postItem.trustAgreeDetail', icon: 'thumbs-up', color: '#059669' },
-  { type: 'not_sure', labelKey: 'postItem.trustNotSure', detailKey: 'postItem.trustNotSureDetail', icon: 'help-circle', color: '#F59E0B' },
-  { type: 'disagree', labelKey: 'postItem.trustDisagree', detailKey: 'postItem.trustDisagreeDetail', icon: 'thumbs-down', color: '#DC2626' },
-];
 
-const TRUST_SCORE_KEYS = {
-  agree: ['agree', 'approve', 'approved', 'trust', 'credible'],
-  not_sure: ['not_sure', 'notSure', 'unsure', 'neutral', 'notSurePercent'],
-  disagree: ['disagree', 'reject', 'rejected', 'untrust', 'notCredible'],
-};
-
-const isTruthyTrustPost = value => value === true || value === 1 || String(value).toLowerCase() === 'true';
-
-const TRUST_VOTE_TYPE_FROM_API = {
-  AGREE: 'agree',
-  NOT_SURE: 'not_sure',
-  DISAGREE: 'disagree',
-};
-
-const parseTrustVoteDetailResponse = response => {
-  let detail = response?.data ?? response;
-  if (detail?.data != null && detail.data.hasSubmittedVote !== undefined) {
-    detail = detail.data;
-  }
-
-  const hasSubmittedVote =
-    detail?.hasSubmittedVote === true
-    || detail?.hasSubmittedVote === 1
-    || String(detail?.hasSubmittedVote).toLowerCase() === 'true';
-
-  if (!hasSubmittedVote) {
-    return { hasSubmittedVote: false, vote: null };
-  }
-
-  const vote = detail?.vote;
-  if (!vote) {
-    return { hasSubmittedVote: true, vote: null };
-  }
-
-  const rawType = vote.voteType ?? vote.type;
-  const normalizedType = TRUST_VOTE_TYPE_FROM_API[rawType]
-    ?? String(rawType || '').toLowerCase().replace(/\s+/g, '_');
-
-  return {
-    hasSubmittedVote: true,
-    vote: { ...vote, type: normalizedType },
-  };
-};
-
-
-/* ─── InstagramZoomableImage ─────────────────────────────────────────────── */
-function InstagramZoomableImage({ uri, height, onZoomChange }) {
+/* -----------------------------------------
+ * ZoomableImage: pinch to zoom + pan when zoomed
+ * ---------------------------------------- */
+function ZoomableImage({ uri, onZoomChange }) {
   const scale = useRef(new Animated.Value(1)).current;
-  const translateX = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(0)).current;
+  const lastScale = useRef(1);
+  const panX = useRef(new Animated.Value(0)).current;
+  const panY = useRef(new Animated.Value(0)).current;
+  const lastPanX = useRef(0);
+  const lastPanY = useRef(0);
+  const [isZoomed, setIsZoomed] = useState(false);
 
-  const [isModalVisible, setIsModalVisible] = useState(false);
-  const [modalImageLoaded, setModalImageLoaded] = useState(false);
+  const pinchRef = useRef();
+  const panRef = useRef();
 
-  const imageSource = useMemo(
-    () => ({ uri, priority: FastImage.priority.high, cache: FastImage.cacheControl.immutable }),
-    [uri],
+  const onPinchEvent = Animated.event([{ nativeEvent: { scale: scale } }], { useNativeDriver: true });
+
+  const onPinchStateChange = ({ nativeEvent }) => {
+    if (nativeEvent.state === State.END || nativeEvent.state === State.CANCELLED) {
+      let newScale = lastScale.current * nativeEvent.scale;
+      newScale = Math.max(1, Math.min(3, newScale));
+      lastScale.current = newScale;
+
+      Animated.spring(scale, { toValue: newScale, useNativeDriver: true, friction: 5 }).start();
+
+      if (newScale === 1) {
+        Animated.spring(panX, { toValue: 0, useNativeDriver: true }).start();
+        Animated.spring(panY, { toValue: 0, useNativeDriver: true }).start();
+        lastPanX.current = 0;
+        lastPanY.current = 0;
+        setIsZoomed(false);
+        onZoomChange?.(false);
+      } else {
+        setIsZoomed(true);
+        onZoomChange?.(true);
+      }
+    }
+  };
+
+  const onPanEvent = Animated.event(
+    [{ nativeEvent: { translationX: panX, translationY: panY } }],
+    { useNativeDriver: true }
   );
 
-  const screenWidth = Dimensions.get('window').width;
-  const displayHeight = height || DEFAULT_FEED_MEDIA_HEIGHT;
-  const halfWidth = screenWidth / 2;
-  const halfHeight = displayHeight / 2;
+  const onPanStateChange = ({ nativeEvent }) => {
+    if (nativeEvent.state === State.END) {
+      const currentScale = lastScale.current;
+      const boundX = ((width * currentScale) - width) / 2;
+      const boundY = ((340 * currentScale) - 340) / 2;
 
-  const onPinchEvent = Animated.event(
-    [{ nativeEvent: { scale, focalX: translateX, focalY: translateY } }],
-    { useNativeDriver: true },
-  );
+      let finalX = lastPanX.current + nativeEvent.translationX;
+      let finalY = lastPanY.current + nativeEvent.translationY;
 
-  const resetScale = useCallback(() => {
-    setIsModalVisible(false);
-    setModalImageLoaded(false);
-    onZoomChange?.(false);
-    scale.setValue(1);
-    translateX.setValue(0);
-    translateY.setValue(0);
-    Animated.parallel([
-      Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 18, bounciness: 0 }),
-      Animated.spring(translateX, { toValue: 0, useNativeDriver: true }),
-      Animated.spring(translateY, { toValue: 0, useNativeDriver: true }),
-    ]).start();
-  }, [onZoomChange, scale, translateX, translateY]);
+      finalX = Math.max(-boundX, Math.min(boundX, finalX));
+      finalY = Math.max(-boundY, Math.min(boundY, finalY));
 
-  const onPinchStateChange = useCallback(({ nativeEvent }) => {
-    const { state } = nativeEvent;
-    if (state === State.BEGAN) {
-      setIsModalVisible(true);
-      onZoomChange?.(true);
-      return;
+      lastPanX.current = finalX;
+      lastPanY.current = finalY;
+
+      Animated.spring(panX, { toValue: finalX, useNativeDriver: true }).start();
+      Animated.spring(panY, { toValue: finalY, useNativeDriver: true }).start();
     }
-    if (state === State.END || state === State.CANCELLED || state === State.FAILED) {
-      resetScale();
-    }
-  }, [onZoomChange, resetScale]);
-
-  useEffect(() => {
-    if (!uri) return;
-    FastImage.preload([imageSource]);
-    setTimeout(() => {
-      FastImage.preload([{ ...imageSource, priority: FastImage.priority.highest }]);
-    }, 400);
-  }, [uri, imageSource]);
+  };
 
   return (
-    <GestureHandlerRootView style={[styles.mediaContainer, { height: displayHeight }]}>
-      <PinchGestureHandler
-        onGestureEvent={onPinchEvent}
-        onHandlerStateChange={onPinchStateChange}
-        minPointers={2}>
-        <AnimatedFastImage
-          source={imageSource}
-          resizeMode={FastImage.resizeMode.contain}
-          fadeDuration={0}
-          style={[
-            { width: '100%', height: displayHeight },
-            { opacity: isModalVisible && modalImageLoaded ? 0 : 1 },
-          ]}
-        />
-      </PinchGestureHandler>
-      <Modal
-        visible={isModalVisible}
-        transparent
-        animationType="none"
-        statusBarTranslucent
-        presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : undefined}
-        onRequestClose={resetScale}>
-        <GestureHandlerRootView style={styles.gestureModalRoot}>
-          <View style={styles.modalBackground}>
-            <TouchableWithoutFeedback onPress={resetScale}>
-              <View style={StyleSheet.absoluteFillObject} />
-            </TouchableWithoutFeedback>
-            <PinchGestureHandler
-              onGestureEvent={onPinchEvent}
-              onHandlerStateChange={onPinchStateChange}
-              minPointers={2}>
-              <AnimatedFastImage
-                source={imageSource}
-                resizeMode="contain"
-                fadeDuration={0}
-                onLoadStart={() => setModalImageLoaded(false)}
-                onLoadEnd={() => setModalImageLoaded(true)}
-                style={[
-                  styles.fullScreenImage,
-                  {
-                    width: screenWidth,
-                    height: displayHeight,
-                    transform: [
-                      { translateX: Animated.subtract(translateX, halfWidth) },
-                      { translateY: Animated.subtract(translateY, halfHeight) },
-                      { scale },
-                      { translateX: Animated.multiply(Animated.subtract(translateX, halfWidth), -1) },
-                      { translateY: Animated.multiply(Animated.subtract(translateY, halfHeight), -1) },
-                    ],
-                  },
-                ]}
-                renderToHardwareTextureAndroid
-                shouldRasterizeIOS
-              />
-            </PinchGestureHandler>
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={resetScale}
-              hitSlop={{ top: 12, right: 12, bottom: 12, left: 12 }}
-              accessibilityRole="button"
-              accessibilityLabel="Close zoomed image">
-              <Icon name="close" size={22} color="#fff" />
-            </TouchableOpacity>
-          </View>
-        </GestureHandlerRootView>
-      </Modal>
-    </GestureHandlerRootView>
+    <PinchGestureHandler
+      ref={pinchRef}
+      simultaneousHandlers={panRef}
+      onGestureEvent={onPinchEvent}
+      onHandlerStateChange={onPinchStateChange}
+    >
+      <Animated.View style={{ flex: 1 }}>
+        <PanGestureHandler
+          ref={panRef}
+          enabled={isZoomed}
+          simultaneousHandlers={pinchRef}
+          onGestureEvent={onPanEvent}
+          onHandlerStateChange={onPanStateChange}
+        >
+          <Animated.View style={{ flex: 1 }}>
+            <Animated.Image
+              source={{ uri }}
+              resizeMode="cover"
+              style={{
+                width: width,
+                height: 340,
+                transform: [
+                  { translateX: Animated.add(panX, new Animated.Value(0)) },
+                  { translateY: Animated.add(panY, new Animated.Value(0)) },
+                  { scale: scale },
+                ],
+              }}
+            />
+          </Animated.View>
+        </PanGestureHandler>
+      </Animated.View>
+    </PinchGestureHandler>
   );
 }
 
-/* ─── InstagramZoomableVideo ─────────────────────────────────────────────── */
-function InstagramZoomableVideo({
-  uri,
-  thumbnailUri,
-  videoHeight,
-  paused,
-  muted,
-  repeat,
-  onZoomChange,
-  onVideoRef,
-  onLoadStart,
-  onLoad,
-  onError,
-  bufferConfig,
-  maxBitRate,
-  simultaneousHandlers,
-}) {
-  const scale = useRef(new Animated.Value(1)).current;
-  const translateX = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(0)).current;
-
-  const [isModalVisible, setIsModalVisible] = useState(false);
-  const [modalVideoReady, setModalVideoReady] = useState(false);
-  const [hasInlineLoaded, setHasInlineLoaded] = useState(false);
-
-  const currentTimeRef = useRef(0);
-  const modalVideoRef = useRef(null);
-  const inlineVideoRef = useRef(null);
-
-  const resolvedBufferConfig = useMemo(() => {
-    const base = { ...(bufferConfig || {}) };
-    if (Platform.OS === 'android' && base.cacheSizeMB == null) base.cacheSizeMB = 64;
-    return base;
-  }, [bufferConfig]);
-
-  const modalBufferConfig = useMemo(
-    () => ({
-      ...resolvedBufferConfig,
-      bufferForPlaybackMs: Math.min(Number(resolvedBufferConfig.bufferForPlaybackMs) || 800, 250),
-      bufferForPlaybackAfterRebufferMs: Math.min(
-        Number(resolvedBufferConfig.bufferForPlaybackAfterRebufferMs) || 800,
-        250,
-      ),
-    }),
-    [resolvedBufferConfig],
-  );
-
-  useEffect(() => {
-    setHasInlineLoaded(false);
-    setModalVideoReady(false);
-  }, [uri]);
-
-  const handleInlineLoad = useCallback(payload => {
-    setHasInlineLoaded(true);
-    onLoad?.(payload);
-  }, [onLoad]);
-
-  const screenW = Dimensions.get('window').width;
-  const halfWidth = screenW / 2;
-  const halfHeight = videoHeight / 2;
-
-  const inlinePaused = isModalVisible && modalVideoReady ? true : paused;
-
-  const onProgressStable = useCallback(({ currentTime }) => {
-    currentTimeRef.current = currentTime;
-  }, []);
-
-  const onPinchEvent = Animated.event(
-    [{ nativeEvent: { scale, focalX: translateX, focalY: translateY } }],
-    { useNativeDriver: true },
-  );
-
-  const resetScale = useCallback(() => {
-    setIsModalVisible(false);
-    setModalVideoReady(false);
-    onZoomChange?.(false);
-    scale.setValue(1);
-    translateX.setValue(0);
-    translateY.setValue(0);
-    Animated.parallel([
-      Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 18, bounciness: 0 }),
-      Animated.spring(translateX, { toValue: 0, useNativeDriver: true }),
-      Animated.spring(translateY, { toValue: 0, useNativeDriver: true }),
-    ]).start();
-  }, [scale, translateX, translateY, onZoomChange]);
-
-  const onPinchStateChange = useCallback(({ nativeEvent }) => {
-    const { state } = nativeEvent;
-    if (state === State.BEGAN) {
-      setModalVideoReady(false);
-      setIsModalVisible(true);
-      onZoomChange?.(true);
-      return;
-    }
-    if (state === State.END || state === State.CANCELLED || state === State.FAILED) {
-      resetScale();
-    }
-  }, [resetScale, onZoomChange]);
-
-  const zoomTransform = useMemo(
-    () => [
-      { translateX: Animated.subtract(translateX, halfWidth) },
-      { translateY: Animated.subtract(translateY, halfHeight) },
-      { scale },
-      { translateX: Animated.multiply(Animated.subtract(translateX, halfWidth), -1) },
-      { translateY: Animated.multiply(Animated.subtract(translateY, halfHeight), -1) },
-    ],
-    [halfHeight, halfWidth, scale, translateX, translateY],
-  );
-
-  const modalTransformStyle = {
-    width: screenW,
-    height: videoHeight,
-    transform: zoomTransform,
-  };
-
-  const androidTextureViewProps =
-    Platform.OS === 'android' ? { viewType: ViewType.TEXTURE } : {};
-
-  const onModalLoad = useCallback(() => {
-    const seekTo = currentTimeRef.current || 0;
-    if (seekTo > 0.5 && modalVideoRef.current?.seek) {
-      modalVideoRef.current.seek(seekTo);
-    }
-  }, []);
-
-  const onModalReady = useCallback(() => {
-    setModalVideoReady(true);
-  }, []);
-
-  return (
-    <GestureHandlerRootView style={styles.mediaContainer}>
-      <PinchGestureHandler
-        onGestureEvent={onPinchEvent}
-        onHandlerStateChange={onPinchStateChange}
-        simultaneousHandlers={simultaneousHandlers}
-        minPointers={2}>
-        <Animated.View
-          style={{
-            width: '100%',
-            height: videoHeight,
-            opacity: isModalVisible && modalVideoReady ? 0 : 1,
-          }}
-          collapsable={false}>
-          <Video
-            ref={ref => {
-              inlineVideoRef.current = ref;
-              onVideoRef?.(ref);
-            }}
-            source={{ uri }}
-            style={{ width: '100%', height: '100%' }}
-            resizeMode="cover"
-            repeat={repeat}
-            paused={inlinePaused}
-            muted={muted}
-            volume={muted ? 0 : 1}
-            controls={false}
-            pointerEvents="none"
-            onLoadStart={onLoadStart}
-            onLoad={handleInlineLoad}
-            onError={onError}
-            playWhenInactive={false}
-            ignoreSilentSwitch="ignore"
-            progressUpdateInterval={1000}
-            onProgress={onProgressStable}
-            bufferConfig={resolvedBufferConfig}
-            maxBitRate={maxBitRate}
-            preferredForwardBufferDuration={Platform.OS === 'ios' ? 12 : undefined}
-            {...androidTextureViewProps}
-          />
-        </Animated.View>
-      </PinchGestureHandler>
-
-      {uri && hasInlineLoaded && (
-        <View
-          pointerEvents="none"
-          collapsable={false}
-          style={styles.zoomVideoPrewarmHost}>
-          <Video
-            source={{ uri }}
-            style={styles.zoomVideoPrewarmVideo}
-            resizeMode="cover"
-            repeat={repeat}
-            paused
-            muted
-            controls={false}
-            playWhenInactive={false}
-            bufferConfig={resolvedBufferConfig}
-            maxBitRate={maxBitRate}
-            {...androidTextureViewProps}
-          />
-        </View>
-      )}
-
-      <Modal
-        visible={isModalVisible}
-        transparent
-        animationType="none"
-        statusBarTranslucent
-        presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : undefined}
-        onRequestClose={resetScale}>
-        <GestureHandlerRootView style={styles.gestureModalRoot}>
-          <View style={styles.modalBackground}>
-            <TouchableWithoutFeedback onPress={resetScale}>
-              <View style={StyleSheet.absoluteFillObject} />
-            </TouchableWithoutFeedback>
-            <PinchGestureHandler
-              onGestureEvent={onPinchEvent}
-              onHandlerStateChange={onPinchStateChange}
-              minPointers={2}>
-              <Animated.View
-                collapsable={false}
-                style={[{ width: screenW, height: videoHeight, backgroundColor: '#000' }, modalTransformStyle]}>
-                {!modalVideoReady ? (
-                  <>
-                    {thumbnailUri ? (
-                      <FastImage
-                        source={{
-                          uri: thumbnailUri,
-                          priority: FastImage.priority.high,
-                          cache: FastImage.cacheControl.immutable,
-                        }}
-                        resizeMode={FastImage.resizeMode.cover}
-                        fadeDuration={0}
-                        style={StyleSheet.absoluteFillObject}
-                      />
-                    ) : (
-                      <View
-                        style={[StyleSheet.absoluteFillObject, styles.zoomVideoLoadingBackdrop]}
-                      />
-                    )}
-                    <View style={styles.zoomVideoLoading} pointerEvents="none">
-                      <ActivityIndicator size="large" color="#fff" />
-                    </View>
-                  </>
-                ) : null}
-                <Video
-                  ref={modalVideoRef}
-                  source={{ uri }}
-                  style={[
-                    StyleSheet.absoluteFillObject,
-                    { opacity: modalVideoReady ? 1 : 0 },
-                  ]}
-                  resizeMode="contain"
-                  repeat={repeat}
-                  paused={false}
-                  muted={muted}
-                  volume={muted ? 0 : 1}
-                  controls={false}
-                  pointerEvents="none"
-                  playWhenInactive={false}
-                  ignoreSilentSwitch="ignore"
-                  progressUpdateInterval={1000}
-                  bufferConfig={modalBufferConfig}
-                  maxBitRate={maxBitRate}
-                  onError={onError}
-                  onLoad={onModalLoad}
-                  onReadyForDisplay={onModalReady}
-                  preferredForwardBufferDuration={Platform.OS === 'ios' ? 12 : undefined}
-                  {...androidTextureViewProps}
-                />
-              </Animated.View>
-            </PinchGestureHandler>
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={resetScale}
-              hitSlop={{ top: 12, right: 12, bottom: 12, left: 12 }}
-              accessibilityRole="button"
-              accessibilityLabel="Close zoomed video">
-              <Icon name="close" size={22} color="#fff" />
-            </TouchableOpacity>
-          </View>
-        </GestureHandlerRootView>
-      </Modal>
-    </GestureHandlerRootView>
-  );
-}
-
-/* ─── PostItem ───────────────────────────────────────────────────────────── */
-function PostItem({
+export default function PostItem({
   item,
   likesCount,
   commentsCount,
@@ -563,2227 +144,364 @@ function PostItem({
   onOptions,
   followingBusy = false,
   isBusinessProfile,
-  executeFollowAction,
-  isVisible = false,
-  screenFocused = true,
-  playingPostId,
-  returnTo,
-  shareCount,
-  taggedPeople,
-  hideDonationButton = false,
-  isTrustPost = false,
-  onLocationUpdate,
+  executeFollowAction
 }) {
-  // console.log('Calculating',item);    
-  const { width: windowWidth } = useWindowDimensions();
   const heartScale = useRef(new Animated.Value(1)).current;
-  const doubleTapHeartScale = useRef(new Animated.Value(0)).current;
-  const [localCommentsCount, setLocalCommentsCount] = useState(commentsCount || 0);
-  const [showDoubleTapHeart, setShowDoubleTapHeart] = useState(false);
   const listRef = useRef(null);
-  const videoRefsMap = useRef({});
-  const [totalFollowers, setTotalFollowers] = useState(0);
-  const [userProfile, setUserProfile] = useState('');
-  const [currentUserProfileType, setCurrentUserProfileType] = useState('user');
-  const isCompanyProfile = userProfile === 'company';
-  const [donation, setDonation] = useState(false);
+  // console.log('item----------------followers------------', item);
+
+  const DragonflyIcon = getDragonflyIcon(10000, isBusinessProfile);
+
   const [currentIndex, setCurrentIndex] = useState(0);
   const [videoStates, setVideoStates] = useState({});
   const [scrollEnabled, setScrollEnabled] = useState(true);
-  const [isZooming, setIsZooming] = useState(false);
-  const [userId, setUserId] = useState(null);
-  const [isMuted, setIsMuted] = useState(true);
-  const [showBuyersModal, setShowBuyersModal] = useState(false);
-  const [showLikesModal, setShowLikesModal] = useState(false);
-  const [likesUsers, setLikesUsers] = useState([]);
-  const [likesLoading, setLikesLoading] = useState(false);
-  const [showTaggedPeopleModal, setShowTaggedPeopleModal] = useState(false);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [videoLoaded, setVideoLoaded] = useState({});
-  const [slideHeights, setSlideHeights] = useState(() => {
-    const containerWidth = Dimensions.get('window').width;
-    const initial = {};
-    (item?.media || []).forEach((m, index) => {
-      const h = resolveFeedMediaHeight(m, containerWidth);
-      if (h != null) initial[index] = h;
-    });
-    return initial;
-  });
-  const [totalDonation, setTotalDonation] = useState(0);
-  const [isLoadingDonation, setIsLoadingDonation] = useState(false);
-  const [trustPanelVisible, setTrustPanelVisible] = useState(false);
-  const [trustScoreVisible, setTrustScoreVisible] = useState(false);
-  const [trustLoading, setTrustLoading] = useState(false);
-  const [trustScoreLoading, setTrustScoreLoading] = useState(false);
-  const [trustVote, setTrustVote] = useState(null);
-  const [hasSubmittedTrustVote, setHasSubmittedTrustVote] = useState(false);
-  const [trustVoteStatusLoading, setTrustVoteStatusLoading] = useState(false);
-  const [trustScore, setTrustScore] = useState(null);
-  const [trustCommentModalVisible, setTrustCommentModalVisible] = useState(false);
-  const [trustCommentModalType, setTrustCommentModalType] = useState(null);
-  const [localLiked, setLocalLiked] = useState(liked);
-  const [localLikesCount, setLocalLikesCount] = useState(likesCount || 0);
-
-  useEffect(() => { setLocalLiked(liked); }, [liked]);
-  useEffect(() => { setLocalLikesCount(likesCount || 0); }, [likesCount]);
-
-  const { t } = useLanguage();
-  const showTrustControls = isTruthyTrustPost(isTrustPost) || resolveIsTrustPost(item);
-
-  const currentUserIdStr = useMemo(() => (userId != null ? String(userId) : ''), [userId]);
-  const itemUserIdStr = useMemo(() => {
-    const raw = item?.UserId ?? item?.userId ?? item?.UserID ?? '';
-    return raw != null ? String(raw) : '';
-  }, [item?.UserID, item?.UserId, item?.userId]);
-
-  const getDaysLeftFromEndTime = endTime => {
-    if (!endTime) return 0;
-    try {
-      const now = new Date();
-      const endDate = new Date(endTime);
-      const diffTime = endDate - now;
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      return diffDays > 0 ? diffDays : 0;
-    } catch (error) {
-      console.error('Error calculating days left:', error);
-      return 0;
-    }
-  };
-
-  // Mission donations become available on the selected start date. Existing
-  // mission posts without a start date keep their current donation behaviour.
-  const hasMissionStarted = startTime => {
-    if (!startTime) return true;
-
-    const startDate = new Date(startTime);
-    if (Number.isNaN(startDate.getTime())) return true;
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    startDate.setHours(0, 0, 0, 0);
-    return startDate <= today;
-  };
-
-
-  const [daysLeft, setDaysLeft] = useState(() => getDaysLeftFromEndTime(item?.end_time));
-  const [walletAddress, setWalletAddress] = useState('');
-  const [targetWalletAddress, setTargetWalletAddress] = useState('');
-  const [supportDisclaimerVisible, setSupportDisclaimerVisible] = useState(false);
-  const [tipPurchaseVisible, setTipPurchaseVisible] = useState(false);
-  const [isKycVerified, setIsKycVerified] = useState(false);
-  const [isSubscriptionActive, setIsSubscriptionActive] = useState(false);
-  const [expanded, setExpanded] = useState(false);
-  const [locationValue, setLocationValue] = useState(
-    typeof item?.location === 'string' ? item.location : '',
-  );
-  const [locationModalVisible, setLocationModalVisible] = useState(false);
-  const [locationSaving, setLocationSaving] = useState(false);
-
-  const usernameText = item?.username || t('postItem.unknownUser');
-  const captionValue =
-    String(item?.caption || '')
-      .trim()
-      .replace(/^\*{3}$/, '') || '';
-  const postHashtags = useMemo(
-    () => normalizePostHashtags(item?.hashtag ?? item?.hashtags),
-    [item?.hashtag, item?.hashtags],
-  );
-  const previewCaptionLength = Math.max(40, 120 - usernameText.length);
-  const hasExpandableCaption = captionValue.length > previewCaptionLength;
-  const collapsedCaption = hasExpandableCaption
-    ? `${captionValue.slice(0, previewCaptionLength).trimEnd()}... `
-    : captionValue;
-
-  useEffect(() => {
-    setExpanded(false);
-    setTrustPanelVisible(false);
-    setTrustScoreVisible(false);
-    setTrustVote(null);
-    setHasSubmittedTrustVote(false);
-    setTrustVoteStatusLoading(false);
-    setTrustScore(null);
-    setLocationValue(typeof item?.location === 'string' ? item.location : '');
-  }, [item?.caption, item?.id, item?.UserId, item?.location]);
-
-  const mintedDateTime = useMemo(
-    () => formatMintedDateTime(resolveMintTimestamp(item)),
-    [item?.createdAt, item?.created_at, item?.mintedAt, item?.minted_at, item?.updatedAt, item?.updated_at],
-  );
-  const mintLabelKey = useMemo(() => getMintLabelKey(item), [item]);
-  const isPostOwner = Boolean(
-    currentUserIdStr && itemUserIdStr && currentUserIdStr === itemUserIdStr,
-  );
-  const supportsLocation = useMemo(
-    () => postSupportsLocation({
-      type: item?.type,
-      postType: item?.postType,
-      raiseAmount: item?.raiseAmount,
-    }),
-    [item?.type, item?.postType, item?.raiseAmount],
-  );
-  const locationDisplayText = locationValue.trim();
-
   const navigation = useNavigation();
+  const [userId, setUserId] = useState(null);
   const shareRef = useRef(null);
-  const postFeedYoutubeRef = useRef(null);
-  const postFeedMp3Ref = useRef(null);
-  const postFeedMusicDurRef = useRef(180);
-  const shouldPlayAudioRef = useRef(false);
   const dispatch = useDispatch();
   const toast = useToast();
-  const { startSupportPayment } = useWalletConnectSupport();
-  const { isDarkMode } = useThemeContext();
-  const viewerThemeProfile = isBusinessProfile ? 'company' : undefined;
-  const { bgStyle, textStyle, cardStyle, border, mutedText, accent, icon, text, card } = useAppTheme(viewerThemeProfile);
-  const DragonflyIcon = useMemo(
-    () => getDragonflyIcon(totalFollowers, isCompanyProfile, isDarkMode),
-    [totalFollowers, isCompanyProfile, isDarkMode],
-  );
-  const getPostProfileTextColor = useCallback(
-    profile => {
-      if (!isDarkMode) {
-        return profile === 'company' ? '#C9A15a' : '#5a2d82';
-      }
-      return profile === 'company' ? '#C9A15A' : '#ffffff';
-    },
-    [isDarkMode],
-  );
-  const getPostButtonColor = useCallback(
-    profile => {
-      if (!isDarkMode) {
-        return profile === 'company' ? '#C9A15a' : '#5a2d82';
-      }
-      return profile === 'company' ? '#C9A15A' : '#5a2d82';
-    },
-    [isDarkMode],
-  );
-  const postProfileTextColor = getPostProfileTextColor(item?.profile);
-  const postButtonColor = getPostButtonColor(item?.profile);
-  const isMountedRef = useRef(true);
-  const route = useRoute();
-  const [selectedPostId, setSelectedPostId] = useState(null);
-  const [dataFetched, setDataFetched] = useState(false);
-  const modalProfileType = normalizeProfileType(userProfile || item?.profile);
-
-  const handleOpenLocationEditor = useCallback(() => {
-    if (!supportsLocation || !isPostOwner || !item?.id) return;
-    setLocationModalVisible(true);
-  }, [supportsLocation, isPostOwner, item?.id]);
-
-  const handleSaveLocation = useCallback(async (nextLocationValue) => {
-    if (!item?.id || locationSaving) return;
-
-    const nextLocation = String(nextLocationValue || '').trim();
-    setLocationSaving(true);
-    try {
-      const response = await editPost(item.id, { location: nextLocation });
-      if (response?.statusCode && response.statusCode >= 400) {
-        throw new Error(response?.message || t('postItem.locationSaveError'));
-      }
-
-      setLocationValue(nextLocation);
-      onLocationUpdate?.(item.id, nextLocation);
-      setLocationModalVisible(false);
-      showToastMessage(toast, 'success', t('postItem.locationSaved'));
-    } catch (error) {
-      showToastMessage(
-        toast,
-        'danger',
-        error?.response?.data?.message || error?.message || t('postItem.locationSaveError'),
-      );
-    } finally {
-      setLocationSaving(false);
-    }
-  }, [item?.id, locationSaving, onLocationUpdate, t, toast]);
-
-  if (!item || !item.id) {
-    console.warn('PostItem received invalid item:', item);
-    return null;
-  }
-
-  const width = Dimensions.get('window').width;
-
-  // FIX: safeMedia and mediaLength declared BEFORE any useMemo/useCallback that references them
-  const safeMedia = item.media || [];
-  const mediaLength = safeMedia.length;
-
-  // FIX: isVideoUrl declared BEFORE mediaHeight useMemo
-  const isVideoUrl = useCallback(url => {
-    if (!url || typeof url !== 'string') return false;
-    const lower = url.toLowerCase().split('?')[0];
-    return ['mp4', 'mov', 'avi', 'mkv', 'webm', '3gp', 'm4v'].some(ext =>
-      lower.endsWith(`.${ext}`),
-    );
-  }, []);
-
-  const getSlideHeight = useCallback(
-    index => slideHeights[index] ?? DEFAULT_FEED_MEDIA_HEIGHT,
-    [slideHeights],
-  );
-  const currentMediaHeight = getSlideHeight(currentIndex);
-
-  const mediaMeasureKey = useMemo(
-    () => (item?.media || []).map(m => `${m?.url || ''}:${m?.thumbnail || ''}`).join('|'),
-    [item?.media],
-  );
 
   useEffect(() => {
-    let cancelled = false;
-    const mediaList = item?.media || [];
-    if (!mediaList.length) return undefined;
-
-    const synced = {};
-    mediaList.forEach((m, index) => {
-      const h = resolveFeedMediaHeight(m, width);
-      if (h != null) synced[index] = h;
-    });
-    setSlideHeights(synced);
-
-    (async () => {
-      const measured = {};
-      await Promise.all(
-        mediaList.map(async (m, index) => {
-          measured[index] = await measureFeedMediaItemHeight(m, isVideoUrl, width);
-        }),
-      );
-      if (cancelled) return;
-      setSlideHeights(prev => {
-        const next = { ...prev };
-        let changed = false;
-        Object.entries(measured).forEach(([idx, h]) => {
-          const i = Number(idx);
-          if (next[i] !== h) {
-            next[i] = h;
-            changed = true;
-          }
-        });
-        return changed ? next : prev;
-      });
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [item?.id, mediaMeasureKey, isVideoUrl, width]);
-
-  const parsedPostMeta = useMemo(() => parsePostMeta(item?.postMeta), [item?.postMeta]);
-
-  const postMusic = useMemo(
-    () => getPostMusicForSlide(item, currentIndex, parsedPostMeta),
-    [currentIndex, parsedPostMeta, item?.id, item?.music, item?.youtubeMusicMeta, item?.postMeta, item?.media],
-  );
-
-  const taggedUsers = useMemo(() => {
-    const source = Array.isArray(taggedPeople || item?.taggedPeople)
-      ? (taggedPeople || item?.taggedPeople)
-      : [];
-
-    const looksLikeUuid = (value = '') =>
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(value).trim());
-
-    return source
-      .filter(Boolean)
-      .map((person, index) => {
-        // Handle primitives (strings/numbers) coming from API payloads.
-        if (typeof person === 'string' || typeof person === 'number') {
-          const rawValue = String(person).trim();
-          if (!rawValue) return { id: `tagged-${index}`, username: t('postItem.unknownUser') };
-
-          // Sometimes backend sends tagged user IDs (UUIDs) instead of usernames.
-          if (looksLikeUuid(rawValue)) {
-            return {
-              id: rawValue,
-              userId: rawValue,
-              username: '',
-              fullName: '',
-              avatar: null,
-            };
-          }
-
-          const username = rawValue.replace(/^@+/, '');
-          return { id: `tagged-${index}-${username}`, username };
-        }
-
-        const usernameCandidate = String(
-          person?.username ??
-          person?.userName ??
-          person?.tag ??
-          person?.handle ??
-          person?.label ??
-          person?.value ??
-          '',
-        )
-          .trim()
-          .replace(/^@+/, '');
-
-        return {
-          id: person?.id || person?.userId || person?._id || `tagged-${index}`,
-          username: usernameCandidate || t('postItem.unknownUser'),
-          fullName: String(person?.fullName ?? person?.name ?? person?.displayName ?? '').trim(),
-          avatar: person?.avatar || person?.image || person?.userImage || person?.profilePicture || null,
-        };
-      });
-  }, [item?.taggedPeople, taggedPeople, t]);
-
-  const calculateDaysLeft = useCallback(() => {
-    return getDaysLeftFromEndTime(item?.end_time);
-  }, [item.end_time]);
-
-  useEffect(() => {
-    setDaysLeft(calculateDaysLeft());
-    const timer = setInterval(() => {
-      setDaysLeft(calculateDaysLeft());
-    }, 60 * 1000);
-    return () => clearInterval(timer);
-  }, [calculateDaysLeft]);
-
-  useEffect(() => {
-    setLocalCommentsCount(commentsCount || 0);
-  }, [commentsCount]);
-
-  const fetchTotalDonation = useCallback(async () => {
-    if (!item.id) return;
-    setIsLoadingDonation(true);
-    try {
-      const response = await getTotalDonationAmount({ postId: item.id });
-      if (response.statusCode === 200) {
-        setTotalDonation(response.data?.totalDonation || 0);
-      }
-    } catch (error) {
-      console.error('Error fetching total donation:', error);
-      setTotalDonation(0);
-    } finally {
-      setIsLoadingDonation(false);
-    }
-  }, [item.id]);
-
-  const handleDonationSuccess = useCallback(() => {
-    fetchTotalDonation();
-  }, [fetchTotalDonation]);
-
-  const fetchAllData = useCallback(async () => {
-    if (!item?.UserId) return;
-    try {
-      const [dashboardResponse, profileResponse] = await Promise.allSettled([
-        getUserDashboard(item.UserId),
-        getUserCredentials(item.UserId),
-      ]);
-
-      if (dashboardResponse.status === 'fulfilled') {
-        const data = dashboardResponse.value;
-        if (data?.statusCode === 200) {
-          setTotalFollowers(data.data?.dashboardData?.totalFollowers || 0);
-        }
-      }
-
-      if (profileResponse.status === 'fulfilled') {
-        const data = profileResponse.value;
-        if (data?.statusCode === 200) {
-          const userDataToSet =
-            data.data?.user || data.data || data;
-          setUserProfile(userDataToSet.profile || '');
-          setTargetWalletAddress(getSupportRecipientWalletAddress(userDataToSet) || '');
-          setIsKycVerified(userDataToSet?.kyc === true);
-          setIsSubscriptionActive(
-            String(userDataToSet?.subscriptionStatus || '').toUpperCase() === 'ACTIVE',
-          );
-        }
-      }
-    } catch (error) {
-      console.error('Error in fetchAllData:', error);
-      showToastMessage(
-        toast,
-        'danger',
-        error?.response?.message ?? t('postItem.errorLoadUserData'),
-      );
-    }
-  }, [item?.UserId, toast, t]);
-
-  const restoreUserId = useCallback(async () => {
-    try {
+    const fetchUserId = async () => {
       const id = await AsyncStorage.getItem('userId');
-      const currentUserId = userId ? String(userId) : null;
-      const newUserId = id ? String(id) : null;
-      if (newUserId !== currentUserId) setUserId(newUserId);
-    } catch (error) {
-      console.error('Error restoring userId:', error);
-    }
-  }, [userId]);
-
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const storedProfile = await AsyncStorage.getItem('profile');
-        if (!mounted) return;
-        setCurrentUserProfileType(normalizeProfileType(storedProfile));
-      } catch {
-        // ignore; keep default
-      }
-    })();
-    return () => { mounted = false; };
-  }, []);
-
-  useFocusEffect(
-    useCallback(() => {
-      let isActive = true;
-      const initializeData = async () => {
-        try {
-          const id = await AsyncStorage.getItem('userId');
-          const storedWalletAddress = await AsyncStorage.getItem('walletAddress');
-          if (isActive) setUserId(id ? String(id) : null);
-          if (isActive) setWalletAddress(storedWalletAddress || '');
-
-          if (item?.UserId && !dataFetched) {
-            await fetchAllData();
-            setDataFetched(true);
-          }
-
-          const days = calculateDaysLeft();
-          if (isActive) setDaysLeft(days);
-
-          if (!dataFetched) await fetchTotalDonation();
-        } catch (error) {
-          console.error('Error initializing PostItem data:', error);
-        }
-      };
-      initializeData();
-      return () => { isActive = false; };
-    }, [item?.UserId, calculateDaysLeft, fetchTotalDonation, fetchAllData, dataFetched]),
-  );
-
-  // FIX: safeVideoPause declared before the useEffect that uses it in its cleanup
-  const safeVideoPause = useCallback(index => {
-    try {
-      const ref = videoRefsMap.current[index];
-      if (ref && typeof ref.pause === 'function') ref.pause();
-    } catch (error) {
-      console.warn(`Error pausing video at index ${index}:`, error);
-    }
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      Object.keys(videoRefsMap.current).forEach(idx => safeVideoPause(parseInt(idx)));
-      videoRefsMap.current = {};
+      setUserId(id);
     };
-  }, [safeVideoPause]);
-
-  const creatorWalletAddress = useMemo(
-    () =>
-      targetWalletAddress ||
-      item?.walletAddress ||
-      item?.walletId ||
-      item?.wallet ||
-      item?.userWalletAddress ||
-      item?.creatorWalletAddress ||
-      item?.vendorWalletAddress ||
-      item?.receiverWalletAddress ||
-      null,
-    [targetWalletAddress, item],
-  );
-
-  const recipientWalletAddress = useMemo(
-    () => getSupportRecipientWalletAddress({ ...item, walletAddress: creatorWalletAddress }),
-    [item, creatorWalletAddress],
-  );
-  const canSupport = !!creatorWalletAddress;
-
-  const supporterProfile = useMemo(
-    () =>
-      typeof isBusinessProfile === 'boolean'
-        ? isBusinessProfile
-          ? 'company'
-          : 'user'
-        : currentUserProfileType,
-    [isBusinessProfile, currentUserProfileType],
-  );
-  const recipientProfile = useMemo(
-    () => normalizeProfileType(userProfile || item?.profile),
-    [userProfile, item?.profile],
-  );
-
-  const handleSupportNow = useCallback(async () => {
-    if (!canSupport) {
-      const creatorName =
-        item?.username ||
-        item?.userName ||
-        item?.displayName ||
-        t('postItem.defaultCreatorName');
-      Alert.alert(
-        t('postItem.walletNotConnectedTitle'),
-        t('postItem.walletNotConnectedMessage', { name: creatorName }),
-      );
-      return;
-    }
-    setSupportDisclaimerVisible(false);
-    const receiverId = item?.UserId ?? item?.userId ?? item?.UserID ?? '';
-    await startSupportPayment(recipientWalletAddress, {
-      senderId: userId != null ? String(userId) : '',
-      receiverId: receiverId !== '' ? String(receiverId) : '',
-      chain: 'POLYGON',
-    });
-  }, [canSupport, recipientWalletAddress, startSupportPayment, userId, item, t]);
-
-  const handleSendTip = useCallback(() => {
-    setSupportDisclaimerVisible(false);
-    setTipPurchaseVisible(true);
+    fetchUserId();
+    fetchData();
   }, []);
 
-  const handleOpenSupportDisclaimer = useCallback(() => {
-    if (!isSupportAllowed({ supporterProfile, recipientProfile })) {
-      Alert.alert(
-        t('postItem.supportUnavailableTitle'),
-        t('postItem.supportUnavailableMessage'),
-      );
-      setModalVisible(false);
-      return;
-    }
-    setModalVisible(false);
-    setSupportDisclaimerVisible(true);
-  }, [supporterProfile, recipientProfile, t]);
-
-  const wasPostActiveRef = useRef(false);
-  useEffect(() => {
-    const hasPlayingTarget = playingPostId !== undefined && playingPostId !== null;
-    const isPostActive =
-      isVisible &&
-      screenFocused &&
-      (!hasPlayingTarget || String(playingPostId) === String(item.id));
-
-    if (isPostActive && !wasPostActiveRef.current) setIsMuted(true);
-    wasPostActiveRef.current = isPostActive;
-  }, [isVisible, screenFocused, playingPostId, item.id]);
-
-  const isCurrentSlideVideo = useMemo(() => {
-    const m = safeMedia[currentIndex];
-    if (!m) return false;
-    return m.type === 'video' || isVideoUrl(m.url);
-  }, [safeMedia, currentIndex, isVideoUrl]);
-
-  const playbackEligible = useMemo(
-    () =>
-      screenFocused &&
-      isVisible &&
-      (playingPostId != null && playingPostId !== ''
-        ? String(playingPostId) === String(item.id)
-        : true),
-    [screenFocused, isVisible, playingPostId, item.id],
-  );
-
-  const muteVideoForSoundtrack = Boolean(postMusic) && isCurrentSlideVideo;
-
-  useLayoutEffect(() => {
-    if (playbackEligible) return;
-    setIsMuted(true);
-    safeVideoPause(currentIndex);
+  const fetchData = async () => {
     try {
-      postFeedMp3Ref.current?.pause?.();
-      void postFeedYoutubeRef.current?.pauseVideo?.();
-    } catch (_) { }
-  }, [playbackEligible, currentIndex, safeVideoPause]);
-
-  const handleUserProfile = useCallback(
-    (id) => {
-      const targetId = id != null ? String(id).trim() : '';
-      if (!targetId) return;
-
-      const currentRoute = route?.name || 'Home';
-      const returnToPayload =
-        currentRoute === 'PostView'
-          ? { tab: 'ProfileMain', screen: 'PostView', params: route?.params }
-          : currentRoute;
-
-      void navigateToUserProfile(navigation, targetId, {
-        loggedInUserId: currentUserIdStr,
-        returnTo: returnToPayload,
-      });
-    },
-    [currentUserIdStr, navigation, route?.name, route?.params],
-  );
-
-  const mentionPressLock = useRef(false);
-  const handleMentionPress = useCallback(
-    async mentionPart => {
-      if (mentionPressLock.current) return;
-      const username = String(mentionPart || '')
-        .replace(/^@+/, '')
-        .trim();
-      if (!username) return;
-
-      mentionPressLock.current = true;
-      try {
-        const userId = await resolveUserIdFromUsername(username);
-        if (!userId) {
-          showToastMessage(toast, 'danger', t('postEditor.openProfileError'));
-          return;
-        }
-        handleUserProfile(userId);
-      } catch (_) {
-        showToastMessage(toast, 'danger', t('postEditor.openProfileError'));
-      } finally {
-        mentionPressLock.current = false;
+      dispatch(showLoader());
+      const response = await getUserCredentials(item.UserId);
+      console.log('reeeeeeeeeeeeeeeeee',response);
+      
+      if (response?.statusCode === 200) {
+        console.log('response.data getUserCredentials--------', response.data);
+        console.log('response in get getUserCredentials--------', response.data?.user?.Followers || response?.data?.Followers);
+      } else {
+        showToastMessage(toast, 'danger', response.data.message);
       }
-    },
-    [handleUserProfile, t, toast],
-  );
-
-  const captionTextStyles = useMemo(
-    () => ({
-      hashtag: styles.inlineHashtagText,
-      mention: styles.inlineMentionText,
-      plain: styles.captionText,
-      onMentionPress: handleMentionPress,
-    }),
-    [handleMentionPress],
-  );
-
-  const normalizeExternalUrl = useCallback((value) => {
-    const raw = String(value || '').trim();
-    if (!raw) return '';
-
-    // Already has a scheme (http://, https://, etc.) or common native schemes.
-    const hasScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(raw);
-    const hasNativeScheme = /^(mailto:|tel:|sms:|whatsapp:)/i.test(raw);
-    if (hasScheme || hasNativeScheme) return raw;
-
-    // If user saved "www.example.com" or "example.com", make it a valid URL.
-    return `https://${raw.replace(/^\/+/, '')}`;
-  }, []);
-
-  const handleOpenExternalLink = useCallback(async (value) => {
-    const normalized = normalizeExternalUrl(value);
-    if (!normalized) return;
-
-    const isWebLink = /^https?:\/\//i.test(normalized);
-    const urlToOpen = isWebLink ? encodeURI(normalized) : normalized;
-
-    try {
-      const supported = await Linking.canOpenURL(urlToOpen);
-      if (!supported) {
-        Alert.alert(t('optionsModal.errorGeneric'), t('battleInProgress.tryAgain'));
-        return;
-      }
-      await Linking.openURL(urlToOpen);
     } catch (error) {
-      Alert.alert(
-        t('optionsModal.errorGeneric'),
-        error?.message || t('battleInProgress.tryAgain'),
+      showToastMessage(
+        toast,
+        'danger',
+        error?.response?.message ?? 'Something went wrong',
       );
+    } finally {
+      dispatch(hideLoader());
     }
-  }, [normalizeExternalUrl, t]);
+  };
 
-  const formatNumber = useCallback(n => {
+  const handleUserProfile = (id) => {
+    if (userId === id) {
+      navigation.navigate('ProfileMain', { screen: 'Profile' });
+    } else {
+      navigation.navigate('UsersProfile', { userId: id });
+    }
+  };
+
+  const formatNumber = (n) => {
     if (typeof n !== 'number') n = Number(n) || 0;
     return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  }, []);
+  };
 
-  const currencyPrefix = useMemo(() => {
-    const currencyCode = String(item?.currency || '').toUpperCase();
-    const currencySymbols = {
-      USD: '$', EUR: '€', GBP: '£', INR: '₹', CAD: 'C$', AUD: 'A$', NZD: 'NZ$',
-      JPY: '¥', CNY: '¥', KRW: '₩', SGD: 'S$', HKD: 'HK$', AED: 'د.إ', SAR: 'ر.س',
-    };
-    return currencySymbols[currencyCode] || (currencyCode ? `${currencyCode} ` : '$');
-  }, [item?.currency]);
+  const isVideoUrl = (url) => {
+    if (!url || typeof url !== 'string') return false;
+    const lower = url.toLowerCase().split('?')[0];
+    const exts = ['mp4', 'mov', 'avi', 'mkv', 'webm', '3gp', 'm4v'];
+    return exts.some((ext) => lower.endsWith(`.${ext}`));
+  };
 
-  const buyerList = useMemo(
-    () =>
-      Array.isArray(item.boughtBy)
-        ? item.boughtBy
-        : Array.isArray(item.buyers)
-          ? item.buyers
-          : [],
-    [item.boughtBy, item.buyers],
-  );
+  const buyerList = (item.boughtBy || item.buyers) || [
+    // { id: '1', username: 'Alice', avatar: 'https://placekitten.com/40/40' },
+    // { id: '2', username: 'Bob', avatar: 'https://placekitten.com/41/41' },
+    // { id: '3', username: 'Charlie', avatar: 'https://placekitten.com/42/42' },
+  ];
 
-  const displayBuyerList = useMemo(() => {
-    if (!buyerList || buyerList.length === 0 || !userId) return buyerList;
-    const currentUserIdStr = String(userId);
-    return buyerList.filter(buyer => {
-      const buyerIdStr = buyer?.id
-        ? String(buyer.id)
-        : buyer?.userId
-          ? String(buyer.userId)
-          : null;
-      return buyerIdStr !== currentUserIdStr;
-    });
-  }, [buyerList, userId]);
+  // Add this debug log
+  // console.log(`PostItem ${item.id} buyerList:`, {
+  //   count: buyerList.length,
+  //   firstBuyer: buyerList[0]?.username,
+  //   allBuyers: buyerList.map(b => b.username)
+  // });
 
-  const animateHeart = useCallback(() => {
+  const animateHeart = () => {
     Animated.sequence([
       Animated.timing(heartScale, { toValue: 1.2, duration: 80, useNativeDriver: true }),
       Animated.timing(heartScale, { toValue: 1, duration: 80, useNativeDriver: true }),
     ]).start();
-  }, [heartScale]);
+  };
 
-  const handleLike = useCallback(() => {
-    const newLiked = !localLiked;
-    setLocalLiked(newLiked);
-    setLocalLikesCount(prev => newLiked ? prev + 1 : Math.max(0, prev - 1));
-    onToggleLike?.(item.id);
+  const handleLike = () => {
+    onToggleLike?.();
     animateHeart();
-  }, [localLiked, onToggleLike, item.id, animateHeart]);
+  };
 
-  const parseLikeListUsers = useCallback(response => {
-    const payload = response?.data ?? response;
-    const list = Array.isArray(payload?.data)
-      ? payload.data
-      : Array.isArray(payload)
-        ? payload
-        : Array.isArray(payload?.likes)
-          ? payload.likes
-          : [];
-    return list.map((entry, index) => ({
-      id: entry?.userId ?? entry?.user?.id ?? entry?.likedBy ?? entry?.id ?? `like-${index}`,
-      username:
-        entry?.userName ??
-        entry?.username ??
-        entry?.displayName ??
-        entry?.user?.userName ??
-        entry?.user?.username ??
-        '',
-      fullName:
-        entry?.fullName ??
-        entry?.name ??
-        entry?.displayName ??
-        entry?.user?.fullName ??
-        entry?.user?.name ??
-        '',
-      avatar:
-        entry?.image ??
-        entry?.avatar ??
-        entry?.userImage ??
-        entry?.profilePicture ??
-        entry?.user?.image ??
-        entry?.user?.avatar ??
-        null,
-      profile: entry?.profile ?? entry?.user?.profile ?? 'user',
-    }));
-  }, []);
-
-  const handleViewLikes = useCallback(async () => {
-    if (!item?.id || localLikesCount <= 0 || likesLoading) return;
-
-    setLikesLoading(true);
-    try {
-      const res = await getPostlikes(String(item.id));
-      setLikesUsers(parseLikeListUsers(res));
-      setShowLikesModal(true);
-    } catch (error) {
-      showToastMessage(
-        toast,
-        'danger',
-        error?.response?.data?.message || t('postItem.loadLikesError'),
-      );
-    } finally {
-      setLikesLoading(false);
-    }
-  }, [item?.id, localLikesCount, likesLoading, parseLikeListUsers, toast, t]);
-
-  const unwrapTrustPayload = useCallback(response => {
-    const payload = response?.data ?? response;
-    return payload?.data ?? payload?.result ?? payload?.trustScore ?? payload?.score ?? payload;
-  }, []);
-
-  const getTrustVoteId = useCallback(vote => (
-    vote?.id ??
-    vote?._id ??
-    vote?.voteId ??
-    vote?.trustVoteId ??
-    vote?.PostTrustVoteId ??
-    null
-  ), []);
-
-  const pickTrustPercent = useCallback((source, keys) => {
-    if (!source || typeof source !== 'object') return 0;
-    for (const key of keys) {
-      const candidates = [
-        source[key],
-        source[`${key}Percent`],
-        source[`${key}Percentage`],
-        source[`${key}_percent`],
-        source[`${key}_percentage`],
-      ];
-      for (const value of candidates) {
-        const numberValue = Number(value);
-        if (Number.isFinite(numberValue)) return Math.max(0, Math.min(100, numberValue));
-      }
-    }
-    return 0;
-  }, []);
-
-  const normalizedTrustScore = useMemo(() => {
-    const source = trustScore || {};
-    const percentages = source.percentages || {};
-    const counts = source.counts || {};
-    const agree = pickTrustPercent(
-      { ...source, ...percentages },
-      [...TRUST_SCORE_KEYS.agree, 'agreeVote', 'agreeVotePercentage'],
-    );
-    const notSure = pickTrustPercent(
-      { ...source, ...percentages },
-      [...TRUST_SCORE_KEYS.not_sure, 'notSureVote', 'notSureVotePercentage'],
-    );
-    const disagree = pickTrustPercent(
-      { ...source, ...percentages },
-      [...TRUST_SCORE_KEYS.disagree, 'disagreeVote', 'disagreeVotePercentage'],
-    );
-    const total = agree + notSure + disagree;
-    const overallCandidates = [
-      source.score,
-      source.trustScore,
-      source.percentage,
-      source.percent,
-      source.communityTrustScore,
-      source.overall,
-      percentages.agreeVotePercentage,
-    ];
-    const overallRaw = overallCandidates.find(value => Number.isFinite(Number(value)));
-    const overall = Number.isFinite(Number(overallRaw))
-      ? Math.max(0, Math.min(100, Number(overallRaw)))
-      : (total > 0 ? agree : 0);
-
-    return {
-      agree,
-      notSure,
-      disagree,
-      overall,
-      totalVotes: Number(source.total) || 0,
-      agreeVotes: Number(counts.agreeVoteCount) || 0,
-      notSureVotes: Number(counts.notSureVoteCount) || 0,
-      disagreeVotes: Number(counts.disagreeVoteCount) || 0,
-    };
-  }, [pickTrustPercent, trustScore]);
-
-  const refreshTrustScore = useCallback(async () => {
-    if (!item?.id) return;
-    setTrustScoreLoading(true);
-    try {
-      const response = await getTrustScrore({ postId: item.id });
-      console.log(response, 'getTrustScroregetTrustScroregetTrustScroregetTrustScroregetTrustScrore')
-      setTrustScore(unwrapTrustPayload(response));
-    } catch (error) {
-      console.log('Failed to fetch trust score:', error);
-      showToastMessage(toast, 'danger', t('postItem.trustLoadError'));
-    } finally {
-      setTrustScoreLoading(false);
-    }
-  }, [item?.id, toast, unwrapTrustPayload]);
-
-  const loadTrustVoteDetail = useCallback(async () => {
-    if (!item?.id) return;
-    setTrustVoteStatusLoading(true);
-    try {
-      const response = await getvotesDetail({ postId: item.id });
-      const { hasSubmittedVote, vote } = parseTrustVoteDetailResponse(response);
-      setHasSubmittedTrustVote(hasSubmittedVote);
-      setTrustVote(vote);
-      if (hasSubmittedVote) {
-        setTrustPanelVisible(false);
-        setTrustCommentModalVisible(false);
-      }
-    } catch (error) {
-      console.log('Failed to fetch trust vote detail:', error);
-    } finally {
-      setTrustVoteStatusLoading(false);
-    }
-  }, [item?.id]);
-
+  // video pause/play based on index
   useEffect(() => {
-    if (!showTrustControls || !item?.id) return;
-    loadTrustVoteDetail();
-  }, [showTrustControls, item?.id, loadTrustVoteDetail]);
+    if (!item.media || item.media.length <= 0) return;
+    setVideoStates(() => {
+      const next = {};
+      item.media.forEach((_, idx) => { next[idx] = idx !== currentIndex; });
+      return next;
+    });
+  }, [currentIndex, item.media]);
 
-  useEffect(() => {
-    if (!showTrustControls || !item?.id || !isVisible) return;
-    refreshTrustScore();
-  }, [showTrustControls, item?.id, isVisible, refreshTrustScore]);
-
-  const handleTrustIconPress = useCallback(() => {
-    if (hasSubmittedTrustVote || trustVoteStatusLoading) return;
-    setTrustScoreVisible(false);
-    setTrustPanelVisible(prev => !prev);
-  }, [hasSubmittedTrustVote, trustVoteStatusLoading]);
-
-  const handleTrustScorePress = useCallback(async () => {
-    const nextVisible = !trustScoreVisible;
-    setTrustPanelVisible(false);
-    setTrustScoreVisible(nextVisible);
-    if (nextVisible) {
-      await refreshTrustScore();
-    }
-  }, [refreshTrustScore, trustScoreVisible]);
-
-  const handleTrustVote = useCallback(async (type) => {
-    if (hasSubmittedTrustVote || trustVote) return;
-    setTrustPanelVisible(false);
-    setTrustCommentModalType(type);
-    setTrustCommentModalVisible(true);
-  }, [hasSubmittedTrustVote, trustVote]);
-
-  const handleTrustVoteWithComment = useCallback(async (comment) => {
-    if (!item?.id || trustLoading || hasSubmittedTrustVote || trustVote) return;
-    setTrustCommentModalVisible(false);
-    setTrustLoading(true);
-    try {
-      const response = await voteTrust({
-        postId: item.id,
-        voteType: trustCommentModalType,  // 'agree' | 'not_sure' | 'disagree'
-        comment: comment || '',
-      });
-
-      console.log('voteTrust response:', response);  // check this
-
-      // ✅ Only unwrap after confirming response shape
-      const payload = response?.data?.data ?? response?.data ?? response;
-      setHasSubmittedTrustVote(true);
-      setTrustVote({ ...(payload || {}), type: trustCommentModalType });
-      setTrustScoreVisible(true);
-      await refreshTrustScore();
-      if (comment?.trim()) {
-        setLocalCommentsCount(prev => prev + 1);
-      }
-    } catch (error) {
-      console.log('voteTrust error:', error?.response?.data);  // add this
-      showToastMessage(toast, 'danger', t('postItem.trustSubmitError'));
-    } finally {
-      setTrustLoading(false);
-      setTrustCommentModalType(null);
-    }
-  }, [hasSubmittedTrustVote, item?.id, trustCommentModalType, trustLoading, trustVote, refreshTrustScore, toast, t]);
-
-
-  const handleTrustUndo = useCallback(async () => {
-    const voteId = getTrustVoteId(trustVote);
-    if (!voteId || trustLoading) return;
-    setTrustLoading(true);
-    try {
-      await unVote({ voteId });
-      setHasSubmittedTrustVote(false);
-      setTrustVote(null);
-      await refreshTrustScore();
-    } catch (error) {
-      console.log('Failed to remove trust vote:', error);
-      showToastMessage(toast, 'danger', t('postItem.trustUndoError'));
-    } finally {
-      setTrustLoading(false);
-    }
-  }, [getTrustVoteId, refreshTrustScore, toast, trustLoading, trustVote]);
-
-  const playDoubleTapHeartBurst = useCallback(() => {
-    setShowDoubleTapHeart(true);
-    doubleTapHeartScale.setValue(0);
-    Animated.sequence([
-      Animated.spring(doubleTapHeartScale, {
-        toValue: 1.2,
-        useNativeDriver: true,
-        tension: 100,
-        friction: 3,
-      }),
-      Animated.delay(400),
-      Animated.timing(doubleTapHeartScale, { toValue: 0, duration: 200, useNativeDriver: true }),
-    ]).start(() => setShowDoubleTapHeart(false));
-  }, [doubleTapHeartScale]);
-
-  const handleMediaDoubleTapLike = useCallback(() => {
-    if (isZooming) return;
-    if (!localLiked) {
-      setLocalLiked(true);
-      setLocalLikesCount(prev => prev + 1);
-      onToggleLike?.(item.id);
-      animateHeart();
-    }
-    playDoubleTapHeartBurst();
-  }, [isZooming, localLiked, onToggleLike, item.id, animateHeart, playDoubleTapHeartBurst]);
-
-  const doubleTapLikeGesture = useMemo(
-    () =>
-      Gesture.Tap()
-        .numberOfTaps(2)
-        .maxDuration(280)
-        .maxDistance(20)
-        .onEnd(() => { runOnJS(handleMediaDoubleTapLike)(); }),
-    [handleMediaDoubleTapLike],
-  );
-
-  const goalAmount = useMemo(() => {
-    const parsedGoal = Number(item?.raiseAmount);
-    return Number.isFinite(parsedGoal) && parsedGoal > 0 ? parsedGoal : 0;
-  }, [item?.raiseAmount]);
-
-  const currentRaised = useMemo(() => {
-    const parsedRaised = Number(totalDonation);
-    return Number.isFinite(parsedRaised) && parsedRaised > 0 ? parsedRaised : 0;
-  }, [totalDonation]);
-
-  const progressPercent = useMemo(
-    () => (goalAmount > 0 ? (currentRaised / goalAmount) * 100 : 0),
-    [goalAmount, currentRaised],
-  );
-
-  const progressBarColor = useMemo(
-    () => getProgressBarColor(progressPercent, item?.profile),
-    [progressPercent, item?.profile],
-  );
-
-  const isGoalAmountRaised = goalAmount > 0 && currentRaised >= goalAmount;
-  const isCampaignDaysCompleted = goalAmount > 0 && !!item?.end_time && daysLeft <= 0;
-  const isMissionDonationActive = hasMissionStarted(item?.start_time);
-  const missionStartInfo = useMemo(
-    () => getMissionScheduledStartInfo(
-      resolveMintTimestamp(item) || item?.createdAt || item?.created_at,
-      item?.start_time,
-    ),
-    [item?.createdAt, item?.created_at, item?.start_time, item?.mintedAt, item?.minted_at, item?.updatedAt, item?.updated_at],
-  );
-
-  const progressStatusLabel = isGoalAmountRaised
-    ? t('postItem.goalAmountRaised')
-    : isCampaignDaysCompleted
-      ? t('postItem.daysCompleted')
-      : '';
-
-  const onMomentumEnd = useCallback(e => {
+  const onMomentumEnd = (e) => {
     const x = e?.nativeEvent?.contentOffset?.x ?? 0;
     const index = Math.round(x / width);
     if (index !== currentIndex) setCurrentIndex(index);
-  }, [currentIndex]);
+  };
 
-  const handleOpenReel = useCallback(
-    mediaItem => {
-      const uniqueKey = Date.now().toString();
-      const allMediaUrls = Array.isArray(item?.media)
-        ? item.media.map(m => m?.url).filter(Boolean)
-        : [];
+  const renderMedia = ({ item: mediaItem, index }) => {
+    const isVideo = mediaItem.type === 'video' || isVideoUrl(mediaItem.url);
+    const isPaused = videoStates[index] ?? (index !== currentIndex);
 
-      const params = {
-        item: {
-          ...item,
-          image: mediaItem?.url,
-          images:
-            allMediaUrls.length > 0
-              ? allMediaUrls
-              : mediaItem?.url
-                ? [mediaItem.url]
-                : [],
-          isVideo: true,
-          type: 'reel',
-          mediaType: 'video',
-          format: 'reel',
-          userName: item?.userName || item?.username || t('postItem.unknownUser'),
-          userImage: item?.userImage || item?.avatar || null,
-          userId: item?.userId || item?.UserId || null,
-        },
-        key: uniqueKey,
-        returnTo: route?.name || returnTo,
-        returnParams: route?.params || {},
-        // Explicit nested return target (prevents "NAVIGATE ... not handled" warnings).
-        returnToTab: (() => {
-          const names = navigation.getState?.()?.routeNames || [];
-          if (names.includes('Profile')) return 'ProfileMain';
-          if (names.includes('Home')) return 'HomeMain';
-          return 'HomeMain';
-        })(),
-        returnToScreen: (() => {
-          const names = navigation.getState?.()?.routeNames || [];
-          if (names.includes('Profile')) return 'Profile';
-          if (names.includes('Home')) return 'Home';
-          return 'Home';
-        })(),
-      };
-
-      // Prefer navigating within the nearest navigator that actually owns `FlipsScreen`
-      // so back navigation returns to the current screen automatically.
-      let targetNavigation = navigation;
-      while (targetNavigation) {
-        const routeNames = targetNavigation.getState?.()?.routeNames || [];
-        if (routeNames.includes('FlipsScreen')) {
-          targetNavigation.navigate('FlipsScreen', params);
-          return;
-        }
-        targetNavigation = targetNavigation.getParent?.();
-      }
-
-      const parent = navigation.getParent?.();
-      if (parent?.navigate) {
-        parent.navigate('ProfileMain', { screen: 'FlipsScreen', params });
-        return;
-      }
-
-      navigation.navigate('ProfileMain', { screen: 'FlipsScreen', params });
-    },
-    [item, navigation, returnTo, route?.name, route?.params, t],
-  );
-
-  const handleFollowPress = useCallback(async () => {
-    if (!itemUserIdStr || !currentUserIdStr || itemUserIdStr === currentUserIdStr || followingBusy) return;
-    const shouldFollow = !item.follow;
-    const followHandler = executeFollowAction || onToggleFollow;
-    if (!followHandler) return;
-    const result = await followHandler(item.UserId, shouldFollow, item.userTokenAddress);
-    const success = typeof result === 'boolean' ? result : true;
-    if (!success || !shouldFollow) return;
-    if (isSupportAllowed({ supporterProfile, recipientProfile })) {
-      setModalVisible(true);
-    }
-  }, [
-    currentUserIdStr,
-    followingBusy,
-    item?.UserId,
-    item.follow,
-    item.userTokenAddress,
-    itemUserIdStr,
-    executeFollowAction, onToggleFollow, supporterProfile, recipientProfile,
-  ]);
-
-  const renderMedia = useCallback(
-    ({ item: mediaItem, index }) => {
-      const isVideo = mediaItem.type === 'video' || isVideoUrl(mediaItem.url);
-      const isPaused = videoStates[index] ?? false;
-      const isVideoReady = !!videoLoaded[index];
-      const shouldPlay = index === currentIndex && playbackEligible && !isZooming;
-
-      const slideH = getSlideHeight(index);
-      const preview = getPostSlidePreviewState({
-        mediaUri: mediaItem.url,
-        fallbackImage: mediaItem,
-        parsedPostMeta,
-        slideIndex: index,
-        rootItem: item,
-        isVideoSlide: isVideo,
-      });
-      const { overlayBundle, showOverlays: hasSlideOverlays } = preview;
-
-      return (
-        <View style={[styles.mediaContainer, { height: slideH }]}>
-          {isVideo ? (
-            <View style={{ width, height: slideH }}>
-              {!isVideoReady && mediaItem.thumbnail && (
-                <Image
-                  source={{ uri: mediaItem.thumbnail }}
-                  style={{ width, height: slideH, position: 'absolute' }}
-                  resizeMode="cover"
-                />
-              )}
-              <TapGestureHandler
-                numberOfTaps={1}
-                maxDist={12}
-                onHandlerStateChange={({ nativeEvent }) => {
-                  if (nativeEvent?.state === State.END) handleOpenReel(mediaItem);
-                }}
-              >
-                <View collapsable={false} style={{ width, height: slideH }}>
-                  <InstagramZoomableVideo
-                    uri={mediaItem.url}
-                    thumbnailUri={mediaItem.thumbnail}
-                    videoHeight={slideH}
-                    paused={!shouldPlay}
-                    muted={isMuted || muteVideoForSoundtrack}
-                    repeat
-                    onVideoRef={ref => { if (ref) videoRefsMap.current[index] = ref; }}
-                    onLoadStart={() => setVideoLoaded(prev => ({ ...prev, [index]: false }))}
-                    onLoad={() => setVideoLoaded(prev => ({ ...prev, [index]: true }))}
-                    onError={error => console.log('Video error:', error)}
-                    bufferConfig={{
-                      minBufferMs: 2000,
-                      maxBufferMs: 10000,
-                      bufferForPlaybackMs: 1000,
-                      bufferForPlaybackAfterRebufferMs: 2000,
-                    }}
-                    maxBitRate={1200000}
-                    onZoomChange={zoomed => {
-                      setIsZooming(zoomed);
-                      setScrollEnabled(!zoomed);
-                    }}
-                    simultaneousHandlers={listRef}
-                  />
-                  {hasSlideOverlays ? (
-                    <PostMediaTextOverlays
-                      textOverlays={overlayBundle.textOverlays}
-                      overlayImages={overlayBundle.overlayImages}
-                      musicSticker={overlayBundle.musicSticker}
-                      width={width}
-                      height={slideH}
-                      canvasWidth={overlayBundle.canvasWidth}
-                      canvasHeight={overlayBundle.canvasHeight}
-                    />
-                  ) : null}
-                  <View
-                    pointerEvents="none"
-                    style={[styles.videoOverlay, styles.videoOverlayTransparent]}
-                    collapsable={false}
-                  >
-                    {isPaused ? (
-                      <View style={styles.playButtonContainer}>
-                        <Icon name="play" size={32} color="#fff" />
-                      </View>
-                    ) : null}
-                  </View>
+    return (
+      <View style={styles.mediaContainer}>
+        {isVideo ? (
+          <>
+            <Video
+              source={{ uri: mediaItem.url }}
+              style={styles.postMedia}
+              resizeMode="cover"
+              repeat
+              paused={isPaused}
+              muted={false}
+              controls={false}
+              onError={() => { }}
+            />
+            <TouchableOpacity
+              style={[styles.videoOverlay, !isPaused && styles.videoOverlayTransparent]}
+              activeOpacity={0.7}
+              onPress={() => setVideoStates((prev) => ({ ...prev, [index]: !prev[index] }))}
+            >
+              {isPaused && (
+                <View style={styles.playButtonContainer}>
+                  <Icon name="play" size={34} color="#fff" />
                 </View>
-              </TapGestureHandler>
-              <TouchableOpacity
-                style={styles.speakerButton}
-                onPress={() => setIsMuted(prev => !prev)}>
-                <Feather name={isMuted ? 'volume-x' : 'volume-2'} size={20} color="#fff" />
-              </TouchableOpacity>
+              )}
+            </TouchableOpacity>
+
+            <View style={styles.videoIndicator}>
+              <Icon name="videocam" size={14} color="#fff" />
             </View>
-          ) : (
-            <View style={{ width, height: slideH }}>
-              <InstagramZoomableImage
-                uri={mediaItem.url}
-                height={slideH}
-                onZoomChange={zoomed => {
-                  setIsZooming(zoomed);
-                  setScrollEnabled(!zoomed);
-                }}
-              />
-              {hasSlideOverlays ? (
-                <PostMediaTextOverlays
-                  textOverlays={overlayBundle.textOverlays}
-                  overlayImages={overlayBundle.overlayImages}
-                  musicSticker={overlayBundle.musicSticker}
-                  width={width}
-                  height={slideH}
-                  canvasWidth={overlayBundle.canvasWidth}
-                  canvasHeight={overlayBundle.canvasHeight}
-                />
-              ) : null}
-            </View>
-          )}
-        </View>
-      );
-    },
-    [currentIndex, handleOpenReel, isVideoUrl, videoStates, isZooming, isMuted,
-      muteVideoForSoundtrack, playbackEligible, getSlideHeight, videoLoaded, width,
-      parsedPostMeta, postMusic, item],
-  );
-
-  const shouldPlayPostFeedMusic =
-    Boolean(postMusic) && playbackEligible && !isZooming;
-  const shouldPlayAudio = shouldPlayPostFeedMusic && !isMuted;
-
-  useEffect(() => {
-    shouldPlayAudioRef.current = shouldPlayAudio;
-  }, [shouldPlayAudio]);
-
-  useEffect(() => {
-    if (postMusic?.kind !== 'youtube') return;
-    if (!isMuted && postFeedYoutubeRef.current?.unMute) {
-      postFeedYoutubeRef.current?.unMute?.();
-    }
-  }, [isMuted, postMusic?.kind]);
-
-  useEffect(() => {
-    if (postMusic?.kind !== 'youtube') return;
-    if (shouldPlayAudio) return;
-    (async () => {
-      try { await postFeedYoutubeRef.current?.pauseVideo?.(); } catch (_) { }
-    })();
-  }, [shouldPlayAudio, postMusic?.kind]);
-
-  useEffect(() => {
-    if (!postMusic) return;
-    return () => {
-      try {
-        postFeedYoutubeRef.current?.pauseVideo?.();
-        postFeedMp3Ref.current?.pause?.();
-      } catch (_) { }
-    };
-  }, [postMusic?.kind, postMusic?.videoId, postMusic?.audioUrl, item.id]);
-
-  useEffect(() => {
-    if (postMusic?.kind !== 'youtube' || !screenFocused) return;
-    const trim = postMusic.trim;
-    const tick = setInterval(() => {
-      (async () => {
-        try {
-          if (!shouldPlayAudioRef.current) return;
-          const cur = await postFeedYoutubeRef.current?.getCurrentTime?.();
-          if (typeof cur !== 'number' || Number.isNaN(cur)) return;
-          const dur = postFeedMusicDurRef.current || 180;
-          const { start: playStart, end: playEnd, hasOverlap } = getMusicTrimPlaybackWindowFromTrim(trim, dur);
-          const margin = Math.min(0.35, Math.max(0.08, (playEnd - playStart) * 0.02));
-          if (hasOverlap && playEnd > playStart && cur >= playEnd - margin) {
-            await postFeedYoutubeRef.current?.seekTo?.(playStart, true);
-          }
-        } catch (_) { }
-      })();
-    }, 320);
-    return () => clearInterval(tick);
-  }, [
-    postMusic?.kind, postMusic?.videoId, postMusic?.trim?.start,
-    postMusic?.trim?.end, screenFocused, item?.id,
-  ]);
+          </>
+        ) : (
+          <ZoomableImage
+            uri={mediaItem.url}
+            onZoomChange={(zoomed) => setScrollEnabled(!zoomed)}
+          />
+        )}
+      </View>
+    );
+  };
 
   return (
     <View style={styles.wrapper}>
-      <View style={[
-        styles.postCard,
-        cardStyle,
-        {
-          shadowColor: text,
-          borderColor: border,
-          borderWidth: isDarkMode ? StyleSheet.hairlineWidth : 0,
-        },
-      ]}>
-        {/* Header */}
+      {/* Enhanced Post Card */}
+      <View style={styles.postCard}>
+        {/* Enhanced Header */}
         <View style={styles.postHeader}>
-          <TouchableOpacity
-            onPress={() => handleUserProfile(item.UserId)}
-            style={styles.avatarContainer}>
-            <HexAvatar
-              uri={item.avatar}
-              size={42}
-              borderWidth={2}
-              borderColor={postProfileTextColor}
+          <TouchableOpacity onPress={() => handleUserProfile(item.UserId)} style={styles.avatarContainer}>
+            <Image
+              source={{ uri: item.avatar || 'https://cdn-icons-png.flaticon.com/512/149/149071.png' }}
+              style={styles.avatar}
             />
           </TouchableOpacity>
 
-          <View style={styles.userInfo}>
-            <TouchableOpacity
-              onPress={() => handleUserProfile(item.UserId)}
-              style={styles.userRow}>
-              <Text
-                style={[
-                  styles.username,
-                  { color: postProfileTextColor },
-                ]}>
-                {item.username}
-              </Text>
-              {isKycVerified && (
-                <View style={styles.dragonflyIcon}>
-                  <DragonflyIcon width={18} height={18} />
-                </View>
-              )}
-            </TouchableOpacity>
-            {supportsLocation && locationValue.trim() ? (
-              <TouchableOpacity
-                onPress={handleOpenLocationEditor}
-                disabled={!isPostOwner}
-                activeOpacity={isPostOwner ? 0.7 : 1}
-                style={styles.locationRow}>
-                <Icon name="location-sharp" size={13} color="#E53935" style={styles.locationIcon} />
-                <Text
-                  style={[
-                    styles.locationText,
-                    { color: mutedText },
-                  ]}
-                  numberOfLines={1}>
-                  {locationDisplayText}
-                </Text>
-              </TouchableOpacity>
-            ) : null}
+          <TouchableOpacity onPress={() => handleUserProfile(item.UserId)} style={styles.userInfo}>
+            <View style={styles.userRow}>
+              <Text style={styles.username}>{item.username}</Text>
+              <DragonflyIcon width={22} height={22} style={styles.dragonflyIcon} />
+            </View>
+          </TouchableOpacity>
+
+          <View style={styles.priceSection}>
+            <Icon name="triangle" size={20} color="#5a2d82" style={styles.triangleIcon} />
+            <Text style={styles.priceText}>$556</Text>
           </View>
 
-          <View style={styles.priceSection} />
-
           <TouchableOpacity
-            onPress={() => onOptions?.(item.id)}
-            style={[styles.moreButton, { backgroundColor: isDarkMode ? `${accent}25` : '#F9FAFB' }]}>
-            <Feather name="more-vertical" size={20} color={icon} />
+            style={styles.moreButton}
+            onPress={() => onOptions?.(item.id, item.UserId)}
+          >
+            <Icon name="ellipsis-horizontal" size={24} color="#374151" />
           </TouchableOpacity>
         </View>
 
-        {/* Media */}
-        <View style={[styles.mediaWrapper, { height: currentMediaHeight }]}>
-          {postMusic?.kind === 'mp3' ? (
-            <Video
-              ref={postFeedMp3Ref}
-              key={`feed_mp3_${item.id}_${postMusic.audioUrl}_${currentIndex}`}
-              source={{ uri: postMusic.audioUrl }}
-              style={styles.hiddenPostAudio}
-              paused={!shouldPlayAudio}
-              muted={!shouldPlayAudio}
-              repeat={false}
-              volume={shouldPlayAudio ? 1 : 0}
-              resizeMode="contain"
-              controls={false}
-              playWhenInactive={false}
-              ignoreSilentSwitch="ignore"
-              onLoad={e => {
-                const d = e?.duration > 0 ? e.duration : 180;
-                postFeedMusicDurRef.current = d;
-                const { start, hasOverlap } = getMusicTrimPlaybackWindowFromTrim(postMusic.trim, d);
-                const seekTo = hasOverlap ? start : 0;
-                setTimeout(() => postFeedMp3Ref.current?.seek?.(seekTo), 80);
-              }}
-              onProgress={({ currentTime }) => {
-                const dur = postFeedMusicDurRef.current || 180;
-                const { start: ps, end: pe, hasOverlap } = getMusicTrimPlaybackWindowFromTrim(
-                  postMusic.trim, dur,
-                );
-                const margin = Math.min(0.35, Math.max(0.08, (pe - ps) * 0.02));
-                if (hasOverlap && pe > ps && currentTime >= pe - margin) {
-                  postFeedMp3Ref.current?.seek?.(ps);
-                }
-              }}
-            />
-          ) : null}
-
-          {postMusic?.kind === 'youtube' && !isMuted ? (
-            <View style={styles.hiddenPostYoutube} pointerEvents="none" collapsable={false}>
-              <YoutubePlayer
-                ref={postFeedYoutubeRef}
-                key={`feed_yt_${item.id}_${postMusic.videoId}`}
-                height={200}
-                width={200}
-                videoId={postMusic.videoId}
-                play={shouldPlayAudio}
-                mute={false}
-                volume={shouldPlayAudio ? 100 : 0}
-                forceAndroidAutoplay
-                initialPlayerParams={{ controls: false, modestbranding: true, rel: false }}
-                onReady={async () => {
-                  try {
-                    if (isMuted) await postFeedYoutubeRef.current?.mute?.();
-                    const d = await postFeedYoutubeRef.current?.getDuration?.();
-                    if (typeof d === 'number' && d > 0) {
-                      postFeedMusicDurRef.current = d;
-                    } else if (
-                      postMusic.durationSec != null &&
-                      Number.isFinite(Number(postMusic.durationSec))
-                    ) {
-                      postFeedMusicDurRef.current = Number(postMusic.durationSec);
-                    }
-                    const dur = postFeedMusicDurRef.current || 180;
-                    const { start: ps, hasOverlap } = getMusicTrimPlaybackWindowFromTrim(postMusic.trim, dur);
-                    await postFeedYoutubeRef.current?.seekTo?.(hasOverlap ? ps : 0, true);
-                    if (shouldPlayAudioRef.current) {
-                      await postFeedYoutubeRef.current?.unMute?.();
-                      await postFeedYoutubeRef.current?.playVideo?.();
-                    }
-                  } catch (_) { }
-                }}
-                onChangeState={state => { }}
-              />
-            </View>
-          ) : null}
-
-          {taggedUsers.length > 0 && (
-            <TouchableOpacity
-              style={styles.tagButton}
-              onPress={() => setShowTaggedPeopleModal(true)}
-              activeOpacity={0.8}>
-              <Feather name="tag" size={18} color="#fff" />
-            </TouchableOpacity>
-          )}
-
-          <GestureDetector gesture={doubleTapLikeGesture}>
-            <FlatList
-              ref={listRef}
-              data={safeMedia}
-              keyExtractor={(_, i) => `media-${i}`}
-              horizontal
-              pagingEnabled
-              showsHorizontalScrollIndicator={false}
-              scrollEnabled={scrollEnabled && safeMedia.length > 1}
-              onMomentumScrollEnd={onMomentumEnd}
-              decelerationRate="fast"
-              snapToInterval={width}
-              snapToAlignment="start"
-              disableIntervalMomentum={true}
-              directionalLockEnabled
-              nestedScrollEnabled
-              renderItem={renderMedia}
-              removeClippedSubviews={false}
-              maxToRenderPerBatch={2}
-              windowSize={3}
-              initialNumToRender={1}
-              extraData={`${currentIndex}-${currentMediaHeight}`}
-              style={{ height: currentMediaHeight }}
-              getItemLayout={(_, index) => ({
-                length: width,
-                offset: width * index,
-                index,
-              })}
-            />
-          </GestureDetector>
-
-          {showDoubleTapHeart && (
-            <Animated.View
-              pointerEvents="none"
-              style={[
-                styles.doubleTapHeartBurst,
-                { transform: [{ scale: doubleTapHeartScale }] },
-              ]}>
-              <Icon name="heart" size={100} color="#ff3040" />
-            </Animated.View>
-          )}
+        {/* Enhanced Media Wrapper */}
+        <View style={styles.mediaWrapper}>
+          <FlatList
+            ref={listRef}
+            data={item.media || []}
+            keyExtractor={(_, i) => `media-${i}`}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            scrollEnabled={scrollEnabled}
+            onMomentumScrollEnd={onMomentumEnd}
+            decelerationRate="fast"
+            snapToInterval={width}
+            snapToAlignment="start"
+            disableIntervalMomentum={true}
+            getItemLayout={(_, index) => ({ length: width, offset: width * index, index })}
+            renderItem={renderMedia}
+          />
 
           {item.media && item.media.length > 1 && (
             <>
               <View style={styles.mediaCounter}>
-                <Text style={styles.mediaCounterText}>
-                  {currentIndex + 1}/{item.media.length}
-                </Text>
+                <Text style={styles.mediaCounterText}>{currentIndex + 1}/{item.media.length}</Text>
               </View>
+
               <View style={styles.dotsContainer}>
                 {item.media.map((_, idx) => (
                   <View
-                    key={idx}
+                    key={`dot-${idx}`}
                     style={[
                       styles.dot,
-                      { backgroundColor: idx === currentIndex ? text : 'rgba(255,255,255,0.5)' },
+                      { backgroundColor: idx === currentIndex ? '#fff' : 'rgba(255,255,255,0.4)' },
                     ]}
                   />
                 ))}
               </View>
             </>
           )}
-
-          {postMusic ? (
-            <TouchableOpacity
-              style={styles.speakerButton}
-              onPress={() => setIsMuted(prev => !prev)}
-              accessibilityLabel={
-                isMuted
-                  ? t('postItem.unmuteMusic')
-                  : t('postItem.muteMusic')
-              }>
-              <Feather name={isMuted ? 'volume-x' : 'volume-2'} size={20} color="#fff" />
-            </TouchableOpacity>
-          ) : null}
         </View>
 
-        {/* Actions */}
+        {/* Enhanced Actions Row */}
         <View style={styles.actionsSection}>
           <View style={styles.leftActions}>
-            <View style={[styles.actionButton, styles.likeActionGroup]}>
-              <TouchableOpacity
-                onPress={handleLike}
-                style={styles.likeIconButton}
-                accessibilityLabel={localLiked ? t('postItem.unlikePost') : t('postItem.likePost')}
-                accessibilityRole="button">
-                <Animated.View style={{ transform: [{ scale: heartScale }] }}>
-                  <Thumbup
-                    width={24}
-                    height={24}
-                    style={[
-                      styles.actionSvgIcon,
-                      !localLiked && styles.actionSvgIconInactive,
-                    ]}
-                  />
-                </Animated.View>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={handleViewLikes}
-                disabled={localLikesCount <= 0 || likesLoading}
-                style={styles.likeCountButton}
-                accessibilityLabel={t('postItem.viewLikes')}
-                accessibilityRole="button"
-                accessibilityState={{ disabled: localLikesCount <= 0 }}>
-                {likesLoading ? (
-                  <ActivityIndicator size="small" color={mutedText} style={styles.likeCountLoader} />
-                ) : (
-                  <Text
-                    style={[
-                      styles.actionCount,
-                      { color: localLikesCount > 0 ? text : mutedText },
-                    ]}>
-                    {localLikesCount}
-                  </Text>
-                )}
-              </TouchableOpacity>
-            </View>
-
-            <TouchableOpacity
-              onPress={() => onComment?.(item.id, item.UserId)}
-              style={styles.actionButton}>
-              <Comments width={22} height={22} style={styles.actionSvgIcon} />
-              <Text style={[styles.actionCount, { color: mutedText }]}>{localCommentsCount || 0}</Text>
-            </TouchableOpacity>
-
-            {item.visibleTo !== "PRIVATE_CIRCLE" &&
-              <TouchableOpacity
-                onPress={() => {
-                  setSelectedPostId(item);
-                  requestAnimationFrame(() => shareRef.current?.open?.());
-                }}
-                style={styles.actionButton}>
-                <ShareIcom width={22} height={22} style={styles.actionSvgIcon} />
-                <Text style={[styles.actionCount, { color: mutedText }]}>{t('flips.shareLabel')}</Text>
-              </TouchableOpacity>
-            }
-
-            {showTrustControls && (
-              <>
-                {!hasSubmittedTrustVote && !trustVote && (
-                  <TouchableOpacity
-                    onPress={handleTrustIconPress}
-                    disabled={trustVoteStatusLoading}
-                    style={[
-                      styles.actionButton,
-                      trustVoteStatusLoading && styles.trustActionDisabled,
-                    ]}
-                    activeOpacity={trustVoteStatusLoading ? 1 : 0.85}
-                    accessibilityLabel="Open trust vote"
-                    accessibilityState={{ disabled: trustVoteStatusLoading }}>
-                    <View style={styles.trustActionIcon}>
-                      <Icon name="shield-checkmark" size={18} color="#FFFFFF" />
-                    </View>
-                    <Text style={[styles.actionCount, { color: mutedText }]}>
-                      {t('postItem.trust')}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-
-                {trustScore && (
-                  <>
-                    <View style={[styles.trustHeaderDivider, { backgroundColor: border }]} />
-                    <TouchableOpacity
-                      onPress={handleTrustScorePress}
-                      style={styles.trustScoreActionButton}
-                      activeOpacity={0.85}>
-                      <View style={styles.trustScoreActionTextWrap}>
-                        <View style={styles.trustScoreActionTitleRow}>
-                          <Text
-                            style={[
-                              styles.trustScoreActionTitle,
-                              { color: mutedText },
-                              (hasSubmittedTrustVote || trustVote) && styles.trustScoreActionTitleVoted,
-                            ]}
-                            numberOfLines={1}
-                            ellipsizeMode="clip">
-                            {t('postItem.trustScore')}
-                          </Text>
-                          <Icon name="information-circle-outline" size={10} color={mutedText} />
-                          <Text
-                            style={[
-                              styles.trustScoreValue,
-                              (hasSubmittedTrustVote || trustVote) && styles.trustScoreValueVoted,
-                            ]}
-                            numberOfLines={1}>
-                            {Math.round(normalizedTrustScore.overall)}%
-                          </Text>
-                        </View>
-                        <Text
-                          style={[
-                            styles.trustScoreActionSub,
-                            { color: mutedText },
-                            (hasSubmittedTrustVote || trustVote) && styles.trustScoreActionSubVoted,
-                          ]}
-                          numberOfLines={1}
-                          ellipsizeMode="tail">
-                          {t('postItem.communityTrustScore')}
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-                  </>
-                )}
-              </>
-            )}
-          </View>
-
-          {itemUserIdStr && currentUserIdStr && itemUserIdStr !== currentUserIdStr && (
-            <TouchableOpacity
-              onPress={handleFollowPress}
-              disabled={followingBusy}
-              style={[
-                styles.followButton,
-                item.follow && [styles.followingButton, { backgroundColor: card, borderColor: border }],
-                !item.follow && { backgroundColor: postButtonColor },
-              ]}>
-              {followingBusy ? (
-                <ActivityIndicator size="small" color={item.follow ? postProfileTextColor : '#FFFFFF'} />
-              ) : (
-                <Text style={[
-                  styles.followButtonText,
-                  item.follow && [styles.followingButtonText, { color: postProfileTextColor }],
-                ]}>
-                  {item.follow ? t('postItem.followed') : t('postItem.follow')}
-                </Text>
-              )}
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {!!mintedDateTime && (
-          <View style={[styles.mintedSection, cardStyle]}>
-            <Icon name="calendar-outline" size={14} color={mutedText} style={styles.mintedIcon} />
-            <Text style={[styles.mintedText, { color: mutedText }]}>
-              {t(mintLabelKey, { dateTime: mintedDateTime })}
-            </Text>
-          </View>
-        )}
-
-        {showTrustControls && trustPanelVisible && !hasSubmittedTrustVote && (
-          <View style={[styles.trustVotePanel, cardStyle, { borderColor: border }]}>
-            <View style={styles.trustIntro}>
-              <View style={styles.trustIntroIcon}>
-                <Icon name="shield-checkmark" size={20} color="#FFFFFF" />
-              </View>
-              <View style={styles.trustIntroTextWrap}>
-                <Text style={[styles.trustTitle, textStyle]}>{t('postItem.communityTrustScore')}</Text>
-                <Text style={[styles.trustBodyText, { color: mutedText }]}>{t('postItem.trustBodyText')}</Text>
-                <Text style={[styles.trustMutedText, { color: mutedText }]}>{t('postItem.trustMutedText')}</Text>
-              </View>
-            </View>
-            <View style={styles.trustOptionsRow}>
-              {TRUST_OPTIONS.map(option => {
-                const selected = trustVote?.type === option.type;
-                const optionDisabled = hasSubmittedTrustVote || trustLoading || trustVoteStatusLoading;
-                return (
-                  <TouchableOpacity
-                    key={option.type}
-                    style={[
-                      styles.trustOptionButton,
-                      { borderColor: border, backgroundColor: isDarkMode ? `${accent}15` : '#F9FAFB' },
-                      selected && styles.trustOptionSelected,
-                      optionDisabled && styles.trustOptionDisabled,
-                    ]}
-                    onPress={() => handleTrustVote(option.type)}
-                    disabled={optionDisabled}
-                    activeOpacity={optionDisabled ? 1 : 0.85}>
-                    <Feather name={option.icon} size={17} color={option.color} />
-                    <Text style={[styles.trustOptionLabel, textStyle]}>{t(option.labelKey)}</Text>
-                    <Text style={[styles.trustOptionDetail, { color: mutedText }]} numberOfLines={1}>{t(option.detailKey)}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-            {trustLoading ? <ActivityIndicator size="small" color="#059669" /> : null}
-          </View>
-        )}
-
-        {showTrustControls && trustScoreVisible && (
-          <View style={[styles.trustScorePanel, cardStyle, { borderColor: border }]}>
-            {trustScoreLoading ? (
-              <ActivityIndicator size="small" color="#059669" />
-            ) : (
-              <>
-                <View style={[styles.trustProgressTrack, { backgroundColor: border }]}>
-                  <View
-                    style={[
-                      styles.trustProgressFill,
-                      {
-                        width: `${normalizedTrustScore.overall > 0
-                          ? Math.max(2, normalizedTrustScore.overall)
-                          : 0
-                          }%`,
-                      },
-                    ]}
-                  />
-                </View>
-                <Text style={styles.trustProgressValue}>{Math.round(normalizedTrustScore.overall)}%</Text>
-                <View style={styles.trustMetricRow}>
-                  <View style={styles.trustMetricItem}>
-                    <View style={[styles.trustMetricIconBadge, { backgroundColor: '#059669' }]}>
-                      <Icon name="checkmark" size={12} color="#fff" />
-                    </View>
-                    <Text style={[styles.trustMetricLabel, { color: mutedText }]}>{t('postItem.trustApprove')}</Text>
-                    <Text style={[styles.trustMetricPercent, { color: '#059669' }]}>
-                      {Math.round(normalizedTrustScore.agree)}%
-                    </Text>
-                    <Text style={[styles.trustMetricVotes, { color: mutedText }]}>
-                      {t('postItem.trustVotes', { count: normalizedTrustScore.agreeVotes })}
-                    </Text>
-                    <Text style={[styles.trustMetricSub, { color: mutedText }]}>
-                      {t('postItem.weightedByReputation')}
-                    </Text>
-                  </View>
-                  <View style={[styles.trustMetricDivider, { backgroundColor: border }]} />
-                  <View style={styles.trustMetricItem}>
-                    <View style={[styles.trustMetricIconBadge, { backgroundColor: '#F59E0B' }]}>
-                      <Icon name="help" size={12} color="#fff" />
-                    </View>
-                    <Text style={[styles.trustMetricLabel, { color: mutedText }]}>{t('postItem.trustUnsure')}</Text>
-                    <Text style={[styles.trustMetricPercent, { color: '#F59E0B' }]}>
-                      {Math.round(normalizedTrustScore.notSure)}%
-                    </Text>
-                    <Text style={[styles.trustMetricVotes, { color: mutedText }]}>
-                      {t('postItem.trustVotes', { count: normalizedTrustScore.notSureVotes })}
-                    </Text>
-                    <Text style={[styles.trustMetricSub, { color: mutedText }]}>
-                      {t('postItem.weightedByReputation')}
-                    </Text>
-                  </View>
-                  <View style={[styles.trustMetricDivider, { backgroundColor: border }]} />
-                  <View style={styles.trustMetricItem}>
-                    <View style={[styles.trustMetricIconBadge, { backgroundColor: '#DC2626' }]}>
-                      <Icon name="close" size={12} color="#fff" />
-                    </View>
-                    <Text style={[styles.trustMetricLabel, { color: mutedText }]}>{t('postItem.trustDisagree')}</Text>
-                    <Text style={[styles.trustMetricPercent, { color: '#DC2626' }]}>
-                      {Math.round(normalizedTrustScore.disagree)}%
-                    </Text>
-                    <Text style={[styles.trustMetricVotes, { color: mutedText }]}>
-                      {t('postItem.trustVotes', { count: normalizedTrustScore.disagreeVotes })}
-                    </Text>
-                    <Text style={[styles.trustMetricSub, { color: mutedText }]}>
-                      {t('postItem.weightedByReputation')}
-                    </Text>
-                  </View>
-                </View>
-                {getTrustVoteId(trustVote) ? (
-                  <TouchableOpacity
-                    style={[styles.trustUndoButton, { backgroundColor: isDarkMode ? `${accent}25` : '#F3F4F6' }]}
-                    onPress={handleTrustUndo}
-                    disabled={trustLoading}
-                    activeOpacity={0.85}>
-                    <Text style={[styles.trustUndoText, textStyle]}>{t('postItem.trustUndoVote')}</Text>
-                  </TouchableOpacity>
-                ) : null}
-              </>
-            )}
-          </View>
-        )}
-
-        {/* Buyers / followers row */}
-        {(() => {
-          const itemUserId = item?.UserId ? String(item.UserId) : null;
-          const currentUserId = userId ? String(userId) : null;
-          return itemUserId && itemUserId !== currentUserId;
-        })() && (
-            <>
-              {displayBuyerList.length > 0 && (
-                <TouchableOpacity
-                  style={styles.buyersSection}
-                  activeOpacity={0.8}
-                  onPress={() => setShowBuyersModal(true)}>
-                  <View style={styles.avatarsContainer}>
-                    {displayBuyerList.slice(0, 3).map((buyer, idx) => (
-                      <View
-                        key={idx}
-                        style={[
-                          styles.buyerAvatarWrapper,
-                          { marginLeft: idx > 0 ? -10 : 0, zIndex: 3 - idx, elevation: 3 - idx },
-                        ]}>
-                        <HexAvatar
-                          uri={buyer.avatar}
-                          size={28}
-                          borderWidth={1.5}
-                          borderColor={postProfileTextColor}
-                        />
-                      </View>
-                    ))}
-                  </View>
-                  <Text style={[styles.buyersText, { color: mutedText }]} numberOfLines={1}>
-                    {t('postItem.followedBy')}{' '}
-                    <Text
-                      style={[
-                        styles.buyerName,
-                        { color: postProfileTextColor },
-                      ]}>
-                      {displayBuyerList[0]?.username || '—'}
-                    </Text>
-                    {displayBuyerList.length > 1 && (
-                      <Text style={{ color: postProfileTextColor }}>
-                        {' '}{t('postItem.andOthers', { count: formatNumber(displayBuyerList.length - 1) })}
-                      </Text>
-                    )}
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </>
-          )}
-
-        {/* Caption + hashtags (Instagram-style) */}
-        <View style={styles.captionSection}>
-          {(!!captionValue || postHashtags.length > 0) && (
-            <>
-              {expanded || !hasExpandableCaption ? (
-                <Text style={styles.captionRow}>
-                  <Text
-                    onPress={() => handleUserProfile(item.UserId)}
-                    style={[
-                      styles.captionUsername,
-                      { color: postProfileTextColor },
-                    ]}>
-                    {usernameText}{' '}
-                  </Text>
-                  {!!captionValue ? (
-                    <Text style={[styles.captionText, { color: mutedText }]}>
-                      {parseText(captionValue, captionTextStyles)}
-                    </Text>
-                  ) : null}
-                </Text>
-              ) : (
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  onPress={() => setExpanded(true)}
-                  disabled={!hasExpandableCaption}>
-                  <Text
-                    style={styles.captionRow}
-                    numberOfLines={3}
-                    ellipsizeMode="tail"
-                  >
-                    <Text
-                      onPress={() => handleUserProfile(item.UserId)}
-                      style={[
-                        styles.captionUsername,
-                        { color: postProfileTextColor },
-                      ]}>
-                      {usernameText}{' '}
-                    </Text>
-                    <Text style={[styles.captionText, { color: mutedText }]}>
-                      {parseText(collapsedCaption, captionTextStyles)}
-                    </Text>
-                    {hasExpandableCaption ? (
-                      <Text style={[styles.captionMoreText, { color: mutedText }]}>{t('postItem.seeMore')}</Text>
-                    ) : null}
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </>
-          )}
-
-          {postHashtags.length > 0 ? (
-            <Text style={styles.hashtagRow}>
-              {postHashtags.map((tag, index) => (
-                <Text key={`${tag}_${index}`} style={styles.hashtagText}>
-                  #{tag}
-                  {index < postHashtags.length - 1 ? '  ' : ''}
-                </Text>
-              ))}
-            </Text>
-          ) : null}
-
-          {hasExpandableCaption && expanded && (
-            <Text style={[styles.captionToggleText, { color: mutedText }]} onPress={() => setExpanded(false)}>
-              {t('postItem.seeLess')}
-            </Text>
-          )}
-
-          {item.link ? (
-            <TouchableOpacity activeOpacity={0.8} onPress={() => handleOpenExternalLink(item.link)}>
-              <Text style={[styles.linkText, { color: accent }]}>
-                {t('postItem.linkPrefix')} - {item.link}
-              </Text>
-            </TouchableOpacity>
-          ) : null}
-        </View>
-
-        {/* Donation / progress section */}
-        {goalAmount > 0 && (
-          <View style={styles.progressSection}>
-            {progressStatusLabel ? (
-              <View style={styles.progressStatusBadge}>
-                <Text style={styles.progressStatusBadgeText}>{progressStatusLabel}</Text>
-              </View>
-            ) : null}
-
-            <View style={styles.progressBarWrapper}>
-              <View style={[
-                styles.progressBarBackground,
-                { backgroundColor: border },
-                missionStartInfo ? styles.progressBarBackgroundWithStartNote : null,
-              ]}>
-                <View
-                  style={[
-                    styles.progressBarFill,
-                    {
-                      width: `${getMissionProgressBarWidth(progressPercent)}%`,
-                      backgroundColor: progressBarColor,
-                    },
-                  ]}
+            <TouchableOpacity style={styles.actionButton} onPress={handleLike}>
+              <Animated.View style={{ transform: [{ scale: heartScale }] }}>
+                <Icon
+                  name={liked ? 'heart' : 'heart-outline'}
+                  size={26}
+                  color={liked ? '#EF4444' : '#374151'}
                 />
-              </View>
+              </Animated.View>
+              <Text style={styles.actionCount}>{likesCount || 0}</Text>
+            </TouchableOpacity>
 
-              <View style={styles.progressStatsContainer}>
-                <View style={styles.statAtStart}>
-                  <Text style={[styles.statValueSmall, { color: mutedText }]}>
-                    {isLoadingDonation
-                      ? '...'
-                      : t('postItem.funded', {
-                        percent: formatMissionProgressPercent(progressPercent),
-                      })}
-                  </Text>
-                </View>
-                <View style={styles.statAtCenter}>
-                  <Text style={[styles.statValueSmall, { color: mutedText }]}>
-                    {isLoadingDonation
-                      ? t('postItem.loading')
-                      : t('postItem.raised', {
-                        current: `${currencyPrefix}${formatNumber(currentRaised)}`,
-                        goal: `${currencyPrefix}${formatNumber(goalAmount)}`,
-                      })}
-                  </Text>
-                </View>
-                <View style={styles.statAtEnd}>
-                  <Text style={[styles.statValueSmall, { color: mutedText }]}>
-                    {t('postItem.daysLeft', { count: daysLeft || 0 })}
-                  </Text>
-                </View>
-              </View>
+            <TouchableOpacity style={styles.actionButton} onPress={() => onComment?.()}>
+              <Icon name="chatbubble-outline" size={24} color="#374151" />
+              <Text style={styles.actionCount}>{commentsCount || 0}</Text>
+            </TouchableOpacity>
 
-              {missionStartInfo ? (
-                <Text style={[styles.missionStartsInText, { color: text }]}>
-                  {t('postItem.missionStartsIn', { count: missionStartInfo.daysUntilStart })}
-                </Text>
-              ) : null}
-
-              {!hideDonationButton &&
-                !isGoalAmountRaised &&
-                itemUserIdStr &&
-                currentUserIdStr &&
-                itemUserIdStr !== currentUserIdStr &&
-                isMissionDonationActive &&
-                daysLeft > 0 &&
-                item?.end_time && (
-                  <TouchableOpacity
-                    onPress={() => setDonation(true)}
-                    style={[{
-                      backgroundColor: postButtonColor,
-                      width: '25%',
-                      left: '74%',
-                      marginBottom: 5,
-                      marginTop: -10,
-                      paddingVertical: 8,
-                      borderRadius: 8,
-                      alignItems: 'center',
-                    }]}>
-                    <Text style={styles.followButtonText}>
-                      {t('postItem.donate')}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-            </View>
+            <TouchableOpacity style={styles.actionButton} onPress={() => shareRef.current?.open?.()}>
+              <Feather name="share" size={22} color="#374151" />
+              <Text style={styles.actionCount}>{item.sharesCount || 0}</Text>
+            </TouchableOpacity>
           </View>
-        )}
+
+          <TouchableOpacity
+            style={[
+              styles.followButton,
+              item.follow && styles.followingButton
+            ]}
+            disabled={followingBusy}
+            onPress={() => {
+              if (!isBusinessProfile && item.UserId !== userId) {
+                if (item.profile === 'company') {
+                  executeFollowAction(item.UserId, !item.follow);
+                } else {
+                  onToggleFollow?.(item.UserId, !item.follow, item.userTokenAddress);
+                }
+              }
+            }}
+          >
+            {followingBusy ? (
+              <ActivityIndicator size="small" color={item.follow ? '#5a2d82' : '#fff'} />
+            ) : (
+              <Text style={[
+                styles.followButtonText,
+                item.follow && styles.followingButtonText
+              ]}>
+                {
+                  isBusinessProfile ? "Support" :
+                    item.UserId == userId ? 'Support' : item.follow ? 'Vallowing' : 'Vallow'
+                }
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {/* Enhanced Buyers Section */}
+        <View style={styles.buyersSection}>
+          {
+            item.UserId != userId &&
+            <>
+              <View style={styles.avatarsContainer}>
+                {buyerList.slice(0, 3).map((buyer, idx) => (
+                  <View
+                    key={buyer.id ?? `buyer-${idx}`}
+                    style={[styles.buyerAvatarWrapper, { marginLeft: idx === 0 ? 0 : -8, zIndex: 100 + idx }]}
+                  >
+                    <Image
+                      source={{ uri: buyer.avatar }}
+                      style={styles.buyerAvatar}
+                      resizeMode="cover"
+                    />
+                  </View>
+                ))}
+              </View>
+
+              {buyerList.length > 0 &&
+                <Text style={styles.buyersText} numberOfLines={1} ellipsizeMode="tail">
+                  Vallowed by <Text style={styles.buyerName}>{buyerList[0]?.username || '—'}</Text>
+                  {buyerList.length > 1 && (
+                    <Text> and <Text style={styles.buyerName}>{formatNumber(buyerList.length - 1)} others</Text></Text>
+                  )}
+                </Text>
+              }
+            </>
+          }
+        </View>
+
+        {/* Enhanced Caption Section */}
+        <View style={styles.captionSection}>
+          <View style={styles.userRow}>
+            <Text style={styles.captionUsername}>{item.username} </Text>
+            <DragonflyIcon width={22} height={22} style={styles.dragonflyIcon} />
+          </View>
+          <Text style={styles.captionText}>{item.caption}</Text>
+        </View>
       </View>
 
-      <MissionSupportScreen
-        visible={donation}
-        onClose={() => setDonation(false)}
-        item={item}
-        onDonationSuccess={handleDonationSuccess}
-      />
-      <ShareModal ref={shareRef} post={selectedPostId || item} postId={item?.id} />
-      <BuyersListModal
-        visible={showBuyersModal}
-        onClose={() => setShowBuyersModal(false)}
-        buyers={displayBuyerList}
-        profileType={modalProfileType}
-        onUserPress={id => { setShowBuyersModal(false); handleUserProfile(id); }}
-      />
-      <BuyersListModal
-        visible={showTaggedPeopleModal}
-        onClose={() => setShowTaggedPeopleModal(false)}
-        users={taggedUsers}
-        title={t('postItem.taggedPeople')}
-        enableSearch={false}
-        showChevron={false}
-        emptyTitle={t('postItem.noTaggedPeople')}
-        emptyText={t('postItem.noTaggedPeopleText')}
-        onUserPress={(id, item) => {
-          setShowTaggedPeopleModal(false);
-          const resolvedId =
-            item?.id ||
-            item?.userId ||
-            item?._id ||
-            id;
-          handleUserProfile(resolvedId);
-        }}
-      />
-      <BuyersListModal
-        visible={showLikesModal}
-        onClose={() => setShowLikesModal(false)}
-        users={likesUsers}
-        title={t('postItem.likedBy')}
-        searchPlaceholder={t('postItem.searchLikes')}
-        emptyTitle={t('postItem.noLikesYet')}
-        emptyText={t('postItem.noLikesYetText')}
-        onUserPress={(id, likeItem) => {
-          setShowLikesModal(false);
-          const resolvedId =
-            likeItem?.id ||
-            likeItem?.userId ||
-            likeItem?._id ||
-            id;
-          handleUserProfile(resolvedId);
-        }}
-      />
-      <SupportCreatorModal
-        visible={modalVisible}
-        creatorName={item?.username || t('postItem.defaultCreatorName')}
-        onClose={() => setModalVisible(false)}
-        onSupport={handleOpenSupportDisclaimer}
-      />
-      <SupportCreatorModal
-        visible={supportDisclaimerVisible}
-        creatorName={item?.username || t('postItem.defaultCreatorName')}
-        variant="disclaimer"
-        onClose={() => setSupportDisclaimerVisible(false)}
-        onSupport={handleSupportNow}
-        onTipSupport={handleSendTip}
-        canSupport={canSupport}
-      />
-      <TipSupportModal
-        visible={tipPurchaseVisible}
-        creatorName={item?.username || t('postItem.defaultCreatorName')}
-        vendorId={item?.UserId ?? item?.userId}
-        onClose={() => setTipPurchaseVisible(false)}
-      />
-      <TrustCommentModal
-        visible={trustCommentModalVisible && !hasSubmittedTrustVote}
-        voteType={trustCommentModalType}
-        onClose={() => setTrustCommentModalVisible(false)}
-        onSubmit={handleTrustVoteWithComment}
-      />
-
-      {supportsLocation ? (
-        <PostLocationModal
-          visible={locationModalVisible}
-          initialValue={locationValue}
-          saving={locationSaving}
-          onClose={() => setLocationModalVisible(false)}
-          onSave={handleSaveLocation}
-        />
-      ) : null}
+      {/* Share Modal */}
+      <ShareModal ref={shareRef} post={item} />
     </View>
   );
 }
 
-export default React.memo(PostItem, (prev, next) => {
-  if (prev.item?.id !== next.item?.id) return false;
-  if (prev.liked !== next.liked) return false;
-  if (prev.saved !== next.saved) return false;
-  if (prev.likesCount !== next.likesCount) return false;
-  if (prev.commentsCount !== next.commentsCount) return false;
-  if (prev.followingBusy !== next.followingBusy) return false;
-  if (prev.isVisible !== next.isVisible) return false;
-  if (prev.screenFocused !== next.screenFocused) return false;
-  if (prev.playingPostId !== next.playingPostId) return false;
-  if (prev.item?.follow !== next.item?.follow) return false;
-  if (prev.isTrustPost !== next.isTrustPost) return false;
-  if (prev.item?.isTrustPost !== next.item?.isTrustPost) return false;
-  if (prev.shareCount !== next.shareCount) return false;
-  if (prev.item?.location !== next.item?.location) return false;
-  if (prev.item?.createdAt !== next.item?.createdAt) return false;
-  return true;
-});
-
 const styles = StyleSheet.create({
   wrapper: {
-    paddingBottom: 18,
-    position: 'relative',
+    backgroundColor: '#f8f2fd',
+    paddingBottom: 8,
   },
-  tipModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(12, 8, 20, 0.45)',
-    justifyContent: 'flex-end',
-  },
-  tipModalSheet: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    minHeight: 500,
-    paddingBottom: 20,
-  },
+
+  // Enhanced Post Card
   postCard: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
     marginVertical: 8,
     borderRadius: 16,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 4,
     overflow: 'hidden',
   },
+
+  // Enhanced Header
   postHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
+    backgroundColor: '#FFFFFF',
   },
   avatarContainer: {
     marginRight: 12,
@@ -2804,24 +522,9 @@ const styles = StyleSheet.create({
   },
   username: {
     fontWeight: '700',
+    color: '#1F2937',
     fontSize: 16,
     marginRight: 6,
-  },
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 2,
-    maxWidth: '100%',
-  },
-  locationIcon: {
-    marginRight: 4,
-  },
-  locationText: {
-    fontSize: 13,
-    flexShrink: 1,
-  },
-  locationPlaceholderText: {
-    fontStyle: 'italic',
   },
   dragonflyIcon: {
     marginTop: 1,
@@ -2835,67 +538,41 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   priceText: {
+    color: '#5a2d82',
     fontSize: 16,
     fontWeight: '700',
   },
   moreButton: {
     padding: 4,
     borderRadius: 8,
+    backgroundColor: '#F9FAFB',
   },
+
+  // Enhanced Media
   mediaWrapper: {
-    width: '100%',
-    backgroundColor: '#000',
     position: 'relative',
+    width: '100%',
+    height: 340,
+    backgroundColor: '#000',
     overflow: 'hidden',
-  },
-  doubleTapHeartBurst: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 6,
   },
   mediaContainer: {
     width,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  zoomVideoPrewarmHost: {
-    position: 'absolute',
-    width: 2,
-    height: 2,
-    opacity: 0,
-    overflow: 'hidden',
-    left: 0,
-    top: 0,
-    zIndex: -1,
-  },
-  zoomVideoPrewarmVideo: {
-    width: 2,
-    height: 2,
-  },
-  zoomVideoLoading: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 2,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.35)',
-  },
-  zoomVideoLoadingBackdrop: {
-    backgroundColor: '#000',
+    height: 340,
+    position: 'relative',
   },
   postMedia: {
-    width: width,
-    aspectRatio: 1,
+    width,
+    height: 340,
   },
   videoOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 2,
   },
   videoOverlayTransparent: {},
   playButtonContainer: {
@@ -2926,566 +603,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 10,
     paddingVertical: 4,
-    justifyContent: 'center',
   },
   mediaCounterText: {
     color: '#fff',
     fontSize: 12,
     fontWeight: '600',
-  },
-  tagButton: {
-    position: 'absolute',
-    bottom: 12,
-    left: 12,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    padding: 8,
-    borderRadius: 20,
-    zIndex: 10,
-  },
-  trustActionIcon: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#059669',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  trustActionDisabled: {
-    opacity: 0.45,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginHorizontal: 3,
-  },
-  trustVotePanel: {
-    marginHorizontal: 14,
-    marginTop: 10,
-    marginBottom: 2,
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  trustIntro: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 10,
-  },
-  trustIntroIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: '#059669',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 10,
-  },
-  trustIntroTextWrap: {
-    flex: 1,
-  },
-  trustTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  trustBodyText: {
-    marginTop: 3,
-    fontSize: 11,
-    lineHeight: 15,
-  },
-  trustMutedText: {
-    marginTop: 2,
-    fontSize: 10,
-    lineHeight: 14,
-  },
-  trustOptionsRow: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-  },
-  trustOptionButton: {
-    flex: 1,
-    minHeight: 62,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 4,
-    paddingVertical: 7,
-    borderRadius: 7,
-    borderWidth: 1,
-    marginHorizontal: 3,
-  },
-  trustOptionSelected: {
-    borderColor: '#10B981',
-    backgroundColor: '#ECFDF5',
-  },
-  trustOptionDisabled: {
-    opacity: 0.45,
-  },
-  trustOptionLabel: {
-    marginTop: 4,
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  trustOptionDetail: {
-    marginTop: 2,
-    fontSize: 9,
-  },
-  actionsSection: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  leftActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    flexShrink: 1,
-  },
-  actionButton: {
-    marginRight: 10,
-    flexDirection: 'column',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  likeActionGroup: {
-    minWidth: 36,
-  },
-  likeIconButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  likeCountButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 18,
-    minWidth: 24,
-    marginTop: 2,
-  },
-  likeCountLoader: {
-    marginTop: 0,
-  },
-  actionSvgIcon: { opacity: 1 },
-  actionSvgIconInactive: { opacity: 0.7 },
-  actionCount: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  actionCountClickable: {
-    color: '#374151',
-  },
-  mintedSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingBottom: 8,
-  },
-  mintedIcon: {
-    marginRight: 6,
-  },
-  mintedText: {
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  trustScoreActionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    minWidth: 0,
-    maxWidth: '100%',
-    paddingHorizontal: 4,
-  },
-  trustHeaderDivider: {
-    width: 1,
-    height: 24,
-    marginRight: 10,
-  },
-  trustMetricIconBadge: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  trustScoreActionIcon: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#059669',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 4,
-  },
-  trustScoreActionTextWrap: {
-    flex: 1,
-    flexShrink: 1,
-    minWidth: 0,
-  },
-  trustScoreActionTitleRow: {
-    flexDirection: 'row',
-    flexWrap: 'nowrap',
-    alignItems: 'center',
-  },
-  trustScoreActionTitle: {
-    fontSize: 8,
-    fontWeight: '500',
-    // marginRight: 1,
-    // flexShrink: 1,
-    // maxWidth: 100,
-
-  },
-  trustScoreActionTitleVoted: {
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  trustScoreValue: {
-    marginLeft: 1,
-    fontSize: 10,
-    fontWeight: '900',
-    color: '#10B981',
-  },
-  trustScoreValueVoted: {
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  trustScoreActionSub: {
-    marginTop: 0,
-    fontSize: 7,
-  },
-  trustScoreActionSubVoted: {
-    fontSize: 8,
-    fontWeight: '600',
-  },
-  trustScorePanel: {
-    marginHorizontal: 14,
-    marginBottom: 10,
-    paddingHorizontal: 10,
-    paddingTop: 10,
-    paddingBottom: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  trustProgressTrack: {
-    height: 8,
-    borderRadius: 4,
-    overflow: 'hidden',
-    marginRight: 34,
-  },
-  trustProgressFill: {
-    height: '100%',
-    borderRadius: 5,
-    backgroundColor: '#059669',
-  },
-  trustProgressValue: {
-    position: 'absolute',
-    top: 5,
-    right: 8,
-    fontSize: 11,
-    fontWeight: '900',
-    color: '#10B981',
-    marginLeft: 10
-  },
-  trustMetricRow: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    marginTop: 12,
-  },
-  trustMetricItem: {
-    flex: 1,
-    alignItems: 'center',
-    paddingHorizontal: 1,
-    minWidth: 0,
-  },
-  trustMetricLabel: {
-    marginTop: 3,
-    fontSize: 8,
-    fontWeight: '800',
-    textAlign: 'center',
-  },
-  trustMetricPercent: {
-    fontSize: 9,
-    fontWeight: '900',
-  },
-  trustMetricVotes: {
-    marginTop: 1,
-    fontSize: 7,
-    textAlign: 'center',
-  },
-  trustMetricSub: {
-    marginTop: 1,
-    fontSize: 7,
-    textAlign: 'center',
-  },
-  trustMetricDivider: {
-    width: 1,
-    marginHorizontal: 3,
-  },
-  trustUndoButton: {
-    alignSelf: 'center',
-    marginTop: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 7,
-  },
-  trustUndoText: {
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  followButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
-    backgroundColor: '#5a2d82',
-    marginLeft: 8,
-  },
-  followingButtonText: {
-    color: '#fff',
-  },
-  followingButton: {
-    borderWidth: 1,
-  },
-  followButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  buyersSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    marginTop: -10,
-  },
-  avatarsContainer: {
-    flexDirection: 'row',
-    marginRight: 8,
-    overflow: 'visible',
-  },
-  buyerAvatarWrapper: {
-    width: 32,
-    height: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  buyerAvatar: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-  },
-  buyersText: {
-    fontSize: 14,
-    fontWeight: '400',
-    flexShrink: 1,
-  },
-  buyerName: {
-    fontWeight: '600',
-  },
-  captionSection: {
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-  },
-  captionRow: {
-    lineHeight: 20,
-  },
-  captionUsername: {
-    fontWeight: '700',
-    fontSize: 15,
-    lineHeight: 20,
-  },
-  captionText: {
-    fontSize: 15,
-    fontWeight: '400',
-    lineHeight: 20,
-  },
-  inlineHashtagText: {
-    fontSize: 15,
-    color: '#00376b',
-    fontWeight: '500',
-    lineHeight: 20,
-  },
-  inlineMentionText: {
-    fontSize: 15,
-    color: '#00376b',
-    fontWeight: '600',
-    lineHeight: 20,
-  },
-  hashtagRow: {
-    marginTop: 4,
-    lineHeight: 20,
-  },
-  hashtagText: {
-    fontSize: 15,
-    color: '#00376b',
-    fontWeight: '500',
-    lineHeight: 20,
-  },
-  captionMoreText: {
-    fontSize: 15,
-    lineHeight: 20,
-    fontWeight: '500',
-  },
-  captionToggleText: {
-    marginTop: 2,
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  progressContainer: {
-    height: 6,
-    backgroundColor: '#E5E7EB',
-    borderRadius: 4,
-    overflow: 'hidden',
-    marginTop: 3,
-  },
-  progressSection: {
-    marginTop: 12,
-    paddingHorizontal: 12,
-    paddingBottom: 24,
-  },
-  progressBarWrapper: {
-    position: 'relative',
-  },
-  progressStatusBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#DC2626',
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    marginBottom: 10,
-    width: '100%',
-  },
-  progressStatusBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.4,
-    textAlign: 'center',
-  },
-  progressBarBackground: {
-    height: 10,
-    overflow: 'hidden',
-    marginBottom: 50,
-    borderRadius: 5,
-  },
-  progressBarBackgroundWithStartNote: {
-    marginBottom: 68,
-  },
-  progressBarFill: {
-    height: '100%',
-  },
-  progressStatsContainer: {
-    position: 'absolute',
-    top: 12,
-    left: 0,
-    right: 0,
-    height: 48,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 0,
-  },
-  missionStartsInText: {
-    position: 'absolute',
-    top: 52,
-    left: 0,
-    right: 0,
-    fontSize: 12,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  statAtStart: {
-    alignItems: 'flex-start',
-  },
-  statAtCenter: {
-    alignItems: 'center',
-  },
-  statAtEnd: {
-    alignItems: 'flex-end',
-  },
-  statValueSmall: {
-    fontSize: 12,
-    fontWeight: '700',
-    marginBottom: 2,
-  },
-  statLabelSmall: {
-    fontSize: 10,
-    fontWeight: '500',
-    color: '#666',
-    letterSpacing: 0.3,
-  },
-  hiddenPostAudio: {
-    position: 'absolute',
-    width: 2,
-    height: 2,
-    opacity: 0,
-    left: 0,
-    top: 0,
-    zIndex: 0,
-    pointerEvents: 'none',
-  },
-  hiddenPostYoutube: {
-    position: 'absolute',
-    width: 200,
-    height: 200,
-    opacity: 0.02,
-    left: -220,
-    top: 0,
-    zIndex: 0,
-    overflow: 'hidden',
-    pointerEvents: 'none',
-  },
-  speakerButton: {
-    position: 'absolute',
-    bottom: 12,
-    right: 12,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    padding: 8,
-    borderRadius: 20,
-    zIndex: 10,
-  },
-  linkText: {
-    fontWeight: '600',
-  },
-  gestureModalRoot: {
-    flex: 1,
-  },
-  modalBackground: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.8)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  fullScreenImage: {
-    width: width,
-    height: 500,
-    resizeMode: 'contain',
-  },
-  imageContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: '100%',
-    height: '100%',
-    zIndex: 1,
-  },
-  closeButton: {
-    position: 'absolute',
-    top: 50,
-    right: 20,
-    zIndex: 1000,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    borderRadius: 20,
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   dotsContainer: {
     position: 'absolute',
@@ -3495,6 +617,118 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 10,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginHorizontal: 3,
+  },
+
+  // Enhanced Actions
+  actionsSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+  },
+  leftActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  actionButton: {
+    marginRight: 20,
+    flexDirection: 'column',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  actionCount: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  followButton: {
+    backgroundColor: '#5a2d82',
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: 8,
+    shadowColor: '#5a2d82',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  followingButton: {
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+  },
+  followButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  followingButtonText: {
+    color: '#5a2d82',
+  },
+
+  // Enhanced Buyers Section
+  buyersSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#FFFFFF',
+    marginTop: -10,
+  },
+  avatarsContainer: {
+    flexDirection: 'row',
+    marginRight: 8,
+  },
+  buyerAvatarWrapper: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    overflow: 'hidden',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  buyerAvatar: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+  },
+  buyersText: {
+    fontSize: 14,
+    color: '#6B7280',
+    fontWeight: '400',
+    flexShrink: 1,
+  },
+  buyerName: {
+    fontWeight: '600',
+    color: '#5a2d82',
+  },
+
+  // Enhanced Caption
+  captionSection: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    backgroundColor: '#FFFFFF',
+  },
+  captionUsername: {
+    fontWeight: '700',
+    color: '#5a2d82',
+    fontSize: 15,
+  },
+  captionText: {
+    fontSize: 15,
+    color: '#1F2937',
+    fontWeight: '400',
+    lineHeight: 20,
+    marginTop: 4,
   },
 });
