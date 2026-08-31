@@ -3604,7 +3604,8 @@
     "privateCircle": "Cerchia Privata",
     "settings": "Impostazioni",
     "ebook": "Ebook",
-    "services": "Servizi"
+    "services": "Servizi",
+    "manageSubscribers": "Gestisci i miei iscritti"
   },
   "walletStack": {
     "buyMissionCredits": "Acquista Crediti Missione",
@@ -3631,7 +3632,61 @@
     "viewMissionPost": "Visualizza Post Missione",
     "revenueFromSubscriptions": "Entrate dagli Abbonamenti",
     "selectLanguage": "Seleziona Lingua",
-    "marketplaceAnalytics": "Analisi del Marketplace"
+    "marketplaceAnalytics": "Analisi del Marketplace",
+    "manageSubscribers": "Gestisci iscritti"
+  },
+  "manageSubscribers": {
+    "title": "Iscritti",
+    "subtitle": "Gestisci i tuoi iscritti e lo stato dell'abbonamento.",
+    "mySubscriptionsTitle": "I miei abbonamenti",
+    "mySubscriptionsSubtitle": "Gestisci i creator a cui sei iscritto e la fatturazione.",
+    "viewAsSubscriber": "Vedi come iscritto",
+    "viewAsCreator": "Vedi come creator",
+    "updatePrice": "Aggiorna prezzo abbonamento",
+    "stat": {
+      "active": "Attivi",
+      "pending": "In attesa (prezzo)",
+      "canceled": "Annullati",
+      "expired": "Scaduti"
+    },
+    "pctOfTotal": "{{pct}}% del totale",
+    "priceUpdateTitle": "Aggiornamento prezzo in corso",
+    "priceUpdateBody": "Hai aggiornato il prezzo da ${{from}} a ${{to}}/mese. Gli iscritti in attesa sono stati avvisati e sceglieranno prima del prossimo addebito.",
+    "viewUpdateDetails": "Vedi dettagli",
+    "searchPlaceholder": "Cerca iscritti...",
+    "searchSubscriptions": "Cerca abbonamenti...",
+    "allStatus": "Tutti gli stati",
+    "filters": "Filtri",
+    "filterHint": "Usa stato e ordinamento per restringere l'elenco.",
+    "empty": "Nessuno corrisponde ai filtri.",
+    "statusActive": "Attivo",
+    "statusPending": "In attesa",
+    "statusCanceled": "Annullato",
+    "statusExpired": "Scaduto",
+    "priceUpdate": "Aggiornamento prezzo",
+    "currentPrice": "Prezzo attuale",
+    "priceMonth": "${{price}} / mese",
+    "willChangeTo": "(diventerà ${{price}})",
+    "nextBilling": "Prossimo addebito",
+    "inDays": "tra {{days}} giorni",
+    "joined": "Iscritto il",
+    "message": "Messaggio",
+    "viewProfile": "Vedi profilo",
+    "cancelSubscription": "Annulla abbonamento",
+    "close": "Chiudi",
+    "showing": "Mostro {{from}}–{{to}} di {{total}}",
+    "sort": {
+      "newest": "Ordina: più recenti",
+      "oldest": "Ordina: più vecchi",
+      "priceHigh": "Ordina: prezzo alto",
+      "priceLow": "Ordina: prezzo basso"
+    },
+    "legend": {
+      "active": "Attivo: paga e ha accesso completo.",
+      "pending": "In attesa: non ha ancora risposto al cambio prezzo.",
+      "canceled": "Annullato: non è più iscritto.",
+      "expired": "Scaduto: l'abbonamento è terminato."
+    }
   },
   "tabNav": {
     "editProfile": "Modifica Profilo"

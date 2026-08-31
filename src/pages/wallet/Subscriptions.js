@@ -1041,7 +1041,7 @@ const SubventionSetupScreen = () => {
 
                     <TouchableOpacity
                         style={[styles.saveButton, { opacity: !canSaveSubscription && 0.5, backgroundColor: accent }]}
-                        onPress={handleSaveSubscription}
+                        onPress={hasExistingSubscription ? () => navigation.navigate('UpdateSubscriptionPrice', { currentPrice: parseFloat(rawAmount) || 0 }) : handleSaveSubscription}
                         disabled={!canSaveSubscription}
                     >
                         <Text style={styles.saveButtonText}>

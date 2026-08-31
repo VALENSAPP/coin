@@ -91,6 +91,8 @@ import PrivacySettingsScreen from '../pages/wallet/PrivacySettings';
 import TwoFactorAuthScreen from '../pages/wallet/Two-FactorAuth';
 import LoginHistoryScreen from '../pages/wallet/LoginHistory';
 import SubventionSetupScreen from '../pages/wallet/Subscriptions';
+import UpdateSubscriptionPriceScreen from '../pages/wallet/UpdateSubscriptionPriceScreen';
+import ManageSubscribersScreen from '../pages/wallet/ManageSubscribersScreen';
 import EbookPublisherScreen from '../pages/wallet/EbookPublisher';
 import TipPayoutSetupScreen from '../pages/wallet/TipPayoutSetup';
 import KYCVerification from '../pages/authentication/kycVerification';
@@ -1091,6 +1093,16 @@ export default function MainTabNavigator() {
             component={SubventionSetupScreen}
             // ── TRANSLATION CHANGE ───────────────────────────────────────────
             options={{ headerTitle: t('walletStack.subscriptionSetup') }}
+          />
+          <Stack.Screen
+            name="UpdateSubscriptionPrice"
+            component={UpdateSubscriptionPriceScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="ManageSubscribers"
+            component={ManageSubscribersScreen}
+            options={{ headerShown: false }}
           />
           <Stack.Screen
             name="EbookPublisher"

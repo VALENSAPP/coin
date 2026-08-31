@@ -1,0 +1,47 @@
+diff --git a/node_modules/@react-native-camera-roll/camera-roll/ios/RNCCameraRoll.mm b/node_modules/@react-native-camera-roll/camera-roll/ios/RNCCameraRoll.mm
+index d63f1a7..f5824a6 100644
+--- a/node_modules/@react-native-camera-roll/camera-roll/ios/RNCCameraRoll.mm
++++ b/node_modules/@react-native-camera-roll/camera-roll/ios/RNCCameraRoll.mm
+@@ -209,14 +209,36 @@ static void requestPhotoLibraryAccess(RCTPromiseRejectBlock reject, PhotosAuthor
+       }
+     } completionHandler:^(BOOL success, NSError *error) {
+       if (success) {
+-        PHFetchOptions *options = [PHFetchOptions new];
+-        options.includeHiddenAssets = YES;
+-        options.includeAllBurstAssets = YES;
+-        options.fetchLimit = 1;
++        PHFetchOptions *fetchOptions = [PHFetchOptions new];
++        fetchOptions.includeHiddenAssets = YES;
++        fetchOptions.includeAllBurstAssets = YES;
++        fetchOptions.fetchLimit = 1;
+         PHFetchResult<PHAsset *> *createdAsset = [PHAsset fetchAssetsWithLocalIdentifiers:@[placeholder.localIdentifier]
+-                                                                                  options:options];
++                                                                                  options:fetchOptions];
++        // Add-Only photo permission can save the file but cannot fetch it back.
++        // Rejecting with a nil message surfaces as "Unknown error from a native module".
+         if (createdAsset.count < 1) {
+-          reject(kErrorUnableToSave, nil, nil);
++          resolve(@{
++            @"node": @{
++              @"id": placeholder.localIdentifier ?: @"",
++              @"type": @"",
++              @"subTypes": @[],
++              @"sourceType": [NSNull null],
++              @"group_name": @[],
++              @"image": @{
++                  @"uri": inputURI.absoluteString ?: @"",
++                  @"extension": [NSNull null],
++                  @"filename": inputURI.lastPathComponent ?: [NSNull null],
++                  @"height": [NSNull null],
++                  @"width": [NSNull null],
++                  @"fileSize": [NSNull null],
++                  @"playableDuration": [NSNull null]
++              },
++              @"timestamp": [NSNull null],
++              @"modificationTimestamp": [NSNull null],
++              @"location": [NSNull null]
++            }
++          });
+           return;
+         }
+         NSDictionary *dictionary = [self convertAssetToDictionary:[createdAsset firstObject]
