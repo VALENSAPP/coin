@@ -290,8 +290,9 @@ export default function PostView({ postData = [], userData = {} }) {
     const returnParams = route.params?.returnParams;
     const fromScreen = route.params?.fromScreen;
     const userId = route.params?.userId;
+    const isOwnProfile = route.params?.isOwnProfile ?? true;
 
-    if (navigation.canGoBack?.()) {
+    if (navigation.canGoBack?.() && isOwnProfile) {
       navigation.goBack();
       return;
     }
