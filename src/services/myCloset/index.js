@@ -339,6 +339,14 @@ export const cancelBuyerOrder = async (orderId, payload = {}) => {
   return axiosInstance.patch(`/orders/${orderId}/cancel`, payload);
 };
 
+export const approveSellerCancellationRequest = async (orderId, payload = { restock: true }) => {
+  return axiosInstance.patch(`/seller/orders/${orderId}/cancel-request/approve`, payload);
+};
+
+export const declineSellerCancellationRequest = async (orderId, payload = {}) => {
+  return axiosInstance.patch(`/seller/orders/${orderId}/cancel-request/decline`, payload);
+};
+
 export const getSellerDashboard = async () => {
   return axiosInstance.get('/dashboard');
 };

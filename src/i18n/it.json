@@ -2213,7 +2213,7 @@
     "totalRequests": "Richieste totali",
     "totalEarnedLabel": "Totale guadagnato",
     "earningsSplitLabel": "Divisione guadagni (totale per post)",
-    "youPercent": "Tu (80%)",
+    "youPercent": "Tu (95%)",
     "platformFee": "Commissione piattaforma (5%)",
     "total": "Totale"
   },
@@ -3754,6 +3754,7 @@
     "cancelConfirmMessage": "Questa azione non può essere annullata.",
     "keepOrder": "Mantieni ordine",
     "cancelOrderButton": "Annulla ordine",
+    "cancellationRequested": "Cancellazione richiesta",
     "cancelSuccess": "Ordine annullato.",
     "cancelError": "Impossibile annullare l'ordine.",
     "buyerLabel": "Acquirente",
