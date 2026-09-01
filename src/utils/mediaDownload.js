@@ -125,7 +125,6 @@ export const downloadMedia = async (uri, filename, isVideo = false, toast) => {
       const result = await RNFS.downloadFile({
         fromUrl: uri,
         toFile: destPath,
-        headers: { 'Cache-Control': 'no-cache' },
       }).promise;
 
       if (result.statusCode !== 200) {

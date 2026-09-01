@@ -458,15 +458,15 @@ const ManageSubscribersScreen = () => {
           filteredList.map(renderRow)
         )}
 
-        <Text style={[styles.showing, { color: theme.mutedText }]}>
+        {/* <Text style={[styles.showing, { color: theme.mutedText }]}>
           {t('manageSubscribers.showing', {
             from: filteredList.length ? 1 : 0,
             to: filteredList.length,
             total: isSubscriberView ? MOCK_MY_SUBSCRIPTIONS.length : 464,
           })}
-        </Text>
+        </Text> */}
 
-        <View style={styles.legend}>
+        {/* <View style={styles.legend}>
           {[STATUS.active, STATUS.pending, STATUS.canceled, STATUS.expired].map(key => (
             <View key={key} style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: STATUS_COLORS[key].fg }]} />
@@ -475,14 +475,15 @@ const ManageSubscribersScreen = () => {
               </Text>
             </View>
           ))}
-        </View>
+        </View> */}
+        <View style={{ height: 40 }} />
       </ScrollView>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
+  safe: { flex: 1 ,maginBottom: '5%'},
   header: {
     flexDirection: 'row',
     alignItems: 'center',

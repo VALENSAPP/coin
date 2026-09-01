@@ -83,7 +83,7 @@ const buildStatCards = (data, t) => ([
    {
     key: 'cancelledorders',
     label: t('myClosetDashboard.stats.cancelledOrders'),
-    value: String(data?.cancelledOrders ?? 0),
+    value: String(data?.cancelledOrdersCount ?? 0),
     delta: formatDelta(data?.changes?.cancelledOrdersPercent ?? 0),
     icon: 'close-circle-outline',
   },
@@ -183,7 +183,6 @@ const ORDER_STATUS_COLORS = {
 };
 
 const normalizeOrderStatus = raw => {
-  console.log("---------raw-----------",raw)
   const value = String(raw || '').trim().toLowerCase();
   if (['localpickup','delivered', 'shipped', 'processing', 'confirmed', 'cancelled'].includes(value)) {
     return value;

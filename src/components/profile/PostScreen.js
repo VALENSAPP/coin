@@ -276,6 +276,15 @@ const PostScreen = memo(({ scrollEnabled = true, postCheck, userData: propUserDa
       navigation.dispatch(StackActions.push('PostView', params));
       return;
     }
+    if (!isOwnProfile) {
+      params.isOwnProfile = false;
+      params.returnTo = 'HomeMain';
+      params.returnParams = {
+        screen: 'UsersProfile',
+        params: { userId: userData?.id || userData?._id },
+      };
+    }
+
     navigation.navigate('ProfileMain', {
       screen: 'PostView',
       params,

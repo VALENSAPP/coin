@@ -1614,7 +1614,6 @@ const SearchScreen = () => {
     const raw = battleItem?.raw || battleItem;
     const fmt = String(raw?.format || battleItem?.format || '').toLowerCase();
     const tbb = String(raw?.typeByBattle || battleItem?.typeByBattle || '').toLowerCase();
-    console.log("--------------------------raw----------------------", raw)
 
     // Boosted product — open the winner product detail
     if (fmt === 'boosted' || tbb === 'boosted_product') {

@@ -1009,6 +1009,7 @@ export default function FlipsScreen() {
   const [dropdownVisible, setDropdownVisible] = useState(false);
   const [commentsData, setCommentsData] = useState(mockComments);
   const [selectedReelId, setSelectedReelId] = useState(null);
+  const [isDownloadingReel, setIsDownloadingReel] = useState(false);
   const commentSheetRef = useRef();
   const moreOptionsSheetRef = useRef();
   const notInterestedSheetRef = useRef();
@@ -1996,6 +1997,10 @@ export default function FlipsScreen() {
       const isVideo =
         !looksLikeImage ||
         isVideoMedia({ uri: mediaUrl, type: reel?.type });
+
+      setIsDownloadingReel(true);
+      moreOptionsSheetRef.current?.close();
+
       try {
         await downloadMedia(
           mediaUrl,
@@ -2005,6 +2010,8 @@ export default function FlipsScreen() {
         );
       } catch (_error) {
         // downloadMedia already shows the alert/toast
+      } finally {
+        setIsDownloadingReel(false);
       }
     },
     [t, toast],
@@ -2530,9 +2537,9 @@ export default function FlipsScreen() {
               {!isPrivateReel(activeReel) && (
                 <TouchableOpacity
                   style={[styles.moreOption, { borderBottomColor: sheetTheme.borderColor }]}
+                  disabled={isDownloadingReel}
                   onPress={() => {
                     const reel = reels.find(r => r.id === selectedReelId) || reels[currentIndex];
-                    moreOptionsSheetRef.current?.close();
                     void handleDownloadReel(reel);
                   }}>
                   <Icon name="download-outline" size={24} color={sheetTheme.iconColor} />
@@ -2698,6 +2705,14 @@ export default function FlipsScreen() {
           vendorId={currentReel?.UserId ?? currentReel?.userId}
           onClose={() => setTipPurchaseVisible(false)}
         />
+        {isDownloadingReel && (
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', zIndex: 9999 }]}>
+            <View style={{ backgroundColor: '#fff', padding: 24, borderRadius: 16, alignItems: 'center', minWidth: 140 }}>
+              <ActivityIndicator size="large" color="#7c3aed" />
+              <Text style={{ marginTop: 12, fontSize: 16, fontWeight: '600', color: '#1f2937' }}>Downloading...</Text>
+            </View>
+          </View>
+        )}
       </SafeAreaView>
     </GestureHandlerRootView>
   );
