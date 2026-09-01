@@ -3739,7 +3739,8 @@
     "privateCircle": "Private Circle",
     "settings": "Settings",
     "ebook": "Ebook",
-    "services": "Services"
+    "services": "Services",
+    "manageSubscribers": "Manage my subscribers"
   },
   "walletStack": {
     "buyMissionCredits": "Buy Mission Credits",
@@ -3766,7 +3767,61 @@
     "viewMissionPost": "View Mission Post",
     "revenueFromSubscriptions": "Revenue From Subscriptions",
     "selectLanguage": "Select Language",
-    "marketplaceAnalytics": "Marketplace Analytics"
+    "marketplaceAnalytics": "Marketplace Analytics",
+    "manageSubscribers": "Manage Subscribers"
+  },
+  "manageSubscribers": {
+    "title": "Subscribers",
+    "subtitle": "Manage your subscribers and their subscription status.",
+    "mySubscriptionsTitle": "My subscriptions",
+    "mySubscriptionsSubtitle": "Manage the creators you subscribe to and your billing status.",
+    "viewAsSubscriber": "View as Subscriber",
+    "viewAsCreator": "View as Creator",
+    "updatePrice": "Update Subscription Price",
+    "stat": {
+      "active": "Active",
+      "pending": "Pending (Price Update)",
+      "canceled": "Canceled",
+      "expired": "Expired"
+    },
+    "pctOfTotal": "{{pct}}% of total",
+    "priceUpdateTitle": "Price update in progress",
+    "priceUpdateBody": "You updated your subscription price from ${{from}} to ${{to}}/month. Pending subscribers have been notified and will choose before their next billing date.",
+    "viewUpdateDetails": "View Update Details",
+    "searchPlaceholder": "Search subscribers...",
+    "searchSubscriptions": "Search subscriptions...",
+    "allStatus": "All Status",
+    "filters": "Filters",
+    "filterHint": "Use status and sort to refine this list.",
+    "empty": "No people match your filters.",
+    "statusActive": "Active",
+    "statusPending": "Pending",
+    "statusCanceled": "Canceled",
+    "statusExpired": "Expired",
+    "priceUpdate": "Price Update",
+    "currentPrice": "Current Price",
+    "priceMonth": "${{price}} / month",
+    "willChangeTo": "(will change to ${{price}})",
+    "nextBilling": "Next Billing",
+    "inDays": "in {{days}} days",
+    "joined": "Joined",
+    "message": "Message",
+    "viewProfile": "View profile",
+    "cancelSubscription": "Cancel subscription",
+    "close": "Close",
+    "showing": "Showing {{from}} to {{to}} of {{total}}",
+    "sort": {
+      "newest": "Sort: Newest",
+      "oldest": "Sort: Oldest",
+      "priceHigh": "Sort: Price high",
+      "priceLow": "Sort: Price low"
+    },
+    "legend": {
+      "active": "Active: Paying and have full access.",
+      "pending": "Pending: Not yet responded to price update.",
+      "canceled": "Canceled: No longer subscribed.",
+      "expired": "Expired: Subscription has ended."
+    }
   },
   "tabNav": {
     "editProfile": "Edit Profile"

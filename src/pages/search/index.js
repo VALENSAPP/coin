@@ -1533,16 +1533,31 @@ const SearchScreen = () => {
       return;
     }
 
-    if (item?.type === 'reel' || feedItemType === 'reel') {
-      navigation.navigate('ProfileMain', {
+    if (item?.type === 'reel' || feedItemType === 'reel' || isVideo) {
+      const flipsParams = {
+        item: { ...item, type: 'reel', format: 'reel', isVideo: true },
+        key: uniqueKey,
+        returnTo: 'SearchHome',
+        returnToTab: 'Search',
+        returnToScreen: 'SearchHome',
+        returnParams: route.params,
+      };
+
+      let targetNavigation = navigation;
+      while (targetNavigation) {
+        const routeNames = targetNavigation.getState?.()?.routeNames || [];
+        if (routeNames.includes('FlipsScreen')) {
+          targetNavigation.navigate('FlipsScreen', flipsParams);
+          return;
+        }
+        targetNavigation = targetNavigation.getParent?.();
+      }
+
+      navigation.navigate('Search', {
         screen: 'FlipsScreen',
-        params: {
-          item: { ...item, type: 'reel', format: 'reel', isVideo: true },
-          key: uniqueKey,
-          returnTo: route?.name,
-          returnParams: route.params,
-        },
+        params: flipsParams,
       });
+      return;
     } else {
       let targetNavigation = navigation;
       while (targetNavigation) {

@@ -328,6 +328,17 @@ const CustomDrawerContent = (props) => {
       </TouchableOpacity>
 
       <TouchableOpacity
+        onPress={() => navigateToWalletScreen('ManageSubscribers')}
+        activeOpacity={0.75}
+        style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14, paddingLeft: 44 }}
+      >
+        <Ionicons name="people-outline" size={20} color={drawerColors.inactive} style={{ marginRight: 16 }} />
+        <Text style={{ fontSize: 15, color: drawerColors.inactive, fontWeight: '600' }}>
+          {t('drawerNav.manageSubscribers')}
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
         onPress={() => navigateToWalletScreen('Privatecircle', { skipPrivateCircleApi: true })}
         activeOpacity={0.75}
         style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 18 }}

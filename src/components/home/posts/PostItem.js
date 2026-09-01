@@ -31,7 +31,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import Feather from 'react-native-vector-icons/Feather';
 import Video, { ViewType } from 'react-native-video';
 import { WhiteDragonfly, Thumbup, Comments, ShareIcom } from '../../../assets/icons';
-import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
+import { StackActions, useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ShareModal from '../../modals/ShareModal';
 import { getDragonflyIcon } from '../../profile/ProfilePersonalData';
@@ -1676,42 +1676,36 @@ function PostItem({
           userId: item?.userId || item?.UserId || null,
         },
         key: uniqueKey,
-        returnTo: route?.name || returnTo,
+        returnTo: route?.name || returnTo || 'PostView',
         returnParams: route?.params || {},
-        // Explicit nested return target (prevents "NAVIGATE ... not handled" warnings).
         returnToTab: (() => {
-          const names = navigation.getState?.()?.routeNames || [];
-          if (names.includes('Profile')) return 'ProfileMain';
-          if (names.includes('Home')) return 'HomeMain';
-          return 'HomeMain';
+          let nav = navigation.getParent?.();
+          while (nav) {
+            const state = nav.getState?.();
+            const names = state?.routeNames || [];
+            if (names.includes('HomeMain') && names.includes('ProfileMain')) {
+              return state.routes?.[state.index]?.name || 'ProfileMain';
+            }
+            nav = nav.getParent?.();
+          }
+          return 'ProfileMain';
         })(),
-        returnToScreen: (() => {
-          const names = navigation.getState?.()?.routeNames || [];
-          if (names.includes('Profile')) return 'Profile';
-          if (names.includes('Home')) return 'Home';
-          return 'Home';
-        })(),
+        returnToScreen: route?.name || returnTo || 'PostView',
       };
 
-      // Prefer navigating within the nearest navigator that actually owns `FlipsScreen`
-      // so back navigation returns to the current screen automatically.
+      // Push onto the current stack so Profile → PostView → Flips stays in history.
+      // navigate('ProfileMain', { screen: 'FlipsScreen' }) resets the stack and drops PostView.
       let targetNavigation = navigation;
       while (targetNavigation) {
         const routeNames = targetNavigation.getState?.()?.routeNames || [];
         if (routeNames.includes('FlipsScreen')) {
-          targetNavigation.navigate('FlipsScreen', params);
+          targetNavigation.dispatch(StackActions.push('FlipsScreen', params));
           return;
         }
         targetNavigation = targetNavigation.getParent?.();
       }
 
-      const parent = navigation.getParent?.();
-      if (parent?.navigate) {
-        parent.navigate('ProfileMain', { screen: 'FlipsScreen', params });
-        return;
-      }
-
-      navigation.navigate('ProfileMain', { screen: 'FlipsScreen', params });
+      navigation.dispatch(StackActions.push('FlipsScreen', params));
     },
     [item, navigation, returnTo, route?.name, route?.params, t],
   );

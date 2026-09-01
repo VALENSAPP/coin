@@ -3360,6 +3360,40 @@ const MyClosetBuyerCheckoutScreen = ({ navigation, route }) => {
       <ScrollView contentContainerStyle={styles.checkoutContent} showsVerticalScrollIndicator={false}>
         <CheckoutSteps current={0} includeShipping={true} accentColor={accent} />
         <OrderSummary cart={cart} editable onEditCart={handleEditCart} accentColor={text} />
+        
+        <View style={styles.reviewSectionHeader}>
+          <Text style={[styles.sectionLabel, { color: text }]}>{t('myClosetBuyer.cancelPolicyTitle') || 'Cancel Policy'}</Text>
+        </View>
+        <View style={[styles.cancelPolicyCard, themedCard(card, border)]}>
+          <View style={styles.cancelPolicyHeader}>
+            <View style={[styles.cancelPolicyIconWrap, bgStyle]}>
+              <Ionicons name="shield-checkmark-outline" size={18} color={accent} />
+            </View>
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={[styles.cancelPolicyText, { color: text }]}>
+                <Text style={styles.cancelPolicyTextBold}>
+                  {t('myClosetBuyer.cancelPolicyBold') || 'Orders can be canceled before they are picked up or delivered. '}
+                </Text>
+                {t('myClosetBuyer.cancelPolicyRest') || 'Buyer and seller must agree to cancel.'}
+              </Text>
+            </View>
+          </View>
+
+          <View style={[styles.howItWorksRow, bgStyle]}>
+            <View style={[styles.howItWorksIconWrap, { backgroundColor: '#fff' }]}>
+              <Ionicons name="people-outline" size={16} color={accent} />
+            </View>
+            <View style={{ flex: 1, marginLeft: 10 }}>
+              <Text style={[styles.howItWorksTitle, { color: accent }]}>
+                {t('myClosetBuyer.howItWorksTitle') || 'How it works'}
+              </Text>
+              <Text style={[styles.howItWorksText, { color: mutedText }]}>
+                {t('myClosetBuyer.howItWorksText') ||
+                  'If either the buyer or seller requests a cancellation, the other party will be notified. Both must agree for the cancellation to proceed.'}
+              </Text>
+            </View>
+          </View>
+        </View>
       </ScrollView>
       <BottomBar>
         <BottomButton
@@ -4073,8 +4107,6 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
   const isRouteFromSearch = route?.params?.isRouteFromSearch;
   const cart = buildCart(route, t);
   const [checking, setChecking] = useState(false);
-  const [agreedToCancelPolicy, setAgreedToCancelPolicy] = useState(false);
-  const [cancelPolicyError, setCancelPolicyError] = useState(false);
   // shippingAddress passed from Shipping screen via nextCart
   const addr = route?.params?.shippingAddress ?? null;
   console.log('route?.params?.cartItemsSnapshot, route?.params?.shippingOptionsMap:', route?.params?.cartItemsSnapshot, route?.params?.shippingOptionsMap);
@@ -4163,12 +4195,6 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
       Alert.alert(t('myClosetBuyer.errorTitle'), t('myClosetBuyer.checkoutError'));
       return;
     }
-
-    if (!agreedToCancelPolicy) {
-      setCancelPolicyError(true);
-      return;
-    }
-    setCancelPolicyError(false);
 
     // addressId is required only when this order actually needs shipping
     if (requiresShipping && !addressId) {
@@ -4330,30 +4356,6 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
               </Text>
             </View>
           </View>
-
-          <TouchableOpacity
-            activeOpacity={0.8}
-            style={styles.agreeRow}
-            onPress={() => {
-              setAgreedToCancelPolicy(prev => !prev);
-              if (!agreedToCancelPolicy) setCancelPolicyError(false);
-            }}
-          >
-            <Ionicons
-              name={agreedToCancelPolicy ? 'checkbox' : 'square-outline'}
-              size={22}
-              color={agreedToCancelPolicy ? accent : (cancelPolicyError ? '#dc2626' : mutedText)}
-            />
-            <Text style={[styles.agreeText, { color: text }]}>
-              {t('myClosetBuyer.agreeCancelPolicy') || 'I have read and agree to the cancel policy above.'}
-            </Text>
-          </TouchableOpacity>
-
-          {cancelPolicyError ? (
-            <Text style={styles.agreeErrorText}>
-              {t('myClosetBuyer.agreeCancelPolicyError') || 'Please agree to the cancel policy to continue.'}
-            </Text>
-          ) : null}
         </View>
 
         <Text style={[styles.termsText, { color: mutedText }]}>
@@ -4366,7 +4368,7 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
           icon="lock-closed-outline"
           onPress={checking ? undefined : handleContinue}
           accentColor={accent}
-          disabled={checking || !agreedToCancelPolicy}
+          disabled={checking}
         />
       </BottomBar>
     </SafeAreaView>
