@@ -15,6 +15,8 @@ import { useNavigation } from '@react-navigation/native';
 import { useLanguage } from '../../i18n';
 import { useBusinessProfileTheme } from '../../theme/useBusinessProfileTheme';
 import HexAvatar from '../../components/home/story.js/HexAvatar';
+import { getSubscribersList, getMySubscriptionsList } from '../../services/wallet';
+import { useEffect } from 'react';
 
 const STATUS = {
   active: 'active',
@@ -30,89 +32,106 @@ const STATUS_COLORS = {
   expired: { fg: '#6B7280', bg: '#F3F4F6', border: '#D1D5DB' },
 };
 
-const MOCK_SUBSCRIBERS = [
-  {
-    id: '1',
-    handle: '@john_doe',
-    name: 'John Doe',
-    avatar: 'https://randomuser.me/api/portraits/men/32.jpg',
-    status: STATUS.active,
-    price: 9.9,
-    nextPrice: null,
-    nextBilling: 'Jun 10, 2026',
-    nextBillingHint: '13',
-    joined: 'Mar 10, 2025',
-  },
-  {
-    id: '2',
-    handle: '@jane_smith',
-    name: 'Jane Smith',
-    avatar: 'https://randomuser.me/api/portraits/women/44.jpg',
-    status: STATUS.pending,
-    price: 9.9,
-    nextPrice: 14.9,
-    nextBilling: 'Jun 12, 2026',
-    nextBillingHint: '15',
-    joined: 'Apr 02, 2025',
-  },
-  {
-    id: '3',
-    handle: '@alex_k',
-    name: 'Alex Kim',
-    avatar: 'https://randomuser.me/api/portraits/men/76.jpg',
-    status: STATUS.canceled,
-    price: 9.9,
-    nextPrice: null,
-    canceledOn: 'May 28, 2026',
-    nextBilling: '—',
-    nextBillingHint: null,
-    joined: 'Jan 18, 2025',
-  },
-  {
-    id: '4',
-    handle: '@mia_r',
-    name: 'Mia Rossi',
-    avatar: 'https://randomuser.me/api/portraits/women/12.jpg',
-    status: STATUS.expired,
-    price: 9.9,
-    nextPrice: null,
-    nextBilling: '—',
-    nextBillingHint: null,
-    joined: 'Nov 04, 2024',
-  },
-];
+// Helper function to map API subscriber response to display format
+const transformSubscriber = (item) => {
+  const startDate = new Date(item.startDate);
+  const endDate = new Date(item.endDate);
+  const now = new Date();
+  
+  // Determine status
+  let status = STATUS.active;
+  if (item.status === 'ACTIVE' && item.isActive) {
+    status = STATUS.active;
+  } else if (item.status === 'EXPIRED' || endDate < now) {
+    status = STATUS.expired;
+  } else if (item.status === 'CANCELED' || item.cancelAtPeriodEnd) {
+    status = STATUS.canceled;
+  }
 
-const MOCK_MY_SUBSCRIPTIONS = [
-  {
-    id: 's1',
-    handle: '@arjewellers',
-    name: 'AR Jewellers',
-    avatar: 'https://randomuser.me/api/portraits/women/68.jpg',
-    status: STATUS.active,
-    price: 9.9,
-    nextBilling: 'Sep 08, 2026',
-    nextBillingHint: '8',
-    joined: 'Mar 08, 2026',
-  },
-  {
-    id: 's2',
-    handle: '@studio_nova',
-    name: 'Studio Nova',
-    avatar: 'https://randomuser.me/api/portraits/men/22.jpg',
-    status: STATUS.pending,
-    price: 9.9,
-    nextPrice: 12.0,
-    nextBilling: 'Sep 20, 2026',
-    nextBillingHint: '20',
-    joined: 'Jun 01, 2026',
-  },
-];
+  // Format date
+  const formatDate = (date) => {
+    if (!date) return 'N/A';
+    return new Date(date).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+  };
 
-const STATS = {
-  active: { count: 392, pct: '91.6' },
-  pending: { count: 36, pct: '8.4' },
-  canceled: { count: 32, pct: '7.5' },
-  expired: { count: 4, pct: '0.9' },
+  const calculateDaysUntil = (date) => {
+    if (!date) return null;
+    const targetDate = new Date(date);
+    const today = new Date();
+    const diffTime = targetDate - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays > 0 ? diffDays : null;
+  };
+
+  return {
+    id: item.subscriber?.id || item.id,
+    handle: `@${item.subscriber?.userName || 'user'}`,
+    name: item.subscriber?.displayName || item.subscriber?.userName || 'Unknown User',
+    avatar: item.subscriber?.image || '',
+    status,
+    price: item.priceAtSubscription || 0,
+    nextPrice: null,
+    nextBilling: formatDate(item.endDate),
+    nextBillingHint: calculateDaysUntil(item.endDate),
+    joined: formatDate(item.startDate),
+    totalEarned: item.totalEarnedFromSubscriber || 0,
+    totalPaid: item.totalPaidBySubscriber || 0,
+    paymentsCount: item.paymentsCount || 0,
+  };
+};
+
+// Helper function to map API subscription response to display format
+const transformSubscription = (item) => {
+  const startDate = new Date(item.startDate);
+  const endDate = new Date(item.endDate);
+  const now = new Date();
+  
+  let status = STATUS.active;
+  if (item.status === 'ACTIVE' && item.isActive) {
+    status = STATUS.active;
+  } else if (item.status === 'EXPIRED' || endDate < now) {
+    status = STATUS.expired;
+  } else if (item.status === 'CANCELED' || item.cancelAtPeriodEnd) {
+    status = STATUS.canceled;
+  }
+
+  const formatDate = (date) => {
+    if (!date) return 'N/A';
+    return new Date(date).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+  };
+
+  const calculateDaysUntil = (date) => {
+    if (!date) return null;
+    const targetDate = new Date(date);
+    const today = new Date();
+    const diffTime = targetDate - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays > 0 ? diffDays : null;
+  };
+
+  return {
+    id: item.creator?.id || item.id,
+    handle: `@${item.creator?.userName || 'creator'}`,
+    name: item.creator?.displayName || item.creator?.userName || 'Unknown Creator',
+    avatar: item.creator?.image || '',
+    status,
+    price: item.priceAtSubscription || 0,
+    nextPrice: null,
+    nextBilling: formatDate(item.endDate),
+    nextBillingHint: calculateDaysUntil(item.endDate),
+    joined: formatDate(item.startDate),
+    totalEarned: item.totalEarnedFromSubscriber || 0,
+    totalPaid: item.totalPaidBySubscriber || 0,
+    paymentsCount: item.paymentsCount || 0,
+  };
 };
 
 const SORT_OPTIONS = ['newest', 'oldest', 'priceHigh', 'priceLow'];
@@ -132,9 +151,82 @@ const ManageSubscribersScreen = () => {
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  
+  // New state for API data
+  const [subscribersList, setSubscribersList] = useState([]);
+  const [mySubscriptionsList, setMySubscriptionsList] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  // Fetch data based on mode
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        if (mode === 'subscribers') {
+          const response = await getSubscribersList();
+          if (response?.statusCode === 200 && response?.data?.subscribers) {
+            const transformedData = response.data.subscribers.map(transformSubscriber);
+            setSubscribersList(transformedData);
+          } else if (response?.status === 200 && response?.data?.subscribers) {
+            const transformedData = response.data.subscribers.map(transformSubscriber);
+            setSubscribersList(transformedData);
+          } else {
+            setSubscribersList([]);
+          }
+        } else {
+          const response = await getMySubscriptionsList();
+          if (response?.statusCode === 200 && response?.data?.subscriptions) {
+            const transformedData = response.data.subscriptions.map(transformSubscription);
+            setMySubscriptionsList(transformedData);
+          } else if (response?.status === 200 && response?.data?.subscriptions) {
+            const transformedData = response.data.subscriptions.map(transformSubscription);
+            setMySubscriptionsList(transformedData);
+          } else {
+            setMySubscriptionsList([]);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching subscriptions:', err);
+        setError(err?.message || 'Failed to load data');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [mode]);
 
   const isSubscriberView = mode === 'subscriptions';
-  const sourceList = isSubscriberView ? MOCK_MY_SUBSCRIPTIONS : MOCK_SUBSCRIBERS;
+  const sourceList = isSubscriberView ? mySubscriptionsList : subscribersList;
+
+  // Calculate stats from actual data
+  const stats = useMemo(() => {
+    const list = isSubscriberView ? mySubscriptionsList : subscribersList;
+    const statsCounts = {
+      active: 0,
+      pending: 0,
+      canceled: 0,
+      expired: 0,
+    };
+    
+    list.forEach(item => {
+      if (item.status === STATUS.active) statsCounts.active++;
+      else if (item.status === STATUS.pending) statsCounts.pending++;
+      else if (item.status === STATUS.canceled) statsCounts.canceled++;
+      else if (item.status === STATUS.expired) statsCounts.expired++;
+    });
+
+    const total = list.length || 1;
+    return {
+      active: { count: statsCounts.active, pct: total ? ((statsCounts.active / total) * 100).toFixed(1) : 0 },
+      pending: { count: statsCounts.pending, pct: total ? ((statsCounts.pending / total) * 100).toFixed(1) : 0 },
+      canceled: { count: statsCounts.canceled, pct: total ? ((statsCounts.canceled / total) * 100).toFixed(1) : 0 },
+      expired: { count: statsCounts.expired, pct: total ? ((statsCounts.expired / total) * 100).toFixed(1) : 0 },
+    };
+  }, [subscribersList, mySubscriptionsList, isSubscriberView]);
 
   const filteredList = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -163,16 +255,6 @@ const ManageSubscribersScreen = () => {
     return t('manageSubscribers.statusActive');
   };
 
-  const onMoreActions = row => {
-    Alert.alert(row.handle, undefined, [
-      { text: t('manageSubscribers.viewProfile'), onPress: () => {} },
-      isSubscriberView
-        ? { text: t('manageSubscribers.cancelSubscription'), style: 'destructive', onPress: () => {} }
-        : { text: t('manageSubscribers.message'), onPress: () => {} },
-      { text: t('manageSubscribers.close'), style: 'cancel' },
-    ]);
-  };
-
   const renderStatCard = (key, icon, color) => (
     <View
       key={key}
@@ -194,9 +276,9 @@ const ManageSubscribersScreen = () => {
         ellipsizeMode="tail">
         {statusLabel(key)}
       </Text>
-      <Text style={[styles.statCount, { color: theme.text }]}>{STATS[key].count}</Text>
+      <Text style={[styles.statCount, { color: theme.text }]}>{stats[key].count}</Text>
       <Text style={[styles.statPct, { color: theme.mutedText }]} numberOfLines={1}>
-        {t('manageSubscribers.pctOfTotal', { pct: STATS[key].pct })}
+        {t('manageSubscribers.pctOfTotal', { pct: stats[key].pct })}
       </Text>
     </View>
   );
@@ -221,17 +303,6 @@ const ManageSubscribersScreen = () => {
             <Text style={[styles.badgeText, { color: colors.fg }]}>{statusLabel(row.status)}</Text>
           </View>
         </View>
-
-        {row.status === STATUS.pending ? (
-          <Text style={[styles.pendingNote, { color: STATUS_COLORS.pending.fg }]}>
-            {t('manageSubscribers.priceUpdate')}
-          </Text>
-        ) : null}
-        {row.status === STATUS.canceled && row.canceledOn ? (
-          <Text style={[styles.pendingNote, { color: STATUS_COLORS.canceled.fg }]}>
-            {row.canceledOn}
-          </Text>
-        ) : null}
 
         <View style={styles.detailGrid}>
           <View style={styles.detailCell}>
@@ -266,18 +337,7 @@ const ManageSubscribersScreen = () => {
           </View>
         </View>
 
-        <View style={[styles.rowActions, { borderTopColor: theme.border }]}>
-          <TouchableOpacity
-            style={[styles.iconBtn, { borderColor: theme.border }]}
-            onPress={() => Alert.alert(t('manageSubscribers.message'))}>
-            <Ionicons name="chatbubble-ellipses-outline" size={18} color={theme.accent} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.iconBtn, { borderColor: theme.border }]}
-            onPress={() => onMoreActions(row)}>
-            <Ionicons name="ellipsis-horizontal" size={18} color={theme.text} />
-          </TouchableOpacity>
-        </View>
+
       </View>
     );
   };
@@ -331,8 +391,6 @@ const ManageSubscribersScreen = () => {
         {!isSubscriberView ? (
           <View style={styles.statsWrap}>
             {renderStatCard('active', 'person-outline', STATUS_COLORS.active.fg)}
-            {renderStatCard('pending', 'time-outline', STATUS_COLORS.pending.fg)}
-            {renderStatCard('canceled', 'close-circle-outline', STATUS_COLORS.canceled.fg)}
             {renderStatCard('expired', 'calendar-outline', STATUS_COLORS.expired.fg)}
           </View>
         ) : null}
@@ -410,7 +468,7 @@ const ManageSubscribersScreen = () => {
 
         {showStatusMenu ? (
           <View style={[styles.menu, { backgroundColor: theme.card, borderColor: theme.border }]}>
-            {['all', STATUS.active, STATUS.pending, STATUS.canceled, STATUS.expired].map(key => (
+            {['all', STATUS.active, STATUS.expired].map(key => (
               <TouchableOpacity
                 key={key}
                 style={styles.menuItem}
@@ -450,10 +508,27 @@ const ManageSubscribersScreen = () => {
           </Text>
         ) : null}
 
-        {filteredList.length === 0 ? (
-          <Text style={[styles.empty, { color: theme.mutedText }]}>
-            {t('manageSubscribers.empty')}
-          </Text>
+        {isLoading ? (
+          <View style={{ alignItems: 'center', paddingVertical: 24 }}>
+            <Ionicons name="hourglass-outline" size={32} color={theme.mutedText} />
+            <Text style={[styles.empty, { color: theme.mutedText, marginTop: 8 }]}>
+              Loading...
+            </Text>
+          </View>
+        ) : error ? (
+          <View style={{ alignItems: 'center', paddingVertical: 24 }}>
+            <Ionicons name="alert-circle-outline" size={32} color={theme.accent} />
+            <Text style={[styles.empty, { color: theme.accent, marginTop: 8 }]}>
+              {error}
+            </Text>
+          </View>
+        ) : filteredList.length === 0 ? (
+          <View style={{ alignItems: 'center', paddingVertical: 24 }}>
+            <Ionicons name="search-outline" size={32} color={theme.mutedText} />
+            <Text style={[styles.empty, { color: theme.mutedText, marginTop: 8 }]}>
+              No data found
+            </Text>
+          </View>
         ) : (
           filteredList.map(renderRow)
         )}

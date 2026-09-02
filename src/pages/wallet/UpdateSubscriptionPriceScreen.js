@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView, Modal } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView, Modal, Alert } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useLanguage } from '../../i18n';
 import { useThemeContext } from '../../theme/ThemeContext';
 import { useBusinessProfileTheme } from '../../theme/useBusinessProfileTheme';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { setPrivateSubscription } from '../../services/wallet';
 
 const UpdateSubscriptionPriceScreen = () => {
     const { t } = useLanguage();
@@ -15,15 +16,57 @@ const UpdateSubscriptionPriceScreen = () => {
 
     // Initial parameters could be passed from the previous screen
     const currentPrice = route.params?.currentPrice || 9.90;
+    const subscriptionId = route.params?.subscriptionId;
     const [newPrice, setNewPrice] = useState('');
     
     // Options: 'KEEP_CURRENT' or 'REQUEST_CHANGE'
     const [applyOption, setApplyOption] = useState('KEEP_CURRENT');
     const [showSuccessModal, setShowSuccessModal] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+    const [updateError, setUpdateError] = useState('');
 
-    const handleContinue = () => {
-        // Implement save logic later
-        setShowSuccessModal(true);
+    const handleContinue = async () => {
+        try {
+            setUpdateError('');
+            
+            // Validate new price
+            const finalPrice = parseFloat(newPrice || currentPrice);
+            if (!finalPrice || finalPrice < 0.99 || finalPrice > 1000.00) {
+                Alert.alert('Invalid Price', 'Please enter a price between $0.99 and $1,000.00');
+                return;
+            }
+
+            setIsLoading(true);
+
+            // Map applyOption to pricingPolicy
+            const pricingPolicy = applyOption === 'KEEP_CURRENT' 
+                ? 'GRANDFATHER_EXISTING'  // Old users pay old amount, new users pay new amount
+                : 'REQUIRE_NEW_CONSENT';   // All users pay new amount
+
+            // Prepare the API payload
+            const payload = {
+                subscriptionAmount: finalPrice,
+                status: 'ACTIVE',
+                pricingPolicy: pricingPolicy,
+                comment: route.params?.comment || ''
+            };
+
+            // Call the API
+            const response = await setPrivateSubscription(payload);
+            console.log(response, 'update response e eheterheerer');
+            if (response?.statusCode === 200 || response?.status === 200) {
+                setShowSuccessModal(true);
+            } else {
+                setUpdateError(response?.message || 'Failed to update subscription price. Please try again.');
+                Alert.alert('Error', response?.message || 'Failed to update subscription price. Please try again.');
+            }
+        } catch (error) {
+            const errorMessage = error?.response?.data?.message || error?.message || 'An error occurred while updating the subscription price.';
+            setUpdateError(errorMessage);
+            Alert.alert('Error', errorMessage);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const handleDone = () => {
@@ -173,10 +216,11 @@ const UpdateSubscriptionPriceScreen = () => {
 
                 <View style={[styles.footer, { backgroundColor: theme.bg }]}>
                     <TouchableOpacity 
-                        style={[styles.continueButton, { backgroundColor: theme.accent }]}
+                        style={[styles.continueButton, { backgroundColor: isLoading ? theme.mutedText : theme.accent, opacity: isLoading ? 0.6 : 1 }]}
                         onPress={handleContinue}
+                        disabled={isLoading}
                     >
-                        <Text style={styles.continueButtonText}>Continue</Text>
+                        <Text style={styles.continueButtonText}>{isLoading ? 'Updating...' : 'Continue'}</Text>
                     </TouchableOpacity>
                 </View>
 
