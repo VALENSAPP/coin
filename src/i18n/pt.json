@@ -2213,7 +2213,7 @@
     "totalRequests": "Total de solicitações",
     "totalEarnedLabel": "Total ganho",
     "earningsSplitLabel": "Divisão de ganhos (total por post)",
-    "youPercent": "Você (80%)",
+    "youPercent": "Você (95%)",
     "platformFee": "Taxa da plataforma (5%)",
     "total": "Total"
   },
@@ -3604,7 +3604,8 @@
     "privateCircle": "Círculo Privado",
     "settings": "Configurações",
     "ebook": "Ebook",
-    "services": "Serviços"
+    "services": "Serviços",
+    "manageSubscribers": "Gerenciar meus assinantes"
   },
   "walletStack": {
     "buyMissionCredits": "Comprar Créditos de Missão",
@@ -3631,7 +3632,61 @@
     "viewMissionPost": "Ver Publicação da Missão",
     "revenueFromSubscriptions": "Receita de Assinaturas",
     "selectLanguage": "Selecionar Idioma",
-    "marketplaceAnalytics": "Análises do Marketplace"
+    "marketplaceAnalytics": "Análises do Marketplace",
+    "manageSubscribers": "Gerenciar assinantes"
+  },
+  "manageSubscribers": {
+    "title": "Assinantes",
+    "subtitle": "Gerencie seus assinantes e o status da assinatura.",
+    "mySubscriptionsTitle": "Minhas assinaturas",
+    "mySubscriptionsSubtitle": "Gerencie os criadores que você assina e a cobrança.",
+    "viewAsSubscriber": "Ver como assinante",
+    "viewAsCreator": "Ver como criador",
+    "updatePrice": "Atualizar preço da assinatura",
+    "stat": {
+      "active": "Ativos",
+      "pending": "Pendente (preço)",
+      "canceled": "Cancelados",
+      "expired": "Expirados"
+    },
+    "pctOfTotal": "{{pct}}% do total",
+    "priceUpdateTitle": "Atualização de preço em andamento",
+    "priceUpdateBody": "Você atualizou o preço de ${{from}} para ${{to}}/mês. Os assinantes pendentes foram avisados e escolherão antes da próxima cobrança.",
+    "viewUpdateDetails": "Ver detalhes",
+    "searchPlaceholder": "Buscar assinantes...",
+    "searchSubscriptions": "Buscar assinaturas...",
+    "allStatus": "Todos os status",
+    "filters": "Filtros",
+    "filterHint": "Use status e ordenação para refinar a lista.",
+    "empty": "Ninguém corresponde aos filtros.",
+    "statusActive": "Ativo",
+    "statusPending": "Pendente",
+    "statusCanceled": "Cancelado",
+    "statusExpired": "Expirado",
+    "priceUpdate": "Atualização de preço",
+    "currentPrice": "Preço atual",
+    "priceMonth": "${{price}} / mês",
+    "willChangeTo": "(mudará para ${{price}})",
+    "nextBilling": "Próxima cobrança",
+    "inDays": "em {{days}} dias",
+    "joined": "Entrou em",
+    "message": "Mensagem",
+    "viewProfile": "Ver perfil",
+    "cancelSubscription": "Cancelar assinatura",
+    "close": "Fechar",
+    "showing": "Mostrando {{from}} a {{to}} de {{total}}",
+    "sort": {
+      "newest": "Ordem: mais recente",
+      "oldest": "Ordem: mais antigo",
+      "priceHigh": "Ordem: preço alto",
+      "priceLow": "Ordem: preço baixo"
+    },
+    "legend": {
+      "active": "Ativo: paga e tem acesso completo.",
+      "pending": "Pendente: ainda não respondeu à atualização de preço.",
+      "canceled": "Cancelado: não está mais assinado.",
+      "expired": "Expirado: a assinatura terminou."
+    }
   },
   "tabNav": {
     "editProfile": "Editar Perfil"

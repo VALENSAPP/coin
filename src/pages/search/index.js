@@ -1533,16 +1533,31 @@ const SearchScreen = () => {
       return;
     }
 
-    if (item?.type === 'reel' || feedItemType === 'reel') {
-      navigation.navigate('ProfileMain', {
+    if (item?.type === 'reel' || feedItemType === 'reel' || isVideo) {
+      const flipsParams = {
+        item: { ...item, type: 'reel', format: 'reel', isVideo: true },
+        key: uniqueKey,
+        returnTo: 'SearchHome',
+        returnToTab: 'Search',
+        returnToScreen: 'SearchHome',
+        returnParams: route.params,
+      };
+
+      let targetNavigation = navigation;
+      while (targetNavigation) {
+        const routeNames = targetNavigation.getState?.()?.routeNames || [];
+        if (routeNames.includes('FlipsScreen')) {
+          targetNavigation.navigate('FlipsScreen', flipsParams);
+          return;
+        }
+        targetNavigation = targetNavigation.getParent?.();
+      }
+
+      navigation.navigate('Search', {
         screen: 'FlipsScreen',
-        params: {
-          item: { ...item, type: 'reel', format: 'reel', isVideo: true },
-          key: uniqueKey,
-          returnTo: route?.name,
-          returnParams: route.params,
-        },
+        params: flipsParams,
       });
+      return;
     } else {
       let targetNavigation = navigation;
       while (targetNavigation) {
@@ -1599,7 +1614,6 @@ const SearchScreen = () => {
     const raw = battleItem?.raw || battleItem;
     const fmt = String(raw?.format || battleItem?.format || '').toLowerCase();
     const tbb = String(raw?.typeByBattle || battleItem?.typeByBattle || '').toLowerCase();
-    console.log("--------------------------raw----------------------", raw)
 
     // Boosted product — open the winner product detail
     if (fmt === 'boosted' || tbb === 'boosted_product') {

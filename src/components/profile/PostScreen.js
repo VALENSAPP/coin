@@ -1,4 +1,4 @@
-import { useNavigation } from '@react-navigation/native';
+import { StackActions, useNavigation } from '@react-navigation/native';
 import React, { useState, useEffect, useCallback, memo, useRef, useMemo } from 'react';
 import {
   Alert,
@@ -264,15 +264,31 @@ const PostScreen = memo(({ scrollEnabled = true, postCheck, userData: propUserDa
   const openPosts = useCallback((index) => {
     const selectedPost = filteredPosts?.[index];
     if (!selectedPost) return;
-    navigation.getParent().navigate('ProfileMain', {
+    const params = {
+      postData: filteredPosts,
+      startIndex: index,
+      hideTabBar: true,
+      userData,
+      loggedInUserId: userData?.id,
+    };
+    const routeNames = navigation.getState?.()?.routeNames || [];
+    if (routeNames.includes('PostView')) {
+      navigation.dispatch(StackActions.push('PostView', params));
+      return;
+    }
+    if (!isOwnProfile) {
+      params.isOwnProfile = false;
+      params.returnTo = 'HomeMain';
+      params.returnParams = {
+        screen: 'UsersProfile',
+        params: { userId: userData?.id || userData?._id },
+      };
+    }
+
+    navigation.navigate('ProfileMain', {
       screen: 'PostView',
-      params: {
-        postData: filteredPosts,
-        startIndex: index,
-        hideTabBar: true,
-        userData,
-        loggedInUserId: userData?.id,
-      },
+      params,
+      initial: false,
     });
   }, [navigation, filteredPosts, userData]);
 

@@ -24,6 +24,14 @@ export default function ViewMissioPost({ navigation, route }) {
     const [filterLoading, setFilterLoading] = useState(false);
     const [statusFilter, setStatusFilter] = useState('all');
     const [error, setError] = useState(null);
+    const PLATFORM_FEE_PERCENT = 5;
+    const CREATOR_SHARE_PERCENT = 100 - PLATFORM_FEE_PERCENT;
+
+    const formatMoney = useCallback((value) => {
+        const numeric = Number(value);
+        if (!Number.isFinite(numeric)) return '0.00';
+        return numeric.toFixed(2);
+    }, []);
 
     const fetchMissions = useCallback(async (filter = 'all', isFilterChange = false) => {
         try {
@@ -31,7 +39,9 @@ export default function ViewMissioPost({ navigation, route }) {
             else setLoading(true);
             setError(null);
             const params = filter !== 'all' ? { status: filter } : {};
+            console.log('[ViewMissioPost] getAllMissionPost request:', params);
             const response = await getAllMissionPost(params);
+            console.log('[ViewMissioPost] getAllMissionPost response:', response);
 
             if (response?.statusCode === 200) {
                 const raw = response.data?.data || response.data || [];
@@ -49,10 +59,11 @@ export default function ViewMissioPost({ navigation, route }) {
                     endTime: item.end_time,
                     startTime: item.start_time,
                     requests: item.commentCount ?? 0,
-                    earned: item.earning?.total ?? 0,
-                    split: item.earning?.total ? (item.earning.total * 0.8).toFixed(2) : '0.00',
-                    valensFee: item.earning?.platformFees ?? '0.00',
-                    stripeFee: item.earning?.total ? (item.earning.total * 0.05).toFixed(2) : '0.00',
+                    earned: Number(item.earning?.total ?? 0),
+                    creatorShare: Number(item.earning?.total ?? 0) * (CREATOR_SHARE_PERCENT / 100),
+                    platformFee: Number(item.earning?.total ?? 0) * (PLATFORM_FEE_PERCENT / 100),
+                    splitPercent: CREATOR_SHARE_PERCENT,
+                    valensFeePercent: PLATFORM_FEE_PERCENT,
                     total: item.tokenBalance ?? 0,
                     type: item.type,
                     userImage: item.userImage,
@@ -330,17 +341,17 @@ export default function ViewMissioPost({ navigation, route }) {
                                             {t('viewMissionPost.earningsSplitLabel')}
                                         </Text>
                                         <View style={styles.splitRow}>
-                                            <View style={styles.splitItem}>
-                                                <Text style={[styles.splitItemLabel, { color: mutedText }]}>
-                                                    {t('viewMissionPost.youPercent')}
-                                                </Text>
-                                                <Text style={[styles.splitItemValue, { color: '#16a34a' }]}>${c.split}</Text>
-                                            </View>
-                                            <View style={styles.splitItem}>
-                                                <Text style={[styles.splitItemLabel, { color: mutedText }]}>
-                                                    {t('viewMissionPost.platformFee')}
-                                                </Text>
-                                                <Text style={[styles.splitItemValue, textStyle]}>${c.valensFee}</Text>
+                                        <View style={styles.splitItem}>
+                                            <Text style={[styles.splitItemLabel, { color: mutedText }]}>
+                                                    {t('viewMissionPost.youPercent', { percent: CREATOR_SHARE_PERCENT })}
+                                            </Text>
+                                                <Text style={[styles.splitItemValue, { color: '#16a34a' }]}>${formatMoney(c.creatorShare)}</Text>
+                                        </View>
+                                        <View style={styles.splitItem}>
+                                            <Text style={[styles.splitItemLabel, { color: mutedText }]}>
+                                                    {t('viewMissionPost.platformFee', { percent: PLATFORM_FEE_PERCENT })}
+                                            </Text>
+                                                <Text style={[styles.splitItemValue, textStyle]}>${formatMoney(c.platformFee)}</Text>
                                             </View>
                                             {/* <View style={styles.splitItem}>
                                                 <Text style={styles.splitItemLabel}>

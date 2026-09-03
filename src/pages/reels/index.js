@@ -99,6 +99,8 @@ import {
   getPostMusicForSlide,
   getMusicTrimPlaybackWindowFromTrim,
 } from '../../utils/postSoundtracks';
+import { downloadMedia, getMediaFilename, isVideoMedia } from '../../utils/mediaDownload';
+import { BASE_URL } from '../../config/urls';
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 const MAX_REEL_PINCH = 3.5;
@@ -142,6 +144,25 @@ const resolveReelMusicLabel = raw => {
     return String(music);
   }
   return 'Original Audio';
+};
+
+const isPrivateReel = reel => {
+  if (!reel || typeof reel !== 'object') return false;
+  const visibleTo = String(reel.visibleTo ?? reel.visible_to ?? '').trim();
+  if (visibleTo) return true;
+  const type = String(reel.postType ?? reel.post_type ?? reel.type ?? '').trim().toLowerCase();
+  return type === 'private';
+};
+
+const normalizeReelMediaUrl = value => {
+  if (!value || typeof value !== 'string') return '';
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('file://') || trimmed.startsWith('data:')) {
+    return trimmed;
+  }
+  if (trimmed.startsWith('/')) return `${BASE_URL}${trimmed}`;
+  return `${BASE_URL}/${trimmed}`;
 };
 
 /**
@@ -638,9 +659,7 @@ const ReelItem = React.memo(
     scaleAnim,
     followingBusy,
     currentUserId,
-    sideActionsBottom,
     bottomContentBottom,
-    horizontalActionsBottom,
     onPinchLockChange,
     handleVideoLoad,
     handleVideoProgress,
@@ -726,92 +745,89 @@ const ReelItem = React.memo(
         {isCurrent && hasSoundtrack ? (
           <ReelSoundtrackPlayer music={postMusic} play={shouldPlaySoundtrack} />
         ) : null}
-        {/* Horizontal actions */}
-        <View
-          style={[
-            styles.horizontalActions,
-            { bottom: horizontalActionsBottom },
-          ]}>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => togglePlaybackSpeed(item.id)}
-            accessibilityLabel={tFlips('flips.toggleSpeed')}>
-            <View style={styles.actionIconSlot}>
-              <Text style={styles.speedBadge}>
-                {(playbackRateMap[item.id] ?? 1) + '×'}
-              </Text>
-            </View>
-            <Text style={styles.actionLabel} numberOfLines={1}>
-              {tFlips('flips.speedLabel')}
-            </Text>
-          </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => handleLike(item.id)}>
-            <View style={styles.actionIconSlot}>
-              <Thumbup
-                width={26}
-                height={26}
-                style={[
-                  styles.actionSvgIcon,
-                  !likedMap[item.id] && styles.actionSvgIconInactive,
-                ]}
-              />
-            </View>
-            <Text style={styles.actionLabel} numberOfLines={1}>
-              {formatCount(likesCountMap[item.id] || 0)}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => handleComment(item.id)}>
-            <View style={styles.actionIconSlot}>
-              <Comments width={26} height={26} style={styles.actionSvgIcon} />
-            </View>
-            <Text style={styles.actionLabel} numberOfLines={1}>
-              {formatCount(commentsCountMap[item.id] || 0)}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => openShareSheet()}>
-            <View style={styles.actionIconSlot}>
-              <ShareIcom width={26} height={26} style={styles.actionSvgIcon} />
-            </View>
-            <Text style={styles.actionLabel} numberOfLines={1}>
-              {tFlips('flips.shareLabel')}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => handleMoreOptions(item)}
-            accessibilityLabel={tFlips('flips.moreOptions') || 'More'}>
-            <View style={styles.actionIconSlot}>
-              <Feather name="more-vertical" size={22} color="#fff" />
-            </View>
-            <Text style={[styles.actionLabel, styles.actionLabelHidden]} numberOfLines={1}>
-              {'\u00A0'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={[styles.sideActions, { bottom: sideActionsBottom }]}>
-          <TouchableOpacity style={styles.musicDisc}>
-            <View style={styles.discContainer}>
-              <Image source={{ uri: item.avatar }} style={styles.discImage} />
-            </View>
-            <View style={styles.musicIconWrapper}>
-              <Feather name="music" size={15} color="#fff" />
-            </View>
-          </TouchableOpacity>
-        </View>
-
-        {/* Bottom content */}
         <View style={[styles.bottomContent, { bottom: bottomContentBottom }]}>
+          <View style={styles.bottomTopRow}>
+            <View style={styles.horizontalActions}>
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={() => togglePlaybackSpeed(item.id)}
+                accessibilityLabel={tFlips('flips.toggleSpeed')}>
+                <View style={styles.actionIconSlot}>
+                  <Text style={styles.speedBadge}>
+                    {(playbackRateMap[item.id] ?? 1) + '×'}
+                  </Text>
+                </View>
+                <Text style={styles.actionLabel} numberOfLines={1}>
+                  {tFlips('flips.speedLabel')}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={() => handleLike(item.id)}>
+                <View style={styles.actionIconSlot}>
+                  <Thumbup
+                    width={26}
+                    height={26}
+                    style={[
+                      styles.actionSvgIcon,
+                      !likedMap[item.id] && styles.actionSvgIconInactive,
+                    ]}
+                  />
+                </View>
+                <Text style={styles.actionLabel} numberOfLines={1}>
+                  {formatCount(likesCountMap[item.id] || 0)}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={() => handleComment(item.id)}>
+                <View style={styles.actionIconSlot}>
+                  <Comments width={26} height={26} style={styles.actionSvgIcon} />
+                </View>
+                <Text style={styles.actionLabel} numberOfLines={1}>
+                  {formatCount(commentsCountMap[item.id] || 0)}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={() => openShareSheet()}>
+                <View style={styles.actionIconSlot}>
+                  <ShareIcom width={26} height={26} style={styles.actionSvgIcon} />
+                </View>
+                <Text style={styles.actionLabel} numberOfLines={1}>
+                  {tFlips('flips.shareLabel')}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={() => handleMoreOptions(item)}
+                accessibilityLabel={tFlips('flips.moreOptions') || 'More'}>
+                <View style={styles.actionIconSlot}>
+                  <Feather name="more-vertical" size={22} color="#fff" />
+                </View>
+                <Text style={[styles.actionLabel, styles.actionLabelHidden]} numberOfLines={1}>
+                  {'\u00A0'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.sideActions}>
+              <TouchableOpacity style={styles.musicDisc}>
+                <View style={styles.discContainer}>
+                  <Image source={{ uri: item.avatar }} style={styles.discImage} />
+                </View>
+                <View style={styles.musicIconWrapper}>
+                  <Feather name="music" size={15} color="#fff" />
+                </View>
+              </TouchableOpacity>
+            </View>
+          </View>
+
           <View style={styles.userInfo}>
             <TouchableOpacity
               style={styles.userRow}
@@ -827,7 +843,9 @@ const ReelItem = React.memo(
               />
               <View style={styles.userTextColumn}>
                 <View style={styles.usernameContainer}>
-                  <Text style={styles.username}>{item.user}</Text>
+                  <Text style={styles.username} numberOfLines={1}>
+                    {item.user}
+                  </Text>
                   {item.verified && (
                     <Icon
                       name="checkmark-circle"
@@ -861,14 +879,14 @@ const ReelItem = React.memo(
                   disabled={followingBusy.has(
                     String(getReelOwnerId(item)),
                   )}>
-                  <Text style={styles.followButtonText}>
+                  <Text style={styles.followButtonText} numberOfLines={1}>
                     {!item.isFollowing ? tFlips('flips.follow') : tFlips('flips.following')}
                   </Text>
                 </TouchableOpacity>
               )}
             </TouchableOpacity>
           </View>
-          <Text style={styles.caption} numberOfLines={2}>
+          <Text style={styles.caption} numberOfLines={3}>
             {item.caption}
           </Text>
           {(() => {
@@ -919,7 +937,7 @@ const ReelItem = React.memo(
       prev.followingBusy === next.followingBusy &&
       prev.windowWidth === next.windowWidth &&
       prev.viewportHeight === next.viewportHeight &&
-      prev.horizontalActionsBottom === next.horizontalActionsBottom
+      prev.bottomContentBottom === next.bottomContentBottom
     );
   },
 );
@@ -991,6 +1009,7 @@ export default function FlipsScreen() {
   const [dropdownVisible, setDropdownVisible] = useState(false);
   const [commentsData, setCommentsData] = useState(mockComments);
   const [selectedReelId, setSelectedReelId] = useState(null);
+  const [isDownloadingReel, setIsDownloadingReel] = useState(false);
   const commentSheetRef = useRef();
   const moreOptionsSheetRef = useRef();
   const notInterestedSheetRef = useRef();
@@ -1039,10 +1058,6 @@ export default function FlipsScreen() {
   const bottomContentBottom = isIOS
     ? Math.max(26, bottomOverlayInset + 2)
     : Math.max(6, bottomOverlayInset - 30);
-  const sideActionsBottom = isIOS
-    ? bottomContentBottom - 14
-    : bottomContentBottom - 18;
-  const horizontalActionsBottom = bottomContentBottom + (isIOS ? 112 : 100);
 
   const scrubAnim = useRef(new Animated.Value(0)).current;
 
@@ -1423,35 +1438,44 @@ export default function FlipsScreen() {
     const returnToTab = route.params?.returnToTab;
     const returnToScreen = route.params?.returnToScreen;
 
-    if (returnToTab && returnToScreen) {
-      navigation.navigate(returnToTab, { screen: returnToScreen, params: returnParams });
+    if (navigation.canGoBack()) {
+      navigation.goBack();
       return;
     }
 
-    if (returnTo == "Search" || returnTo == "SearchHome") {
-      // Search is a tab route (now a stack). Prefer goBack within Search stack.
-      if (navigation.canGoBack()) {
-        navigation.goBack();
-        return;
-      }
-      const parentNav = navigation.getParent?.();
-      if (parentNav?.navigate) {
-        parentNav.navigate('Search', { screen: 'SearchHome', params: returnParams });
-      } else {
-        navigation.navigate('Search', { screen: 'SearchHome', params: returnParams });
-      }
+    if (returnToTab && returnToScreen) {
+      navigation.navigate(returnToTab, {
+        screen: returnToScreen,
+        params: returnParams,
+        initial: false,
+      });
+      return;
+    }
+
+    if (returnTo == 'Search' || returnTo == 'SearchHome') {
+      navigation.navigate('Search', {
+        screen: 'SearchHome',
+        params: returnParams,
+        initial: false,
+      });
+      return;
+    }
+
+    if (returnTo == 'PostView') {
+      navigation.navigate('ProfileMain', {
+        screen: 'PostView',
+        params: returnParams,
+        initial: false,
+      });
       return;
     }
 
     if (returnTo) {
-      // Back-compat for older callers that only send a leaf route name.
-      navigation.navigate('HomeMain', { screen: returnTo, params: returnParams });
-      return;
-    }
-
-    // Prefer normal back behavior only when no explicit return target was provided.
-    if (navigation.canGoBack()) {
-      navigation.goBack();
+      navigation.navigate('HomeMain', {
+        screen: returnTo,
+        params: returnParams,
+        initial: false,
+      });
       return;
     }
 
@@ -1951,6 +1975,48 @@ export default function FlipsScreen() {
     moreOptionsSheetRef.current?.open();
   }, []);
 
+  const handleDownloadReel = useCallback(
+    async reel => {
+      if (!reel || isPrivateReel(reel)) {
+        showToastMessage(toast, 'danger', t('flips.somethingWentWrong'));
+        return;
+      }
+
+      const mediaUrl = normalizeReelMediaUrl(
+        reel?.video || reel?.images?.[0] || reel?.image || '',
+      );
+      if (!mediaUrl) {
+        showToastMessage(toast, 'danger', t('flips.somethingWentWrong'));
+        return;
+      }
+
+      console.log('[Flips] downloading reel media:', mediaUrl);
+      const looksLikeImage = /\.(jpe?g|png|gif|webp|heic|heif)(\?|#|$)/i.test(
+        mediaUrl,
+      );
+      const isVideo =
+        !looksLikeImage ||
+        isVideoMedia({ uri: mediaUrl, type: reel?.type });
+
+      setIsDownloadingReel(true);
+      moreOptionsSheetRef.current?.close();
+
+      try {
+        await downloadMedia(
+          mediaUrl,
+          getMediaFilename(mediaUrl, 0),
+          isVideo,
+          toast,
+        );
+      } catch (_error) {
+        // downloadMedia already shows the alert/toast
+      } finally {
+        setIsDownloadingReel(false);
+      }
+    },
+    [t, toast],
+  );
+
   const openShareSheet = useCallback(() => {
     shareRef.current?.open?.();
   }, []);
@@ -2158,9 +2224,7 @@ export default function FlipsScreen() {
         scaleAnim={scaleAnim}
         followingBusy={followingBusy}
         currentUserId={currentUserId}
-        sideActionsBottom={sideActionsBottom}
         bottomContentBottom={bottomContentBottom}
-        horizontalActionsBottom={horizontalActionsBottom}
         onPinchLockChange={onPinchLockChange}
         handleVideoLoad={handleVideoLoad}
         handleVideoProgress={handleVideoProgress}
@@ -2183,8 +2247,8 @@ export default function FlipsScreen() {
     [
       currentIndex, windowWidth, viewportHeight, isFocused, playbackRate,
       paused, muted, isBuffering, liked, likesCount, commentsCount, saved,
-      heartAnimatingId, scaleAnim, followingBusy, currentUserId, sideActionsBottom,
-      bottomContentBottom, horizontalActionsBottom, onPinchLockChange,
+      heartAnimatingId, scaleAnim, followingBusy, currentUserId,
+      bottomContentBottom, onPinchLockChange,
       handleVideoLoad, handleVideoProgress, registerVideoRef, stableDoubleTap,
       stableSingleTap, handleLike, handleComment, openShareSheet, handleMoreOptions,
       handleFollowPress, handleUserNavigate, togglePlaybackSpeed, getReelOwnerId,
@@ -2469,7 +2533,21 @@ export default function FlipsScreen() {
                     ? t('flips.saved')
                     : t('flips.save')}
                 </Text>
-              </TouchableOpacity>
+                </TouchableOpacity>
+              {!isPrivateReel(activeReel) && (
+                <TouchableOpacity
+                  style={[styles.moreOption, { borderBottomColor: sheetTheme.borderColor }]}
+                  disabled={isDownloadingReel}
+                  onPress={() => {
+                    const reel = reels.find(r => r.id === selectedReelId) || reels[currentIndex];
+                    void handleDownloadReel(reel);
+                  }}>
+                  <Icon name="download-outline" size={24} color={sheetTheme.iconColor} />
+                  <Text style={[styles.moreOptionText, { color: sheetTheme.labelColor }]}>
+                    {t('Download')}
+                  </Text>
+                </TouchableOpacity>
+              )}
               {canDeleteActiveReel && (
                 <TouchableOpacity
                   style={[styles.moreOption, { borderBottomColor: sheetTheme.borderColor }]}
@@ -2627,6 +2705,14 @@ export default function FlipsScreen() {
           vendorId={currentReel?.UserId ?? currentReel?.userId}
           onClose={() => setTipPurchaseVisible(false)}
         />
+        {isDownloadingReel && (
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', zIndex: 9999 }]}>
+            <View style={{ backgroundColor: '#fff', padding: 24, borderRadius: 16, alignItems: 'center', minWidth: 140 }}>
+              <ActivityIndicator size="large" color="#7c3aed" />
+              <Text style={{ marginTop: 12, fontSize: 16, fontWeight: '600', color: '#1f2937' }}>Downloading...</Text>
+            </View>
+          </View>
+        )}
       </SafeAreaView>
     </GestureHandlerRootView>
   );
@@ -2723,16 +2809,24 @@ const styles = StyleSheet.create({
   chevronIcon: { marginLeft: 8 },
   headerIconButton: { padding: 8 },
   buttons: { padding: 8 },
+  bottomTopRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
   horizontalActions: {
-    position: 'absolute',
-    left: 8,
-    right: 78,
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'flex-start',
+    marginRight: 8,
+    minWidth: 0,
   },
   actionButton: {
-    width: 48,
+    flex: 1,
+    maxWidth: 56,
+    minWidth: 40,
     alignItems: 'center',
     justifyContent: 'flex-start',
   },
@@ -2757,7 +2851,7 @@ const styles = StyleSheet.create({
   actionLabelHidden: {
     color: 'transparent',
   },
-  musicDisc: { marginTop: 10, marginBottom: '10%' },
+  musicDisc: { marginTop: 0 },
   discContainer: {
     width: 30,
     height: 30,
@@ -2793,16 +2887,23 @@ const styles = StyleSheet.create({
     paddingBottom: 6,
   },
   userInfo: { marginBottom: 4 },
-  userRow: { flexDirection: 'row', alignItems: 'flex-start' },
+  userRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minWidth: 0,
+  },
   userTextColumn: {
     flex: 1,
     marginLeft: 8,
     justifyContent: 'center',
     marginTop: 1,
+    minWidth: 0,
   },
   usernameContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    minWidth: 0,
+    flex: 1,
   },
   userAvatar: {
     width: 32,
@@ -2814,8 +2915,9 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 14,
+    flexShrink: 1,
   },
-  verifiedIcon: { marginLeft: 6 },
+  verifiedIcon: { marginLeft: 6, flexShrink: 0 },
   followButton: {
     backgroundColor: 'transparent',
     borderWidth: 1,
@@ -2824,7 +2926,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 4,
     marginLeft: 10,
-    marginTop: 2,
+    flexShrink: 0,
   },
   followButtonText: {
     color: '#fff',
@@ -2837,6 +2939,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     marginBottom: 4,
     marginLeft: 0,
+    flexShrink: 1,
   },
   hashtagRow: {
     color: '#9FDAFF',
@@ -2852,8 +2955,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: 4,
+    minWidth: 0,
   },
-  musicMarquee: { width: 110, maxWidth: 250, marginLeft: 8 },
+  musicMarquee: { flex: 1, minWidth: 0, marginLeft: 8 },
   musicIcon: { marginTop: 0 },
   dropdownOverlay: {
     position: 'absolute',
@@ -3075,9 +3179,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   sideActions: {
-    position: 'absolute',
-    right: 12,
     alignItems: 'center',
+    justifyContent: 'flex-start',
+    flexShrink: 0,
   },
   tipModalOverlay: {
     flex: 1,

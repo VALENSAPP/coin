@@ -11,7 +11,6 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import {
-  StackActions,
   useFocusEffect,
   useNavigation,
   useRoute,
@@ -291,18 +290,19 @@ export default function PostView({ postData = [], userData = {} }) {
     const returnParams = route.params?.returnParams;
     const fromScreen = route.params?.fromScreen;
     const userId = route.params?.userId;
+    const isOwnProfile = route.params?.isOwnProfile ?? true;
+
+    if (navigation.canGoBack?.() && isOwnProfile) {
+      navigation.goBack();
+      return;
+    }
 
     if (backTarget) {
-      if (returnParams?.screen) {
-        navigation.navigate(backTarget, returnParams);
-      } else {
-        navigation.navigate(backTarget, returnParams);
-      }
+      navigation.navigate(backTarget, returnParams);
       return;
     }
 
     if (fromScreen === 'Notifications') {
-      navigation.dispatch(StackActions.pop(1));
       navigation.getParent()?.navigate('HomeMain', {
         screen: 'HeartNotification',
       });
@@ -310,7 +310,6 @@ export default function PostView({ postData = [], userData = {} }) {
     }
 
     if (fromScreen === 'UserChat') {
-      navigation.dispatch(StackActions.pop(1));
       navigation.getParent()?.navigate('HomeMain', {
         screen: 'UserChat',
         params: {
@@ -320,10 +319,6 @@ export default function PostView({ postData = [], userData = {} }) {
       return;
     }
 
-    // Prefer the native stack: this preserves the original entry route
-    // (Explore/Search/UserProfile/etc) instead of forcing a Home redirect.
-
-    // Fallbacks when PostView is opened as a root (rare).
     if (routeUserData) {
       const targetUserId = String(routeUserData?.id ?? routeUserData?.userId ?? '');
       if (targetUserId) {
@@ -331,11 +326,6 @@ export default function PostView({ postData = [], userData = {} }) {
           loggedInUserId: currentUserId,
         });
       }
-      return;
-    }
-
-    if (navigation.canGoBack?.()) {
-      navigation.goBack();
       return;
     }
 

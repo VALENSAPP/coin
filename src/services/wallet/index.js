@@ -98,6 +98,14 @@ export const getAllMissionPost = async (params) => {
   return axiosInstance.get('post/getMissionpost', { params });
 }
 
+export const getSubscribersList = async (params) => {
+  return axiosInstance.get('billing/pay-following/subscribers', { params });
+}
+
+export const getMySubscriptionsList = async (params) => {
+  return axiosInstance.get('billing/pay-following/subscriptions', { params });
+}
+
 /** @param {{ interval?: 'daily' | 'weekly' | 'monthly' }} params */
 export const subscriptionEarningGraph = async (params) => {
   return axiosInstance.get('billing/subscription-earning/graph', { params });
