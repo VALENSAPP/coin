@@ -58,14 +58,15 @@ const transformSubscriber = (item) => {
     });
   };
 
-  const calculateDaysUntil = (date) => {
-    if (!date) return null;
-    const targetDate = new Date(date);
-    const today = new Date();
-    const diffTime = targetDate - today;
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays > 0 ? diffDays : null;
-  };
+const calculateDaysUntil = (date) => {
+  if (!date) return null;
+  const targetDate = new Date(date);
+  targetDate.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((targetDate - today) / (1000 * 60 * 60 * 24));
+  return diffDays > 0 ? diffDays : null;
+};
 
   return {
     id: item.subscriber?.id || item.id,
@@ -76,7 +77,10 @@ const transformSubscriber = (item) => {
     price: item.priceAtSubscription || 0,
     nextPrice: null,
     nextBilling: formatDate(item.endDate),
-    nextBillingHint: calculateDaysUntil(item.endDate),
+    nextBillingHint: (() => {
+      const hint = calculateDaysUntil(item.endDate);
+      return hint;
+    })(),
     joined: formatDate(item.startDate),
     totalEarned: item.totalEarnedFromSubscriber || 0,
     totalPaid: item.totalPaidBySubscriber || 0,
@@ -126,7 +130,10 @@ const transformSubscription = (item) => {
     price: item.priceAtSubscription || 0,
     nextPrice: null,
     nextBilling: formatDate(item.endDate),
-    nextBillingHint: calculateDaysUntil(item.endDate),
+    nextBillingHint: (() => {
+      const hint = calculateDaysUntil(item.endDate);
+      return hint;
+    })(),
     joined: formatDate(item.startDate),
     totalEarned: item.totalEarnedFromSubscriber || 0,
     totalPaid: item.totalPaidBySubscriber || 0,
