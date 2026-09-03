@@ -73,7 +73,7 @@ import { getUserCredentials } from '../../services/post';
 import { tipRecived } from '../../services/wallet';
 import { battleByUserId, battlePoint } from '../../services/battle';
 import { isBattleLive } from '../../utils/battleCardUtils';
-import { BATTLE_LEVELS, resolveBattleLevel } from '../../utils/battleLevels';
+import { BATTLE_LEVELS, resolveBattleLevel, getBattleLevelDragonflyIcon } from '../../utils/battleLevels';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useThemeContext } from '../../theme/ThemeContext';
 import { getSupportRecipientWalletAddress } from '../../utils/walletPaymentSupport';
@@ -1142,7 +1142,7 @@ const ProfilePersonData = ({
     }
   };
 
-  const DragonflyIcon = getDragonflyIcon(Userdata.Followers, isCompanyProfile, isDarkMode);
+  const DragonflyIcon = getBattleLevelDragonflyIcon(levelInfo.tier?.iconId, isDarkMode);
   const totalSupportCardHeight = totalSupportAnim.interpolate({
     inputRange: [0, 1], outputRange: [0, TOTAL_SUPPORT_CARD_HEIGHT],
   });
@@ -1412,7 +1412,7 @@ const ProfilePersonData = ({
                     <Svg width={52} height={52} viewBox="0 0 84 84" style={{ position: 'absolute' }}>
                       <Polygon
                         points="42,2 82,22 82,62 42,82 2,62 2,22"
-                        stroke={accent}
+                        stroke={levelInfo.tier?.color || accent}
                         strokeWidth="3.5"
                         fill="transparent"
                         strokeLinejoin="round"

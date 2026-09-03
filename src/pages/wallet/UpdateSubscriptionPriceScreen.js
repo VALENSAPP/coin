@@ -20,58 +20,27 @@ const UpdateSubscriptionPriceScreen = () => {
     const [newPrice, setNewPrice] = useState('');
     
     // Options: 'KEEP_CURRENT' or 'REQUEST_CHANGE'
-    const [applyOption, setApplyOption] = useState('KEEP_CURRENT');
-    const [showSuccessModal, setShowSuccessModal] = useState(false);
-    const [isLoading, setIsLoading] = useState(false);
-    const [updateError, setUpdateError] = useState('');
+    const [applyOption, setApplyOption] = useState('');
 
-    const handleContinue = async () => {
-        try {
-            setUpdateError('');
-            
-            // Validate new price
-            const finalPrice = parseFloat(newPrice || currentPrice);
-            if (!finalPrice || finalPrice < 0.99 || finalPrice > 1000.00) {
-                Alert.alert('Invalid Price', 'Please enter a price between $0.99 and $1,000.00');
-                return;
-            }
-
-            setIsLoading(true);
-
-            // Map applyOption to pricingPolicy
-            const pricingPolicy = applyOption === 'KEEP_CURRENT' 
-                ? 'GRANDFATHER_EXISTING'  // Old users pay old amount, new users pay new amount
-                : 'REQUIRE_NEW_CONSENT';   // All users pay new amount
-
-            // Prepare the API payload
-            const payload = {
-                subscriptionAmount: finalPrice,
-                status: 'ACTIVE',
-                pricingPolicy: pricingPolicy,
-                comment: route.params?.comment || ''
-            };
-
-            // Call the API
-            const response = await setPrivateSubscription(payload);
-            console.log(response, 'update response e eheterheerer');
-            if (response?.statusCode === 200 || response?.status === 200) {
-                setShowSuccessModal(true);
-            } else {
-                setUpdateError(response?.message || 'Failed to update subscription price. Please try again.');
-                Alert.alert('Error', response?.message || 'Failed to update subscription price. Please try again.');
-            }
-        } catch (error) {
-            const errorMessage = error?.response?.data?.message || error?.message || 'An error occurred while updating the subscription price.';
-            setUpdateError(errorMessage);
-            Alert.alert('Error', errorMessage);
-        } finally {
-            setIsLoading(false);
+    const handleOptionSelect = (option) => {
+        setApplyOption(option);
+        
+        const finalPrice = parseFloat(newPrice || currentPrice);
+        if (!finalPrice || finalPrice < 0.99 || finalPrice > 1000.00) {
+            Alert.alert(
+                t('manageSubscribers.updateSubscriptionPrice.invalidPriceTitle'),
+                t('manageSubscribers.updateSubscriptionPrice.invalidPriceMessage')
+            );
+            return;
         }
-    };
 
-    const handleDone = () => {
-        setShowSuccessModal(false);
-        navigation.goBack();
+        navigation.navigate('ReviewChanges', {
+            currentPrice,
+            newPrice: finalPrice,
+            applyOption: option,
+            subscriptionId,
+            comment: route.params?.comment || ''
+        });
     };
 
     return (
@@ -84,15 +53,15 @@ const UpdateSubscriptionPriceScreen = () => {
                     <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
                         <Ionicons name="chevron-back" size={24} color={theme.text} />
                     </TouchableOpacity>
-                    <Text style={[styles.headerTitle, { color: theme.text }]}>Update Subscription Price</Text>
+                    <Text style={[styles.headerTitle, { color: theme.text }]}>{t('manageSubscribers.updateSubscriptionPrice.title')}</Text>
                     <View style={styles.headerRight} />
                 </View>
 
                 <ScrollView contentContainerStyle={styles.scrollContent}>
-                    <Text style={[styles.subtitle, { color: theme.mutedText }]}>Set a new monthly price for your subscribers.</Text>
+                    <Text style={[styles.subtitle, { color: theme.mutedText }]}>{t('manageSubscribers.updateSubscriptionPrice.subtitle')}</Text>
                     
                     <View style={[styles.card, { backgroundColor: theme.card }]}>
-                        <Text style={[styles.cardLabel, { color: theme.mutedText }]}>Current price</Text>
+                        <Text style={[styles.cardLabel, { color: theme.mutedText }]}>{t('manageSubscribers.updateSubscriptionPrice.currentPriceLabel')}</Text>
                         <View style={styles.priceRow}>
                             <Text style={[styles.currentPrice, { color: theme.accent }]}>${currentPrice.toFixed(2)}</Text>
                             <Text style={[styles.priceSuffix, { color: theme.mutedText }]}> / month</Text>
@@ -100,7 +69,7 @@ const UpdateSubscriptionPriceScreen = () => {
                         
                         <View style={styles.divider} />
                         
-                        <Text style={[styles.cardLabel, { color: theme.mutedText }]}>New price</Text>
+                        <Text style={[styles.cardLabel, { color: theme.mutedText }]}>{t('manageSubscribers.updateSubscriptionPrice.newPriceLabel')}</Text>
                         <View style={[styles.inputContainer, { borderColor: theme.border }]}>
                             <Text style={[styles.currencyPrefix, { color: theme.text }]}>$</Text>
                             <TextInput
@@ -108,17 +77,17 @@ const UpdateSubscriptionPriceScreen = () => {
                                 value={newPrice}
                                 onChangeText={setNewPrice}
                                 keyboardType="numeric"
-                                placeholder="14.90"
-                                placeholderTextColor={theme.mutedText}
+                                placeholder="0"
+                                placeholderTextColor={'#fefcfc'}
                             />
                             <Text style={[styles.inputSuffix, { color: theme.mutedText }]}>/ month</Text>
                         </View>
-                        <Text style={[styles.helpText, { color: theme.mutedText }]}>You can set a price from $0.99 to $1,000.00</Text>
+                        <Text style={[styles.helpText, { color: theme.mutedText }]}>{t('manageSubscribers.updateSubscriptionPrice.helpText')}</Text>
                     </View>
 
                     <View style={styles.sectionHeader}>
-                        <Text style={[styles.sectionTitle, { color: theme.accent }]}>Existing subscribers</Text>
-                        <Text style={[styles.sectionSubtitle, { color: theme.text }]}>Choose how the new price will apply to your current subscribers.</Text>
+                        <Text style={[styles.sectionTitle, { color: theme.accent }]}>{t('manageSubscribers.updateSubscriptionPrice.existingSubscribersTitle')}</Text>
+                        <Text style={[styles.sectionSubtitle, { color: theme.text }]}>{t('manageSubscribers.updateSubscriptionPrice.existingSubscribersSubtitle')}</Text>
                     </View>
 
                     <TouchableOpacity 
@@ -131,7 +100,7 @@ const UpdateSubscriptionPriceScreen = () => {
                             }
                         ]}
                         activeOpacity={0.8}
-                        onPress={() => setApplyOption('KEEP_CURRENT')}
+                        onPress={() => handleOptionSelect('KEEP_CURRENT')}
                     >
                         <View style={styles.radioHeader}>
                             <Ionicons 
@@ -140,14 +109,14 @@ const UpdateSubscriptionPriceScreen = () => {
                                 color={theme.accent} 
                             />
                             <View style={styles.radioTitleRow}>
-                                <Text style={[styles.radioTitle, { color: theme.text }]}>Keep current subscribers at ${currentPrice.toFixed(2)}</Text>
+                                <Text style={[styles.radioTitle, { color: theme.text }]}>{t('manageSubscribers.updateSubscriptionPrice.keepCurrentLabel', { price: currentPrice.toFixed(2) })}</Text>
                                 <View style={styles.badge}>
-                                    <Text style={styles.badgeText}>Recommended</Text>
+                                    <Text style={styles.badgeText}>{t('manageSubscribers.updateSubscriptionPrice.recommendedBadge')}</Text>
                                 </View>
                             </View>
                         </View>
                         <Text style={[styles.radioDescription, { color: theme.mutedText }]}>
-                            New price will only <Text style={{ color: theme.text, fontWeight: '500' }}>apply to new subscribers.</Text> Existing subscribers will continue paying ${currentPrice.toFixed(2)}/month.
+                            {t('manageSubscribers.updateSubscriptionPrice.keepCurrentDescription1')} <Text style={{ color: theme.text, fontWeight: '500' }}>{t('manageSubscribers.updateSubscriptionPrice.keepCurrentDescription2')}</Text>{t('manageSubscribers.updateSubscriptionPrice.keepCurrentDescription3', { price: currentPrice.toFixed(2) })}
                         </Text>
                     </TouchableOpacity>
 
@@ -161,7 +130,7 @@ const UpdateSubscriptionPriceScreen = () => {
                             }
                         ]}
                         activeOpacity={0.8}
-                        onPress={() => setApplyOption('REQUEST_CHANGE')}
+                        onPress={() => handleOptionSelect('REQUEST_CHANGE')}
                     >
                         <View style={styles.radioHeader}>
                             <Ionicons 
@@ -170,117 +139,15 @@ const UpdateSubscriptionPriceScreen = () => {
                                 color={theme.accent} 
                             />
                             <View style={styles.radioTitleRow}>
-                                <Text style={[styles.radioTitle, { color: theme.text }]}>Request price change for existing subscribers</Text>
+                                <Text style={[styles.radioTitle, { color: theme.text }]}>{t('manageSubscribers.updateSubscriptionPrice.requestChangeLabel')}</Text>
                             </View>
                         </View>
                         <Text style={[styles.radioDescription, { color: theme.mutedText }]}>
-                            Existing subscribers will be notified and must accept the new price before it takes effect.
+                            {t('manageSubscribers.updateSubscriptionPrice.requestChangeDescription')}
                         </Text>
                     </TouchableOpacity>
 
-                    <View style={[styles.card, { backgroundColor: theme.card, marginTop: 12 }]}>
-                        <Text style={[styles.summaryTitle, { color: theme.accent }]}>Summary</Text>
-                        
-                        <View style={styles.summaryRow}>
-                            <Text style={[styles.summaryLabel, { color: theme.mutedText }]}>Previous price</Text>
-                            <Text style={[styles.summaryValue, { color: theme.text }]}>${currentPrice.toFixed(2)} / month</Text>
-                        </View>
-                        
-                        <View style={styles.summaryRow}>
-                            <Text style={[styles.summaryLabel, { color: theme.mutedText }]}>New price</Text>
-                            <Text style={[styles.summaryValue, { color: theme.accent, fontWeight: 'bold' }]}>${parseFloat(newPrice || currentPrice).toFixed(2)} / month</Text>
-                        </View>
-                        
-                        <View style={styles.summarySection}>
-                            <Text style={[styles.summaryLabel, { color: theme.mutedText }]}>Existing subscribers (428)</Text>
-                            <Text style={[styles.summaryValueLeft, { color: applyOption === 'KEEP_CURRENT' ? '#4CAF50' : theme.text, marginTop: 4 }]}>
-                                {applyOption === 'KEEP_CURRENT' ? `Will continue paying ${currentPrice.toFixed(2)}/month` : `Will be requested to pay ${parseFloat(newPrice || currentPrice).toFixed(2)}/month`}
-                            </Text>
-                        </View>
-                        
-                        <View style={styles.summarySection}>
-                            <Text style={[styles.summaryLabel, { color: theme.mutedText }]}>New subscribers</Text>
-                            <Text style={[styles.summaryValueLeft, { color: theme.text, marginTop: 4 }]}>
-                                Will pay ${parseFloat(newPrice || currentPrice).toFixed(2)}/month
-                            </Text>
-                        </View>
-                        
-                        <View style={styles.summarySection}>
-                            <Text style={[styles.summaryLabel, { color: theme.mutedText }]}>Effective date</Text>
-                            <Text style={[styles.summaryValueLeft, { color: theme.text, marginTop: 4 }]}>
-                                {applyOption === 'KEEP_CURRENT' ? 'Immediately for new subscribers' : 'Upon subscriber acceptance'}
-                            </Text>
-                        </View>
-                    </View>
                 </ScrollView>
-
-                <View style={[styles.footer, { backgroundColor: theme.bg }]}>
-                    <TouchableOpacity 
-                        style={[styles.continueButton, { backgroundColor: isLoading ? theme.mutedText : theme.accent, opacity: isLoading ? 0.6 : 1 }]}
-                        onPress={handleContinue}
-                        disabled={isLoading}
-                    >
-                        <Text style={styles.continueButtonText}>{isLoading ? 'Updating...' : 'Continue'}</Text>
-                    </TouchableOpacity>
-                </View>
-
-            <Modal visible={showSuccessModal} animationType="slide" transparent={false}>
-                <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.bg }]}>
-                    <ScrollView contentContainerStyle={styles.successScrollContent} style={{ flex: 1 }}>
-                        <View style={styles.successHeader}>
-                            <View style={styles.successIconContainer}>
-                                <Ionicons name="checkmark-circle" size={80} color="#4CAF50" />
-                            </View>
-                            <Text style={[styles.successTitle, { color: theme.accent }]}>Subscription Price Updated!</Text>
-                            <Text style={[styles.successSubtitle, { color: theme.mutedText }]}>Your subscription price has been updated successfully.</Text>
-                        </View>
-
-                        <View style={[styles.card, { backgroundColor: theme.card, width: '100%' }]}>
-                            <Text style={[styles.summaryTitle, { color: theme.accent }]}>Summary</Text>
-                            
-                            <View style={styles.summaryRow}>
-                                <Text style={[styles.summaryLabel, { color: theme.mutedText }]}>Previous price</Text>
-                                <Text style={[styles.summaryValue, { color: theme.text }]}>${currentPrice.toFixed(2)} / month</Text>
-                            </View>
-                            
-                            <View style={styles.summaryRow}>
-                                <Text style={[styles.summaryLabel, { color: theme.mutedText }]}>New price</Text>
-                                <Text style={[styles.summaryValue, { color: theme.accent, fontWeight: 'bold' }]}>${parseFloat(newPrice || currentPrice).toFixed(2)} / month</Text>
-                            </View>
-                            
-                            <View style={styles.summarySection}>
-                                <Text style={[styles.summaryLabel, { color: theme.mutedText }]}>Existing subscribers (428)</Text>
-                                <Text style={[styles.summaryValueLeft, { color: applyOption === 'KEEP_CURRENT' ? '#4CAF50' : theme.text, marginTop: 4 }]}>
-                                    {applyOption === 'KEEP_CURRENT' ? `Will continue paying ${currentPrice.toFixed(2)}/month` : `Will be requested to pay ${parseFloat(newPrice || currentPrice).toFixed(2)}/month`}
-                                </Text>
-                            </View>
-                            
-                            <View style={styles.summarySection}>
-                                <Text style={[styles.summaryLabel, { color: theme.mutedText }]}>New subscribers</Text>
-                                <Text style={[styles.summaryValueLeft, { color: theme.text, marginTop: 4 }]}>
-                                    Will pay ${parseFloat(newPrice || currentPrice).toFixed(2)}/month
-                                </Text>
-                            </View>
-                            
-                            <View style={styles.summarySection}>
-                                <Text style={[styles.summaryLabel, { color: theme.mutedText }]}>Effective date</Text>
-                                <Text style={[styles.summaryValueLeft, { color: theme.text, marginTop: 4 }]}>
-                                    {applyOption === 'KEEP_CURRENT' ? 'Immediately for new subscribers' : 'Upon subscriber acceptance'}
-                                </Text>
-                            </View>
-                        </View>
-                    </ScrollView>
-
-                    <View style={[styles.footer, { backgroundColor: theme.bg }]}>
-                        <TouchableOpacity 
-                            style={[styles.continueButton, { backgroundColor: theme.accent }]}
-                            onPress={handleDone}
-                        >
-                            <Text style={styles.continueButtonText}>Done</Text>
-                        </TouchableOpacity>
-                    </View>
-                </SafeAreaView>
-            </Modal>
 
             </KeyboardAvoidingView>
         </SafeAreaView>

@@ -1184,6 +1184,47 @@ export default function Notifications() {
           }
         }
 
+        const titleLower = String(item.title || '').toLowerCase();
+        if (normType.includes('cancellation') || normType.includes('cancel') || titleLower.includes('cancel')) {
+          const orderReference = extractOrderReferenceFromNotification(item);
+          let orderId = orderReference.orderId;
+          const { paymentId } = orderReference;
+          
+          if (!orderId && paymentId) {
+            try {
+              const resolved = await resolveOrderIdFromPaymentId(paymentId, 'seller');
+              if (resolved) orderId = resolved;
+            } catch (err) {
+              console.log('Error resolving orderId for cancellation:', err);
+            }
+          }
+
+          if (orderId || paymentId) {
+            const isRequest = titleLower.includes('requested') || normType.includes('request');
+            if (isRequest) {
+              navigation.navigate('ProfileMain', {
+                screen: 'CancellationRequest',
+                params: {
+                  orderId: orderId || paymentId,
+                  orderPreview: item.raw?.data || item.data || item.raw,
+                  viewType: 'seller',
+                },
+              });
+            } else {
+              navigation.navigate('ProfileMain', {
+                screen: 'MyClosetOrderDetail',
+                params: {
+                  orderId: orderId || paymentId,
+                  paymentId,
+                  viewType: 'buyer', 
+                  returnTo: { tab: 'HomeMain', screen: 'HeartNotification' },
+                },
+              });
+            }
+            return;
+          }
+        }
+
         if (normType === 'private_circle_growing') {
           const joinedUserId = item?.raw?.data?.joinedUserId;
           if (joinedUserId) {

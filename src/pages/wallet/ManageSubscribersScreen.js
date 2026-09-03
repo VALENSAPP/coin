@@ -368,24 +368,29 @@ const ManageSubscribersScreen = () => {
 
         <View style={styles.modeRow}>
           <TouchableOpacity
-            onPress={() => setMode(prev => (prev === 'subscribers' ? 'subscriptions' : 'subscribers'))}
-            style={[styles.outlineBtn, { borderColor: theme.accent }]}>
-            <Ionicons name="eye-outline" size={16} color={theme.accent} />
-            <Text style={[styles.outlineBtnText, { color: theme.accent }]} numberOfLines={1}>
-              {isSubscriberView
-                ? t('manageSubscribers.viewAsCreator')
-                : t('manageSubscribers.viewAsSubscriber')}
+            onPress={() => setMode('subscribers')}
+            style={[styles.outlineBtn, { 
+              borderColor: theme.accent, 
+              backgroundColor: !isSubscriberView ? theme.accent : 'transparent' 
+            }]}>
+            <Text style={[styles.outlineBtnText, { 
+              color: !isSubscriberView ? '#fff' : theme.accent 
+            }]} numberOfLines={1}>
+              {t('manageSubscribers.viewMySubscribers')}
             </Text>
           </TouchableOpacity>
-          {!isSubscriberView ? (
-            <TouchableOpacity
-              onPress={() => navigation.navigate('UpdateSubscriptionPrice', { currentPrice: 9.9 })}
-              style={[styles.primaryBtn, { backgroundColor: theme.accent }]}>
-              <Text style={styles.primaryBtnText} numberOfLines={1}>
-                {t('manageSubscribers.updatePrice')}
-              </Text>
-            </TouchableOpacity>
-          ) : null}
+          <TouchableOpacity
+            onPress={() => setMode('subscriptions')}
+            style={[styles.outlineBtn, { 
+              borderColor: theme.accent, 
+              backgroundColor: isSubscriberView ? theme.accent : 'transparent' 
+            }]}>
+            <Text style={[styles.outlineBtnText, { 
+              color: isSubscriberView ? '#fff' : theme.accent 
+            }]} numberOfLines={1}>
+              {t('manageSubscribers.viewMySubscriptions')}
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {!isSubscriberView ? (
@@ -575,6 +580,7 @@ const styles = StyleSheet.create({
   outlineBtn: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 6,
     borderWidth: 1.5,
     borderRadius: 10,
@@ -583,7 +589,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     flexShrink: 1,
   },
-  outlineBtnText: { fontSize: 13, fontWeight: '700', flexShrink: 1 },
+  outlineBtnText: { fontSize: 13, fontWeight: '700', flexShrink: 1, textAlign: 'center' },
   primaryBtn: {
     borderRadius: 10,
     paddingHorizontal: 14,

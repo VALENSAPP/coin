@@ -17,7 +17,7 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useThemeContext } from '../../theme/ThemeContext';
 import { useLanguage } from '../../i18n';
-import { approveSellerCancellationRequest, declineSellerCancellationRequest } from '../../services/myCloset';
+import { approveSellerCancellationRequest, declineSellerCancellationRequest, getSellerOrderDetails, getBuyerOrderDetail } from '../../services/myCloset';
 import { useToast } from 'react-native-toast-notifications';
 
 const imageUri = image => {
@@ -57,10 +57,26 @@ const CancellationRequestScreen = ({ navigation, route }) => {
   const [loading, setLoading] = useState(false);
   const [showDeclineInput, setShowDeclineInput] = useState(false);
   const [declineReason, setDeclineReason] = useState('');
+  const [fullOrder, setFullOrder] = useState(orderPreview || {});
   
   const scrollViewRef = React.useRef(null);
 
-  const targetOrderId = orderId || orderPreview?.id || orderPreview?._id;
+  const targetOrderId = orderId || orderPreview?.id || orderPreview?._id || fullOrder?.id || fullOrder?._id;
+
+  React.useEffect(() => {
+    const fetchFullOrder = async () => {
+      if (!targetOrderId) return;
+      try {
+        const orderData = viewType === 'seller' ? await getSellerOrderDetails(targetOrderId) : await getBuyerOrderDetail(targetOrderId);
+        if (orderData) {
+          setFullOrder(prev => ({ ...prev, ...orderData }));
+        }
+      } catch (err) {
+        console.log('Failed to fetch full order for cancellation view', err);
+      }
+    };
+    fetchFullOrder();
+  }, [targetOrderId, viewType]);
 
   const handleDecline = async () => {
     if (!showDeclineInput) {
@@ -99,10 +115,40 @@ const CancellationRequestScreen = ({ navigation, route }) => {
     }
   };
 
-  const imageUrl = getOrderImage(orderPreview);
-  const itemName = orderPreview?.items?.[0]?.name || orderPreview?.items?.[0]?.product?.name || orderPreview?.item?.name || orderPreview?.product?.name || orderPreview?.itemName || 'Item Name';
-  const price = orderPreview?.totalAmount || orderPreview?.amount || '0.00';
-  const qty = orderPreview?.totalItemCount || orderPreview?.items?.[0]?.quantity || 1;
+  const getOrderItemName = (order) => {
+    if (order?.item?.name || order?.item?.title) return order.item.name || order.item.title;
+    if (order?.items?.[0]?.product?.name || order?.items?.[0]?.product?.title) {
+      return order.items[0].product.name || order.items[0].product.title;
+    }
+    if (order?.items?.[0]?.name || order?.items?.[0]?.title) return order.items[0].name || order.items[0].title;
+    if (order?.product?.name || order?.product?.title) return order.product.name || order.product.title;
+    if (order?.itemName || order?.data?.itemName || order?.data?.name || order?.data?.productName) return order.itemName || order.data?.itemName || order.data?.name || order.data?.productName;
+    const count = order?.totalItemCount || order?.items?.length;
+    if (count) return `${count} item(s)`;
+    return 'Order Item';
+  };
+
+  const getOrderPrice = (order) => {
+    return order?.totalAmount ?? order?.amount ?? order?.price ?? order?.data?.total ?? order?.data?.price ?? order?.item?.price ?? '0.00';
+  };
+
+  const getOrderQty = (order) => {
+    return order?.totalItemCount ?? order?.itemCount ?? order?.items?.[0]?.quantity ?? order?.items?.length ?? order?.data?.quantity ?? 1;
+  };
+
+  const getBuyerHandle = (order) => {
+    return order?.buyerName || order?.data?.buyerUserName || order?.data?.buyerName || order?.buyer?.username || order?.buyer?.userName || order?.buyerUsername || order?.user?.username || 'Buyer';
+  };
+
+  const imageUrl = getOrderImage(fullOrder);
+  const itemName = getOrderItemName(fullOrder);
+  const price = getOrderPrice(fullOrder);
+  const qty = getOrderQty(fullOrder);
+  const buyerName = getBuyerHandle(fullOrder);
+
+  const requestDate = fullOrder?.cancellationRequestedAt || fullOrder?.createdAt || fullOrder?.data?.createdAt;
+  const requestedDateString = requestDate ? new Date(requestDate).toLocaleDateString() : 'N/A';
+  const cancelReason = fullOrder?.cancellationReason || fullOrder?.data?.reason || fullOrder?.reason || 'N/A';
 
   const cardBg = isDarkMode ? '#1e1e1e' : '#fff';
   const infoBg = isDarkMode ? '#2c2c2c' : '#f9f5ff';
@@ -115,7 +161,7 @@ const CancellationRequestScreen = ({ navigation, route }) => {
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
           <Text style={[styles.headerTitle, textStyle]}>Cancellation Request</Text>
-          <Text style={[styles.headerSubtitle, mutedTextStyle]}>Order #{orderPreview?.orderNumber}</Text>
+          <Text style={[styles.headerSubtitle, mutedTextStyle]}>Order #{fullOrder?.orderNumber || fullOrder?.data?.orderNumber || targetOrderId?.slice(-6) || 'Unknown'}</Text>
         </View>
         <View style={styles.actionRequiredBadge}>
           <Ionicons name="hourglass-outline" size={12} color="#d97706" />
@@ -178,7 +224,7 @@ const CancellationRequestScreen = ({ navigation, route }) => {
                 <View>
                   <Text style={[styles.detailLabel, mutedTextStyle]}>Requested on</Text>
                   <Text style={[styles.detailValue, textStyle]}>
-                    {orderPreview?.cancellationRequestedAt ? new Date(orderPreview.cancellationRequestedAt).toLocaleDateString() : 'N/A'}
+                    {requestedDateString}
                   </Text>
                 </View>
               </View>
@@ -188,7 +234,7 @@ const CancellationRequestScreen = ({ navigation, route }) => {
                 <View>
                   <Text style={[styles.detailLabel, mutedTextStyle]}>Requested by</Text>
                   <Text style={[styles.detailValue, textStyle]}>Buyer</Text>
-                  <Text style={[styles.detailSubValue, mutedTextStyle]}>@{orderPreview?.buyerName}</Text>
+                  <Text style={[styles.detailSubValue, mutedTextStyle]}>@{buyerName}</Text>
                 </View>
               </View>
             </View>
@@ -197,7 +243,7 @@ const CancellationRequestScreen = ({ navigation, route }) => {
               <Ionicons name="pricetag-outline" size={20} color="#9ca3af" style={styles.detailIcon} />
               <View>
                 <Text style={[styles.detailLabel, mutedTextStyle]}>Reason</Text>
-                <Text style={[styles.detailValue, textStyle]}>{orderPreview?.cancellationReason || 'N/A'}</Text>
+                <Text style={[styles.detailValue, textStyle]}>{cancelReason}</Text>
               </View>
             </View>
 

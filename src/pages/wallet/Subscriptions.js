@@ -558,15 +558,7 @@ const SubventionSetupScreen = () => {
     const handlePrintAttempt = () => {
         const newAttempts = printAttempts + 1;
         setPrintAttempts(newAttempts);
-        if (newAttempts >= 3) {
-            Alert.alert(
-                t('subventionSetup.printBlockTitle'),
-                t('subventionSetup.printBlockMessage'),
-                [{ text: 'OK', style: 'destructive' }]
-            );
-        } else {
-            setShowPrintWarning(true);
-        }
+        setShowPrintWarning(true);
     };
 
     const requestCameraPermission = async () => {
@@ -709,7 +701,7 @@ const SubventionSetupScreen = () => {
                     <TouchableOpacity style={styles.understandButton} onPress={() => setShowPrintWarning(false)}>
                         <Text style={styles.understandButtonText}>{t('subventionSetup.iUnderstand')}</Text>
                     </TouchableOpacity>
-                    <Text style={styles.attemptCounter}>{t('subventionSetup.attempts')}: {printAttempts}/3</Text>
+                    {/* <Text style={styles.attemptCounter}>{t('subventionSetup.attempts')}: {printAttempts}/3</Text> */}
                 </View>
             </View>
         </Modal>
@@ -784,6 +776,7 @@ const SubventionSetupScreen = () => {
                                 keyboardType="numeric"
                                 numberOfLines={4}
                                 multiline
+                                disabled={!hasExistingSubscription}
                             />
                             <Text style={[styles.perMonth, { color: mutedText }]}>{t('subventionSetup.perMonth')}</Text>
                         </View>

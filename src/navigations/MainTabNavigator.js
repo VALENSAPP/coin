@@ -92,6 +92,7 @@ import TwoFactorAuthScreen from '../pages/wallet/Two-FactorAuth';
 import LoginHistoryScreen from '../pages/wallet/LoginHistory';
 import SubventionSetupScreen from '../pages/wallet/Subscriptions';
 import UpdateSubscriptionPriceScreen from '../pages/wallet/UpdateSubscriptionPriceScreen';
+import ReviewChangesScreen from '../pages/wallet/ReviewChangesScreen';
 import ManageSubscribersScreen from '../pages/wallet/ManageSubscribersScreen';
 import EbookPublisherScreen from '../pages/wallet/EbookPublisher';
 import TipPayoutSetupScreen from '../pages/wallet/TipPayoutSetup';
@@ -1097,6 +1098,11 @@ export default function MainTabNavigator() {
           <Stack.Screen
             name="UpdateSubscriptionPrice"
             component={UpdateSubscriptionPriceScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="ReviewChanges"
+            component={ReviewChangesScreen}
             options={{ headerShown: false }}
           />
           <Stack.Screen
