@@ -69,6 +69,7 @@ import Clipboard from '@react-native-clipboard/clipboard';
 import TipSupportModal from '../../components/modals/TipSupportModal';
 import TokenSellModal from '../../components/modals/TokenSellModal';
 import SupportCreatorModal from '../../components/modals/SupportCreatorModal';
+import MissionSupportScreen from '../../components/modals/DonationModal';
 import { getUserTokenInfoByBlockChain } from '../../services/tokens';
 import { getSupportRecipientWalletAddress } from '../../utils/walletPaymentSupport';
 import { useWalletConnectSupport } from '../../context/WalletConnectSupportContext';
@@ -678,6 +679,7 @@ const ReelItem = React.memo(
     text: textColor,
     // i18n
     tFlips,
+    handleDonate,
   }) {
     const isCurrent = currentIndex === index;
     const isOwnReel =
@@ -872,18 +874,29 @@ const ReelItem = React.memo(
                   </CustomMarquee>
                 </View>
               </View>
-              {!isOwnReel && (
-                <TouchableOpacity
-                  style={styles.followButton}
-                  onPress={() => handleFollowPress(item)}
-                  disabled={followingBusy.has(
-                    String(getReelOwnerId(item)),
-                  )}>
-                  <Text style={styles.followButtonText} numberOfLines={1}>
-                    {!item.isFollowing ? tFlips('flips.follow') : tFlips('flips.following')}
-                  </Text>
-                </TouchableOpacity>
-              )}
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                {!isOwnReel && (
+                  <TouchableOpacity
+                    style={styles.followButton}
+                    onPress={() => handleFollowPress(item)}
+                    disabled={followingBusy.has(
+                      String(getReelOwnerId(item)),
+                    )}>
+                    <Text style={styles.followButtonText} numberOfLines={1}>
+                      {!item.isFollowing ? tFlips('flips.follow') : tFlips('flips.following')}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+                {(!!item?.end_time || !!item?.raiseAmount || item?.post_type === 'mission' || item?.type === 'mission' || item?.postType === 'mission') && (
+                  <TouchableOpacity
+                    style={[styles.followButton, { backgroundColor: textColor, borderColor: textColor }]}
+                    onPress={() => handleDonate(item)}>
+                    <Text style={styles.followButtonText} numberOfLines={1}>
+                      {tFlips('postItem.donate')}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             </TouchableOpacity>
           </View>
           <Text style={styles.caption} numberOfLines={3}>
@@ -1021,6 +1034,8 @@ export default function FlipsScreen() {
   const [commentPostId, setCommentPostId] = useState(null);
   const [commentPostOwnerId, setCommentPostOwnerId] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const [donationVisible, setDonationVisible] = useState(false);
+  const [donationItem, setDonationItem] = useState(null);
   const [supportDisclaimerVisible, setSupportDisclaimerVisible] = useState(false);
   const [tipPurchaseVisible, setTipPurchaseVisible] = useState(false);
   const [purchaseAutoFocus, setPurchaseAutoFocus] = useState(false);
@@ -1235,6 +1250,11 @@ export default function FlipsScreen() {
               hashtag: raw?.hashtag ?? raw?.hashtags ?? [],
               location: raw?.location || null,
               taggedPeople: raw?.taggedPeople || [],
+              end_time: raw?.end_time || raw?.endTime || null,
+              raiseAmount: raw?.raiseAmount || raw?.raise_amount || null,
+              post_type: raw?.post_type || raw?.postType || raw?.type || null,
+              type: raw?.type || raw?.post_type || raw?.postType || null,
+              postType: raw?.postType || raw?.post_type || raw?.type || null,
             };
           };
 
@@ -2242,6 +2262,10 @@ export default function FlipsScreen() {
         formatCount={formatCount}
         text={text}
         tFlips={t}
+        handleDonate={(reelItem) => {
+          setDonationItem(reelItem);
+          setDonationVisible(true);
+        }}
       />
     ),
     [
@@ -2713,6 +2737,18 @@ export default function FlipsScreen() {
             </View>
           </View>
         )}
+        <MissionSupportScreen
+          visible={donationVisible}
+          onClose={() => {
+            setDonationVisible(false);
+            setDonationItem(null);
+          }}
+          item={donationItem}
+          onDonationSuccess={() => {
+            setDonationVisible(false);
+            setDonationItem(null);
+          }}
+        />
       </SafeAreaView>
     </GestureHandlerRootView>
   );

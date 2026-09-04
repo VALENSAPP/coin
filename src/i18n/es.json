@@ -5127,5 +5127,31 @@
     "refundIfApplicableDescDays": "3-5 business days",
     "refundIfApplicableDescAfter": ".",
     "backToPurchases": "Back to My Purchases"
+  },
+  "cancelSubscription": {
+    "header1": "Cancelar suscripción",
+    "header2": "¿Cancelar suscripción?",
+    "header3": "Cancelación enviada",
+    "step1_p1": "¡Hola!",
+    "step1_p2": "Estás a punto de cancelar tu suscripción a este creador.",
+    "nextRenewal": "Próxima fecha de renovación:",
+    "bullet1": "Aún tienes acceso completo a mi contenido.",
+    "cancelSubscriptionBtn": "Cancelar suscripción",
+    "step2Title": "¿Cancelar suscripción?",
+    "step2Subtitle": "Si cancelas ahora, tu suscripción se cancelará al final de tu período de facturación actual.",
+    "yourCurrentAccess": "Tu acceso actual",
+    "keepAccessUntil": "Mantendrás el acceso hasta",
+    "afterThat": "Después de eso, tu suscripción finalizará y perderás acceso a este contenido.",
+    "yesCancel": "Sí, cancelar",
+    "goBack": "Volver",
+    "step3Title": "Cancelación enviada",
+    "step3Subtitle": "Has elegido cancelar tu suscripción.",
+    "subscription": "Suscripción",
+    "currentPrice": "Precio actual",
+    "accessUntil": "Acceso hasta",
+    "status": "Estado",
+    "willCancel": "Se cancelará",
+    "keepFullAccess": "Mantendrás acceso completo hasta",
+    "backToDashboard": "Volver al panel"
   }
 }

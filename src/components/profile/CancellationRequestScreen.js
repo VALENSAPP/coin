@@ -72,7 +72,15 @@ const CancellationRequestScreen = ({ navigation, route }) => {
           setFullOrder(prev => ({ ...prev, ...orderData }));
         }
       } catch (err) {
-        console.log('Failed to fetch full order for cancellation view', err);
+        console.log(`Failed to fetch full order for cancellation view (${viewType})`, err);
+        try {
+          const fallbackData = viewType === 'seller' ? await getBuyerOrderDetail(targetOrderId) : await getSellerOrderDetails(targetOrderId);
+          if (fallbackData) {
+            setFullOrder(prev => ({ ...prev, ...fallbackData }));
+          }
+        } catch (fallbackErr) {
+          console.log(`Fallback fetch also failed`, fallbackErr);
+        }
       }
     };
     fetchFullOrder();

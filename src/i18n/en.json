@@ -5127,5 +5127,31 @@
     "refundIfApplicableDescDays": "3-5 business days",
     "refundIfApplicableDescAfter": ".",
     "backToPurchases": "Back to My Purchases"
+  },
+  "cancelSubscription": {
+    "header1": "Cancel Subscription",
+    "header2": "Cancel Subscription?",
+    "header3": "Cancellation Submitted",
+    "step1_p1": "Hi there!",
+    "step1_p2": "You are about to cancel your subscription to this creator.",
+    "nextRenewal": "Next renewal date:",
+    "bullet1": "You still get full access to my content.",
+    "cancelSubscriptionBtn": "Cancel Subscription",
+    "step2Title": "Cancel Subscription?",
+    "step2Subtitle": "If you cancel now, your subscription will be canceled at the end of your current billing period.",
+    "yourCurrentAccess": "Your current access",
+    "keepAccessUntil": "You will keep access until",
+    "afterThat": "After that, your subscription will end and you will lose access to this content.",
+    "yesCancel": "Yes, Cancel",
+    "goBack": "Go Back",
+    "step3Title": "Cancellation Submitted",
+    "step3Subtitle": "You've chosen to cancel your subscription.",
+    "subscription": "Subscription",
+    "currentPrice": "Current price",
+    "accessUntil": "Access until",
+    "status": "Status",
+    "willCancel": "Will Cancel",
+    "keepFullAccess": "You will keep full access until",
+    "backToDashboard": "Back to Dashboard"
   }
 }

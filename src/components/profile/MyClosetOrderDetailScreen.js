@@ -661,7 +661,19 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
           rawPayload = detailPayload;
         }
       } catch (err) {
-        console.log('Order detail endpoint failed, trying fallbacks:', err?.message || err);
+        console.log(`Order detail endpoint for ${viewType} failed, trying fallback:`, err?.message || err);
+        // Fallback: try the OTHER endpoint, just in case viewType was misidentified
+        try {
+          const fallbackResponse = viewType === 'buyer'
+            ? await getSellerOrderDetails(resolvedOrderId)
+            : await getBuyerOrderDetail(resolvedOrderId);
+          const detailPayload = extractOrderPayload(fallbackResponse);
+          if (isOrderPayload(detailPayload)) {
+            rawPayload = detailPayload;
+          }
+        } catch (fallbackErr) {
+          console.log(`Fallback order detail endpoint also failed:`, fallbackErr?.message || fallbackErr);
+        }
       }
     }
 
@@ -679,7 +691,7 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
     }
 
     // Tier 3: Try seller orders list
-    if (!rawPayload && viewType === 'seller') {
+    if (!rawPayload) {
       try {
         const sRes = await getSellerOrders({ limit: 100 });
         const sData = sRes?.data?.orders ?? sRes?.data?.data ?? sRes?.data ?? (Array.isArray(sRes) ? sRes : []);

@@ -116,6 +116,11 @@ export const payFollowingGraph = async () => {
   return axiosInstance.get('billing/pay-following-graph');
 };
 
+/** Cancel fan subscription */
+export const cancelFanSubscription = async (data) => {
+  return axiosInstance.post('billing/pay-following/cancel-subscription', data);
+};
+
 /** 7-day tip graph + total tip earning + % of total earning */
 export const tipGraph = async () => {
   return axiosInstance.get('billing/tip-graph');

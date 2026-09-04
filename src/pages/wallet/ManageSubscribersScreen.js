@@ -40,12 +40,20 @@ const transformSubscriber = (item) => {
   
   // Determine status
   let status = STATUS.active;
-  if (item.status === 'ACTIVE' && item.isActive) {
-    status = STATUS.active;
-  } else if (item.status === 'EXPIRED' || endDate < now) {
+  if (item.status === 'EXPIRED' || endDate < now) {
     status = STATUS.expired;
-  } else if (item.status === 'CANCELED' || item.cancelAtPeriodEnd) {
+  } else if (
+    item.status === 'CANCELED' ||
+    item.status === 'canceled' ||
+    item.status === 'cancelled' ||
+    item.cancelAtPeriodEnd === true ||
+    item.isCancelled === true ||
+    item.autoPay === false ||
+    item.autoRenew === false
+  ) {
     status = STATUS.canceled;
+  } else if (item.status === 'ACTIVE' && item.isActive) {
+    status = STATUS.active;
   }
 
   // Format date
@@ -95,12 +103,20 @@ const transformSubscription = (item) => {
   const now = new Date();
   
   let status = STATUS.active;
-  if (item.status === 'ACTIVE' && item.isActive) {
-    status = STATUS.active;
-  } else if (item.status === 'EXPIRED' || endDate < now) {
+  if (item.status === 'EXPIRED' || endDate < now) {
     status = STATUS.expired;
-  } else if (item.status === 'CANCELED' || item.cancelAtPeriodEnd) {
+  } else if (
+    item.status === 'CANCELED' ||
+    item.status === 'canceled' ||
+    item.status === 'cancelled' ||
+    item.cancelAtPeriodEnd === true ||
+    item.isCancelled === true ||
+    item.autoPay === false ||
+    item.autoRenew === false
+  ) {
     status = STATUS.canceled;
+  } else if (item.status === 'ACTIVE' && item.isActive) {
+    status = STATUS.active;
   }
 
   const formatDate = (date) => {
@@ -208,6 +224,10 @@ const ManageSubscribersScreen = () => {
 
   const isSubscriberView = mode === 'subscriptions';
   const sourceList = isSubscriberView ? mySubscriptionsList : subscribersList;
+
+  const handleCancelSuccess = (canceledId) => {
+    setMySubscriptionsList(prev => prev.map(item => item.id === canceledId ? { ...item, status: STATUS.canceled } : item));
+  };
 
   // Calculate stats from actual data
   const stats = useMemo(() => {
@@ -344,6 +364,15 @@ const ManageSubscribersScreen = () => {
           </View>
         </View>
 
+        {isSubscriberView && row.status !== STATUS.canceled && (
+          <View style={{ marginTop: 16 }}>
+            <TouchableOpacity 
+              style={[styles.outlineBtn, { borderColor: theme.border }]} 
+              onPress={() => navigation.navigate('CancelSubscriptionFlow', { subscription: row, onCancelSuccess: () => handleCancelSuccess(row.id) })}>
+              <Text style={[styles.outlineBtnText, { color: theme.text }]}>Cancel Subscription</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
       </View>
     );

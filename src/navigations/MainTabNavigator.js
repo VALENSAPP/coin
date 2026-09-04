@@ -94,6 +94,7 @@ import SubventionSetupScreen from '../pages/wallet/Subscriptions';
 import UpdateSubscriptionPriceScreen from '../pages/wallet/UpdateSubscriptionPriceScreen';
 import ReviewChangesScreen from '../pages/wallet/ReviewChangesScreen';
 import ManageSubscribersScreen from '../pages/wallet/ManageSubscribersScreen';
+import CancelSubscriptionFlowScreen from '../pages/wallet/CancelSubscriptionFlowScreen';
 import EbookPublisherScreen from '../pages/wallet/EbookPublisher';
 import TipPayoutSetupScreen from '../pages/wallet/TipPayoutSetup';
 import KYCVerification from '../pages/authentication/kycVerification';
@@ -1108,6 +1109,11 @@ export default function MainTabNavigator() {
           <Stack.Screen
             name="ManageSubscribers"
             component={ManageSubscribersScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="CancelSubscriptionFlow"
+            component={CancelSubscriptionFlowScreen}
             options={{ headerShown: false }}
           />
           <Stack.Screen

@@ -5127,5 +5127,31 @@
     "refundIfApplicableDescDays": "3-5 business days",
     "refundIfApplicableDescAfter": ".",
     "backToPurchases": "Back to My Purchases"
+  },
+  "cancelSubscription": {
+    "header1": "Cancelar assinatura",
+    "header2": "Cancelar assinatura?",
+    "header3": "Cancelamento enviado",
+    "step1_p1": "Olá!",
+    "step1_p2": "Você está prestes a cancelar sua assinatura com este criador.",
+    "nextRenewal": "Próxima data de renovação:",
+    "bullet1": "Você ainda tem acesso total ao meu conteúdo.",
+    "cancelSubscriptionBtn": "Cancelar assinatura",
+    "step2Title": "Cancelar assinatura?",
+    "step2Subtitle": "Se você cancelar agora, sua assinatura será cancelada no final do seu período de faturamento atual.",
+    "yourCurrentAccess": "Seu acesso atual",
+    "keepAccessUntil": "Você manterá o acesso até",
+    "afterThat": "Depois disso, sua assinatura terminará e você perderá o acesso a este conteúdo.",
+    "yesCancel": "Sim, cancelar",
+    "goBack": "Voltar",
+    "step3Title": "Cancelamento enviado",
+    "step3Subtitle": "Você escolheu cancelar sua assinatura.",
+    "subscription": "Assinatura",
+    "currentPrice": "Preço atual",
+    "accessUntil": "Acesso até",
+    "status": "Status",
+    "willCancel": "Será cancelado",
+    "keepFullAccess": "Você manterá acesso total até",
+    "backToDashboard": "Voltar ao painel"
   }
 }

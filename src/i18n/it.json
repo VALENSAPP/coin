@@ -5127,5 +5127,31 @@
     "refundIfApplicableDescDays": "3-5 business days",
     "refundIfApplicableDescAfter": ".",
     "backToPurchases": "Back to My Purchases"
+  },
+  "cancelSubscription": {
+    "header1": "Annulla abbonamento",
+    "header2": "Annullare l'abbonamento?",
+    "header3": "Cancellazione inviata",
+    "step1_p1": "Ciao!",
+    "step1_p2": "Stai per annullare l'abbonamento a questo creatore.",
+    "nextRenewal": "Prossima data di rinnovo:",
+    "bullet1": "Hai ancora accesso completo ai miei contenuti.",
+    "cancelSubscriptionBtn": "Annulla abbonamento",
+    "step2Title": "Annullare l'abbonamento?",
+    "step2Subtitle": "Se annulli ora, l'abbonamento verrà annullato al termine dell'attuale periodo di fatturazione.",
+    "yourCurrentAccess": "Il tuo accesso attuale",
+    "keepAccessUntil": "Manterrai l'accesso fino al",
+    "afterThat": "Dopodiché, il tuo abbonamento terminerà e perderai l'accesso a questi contenuti.",
+    "yesCancel": "Sì, annulla",
+    "goBack": "Torna indietro",
+    "step3Title": "Cancellazione inviata",
+    "step3Subtitle": "Hai scelto di annullare l'abbonamento.",
+    "subscription": "Abbonamento",
+    "currentPrice": "Prezzo attuale",
+    "accessUntil": "Accesso fino al",
+    "status": "Stato",
+    "willCancel": "Verrà annullato",
+    "keepFullAccess": "Manterrai l'accesso completo fino al",
+    "backToDashboard": "Torna alla dashboard"
   }
 }
