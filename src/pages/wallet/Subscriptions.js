@@ -776,7 +776,7 @@ const SubventionSetupScreen = () => {
                                 keyboardType="numeric"
                                 numberOfLines={4}
                                 multiline
-                                disabled={!hasExistingSubscription}
+                                editable={!hasExistingSubscription}
                             />
                             <Text style={[styles.perMonth, { color: mutedText }]}>{t('subventionSetup.perMonth')}</Text>
                         </View>

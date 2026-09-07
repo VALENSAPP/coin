@@ -905,6 +905,7 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
       closetId,
       isOwnProfile: resolvedIsOwnProfile,
       battleWinner: winnerMeta || null,
+      displayName: userData?.displayName
     },
   ));
 

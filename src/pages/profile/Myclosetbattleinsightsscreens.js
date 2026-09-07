@@ -373,6 +373,7 @@ export function PromotionExpiredScreen({ navigation, winnerItem, battleId }) {
               nextRoute: 'BattleSetup',
               previewRoute: 'BattlePreview',
               liveRoute: 'BattleLive',
+              fromRoute: 'PromotionExpired',
             })
           }
           style={{width: '100%'}}

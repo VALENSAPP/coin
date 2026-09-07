@@ -665,7 +665,7 @@ const BottomBar = ({ children }) => {
 // Shared UI atoms
 // ─────────────────────────────────────────────────────────────────────────────
 
-const Header = ({ navigation, title, rightIcon, onRightPress, rightDisabled = false, secondaryRightIcon, onSecondaryRightPress, secondaryRightDisabled = false, returnTo, isOwnProfile, isRouteFromSearch, fromMyOwnProfile, preferStackBack = false, fromWishlist, color }) => {
+const Header = ({ navigation, title, rightIcon, onRightPress, rightDisabled = false, secondaryRightIcon, onSecondaryRightPress, secondaryRightDisabled = false, returnTo, isOwnProfile, isRouteFromSearch, fromMyOwnProfile, preferStackBack = false, fromWishlist, color, isFirstScreen = false }) => {
   // const { accent } = useAppTheme();
   const { isDarkMode } = useThemeContext();
   const labelColor = isDarkMode ? '#ffffff' : '#17072d';
@@ -680,7 +680,7 @@ const Header = ({ navigation, title, rightIcon, onRightPress, rightDisabled = fa
       >
         <Ionicons name="chevron-back" size={22} color={color} />
       </TouchableOpacity>
-      <Text style={[styles.headerTitle, { color: labelColor }]}>{title}</Text>
+      <Text style={[styles.headerTitle, { color: labelColor }]}>{!isFirstScreen ? title : isOwnProfile ? title : `${title}'s Closet`}</Text>
       {!isOwnProfile &&
         <>
           {rightIcon || secondaryRightIcon ? (
@@ -2011,6 +2011,7 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
   const { t } = useLanguage();
   const item = normalizeItem(route?.params?.item || {}, 0, t);
   const seller = route?.params?.seller || {};
+  const displayName = route?.params?.displayName || {};
   const isOwnProfile = route?.params?.isOwnProfile ?? false;
   const returnTo = route?.params?.returnTo;
   const [liked, setLiked] = useState(Boolean(item.raw?.liked ?? item.raw?.isLiked ?? item.raw?.isLike));
@@ -2116,7 +2117,8 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
       <Header
         navigation={navigation}
-        title={t('myClosetBuyer.myClosetTitle')}
+        title={!isOwnProfile ? displayName : t('myClosetBuyer.myClosetTitle')}
+        isFirstScreen={true}
         rightIcon={liked ? 'heart' : 'heart-outline'}
         onRightPress={handleLikePress}
         rightDisabled={likeLoading}

@@ -183,6 +183,7 @@ export default function SignupScreen() {
 
   const handleBackPress = () => {
     dispatch(clearSignupFormData());
+    dispatch(setUserProfile('user'));
     navigation.navigate('SelectAccountType');
   };
 

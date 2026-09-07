@@ -668,12 +668,21 @@ export function CreateBattleScreen({ navigation, route }) {
   // Passed from MyClosetDashboard's "Create Battle" CTA — falls back to
   // undefined, in which case getMyClosetItems() just omits the userId query param.
   const sellerId = route?.params?.sellerId;
+  const fromRoute = route?.params?.fromRoute;
   const headerTitle = route?.params?.headerTitle || t('battle.headerTitle');
   const nextRoute = route?.params?.nextRoute || 'BattleSetup';
   const targetScreen = useTargetClosetScreen();
   const handleBack = useCallback(() => {
-    navigateToTargetClosetScreen(navigation, targetScreen);
+    if(fromRoute == "PromotionExpired"){            
+      navigation.goBack();
+      return;
+    }
+    else {
+      navigateToTargetClosetScreen(navigation, targetScreen);
+    }
   }, [navigation, targetScreen]);
+
+  console.log('CreateBattleScreen route params', { sellerId, fromRoute, headerTitle, nextRoute, targetScreen });
 
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
