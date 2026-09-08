@@ -513,7 +513,7 @@ const ValensWallet = ({ navigation }) => {
                 </View>
 
                 {/* Wallet Overview */}
-                <View style={styles.section}>
+                {/* <View style={styles.section}>
                     <Text style={[styles.sectionTitle, { color: text }]}>{t('valensWallet.overviewTitle')}</Text>
                     <View style={styles.statsGrid}>
                         {walletOverviewCards.map((card) => (
@@ -537,10 +537,10 @@ const ValensWallet = ({ navigation }) => {
                             </LinearGradient>
                         ))}
                     </View>
-                </View>
+                </View> */}
 
                 {/* Wallet Connections */}
-                <View style={styles.section}>
+                {/* <View style={styles.section}>
                     <Text style={[styles.sectionTitle, { color: text }]}>{t('valensWallet.connectionsTitle')}</Text>
                     <Text style={[styles.sectionSubtitle, { color: `${text}99` }]}>{t('valensWallet.connectionsSubtitle')}</Text>
 
@@ -606,12 +606,14 @@ const ValensWallet = ({ navigation }) => {
                             </TouchableOpacity>
                         </LinearGradient>
                     ))}
-                </View>
+                </View> */}
 
                 {/* Recent Activity */}
                 <View style={styles.section}>
                     <View style={styles.sectionTitleRow}>
-                        <Text style={[styles.sectionTitle, { color: text }]}>{t('valensWallet.recentActivityTitle')}</Text>
+                        {/* <Text style={[styles.sectionTitle, { color: text }]}>{t('valensWallet.recentActivityTitle')}</Text> */}
+                        <Text style={[styles.sectionTitle, { color: text }]}>{t('valensWallet.overviewTitle')}</Text>
+
                         <TouchableOpacity
                             onPress={() => navigation.navigate('TransactionActivity', { activity: recentActivity })}
                             accessibilityRole="button"

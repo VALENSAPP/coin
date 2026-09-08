@@ -327,7 +327,7 @@ export default function TransactionDetailsScreen() {
                 ) : (
                   <Ionicons name="color-wand" size={28} color={accent || '#5B21B6'} />
                 )}
-                <Text style={[styles.logoText, { color: accent || '#5B21B6' }]}>VALENS</Text>
+                <Text style={[styles.logoText, { color: accent || '#5B21B6' }]}>Valens</Text>
               </View>
               <StatusBadge />
             </View>
@@ -509,9 +509,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   logoText: {
-    fontSize: 22,
-    fontWeight: '300',
-    letterSpacing: 1,
+    fontSize: 18,
+    fontWeight: '600',
+    // letterSpacing: 1,
   },
   statusBadge: {
     flexDirection: 'row',

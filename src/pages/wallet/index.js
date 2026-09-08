@@ -51,9 +51,8 @@ import {
   LavenderDragonfly,
   Metamask,
 } from '../../assets/icons';
-import Svg, { Polygon, Path, Text as SvgText, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
+import Svg, { Polygon, Path, Text as SvgText, Defs, LinearGradient as SvgLinearGradient, Stop, Circle, Rect } from 'react-native-svg';
 import { useLanguage } from '../../i18n';
-
 const { width, height } = Dimensions.get('window');
 const KPI_GRID_GAP = 12;
 const AVATAR_PREVIEW_SIZE = Math.min(width * 0.9, 340);
@@ -496,8 +495,8 @@ function ActivityTrendSvg({
   }, [timestamps, labels, followersValues, unfollowersValues, supportValues]);
 
   const padL = 28;
-  const padR = 12;
-  const padT = 8;
+  const padR = 46; // widened to make room for the endpoint value badges
+  const padT = 16; // extra headroom so the top badge never gets clipped
   const padB = 36;
   const innerW = Math.max(chartWidth - padL - padR, 1);
   const innerH = Math.max(chartHeight - padT - padB, 1);
@@ -580,6 +579,43 @@ function ActivityTrendSvg({
     return `${lp} L ${xs[n - 1]} ${base} L ${xs[0]} ${base} Z`;
   };
 
+  // --- NEW: per-point dots ---
+  const renderDots = (ys, color, radius) =>
+    xs.map((x, i) => (
+      <Circle
+        key={`dot-${color}-${i}`}
+        cx={x}
+        cy={ys[i]}
+        r={i === n - 1 ? radius + 1.5 : radius}
+        fill={color}
+        stroke="#ffffff"
+        strokeWidth={1.5}
+      />
+    ));
+
+  // --- NEW: endpoint value badges (collision-avoided, stacked to the right) ---
+  const badges = useMemo(() => {
+    if (n === 0) return [];
+    const raw = [
+      { key: 'support', color: colorSupport, y: yS[n - 1], value: Math.round(supportValuesSorted[n - 1]) },
+      { key: 'unfollow', color: colorUnfollowers, y: yU[n - 1], value: Math.round(unfollowersValuesSorted[n - 1]) },
+      { key: 'follow', color: colorFollowers, y: yF[n - 1], value: Math.round(followersValuesSorted[n - 1]) },
+    ].sort((a, b) => a.y - b.y);
+
+    const minGap = 20;
+    for (let i = 1; i < raw.length; i++) {
+      if (raw[i].y - raw[i - 1].y < minGap) {
+        raw[i].y = raw[i - 1].y + minGap;
+      }
+    }
+    const maxY = padT + innerH - 8;
+    if (raw[raw.length - 1].y > maxY) {
+      const overflow = raw[raw.length - 1].y - maxY;
+      raw.forEach((b) => { b.y -= overflow; });
+    }
+    return raw;
+  }, [n, yS, yU, yF, supportValuesSorted, unfollowersValuesSorted, followersValuesSorted, colorSupport, colorUnfollowers, colorFollowers, innerH, padT]);
+
   return (
     <Svg width={chartWidth} height={chartHeight}>
       <Defs>
@@ -606,6 +642,42 @@ function ActivityTrendSvg({
           <Path d={linePath(yS)} stroke={colorSupport} strokeWidth={2} fill="none" />
           <Path d={linePath(yU)} stroke={colorUnfollowers} strokeWidth={2} fill="none" />
           <Path d={linePath(yF)} stroke={colorFollowers} strokeWidth={2.5} fill="none" />
+
+          {/* dots along each line so progress between points is visible */}
+          {renderDots(yS, colorSupport, 2.5)}
+          {renderDots(yU, colorUnfollowers, 2.5)}
+          {renderDots(yF, colorFollowers, 3)}
+
+          {/* endpoint value badges */}
+          {badges.map((b) => {
+            const text = String(b.value);
+            const badgeW = Math.max(24, text.length * 7 + 14);
+            const badgeH = 18;
+            const bx = Math.min(xs[n - 1] + 8, chartWidth - badgeW - 2);
+            const by = b.y - badgeH / 2;
+            return (
+              <React.Fragment key={`badge-${b.key}`}>
+                <Rect
+                  x={bx}
+                  y={by}
+                  width={badgeW}
+                  height={badgeH}
+                  rx={badgeH / 2}
+                  fill={b.color}
+                />
+                <SvgText
+                  x={bx + badgeW / 2}
+                  y={by + badgeH / 2 + 4}
+                  fill="#ffffff"
+                  fontSize={11}
+                  fontWeight="700"
+                  textAnchor="middle"
+                >
+                  {text}
+                </SvgText>
+              </React.Fragment>
+            );
+          })}
         </>
       ) : null}
 
