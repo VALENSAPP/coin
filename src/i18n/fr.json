@@ -2277,7 +2277,7 @@
     "endsIn": "Se termine dans {{days}}j {{hours}}h",
     "startsIn": "Commence dans {{days}}j",
     "noPeriodSet": "Aucune période définie",
-    "totalRequests": "Total des demandes",
+    "totalRequests": "Total des donateurs",
     "totalEarnedLabel": "Total gagné",
     "earningsSplitLabel": "Répartition des gains (par publication totale)",
     "youPercent": "Vous (95%)",

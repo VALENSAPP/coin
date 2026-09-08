@@ -451,7 +451,7 @@ export default function WalletComponent() {
                                 {t('walletScreen.buyCredits')}
                             </Text>
                         </TouchableOpacity>
-                        <View
+                        {/* <View
                             style={[
                                 styles.creditsInfo,
                                 {
@@ -472,7 +472,7 @@ export default function WalletComponent() {
                                     {t('walletScreen.referralPts', { count: referPoints })}
                                 </Text>
                             </View>
-                        </View>
+                        </View> */}
                     </View>
 
                     <View style={styles.infoBoxesRow}>
@@ -743,12 +743,12 @@ const styles = StyleSheet.create({
     },
     infoCardTitle: {
         fontSize: 18,
-        fontWeight: '800',
+        fontWeight: '700',
     },
     infoCardText: {
         fontSize: 14,
         lineHeight: 15,
-        fontWeight: '600',
+        fontWeight: '300',
     },
     missionRulesList: {
         marginTop: 4,
@@ -775,13 +775,13 @@ const styles = StyleSheet.create({
     },
     missionRuleTitle: {
         fontSize: 18,
-        fontWeight: '800',
+        fontWeight: '700',
         marginBottom: 6,
     },
     missionRuleText: {
         fontSize: 15,
         lineHeight: 22,
-        fontWeight: '500',
+        fontWeight: '300',
     },
     referralUsageText: {
         fontSize: 12,

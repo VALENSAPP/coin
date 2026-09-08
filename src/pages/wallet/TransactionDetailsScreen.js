@@ -12,6 +12,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Clipboard from '@react-native-clipboard/clipboard';
+import ViewShot from 'react-native-view-shot';
+import Share from 'react-native-share';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { useToast } from 'react-native-toast-notifications';
 
@@ -301,6 +303,23 @@ export default function TransactionDetailsScreen() {
     </View>
   );
 
+  const viewShotRef = React.useRef();
+
+  const downloadReceipt = async () => {
+    try {
+      if (viewShotRef.current) {
+        const uri = await viewShotRef.current.capture();
+        await Share.open({
+          url: uri,
+          title: 'Transaction Receipt',
+          message: 'Here is your transaction receipt.',
+        });
+      }
+    } catch (err) {
+      console.log('Error sharing receipt:', err);
+    }
+  };
+
   return (
     <SafeAreaView style={[styles.safe, bgStyle]} edges={['top']}>
       <View style={[styles.header, { borderBottomColor: 'transparent' }]}>
@@ -308,7 +327,9 @@ export default function TransactionDetailsScreen() {
           <Ionicons name="chevron-back" size={26} color={accent || text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: accent || text }]}>Transaction Receipt</Text>
-        <View style={styles.headerBtn} />
+        <TouchableOpacity onPress={downloadReceipt} style={styles.headerBtn} hitSlop={12}>
+          <Ionicons name="download-outline" size={22} color={accent || text} />
+        </TouchableOpacity>
       </View>
 
       {loading && !details.displayName ? (
@@ -317,7 +338,8 @@ export default function TransactionDetailsScreen() {
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          <View style={[styles.receiptCard, { backgroundColor: card }]}>
+          <ViewShot ref={viewShotRef} options={{ format: 'jpg', quality: 0.9 }} style={{ backgroundColor: bgStyle?.backgroundColor || '#F9F8FD' }}>
+            <View style={[styles.receiptCard, { backgroundColor: card }]}>
             
             {/* Top Logo and Status */}
             <View style={styles.cardHeader}>
@@ -452,6 +474,7 @@ export default function TransactionDetailsScreen() {
             </View>
 
           </View>
+          </ViewShot>
 
           <TouchableOpacity
             style={[styles.helpCard, { backgroundColor: card }]}

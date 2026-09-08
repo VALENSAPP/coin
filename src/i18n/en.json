@@ -2277,7 +2277,7 @@
     "endsIn": "Ends in {{days}}d {{hours}}h",
     "startsIn": "Starts in {{days}}d",
     "noPeriodSet": "No period set",
-    "totalRequests": "Total Requests",
+    "totalRequests": "Total donors",
     "totalEarnedLabel": "Total Earned",
     "earningsSplitLabel": "Earnings Split (per post total)",
     "youPercent": "You (95%)",

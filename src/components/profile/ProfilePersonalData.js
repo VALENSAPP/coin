@@ -1142,7 +1142,8 @@ const ProfilePersonData = ({
     }
   };
 
-  const DragonflyIcon = getBattleLevelDragonflyIcon(levelInfo.tier?.iconId, isDarkMode);
+  const BattleDragonflyIcon = getBattleLevelDragonflyIcon(levelInfo.tier?.iconId, isDarkMode);
+  const IdentityDragonflyIcon = getDragonflyIcon(Userdata?.Followers, false, isDarkMode);
   const totalSupportCardHeight = totalSupportAnim.interpolate({
     inputRange: [0, 1], outputRange: [0, TOTAL_SUPPORT_CARD_HEIGHT],
   });
@@ -1289,7 +1290,7 @@ const ProfilePersonData = ({
                   {Userdata.Username}
                 </Text>
                 {showIdentityVerified && (
-                  <DragonflyIcon width={30} height={30} style={styles.icon} />
+                  <IdentityDragonflyIcon width={30} height={30} style={styles.icon} />
                 )}
                 {!fromUsersProfile && (
                   <Ionicons name="chevron-down" size={18} color={accent} style={styles.headerChevron} />
@@ -1418,7 +1419,7 @@ const ProfilePersonData = ({
                         strokeLinejoin="round"
                       />
                     </Svg>
-                    <DragonflyIcon width={24} height={24} />
+                    <BattleDragonflyIcon width={24} height={24} />
                   </View>
 
                   {/* Tier & Level */}
