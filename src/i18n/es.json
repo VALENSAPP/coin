@@ -3401,6 +3401,10 @@
     "noBattlesYet": "Aún no hay batallas",
     "noResultsSubtitle": "Prueba con otra pregunta de batalla.",
     "noBattlesSubtitle": "Comienza con una batalla de opinión o invita a alguien a un duelo cara a cara.",
+    "started": "Iniciada",
+    "finished": "Finalizada",
+    "inProgress": "En curso",
+    "noBattlesFound": "No se encontraron batallas",
     "levelsModal": {
       "title": "Valens Reputation",
       "subtitle": "This badge level informs you about battle ranks and achievements.",
@@ -4612,7 +4616,8 @@
     "noBattlesTitle": "Aún no hay batallas",
     "noBattlesText": "Vuelve pronto para votar en las nuevas batallas del mercado",
     "battleWinnerTitle": "Ganador del duelo",
-    "defaultQuestion": "¿Cuál prefieres?"
+    "defaultQuestion": "¿Cuál prefieres?",
+    "searchBattlesPlaceholder": "Busca tus batallas"
   },
   "myClosetOrderDetail": {
     "headerTitle": "Detalles del pedido",

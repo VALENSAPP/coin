@@ -1905,6 +1905,7 @@ const MyClosetBattlesScreen = ({ navigation, route }) => {
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const LIMIT = 10;
 
   const loadPage = useCallback(async (pageToLoad, replace = false) => {
@@ -1951,7 +1952,7 @@ const MyClosetBattlesScreen = ({ navigation, route }) => {
   );
 
   const loadMore = async () => {
-    if (loadingMore || !hasMore || loading) return;
+    if (loadingMore || !hasMore || loading || searchQuery.trim()) return;
     setLoadingMore(true);
     const nextPage = page + 1;
     await loadPage(nextPage, false);
@@ -1959,16 +1960,64 @@ const MyClosetBattlesScreen = ({ navigation, route }) => {
     setLoadingMore(false);
   };
 
+  // Local search across item/battle names so a user can quickly find a specific
+  // past battle (e.g. to pull up dates if a voter dispute needs proof).
+  const filteredBattles = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return battles;
+    return battles.filter(b => {
+      const haystack = [
+        b?.left?.name,
+        b?.right?.name,
+        b?.title,
+        b?.id,
+      ].filter(Boolean).join(' ').toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [battles, searchQuery]);
+
+  const formatBattleDate = (value) => {
+    if (!value) return null;
+    const d = new Date(value);
+    if (isNaN(d.getTime())) return null;
+    return d.toLocaleString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
       <Header navigation={navigation} title={t('myClosetShopFront.battlePicksTitle')} returnTo={returnTo} />
+
+      <View style={[styles.searchWrap, { borderColor: border, backgroundColor: card }]}>
+        <Ionicons name="search-outline" size={18} color={mutedText} style={{ marginRight: 8 }} />
+        <TextInput
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder={t('myClosetShopFront.searchBattlesPlaceholder') || 'Search your battles'}
+          placeholderTextColor={mutedText}
+          style={[styles.searchInput, { color: text }]}
+          autoCorrect={false}
+          returnKeyType="search"
+        />
+        {searchQuery.length > 0 && (
+          <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Ionicons name="close-circle" size={18} color={mutedText} />
+          </TouchableOpacity>
+        )}
+      </View>
+
       {loading ? (
         <View style={styles.loaderWrap}>
           <ActivityIndicator color={accent} />
         </View>
       ) : (
         <FlatList
-          data={battles}
+          data={filteredBattles}
           keyExtractor={b => b.id}
           renderItem={({ item }) => (
             <View style={{ marginBottom: 16 }}>
@@ -1983,6 +2032,14 @@ const MyClosetBattlesScreen = ({ navigation, route }) => {
                 mutedText={mutedText}
                 isDark={isDarkMode}
               />
+              <View style={styles.battleDatesRow}>
+                <Text style={[styles.battleDateText, { color: mutedText }]}>
+                  {t('battleHub.started') || 'Started'}: {formatBattleDate(item.startedAt) || '—'}
+                </Text>
+                <Text style={[styles.battleDateText, { color: mutedText }]}>
+                  {t('battleHub.finished') || 'Finished'}: {formatBattleDate(item.finishedAt) || (t('battleHub.inProgress') || 'In progress')}
+                </Text>
+              </View>
             </View>
           )}
           contentContainerStyle={{ padding: 16 }}
@@ -1997,7 +2054,11 @@ const MyClosetBattlesScreen = ({ navigation, route }) => {
           ListEmptyComponent={(
             <View style={styles.emptyState}>
               <Ionicons name="flash-outline" size={34} color={mutedText} />
-              <Text style={[styles.emptyTitle, { color: text }]}>{t('battleHub.noBattlesYet') || 'No battles yet'}</Text>
+              <Text style={[styles.emptyTitle, { color: text }]}>
+                {searchQuery.trim()
+                  ? (t('battleHub.noBattlesFound') || 'No battles match your search')
+                  : (t('battleHub.noBattlesYet') || 'No battles yet')}
+              </Text>
             </View>
           )}
         />
@@ -3362,7 +3423,7 @@ const MyClosetBuyerCheckoutScreen = ({ navigation, route }) => {
       <ScrollView contentContainerStyle={styles.checkoutContent} showsVerticalScrollIndicator={false}>
         <CheckoutSteps current={0} includeShipping={true} accentColor={accent} />
         <OrderSummary cart={cart} editable onEditCart={handleEditCart} accentColor={text} />
-        
+
         <View style={styles.reviewSectionHeader}>
           <Text style={[styles.sectionLabel, { color: text }]}>{t('myClosetBuyer.cancelPolicyTitle') || 'Cancel Policy'}</Text>
         </View>
@@ -4985,6 +5046,31 @@ const styles = StyleSheet.create({
   emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 80 },
   emptyTitle: { marginTop: 12, fontSize: 17, fontWeight: '900', color: '#17072d' },
   emptyText: { marginTop: 5, fontSize: 13, color: MUTED, textAlign: 'center' },
+
+  searchWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginTop: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    paddingVertical: 0,
+  },
+  battleDatesRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 6,
+    paddingHorizontal: 4,
+  },
+  battleDateText: {
+    fontSize: 12,
+  },
 
   // detail
   detailContent: { paddingHorizontal: 20, paddingBottom: 110 },
