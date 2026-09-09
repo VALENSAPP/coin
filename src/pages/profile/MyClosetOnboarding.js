@@ -726,6 +726,62 @@ const PlaceFieldRow = ({
   );
 };
 
+const PlaceInputFieldRow = ({
+  icon = 'home-outline',
+  label,
+  placeholder,
+  value,
+  onChangeText,
+  text,
+  error,
+  keyboardType,
+}) => {
+  const { isDarkMode } = useThemeContext();
+  const surfaces = formSurfaces(isDarkMode);
+  const borderColor = error ? '#dc2626' : withAlpha(text, isDarkMode ? 0.35 : 0.16);
+
+  return (
+    <View style={styles.placeFieldBlock}>
+      <View style={styles.placeFieldTopRow}>
+        <View style={[styles.placeFieldIconWrap, { backgroundColor: surfaces.iconBubble }]}>
+          <Ionicons name={icon} size={17} color={text} />
+        </View>
+        <Text style={[styles.placeFieldLabel, { color: surfaces.labelColor }]} numberOfLines={1}>
+          {label}
+        </Text>
+
+        <View
+          style={[
+            styles.placeFieldValueBox,
+            { borderColor, backgroundColor: surfaces.inputSurface },
+          ]}
+        >
+          <TextInput
+            value={value}
+            onChangeText={onChangeText}
+            placeholder={placeholder}
+            placeholderTextColor={surfaces.placeholderColor}
+            keyboardType={keyboardType}
+            style={[
+              styles.placeFieldValueText,
+              { color: surfaces.inputText, paddingVertical: Platform.OS === 'ios' ? 10 : 6 },
+            ]}
+          />
+        </View>
+
+        {value ? (
+          <View style={styles.placeFieldCheck}>
+            <Ionicons name="checkmark-circle" size={22} color="#22c55e" />
+          </View>
+        ) : (
+          <View style={styles.placeFieldCheck} />
+        )}
+      </View>
+      <InlineError message={error} />
+    </View>
+  );
+};
+
 const DropdownRow = ({
   label,
   placeholder,
@@ -736,41 +792,76 @@ const DropdownRow = ({
   options,
   text,
   error,
+  editable,
+  onChangeText,
+  keyboardType,
 }) => {
   const { isDarkMode } = useThemeContext();
   const surfaces = formSurfaces(isDarkMode);
   const selectedOption = options.find(item => getOptionValue(item) === value);
   const displayValue = selectedOption ? getOptionLabel(selectedOption) : value;
 
-  return (
-    <View style={styles.fieldBlock}>
-      <Text style={[styles.fieldLabel, { color: surfaces.labelColor }]}>{label}</Text>
-      <TouchableOpacity
-        activeOpacity={0.85}
-        onPress={onToggle}
-        style={[
-          styles.dropdownRow,
-          expanded && styles.dropdownRowActive,
-          {
-            backgroundColor: surfaces.inputSurface,
-            borderColor: error ? '#dc2626' : withAlpha(text, isDarkMode ? 0.35 : 0.16),
-          },
-        ]}
-      >
+  const rowStyle = [
+    styles.dropdownRow,
+    expanded && styles.dropdownRowActive,
+    {
+      backgroundColor: surfaces.inputSurface,
+      borderColor: error ? '#dc2626' : withAlpha(text, isDarkMode ? 0.35 : 0.16),
+    },
+  ];
+
+  const content = (
+    <>
+      {editable ? (
+        <TextInput
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          placeholderTextColor={surfaces.placeholderColor}
+          keyboardType={keyboardType}
+          style={[
+            styles.dropdownText,
+            { color: surfaces.inputText, flex: 1, padding: 0, margin: 0 },
+          ]}
+        />
+      ) : (
         <Text
           style={[
             styles.dropdownText,
-            { color: displayValue ? surfaces.inputText : surfaces.placeholderColor },
+            { color: displayValue ? surfaces.inputText : surfaces.placeholderColor, flex: 1 },
           ]}
         >
           {displayValue || placeholder}
         </Text>
+      )}
+      {editable ? (
+        <TouchableOpacity activeOpacity={0.85} onPress={onToggle} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <Ionicons
+            name={expanded ? 'chevron-up' : 'chevron-down'}
+            size={18}
+            color={text}
+          />
+        </TouchableOpacity>
+      ) : (
         <Ionicons
           name={expanded ? 'chevron-up' : 'chevron-down'}
           size={18}
           color={text}
         />
-      </TouchableOpacity>
+      )}
+    </>
+  );
+
+  return (
+    <View style={styles.fieldBlock}>
+      <Text style={[styles.fieldLabel, { color: surfaces.labelColor }]}>{label}</Text>
+      {editable ? (
+        <View style={rowStyle}>{content}</View>
+      ) : (
+        <TouchableOpacity activeOpacity={0.85} onPress={onToggle} style={rowStyle}>
+          {content}
+        </TouchableOpacity>
+      )}
       {expanded ? (
         <ScrollView
           style={[
@@ -2284,6 +2375,7 @@ const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
   const [shippingFee, setShippingFee] = useState(draft.shippingFee || '');
 
   // Pickup details                                    ← ADD THESE BACK
+  const [residentNumber, setResidentNumber] = useState(draft.residentNumber || '');
   const [pickUpCity, setPickupCity] = useState(draft.pickUpCity || '');
   const [pickupLocation, setPickupLocation] = useState(draft.pickupLocation || '');
   const [pickupAddress, setPickupAddress] = useState(draft.pickupAddress || '');
@@ -2329,6 +2421,18 @@ const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
   const pickupTimeKey = `${selectedPickupDayConfig.group}${pickupTimeTarget === 'start' ? 'Start' : 'End'}`;
   const selectedPickupTime = pickupHours[pickupTimeKey];
 
+  const fullPickupAddress = useMemo(() => {
+    const parts = [];
+    if (residentNumber) parts.push(residentNumber);
+    if (pickupAddress) {
+      parts.push(pickupAddress);
+    } else {
+      if (pickupLocation) parts.push(pickupLocation);
+      if (pickUpCity) parts.push(pickUpCity);
+    }
+    return parts.join(', ');
+  }, [residentNumber, pickupAddress, pickupLocation, pickUpCity]);
+
   const nextDraft = useMemo(
     () => ({
       ...draft,
@@ -2336,6 +2440,7 @@ const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
       pickupEnabled,
       shippingTime,
       shippingFee,
+      residentNumber,
       pickUpCity,
       pickupLocation,
       pickupAddress,
@@ -2353,6 +2458,7 @@ const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
       pickupEnabled,
       shippingTime,
       shippingFee,
+      residentNumber,
       pickUpCity,
       pickupLocation,
       pickupAddress,
@@ -2457,8 +2563,9 @@ const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
   };
 
   const openInMaps = () => {
-    if (!pickupAddress) return;
-    const query = encodeURIComponent(pickupAddress);
+    const targetAddress = fullPickupAddress || pickupAddress;
+    if (!targetAddress) return;
+    const query = encodeURIComponent(targetAddress);
     Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${query}`).catch(() => { });
   };
 
@@ -2661,6 +2768,18 @@ const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
                   setExpandedField(null);
                   if (errors.shippingFee) setErrors(prev => ({ ...prev, shippingFee: null }));
                 }}
+                editable={true}
+                onChangeText={text => {
+                  let cleaned = text.replace(/[^0-9.]/g, '');
+                  const parts = cleaned.split('.');
+                  if (parts.length > 2) {
+                    cleaned = parts[0] + '.' + parts.slice(1).join('');
+                  }
+                  const formatted = cleaned.length > 0 ? `$${cleaned}` : '';
+                  setShippingFee(formatted);
+                  if (errors.shippingFee) setErrors(prev => ({ ...prev, shippingFee: null }));
+                }}
+                keyboardType="decimal-pad"
                 options={itemShippingFeeOptions}
                 text={text}
                 error={errors.shippingFee}
@@ -2676,6 +2795,20 @@ const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
                 badge={t('myClosetOptions.shippingMethod.localPickup')}
                 text={text}
               />
+
+              <PlaceInputFieldRow
+                icon="home-outline"
+                label={t('myClosetAddItemShipping.residentNumberLabel')}
+                placeholder={t('myClosetAddItemShipping.residentNumberPlaceholder')}
+                value={residentNumber}
+                onChangeText={value => {
+                  setResidentNumber(value);
+                  if (errors.residentNumber) setErrors(prev => ({ ...prev, residentNumber: null }));
+                }}
+                text={text}
+                error={errors.residentNumber}
+              />
+
               {hasPlacesApi ? (
                 <>
                   <PlaceFieldRow
@@ -2738,9 +2871,9 @@ const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
                     t={t}
                   />
 
-                  {pickupAddress ? (
+                  {fullPickupAddress ? (
                     <View style={styles.pickupAddressPreview}>
-                      <Text style={styles.pickupAddressText}>{pickupAddress}</Text>
+                      <Text style={styles.pickupAddressText}>{fullPickupAddress}</Text>
                       <TouchableOpacity activeOpacity={0.8} onPress={openInMaps} style={styles.viewOnMapRow}>
                         <Ionicons name="map-outline" size={14} color="#5A2386" />
                         <Text style={styles.viewOnMapText}>{t('myClosetAddItemShipping.viewOnMap')}</Text>
@@ -2974,9 +3107,11 @@ const deliverySummaryLines = useMemo(() => {
     lines.push(
       `${t('myClosetOptions.shippingMethod.localPickup')}${draft.pickupLocation ? ` · ${draft.pickupLocation}` : ''}`,
     );
-    // NEW: show pickup city if present
-    if (draft.pickUpCity) lines.push(draft.pickUpCity);
-    if (draft.pickupAddress) lines.push(draft.pickupAddress);
+    const fullAddress = [
+      draft.residentNumber,
+      draft.pickupAddress || draft.pickUpCity,
+    ].filter(Boolean).join(', ');
+    if (fullAddress) lines.push(fullAddress);
     lines.push(
       `${t('myClosetAddItemShipping.weekdaysAbbrev')} ${hours.weekdayStart}-${hours.weekdayEnd}, ${t('myClosetAddItemShipping.weekendsAbbrev')} ${hours.weekendStart}-${hours.weekendEnd}`,
     );

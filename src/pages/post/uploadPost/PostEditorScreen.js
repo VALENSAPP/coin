@@ -194,7 +194,7 @@ const PostEditorScreen = () => {
   const [hashtagSuggestions, setHashtagSuggestions] = useState([]);
   const [isSearchingHashtags, setIsSearchingHashtags] = useState(false);
   const [isCommunityTrustPost, setIsCommunityTrustPost] = useState(
-    isEditingPost ? isTrustPost : false,
+    postType === 'crowdfunding' ? true : (isEditingPost ? isTrustPost : false),
   );
   const [profile, setProfile] = useState(null);
   const [openingTaggedProfile, setOpeningTaggedProfile] = useState(false);
@@ -966,6 +966,7 @@ const PostEditorScreen = () => {
             <Switch
               value={isCommunityTrustPost}
               onValueChange={setIsCommunityTrustPost}
+              disabled={postType === 'crowdfunding'}
               trackColor={{ false: '#d1d5db', true: `${accent}66` }}
               thumbColor={isCommunityTrustPost ? accent : '#f8fafc'}
               ios_backgroundColor="#d1d5db"

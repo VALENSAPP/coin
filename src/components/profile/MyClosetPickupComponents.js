@@ -335,6 +335,62 @@ export const PlaceFieldRow = ({
   );
 };
 
+export const PlaceInputFieldRow = ({
+  icon = 'home-outline',
+  label,
+  placeholder,
+  value,
+  onChangeText,
+  text,
+  error,
+  keyboardType,
+}) => {
+  const { isDarkMode } = useThemeContext();
+  const surfaces = formSurfaces(isDarkMode);
+  const borderColor = error ? '#dc2626' : withAlpha(text, isDarkMode ? 0.35 : 0.16);
+
+  return (
+    <View style={styles.placeFieldBlock}>
+      <View style={styles.placeFieldTopRow}>
+        <View style={[styles.placeFieldIconWrap, { backgroundColor: surfaces.iconBubble }]}>
+          <Ionicons name={icon} size={17} color={text} />
+        </View>
+        <Text style={[styles.placeFieldLabel, { color: surfaces.labelColor }]} numberOfLines={1}>
+          {label}
+        </Text>
+
+        <View
+          style={[
+            styles.placeFieldValueBox,
+            { borderColor, backgroundColor: surfaces.inputSurface },
+          ]}
+        >
+          <TextInput
+            value={value}
+            onChangeText={onChangeText}
+            placeholder={placeholder}
+            placeholderTextColor={surfaces.placeholderColor}
+            keyboardType={keyboardType}
+            style={[
+              styles.placeFieldValueText,
+              { color: surfaces.inputText, paddingVertical: Platform.OS === 'ios' ? 10 : 6 },
+            ]}
+          />
+        </View>
+
+        {value ? (
+          <View style={styles.placeFieldCheck}>
+            <Ionicons name="checkmark-circle" size={22} color="#22c55e" />
+          </View>
+        ) : (
+          <View style={styles.placeFieldCheck} />
+        )}
+      </View>
+      <InlineError message={error} />
+    </View>
+  );
+};
+
 const styles = StyleSheet.create({
   fieldBlock: {
     marginBottom: 16,

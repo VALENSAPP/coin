@@ -21,6 +21,7 @@ import {
   DEFAULT_PICKUP_HOURS,
   AdvancedDropdownRow,
   PlaceFieldRow,
+  PlaceInputFieldRow,
   ToggleSwitch
 } from './MyClosetPickupComponents';
 import { useFocusEffect } from '@react-navigation/native';
@@ -273,6 +274,7 @@ const toEditableItem = item => {
     shippingOption: item?.shippingOption || item?.shippingOptions || '',
     shippingTime: item?.estimateShippingTime || item?.shippingTime || '',
     shippingFee: String(item?.shippingFee ?? ''),
+    residentNumber: item?.residentNumber || '',
     pickUpCity: derivedCity,
     pickupLocation: item?.pickupLocation || '',
     pickupAddress: item?.pickupAddress || '',
@@ -309,6 +311,7 @@ const buildPayload = draft => {
   }
 
   if (pickupEnabled) {
+    if (draft.residentNumber) payload.append('residentNumber', String(draft.residentNumber).trim());
     if (draft.pickUpCity) payload.append('pickUpCity', String(draft.pickUpCity).trim());
     if (draft.pickupLocation) payload.append('pickupLocation', String(draft.pickupLocation).trim());
     payload.append('pickupAddress', String(draft.pickupAddress || '').trim());
@@ -879,6 +882,16 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
           )}
           {(draft.shippingOption === 'local_pick' || draft.shippingOption === 'both') && (
             <>
+              {/* Resident Number */}
+              <PlaceInputFieldRow
+                icon="home-outline"
+                label={t('myClosetAddItemShipping.residentNumberLabel')}
+                value={draft.residentNumber}
+                onChangeText={value => setDraft(prev => ({ ...prev, residentNumber: value }))}
+                placeholder={t('myClosetAddItemShipping.residentNumberPlaceholder')}
+                text={accent}
+              />
+
               {/* Pickup City */}
               {hasPlacesApi ? (
                 <PlaceFieldRow

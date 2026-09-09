@@ -662,6 +662,7 @@ export default function Notifications() {
           openCommentsOnMount: !!options.openCommentsOnMount,
           commentPostId: options.commentPostId || postId,
           commentPostOwnerId: options.commentPostOwnerId || notification?.raw?.userId || notification?.raw?.data?.userId || null,
+          isTrustPost: notification?.raw?.isTrustPost || false,
         },
       });
     },
