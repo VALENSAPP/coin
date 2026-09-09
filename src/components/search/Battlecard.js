@@ -379,7 +379,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
         return (
             <TouchableOpacity
                 activeOpacity={0.88}
-                style={[styles.card, cardThemeStyle, ended && styles.cardEnded, fullWidth && styles.cardFullWidth, { marginBottom: bottomMargin }]}
+                style={[styles.card, cardThemeStyle, ended && styles.cardEnded, fullWidth && styles.cardFullWidth, { marginBottom: 10 }]}
                 onPress={handleCardPress}
                 renderToHardwareTextureAndroid
             >
@@ -460,7 +460,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
     return (
         <TouchableOpacity
             activeOpacity={0.88}
-            style={[styles.card, cardThemeStyle, ended && styles.cardEnded, fullWidth && styles.cardFullWidth, { marginBottom: bottomMargin }]}
+            style={[styles.card, cardThemeStyle, ended && styles.cardEnded, fullWidth && styles.cardFullWidth, { marginBottom: 10 }]}
             onPress={handleCardPress}
             hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
             renderToHardwareTextureAndroid

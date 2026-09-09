@@ -927,7 +927,7 @@ const EbookPublisher = ({ navigation }) => {
           </View>
         </View>
 
-        <View style={[styles.rootCard, cardStyle]}>
+        {/* <View style={[styles.rootCard, cardStyle]}>
           <View style={styles.promoRow}>
             <View style={styles.promoLeft}>
               <Text style={[styles.settingTitle, styles.rootPromoTitle]}>Add Promo Code (Optional)</Text>
@@ -955,7 +955,7 @@ const EbookPublisher = ({ navigation }) => {
               />
             </View>
           )}
-        </View>
+        </View> */}
 
         <TouchableOpacity
           style={[styles.rootPrimaryButton, { backgroundColor: accent, opacity: isSubmitting ? 0.75 : 1 }]}
@@ -968,10 +968,31 @@ const EbookPublisher = ({ navigation }) => {
     );
   };
 
+  const handleHeaderBack = () => {
+    if (rootMode) {
+      if (isPublished) {
+        navigation.goBack?.();
+        return;
+      }
+      if (rootStep > 1) {
+        setRootStep(rootStep - 1);
+        return;
+      }
+      navigation.goBack?.();
+      return;
+    }
+
+    if (step > 1) {
+      setStep(step - 1);
+      return;
+    }
+    navigation.goBack?.();
+  };
+
   return (
     <View style={[styles.screen, bgStyle]}>
       <View style={[styles.header, cardStyle, rootMode && styles.rootHeader]}>
-        <TouchableOpacity onPress={() => navigation.goBack?.()} style={styles.headerIconButton}>
+        <TouchableOpacity onPress={handleHeaderBack} style={styles.headerIconButton}>
           <Ionicons name="arrow-back" size={22} color={text} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
@@ -1055,262 +1076,262 @@ const EbookPublisher = ({ navigation }) => {
             </View>
 
             {step === 1 && (
-            <View style={[styles.card, cardStyle]}>
-              <Text style={[styles.sectionTitle, textStyle]}>{t('ebookPublisher.uploadTitle')}</Text>
-              <Text style={styles.sectionText}>{t('ebookPublisher.uploadHint')}</Text>
+              <View style={[styles.card, cardStyle]}>
+                <Text style={[styles.sectionTitle, textStyle]}>{t('ebookPublisher.uploadTitle')}</Text>
+                <Text style={styles.sectionText}>{t('ebookPublisher.uploadHint')}</Text>
 
-          <View style={styles.topToggle}>
-            <TouchableOpacity
-              onPress={() => setStepOneTab('upload')}
-              style={[styles.topToggleButton, stepOneTab === 'upload' && { backgroundColor: accent }]}
-              activeOpacity={0.85}
-            >
-              <Ionicons name="cloud-upload-outline" size={16} color={stepOneTab === 'upload' ? onAccent : text} />
-              <Text style={[styles.topToggleText, stepOneTab === 'upload' && styles.topToggleTextActive]}>
-                {tf('ebookPublisher.uploadMyBook', 'Upload My Book')}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => setStepOneTab('library')}
-              style={[styles.topToggleButton, stepOneTab === 'library' && { backgroundColor: accent }]}
-              activeOpacity={0.85}
-            >
-              <Ionicons name="book-outline" size={16} color={stepOneTab === 'library' ? onAccent : text} />
-              <Text style={[styles.topToggleText, stepOneTab === 'library' && styles.topToggleTextActive]}>
-                {tf('ebookPublisher.myLibrary', 'My Library')}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {stepOneTab === 'upload' ? (
-            <>
-              <TouchableOpacity style={[styles.uploadArea, { borderColor: text }]} onPress={handlePickPdf}>
-                <Ionicons name="cloud-upload-outline" size={44} color={text} />
-                <Text style={styles.uploadPrimary}>{t('ebookPublisher.dragDrop')}</Text>
-                <Text style={styles.uploadSecondary}>{t('ebookPublisher.or')}</Text>
-                <View style={[styles.uploadButton, { backgroundColor: accent }]}>
-                  <Text style={styles.uploadButtonText}>{t('ebookPublisher.choosePdf')}</Text>
-                </View>
-                <Text style={styles.limitText}>{t('ebookPublisher.maxLimit')}</Text>
-              </TouchableOpacity>
-
-              {selectedPdf && (
-                <View style={styles.fileRow}>
-                  <View style={styles.fileBadge}>
-                    <Text style={styles.fileBadgeText}>PDF</Text>
-                  </View>
-                  <View style={styles.fileMeta}>
-                    <Text style={[styles.fileName, textStyle]} numberOfLines={1}>
-                      {selectedPdf.name}
+                <View style={styles.topToggle}>
+                  <TouchableOpacity
+                    onPress={() => setStepOneTab('upload')}
+                    style={[styles.topToggleButton, stepOneTab === 'upload' && { backgroundColor: accent }]}
+                    activeOpacity={0.85}
+                  >
+                    <Ionicons name="cloud-upload-outline" size={16} color={stepOneTab === 'upload' ? onAccent : text} />
+                    <Text style={[styles.topToggleText, stepOneTab === 'upload' && styles.topToggleTextActive]}>
+                      {tf('ebookPublisher.uploadMyBook', 'Upload My Book')}
                     </Text>
-                    <Text style={styles.fileSize}>{getFileSizeLabel(selectedPdf.size)}</Text>
-                  </View>
-                  <Ionicons name="checkmark-circle" size={24} color="#22c55e" />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => setStepOneTab('library')}
+                    style={[styles.topToggleButton, stepOneTab === 'library' && { backgroundColor: accent }]}
+                    activeOpacity={0.85}
+                  >
+                    <Ionicons name="book-outline" size={16} color={stepOneTab === 'library' ? onAccent : text} />
+                    <Text style={[styles.topToggleText, stepOneTab === 'library' && styles.topToggleTextActive]}>
+                      {tf('ebookPublisher.myLibrary', 'My Library')}
+                    </Text>
+                  </TouchableOpacity>
                 </View>
-              )}
 
-              <View style={styles.infoBox}>
-                <Ionicons name="information-circle-outline" size={18} color={text} />
-                <Text style={styles.infoText}>{t('ebookPublisher.pdfHelp')}</Text>
-              </View>
-            </>
-          ) : (
-            <View style={styles.libraryPanel}>
-              <Text style={[styles.libraryTitle, textStyle]}>My Library</Text>
-              <Text style={styles.sectionText}>E-books you&apos;ve purchased from creators on Valens.</Text>
-
-              <View style={styles.searchBar}>
-                <Ionicons name="search" size={16} color={mutedText} />
-                <TextInput
-                  value={librarySearch}
-                  onChangeText={setLibrarySearch}
-                  placeholder="Search your library"
-                  placeholderTextColor={mutedText}
-                  style={styles.searchInput}
-                  returnKeyType="search"
-                />
-                <Ionicons name="options-outline" size={16} color={mutedText} />
-              </View>
-
-              {libraryLoading ? (
-                <Text style={styles.libraryStateText}>{tf('myClosetBuyer.loading', 'Loading...')}</Text>
-              ) : libraryError ? (
-                <Text style={styles.libraryStateText}>{libraryError}</Text>
-              ) : filteredLibraryBooks.length === 0 ? (
-                <Text style={styles.libraryStateText}>
-                  {librarySearch.trim()
-                    ? tf('ebookPublisher.noLibraryMatches', 'No e-books match your search.')
-                    : tf('ebookPublisher.noLibraryItems', 'No purchased e-books found yet.')}
-                </Text>
-              ) : (
-                filteredLibraryBooks.map(item => {
-                  const libraryTitle = item?.caption || item?.title || item?.ebookTitle || 'Untitled e-book';
-                  const libraryAuthor = formatDisplayName(item?.purchasedFrom || item?.userName || item?.author || item?.displayName || 'Unknown Author');
-                  const libraryCategory = item?.category || item?.genre || item?.type || 'E-book';
-                  const coverLabel = String(libraryTitle).slice(0, 2).toUpperCase();
-                  const progress = Math.max(0, Math.min(Number(item?.progress ?? item?.readProgress ?? 0), 100));
-                  const coverImage = getLibraryCoverImage(item);
-                  // Never fall back to `text` — in user dark mode text is white and covers become blank.
-                  const tint = item?.themeColor || item?.color || accent;
-
-                  return (
-                    <TouchableOpacity
-                      key={String(item?.id || item?._id || libraryTitle)}
-                      activeOpacity={0.85}
-                      style={styles.libraryItem}
-                      onPress={() => handleOpenLibraryEbook(item)}
-                    >
-                      <View style={[styles.libraryCover, { backgroundColor: tint }]}>
-                        {coverImage ? (
-                          <Image source={{ uri: coverImage }} style={styles.libraryCoverImage} resizeMode="cover" />
-                        ) : (
-                          <Text style={styles.libraryCoverText}>{coverLabel}</Text>
-                        )}
+                {stepOneTab === 'upload' ? (
+                  <>
+                    <TouchableOpacity style={[styles.uploadArea, { borderColor: text }]} onPress={handlePickPdf}>
+                      <Ionicons name="cloud-upload-outline" size={44} color={text} />
+                      <Text style={styles.uploadPrimary}>{t('ebookPublisher.dragDrop')}</Text>
+                      <Text style={styles.uploadSecondary}>{t('ebookPublisher.or')}</Text>
+                      <View style={[styles.uploadButton, { backgroundColor: accent }]}>
+                        <Text style={styles.uploadButtonText}>{t('ebookPublisher.choosePdf')}</Text>
                       </View>
-                      <View style={styles.libraryMeta}>
-                        <Text style={styles.libraryItemTitle} numberOfLines={1}>{libraryTitle}</Text>
-                        <Text style={styles.libraryItemSubtitle}>by {libraryAuthor}</Text>
-                      </View>
-                      <Ionicons name="chevron-forward" size={18} color={mutedText} />
+                      <Text style={styles.limitText}>{t('ebookPublisher.maxLimit')}</Text>
                     </TouchableOpacity>
-                  );
-                })
-              )}
-            </View>
-          )}
-        </View>
+
+                    {selectedPdf && (
+                      <View style={styles.fileRow}>
+                        <View style={styles.fileBadge}>
+                          <Text style={styles.fileBadgeText}>PDF</Text>
+                        </View>
+                        <View style={styles.fileMeta}>
+                          <Text style={[styles.fileName, textStyle]} numberOfLines={1}>
+                            {selectedPdf.name}
+                          </Text>
+                          <Text style={styles.fileSize}>{getFileSizeLabel(selectedPdf.size)}</Text>
+                        </View>
+                        <Ionicons name="checkmark-circle" size={24} color="#22c55e" />
+                      </View>
+                    )}
+
+                    <View style={styles.infoBox}>
+                      <Ionicons name="information-circle-outline" size={18} color={text} />
+                      <Text style={styles.infoText}>{t('ebookPublisher.pdfHelp')}</Text>
+                    </View>
+                  </>
+                ) : (
+                  <View style={styles.libraryPanel}>
+                    <Text style={[styles.libraryTitle, textStyle]}>My Library</Text>
+                    <Text style={styles.sectionText}>E-books you&apos;ve purchased from creators on Valens.</Text>
+
+                    <View style={styles.searchBar}>
+                      <Ionicons name="search" size={16} color={mutedText} />
+                      <TextInput
+                        value={librarySearch}
+                        onChangeText={setLibrarySearch}
+                        placeholder="Search your library"
+                        placeholderTextColor={mutedText}
+                        style={styles.searchInput}
+                        returnKeyType="search"
+                      />
+                      <Ionicons name="options-outline" size={16} color={mutedText} />
+                    </View>
+
+                    {libraryLoading ? (
+                      <Text style={styles.libraryStateText}>{tf('myClosetBuyer.loading', 'Loading...')}</Text>
+                    ) : libraryError ? (
+                      <Text style={styles.libraryStateText}>{libraryError}</Text>
+                    ) : filteredLibraryBooks.length === 0 ? (
+                      <Text style={styles.libraryStateText}>
+                        {librarySearch.trim()
+                          ? tf('ebookPublisher.noLibraryMatches', 'No e-books match your search.')
+                          : tf('ebookPublisher.noLibraryItems', 'No purchased e-books found yet.')}
+                      </Text>
+                    ) : (
+                      filteredLibraryBooks.map(item => {
+                        const libraryTitle = item?.caption || item?.title || item?.ebookTitle || 'Untitled e-book';
+                        const libraryAuthor = formatDisplayName(item?.purchasedFrom || item?.userName || item?.author || item?.displayName || 'Unknown Author');
+                        const libraryCategory = item?.category || item?.genre || item?.type || 'E-book';
+                        const coverLabel = String(libraryTitle).slice(0, 2).toUpperCase();
+                        const progress = Math.max(0, Math.min(Number(item?.progress ?? item?.readProgress ?? 0), 100));
+                        const coverImage = getLibraryCoverImage(item);
+                        // Never fall back to `text` — in user dark mode text is white and covers become blank.
+                        const tint = item?.themeColor || item?.color || accent;
+
+                        return (
+                          <TouchableOpacity
+                            key={String(item?.id || item?._id || libraryTitle)}
+                            activeOpacity={0.85}
+                            style={styles.libraryItem}
+                            onPress={() => handleOpenLibraryEbook(item)}
+                          >
+                            <View style={[styles.libraryCover, { backgroundColor: tint }]}>
+                              {coverImage ? (
+                                <Image source={{ uri: coverImage }} style={styles.libraryCoverImage} resizeMode="cover" />
+                              ) : (
+                                <Text style={styles.libraryCoverText}>{coverLabel}</Text>
+                              )}
+                            </View>
+                            <View style={styles.libraryMeta}>
+                              <Text style={styles.libraryItemTitle} numberOfLines={1}>{libraryTitle}</Text>
+                              <Text style={styles.libraryItemSubtitle}>by {libraryAuthor}</Text>
+                            </View>
+                            <Ionicons name="chevron-forward" size={18} color={mutedText} />
+                          </TouchableOpacity>
+                        );
+                      })
+                    )}
+                  </View>
+                )}
+              </View>
             )}
 
             {step === 2 && (
-          <View style={[styles.card, cardStyle]}>
-            <Text style={[styles.sectionTitle, textStyle]}>{tf('ebookPublisher.customizeTitle', 'Customize E-book')}</Text>
-            <Text style={styles.sectionText}>{tf('ebookPublisher.customizeHint', 'Select a cover, edit details, and build your table of contents.')}</Text>
+              <View style={[styles.card, cardStyle]}>
+                <Text style={[styles.sectionTitle, textStyle]}>{tf('ebookPublisher.customizeTitle', 'Customize E-book')}</Text>
+                <Text style={styles.sectionText}>{tf('ebookPublisher.customizeHint', 'Select a cover, edit details, and build your table of contents.')}</Text>
 
-            <Text style={styles.fieldLabel}>1. {tf('ebookPublisher.coverLabel', 'Choose Cover')}</Text>
-            <Text style={styles.helperText}>Select a cover for your e-book.</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.coverRow}>
-              {coverOptions.map(option => {
-                const selected = option.id === selectedCover;
-                return (
-                  <TouchableOpacity
-                    key={option.id}
-                    style={[styles.coverCard, selected && { borderColor: text }]}
-                    onPress={() => setSelectedCover(option.id)}
-                  >
-                    <View
-                      style={[
-                        styles.coverPreview,
-                        option.imageUri || (option.id === 'custom' && customCoverImage)
-                          ? styles.coverPreviewCustom
-                          : { backgroundColor: option.accent },
-                      ]}
-                    >
-                      {option.imageUri ? (
-                        <Image source={{ uri: option.imageUri }} style={styles.customCoverImage} resizeMode="cover" />
-                      ) : option.id === 'custom' && customCoverImage ? (
-                        <Image source={{ uri: customCoverImage.uri }} style={styles.customCoverImage} resizeMode="cover" />
-                      ) : null}
-                    </View>
-                    <Text style={styles.coverTitle}>{option.title}</Text>
-                    <Text style={styles.coverSubtitle}>{option.subtitle}</Text>
-                    {selected && <Text style={[styles.coverSelected, { color: text }]}>{t('ebookPublisher.selected')}</Text>}
+                <Text style={styles.fieldLabel}>1. {tf('ebookPublisher.coverLabel', 'Choose Cover')}</Text>
+                <Text style={styles.helperText}>Select a cover for your e-book.</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.coverRow}>
+                  {coverOptions.map(option => {
+                    const selected = option.id === selectedCover;
+                    return (
+                      <TouchableOpacity
+                        key={option.id}
+                        style={[styles.coverCard, selected && { borderColor: text }]}
+                        onPress={() => setSelectedCover(option.id)}
+                      >
+                        <View
+                          style={[
+                            styles.coverPreview,
+                            option.imageUri || (option.id === 'custom' && customCoverImage)
+                              ? styles.coverPreviewCustom
+                              : { backgroundColor: option.accent },
+                          ]}
+                        >
+                          {option.imageUri ? (
+                            <Image source={{ uri: option.imageUri }} style={styles.customCoverImage} resizeMode="cover" />
+                          ) : option.id === 'custom' && customCoverImage ? (
+                            <Image source={{ uri: customCoverImage.uri }} style={styles.customCoverImage} resizeMode="cover" />
+                          ) : null}
+                        </View>
+                        <Text style={styles.coverTitle}>{option.title}</Text>
+                        <Text style={styles.coverSubtitle}>{option.subtitle}</Text>
+                        {selected && <Text style={[styles.coverSelected, { color: text }]}>{t('ebookPublisher.selected')}</Text>}
+                      </TouchableOpacity>
+                    );
+                  })}
+
+                  <TouchableOpacity style={[styles.coverCard, styles.uploadCoverCard, { borderColor: text }]} onPress={handlePickCoverImage}>
+                    <Ionicons name="add" size={24} color={text} />
+                    <Text style={styles.coverTitle}>{tf('ebookPublisher.uploadNew', 'Add Cover')}</Text>
+                    <Text style={styles.coverSubtitle}>{tf('ebookPublisher.coverReplace', 'Choose a cover image from gallery')}</Text>
                   </TouchableOpacity>
-                );
-              })}
+                </ScrollView>
 
-              <TouchableOpacity style={[styles.coverCard, styles.uploadCoverCard, { borderColor: text }]} onPress={handlePickCoverImage}>
-                <Ionicons name="add" size={24} color={text} />
-                <Text style={styles.coverTitle}>{tf('ebookPublisher.uploadNew', 'Add Cover')}</Text>
-                <Text style={styles.coverSubtitle}>{tf('ebookPublisher.coverReplace', 'Choose a cover image from gallery')}</Text>
-              </TouchableOpacity>
-            </ScrollView>
+                <Text style={styles.fieldLabel}>2. E-book Title & Description</Text>
+                <Text style={styles.helperText}>Title</Text>
+                <View style={styles.inputLike}>
+                  <TextInput
+                    value={title}
+                    onChangeText={setTitle}
+                    style={[styles.inputText, styles.inputField]}
+                    placeholder="Enter ebook title"
+                    placeholderTextColor={mutedText}
+                  />
+                </View>
 
-            <Text style={styles.fieldLabel}>2. E-book Title & Description</Text>
-            <Text style={styles.helperText}>Title</Text>
-            <View style={styles.inputLike}>
-              <TextInput
-                value={title}
-                onChangeText={setTitle}
-                style={[styles.inputText, styles.inputField]}
-                placeholder="Enter ebook title"
-                placeholderTextColor={mutedText}
-              />
-            </View>
+                <Text style={styles.helperText}>Description</Text>
+                <View style={styles.textAreaLike}>
+                  <TextInput
+                    value={description}
+                    onChangeText={setDescription}
+                    style={[styles.inputText, styles.textAreaField]}
+                    placeholder="Add each description line on a new row"
+                    placeholderTextColor={mutedText}
+                    multiline
+                    textAlignVertical="top"
+                  />
+                </View>
 
-            <Text style={styles.helperText}>Description</Text>
-            <View style={styles.textAreaLike}>
-              <TextInput
-                value={description}
-                onChangeText={setDescription}
-                style={[styles.inputText, styles.textAreaField]}
-                placeholder="Add each description line on a new row"
-                placeholderTextColor={mutedText}
-                multiline
-                textAlignVertical="top"
-              />
-            </View>
+                <Text style={styles.fieldLabel}>3. Table of Contents</Text>
+                <Text style={styles.helperText}>Add chapter titles to send `tableContent`.</Text>
 
-            <Text style={styles.fieldLabel}>3. Table of Contents</Text>
-            <Text style={styles.helperText}>Add chapter titles to send `tableContent`.</Text>
+                <View style={styles.chapterList}>
+                  {chapters.length === 0 ? (
+                    <Text style={styles.emptyChaptersText}>No chapters added yet.</Text>
+                  ) : (
+                    chapters.map((chapter, index) => (
+                      <View key={chapter.id} style={styles.chapterRow}>
+                        <Ionicons name="reorder-three-outline" size={22} color={mutedText} />
+                        <Text style={styles.chapterText}>{index + 1}. {chapter.title}</Text>
+                        <TouchableOpacity onPress={() => handleEditChapter(chapter)} style={styles.chapterAction}>
+                          <Ionicons name="pencil-outline" size={18} color={mutedText} />
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => handleDeleteChapter(chapter.id)} style={styles.chapterAction}>
+                          <Ionicons name="trash-outline" size={18} color={mutedText} />
+                        </TouchableOpacity>
+                      </View>
+                    ))
+                  )}
 
-            <View style={styles.chapterList}>
-              {chapters.length === 0 ? (
-                <Text style={styles.emptyChaptersText}>No chapters added yet.</Text>
-              ) : (
-                chapters.map((chapter, index) => (
-                  <View key={chapter.id} style={styles.chapterRow}>
-                    <Ionicons name="reorder-three-outline" size={22} color={mutedText} />
-                    <Text style={styles.chapterText}>{index + 1}. {chapter.title}</Text>
-                    <TouchableOpacity onPress={() => handleEditChapter(chapter)} style={styles.chapterAction}>
-                      <Ionicons name="pencil-outline" size={18} color={mutedText} />
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => handleDeleteChapter(chapter.id)} style={styles.chapterAction}>
-                      <Ionicons name="trash-outline" size={18} color={mutedText} />
+                  <View style={styles.chapterEditor}>
+                    <TextInput
+                      value={chapterDraft}
+                      onChangeText={setChapterDraft}
+                      style={styles.chapterInput}
+                      placeholder={editingChapterId ? 'Edit chapter title' : 'New chapter title'}
+                      placeholderTextColor={mutedText}
+                    />
+                    <TouchableOpacity style={[styles.addChapterButton, { borderColor: text }]} onPress={handleAddOrUpdateChapter}>
+                      <Text style={[styles.addChapterButtonText, { color: text }]}>
+                        {editingChapterId ? 'Save Chapter' : 'Add Chapter'}
+                      </Text>
                     </TouchableOpacity>
                   </View>
-                ))
-              )}
-
-              <View style={styles.chapterEditor}>
-                <TextInput
-                  value={chapterDraft}
-                  onChangeText={setChapterDraft}
-                  style={styles.chapterInput}
-                  placeholder={editingChapterId ? 'Edit chapter title' : 'New chapter title'}
-                  placeholderTextColor={mutedText}
-                />
-                <TouchableOpacity style={[styles.addChapterButton, { borderColor: text }]} onPress={handleAddOrUpdateChapter}>
-                  <Text style={[styles.addChapterButtonText, { color: text }]}>
-                    {editingChapterId ? 'Save Chapter' : 'Add Chapter'}
-                  </Text>
-                </TouchableOpacity>
+                </View>
               </View>
-            </View>
-          </View>
             )}
 
             {step === 3 && (
-          <View style={[styles.card, cardStyle]}>
-            <Text style={[styles.sectionTitle, textStyle]}>{t('ebookPublisher.reviewTitle')}</Text>
-            <Text style={styles.sectionText}>{t('ebookPublisher.reviewHint')}</Text>
+              <View style={[styles.card, cardStyle]}>
+                <Text style={[styles.sectionTitle, textStyle]}>{t('ebookPublisher.reviewTitle')}</Text>
+                <Text style={styles.sectionText}>{t('ebookPublisher.reviewHint')}</Text>
 
-            <View style={[styles.previewCard, { borderColor: text }]}>
-              <View
-                style={[
-                  styles.previewCover,
-                  selectedCoverInfo.imageUri
-                    ? null
-                    : selectedCover === 'custom' && customCoverImage
-                    ? styles.previewCoverCustom
-                    : { backgroundColor: selectedCoverInfo.accent },
-                ]}
-              >
-                {selectedCoverInfo.imageUri ? (
-                  <Image source={{ uri: selectedCoverInfo.imageUri }} style={styles.previewCoverImage} resizeMode="cover" />
-                ) : selectedCover === 'custom' && customCoverImage ? (
-                  <Image source={{ uri: customCoverImage.uri }} style={styles.previewCoverImage} resizeMode="cover" />
-                ) : null}
-                {/* {!(selectedCover === 'custom' && customCoverImage) && (
+                <View style={[styles.previewCard, { borderColor: text }]}>
+                  <View
+                    style={[
+                      styles.previewCover,
+                      selectedCoverInfo.imageUri
+                        ? null
+                        : selectedCover === 'custom' && customCoverImage
+                          ? styles.previewCoverCustom
+                          : { backgroundColor: selectedCoverInfo.accent },
+                    ]}
+                  >
+                    {selectedCoverInfo.imageUri ? (
+                      <Image source={{ uri: selectedCoverInfo.imageUri }} style={styles.previewCoverImage} resizeMode="cover" />
+                    ) : selectedCover === 'custom' && customCoverImage ? (
+                      <Image source={{ uri: customCoverImage.uri }} style={styles.previewCoverImage} resizeMode="cover" />
+                    ) : null}
+                    {/* {!(selectedCover === 'custom' && customCoverImage) && (
                   <View style={[styles.previewCoverOverlay, { flex: 1, justifyContent: 'space-between' }]}>
                     <Text style={styles.previewCoverSmall}>
                       {t('ebookPublisher.previewTag')}
@@ -1325,98 +1346,98 @@ const EbookPublisher = ({ navigation }) => {
                     </Text>
                   </View>
                 )} */}
-              </View>
-              <View style={styles.previewMeta}>
-                <Text style={[styles.previewTitle, textStyle]} numberOfLines={2}>{title}</Text>
-                <Text style={styles.previewDescription}>{description}</Text>
-                <View style={styles.previewStats}>
-                  <View style={styles.previewStat}>
-                    <Ionicons name="layers-outline" size={16} color={text} />
-                    <Text style={styles.previewStatText}>
-                      {chapterCount} chapters
-                    </Text>
                   </View>
-                  <View style={styles.previewStat}>
-                    <Ionicons name="document-text-outline" size={16} color={text} />
-                    <Text style={styles.previewStatText}>
-                      {selectedPdf ? selectedPdf.name : t('ebookPublisher.noPdf')}
-                    </Text>
+                  <View style={styles.previewMeta}>
+                    <Text style={[styles.previewTitle, textStyle]} numberOfLines={2}>{title}</Text>
+                    <Text style={styles.previewDescription}>{description}</Text>
+                    <View style={styles.previewStats}>
+                      <View style={styles.previewStat}>
+                        <Ionicons name="layers-outline" size={16} color={text} />
+                        <Text style={styles.previewStatText}>
+                          {chapterCount} chapters
+                        </Text>
+                      </View>
+                      <View style={styles.previewStat}>
+                        <Ionicons name="document-text-outline" size={16} color={text} />
+                        <Text style={styles.previewStatText}>
+                          {selectedPdf ? selectedPdf.name : t('ebookPublisher.noPdf')}
+                        </Text>
+                      </View>
+                    </View>
                   </View>
                 </View>
-              </View>
-            </View>
 
-            <View style={[styles.settingsCard, { borderColor: `${text}33` }]}>
-              <View style={styles.settingsRow}>
-                <Text style={styles.settingLabel}>Allow download</Text>
-                <Switch
-                  value={allowDownload}
-                  onValueChange={setAllowDownload}
-                  trackColor={{ false: switchTrackOff, true: text }}
-                  thumbColor="#FFFFFF"
-                />
-              </View>
-
-              {/* Price Card */}
-              {fromRootNavigator && (
-                <View style={[styles.priceCard, { borderColor: `${text}22` }]}>
-                  <Text style={[styles.priceLabel, { color: text }]}>Price per Book</Text>
-                  <View style={styles.priceInputRow}>
-                    <View style={[styles.priceDollar, { borderColor: `${text}22` }]}>
-                      <Text style={[styles.priceDollarText, { color: text }]}>$</Text>
-                    </View>
-                    <TextInput
-                      value={String(amount)}
-                      onChangeText={val => setAmount(val.replace(/[^0-9.]/g, ''))}
-                      style={[styles.priceInput, { color: text }]}
-                      placeholder="0.00"
-                      placeholderTextColor={`${text}66`}
-                      keyboardType={Platform.OS === 'android' ? 'numeric' : 'decimal-pad'}
+                <View style={[styles.settingsCard, { borderColor: `${text}33` }]}>
+                  <View style={styles.settingsRow}>
+                    <Text style={styles.settingLabel}>Allow download</Text>
+                    <Switch
+                      value={allowDownload}
+                      onValueChange={setAllowDownload}
+                      trackColor={{ false: switchTrackOff, true: text }}
+                      thumbColor="#FFFFFF"
                     />
                   </View>
-                  <Text style={styles.priceHint}>Suggested price range: $2.99 - $49.99</Text>
-                </View>
-              )}
 
-              {/* Promo toggle + input */}
-              <View style={styles.promoRow}>
-                <View style={styles.promoLeft}>
-                  <Text style={[styles.settingTitle]}>Add Promo Code (Optional)</Text>
-                  <Text style={[styles.settingSubtitle]}>Create a discount code to promote your e-book</Text>
+                  {/* Price Card */}
+                  {fromRootNavigator && (
+                    <View style={[styles.priceCard, { borderColor: `${text}22` }]}>
+                      <Text style={[styles.priceLabel, { color: text }]}>Price per Book</Text>
+                      <View style={styles.priceInputRow}>
+                        <View style={[styles.priceDollar, { borderColor: `${text}22` }]}>
+                          <Text style={[styles.priceDollarText, { color: text }]}>$</Text>
+                        </View>
+                        <TextInput
+                          value={String(amount)}
+                          onChangeText={val => setAmount(val.replace(/[^0-9.]/g, ''))}
+                          style={[styles.priceInput, { color: text }]}
+                          placeholder="0.00"
+                          placeholderTextColor={`${text}66`}
+                          keyboardType={Platform.OS === 'android' ? 'numeric' : 'decimal-pad'}
+                        />
+                      </View>
+                      <Text style={styles.priceHint}>Suggested price range: $2.99 - $49.99</Text>
+                    </View>
+                  )}
+
+                  {/* Promo toggle + input */}
+                  {/* <View style={styles.promoRow}>
+                    <View style={styles.promoLeft}>
+                      <Text style={[styles.settingTitle]}>Add Promo Code (Optional)</Text>
+                      <Text style={[styles.settingSubtitle]}>Create a discount code to promote your e-book</Text>
+                    </View>
+                    <View style={styles.promoRight}>
+                      <Switch
+                        value={promoEnabled}
+                        onValueChange={setPromoEnabled}
+                        trackColor={{ false: switchTrackOff, true: text }}
+                        thumbColor="#FFFFFF"
+                      />
+                    </View>
+                  </View> */}
+
+                  {/* {promoEnabled && (
+                    <View style={[styles.promoInputWrap, { borderColor: `${text}22` }]}>
+                      <TextInput
+                        value={promoCode}
+                        onChangeText={setPromoCode}
+                        style={[styles.inputText, styles.promoInput, { color: text }]}
+                        placeholder="Enter promo code"
+                        placeholderTextColor={`${text}66`}
+                        autoCapitalize="characters"
+                      />
+                    </View>
+                  )} */}
                 </View>
-                <View style={styles.promoRight}>
-                  <Switch
-                    value={promoEnabled}
-                    onValueChange={setPromoEnabled}
-                    trackColor={{ false: switchTrackOff, true: text }}
-                    thumbColor="#FFFFFF"
-                  />
-                </View>
+                <TouchableOpacity
+                  style={[styles.primaryButton, { backgroundColor: accent, opacity: isSubmitting ? 0.75 : 1 }]}
+                  onPress={handlePublish}
+                  disabled={isSubmitting}
+                >
+                  <Text style={styles.primaryButtonText}>
+                    {isPublished ? t('ebookPublisher.published') : t('ebookPublisher.publishButton')}
+                  </Text>
+                </TouchableOpacity>
               </View>
-
-              {promoEnabled && (
-                <View style={[styles.promoInputWrap, { borderColor: `${text}22` }]}>
-                  <TextInput
-                    value={promoCode}
-                    onChangeText={setPromoCode}
-                    style={[styles.inputText, styles.promoInput, { color: text }]}
-                    placeholder="Enter promo code"
-                    placeholderTextColor={`${text}66`}
-                    autoCapitalize="characters"
-                  />
-                </View>
-              )}
-            </View>
-            <TouchableOpacity
-              style={[styles.primaryButton, { backgroundColor: accent, opacity: isSubmitting ? 0.75 : 1 }]}
-              onPress={handlePublish}
-              disabled={isSubmitting}
-            >
-              <Text style={styles.primaryButtonText}>
-                {isPublished ? t('ebookPublisher.published') : t('ebookPublisher.publishButton')}
-              </Text>
-            </TouchableOpacity>
-          </View>
             )}
 
             <View style={styles.footerActions}>
