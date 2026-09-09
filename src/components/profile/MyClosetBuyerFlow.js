@@ -435,6 +435,7 @@ const normalizeItem = (item = {}, index = 0, t) => ({
   shippingOption: String(item?.shippingOption ?? item?.shippingOptions ?? 'ship_items').toLowerCase(),
   shippingFee: item?.shippingFee ?? null,
   estimatedShippingTime: item?.estimateShippingTime ?? item?.shippingTime ?? '',
+  residentNumber: item?.residentNumber ?? '',
   pickUpCity: item?.pickUpCity ?? item?.pickupCity ?? '',
   pickupLocation: item?.pickupLocation ?? '',
   pickupAddress: item?.pickupAddress ?? '',
@@ -2088,7 +2089,7 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
   const productId = item.raw?.id || item.raw?._id || item.id;
   const offersShipping = item.shippingOption === 'ship_items' || item.shippingOption === 'both';
   const offersPickup = item.shippingOption === 'local_pick' || item.shippingOption === 'both';
-  const pickupAddress = [item.pickupLocation, item.pickupAddress, item.pickUpCity]
+  const pickupAddress = [item.residentNumber, item.pickupLocation, item.pickupAddress, item.pickUpCity]
     .filter((value, index, values) => value && values.indexOf(value) === index)
     .join('\n');
 

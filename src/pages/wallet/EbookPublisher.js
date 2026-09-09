@@ -143,7 +143,7 @@ const EbookPublisher = ({ navigation }) => {
 
   const progress = useMemo(() => Math.min(100, (step / 3) * 100), [step]);
   const coverOptions = useMemo(() => ([
-     {
+    {
       id: 'sample1',
       title: tf('ebookPublisher.coverSample1', 'Vibrant Gradient'),
       subtitle: tf('ebookPublisher.coverSample1Subtitle', 'Modern mesh gradient'),
@@ -377,6 +377,17 @@ const EbookPublisher = ({ navigation }) => {
     }
   };
 
+  const handleContinueFromUpload = (onValid) => {
+    if (!selectedPdf?.uri) {
+      Alert.alert(
+        tf('ebookPublisher.uploadFailedTitle', 'Upload failed'),
+        tf('ebookPublisher.selectPdfFirst', 'Please choose a PDF before continuing.'),
+      );
+      return;
+    }
+    onValid();
+  };
+
   const handleAddOrUpdateChapter = () => {
     const nextTitle = chapterDraft.trim();
     if (!nextTitle) return;
@@ -441,14 +452,14 @@ const EbookPublisher = ({ navigation }) => {
       } else if (selectedCoverInfo && selectedCoverInfo.imageUri) {
         const localFileName = `sample-cover-${selectedCoverInfo.id}.jpg`;
         const localFilePath = `${RNFS.CachesDirectoryPath}/${localFileName}`;
-        
+
         console.log('Downloading sample cover:', selectedCoverInfo.imageUri, 'to:', localFilePath);
-        
+
         await RNFS.downloadFile({
           fromUrl: selectedCoverInfo.imageUri,
           toFile: localFilePath,
         }).promise;
-        
+
         coverSource = {
           uri: `file://${localFilePath}`,
           name: localFileName,
@@ -617,7 +628,7 @@ const EbookPublisher = ({ navigation }) => {
             </View>
           )}
 
-          <View style={styles.infoBox}>
+          <View style={[styles.infoBox, {marginBottom: 12}]}>
             <Ionicons name="information-circle-outline" size={18} color={text} />
             <Text style={styles.infoText}>{t('ebookPublisher.pdfHelp')}</Text>
           </View>
@@ -751,7 +762,7 @@ const EbookPublisher = ({ navigation }) => {
             <View style={styles.footerActions}>
               <TouchableOpacity
                 style={[styles.footerButton, styles.footerButtonPrimary, { backgroundColor: accent }]}
-                onPress={() => setRootStep(2)}
+                onPress={() => handleContinueFromUpload(() => setRootStep(2))}
               >
                 <Text style={styles.footerButtonPrimaryText}>Continue</Text>
               </TouchableOpacity>
@@ -865,6 +876,18 @@ const EbookPublisher = ({ navigation }) => {
                   {editingChapterId ? 'Save Chapter' : 'Add Chapter'}
                 </Text>
               </TouchableOpacity>
+            </View>
+            <Text style={styles.fieldLabel}>4. Settings</Text>
+            <View style={[styles.settingsCard, { borderColor: `${text}33`, marginBottom: 10, marginTop: -8 }]}>
+              <View style={styles.settingsRow}>
+                <Text style={styles.settingLabel}>Allow download</Text>
+                <Switch
+                  value={allowDownload}
+                  onValueChange={setAllowDownload}
+                  trackColor={{ false: switchTrackOff, true: text }}
+                  thumbColor="#FFFFFF"
+                />
+              </View>
             </View>
           </View>
 
@@ -1449,7 +1472,13 @@ const EbookPublisher = ({ navigation }) => {
               {stepOneTab === 'upload' && step < 3 && (
                 <TouchableOpacity
                   style={[styles.footerButton, styles.footerButtonPrimary, { backgroundColor: accent }]}
-                  onPress={() => setStep(prev => (prev === 1 && !selectedPdf ? prev : Math.min(3, prev + 1)))}
+                  onPress={() => {
+                    if (step === 1) {
+                      handleContinueFromUpload(() => setStep(2));
+                    } else {
+                      setStep(prev => Math.min(3, prev + 1));
+                    }
+                  }}
                 >
                   <Text style={styles.footerButtonPrimaryText}>
                     {step === 1 ? tf('ebookPublisher.continue', 'Continue') : tf('ebookPublisher.reviewButton', 'Review')}

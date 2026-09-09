@@ -126,6 +126,7 @@ const buildItemPayload = draft => {
   }
 
   if (shippingOption === 'local_pick' || shippingOption === 'both') {
+    if (draft.residentNumber) payload.append('residentNumber', String(draft.residentNumber).trim());
     if (draft.pickUpCity) payload.append('pickUpCity', String(draft.pickUpCity).trim());
     if (draft.pickupLocation) payload.append('pickupLocation', String(draft.pickupLocation).trim());
     payload.append('pickupAddress', String(draft.pickupAddress || '').trim());
