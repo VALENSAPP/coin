@@ -379,7 +379,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingTop: Platform.OS === 'android' ? 12 : 6,
-    paddingBottom: 40,
+    paddingBottom: 120,
   },
 
   // Hide Notification Banner

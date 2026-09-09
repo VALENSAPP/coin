@@ -1677,7 +1677,7 @@ const SearchScreen = () => {
       const mappedBattle = mapBattle(battleItem.raw || battleItem, 0);
       navigateToBattleLive(navigation, {
         battleId: mappedBattle?.id,
-        initialBattle: mappedBattle,
+        initialBattle: mappedBattle?.raw || mappedBattle,
         userProfile: profile,
         returnTo: { tab: 'Search', screen: 'SearchHome', params: route?.params || {} },
         selectedItems: [mappedBattle?.left, mappedBattle?.right].filter(Boolean),

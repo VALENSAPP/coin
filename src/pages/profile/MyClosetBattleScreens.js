@@ -231,8 +231,8 @@ const participantToItem = (participant, raw, idx) => {
   if (!shopName && raw && idx != null) {
     if (idx === 0) {
       shopName = raw?.closet?.shopName || raw?.mine?.shopName || '';
-      userName = userName || raw?.seller?.userName || raw?.seller?.displayName || raw?.mine?.userName || '';
-    } else if (idx === 1) {
+      userName = userName || raw?.seller?.userName || raw?.seller?.displayName || raw?.mine?.userName || raw?.creator?.userName || raw?.creatorName || '';
+    } else {
       shopName = raw?.opponentCloset?.shopName || raw?.opponent?.shopName || '';
       userName = userName || raw?.opponentSeller?.userName || raw?.opponentSeller?.displayName || raw?.opponent?.userName || '';
     }
@@ -499,7 +499,7 @@ export const BattleCard = ({ left, right, showWinner = false, winnerPercent, acc
             {item.shopName || item.userName || item.sellerName}
           </Text>
         ) : null}
-        {showWinner &&
+        {showWinner && item === left &&
           <View style={{
             backgroundColor: '#fbbf24', borderRadius: 999, paddingHorizontal: 10,
             paddingVertical: 5, marginTop: 6, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
@@ -1828,6 +1828,7 @@ export function BattleLiveScreen({ navigation, route }) {
 
   const openBattleProduct = useCallback((battleItem) => {
     const product = battleItem?.raw || battleItem;
+    const finalProduct = { ...product, id: battleItem?.id || product?.id || product?._id || product?.productId };
     const sellerId =
       battleItem?.sellerId ||
       product?.sellerId ||
@@ -1838,10 +1839,10 @@ export function BattleLiveScreen({ navigation, route }) {
     const isOwnItem = Boolean(productOwnerId && currentUserId && productOwnerId === String(currentUserId));
 
     navigation.navigate('MyClosetBuyerItemDetail', {
-      item: product,
+      item: finalProduct,
       seller: {
         id: sellerId,
-        displayName: battleItem?.shopName || battleItem?.sellerName || battleItem?.userName,
+        displayName: battleItem?.userName || battleItem?.sellerName || battleItem?.shopName,
         userName: battleItem?.userName,
       },
       sellerId,

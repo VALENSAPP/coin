@@ -194,7 +194,7 @@ export default function TransactionActivityScreen() {
         return;
       }
 
-      const response = await transationActivity();
+      const response = await transationActivity(route?.params?.paymentType ? { paymentType: route.params.paymentType } : undefined);
       const raw =
         response?.data?.transactions ||
         response?.data?.data?.transactions ||
@@ -208,7 +208,7 @@ export default function TransactionActivityScreen() {
       dispatch(hideLoader());
       setLoading(false);
     }
-  }, [dispatch, toast, t]);
+  }, [dispatch, toast, t, route?.params?.paymentType, route?.params?.transactionsRaw]);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -334,7 +334,7 @@ const styles = StyleSheet.create({
   },
   headerBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontSize: 18, fontWeight: '900' },
-  listContent: { paddingBottom: 22 },
+  listContent: { paddingBottom: 120 },
 
   activityRow: {
     flexDirection: 'row',
