@@ -246,7 +246,8 @@ export const addCartItem = async (data) => {
 }
 
 export const getCart = async (data) => {
-  return axiosInstance.get('/cart?sellerId=' + data.sellerId);
+  const query = data?.sellerId ? `?sellerId=${data.sellerId}` : '';
+  return axiosInstance.get(`/cart${query}`);
 }
 
 export const updateCartItem = async (id, data) => {

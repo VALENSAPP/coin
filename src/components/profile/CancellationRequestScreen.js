@@ -266,50 +266,60 @@ const CancellationRequestScreen = ({ navigation, route }) => {
 
           {viewType === 'seller' && (
             <>
-              <Text style={[styles.sectionTitle, textStyle]}>What you need to do</Text>
-              <View style={[styles.actionCard, { backgroundColor: infoBg }]}>
-                <Ionicons name="shield-checkmark-outline" size={24} color="#7c3aed" style={{ marginRight: 12 }} />
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.actionTitle, textStyle]}>Review the request and decide</Text>
-                  <Text style={[styles.actionDesc, mutedTextStyle]}>If you agree, the order will be canceled and the buyer will receive a refund.</Text>
-                </View>
-              </View>
+              {(() => {
+                const hideActionButtons = fullOrder?.iscancel === true || fullOrder?.isCancel === true || fullOrder?.isCancelled === true ||
+                                          fullOrder?.data?.iscancel === true || fullOrder?.data?.isCancel === true || fullOrder?.data?.isCancelled === true;
+                if (hideActionButtons) return null;
+                
+                return (
+                  <>
+                    <Text style={[styles.sectionTitle, textStyle]}>What you need to do</Text>
+                    <View style={[styles.actionCard, { backgroundColor: infoBg }]}>
+                      <Ionicons name="shield-checkmark-outline" size={24} color="#7c3aed" style={{ marginRight: 12 }} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.actionTitle, textStyle]}>Review the request and decide</Text>
+                        <Text style={[styles.actionDesc, mutedTextStyle]}>If you agree, the order will be canceled and the buyer will receive a refund.</Text>
+                      </View>
+                    </View>
 
-              {showDeclineInput && (
-                <View style={styles.declineInputContainer}>
-                  <Text style={[styles.declineInputLabel, textStyle]}>Reason for declining</Text>
-                  <TextInput
-                    style={[styles.textInput, { color: textStyle.color, backgroundColor: cardBg }]}
-                    placeholder="E.g. Item is already packed and scheduled for carrier pickup"
-                    placeholderTextColor="#9ca3af"
-                    value={declineReason}
-                    onChangeText={setDeclineReason}
-                    multiline
-                    autoFocus
-                  />
-                </View>
-              )}
-
-              <View style={styles.buttonRow}>
-                <TouchableOpacity style={styles.declineBtn} onPress={handleDecline} disabled={loading}>
-                  {loading && showDeclineInput ? <ActivityIndicator size="small" color="#374151" /> : <Text style={styles.declineBtnText}>{showDeclineInput ? 'Submit Decline' : 'Decline Cancellation'}</Text>}
-                </TouchableOpacity>
-                {!showDeclineInput && (
-                  <TouchableOpacity style={[styles.confirmBtn, { backgroundColor: accent }]} onPress={handleConfirm} disabled={loading}>
-                    {loading ? <ActivityIndicator size="small" color="#fff" /> : (
-                      <>
-                        <Ionicons name="checkmark-circle-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
-                        <Text style={styles.confirmBtnText}>Confirm Cancellation</Text>
-                      </>
+                    {showDeclineInput && (
+                      <View style={styles.declineInputContainer}>
+                        <Text style={[styles.declineInputLabel, textStyle]}>Reason for declining</Text>
+                        <TextInput
+                          style={[styles.textInput, { color: textStyle.color, backgroundColor: cardBg }]}
+                          placeholder="E.g. Item is already packed and scheduled for carrier pickup"
+                          placeholderTextColor="#9ca3af"
+                          value={declineReason}
+                          onChangeText={setDeclineReason}
+                          multiline
+                          autoFocus
+                        />
+                      </View>
                     )}
-                  </TouchableOpacity>
-                )}
-              </View>
-              {!showDeclineInput && (
-                <Text style={[styles.lockNote, mutedTextStyle]}>
-                  <Ionicons name="lock-closed-outline" size={12} /> Orders can only be canceled when both buyer and seller agree.
-                </Text>
-              )}
+
+                    <View style={styles.buttonRow}>
+                      <TouchableOpacity style={styles.declineBtn} onPress={handleDecline} disabled={loading}>
+                        {loading && showDeclineInput ? <ActivityIndicator size="small" color="#374151" /> : <Text style={styles.declineBtnText}>{showDeclineInput ? 'Submit Decline' : 'Decline Cancellation'}</Text>}
+                      </TouchableOpacity>
+                      {!showDeclineInput && (
+                        <TouchableOpacity style={[styles.confirmBtn, { backgroundColor: accent }]} onPress={handleConfirm} disabled={loading}>
+                          {loading ? <ActivityIndicator size="small" color="#fff" /> : (
+                            <>
+                              <Ionicons name="checkmark-circle-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
+                              <Text style={styles.confirmBtnText}>Confirm Cancellation</Text>
+                            </>
+                          )}
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                    {!showDeclineInput && (
+                      <Text style={[styles.lockNote, mutedTextStyle]}>
+                        <Ionicons name="lock-closed-outline" size={12} /> Orders can only be canceled when both buyer and seller agree.
+                      </Text>
+                    )}
+                  </>
+                );
+              })()}
             </>
           )}
 

@@ -311,6 +311,8 @@ const mapBattle = (battle, index) => {
     right: mapParticipant(p2, battle?.closet),
     status: battle?.status,
     outcome: battle?.outcome,
+    startedAt: battle?.createdAt || battle?.startDate || battle?.startedAt,
+    finishedAt: battle?.completedAt || battle?.endDate || battle?.finishedAt,
   };
 };
 
@@ -1932,7 +1934,7 @@ const MyClosetBattlesScreen = ({ navigation, route }) => {
     const { returnTo: _parentReturnTo, ...parentParams } = route?.params || {};
     navigateToBattleLive(navigation, withClosetNavParams({ params: parentParams }, {
       battleId: battle?.id,
-      initialBattle: battle,
+      initialBattle: battle?.raw || battle,
       selectedItems: [battle?.left, battle?.right].filter(Boolean),
       userProfile: userProfile,
       returnToProfile: buildClosetReturnTo({
@@ -2072,7 +2074,8 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
   const { t } = useLanguage();
   const item = normalizeItem(route?.params?.item || {}, 0, t);
   const seller = route?.params?.seller || {};
-  const displayName = route?.params?.displayName || {};
+  const resolveStr = (v) => typeof v === 'string' ? v : (v?.displayName || v?.shopName || v?.userName || v?.name || 'Seller');
+  const displayName = resolveStr(route?.params?.displayName || seller?.displayName || seller?.shopName || seller?.userName);
   const isOwnProfile = route?.params?.isOwnProfile ?? false;
   const returnTo = route?.params?.returnTo;
   const [liked, setLiked] = useState(Boolean(item.raw?.liked ?? item.raw?.isLiked ?? item.raw?.isLike));
@@ -2417,18 +2420,20 @@ const MyClosetBuyerOptionsScreen = ({ navigation, route }) => {
       (async () => {
         setSyncingQty(true);
         try {
-          const dataToSend = { sellerId: route?.params?.sellerId }
-          const response = await getCart(dataToSend);
+          const response = await getCart();
           if (cancelled) return;
-          const cartsArr = response?.data?.carts ?? [];
-          const cartObj = cartsArr[0] ?? null;
-          const cartItems = cartObj?.cartItems ?? [];
-          const match = Array.isArray(cartItems)
-            ? cartItems.find(ci => {
-              const pid = ci?.product?.id || ci?.product?._id || ci?.productId;
-              return String(pid) === String(productId);
-            })
-            : null;
+          const cartsArr = response?.data?.data?.carts ?? response?.data?.carts ?? [];
+          let match = null;
+          for (const cart of cartsArr) {
+            const cartItems = cart?.cartItems ?? [];
+            if (Array.isArray(cartItems)) {
+              match = cartItems.find(ci => {
+                const pid = ci?.product?.id || ci?.product?._id || ci?.productId;
+                return String(pid) === String(productId);
+              });
+              if (match) break;
+            }
+          }
           if (match) {
             setQuantity(Math.max(1, Math.min(available, Number(match.quantity) || 1)));
             setExistingCartItemId(match.id);
@@ -2693,10 +2698,26 @@ const MyClosetBuyerCartScreen = ({ navigation, route }) => {
     setCartLoading(true);
     setCartError(null);
     try {
-      const dataToSend = { sellerId: route?.params?.sellerId };
-      const response = await getCart(dataToSend);
+      // Always fetch all carts to ensure we don't miss the item if route sellerId is incorrect
+      const response = await getCart();
       const cartsArr = response?.data?.data?.carts ?? response?.data?.carts ?? [];
-      const cartObj = cartsArr[0] ?? null;
+      let cartObj = cartsArr[0] ?? null;
+
+      const routeProductId = String(route?.params?.item?.id || route?.params?.item?._id || '');
+      if (routeProductId) {
+        const matchingCart = cartsArr.find(c => 
+          Array.isArray(c?.cartItems) && c.cartItems.some(ci => String(ci?.product?.id || ci?.product?._id || ci?.productId) === routeProductId)
+        );
+        if (matchingCart) {
+          cartObj = matchingCart;
+        }
+      } else if (route?.params?.sellerId) {
+        const matchingCart = cartsArr.find(c => String(c?.sellerId) === String(route?.params?.sellerId));
+        if (matchingCart) {
+          cartObj = matchingCart;
+        }
+      }
+
       const items = cartObj?.cartItems ?? [];
       setCartItems(Array.isArray(items) ? items : []);
       setClosetId(cartObj?.closetId ?? null);

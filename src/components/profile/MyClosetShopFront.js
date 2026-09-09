@@ -226,7 +226,8 @@ export const mapBattle = (b, i) => {
     totalVotes,
     status: b.status,
     outcome: b.outcome,
-    sellerName: b.seller?.name
+    sellerName: b.seller?.name,
+    raw: b
   };
 };
 
@@ -943,7 +944,7 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
   });
   const openBattle = battle => navigateToBattleLive(navigation, {
     battleId: battle?.id,
-    initialBattle: battle,
+    initialBattle: battle?.raw || battle,
     userProfile: userData?.profile,
     selectedItems: [battle?.left, battle?.right].filter(Boolean),
     isOwnProfile: resolvedIsOwnProfile,

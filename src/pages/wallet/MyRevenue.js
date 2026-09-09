@@ -178,7 +178,7 @@ export default function RevenueFromSubscriptions({ navigation, route }) {
         try {
             const [supportRes, activityRes] = await Promise.allSettled([
                 totalSupport({ params: { page: 1 } }),
-                transationActivity({ params: { page: 1, limit: RECENT_TX_PREVIEW_LIMIT } }),
+                transationActivity({ page: 1, limit: RECENT_TX_PREVIEW_LIMIT, paymentType: 'subscription' }),
             ]);
 
             if (supportRes.status === 'fulfilled') {
@@ -250,7 +250,7 @@ export default function RevenueFromSubscriptions({ navigation, route }) {
 
     const handleViewAllTransactions = useCallback(() => {
         navigation.navigate('TransactionActivity', {
-            returnTo: { tab: 'wallet', screen: 'RevenueFromSubscriptions' },
+            returnTo: { tab: 'wallet', screen: 'RevenueFromSubscriptions' }, paymentType: 'subscription'
         });
     }, [navigation]);
 

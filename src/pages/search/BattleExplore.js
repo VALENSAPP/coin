@@ -336,7 +336,7 @@ export default function BattleExplore({ onClose, profile }) {
       const closet = raw?.closet || battleItem?.raw?.closet || battleItem?.closet || {};
       navigateToBattleLive(navigation, {
         battleId: mappedBattle?.id,
-        initialBattle: mappedBattle,
+        initialBattle: mappedBattle?.raw || mappedBattle,
         userProfile: profile,
         selectedItems: [mappedBattle?.left, mappedBattle?.right].filter(Boolean),
         isOwnProfile: isOwnProfileForCloset(closet),
