@@ -212,10 +212,20 @@ const PICKUP_DAYS = [
 ];
 
 const DEFAULT_PICKUP_HOURS = {
-  weekdayStart: '10:00 AM',
-  weekdayEnd: '6:00 PM',
-  weekendStart: '11:00 AM',
-  weekendEnd: '4:00 PM',
+  days: {},
+};
+
+const getPickupSchedule = hours => {
+  if (hours?.days && typeof hours.days === 'object') return hours.days;
+  return {};
+};
+
+const formatPickupHoursSummary = hours => {
+  const schedule = getPickupSchedule(hours);
+  return PICKUP_DAYS
+    .filter(({ label }) => Array.isArray(schedule[label]) && schedule[label].length)
+    .map(({ label }) => `${label}: ${schedule[label].join(', ')}`)
+    .join('\n');
 };
 
 const getOptionValue = option =>
@@ -2403,7 +2413,6 @@ const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
   );
   const [hoursExpanded, setHoursExpanded] = useState(false);
   const [selectedPickupDay, setSelectedPickupDay] = useState('Mon');
-  const [pickupTimeTarget, setPickupTimeTarget] = useState('start');
   const [buyerChatEnabled, setBuyerChatEnabled] = useState(
     draft.buyerChatEnabled ?? true,
   );
@@ -2417,19 +2426,17 @@ const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
     () => (PICKUP_LOCATIONS_BY_CITY[pickUpCity] || []).map(place => place.label),
     [pickUpCity],
   );
-  const selectedPickupDayConfig = PICKUP_DAYS.find(day => day.label === selectedPickupDay) || PICKUP_DAYS[0];
-  const pickupTimeKey = `${selectedPickupDayConfig.group}${pickupTimeTarget === 'start' ? 'Start' : 'End'}`;
-  const selectedPickupTime = pickupHours[pickupTimeKey];
+  const selectedPickupTimes = getPickupSchedule(pickupHours)[selectedPickupDay] || [];
 
   const fullPickupAddress = useMemo(() => {
     const parts = [];
-    if (residentNumber) parts.push(residentNumber);
     if (pickupAddress) {
       parts.push(pickupAddress);
     } else {
       if (pickupLocation) parts.push(pickupLocation);
       if (pickUpCity) parts.push(pickUpCity);
     }
+    if (residentNumber) parts.push(residentNumber);
     return parts.join(', ');
   }, [residentNumber, pickupAddress, pickupLocation, pickUpCity]);
 
@@ -2796,19 +2803,6 @@ const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
                 text={text}
               />
 
-              <PlaceInputFieldRow
-                icon="home-outline"
-                label={t('myClosetAddItemShipping.residentNumberLabel')}
-                placeholder={t('myClosetAddItemShipping.residentNumberPlaceholder')}
-                value={residentNumber}
-                onChangeText={value => {
-                  setResidentNumber(value);
-                  if (errors.residentNumber) setErrors(prev => ({ ...prev, residentNumber: null }));
-                }}
-                text={text}
-                error={errors.residentNumber}
-              />
-
               {hasPlacesApi ? (
                 <>
                   <PlaceFieldRow
@@ -2911,6 +2905,19 @@ const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
                 </>
               )}
 
+              <PlaceInputFieldRow
+                icon="home-outline"
+                label={t('myClosetAddItemShipping.residentNumberLabel')}
+                placeholder={t('myClosetAddItemShipping.residentNumberPlaceholder')}
+                value={residentNumber}
+                onChangeText={value => {
+                  setResidentNumber(value);
+                  if (errors.residentNumber) setErrors(prev => ({ ...prev, residentNumber: null }));
+                }}
+                text={text}
+                error={errors.residentNumber}
+              />
+
               <TouchableOpacity
                 activeOpacity={0.85}
                 onPress={() => setHoursExpanded(prev => !prev)}
@@ -2928,10 +2935,7 @@ const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
                     {t('myClosetAddItemShipping.availableHoursLabel')}
                   </Text>
                   <Text style={[styles.hoursValue, { color: surfaces.mutedColor }]}>
-                    {t('myClosetAddItemShipping.weekdaysAbbrev')} {pickupHours.weekdayStart} - {pickupHours.weekdayEnd}
-                  </Text>
-                  <Text style={[styles.hoursValue, { color: surfaces.mutedColor }]}>
-                    {t('myClosetAddItemShipping.weekendsAbbrev')} {pickupHours.weekendStart} - {pickupHours.weekendEnd}
+                    {formatPickupHoursSummary(pickupHours) || (t('myClosetAddItemShipping.noPickupTimes') || 'No pickup times selected')}
                   </Text>
                 </View>
                 <Ionicons
@@ -2957,32 +2961,15 @@ const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
                   <View style={styles.pickupDayGrid}>
                     {PICKUP_DAYS.map(day => {
                       const selected = day.label === selectedPickupDay;
+                      const hasTimes = (getPickupSchedule(pickupHours)[day.label] || []).length > 0;
                       return (
                         <TouchableOpacity
                           key={day.label}
                           activeOpacity={0.85}
                           onPress={() => setSelectedPickupDay(day.label)}
-                          style={[styles.pickupDayButton, { borderColor: selected ? accent : surfaces.listBorder, backgroundColor: selected ? accent : surfaces.inputSurface }]}
+                          style={[styles.pickupDayButton, { borderColor: selected ? accent : surfaces.listBorder, backgroundColor: hasTimes ? accent : surfaces.inputSurface }]}
                         >
-                          <Text style={[styles.pickupDayButtonText, { color: selected ? '#fff' : surfaces.labelColor }]}>{day.label}</Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                  <View style={styles.pickupTimeTargetRow}>
-                    {['start', 'end'].map(target => {
-                      const selected = target === pickupTimeTarget;
-                      const label = target === 'start'
-                        ? (t('myClosetAddItemShipping.opensLabel') || 'Opens')
-                        : (t('myClosetAddItemShipping.closesLabel') || 'Closes');
-                      return (
-                        <TouchableOpacity
-                          key={target}
-                          activeOpacity={0.85}
-                          onPress={() => setPickupTimeTarget(target)}
-                          style={[styles.pickupTimeTargetButton, { borderColor: selected ? accent : surfaces.listBorder, backgroundColor: selected ? withAlpha(accent, 0.13) : surfaces.inputSurface }]}
-                        >
-                          <Text style={[styles.pickupTimeTargetText, { color: selected ? accent : surfaces.labelColor }]}>{label}</Text>
+                          <Text style={[styles.pickupDayButtonText, { color: hasTimes ? '#fff' : surfaces.labelColor }]}>{day.label}</Text>
                         </TouchableOpacity>
                       );
                     })}
@@ -2992,12 +2979,19 @@ const MyClosetAddItemShippingScreen = ({ navigation, route }) => {
                   </Text>
                   <View style={styles.pickupTimeGrid}>
                     {PICKUP_TIME_GRID_OPTIONS.map(time => {
-                      const selected = time === selectedPickupTime;
+                      const selected = selectedPickupTimes.includes(time);
                       return (
                         <TouchableOpacity
                           key={time}
                           activeOpacity={0.85}
-                          onPress={() => setPickupHours(prev => ({ ...prev, [pickupTimeKey]: time }))}
+                          onPress={() => setPickupHours(prev => {
+                            const schedule = getPickupSchedule(prev);
+                            const dayTimes = schedule[selectedPickupDay] || [];
+                            const nextTimes = dayTimes.includes(time)
+                              ? dayTimes.filter(value => value !== time)
+                              : [...dayTimes, time].sort((a, b) => PICKUP_TIME_GRID_OPTIONS.indexOf(a) - PICKUP_TIME_GRID_OPTIONS.indexOf(b));
+                            return { ...prev, days: { ...schedule, [selectedPickupDay]: nextTimes } };
+                          })}
                           style={[styles.pickupTimeButton, { borderColor: selected ? accent : surfaces.listBorder, backgroundColor: selected ? accent : surfaces.inputSurface }]}
                         >
                           <Text style={[styles.pickupTimeButtonText, { color: selected ? '#fff' : surfaces.labelColor }]}>{time}</Text>
@@ -3108,13 +3102,11 @@ const deliverySummaryLines = useMemo(() => {
       `${t('myClosetOptions.shippingMethod.localPickup')}${draft.pickupLocation ? ` · ${draft.pickupLocation}` : ''}`,
     );
     const fullAddress = [
-      draft.residentNumber,
       draft.pickupAddress || draft.pickUpCity,
+      draft.residentNumber,
     ].filter(Boolean).join(', ');
     if (fullAddress) lines.push(fullAddress);
-    lines.push(
-      `${t('myClosetAddItemShipping.weekdaysAbbrev')} ${hours.weekdayStart}-${hours.weekdayEnd}, ${t('myClosetAddItemShipping.weekendsAbbrev')} ${hours.weekendStart}-${hours.weekendEnd}`,
-    );
+    if (formatPickupHoursSummary(hours)) lines.push(formatPickupHoursSummary(hours));
   }
   return lines;
 }, [shippingEnabled, pickupEnabled, draft, t]);
@@ -3122,11 +3114,6 @@ const deliverySummaryLines = useMemo(() => {
   const parseFee = feeLabel => {
     const match = String(feeLabel || '').match(/[\d.]+/);
     return match ? parseFloat(match[0]) : 0;
-  };
-
-  const formatPickupHours = hours => {
-    const h = hours || DEFAULT_PICKUP_HOURS;
-    return `Mon-Fri ${h.weekdayStart}-${h.weekdayEnd}, Sat-Sun ${h.weekendStart}-${h.weekendEnd}`;
   };
 
   const publish = async () => {

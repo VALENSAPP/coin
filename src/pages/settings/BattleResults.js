@@ -72,15 +72,23 @@ export default function BattleResults({ navigation }) {
   const labelColor = isDarkMode ? '#ffffff' : '#111827';
   const { battle = {} } = route.params || {};
   const [winnerData, setWinnerData] = useState(null);
+  const [winnerLookupComplete, setWinnerLookupComplete] = useState(false);
   const predictionCounts = useMemo(
     () => route?.params?.predictionCounts || battle?.predictionCounts || {},
     [battle?.predictionCounts, route?.params?.predictionCounts],
   );
 
-  const winnerUserId =
-    route?.params?.winnerUserId || battle?.winnerUserId || '';
+  // The winner endpoint is the source of truth. A resolved battle can have no
+  // winner yet, in which case it returns `winnerUserId: null`.
+  const winnerUserId = winnerData?.winnerUserId || '';
   const winningSide =
-    route?.params?.winningSide || battle?.winningSide || '';
+    winnerData?.winningSide || route?.params?.winningSide || battle?.winningSide || '';
+  const matchResult = winnerData?.matchResult || null;
+  const isSportsPredictionResult =
+    winnerData?.battleType === 'PREDICTION' &&
+    winnerData?.category === 'SPORTS' &&
+    winnerData?.isPrediction === true &&
+    Boolean(matchResult);
   const optionVoteCount = useMemo(
     () =>
       route?.params?.optionVoteCount ||
@@ -110,7 +118,7 @@ export default function BattleResults({ navigation }) {
     () => battle.options || [],
     [battle.options],
   );
-  const status = battle.status || 'LIVE';
+  const status = winnerData?.status || battle.status || 'LIVE';
   const normalizedStatus = String(status || '').trim().toUpperCase();
   const isLiveStatus =
     normalizedStatus.includes('LIVE') || normalizedStatus.includes('PROGRESS');
@@ -120,6 +128,11 @@ export default function BattleResults({ navigation }) {
     normalizedStatus.includes('RESULT');
   const isResolvedStatus =
     normalizedStatus === 'RESOLVED' || normalizedStatus.includes('RESOLVED');
+  const hasDeclaredWinner = winnerLookupComplete && Boolean(winnerUserId);
+  // Deliberately strict: do not show this state for a failed request or an
+  // incomplete response. The API must explicitly report `winnerUserId: null`.
+  const hasNoWinnerFromApi =
+    winnerLookupComplete && winnerData?.winnerUserId === null;
   const endedByTime = useMemo(() => {
     if (!endedAt) {
       return false;
@@ -132,7 +145,9 @@ export default function BattleResults({ navigation }) {
       return {
         badgeLabel: t('battleInProgress.statusResult'),
         badgeTone: '#FFD184',
-        headline: t('battleResults.winnerDeclared'),
+        headline: hasDeclaredWinner
+          ? t('battleResults.winnerDeclared')
+          : t('battleResults.battleClosed'),
       };
     }
     if (isLiveStatus) {
@@ -156,6 +171,7 @@ export default function BattleResults({ navigation }) {
     };
   }, [
     endedByTime,
+    hasDeclaredWinner,
     isFinishedStatus,
     isLiveStatus,
     isResolvedStatus,
@@ -218,6 +234,36 @@ export default function BattleResults({ navigation }) {
     if (!resolvedTotalVotes) return 0;
     return Math.round((votes / resolvedTotalVotes) * 100);
   };
+  const getMatchTeam = useCallback(item => {
+    if (!isSportsPredictionResult) return null;
+
+    const optionNames = [item?.label, item?.side]
+      .map(normalizeCountKey)
+      .filter(Boolean);
+    if (!optionNames.length) return null;
+
+    if (
+      optionNames.includes(normalizeCountKey(matchResult?.homeTeam)) ||
+      optionNames.includes('home')
+    ) {
+      return {
+        logo: matchResult?.homeLogo,
+        score: matchResult?.homeScore,
+      };
+    }
+
+    if (
+      optionNames.includes(normalizeCountKey(matchResult?.awayTeam)) ||
+      optionNames.includes('away')
+    ) {
+      return {
+        logo: matchResult?.awayLogo,
+        score: matchResult?.awayScore,
+      };
+    }
+
+    return null;
+  }, [isSportsPredictionResult, matchResult]);
 
   const openBattleDetails = useCallback(
     ({ mode = 'votes', selectedSide = '', selectedSideLabel = '' } = {}) => {
@@ -279,120 +325,31 @@ export default function BattleResults({ navigation }) {
   useEffect(() => {
     let active = true;
 
-    const loadWinnerProfile = async () => {
-      if (!winnerUserId) {
+    const fetchData = async () => {
+      setWinnerLookupComplete(false);
+      setWinnerData(null);
+
+      if (!battleId) {
         if (active) {
-          setWinnerProfile(null);
+          setWinnerData(null);
+          setWinnerLookupComplete(true);
         }
         return;
       }
 
-      setWinnerLoading(true);
       try {
-        const response = await getUserCredentials(winnerUserId);
-        const user =
-          response?.data?.user ||
-          response?.data?.data ||
-          response?.data ||
-          {};
+        const winnerRes = await battleWinner(battleId);
+        console.log('Fetched battle winner data:', winnerRes);
+        // Supports both the API envelope and an axios response object.
+        const result = winnerRes?.data?.data || winnerRes?.data || winnerRes;
 
-        if (!active) {
-          return;
-        }
-
-        setWinnerProfile({
-          name:
-            user?.name ||
-            user?.fullName ||
-            user?.displayName ||
-            user?.userName ||
-            user?.username ||
-            'Winning User',
-          image:
-            user?.image ||
-            user?.avatar ||
-            user?.profilePic ||
-            user?.profilePicture ||
-            '',
-        });
-      } catch (_error) {
         if (active) {
-          setWinnerProfile(null);
-        }
-      } finally {
-        if (active) {
-          setWinnerLoading(false);
-        }
-      }
-    };
-
-    loadWinnerProfile();
-
-    return () => {
-      active = false;
-    };
-  }, [winnerUserId]);
-  const getWinner = useCallback(async () => {
-    if (!battleId) {
-      return;
-    }
-
-    try {
-      const response = await battleWinner(battleId);
-      console.log(response, 'battle winner response');
-      setWinnerData(response?.data || response);
-    } catch (err) {
-      console.log(err, 'erro here in this api ')
-    }
-  }, [battleId]);
-  useEffect(() => {
-    getWinner();
-  }, [getWinner]);
-  useEffect(() => {
-    let active = true;
-
-    const fetchData = async () => {
-      if (!battleId && !winnerUserId) return;
-
-      setWinnerLoading(true);
-
-      try {
-        const [winnerRes, profileRes] = await Promise.all([
-          battleId ? battleWinner(battleId) : null,
-          winnerUserId ? getUserCredentials(winnerUserId) : null,
-        ]);
-
-        if (active && winnerRes) {
-          setWinnerData(winnerRes?.data || winnerRes);
-        }
-
-        if (active && profileRes) {
-          const user =
-            profileRes?.data?.user ||
-            profileRes?.data?.data ||
-            profileRes?.data ||
-            {};
-
-          setWinnerProfile({
-            name:
-              user?.name ||
-              user?.fullName ||
-              user?.displayName ||
-              user?.userName ||
-              user?.username ||
-              t('battleResults.winningUser'),
-            image:
-              user?.image ||
-              user?.avatar ||
-              user?.profilePic ||
-              user?.profilePicture ||
-              '',
-          });
+          setWinnerData(result);
         }
       } catch (err) {
         console.log('Error fetching battle data:', err);
       } finally {
-        if (active) setWinnerLoading(false);
+        if (active) setWinnerLookupComplete(true);
       }
     };
 
@@ -401,7 +358,41 @@ export default function BattleResults({ navigation }) {
     return () => {
       active = false;
     };
-  }, [battleId, winnerUserId, t]);
+  }, [battleId]);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadWinnerProfile = async () => {
+      if (!winnerUserId) {
+        if (active) setWinnerProfile(null);
+        return;
+      }
+
+      setWinnerLoading(true);
+      try {
+        const response = await getUserCredentials(winnerUserId);
+        const user =
+          response?.data?.user || response?.data?.data || response?.data || {};
+
+        if (active) {
+          setWinnerProfile({
+            name: user?.name || user?.fullName || user?.displayName ||
+              user?.userName || user?.username || t('battleResults.winningUser'),
+            image: user?.image || user?.avatar || user?.profilePic ||
+              user?.profilePicture || '',
+          });
+        }
+      } catch (_error) {
+        if (active) setWinnerProfile(null);
+      } finally {
+        if (active) setWinnerLoading(false);
+      }
+    };
+
+    loadWinnerProfile();
+    return () => { active = false; };
+  }, [t, winnerUserId]);
 
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
@@ -474,8 +465,7 @@ export default function BattleResults({ navigation }) {
         )}
 
         {/* Winner Profile Card */}
-        {isResolvedStatus &&
-          (winnerUserId || winnerLoading || winnerProfile) && (
+        {isResolvedStatus && hasDeclaredWinner && (
             <View
               style={[
                 styles.winnerProfileCard,
@@ -611,7 +601,13 @@ export default function BattleResults({ navigation }) {
             {isPollFormat ? ` · ${t('battleInProgress.formatPoll')}` : ''}
           </Text>
 
-          {isResolvedStatus && !!winningSide && (
+          {isResolvedStatus && hasNoWinnerFromApi && (
+            <Text style={styles.heroSubline}>
+              {t('battleResults.youLostBattle')}
+            </Text>
+          )}
+
+          {isResolvedStatus && hasDeclaredWinner && !!winningSide && (
             <Text style={styles.heroSubline}>
               {t('battleResults.winningSideLabel')} {winningSide}
             </Text>
@@ -656,6 +652,13 @@ export default function BattleResults({ navigation }) {
             {t('battleResults.battleOptions')}
           </Text>
 
+          {isSportsPredictionResult && !!matchResult?.scoreSummary && (
+            <Text style={[styles.matchStatus, { color: palette.muted }]}>
+              {matchResult?.matchStatus || t('battleInProgress.statusFinished')} ·{' '}
+              {matchResult.scoreSummary}
+            </Text>
+          )}
+
           {options.length === 0 && (
             <Text style={[styles.metaText, { color: palette.muted }]}>
               {t('battleResults.noOptionsAvailable')}
@@ -684,18 +687,33 @@ export default function BattleResults({ navigation }) {
               {(() => {
                 const voteTotal = getOptionVotes(item);
                 const percent = getPercent(voteTotal);
+                const matchTeam = getMatchTeam(item);
 
                 return (
                   <>
                     <View style={styles.optionRow}>
-                      <Text style={[styles.optionTitle, { color: labelColor }]}>
-                        {item.label}
-                      </Text>
+                      <View style={styles.optionTeam}>
+                        {matchTeam?.logo && (
+                          <Image
+                            source={{ uri: matchTeam.logo }}
+                            style={styles.teamLogo}
+                            resizeMode="contain"
+                          />
+                        )}
+                        <Text style={[styles.optionTitle, { color: labelColor }]}>
+                          {item.label}
+                        </Text>
+                      </View>
                       <Text style={[styles.optionPercent, { color: accent }]}>
                         {percent}%
                       </Text>
                     </View>
 
+                    {matchTeam && (
+                      <Text style={[styles.scoreText, { color: labelColor }]}>
+                        SCORE: {matchTeam.score ?? '-'}
+                      </Text>
+                    )}
                     <Text style={[styles.metaText, { color: palette.muted }]}>
                       {voteTotal} {t('battleResults.votesLabel')}
                     </Text>
@@ -985,9 +1003,27 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  optionTeam: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  teamLogo: {
+    width: 30,
+    height: 30,
+    marginRight: 9,
+  },
   optionTitle: {
+    flexShrink: 1,
     fontWeight: '800',
     fontSize: 15,
+  },
+  scoreText: {
+    fontSize: 12,
+    fontWeight: '800',
+    marginTop: 8,
+    textTransform: 'uppercase',
   },
   optionPercent: {
     fontSize: 18,
@@ -997,6 +1033,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     marginTop: 4,
+  },
+  matchStatus: {
+    fontSize: 12,
+    fontWeight: '600',
+    lineHeight: 18,
+    marginTop: -7,
+    marginBottom: 12,
   },
   progressBg: {
     height: 8,

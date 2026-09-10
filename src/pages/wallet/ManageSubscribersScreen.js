@@ -11,12 +11,13 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { useLanguage } from '../../i18n';
 import { useBusinessProfileTheme } from '../../theme/useBusinessProfileTheme';
 import HexAvatar from '../../components/home/story.js/HexAvatar';
 import { getSubscribersList, getMySubscriptionsList } from '../../services/wallet';
 import { useEffect } from 'react';
+import { navigateToUserProfile } from '../../utils/navigateToUserProfile';
 
 const STATUS = {
   active: 'active',
@@ -78,6 +79,7 @@ const calculateDaysUntil = (date) => {
 
   return {
     id: item.subscriber?.id || item.id,
+    profileUserId: item.subscriber?.id || item.subscriber?.userId || item.subscriberId || null,
     handle: `@${item.subscriber?.userName || 'user'}`,
     name: item.subscriber?.displayName || item.subscriber?.userName || 'Unknown User',
     avatar: item.subscriber?.image || '',
@@ -139,6 +141,7 @@ const transformSubscription = (item) => {
 
   return {
     id: item.creator?.id || item.id,
+    profileUserId: item.creator?.id || item.creator?.userId || item.creatorId || item.followingId || null,
     handle: `@${item.creator?.userName || 'creator'}`,
     name: item.creator?.displayName || item.creator?.userName || 'Unknown Creator',
     avatar: item.creator?.image || '',
@@ -162,15 +165,16 @@ const SORT_OPTIONS = ['newest', 'oldest', 'priceHigh', 'priceLow'];
 const ManageSubscribersScreen = () => {
   const { t } = useLanguage();
   const navigation = useNavigation();
+  const route = useRoute();
   const theme = useBusinessProfileTheme();
   const { width } = useWindowDimensions();
   const statGap = 10;
   const statCardWidth = Math.floor((width - 32 - statGap) / 2);
 
-  const [mode, setMode] = useState('subscribers');
-  const [query, setQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [sortBy, setSortBy] = useState('newest');
+  const [mode, setMode] = useState(route.params?.initialMode || 'subscribers');
+  const [query, setQuery] = useState(route.params?.query || '');
+  const [statusFilter, setStatusFilter] = useState(route.params?.statusFilter || 'all');
+  const [sortBy, setSortBy] = useState(route.params?.sortBy || 'newest');
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
@@ -310,6 +314,30 @@ const ManageSubscribersScreen = () => {
     </View>
   );
 
+  const handleProfilePress = async (row) => {
+    const profileUserId = row?.profileUserId || row?.id;
+    if (!profileUserId) return;
+
+    await navigateToUserProfile(navigation, profileUserId, {
+      user: {
+        id: profileUserId,
+        displayName: row.name,
+        userName: String(row.handle || '').replace(/^@/, ''),
+        image: row.avatar,
+      },
+      returnTo: {
+        tab: 'wallet',
+        screen: 'ManageSubscribers',
+        params: {
+          initialMode: isSubscriberView ? 'subscriptions' : 'subscribers',
+          query,
+          statusFilter,
+          sortBy,
+        },
+      },
+    });
+  };
+
   const renderRow = row => {
     const colors = STATUS_COLORS[row.status] || STATUS_COLORS.active;
     return (
@@ -317,15 +345,23 @@ const ManageSubscribersScreen = () => {
         key={row.id}
         style={[styles.personCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
         <View style={styles.personTop}>
-          <HexAvatar uri={row.avatar} size={44} borderWidth={0} />
-          <View style={styles.personMeta}>
-            <Text style={[styles.handle, { color: theme.text }]} numberOfLines={1}>
-              {row.handle}
-            </Text>
-            <Text style={[styles.fullName, { color: theme.mutedText }]} numberOfLines={1}>
-              {row.name}
-            </Text>
-          </View>
+          <TouchableOpacity
+            style={styles.profileLink}
+            activeOpacity={0.7}
+            onPress={() => handleProfilePress(row)}
+            accessibilityRole="link"
+            accessibilityLabel={`View ${row.name}'s profile`}
+          >
+            <HexAvatar uri={row.avatar} size={44} borderWidth={0} />
+            <View style={styles.personMeta}>
+              <Text style={[styles.handle, { color: theme.text }]} numberOfLines={1}>
+                {row.handle}
+              </Text>
+              <Text style={[styles.fullName, { color: theme.mutedText }]} numberOfLines={1}>
+                {row.name}
+              </Text>
+            </View>
+          </TouchableOpacity>
           <View style={[styles.badge, { backgroundColor: colors.bg, borderColor: colors.border }]}>
             <Text style={[styles.badgeText, { color: colors.fg }]}>{statusLabel(row.status)}</Text>
           </View>
@@ -716,6 +752,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   personTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  profileLink: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, minWidth: 0 },
   personMeta: { flex: 1, minWidth: 0 },
   handle: { fontSize: 14, fontWeight: '700' },
   fullName: { fontSize: 12, marginTop: 2 },

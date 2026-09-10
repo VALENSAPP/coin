@@ -152,6 +152,18 @@ const SubventionSetupScreen = () => {
         }
     };
 
+    const openPrivacyPolicy = async () => {
+        const url = 'https://valenstechnologies.app/privacy-policy';
+        try {
+            const supported = await Linking.canOpenURL(url);
+            if (supported) {
+                await Linking.openURL(url);
+            }
+        } catch (error) {
+            console.error('Error opening privacy policy link:', error);
+        }
+    };
+
     const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
     const isBrowserCancelled = (result) => result?.type === 'cancel' || result?.type === 'dismiss';
     const isOnboardingReady = (status) => status?.canReceivePayments === true && Boolean(status?.accountId);
@@ -1000,7 +1012,13 @@ const SubventionSetupScreen = () => {
                     </TouchableOpacity>
 
                     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-                        <Text style={[styles.termsHeading, textStyle]}>{t('subventionSetup.policyHeading')}</Text>
+                        <TouchableOpacity
+                            onPress={openPrivacyPolicy}
+                            accessibilityRole="link"
+                            accessibilityLabel={t('subventionSetup.policyHeading')}
+                        >
+                            <Text style={[styles.termsHeading, textStyle]}>{t('subventionSetup.policyHeading')}</Text>
+                        </TouchableOpacity>
 
                         <View style={{ marginTop: 15 }} />
 

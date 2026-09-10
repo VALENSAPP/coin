@@ -35,6 +35,7 @@ import Svg, { Defs, ClipPath, Polygon, Image as SvgImage } from 'react-native-sv
 import {
   getMyClosetItems,
   createMarketplaceBattle,
+  deleteMarketplaceBattle,
   getMarketplaceBattleDetails,
   getMarketplaceBattleInsights,
   trackMarketplaceBattleView,
@@ -333,6 +334,7 @@ const normalizeBattle = raw => {
       null,
     runnerUpProduct,
     winnerVotePercent: raw?.winner?.votePercentage ?? participants.find(p => p?.isWinner)?.votePercentage ?? null,
+    createdAt: raw?.createdAt || raw?.startAt || null,
     createdBy: raw?.sellerId || raw?.createdBy || raw?.userId || null, // NEW — adjust field name if API differs
     sellerName: raw?.sellerName || raw?.seller?.userName || raw?.seller?.name,
     creatorAvatar,
@@ -1648,6 +1650,12 @@ export function BattleLiveScreen({ navigation, route }) {
     }
   }, [returnTo, navigation, battleBack]);
   const handleDonePress = useCallback(() => {
+    // Search opens BattleLive inside the profile stack. Go directly to its tab
+    // instead of popping to the profile screen that happens to be beneath it.
+    if (returnTo === 'SearchHome' || returnTo?.screen === 'SearchHome' || returnTo?.tab === 'Search') {
+      navigateClosetReturn(navigation, returnTo || 'SearchHome');
+      return;
+    }
     if (navigation.canGoBack?.()) {
       navigation.goBack();
       return;
@@ -1691,11 +1699,15 @@ export function BattleLiveScreen({ navigation, route }) {
   const [commentText, setCommentText] = useState('');
   const [postingComment, setPostingComment] = useState(false);
   const [deletingCommentId, setDeletingCommentId] = useState('');
+  const [deletingBattle, setDeletingBattle] = useState(false);
 
   const question = battle?.title || route?.params?.question || t('battle.defaultQuestion');
   console.log("battle?.items-------------------------------------", battle)
-  const selectedItems = battle?.items?.length ? battle.items : route?.params?.selectedItems || [];
-  const isCreator = !!currentUserId && !!battle?.createdBy && currentUserId === battle.createdBy;
+  const selectedItems = useMemo(
+    () => (battle?.items?.length ? battle.items : route?.params?.selectedItems || []),
+    [battle?.items, route?.params?.selectedItems],
+  );
+  const isCreator = !!currentUserId && !!battle?.createdBy && String(currentUserId) === String(battle.createdBy);
   const showResultsBar =
     hasVoted ||
     isOwnProfile ||
@@ -1712,6 +1724,12 @@ export function BattleLiveScreen({ navigation, route }) {
   const isBattleFinished = ['COMPLETED', 'FINISHED', 'ENDED', 'CLOSED'].includes(String(battle?.status || '').toUpperCase());
   const isBattleVotingOpen = !isBattleExpired && battle?.outcome !== 'CANCELLED';
   const canVote = isBattleVotingOpen && !hasVoted && !checkingVote && !isOwnProfile && !isCreator;
+  const battleCreatedAt = battle?.createdAt ? new Date(battle.createdAt).getTime() : NaN;
+  // The API remains the authority for this window. If an older response does
+  // not include a timestamp, leave deletion available and let the API give
+  // the creator the definitive grace-period response.
+  const isWithinDeleteGracePeriod = !Number.isFinite(battleCreatedAt) || Date.now() - battleCreatedAt < 5 * 60 * 1000;
+  const canDeleteBattle = isCreator && isWithinDeleteGracePeriod;
   const liveScreenTitle = isBattleExpired ? (t('battleInProgress.battleEnded') || 'Battle Ended') : t('battle.liveTitle');
   const votedLabel = t('battle.voting') || 'Voting...';
   console.log("selectedItems---------------------------", selectedItems)
@@ -2051,6 +2069,35 @@ export function BattleLiveScreen({ navigation, route }) {
     }
   };
 
+  const handleDeleteBattle = useCallback(() => {
+    if (!battleId || deletingBattle) return;
+    Alert.alert(
+      t('battle.deleteBattleTitle') || 'Delete battle?',
+      t('battle.deleteBattleConfirm') || 'This will permanently delete this battle.',
+      [
+        { text: t('battle.cancel') || 'Cancel', style: 'cancel' },
+        {
+          text: t('battle.delete') || 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setDeletingBattle(true);
+            try {
+              await deleteMarketplaceBattle(battleId);
+              navigateToTargetClosetScreen(navigation, targetScreen);
+            } catch (err) {
+              Alert.alert(
+                t('battle.deleteBattleFailedTitle') || 'Could not delete battle',
+                err?.response?.data?.message || err?.message || t('battleInProgress.tryAgain') || 'Please try again.',
+              );
+            } finally {
+              setDeletingBattle(false);
+            }
+          },
+        },
+      ],
+    );
+  }, [battleId, deletingBattle, navigation, t, targetScreen]);
+
   const handleReactToComment = useCallback(async (comment, reaction) => {
     if (!battleId || !comment?.id) return;
 
@@ -2337,6 +2384,25 @@ export function BattleLiveScreen({ navigation, route }) {
         </View>
       ) : null}
 
+      {canDeleteBattle ? (
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={handleDeleteBattle}
+          style={[liveStyles.manageBattleCard, { backgroundColor: surface }]}
+        >
+          <View style={liveStyles.manageBattleIcon}>
+            <Ionicons name="trash-outline" size={24} color="#DC2626" />
+          </View>
+          <View style={liveStyles.manageBattleCopy}>
+            <Text style={liveStyles.manageBattleTitle}>{t('battle.deleteBattle') || 'Delete Battle'}</Text>
+            <Text style={[liveStyles.manageBattleDescription, { color: subtleMuted }]}>
+              {t('battle.deleteBattleGracePeriod') || 'You have a 5 minute grace period to delete this battle.'}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={subtleMuted} />
+        </TouchableOpacity>
+      ) : null}
+
       {/* Stats row: views / comments / likes */}
       <View style={[liveStyles.statsRow, { backgroundColor: surface, borderColor: border || BORDER, borderWidth: StyleSheet.hairlineWidth }]}>
         <View style={liveStyles.statItem}>
@@ -2544,6 +2610,7 @@ export function BattleLiveScreen({ navigation, route }) {
           </TouchableOpacity>
         ) : null}
       </View>
+
     </KeyboardAwareScrollView>
   );
 }
@@ -2581,6 +2648,12 @@ const liveStyles = StyleSheet.create({
   sideTagLeft: { backgroundColor: '#e8f5e9', borderRadius: 20, paddingHorizontal: 8, paddingVertical: 2 },
   sideTagRight: { backgroundColor: '#fde8e8', borderRadius: 20, paddingHorizontal: 8, paddingVertical: 2 },
   sideTagText: { fontSize: 10, fontWeight: '600', color: '#374151' },
+
+  manageBattleCard: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 16, borderWidth: 1, borderColor: '#FECACA', padding: 14, marginBottom: 14 },
+  manageBattleIcon: { width: 46, height: 46, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FEF2F2' },
+  manageBattleCopy: { flex: 1 },
+  manageBattleTitle: { color: '#DC2626', fontSize: 15, fontWeight: '800', marginBottom: 3 },
+  manageBattleDescription: { fontSize: 12, lineHeight: 17 },
 
 
   statsRow: { flexDirection: 'row', alignItems: 'center', borderRadius: 16, paddingVertical: 12, marginTop: 18, marginBottom: 14 },

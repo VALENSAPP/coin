@@ -30,7 +30,8 @@ export default function ViewMissioPost({ navigation, route }) {
     const formatMoney = useCallback((value) => {
         const numeric = Number(value);
         if (!Number.isFinite(numeric)) return '0.00';
-        return numeric.toFixed(2);
+        const [whole, decimal] = numeric.toFixed(2).split('.');
+        return `${whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}.${decimal}`;
     }, []);
 
     const fetchMissions = useCallback(async (filter = 'all', isFilterChange = false) => {
@@ -58,13 +59,15 @@ export default function ViewMissioPost({ navigation, route }) {
                         : t('viewMissionPost.noPeriodSet'),
                     endTime: item.end_time,
                     startTime: item.start_time,
-                    requests: item.commentCount ?? 0,
+                    // The API reports donor/request count inside the earnings object.
+                    requests: item.earning?.requestusers ?? item.requestusers ?? item.commentCount ?? 0,
                     earned: Number(item.earning?.total ?? 0),
                     creatorShare: Number(item.earning?.total ?? 0) * (CREATOR_SHARE_PERCENT / 100),
                     platformFee: Number(item.earning?.total ?? 0) * (PLATFORM_FEE_PERCENT / 100),
                     splitPercent: CREATOR_SHARE_PERCENT,
                     valensFeePercent: PLATFORM_FEE_PERCENT,
                     total: item.tokenBalance ?? 0,
+                    goal: Number(item.raiseAmount ?? item.raise_amount ?? 0),
                     type: item.type,
                     userImage: item.userImage,
                     userName: item.userName,
@@ -331,7 +334,14 @@ export default function ViewMissioPost({ navigation, route }) {
                                             <Text style={[styles.statLabel, { color: mutedText }]}>
                                                 {t('viewMissionPost.totalEarnedLabel')}
                                             </Text>
-                                            <Text style={[styles.statValueAccent, { color: text }]}>${c.earned}.00</Text>
+                                            <Text style={[styles.statValueAccent, { color: text, textAlign: 'center' }]}>
+                                                {c.goal > 0
+                                                    ? t('viewMissionPost.raisedOfGoal', {
+                                                        raised: formatMoney(c.earned),
+                                                        goal: formatMoney(c.goal),
+                                                    })
+                                                    : `$${formatMoney(c.earned)}`}
+                                            </Text>
                                         </View>
                                     </View>
 

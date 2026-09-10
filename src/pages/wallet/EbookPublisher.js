@@ -115,7 +115,9 @@ const EbookPublisher = ({ navigation }) => {
     return value === key || value == null || value === '' ? fallback : value;
   };
   const [step, setStep] = useState(1);
-  const [stepOneTab, setStepOneTab] = useState('upload');
+  const [stepOneTab, setStepOneTab] = useState(
+    route?.params?.initialTab === 'library' ? 'library' : 'upload',
+  );
   const [selectedPdf, setSelectedPdf] = useState(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -140,6 +142,12 @@ const EbookPublisher = ({ navigation }) => {
   const loggedInUserId = route?.params?.loggedInUserId;
   const fromRootNavigator = !!route?.params?.fromRootNavigator;
   const rootMode = fromRootNavigator;
+
+  useEffect(() => {
+    if (route?.params?.initialTab === 'library') {
+      setStepOneTab('library');
+    }
+  }, [route?.params?.initialTab]);
 
   const progress = useMemo(() => Math.min(100, (step / 3) * 100), [step]);
   const coverOptions = useMemo(() => ([

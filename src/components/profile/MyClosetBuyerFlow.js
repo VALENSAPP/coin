@@ -97,6 +97,13 @@ const formatPickupAvailableHours = value => {
 
   if (!hours || typeof hours !== 'object') return '';
 
+  if (hours.days && typeof hours.days === 'object') {
+    return ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+      .filter(day => Array.isArray(hours.days[day]) && hours.days[day].length)
+      .map(day => `${day}: ${hours.days[day].join(', ')}`)
+      .join('\n');
+  }
+
   const weekday = [hours.weekdayStart, hours.weekdayEnd].filter(Boolean).join(' – ');
   const weekend = [hours.weekendStart, hours.weekendEnd].filter(Boolean).join(' – ');
 
@@ -2089,7 +2096,7 @@ const MyClosetBuyerItemDetailScreen = ({ navigation, route }) => {
   const productId = item.raw?.id || item.raw?._id || item.id;
   const offersShipping = item.shippingOption === 'ship_items' || item.shippingOption === 'both';
   const offersPickup = item.shippingOption === 'local_pick' || item.shippingOption === 'both';
-  const pickupAddress = [item.residentNumber, item.pickupLocation, item.pickupAddress, item.pickUpCity]
+  const pickupAddress = [item.pickupLocation, item.pickupAddress, item.pickUpCity, item.residentNumber]
     .filter((value, index, values) => value && values.indexOf(value) === index)
     .join('\n');
 

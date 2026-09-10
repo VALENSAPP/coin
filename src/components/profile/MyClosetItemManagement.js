@@ -18,7 +18,6 @@ import { getPlaceDetails, isGooglePlacesConfigured, searchPlacePredictions, sear
 import {
   PICKUP_CITY_OPTIONS,
   PICKUP_LOCATIONS_BY_CITY,
-  DEFAULT_PICKUP_HOURS,
   AdvancedDropdownRow,
   PlaceFieldRow,
   PlaceInputFieldRow,
@@ -103,6 +102,17 @@ const PICKUP_DAYS = [
   { label: 'Sat', group: 'weekend' },
   { label: 'Sun', group: 'weekend' },
 ];
+
+const getPickupSchedule = hours => hours?.days && typeof hours.days === 'object' ? hours.days : {};
+
+const formatPickupHours = hours => {
+  if (typeof hours === 'string') return hours.trim();
+  const schedule = getPickupSchedule(hours);
+  return PICKUP_DAYS
+    .filter(({ label }) => Array.isArray(schedule[label]) && schedule[label].length)
+    .map(({ label }) => `${label}: ${schedule[label].join(', ')}`)
+    .join('\n');
+};
 
 const getConditionLabel = (value, t) => {
   switch (String(value || '').trim()) {
@@ -235,7 +245,12 @@ const DropdownRow = ({ label, value, options, onSelect, placeholder, accent }) =
 };
 
 const parsePickupHours = str => {
-  if (!str || typeof str !== 'string') return DEFAULT_PICKUP_HOURS;
+  if (str && typeof str === 'object') return str;
+  if (!str || typeof str !== 'string') return { days: {} };
+  try {
+    const parsed = JSON.parse(str);
+    if (parsed && typeof parsed === 'object') return parsed;
+  } catch {}
   const match = str.match(/Mon-Fri\s+(.*)-(.*),\s*Sat-Sun\s+(.*)-(.*)/);
   if (match) {
     return {
@@ -245,13 +260,7 @@ const parsePickupHours = str => {
       weekendEnd: match[4].trim(),
     };
   }
-  return DEFAULT_PICKUP_HOURS;
-};
-
-const formatPickupHours = hours => {
-  if (typeof hours === 'string') return hours.trim();
-  const h = { ...DEFAULT_PICKUP_HOURS, ...(hours || {}) };
-  return `Mon-Fri ${h.weekdayStart}-${h.weekdayEnd}, Sat-Sun ${h.weekendStart}-${h.weekendEnd}`;
+  return { days: {} };
 };
 
 const toEditableItem = item => {
@@ -315,7 +324,7 @@ const buildPayload = draft => {
     if (draft.pickUpCity) payload.append('pickUpCity', String(draft.pickUpCity).trim());
     if (draft.pickupLocation) payload.append('pickupLocation', String(draft.pickupLocation).trim());
     payload.append('pickupAddress', String(draft.pickupAddress || '').trim());
-    payload.append('pickupAvailableHours', formatPickupHours(draft.pickupHours));
+    payload.append('pickupAvailableHours', JSON.stringify(draft.pickupHours || { days: {} }));
     payload.append('buyerChatEnabled', String(draft.buyerChatEnabled ?? true));
   }
 
@@ -566,7 +575,6 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
   const [expandedField, setExpandedField] = useState(null);
   const [hoursExpanded, setHoursExpanded] = useState(false);
   const [selectedPickupDay, setSelectedPickupDay] = useState('Mon');
-  const [pickupTimeTarget, setPickupTimeTarget] = useState('start');
   const [errors, setErrors] = useState({});
 
   const [howItWorksExpanded, setHowItWorksExpanded] = useState(false);
@@ -687,9 +695,7 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
     [draft.pickUpCity],
   );
 
-  const selectedPickupDayConfig = PICKUP_DAYS.find(day => day.label === selectedPickupDay) || PICKUP_DAYS[0];
-  const pickupTimeKey = `${selectedPickupDayConfig.group}${pickupTimeTarget === 'start' ? 'Start' : 'End'}`;
-  const selectedPickupTime = draft.pickupHours?.[pickupTimeKey];
+  const selectedPickupTimes = getPickupSchedule(draft.pickupHours)[selectedPickupDay] || [];
 
   const targetScreen = useTargetClosetScreen();
 
@@ -882,16 +888,6 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
           )}
           {(draft.shippingOption === 'local_pick' || draft.shippingOption === 'both') && (
             <>
-              {/* Resident Number */}
-              <PlaceInputFieldRow
-                icon="home-outline"
-                label={t('myClosetAddItemShipping.residentNumberLabel')}
-                value={draft.residentNumber}
-                onChangeText={value => setDraft(prev => ({ ...prev, residentNumber: value }))}
-                placeholder={t('myClosetAddItemShipping.residentNumberPlaceholder')}
-                text={accent}
-              />
-
               {/* Pickup City */}
               {hasPlacesApi ? (
                 <PlaceFieldRow
@@ -971,6 +967,15 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
                 />
               )}
 
+              <PlaceInputFieldRow
+                icon="home-outline"
+                label={t('myClosetAddItemShipping.residentNumberLabel')}
+                value={draft.residentNumber}
+                onChangeText={value => setDraft(prev => ({ ...prev, residentNumber: value }))}
+                placeholder={t('myClosetAddItemShipping.residentNumberPlaceholder')}
+                text={accent}
+              />
+
               {draft.pickupAddress ? (
                 <View style={{ marginLeft: 44, marginTop: -4, marginBottom: 14 }}>
                   {/* <Text style={[styles.pickupAddressText, mutedTextStyle]}>
@@ -1018,7 +1023,7 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
                       {t('myClosetAddItemShipping.availableHours') || 'Available Hours'}
                     </Text>
                     <Text style={{ fontSize: 12, color: surfaces.mutedColor }}>
-                      {`${t('myClosetAddItemShipping.weekdaysAbbrev') || 'Mon - Fri'}: ${draft.pickupHours?.weekdayStart} - ${draft.pickupHours?.weekdayEnd}\n${t('myClosetAddItemShipping.weekendsAbbrev') || 'Sat - Sun'}: ${draft.pickupHours?.weekendStart} - ${draft.pickupHours?.weekendEnd}`}
+                      {formatPickupHours(draft.pickupHours) || (t('myClosetAddItemShipping.noPickupTimes') || 'No pickup times selected')}
                     </Text>
                   </View>
                   <Ionicons name={hoursExpanded ? 'chevron-up' : 'chevron-down'} size={18} color={textStyle?.color || accent} />
@@ -1031,32 +1036,15 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginBottom: 16 }}>
                       {PICKUP_DAYS.map(day => {
                         const selected = day.label === selectedPickupDay;
+                        const hasTimes = (getPickupSchedule(draft.pickupHours)[day.label] || []).length > 0;
                         return (
                           <TouchableOpacity
                             key={day.label}
                             activeOpacity={0.85}
                             onPress={() => setSelectedPickupDay(day.label)}
-                            style={{ minWidth: 42, paddingVertical: 8, paddingHorizontal: 10, borderRadius: 10, borderWidth: 1, borderColor: selected ? accent : surfaces.listBorder, backgroundColor: selected ? accent : surfaces.inputSurface, alignItems: 'center' }}
+                            style={{ minWidth: 42, paddingVertical: 8, paddingHorizontal: 10, borderRadius: 10, borderWidth: 1, borderColor: selected ? accent : surfaces.listBorder, backgroundColor: hasTimes ? accent : surfaces.inputSurface, alignItems: 'center' }}
                           >
-                            <Text style={{ fontSize: 12, fontWeight: '800', color: selected ? '#fff' : surfaces.labelColor }}>{day.label}</Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                    <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
-                      {['start', 'end'].map(target => {
-                        const selected = pickupTimeTarget === target;
-                        const label = target === 'start'
-                          ? (t('myClosetAddItemShipping.opensLabel') || 'Opens')
-                          : (t('myClosetAddItemShipping.closesLabel') || 'Closes');
-                        return (
-                          <TouchableOpacity
-                            key={target}
-                            activeOpacity={0.85}
-                            onPress={() => setPickupTimeTarget(target)}
-                            style={{ flex: 1, minHeight: 38, borderRadius: 10, borderWidth: 1, borderColor: selected ? accent : surfaces.listBorder, backgroundColor: selected ? withAlpha(accent, 0.13) : surfaces.inputSurface, alignItems: 'center', justifyContent: 'center' }}
-                          >
-                            <Text style={{ fontSize: 12, fontWeight: '900', color: selected ? accent : surfaces.labelColor }}>{label}</Text>
+                            <Text style={{ fontSize: 12, fontWeight: '800', color: hasTimes ? '#fff' : surfaces.labelColor }}>{day.label}</Text>
                           </TouchableOpacity>
                         );
                       })}
@@ -1066,12 +1054,19 @@ const MyClosetItemEditorScreen = ({ navigation, route }) => {
                     </Text>
                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                       {PICKUP_TIME_GRID_OPTIONS.map(time => {
-                        const selected = time === selectedPickupTime;
+                        const selected = selectedPickupTimes.includes(time);
                         return (
                           <TouchableOpacity
                             key={time}
                             activeOpacity={0.85}
-                            onPress={() => setDraft(prev => ({ ...prev, pickupHours: { ...prev.pickupHours, [pickupTimeKey]: time } }))}
+                            onPress={() => setDraft(prev => {
+                              const schedule = getPickupSchedule(prev.pickupHours);
+                              const dayTimes = schedule[selectedPickupDay] || [];
+                              const nextTimes = dayTimes.includes(time)
+                                ? dayTimes.filter(value => value !== time)
+                                : [...dayTimes, time].sort((a, b) => PICKUP_TIME_GRID_OPTIONS.indexOf(a) - PICKUP_TIME_GRID_OPTIONS.indexOf(b));
+                              return { ...prev, pickupHours: { ...prev.pickupHours, days: { ...schedule, [selectedPickupDay]: nextTimes } } };
+                            })}
                             style={{ width: '22%', minHeight: 38, borderRadius: 9, borderWidth: 1, borderColor: selected ? accent : surfaces.listBorder, backgroundColor: selected ? accent : surfaces.inputSurface, alignItems: 'center', justifyContent: 'center' }}
                           >
                             <Text style={{ fontSize: 11, fontWeight: '800', color: selected ? '#fff' : surfaces.labelColor }}>{time}</Text>

@@ -1,6 +1,7 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import React, { useMemo } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Image, Alert } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import InAppBrowser from 'react-native-inappbrowser-reborn';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useThemeContext } from '../../theme/ThemeContext';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -18,7 +19,7 @@ const getCoverImage = (item) => {
 const EbookPaymentSuccessScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
-  const { ebook, userData, loggedInUserId } = route.params || {};
+  const { ebook, userData } = route.params || {};
 
   const { bgStyle, text, card, border, mutedText, accent, bg } = useAppTheme(userData?.profile);
   const { isDarkMode } = useThemeContext();
@@ -33,15 +34,54 @@ const EbookPaymentSuccessScreen = () => {
   const title = ebook?.caption || ebook?.title || 'E-book';
   const author = ebook?.userName || userData?.displayName || 'Unknown Author';
   const price = Number(ebook?.amount || 0);
+  const pdfUrl = useMemo(() => {
+    let rawPdf = ebook?.ebookpdf || ebook?.ebookPdf || ebook?.pdfUrl || ebook?.pdf || ebook?.fileUrl;
+    if (!rawPdf) {
+      const mediaList = [
+        ...(Array.isArray(ebook?.images) ? ebook.images : []),
+        ebook?.image,
+        ebook?.video,
+        ebook?.media,
+      ].filter(Boolean);
+      rawPdf = mediaList.find(media => typeof media === 'string' && /\.pdf(\?|$)/i.test(media));
+    }
+    if (!rawPdf || typeof rawPdf !== 'string') return null;
+
+    const trimmed = rawPdf.trim();
+    return trimmed.startsWith('http://') || trimmed.startsWith('https://')
+      ? trimmed
+      : `https://${trimmed}`;
+  }, [ebook]);
 
   const handleGoToLibrary = () => {
-    navigation.navigate('EbookDetail', {
-      ebook,
-      userData,
-      loggedInUserId,
-      username: userData?.userName || userData?.username || ebook?.userName,
-      sourceScreen: 'AllEbooks',
+    const tabNavigation = navigation.getParent?.();
+    tabNavigation?.navigate('wallet', {
+      screen: 'EbookPublisher',
+      params: { initialTab: 'library' },
     });
+  };
+
+  const handleReadBook = async () => {
+    if (!pdfUrl) {
+      Alert.alert('Error', 'Ebook PDF URL is not available');
+      return;
+    }
+    try {
+      if (await InAppBrowser.isAvailable()) {
+        await InAppBrowser.open(pdfUrl, {
+          dismissButtonStyle: 'close',
+          readerMode: false,
+          animated: true,
+          modalEnabled: true,
+          enableBarCollapsing: true,
+        });
+      } else {
+        Alert.alert('Error', 'InAppBrowser is not available on this device');
+      }
+    } catch (err) {
+      console.log('InAppBrowser opening failed:', err);
+      Alert.alert('Error', 'Unable to open ebook. Invalid or unreachable PDF link.');
+    }
   };
 
   const handleContinueShopping = () => {
@@ -95,6 +135,15 @@ const EbookPaymentSuccessScreen = () => {
           },
         ]}
       >
+        <TouchableOpacity
+          style={[styles.readNowBtn, { backgroundColor: brandAccent }]}
+          onPress={handleReadBook}
+          activeOpacity={0.88}
+        >
+          <Ionicons name="book-outline" size={18} color="#fff" />
+          <Text style={styles.readNowBtnText}>Read it now</Text>
+        </TouchableOpacity>
+
         <TouchableOpacity
           style={[styles.libraryBtn, { backgroundColor: brandAccent }]}
           onPress={handleGoToLibrary}
@@ -212,6 +261,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
+  },
+  readNowBtn: {
+    width: '100%',
+    height: 48,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+  },
+  readNowBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '800',
   },
   libraryBtnText: {
     color: '#fff',

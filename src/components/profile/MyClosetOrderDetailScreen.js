@@ -164,6 +164,13 @@ const formatPickupAvailableHours = value => {
 
   if (!hours || typeof hours !== 'object') return '';
 
+  if (hours.days && typeof hours.days === 'object') {
+    return ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+      .filter(day => Array.isArray(hours.days[day]) && hours.days[day].length)
+      .map(day => `${day}: ${hours.days[day].join(', ')}`)
+      .join('\n');
+  }
+
   const weekday = [hours.weekdayStart, hours.weekdayEnd].filter(Boolean).join(' – ');
   const weekend = [hours.weekendStart, hours.weekendEnd].filter(Boolean).join(' – ');
 

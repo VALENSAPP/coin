@@ -38,20 +38,24 @@ const IMAGE_SIZE = (screenWidth - SPACING * (numColumns + 1)) / numColumns;
 const normalizeImageUrl = (url) => {
   if (!url || typeof url !== 'string') return null;
   const trimmed = url.trim();
+  // Accept URLs copied from Markdown logs as well as the plain API URL.
+  const markdownUrl = trimmed.match(/^\[[^\]]*\]\((https?:\/\/[^)]+)\)$/i)?.[1];
+  const resolvedUrl = markdownUrl || trimmed;
   if (
-    trimmed.startsWith('http://') ||
-    trimmed.startsWith('https://') ||
-    trimmed.startsWith('data:')
+    resolvedUrl.startsWith('http://') ||
+    resolvedUrl.startsWith('https://') ||
+    resolvedUrl.startsWith('data:')
   ) {
-    return trimmed;
+    return resolvedUrl;
   }
-  if (trimmed.startsWith('/')) return `http://35.174.167.92:3002${trimmed}`;
-  return `http://35.174.167.92:3002/${trimmed}`;
+  if (resolvedUrl.startsWith('/')) return `http://35.174.167.92:3002${resolvedUrl}`;
+  return `http://35.174.167.92:3002/${resolvedUrl}`;
 };
 
 const isVideoUrl = (url) => {
   if (!url || typeof url !== 'string') return false;
-  return /\.(mp4|mov|avi|mkv|webm|m4v)(\?|$)/i.test(url);
+  const markdownUrl = url.trim().match(/^\[[^\]]*\]\((https?:\/\/[^)]+)\)$/i)?.[1];
+  return /\.(mp4|mov|avi|mkv|webm|m4v)(\?|$)/i.test(markdownUrl || url);
 };
 
 const isReelPost = post => {
@@ -157,6 +161,75 @@ const PostImage = memo(({ item, themeTextStyle }) => {
 });
 
 const ItemSeparator = memo(() => <View style={styles.itemSeparator} />);
+
+const formatVideoCount = (value) => {
+  const count = Number(value ?? 0);
+  if (!Number.isFinite(count)) return '0';
+  return count >= 1000 ? `${(count / 1000).toFixed(count >= 10000 ? 0 : 1)}k` : String(count);
+};
+
+const PrivateVideoCard = memo(({ item, onPress, textStyle, mutedText, card, border, accent }) => {
+  const mediaUrl = normalizeImageUrl(item?.images?.[0] || item?.video);
+  const thumbnailUrl = normalizeImageUrl(item?.thumbnails?.[0] || item?.thumbnail || item?.poster);
+  const title = item?.caption || item?.text || item?.title || 'Private video';
+  const description = item?.description || item?.subCaption || item?.contentDescription || '';
+  const date = item?.createdAt || item?.created_at;
+  const formattedDate = date ? new Date(date).toLocaleDateString(undefined, {
+    month: 'short', day: 'numeric', year: 'numeric',
+  }) : '';
+  const viewCount = item?.viewCount ?? item?.views ?? item?.view_count;
+  const likeCount = item?.likeCount ?? item?.likes ?? 0;
+  const commentCount = item?.commentCount ?? item?.comments ?? 0;
+
+  return (
+    <TouchableOpacity
+      activeOpacity={0.9}
+      onPress={onPress}
+      style={[styles.privateVideoCard, { backgroundColor: card, borderColor: border }]}
+    >
+      <View style={styles.privateVideoPreview}>
+        {thumbnailUrl ? (
+          <FastImage source={{ uri: thumbnailUrl }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+        ) : mediaUrl ? (
+          <Video source={{ uri: mediaUrl }} style={StyleSheet.absoluteFill} paused muted resizeMode="cover" />
+        ) : (
+          <View style={styles.privateVideoFallback}><Ionicons name="videocam-outline" size={28} color="#fff" /></View>
+        )}
+        <View style={styles.privateVideoPlay}><Ionicons name="play" size={20} color="#fff" /></View>
+        {/* <View style={[styles.privateBadge, { backgroundColor: accent }]}>
+          <Ionicons name="lock-closed" size={11} color="#fff" />
+          <Text style={styles.privateBadgeText}>PRIVATE</Text>
+        </View> */}
+      </View>
+      <View style={styles.privateVideoDetails}>
+        <Text style={[styles.privateVideoTitle, textStyle]} numberOfLines={2}>{title}</Text>
+        {description ? <Text style={[styles.privateVideoDescription, { color: mutedText }]} numberOfLines={3}>{description}</Text> : null}
+        <View style={styles.privateVideoMeta}>
+          {formattedDate ? (
+            <View style={styles.privateVideoStat}>
+              <Ionicons name="calendar-outline" size={16} color={accent} />
+              <Text style={[styles.privateVideoMetaText, { color: mutedText }]}>{formattedDate}</Text>
+            </View>
+          ) : null}
+          {viewCount != null ? (
+            <View style={styles.privateVideoStat}>
+              <Ionicons name="eye-outline" size={17} color={accent} />
+              <Text style={[styles.privateVideoMetaText, { color: mutedText }]}>{formatVideoCount(viewCount)}</Text>
+            </View>
+          ) : null}
+          <View style={styles.privateVideoStat}>
+            <Ionicons name="heart-outline" size={17} color={accent} />
+            <Text style={[styles.privateVideoMetaText, { color: mutedText }]}>{formatVideoCount(likeCount)}</Text>
+          </View>
+          <View style={styles.privateVideoStat}>
+            <Ionicons name="chatbubble-outline" size={16} color={accent} />
+            <Text style={[styles.privateVideoMetaText, { color: mutedText }]}>{formatVideoCount(commentCount)}</Text>
+          </View>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+});
 
 const PrivateContentScreen = ({
   userData,
@@ -323,6 +396,7 @@ const PrivateContentScreen = ({
           : Array.isArray(payload?.data)
             ? payload.data
             : [];
+      console.log('[PrivateContent] private-content API response:', response);
       const filteredData = formattedData.filter(
         (post) => !post?.visibleTo || post.visibleTo === ''
       );
@@ -346,6 +420,10 @@ const PrivateContentScreen = ({
 
         return true;
       });
+
+      if (activeMediaFilter === 'video') {
+        console.log('[PrivateContent] mapped private videos:', mediaFilteredData);
+      }
 
       setPosts(applyClientPostOverlayCacheToList(mediaFilteredData));
     } catch (error) {
@@ -421,6 +499,8 @@ const PrivateContentScreen = ({
             posts.filter(p => isReelPost(p)),
           ),
           key: Date.now().toString(),
+          isPrivateContent: true,
+          hideShare: true,
         };
 
         let targetNavigation = navigation;
@@ -463,6 +543,8 @@ const PrivateContentScreen = ({
           hideTabBar: true,
           userId: userData?.id,
           screenshotProtectionSource: SCREENSHOT_PROTECTED_SOURCES.PRIVATE_CONTENT,
+          isPrivateContent: true,
+          hideShare: true,
         },
       });
     },
@@ -484,7 +566,22 @@ const PrivateContentScreen = ({
         <View style={styles.overlay} />
       </TouchableOpacity>
     ),
-    [openContent, text],
+    [openContent, text, textStyle],
+  );
+
+  const renderPrivateVideoItem = useCallback(
+    ({ item, index }) => (
+      <PrivateVideoCard
+        item={item}
+        onPress={() => openContent(index)}
+        textStyle={textStyle}
+        mutedText={mutedTextStyle?.color || '#6b7280'}
+        card={card}
+        border={border}
+        accent={accent}
+      />
+    ),
+    [accent, border, card, mutedTextStyle?.color, openContent, textStyle],
   );
 
   const keyExtractor = useCallback(
@@ -658,19 +755,21 @@ const PrivateContentScreen = ({
         <LockedCard />
       ) : ( */}
         <FlatList
+          // FlatList cannot change column count after mounting; remount when switching layouts.
+          key={`private-content-${activeMediaFilter === 'video' ? 'video-list' : 'media-grid'}`}
           data={posts}
           keyExtractor={keyExtractor}
-          renderItem={renderItem}
-          numColumns={numColumns}
+          renderItem={activeMediaFilter === 'video' ? renderPrivateVideoItem : renderItem}
+          numColumns={activeMediaFilter === 'video' ? 1 : numColumns}
           ListEmptyComponent={renderEmptyComponent}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={[styles.listContent, posts.length === 0 && styles.emptyListContent]}
-          ItemSeparatorComponent={ItemSeparator}
+          ItemSeparatorComponent={activeMediaFilter === 'video' ? null : ItemSeparator}
           removeClippedSubviews
           initialNumToRender={12}
           maxToRenderPerBatch={12}
           windowSize={5}
-          getItemLayout={getItemLayout}
+          getItemLayout={activeMediaFilter === 'video' ? undefined : getItemLayout}
           updateCellsBatchingPeriod={50}
           disableVirtualization={false}
         />
@@ -757,6 +856,60 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '600',
   },
+  privateVideoCard: {
+    marginHorizontal: 12,
+    marginBottom: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 12,
+    overflow: 'hidden',
+    flexDirection: 'row',
+    // minHeight: 126,
+  },
+  privateVideoPreview: {
+    width: '32%',
+    borderRadius: 12,
+    // aspectRatio: 16 / 9,
+    alignSelf: 'center',
+    overflow: 'hidden',
+    backgroundColor: '#20122f',
+    height: '100%',
+  },
+  privateVideoFallback: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  privateVideoPlay: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    marginLeft: -21,
+    marginTop: -21,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: 'rgba(0,0,0,0.62)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  privateBadge: {
+    position: 'absolute',
+    left: 8,
+    top: 8,
+    borderRadius: 10,
+    paddingHorizontal: 7,
+    paddingVertical: 4,
+    flexDirection: 'row',
+    gap: 3,
+    alignItems: 'center',
+  },
+  privateBadgeText: { color: '#fff', fontSize: 9, fontWeight: '800' },
+  privateVideoDetails: { flex: 1, padding: 10, justifyContent: 'center' },
+  privateVideoTitle: { fontSize: 16, fontWeight: '700', lineHeight: 21 },
+  privateVideoDescription: { fontSize: 13, lineHeight: 18, marginTop: 4 },
+  privateVideoMeta: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 12, rowGap: 6, marginTop: 9 },
+  privateVideoStat: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  privateVideoMetaText: { fontSize: 12, fontWeight: '600' },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',

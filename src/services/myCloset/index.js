@@ -495,6 +495,10 @@ export const getMarketplaceBattleDetails = async (battleId) => {
   return axiosInstance.get(`marketplace-battles/me/${battleId}`);
 };
 
+export const deleteMarketplaceBattle = async battleId => {
+  return axiosInstance.delete(`marketplace-battles/${battleId}`);
+};
+
 export const trackMarketplaceBattleView = async battleId => {
   return axiosInstance.post(`/marketplace-battles/${battleId}/view`);
 };

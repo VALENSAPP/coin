@@ -544,14 +544,15 @@ const EbookRowItem = React.memo(({
         <Text style={[s.ebookTitle, { color: text }]} numberOfLines={1}>{title}</Text>
         <Text style={[s.ebookDesc, { color: mutedText }]} numberOfLines={2}>{description}</Text>
         <View style={s.ebookMetaRow}>
-          <Text style={[s.ebookMeta, { color: text }]}>📚 {item?.tableContent?.length || 0} Chapters</Text>
+          <View>
+            <Text style={[s.ebookMeta, { color: text }]}>📚 {item?.tableContent?.length || 0} Chapters</Text>
+            <Text style={[s.ebookPriceTag, { color: text }]}>{priceLabel}</Text>
+          </View>
           {showPurchasedBadge ? (
             <View style={s.ebookOwnedBadge}>
               <Text style={s.ebookOwnedBadgeText}>{isOwnProfile ? 'Owned' : 'Purchased'}</Text>
             </View>
-          ) : (
-            <Text style={[s.ebookPriceTag, { color: text }]}>{priceLabel}</Text>
-          )}
+          ) : null}
         </View>
       </View>
       <Ionicons name="chevron-forward" size={18} color={mutedText} />
@@ -1611,10 +1612,15 @@ const s = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
   },
+  ebookPriceStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   ebookPriceTag: {
     fontSize: 12,
     fontWeight: '800',
-    marginRight: 4,
+    marginTop: 2,
   },
   ebookOwnedBadge: {
     paddingHorizontal: 8,

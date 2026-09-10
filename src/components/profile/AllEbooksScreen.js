@@ -83,16 +83,19 @@ export const EbookCard = memo(({ item, isPurchased, isOwnProfile, onPress }) => 
         <Text style={[styles.title, { color: primaryText }]} numberOfLines={1}>{title}</Text>
         <Text style={[styles.desc, { color: muted }]} numberOfLines={2}>{description}</Text>
         <View style={styles.metaRow}>
-          <Text style={[styles.meta, { color: brandAccent }]}>📚 {item?.tableContent?.length || 0} Chapters</Text>
-          {showPurchasedBadge ? (
-            <View style={[styles.ownedBadge, { backgroundColor: selectedSurface(SUCCESS_ACCENT, isDarkMode) }]}>
-              <Text style={[styles.ownedBadgeText, { color: isDarkMode ? '#86efac' : '#03543F' }]}>
-                {isOwnProfile ? 'Owned' : 'Purchased'}
-              </Text>
-            </View>
-          ) : (
+          <View>
+            <Text style={[styles.meta, { color: brandAccent }]}>📚 {item?.tableContent?.length || 0} Chapters</Text>
             <Text style={[styles.priceTag, { color: brandAccent }]}>{priceLabel}</Text>
-          )}
+          </View>
+          <View style={styles.priceStatus}>
+            {showPurchasedBadge ? (
+              <View style={[styles.ownedBadge, { backgroundColor: selectedSurface(SUCCESS_ACCENT, isDarkMode) }]}>
+                <Text style={[styles.ownedBadgeText, { color: isDarkMode ? '#86efac' : '#03543F' }]}>
+                  {isOwnProfile ? 'Owned' : 'Purchased'}
+                </Text>
+              </View>
+            ) : null}
+          </View>
         </View>
       </View>
       <Ionicons name="chevron-forward" size={18} color={muted || icon} />
@@ -446,7 +449,8 @@ const styles = StyleSheet.create({
   desc: { fontSize: 12, lineHeight: 16, marginBottom: 8 },
   metaRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   meta: { fontSize: 11, fontWeight: '700' },
-  priceTag: { fontSize: 13, fontWeight: '800' },
+  priceStatus: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  priceTag: { fontSize: 13, fontWeight: '800', marginTop: 2 },
   ownedBadge: {
     paddingHorizontal: 8,
     paddingVertical: 3,
