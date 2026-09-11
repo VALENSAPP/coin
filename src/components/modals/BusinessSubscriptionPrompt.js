@@ -102,7 +102,7 @@ const BusinessSubscriptionPrompt = ({
         showToastMessage(
           toast,
           'danger',
-          response?.error || response?.message || 'Failed to create checkout session.',
+          response?.error || response?.message || t('subventionSetup.checkoutSessionFail'),
         );
       };
 
@@ -161,12 +161,12 @@ const BusinessSubscriptionPrompt = ({
         await new Promise(resolve => setTimeout(resolve, 2000));
       }
 
-      showToastMessage(toast, 'warning', 'Stripe onboarding is not complete yet.');
+      showToastMessage(toast, 'warning', t('subventionSetup.stripeIncomplete'));
     } catch (error) {
       showToastMessage(
         toast,
         'danger',
-        error?.response?.data?.message || error?.message || 'Unable to start subscription. Please try again.',
+        error?.response?.data?.message || error?.message || t('subventionSetup.subscriptionStartFail'),
       );
     } finally {
       setIsActivating(false);

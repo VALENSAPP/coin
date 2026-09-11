@@ -1169,7 +1169,7 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
         <View style={styles.sectionHeader}>
           <View style={styles.ebooksCtaCopy}>
             <Ionicons name="book-outline" size={18} color={text} style={{ marginRight: 8 }} />
-            <Text style={[styles.ebooksCtaTitle, textStyle]}>My E-books</Text>
+            <Text style={[styles.ebooksCtaTitle, textStyle]}>{t('myClosetDashboard.ebooksTitle')}</Text>
           </View>
           <TouchableOpacity activeOpacity={0.8} onPress={handleViewAllEbooks}>
             <Text style={[styles.sectionMeta, mutedTextStyle]}>{t('myClosetDashboard.viewAll')} ›</Text>
@@ -1204,7 +1204,7 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
           ) : (
             <View style={[styles.emptyItemsCard, { borderColor: border }]}>
               <Ionicons name="book-outline" size={24} color={text} />
-              <Text style={[styles.emptyItemsText, textStyle]}>No E-books yet</Text>
+              <Text style={[styles.emptyItemsText, textStyle]}>{t('myClosetDashboard.noEbooksYet')}</Text>
             </View>
           )}
         </View>

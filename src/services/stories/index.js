@@ -35,6 +35,16 @@ export const postCommentStory = async (body) => {
 export const postLikeStory = async (body) => {
   return axiosInstance.post('story/likeStory',body);
 }
+
+/** React to a live story or an archived highlight drop. */
+export const reactToStory = async ({ storyId, reaction, highlightId } = {}) => {
+  return axiosInstance.post('/story/react', {
+    storyId,
+    reaction,
+    ...(highlightId ? { highlightId } : {}),
+  });
+};
+
 export const viewStory = async (body) => {
   return axiosInstance.post('story/view',body);
 }

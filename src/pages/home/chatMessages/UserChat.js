@@ -674,7 +674,12 @@ const UserChat = ({ route, navigation }) => {
           formattedMsg.type = 'text';
           formattedMsg.content = t('userChat.contentUnavailable');
           formattedMsg.isDeletedContent = true;
-          formattedMsg.subscribeTargetUserId = String(msg.sender?.id ?? msg.senderId ?? '')
+          // A private post can be shared by somebody other than its owner.
+          // Subscribe to the content owner, falling back to the message sender
+          // for older responses that do not provide an owner ID.
+          formattedMsg.subscribeTargetUserId = String(
+            msg.ownerId ?? msg.owner_id ?? msg.sender?.id ?? msg.senderId ?? '',
+          );
         }
       } else if (messageType === 'REEL_SHARE') {
         formattedMsg.type = 'reel_share';

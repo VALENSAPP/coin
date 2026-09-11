@@ -38,7 +38,7 @@ const transformSubscriber = (item) => {
   const startDate = new Date(item.startDate);
   const endDate = new Date(item.endDate);
   const now = new Date();
-  
+
   // Determine status
   let status = STATUS.active;
   if (item.status === 'EXPIRED' || endDate < now) {
@@ -67,15 +67,15 @@ const transformSubscriber = (item) => {
     });
   };
 
-const calculateDaysUntil = (date) => {
-  if (!date) return null;
-  const targetDate = new Date(date);
-  targetDate.setHours(0, 0, 0, 0);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const diffDays = Math.round((targetDate - today) / (1000 * 60 * 60 * 24));
-  return diffDays > 0 ? diffDays : null;
-};
+  const calculateDaysUntil = (date) => {
+    if (!date) return null;
+    const targetDate = new Date(date);
+    targetDate.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const diffDays = Math.round((targetDate - today) / (1000 * 60 * 60 * 24));
+    return diffDays > 0 ? diffDays : null;
+  };
 
   return {
     id: item.subscriber?.id || item.id,
@@ -103,7 +103,7 @@ const transformSubscription = (item) => {
   const startDate = new Date(item.startDate);
   const endDate = new Date(item.endDate);
   const now = new Date();
-  
+
   let status = STATUS.active;
   if (item.status === 'EXPIRED' || endDate < now) {
     status = STATUS.expired;
@@ -178,7 +178,7 @@ const ManageSubscribersScreen = () => {
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
-  
+
   // New state for API data
   const [subscribersList, setSubscribersList] = useState([]);
   const [mySubscriptionsList, setMySubscriptionsList] = useState([]);
@@ -242,7 +242,7 @@ const ManageSubscribersScreen = () => {
       canceled: 0,
       expired: 0,
     };
-    
+
     list.forEach(item => {
       if (item.status === STATUS.active) statsCounts.active++;
       else if (item.status === STATUS.pending) statsCounts.pending++;
@@ -402,8 +402,8 @@ const ManageSubscribersScreen = () => {
 
         {isSubscriberView && row.status !== STATUS.canceled && (
           <View style={{ marginTop: 16 }}>
-            <TouchableOpacity 
-              style={[styles.outlineBtn, { borderColor: theme.border }]} 
+            <TouchableOpacity
+              style={[styles.outlineBtn, { borderColor: theme.border }]}
               onPress={() => navigation.navigate('CancelSubscriptionFlow', { subscription: row, onCancelSuccess: () => handleCancelSuccess(row.id) })}>
               <Text style={[styles.outlineBtnText, { color: theme.text }]}>Cancel Subscription</Text>
             </TouchableOpacity>
@@ -441,24 +441,24 @@ const ManageSubscribersScreen = () => {
         <View style={styles.modeRow}>
           <TouchableOpacity
             onPress={() => setMode('subscribers')}
-            style={[styles.outlineBtn, { 
-              borderColor: theme.accent, 
-              backgroundColor: !isSubscriberView ? theme.accent : 'transparent' 
+            style={[styles.outlineBtn, {
+              borderColor: theme.accent,
+              backgroundColor: !isSubscriberView ? theme.accent : 'transparent'
             }]}>
-            <Text style={[styles.outlineBtnText, { 
-              color: !isSubscriberView ? '#fff' : theme.accent 
+            <Text style={[styles.outlineBtnText, {
+              color: !isSubscriberView ? '#fff' : theme.accent
             }]} numberOfLines={1}>
               {t('manageSubscribers.viewMySubscribers')}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => setMode('subscriptions')}
-            style={[styles.outlineBtn, { 
-              borderColor: theme.accent, 
-              backgroundColor: isSubscriberView ? theme.accent : 'transparent' 
+            style={[styles.outlineBtn, {
+              borderColor: theme.accent,
+              backgroundColor: isSubscriberView ? theme.accent : 'transparent'
             }]}>
-            <Text style={[styles.outlineBtnText, { 
-              color: isSubscriberView ? '#fff' : theme.accent 
+            <Text style={[styles.outlineBtnText, {
+              color: isSubscriberView ? '#fff' : theme.accent
             }]} numberOfLines={1}>
               {t('manageSubscribers.viewMySubscriptions')}
             </Text>
@@ -474,18 +474,23 @@ const ManageSubscribersScreen = () => {
 
         {!isSubscriberView ? (
           <View style={[styles.banner, { backgroundColor: `${theme.accent}18`, borderColor: `${theme.accent}44` }]}>
-            <Ionicons name="information-circle" size={22} color={theme.accent} />
             <View style={styles.bannerCopy}>
-              <Text style={[styles.bannerTitle, { color: theme.text }]}>
-                {t('manageSubscribers.priceUpdateTitle')}
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Ionicons name="information-circle" size={22} color={theme.accent} />
+                <Text style={[styles.bannerTitle, { color: theme.text }]}>
+                  {t('manageSubscribers.priceUpdateTitle')}
+                </Text>
+              </View>
               <Text style={[styles.bannerBody, { color: theme.mutedText }]}>
                 {t('manageSubscribers.priceUpdateBody', { from: '9.90', to: '14.90' })}
               </Text>
             </View>
             <TouchableOpacity
               style={[styles.bannerBtn, { backgroundColor: theme.card, borderColor: theme.accent }]}
-              onPress={() => navigation.navigate('UpdateSubscriptionPrice', { currentPrice: 9.9 })}>
+              onPress={() => navigation.navigate('SubscriptionUpdateSummary', {
+                currentPrice: 9.9,
+                newPrice: 14.9,
+              })}>
               <Text style={[styles.bannerBtnText, { color: theme.accent }]}>
                 {t('manageSubscribers.viewUpdateDetails')}
               </Text>
@@ -635,7 +640,7 @@ const ManageSubscribersScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  safe: { flex: 1 ,maginBottom: '5%'},
+  safe: { flex: 1, maginBottom: '5%' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

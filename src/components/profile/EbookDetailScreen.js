@@ -750,7 +750,11 @@ const EbookDetailScreen = () => {
       }).promise;
 
       if (downloadResult.statusCode === 200) {
-        Alert.alert('Success', `PDF downloaded successfully`);
+        // showToastMessage(
+        //   toast,
+        //   'success',
+        //   t('myClosetDashboard.ebookDownloadSuccess') || 'PDF downloaded successfully',
+        // );
         if (!isOwner) {
           setHoldScreenshotProtection(true);
         }

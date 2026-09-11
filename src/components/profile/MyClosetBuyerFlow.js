@@ -2043,12 +2043,22 @@ const MyClosetBattlesScreen = ({ navigation, route }) => {
                 isDark={isDarkMode}
               />
               <View style={styles.battleDatesRow}>
-                <Text style={[styles.battleDateText, { color: mutedText }]}>
-                  {t('battleHub.started') || 'Started'}: {formatBattleDate(item.startedAt) || '—'}
-                </Text>
-                <Text style={[styles.battleDateText, { color: mutedText }]}>
-                  {t('battleHub.finished') || 'Finished'}: {formatBattleDate(item.finishedAt) || (t('battleHub.inProgress') || 'In progress')}
-                </Text>
+                <View style={styles.battleDateColumn}>
+                  <Text style={[styles.battleDateLabel]}>
+                    {t('battleHub.started') || 'Started'}:
+                  </Text>
+                  <Text style={[styles.battleDateText]}>
+                    {formatBattleDate(item.startedAt) || '—'}
+                  </Text>
+                </View>
+                <View style={styles.battleDateColumn}>
+                  <Text style={[styles.battleDateLabel]}>
+                    {t('battleHub.finished') || 'Finished'}:
+                  </Text>
+                  <Text style={[styles.battleDateText]}>
+                    {formatBattleDate(item.finishedAt) || (t('battleHub.inProgress') || 'In progress')}
+                  </Text>
+                </View>
               </View>
             </View>
           )}
@@ -5093,12 +5103,25 @@ const styles = StyleSheet.create({
   },
   battleDatesRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     marginTop: 6,
     paddingHorizontal: 4,
+    gap: 12,
+  },
+  battleDateColumn: {
+    flex: 1,
+    minWidth: 0,
+  },
+  battleDateLabel: {
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '700',
+    color: '#000000',
   },
   battleDateText: {
     fontSize: 12,
+    lineHeight: 18,
+    flexShrink: 1,
+        color: '#000000',
   },
 
   // detail
