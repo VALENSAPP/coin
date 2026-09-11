@@ -729,7 +729,7 @@ const styles = StyleSheet.create({
     },
     infoCardHeader: {
         flexDirection: 'row',
-        alignItems: 'center',
+        alignItems: 'flex-start',
         marginBottom: 4,
         gap: 12,
     },
@@ -742,12 +742,17 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     infoCardTitle: {
+        flex: 1,
+        flexShrink: 1,
+        minWidth: 0,
         fontSize: 18,
         fontWeight: '700',
     },
     infoCardText: {
+        flexShrink: 1,
+        width: '100%',
         fontSize: 14,
-        lineHeight: 15,
+        lineHeight: 20,
         fontWeight: '300',
     },
     missionRulesList: {
@@ -764,6 +769,8 @@ const styles = StyleSheet.create({
     },
     missionRuleContent: {
         flex: 1,
+        flexShrink: 1,
+        minWidth: 0,
     },
     missionRuleIcon: {
         width: 40,
@@ -774,11 +781,13 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     missionRuleTitle: {
+        flexShrink: 1,
         fontSize: 18,
         fontWeight: '700',
         marginBottom: 6,
     },
     missionRuleText: {
+        flexShrink: 1,
         fontSize: 15,
         lineHeight: 22,
         fontWeight: '300',

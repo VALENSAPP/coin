@@ -364,6 +364,7 @@ const MyClosetItemsManagementScreen = ({ navigation, route }) => {
   const toast = useToast();
   const dispatch = useDispatch();
   const [items, setItems] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const section = route?.params?.section || 'items';
   const returnTo = route?.params?.returnTo;
@@ -467,6 +468,24 @@ const MyClosetItemsManagementScreen = ({ navigation, route }) => {
       ? t('myClosetItems.subtitleOrders')
       : t('myClosetItems.subtitleItems');
 
+  const filteredItems = useMemo(() => {
+    const query = searchQuery.trim().toLocaleLowerCase();
+    if (!query) return items;
+
+    return items.filter(item => {
+      const normalized = toEditableItem(item);
+      return [
+        normalized.name,
+        normalized.brand,
+        normalized.category,
+        normalized.condition,
+        normalized.description,
+      ]
+        .filter(Boolean)
+        .some(value => String(value).toLocaleLowerCase().includes(query));
+    });
+  }, [items, searchQuery]);
+
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
       <ScrollView contentContainerStyle={styles.screenContent} showsVerticalScrollIndicator={false}>
@@ -483,7 +502,32 @@ const MyClosetItemsManagementScreen = ({ navigation, route }) => {
           <>
           </>
         ) : items.length ? (
-          items.map(item => {
+          <>
+            <View style={[styles.searchBar, { backgroundColor: card, borderColor: withAlpha(accent, isDarkMode ? 0.4 : 0.2) }]}>
+              <Ionicons name="search-outline" size={20} color={accent} />
+              <TextInput
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder={t('myClosetItems.searchPlaceholder') || 'Search your items'}
+                placeholderTextColor={isDarkMode ? '#9ca3af' : '#6b7280'}
+                style={[styles.searchInput, textStyle]}
+                autoCorrect={false}
+                autoCapitalize="none"
+                returnKeyType="search"
+                accessibilityLabel={t('myClosetItems.searchPlaceholder') || 'Search your items'}
+              />
+              {searchQuery ? (
+                <TouchableOpacity
+                  onPress={() => setSearchQuery('')}
+                  accessibilityLabel="Clear search"
+                  hitSlop={8}
+                >
+                  <Ionicons name="close-circle" size={20} color={isDarkMode ? '#9ca3af' : '#6b7280'} />
+                </TouchableOpacity>
+              ) : null}
+            </View>
+
+            {filteredItems.length ? filteredItems.map(item => {
             const normalized = toEditableItem(item);
             return (
               <View key={normalized.id} style={[styles.itemCard, cardStyle, { borderColor: withAlpha(accent, 0.16) }]}>
@@ -526,7 +570,14 @@ const MyClosetItemsManagementScreen = ({ navigation, route }) => {
                 </View>
               </View>
             );
-          })
+            }) : (
+              <View style={[styles.emptyCard, cardStyle, { borderColor: withAlpha(accent, 0.2) }]}>
+                <Ionicons name="search-outline" size={28} color={accent} />
+                <Text style={[styles.emptyTitle, textStyle]}>{t('myClosetItems.noSearchResults') || 'No matching items'}</Text>
+                <Text style={[styles.emptyText, mutedTextStyle]}>{t('myClosetItems.noSearchResultsText') || 'Try a different search term.'}</Text>
+              </View>
+            )}
+          </>
         ) : (
           <View style={[styles.emptyCard, cardStyle, { borderColor: withAlpha(accent, 0.2) }]}>
             <Ionicons name="shirt-outline" size={28} color={accent} />
@@ -1217,6 +1268,21 @@ const styles = StyleSheet.create({
     minHeight: 180,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  searchBar: {
+    minHeight: 48,
+    marginBottom: 14,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderRadius: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    paddingVertical: Platform.OS === 'ios' ? 12 : 8,
+    marginLeft: 10,
   },
   itemCard: {
     borderRadius: 20,

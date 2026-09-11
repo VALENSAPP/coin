@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator, 
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useThemeContext } from '../../theme/ThemeContext';
+import { useLanguage } from '../../i18n';
 import { formSurfaces, selectedSurface, themedCard } from '../../utils/closetTheme';
 import { useIsFocused, useNavigation, useRoute } from '@react-navigation/native';
 import { getMarketPlaceEbook, getMarketplaceEbooksByClosetId } from '../../services/post';
@@ -27,8 +28,8 @@ const getCoverImage = (item) => {
   return null;
 };
 
-const getDescription = (item) => {
-  if (!item) return 'No description available';
+const getDescription = (item, fallback) => {
+  if (!item) return fallback;
   if (typeof item.text === 'string') {
     try {
       const parsed = JSON.parse(item.text);
@@ -36,18 +37,19 @@ const getDescription = (item) => {
         return parsed[0];
       }
     } catch (e) {
-      return item.text || 'No description available';
+      return item.text || fallback;
     }
   }
   if (Array.isArray(item.text) && item.text.length > 0) {
     return item.text[0];
   }
-  return item.description || 'No description available';
+  return item.description || fallback;
 };
 
 const SUCCESS_ACCENT = '#22c55e';
 
 export const EbookCard = memo(({ item, isPurchased, isOwnProfile, onPress }) => {
+  const { t } = useLanguage();
   const { text, card, border, mutedText, icon, accent } = useAppTheme();
   const { isDarkMode } = useThemeContext();
   const surfaces = formSurfaces(isDarkMode);
@@ -57,11 +59,11 @@ export const EbookCard = memo(({ item, isPurchased, isOwnProfile, onPress }) => 
   const surface = card || surfaces.listSurface;
   const surfaceBorder = border || surfaces.listBorder;
   const coverImage = getCoverImage(item);
-  const title = item.caption || item.title || 'E-book';
-  const description = getDescription(item);
+  const title = item.caption || item.title || t('myClosetDashboard.ebookUntitled');
+  const description = getDescription(item, t('myClosetDashboard.ebookNoDescription'));
   const palette = themeStyles[item.theme] || themeStyles.purple;
 
-  const priceLabel = item.amount != null ? `$${parseFloat(item.amount).toFixed(2)}` : 'Free';
+  const priceLabel = item.amount != null ? `$${parseFloat(item.amount).toFixed(2)}` : t('myClosetDashboard.ebookFree');
   const showPurchasedBadge = isOwnProfile || isPurchased;
 
   return (
@@ -84,14 +86,16 @@ export const EbookCard = memo(({ item, isPurchased, isOwnProfile, onPress }) => 
         <Text style={[styles.desc, { color: muted }]} numberOfLines={2}>{description}</Text>
         <View style={styles.metaRow}>
           <View>
-            <Text style={[styles.meta, { color: brandAccent }]}>📚 {item?.tableContent?.length || 0} Chapters</Text>
+            <Text style={[styles.meta, { color: brandAccent }]}>
+              📚 {t('myClosetDashboard.ebookChapters', { count: item?.tableContent?.length || 0 })}
+            </Text>
             <Text style={[styles.priceTag, { color: brandAccent }]}>{priceLabel}</Text>
           </View>
           <View style={styles.priceStatus}>
             {showPurchasedBadge ? (
               <View style={[styles.ownedBadge, { backgroundColor: selectedSurface(SUCCESS_ACCENT, isDarkMode) }]}>
                 <Text style={[styles.ownedBadgeText, { color: isDarkMode ? '#86efac' : '#03543F' }]}>
-                  {isOwnProfile ? 'Owned' : 'Purchased'}
+                  {isOwnProfile ? t('myClosetDashboard.ebookOwned') : t('myClosetDashboard.ebookPurchased')}
                 </Text>
               </View>
             ) : null}
@@ -114,6 +118,7 @@ const AllEbooksScreen = () => {
   const fromScreen = route?.params?.from;
 
   const { bgStyle, text, card, border, mutedText, icon, accent } = useAppTheme();
+  const { t } = useLanguage();
   const { isDarkMode } = useThemeContext();
   const surfaces = formSurfaces(isDarkMode);
   const brandAccent = accent || '#5A2D82';
@@ -216,10 +221,10 @@ const AllEbooksScreen = () => {
     const query = searchQuery.toLowerCase();
     return ebooks.filter(item => {
       const title = (item.caption || item.title || '').toLowerCase();
-      const description = getDescription(item).toLowerCase();
+      const description = getDescription(item, t('myClosetDashboard.ebookNoDescription')).toLowerCase();
       return title.includes(query) || description.includes(query);
     });
-  }, [ebooks, searchQuery]);
+  }, [ebooks, searchQuery, t]);
 
   const handleEbookPress = useCallback(async (item) => {
     const itemId = item.id || item._id;
@@ -278,7 +283,7 @@ const AllEbooksScreen = () => {
         <TouchableOpacity onPress={handleBackPress} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={22} color={icon || primaryText} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: primaryText }]}>E-books</Text>
+        <Text style={[styles.headerTitle, { color: primaryText }]}>{t('myClosetDashboard.ebooksTitle')}</Text>
         <Text style={styles.cartBadgeText}></Text>
       </View>
 
@@ -294,7 +299,7 @@ const AllEbooksScreen = () => {
           <Ionicons name="search" size={18} color={muted} style={styles.searchIcon} />
           <TextInput
             style={[styles.searchInput, { color: primaryText }]}
-            placeholder="Search e-books"
+            placeholder={t('myClosetDashboard.ebookSearchPlaceholder')}
             placeholderTextColor={surfaces.placeholderColor}
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -308,16 +313,16 @@ const AllEbooksScreen = () => {
       </View>
 
       <View style={[styles.sectionHeaderRow, { borderBottomColor: surfaceBorder }]}>
-        <Text style={[styles.sectionTitle, { color: primaryText }]}>All E-books</Text>
-        <Text style={[styles.sectionCount, { color: muted }]}>{filteredEbooks.length} items</Text>
+        <Text style={[styles.sectionTitle, { color: primaryText }]}>{t('myClosetDashboard.allEbooksTitle')}</Text>
+        <Text style={[styles.sectionCount, { color: muted }]}>{t('myClosetDashboard.ebookItemCount', { count: filteredEbooks.length })}</Text>
       </View>
 
       {filteredEbooks.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyEmoji}>📚</Text>
-          <Text style={[styles.emptyTitle, { color: primaryText }]}>No E-books Found</Text>
+          <Text style={[styles.emptyTitle, { color: primaryText }]}>{t('myClosetDashboard.noEbooksFound')}</Text>
           <Text style={[styles.emptySubtitle, { color: muted }]}>
-            We couldn't find any e-books matching your search.
+            {t('myClosetDashboard.noEbooksFoundText')}
           </Text>
         </View>
       ) : (

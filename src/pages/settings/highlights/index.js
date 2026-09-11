@@ -14,16 +14,16 @@ import {
   TextInput,
   TouchableOpacity,
   Pressable,
-  KeyboardAvoidingView,
   Platform,
   Dimensions,
+  KeyboardAvoidingView,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Video from 'react-native-video';
 import { useToast } from 'react-native-toast-notifications';
-import { sendMessage as sendChatMessage } from '../../../services/chatMessage';
+import { reactToStory } from '../../../services/stories';
 import ShareModal from '../../../components/modals/ShareModal';
 
 import { showToastMessage } from '../../../components/displaytoastmessage';
@@ -50,6 +50,10 @@ const withAlpha = (hex, alpha = 0.12) => {
 };
 
 const HIGHLIGHT_QUICK_REACTIONS = ['\u{1F602}', '\u{1F60D}', '\u{1F525}', '\u{1F44F}', '\u{1F44D}', '\u{1F64C}'];
+
+// The viewer may suffix a story ID with a media-frame index (for example,
+// `<story-id>_0`). The API requires the original story ID.
+const toApiStoryId = value => String(value || '').replace(/_\d+$/, '').trim();
 
 const isVideoMedia = value => {
   if (!value || typeof value !== 'string') {
@@ -101,6 +105,7 @@ const normalizeHighlightMedia = media => {
             type: isVideoMedia(uri) ? 'video' : 'image',
             storyId:
               item?.storyId ||
+              item?.story?.storyId ||
               item?.story?.id ||
               item?.story?._id ||
               item?.story_id ||
@@ -130,6 +135,7 @@ const normalizeHighlightMedia = media => {
         type: item?.type || (isVideoMedia(uri) ? 'video' : 'image'),
         storyId:
           item?.storyId ||
+          item?.story?.storyId ||
           item?.story?.id ||
           item?.story?._id ||
           item?.story_id ||
@@ -226,7 +232,7 @@ const HighlightsScreen = ({ navigation, route }) => {
   const [viewerIndex, setViewerIndex] = useState(0);
   const [currentUserId, setCurrentUserId] = useState(null);
   const [likes, setLikes] = useState({});
-  const [comments, setComments] = useState({});
+  const [reactionSending, setReactionSending] = useState(false);
   const [replyText, setReplyText] = useState('');
   const [replySending, setReplySending] = useState(false);
   const [selectedShareStory, setSelectedShareStory] = useState(null);
@@ -356,8 +362,9 @@ const HighlightsScreen = ({ navigation, route }) => {
     setViewerVisible(false);
     setViewerStories([]);
     setViewerIndex(0);
-    setReplyText('');
+    setReactionSending(false);
     setReplySending(false);
+    setReplyText('');
     setActiveHighlight(null);
     setLoadingDetail(false);
   }, []);
@@ -416,6 +423,7 @@ const HighlightsScreen = ({ navigation, route }) => {
   }, []);
 
   const nextStory = useCallback(() => {
+    setReplyText('');
     setViewerIndex(current => {
       if (current < viewerStories.length - 1) {
         return current + 1;
@@ -426,6 +434,7 @@ const HighlightsScreen = ({ navigation, route }) => {
   }, [closeViewer, viewerStories.length]);
 
   const prevStory = useCallback(() => {
+    setReplyText('');
     setViewerIndex(current => {
       if (current > 0) return current - 1;
       closeViewer();
@@ -596,48 +605,82 @@ const HighlightsScreen = ({ navigation, route }) => {
     ]);
   }, [activeHighlight, closeViewer, currentStory, t, toast, viewerIndex, viewerStories]);
 
-  const onToggleLike = useCallback((ownerId, storyId, nextLiked) => {
-    // Highlights use archived Drops. The live-story endpoint rejects them with
-    // "Story not found", so this is intentionally a local viewer reaction.
-    const key = `${ownerId}:${storyId}`;
-    setLikes(prev => {
-      const curr = prev[key] || { liked: false, count: 0 };
-      let count = curr.count || 0;
-      if (nextLiked && !curr.liked) count += 1;
-      if (!nextLiked && curr.liked && count > 0) count -= 1;
-      return { ...prev, [key]: { liked: nextLiked, count } };
-    });
-  }, []);
+  const sendHighlightReaction = useCallback(async (reaction, { toggleLike = false } = {}) => {
+    const storyId = toApiStoryId(currentStory?.storyId || currentStory?.id);
+    const highlightId = activeHighlight?.id;
+    if (!storyId || !highlightId || reactionSending) return;
 
-  const onAddComment = useCallback(async (ownerId, storyId, text) => {
-    const cleanText = String(text || '').trim();
-    if (!cleanText) return false;
+    setReactionSending(true);
     try {
-      if (!ownerId || !currentUserId || String(ownerId) === String(currentUserId)) return false;
-      await sendChatMessage({ senderId: currentUserId, receiverId: ownerId, message: cleanText, type: 'CHAT' });
-      const key = `${ownerId}:${storyId}`;
-      setComments(prev => ({ ...prev, [key]: [...(prev[key] || []), { user: 'you', text: cleanText, ts: Date.now() }] }));
-      return true;
-    } catch (_e) {
-      showToastMessage(toast, 'danger', 'Could not send your reply.');
-    }
-    return false;
-  }, [currentUserId, toast]);
+      const reactionPayload = { storyId, reaction, highlightId }; 
+      console.log('[Highlight reaction] request:', reactionPayload, {
+        viewerStoryId: currentStory?.id,
+        normalizedStoryId: currentStory?.storyId,
+      });
+      const response = await reactToStory(reactionPayload);
+      console.log('[Highlight reaction] response:', response?.data ?? response);
 
-  const sendHighlightReply = useCallback(async (message) => {
-    const cleanMessage = String(message || '').trim();
-    if (!cleanMessage || !currentStory?.storyId || !highlightOwnerId || replySending) return;
-
-    setReplySending(true);
-    try {
-      const sent = await onAddComment(highlightOwnerId, currentStory.storyId, cleanMessage);
-                  console.log(sent,'sentsentsentsentsenth')
-
-      if (sent) setReplyText('');
+      if (toggleLike) {
+        const key = `${highlightId}:${storyId}`;
+        setLikes(prev => {
+          const current = prev[key] || { liked: false };
+          return { ...prev, [key]: { ...current, liked: !current.liked } };
+        });
+      }
+    } catch (error) {
+      console.log(
+        '[Highlight reaction] error:',
+        error?.response?.data ?? error?.message ?? error,
+      );
+      showToastMessage(
+        toast,
+        'danger',
+        error?.response?.data?.message || t('highlights.reactionFailed'),
+      );
     } finally {
-      setReplySending(false);
+      setReactionSending(false);
     }
-  }, [currentStory?.storyId, highlightOwnerId, onAddComment, replySending]);
+  }, [activeHighlight?.id, currentStory?.id, currentStory?.storyId, reactionSending, t, toast]);
+
+  const sendHighlightReply = useCallback(
+    async messageText => {
+      const cleanText = String(messageText || '').trim();
+      const storyId = toApiStoryId(currentStory?.storyId || currentStory?.id);
+      const highlightId = activeHighlight?.id;
+      if (!cleanText || !storyId || !highlightId || replySending) return;
+
+      setReplySending(true);
+      try {
+        const reactionPayload = { storyId, reaction: cleanText, highlightId };
+        console.log('[Highlight reply] request:', reactionPayload, {
+          viewerStoryId: currentStory?.id,
+          normalizedStoryId: currentStory?.storyId,
+        });
+        const response = await reactToStory(reactionPayload);
+        console.log('[Highlight reply] response:', response?.data ?? response);
+
+        setReplyText('');
+        showToastMessage(
+          toast,
+          'success',
+          response?.data?.message || t('highlights.replySent'),
+        );
+      } catch (error) {
+        console.log(
+          '[Highlight reply] error:',
+          error?.response?.data ?? error?.message ?? error,
+        );
+        showToastMessage(
+          toast,
+          'danger',
+          error?.response?.data?.message || t('highlights.replyFailed'),
+        );
+      } finally {
+        setReplySending(false);
+      }
+    },
+    [activeHighlight?.id, currentStory?.id, currentStory?.storyId, replySending, t, toast],
+  );
 
   const renderBubble = item => (
     <TouchableOpacity
@@ -931,12 +974,12 @@ const HighlightsScreen = ({ navigation, route }) => {
               {currentStory ? (
                 <TouchableOpacity
                   onPress={() => {
-                    const ownerId = activeHighlight?.id || 'highlight';
                     const sid = currentStory?.storyId || currentStory?.id;
-                    const key = `${ownerId}:${sid}`;
+                    const key = `${activeHighlight?.id || 'highlight'}:${sid}`;
                     const nextLiked = !(likes[key]?.liked === true);
-                    onToggleLike(ownerId, sid, nextLiked);
+                    sendHighlightReaction(nextLiked ? '❤️' : 'NONE', { toggleLike: true });
                   }}
+                  disabled={reactionSending}
                   style={[styles.viewerAddButton, { marginRight: 8 }]}
                 >
                   <Icon name={likes[`${activeHighlight?.id || 'highlight'}:${currentStory?.storyId || currentStory?.id}`]?.liked ? 'heart' : 'heart-outline'} size={18} color="#fff" />
@@ -1009,8 +1052,8 @@ const HighlightsScreen = ({ navigation, route }) => {
                     key={emoji}
                     style={styles.storyReactionButton}
                     activeOpacity={0.75}
-                    disabled={replySending}
-                    onPress={() => sendHighlightReply(emoji)}
+                    disabled={reactionSending}
+                    onPress={() => sendHighlightReaction(emoji)}
                     accessibilityRole="button"
                     accessibilityLabel={`React ${emoji}`}
                   >

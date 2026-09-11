@@ -12,6 +12,7 @@ import {
   KeyboardAvoidingView,
   Platform
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import FastImage from 'react-native-fast-image';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
@@ -60,6 +61,15 @@ const CancellationRequestScreen = ({ navigation, route }) => {
   const [fullOrder, setFullOrder] = useState(orderPreview || {});
   
   const scrollViewRef = React.useRef(null);
+
+  // This screen can remain mounted in the navigation stack. Reset the decline
+  // draft whenever it becomes visible again so a previous form is not shown.
+  useFocusEffect(
+    React.useCallback(() => {
+      setShowDeclineInput(false);
+      setDeclineReason('');
+    }, []),
+  );
 
   const targetOrderId = orderId || orderPreview?.id || orderPreview?._id || fullOrder?.id || fullOrder?._id;
 
@@ -157,6 +167,17 @@ const CancellationRequestScreen = ({ navigation, route }) => {
   const requestDate = fullOrder?.cancellationRequestedAt || fullOrder?.createdAt || fullOrder?.data?.createdAt;
   const requestedDateString = requestDate ? new Date(requestDate).toLocaleDateString() : 'N/A';
   const cancelReason = fullOrder?.cancellationReason || fullOrder?.data?.reason || fullOrder?.reason || 'N/A';
+  // The cancellation API explicitly controls whether the seller can still act.
+  // Do not infer this from the legacy iscancel fields, which may remain false
+  // after a request has already been approved or declined.
+  const cancellationStatus = String(
+    fullOrder?.cancellationStatus ??
+    fullOrder?.data?.cancellationStatus ??
+    fullOrder?.data?.data?.cancellationStatus ??
+    orderPreview?.cancellationStatus ??
+    '',
+  ).trim().toUpperCase();
+  const canRespondToCancellation = viewType === 'seller' && cancellationStatus === 'REQUESTED';
 
   const cardBg = isDarkMode ? '#1e1e1e' : '#fff';
   const infoBg = isDarkMode ? '#2c2c2c' : '#f9f5ff';
@@ -264,16 +285,9 @@ const CancellationRequestScreen = ({ navigation, route }) => {
             </View>
           </View>
 
-          {viewType === 'seller' && (
+          {canRespondToCancellation && (
             <>
-              {(() => {
-                const hideActionButtons = fullOrder?.iscancel === true || fullOrder?.isCancel === true || fullOrder?.isCancelled === true ||
-                                          fullOrder?.data?.iscancel === true || fullOrder?.data?.isCancel === true || fullOrder?.data?.isCancelled === true;
-                if (hideActionButtons) return null;
-                
-                return (
-                  <>
-                    <Text style={[styles.sectionTitle, textStyle]}>What you need to do</Text>
+              <Text style={[styles.sectionTitle, textStyle]}>What you need to do</Text>
                     <View style={[styles.actionCard, { backgroundColor: infoBg }]}>
                       <Ionicons name="shield-checkmark-outline" size={24} color="#7c3aed" style={{ marginRight: 12 }} />
                       <View style={{ flex: 1 }}>
@@ -317,9 +331,6 @@ const CancellationRequestScreen = ({ navigation, route }) => {
                         <Ionicons name="lock-closed-outline" size={12} /> Orders can only be canceled when both buyer and seller agree.
                       </Text>
                     )}
-                  </>
-                );
-              })()}
             </>
           )}
 

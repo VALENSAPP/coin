@@ -378,7 +378,7 @@ const SubventionSetupScreen = () => {
         try {
             const resp = await getMyMessagesPrivate();
             const data = getPrivateMessagesPayload(resp);
-            console.log(resp,'message rrpoenssneenenen')
+            console.log(resp, 'message rrpoenssneenenen')
             if (data) {
                 setPhotoMessage(data.messageForPhotos || '');
                 setVideoMessage(data.messageForVideos || '');
@@ -417,14 +417,14 @@ const SubventionSetupScreen = () => {
                         messageForVideos: nextVideo,
                         messageForEbooks: nextEbook,
                     });
-                    showToastMessage(toast, 'success', 'Message updated successfully');
+                    showToastMessage(toast, 'success', t('subventionSetup.messageUpdateSuccess'));
                 } else {
                     await postMessagePrivate({
                         messageForPhotos: nextPhoto,
                         messageForVideos: nextVideo,
                         messageForEbooks: nextEbook,
                     });
-                    showToastMessage(toast, 'success', 'Message added successfully');
+                    showToastMessage(toast, 'success', t('subventionSetup.messageAddSuccess'));
                 }
 
                 // update local UI state
@@ -434,7 +434,7 @@ const SubventionSetupScreen = () => {
                 return true;
             } catch (err) {
                 console.log('saveCustomMessage server error', err?.response || err?.message || err);
-                showToastMessage(toast, 'danger', 'Failed to save message to server');
+                showToastMessage(toast, 'danger', t('subventionSetup.messageSaveFail'));
                 return false;
             }
         } catch (error) {
@@ -625,7 +625,7 @@ const SubventionSetupScreen = () => {
 
     const handleMediaSelected = response => {
         const asset = response?.assets?.[0];
-        if (!asset || !asset.uri) { Alert.alert('Oops', t('subventionSetup.mediaReadError')); return; }
+        if (!asset || !asset.uri) { Alert.alert(t('subventionSetup.errorTitle'), t('subventionSetup.mediaReadError')); return; }
         const type = asset.type?.startsWith('video') ? 'video' : 'image';
         const list = [{ uri: asset.uri, type, duration: type === 'video' ? (asset.duration ? asset.duration * 1000 : 15000) : 5000 }];
         setComposerList(list);
@@ -820,6 +820,55 @@ const SubventionSetupScreen = () => {
                         </View>
                     </View>
 
+                    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+                        <TouchableOpacity
+                            onPress={openPrivacyPolicy}
+                            accessibilityRole="link"
+                            accessibilityLabel={t('subventionSetup.policyHeading')}
+                        >
+                            <Text style={[styles.termsHeading, textStyle]}>{t('subventionSetup.policyHeading')}</Text>
+                        </TouchableOpacity>
+
+                        <View style={{ marginTop: 15 }} />
+
+                        {shouldShowAgreedButton ? (
+                            <TouchableOpacity style={[styles.agreedBtn, styles.agreedButton, { backgroundColor: card, borderColor: border, borderWidth: StyleSheet.hairlineWidth }]} activeOpacity={1} disabled>
+                                <Ionicons name="checkmark-circle" size={20} color="#16A34A" style={{ marginRight: 8 }} />
+                                <Text style={[styles.saveButtonText, textStyle]}>{t('subventionSetup.agreedButton')}</Text>
+                            </TouchableOpacity>
+                        ) : (
+                            <TouchableOpacity
+                                style={[styles.termsCheckboxRow, cardStyle, { borderColor: border, borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, padding: 12 }]}
+                                activeOpacity={0.8}
+                                onPress={() => setIsChecked(!isChecked)}
+                            >
+                                <Ionicons
+                                    name={isChecked ? 'checkbox-outline' : 'square-outline'}
+                                    size={24}
+                                    color={icon}
+                                    style={styles.checkboxIcon}
+                                />
+                                <Text style={[styles.checkboxText, textStyle]}>
+                                    {t('subventionSetup.agreePrefix')}{' '}
+                                    <Text style={[styles.linkText, { color: accent }]} onPress={openTerms}>
+                                        {t('subventionSetup.creatorTermsLink')}
+                                    </Text>
+                                    {t('subventionSetup.agreeSuffix')}
+                                </Text>
+                            </TouchableOpacity>
+                        )}
+                    </ScrollView>
+
+                    <TouchableOpacity
+                        style={[styles.saveButton, { opacity: !canSaveSubscription && 0.5, backgroundColor: accent }]}
+                        onPress={hasExistingSubscription ? () => navigation.navigate('UpdateSubscriptionPrice', { currentPrice: parseFloat(rawAmount) || 0 }) : handleSaveSubscription}
+                        disabled={!canSaveSubscription}
+                    >
+                        <Text style={styles.saveButtonText}>
+                            {hasExistingSubscription ? t('subventionSetup.updateButton') : t('subventionSetup.saveButton')}
+                        </Text>
+                    </TouchableOpacity>
+
                     {/* Content Creation Section — 3-col grid cards */}
                     <View style={[styles.section, cardStyle, { shadowColor: text, borderColor: border, borderWidth: StyleSheet.hairlineWidth }]}>
                         <View style={styles.contentHeaderRow}>
@@ -923,38 +972,40 @@ const SubventionSetupScreen = () => {
                                 <Ionicons name="chatbox-ellipses" size={14} color="#FFFFFF" />
                             </View>
                             <View style={styles.contentHeaderText}>
-                                <Text style={[styles.sectionTitle, textStyle, { marginBottom: 2 }]}>Custom Messages</Text>
-                                <Text style={[styles.sectionSubtitle, { color: mutedText, marginBottom: 0 }]}>Personalize messages for your content</Text>
+                                <Text style={[styles.sectionTitle, textStyle, { marginBottom: 2 }]}>{t('subventionSetup.customMessagesTitle')}</Text>
+                                <Text style={[styles.sectionSubtitle, { color: mutedText, marginBottom: 0 }]}>{t('subventionSetup.customMessagesSubtitle')}</Text>
                             </View>
                         </View>
 
                         <TouchableOpacity style={[styles.messageRow, cardStyle]} activeOpacity={0.85} onPress={() => openEditModal('photos')}>
                             <View style={styles.messageIcon}><Ionicons name="image-outline" size={20} color={accent} /></View>
-                            <Text style={[styles.messageLabel, textStyle]}>Message for photos</Text>
+                            <Text style={[styles.messageLabel, textStyle]}>{t('subventionSetup.messageForPhotos')}</Text>
                             <Ionicons name="chevron-forward" size={20} color={mutedText} style={styles.messageChevron} />
                         </TouchableOpacity>
 
                         <TouchableOpacity style={[styles.messageRow, cardStyle]} activeOpacity={0.85} onPress={() => openEditModal('videos')}>
                             <View style={styles.messageIcon}><Ionicons name="videocam-outline" size={20} color={accent} /></View>
-                            <Text style={[styles.messageLabel, textStyle]}>Message for videos</Text>
+                            <Text style={[styles.messageLabel, textStyle]}>{t('subventionSetup.messageForVideos')}</Text>
                             <Ionicons name="chevron-forward" size={20} color={mutedText} style={styles.messageChevron} />
                         </TouchableOpacity>
 
                         <TouchableOpacity style={[styles.messageRow, cardStyle]} activeOpacity={0.85} onPress={() => openEditModal('ebooks')}>
                             <View style={styles.messageIcon}><Ionicons name="book-outline" size={20} color={accent} /></View>
-                            <Text style={[styles.messageLabel, textStyle]}>Message for ebooks</Text>
+                            <Text style={[styles.messageLabel, textStyle]}>{t('subventionSetup.messageForEbooks')}</Text>
                             <Ionicons name="chevron-forward" size={20} color={mutedText} style={styles.messageChevron} />
                         </TouchableOpacity>
                     </View>
 
                     {/* Editing modal for custom messages */}
                     <Modal visible={editingModalVisible} transparent animationType="slide" onRequestClose={() => setEditingModalVisible(false)}>
-                        <View style={[styles.modalOverlay, { backgroundColor: isDarkMode ? 'rgba(0,0,0,0.85)' : 'rgba(0,0,0,0.4)' }]}> 
-                            <View style={[styles.modalCardNice, { maxWidth: 640, backgroundColor: card, borderColor: border }]}> 
+                        <View style={[styles.modalOverlay, { backgroundColor: isDarkMode ? 'rgba(0,0,0,0.85)' : 'rgba(0,0,0,0.4)' }]}>
+                            <View style={[styles.modalCardNice, { maxWidth: 640, backgroundColor: card, borderColor: border }]}>
                                 <View style={styles.modalHeaderRow}>
                                     <View>
-                                        <Text style={[styles.modalTitleBold, { color: text }]}>Edit message</Text>
-                                        <Text style={[styles.modalSubtitle, { color: mutedText }]}>For {editingMessageType}</Text>
+                                        <Text style={[styles.modalTitleBold, { color: text }]}>{t('subventionSetup.editMessageTitle')}</Text>
+                                        <Text style={[styles.modalSubtitle, { color: mutedText }]}>
+                                            {t('subventionSetup.messageForType', { type: t(`subventionSetup.messageType${editingMessageType === 'photos' ? 'Photos' : editingMessageType === 'videos' ? 'Videos' : 'Ebooks'}`) })}
+                                        </Text>
                                     </View>
                                     <TouchableOpacity onPress={() => setEditingModalVisible(false)} style={styles.modalCloseBtn}>
                                         <Ionicons name="close" size={20} color={mutedText} />
@@ -964,21 +1015,21 @@ const SubventionSetupScreen = () => {
                                 <TextInput
                                     value={editingMessageText}
                                     onChangeText={setEditingMessageText}
-                                    placeholder="Write a short message users will see when viewing this private content"
+                                    placeholder={t('subventionSetup.messagePlaceholder')}
                                     placeholderTextColor={mutedText}
                                     multiline
-                                    style={[styles.modalTextInput, { minHeight: 120, maxHeight: 320, backgroundColor: card, borderColor: border, color: text } ]}
+                                    style={[styles.modalTextInput, { minHeight: 120, maxHeight: 320, backgroundColor: card, borderColor: border, color: text }]}
                                 />
 
                                 <View style={styles.modalActionsRow}>
                                     <TouchableOpacity style={[styles.modalActionSecondary]} onPress={() => setEditingModalVisible(false)}>
-                                        <Text style={[styles.modalActionTextSecondary, { color: mutedText }]}>Cancel</Text>
+                                        <Text style={[styles.modalActionTextSecondary, { color: mutedText }]}>{t('subventionSetup.cancel')}</Text>
                                     </TouchableOpacity>
                                     <TouchableOpacity style={[styles.modalActionPrimary, { backgroundColor: accent }]} onPress={async () => {
                                         const ok = await saveCustomMessage(editingMessageType, editingMessageText || '');
                                         if (ok) setEditingModalVisible(false);
                                     }}>
-                                        <Text style={[styles.modalActionTextPrimary]}>Save</Text>
+                                        <Text style={[styles.modalActionTextPrimary]}>{t('subventionSetup.save')}</Text>
                                     </TouchableOpacity>
                                 </View>
                             </View>
@@ -1009,55 +1060,6 @@ const SubventionSetupScreen = () => {
                     {/* Demo Button */}
                     <TouchableOpacity style={[styles.demoButton, cardStyle, { borderColor: border, borderWidth: StyleSheet.hairlineWidth }]} onPress={handlePrintAttempt}>
                         <Text style={[styles.demoButtonText, textStyle]}>{t('subventionSetup.demoPrintWarning')}</Text>
-                    </TouchableOpacity>
-
-                    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-                        <TouchableOpacity
-                            onPress={openPrivacyPolicy}
-                            accessibilityRole="link"
-                            accessibilityLabel={t('subventionSetup.policyHeading')}
-                        >
-                            <Text style={[styles.termsHeading, textStyle]}>{t('subventionSetup.policyHeading')}</Text>
-                        </TouchableOpacity>
-
-                        <View style={{ marginTop: 15 }} />
-
-                        {shouldShowAgreedButton ? (
-                            <TouchableOpacity style={[styles.agreedBtn, styles.agreedButton, { backgroundColor: card, borderColor: border, borderWidth: StyleSheet.hairlineWidth }]} activeOpacity={1} disabled>
-                                <Ionicons name="checkmark-circle" size={20} color="#16A34A" style={{ marginRight: 8 }} />
-                                <Text style={[styles.saveButtonText, textStyle]}>{t('subventionSetup.agreedButton')}</Text>
-                            </TouchableOpacity>
-                        ) : (
-                            <TouchableOpacity
-                                style={[styles.termsCheckboxRow, cardStyle, { borderColor: border, borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, padding: 12 }]}
-                                activeOpacity={0.8}
-                                onPress={() => setIsChecked(!isChecked)}
-                            >
-                                <Ionicons
-                                    name={isChecked ? 'checkbox-outline' : 'square-outline'}
-                                    size={24}
-                                    color={icon}
-                                    style={styles.checkboxIcon}
-                                />
-                                <Text style={[styles.checkboxText, textStyle]}>
-                                    {t('subventionSetup.agreePrefix')}{' '}
-                                    <Text style={[styles.linkText, { color: accent }]} onPress={openTerms}>
-                                        {t('subventionSetup.creatorTermsLink')}
-                                    </Text>
-                                    {t('subventionSetup.agreeSuffix')}
-                                </Text>
-                            </TouchableOpacity>
-                        )}
-                    </ScrollView>
-
-                    <TouchableOpacity
-                        style={[styles.saveButton, { opacity: !canSaveSubscription && 0.5, backgroundColor: accent }]}
-                        onPress={hasExistingSubscription ? () => navigation.navigate('UpdateSubscriptionPrice', { currentPrice: parseFloat(rawAmount) || 0 }) : handleSaveSubscription}
-                        disabled={!canSaveSubscription}
-                    >
-                        <Text style={styles.saveButtonText}>
-                            {hasExistingSubscription ? t('subventionSetup.updateButton') : t('subventionSetup.saveButton')}
-                        </Text>
                     </TouchableOpacity>
 
                     <PrintWarningModal />
@@ -1282,6 +1284,7 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         borderWidth: 2,
         borderStyle: 'dashed',
+        marginBottom: 55,
     },
     demoButtonText: {
         textAlign: 'center',
@@ -1304,7 +1307,7 @@ const styles = StyleSheet.create({
         paddingVertical: 13,
         borderRadius: 12,
         alignItems: 'center',
-        marginBottom: 40,
+        marginBottom: 10,
     },
     saveButtonText: {
         color: '#fff',
@@ -1424,8 +1427,9 @@ const styles = StyleSheet.create({
     termsHeading: {
         fontSize: 16,
         fontWeight: '700',
-        marginBottom: 16,
+        marginVertical: 8,
         color: '#000',
+        textAlign: 'center',
     },
     termsCheckboxRow: {
         flexDirection: 'row',

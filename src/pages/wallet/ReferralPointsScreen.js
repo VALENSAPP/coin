@@ -306,14 +306,14 @@ const ReferralPointsScreen = () => {
             </View>
             <View style={styles.totalTextCol}>
               <Text style={[styles.totalTitle, textStyle]}>
-                {t('referralPointsScreen.totalPoints')}
+                {t('referralPointsScreen.availPoints')}
               </Text>
               <Text style={[styles.totalSubtitle, { color: muted }]}>
-                {t('referralPointsScreen.allTimePoints')}
+                {t('referralPointsScreen.readytouse')}
               </Text>
             </View>
             <Text style={[styles.totalValue, { color: text }]}>
-              {formatPts(lifetimePoints)}
+              {formatPts(availablePts)}
             </Text>
           </View>
 
