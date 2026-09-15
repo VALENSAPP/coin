@@ -1808,6 +1808,26 @@
     "readytouse": "Listos para usar ahora.",
     "useYourPoints": "Usar tus puntos"
   },
+  "subscriptionPriceChangedScreen": {
+    "title": "Precio de suscripción actualizado",
+    "creatorTitle": "Suscripción de creador",
+    "autoRenewalPaused": "Renovación automática pausada",
+    "previousPrice": "Precio anterior",
+    "newPrice": "Nuevo precio",
+    "perMonth": "/ mes",
+    "noticeTitle": "Detalles de actualización de precio",
+    "noticeBody": "El creador ha actualizado el precio mensual de su suscripción. Tu renovación automática está pausada. Elige si deseas aceptar el nuevo precio para renovar tu suscripción o rechazar para cancelar la renovación automática.",
+    "acceptButton": "Aceptar y renovar",
+    "declineButton": "Rechazar y cancelar suscripción",
+    "acceptSuccess": "¡Suscripción renovada con éxito!",
+    "declineSuccess": "Renovación automática de suscripción cancelada.",
+    "errorAccept": "No se pudo renovar la suscripción. Por favor intente de nuevo.",
+    "errorDecline": "No se pudo cancelar la suscripción. Por favor intente de nuevo.",
+    "confirmDeclineTitle": "¿Rechazar actualización de precio?",
+    "confirmDeclineBody": "¿Estás seguro de que deseas rechazar esta actualización de precio? Se cancelará la renovación automática de tu suscripción.",
+    "cancel": "Volver",
+    "confirm": "Sí, rechazar"
+  },
   "useYourPointsScreen": {
     "title": "Usar tus puntos",
     "availablePoints": "Tus puntos disponibles",

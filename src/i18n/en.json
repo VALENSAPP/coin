@@ -1808,6 +1808,26 @@
     "readytouse": "Ready to use now.",
     "useYourPoints": "Use Your Points"
   },
+  "subscriptionPriceChangedScreen": {
+    "title": "Subscription Price Updated",
+    "creatorTitle": "Creator Subscription",
+    "autoRenewalPaused": "Auto-Renewal Paused",
+    "previousPrice": "Previous Price",
+    "newPrice": "New Price",
+    "perMonth": "/ month",
+    "noticeTitle": "Price Update Details",
+    "noticeBody": "The creator has updated their monthly subscription price. Your auto-renewal is currently paused. Please choose whether to accept the new price to renew your subscription or decline to cancel auto-renewal.",
+    "acceptButton": "Accept & Renew",
+    "declineButton": "Decline & Cancel Subscription",
+    "acceptSuccess": "Subscription renewed successfully!",
+    "declineSuccess": "Subscription auto-renewal cancelled.",
+    "errorAccept": "Could not renew subscription. Please try again.",
+    "errorDecline": "Could not cancel subscription. Please try again.",
+    "confirmDeclineTitle": "Decline Price Update?",
+    "confirmDeclineBody": "Are you sure you want to decline this price update? Your subscription auto-renewal will be cancelled.",
+    "cancel": "Back",
+    "confirm": "Yes, Decline"
+  },
   "useYourPointsScreen": {
     "title": "Use Your Points",
     "availablePoints": "Your Available Points",

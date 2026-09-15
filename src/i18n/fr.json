@@ -1808,6 +1808,26 @@
     "readytouse": "Prêts à être utilisés maintenant.",
     "useYourPoints": "Utiliser vos points"
   },
+  "subscriptionPriceChangedScreen": {
+    "title": "Prix de l'abonnement mis à jour",
+    "creatorTitle": "Abonnement créateur",
+    "autoRenewalPaused": "Renouvellement automatique suspendu",
+    "previousPrice": "Ancien prix",
+    "newPrice": "Nouveau prix",
+    "perMonth": "/ mois",
+    "noticeTitle": "Détails de la mise à jour du prix",
+    "noticeBody": "Le créateur a mis à jour le prix de son abonnement mensuel. Votre renouvellement automatique est actuellement suspendu. Veuillez choisir d'accepter le nouveau prix pour renouveler votre abonnement ou de refuser pour annuler le renouvellement automatique.",
+    "acceptButton": "Accepter et renouveler",
+    "declineButton": "Refuser et annuler l'abonnement",
+    "acceptSuccess": "Abonnement renouvelé avec succès !",
+    "declineSuccess": "Renouvellement automatique de l'abonnement annulé.",
+    "errorAccept": "Impossible de renouveler l'abonnement. Veuillez réessayer.",
+    "errorDecline": "Impossible d'annuler l'abonnement. Veuillez réessayer.",
+    "confirmDeclineTitle": "Refuser la mise à jour du prix ?",
+    "confirmDeclineBody": "Êtes-vous sûr de vouloir refuser cette mise à jour de prix ? Le renouvellement automatique de votre abonnement sera annulé.",
+    "cancel": "Retour",
+    "confirm": "Oui, refuser"
+  },
   "useYourPointsScreen": {
     "title": "Utiliser vos points",
     "availablePoints": "Vos points disponibles",

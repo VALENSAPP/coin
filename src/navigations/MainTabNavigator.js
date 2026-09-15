@@ -150,6 +150,7 @@ import SendPointsScreen from '../pages/wallet/SendPointsScreen';
 import BuyMissionPostScreen from '../pages/wallet/BuyMissionPostScreen';
 import BuyMissionPackageScreen from '../pages/wallet/BuyMissionPackageScreen';
 import BuyMissionSuccessScreen from '../pages/wallet/BuyMissionSuccessScreen';
+import SubscriptionPriceChangedScreen from '../pages/wallet/SubscriptionPriceChangedScreen';
 import ProfileShop from '../components/profile/Shop';
 import MyClosetDashboard from '../components/profile/MyClosetDashboard';
 import {
@@ -435,6 +436,11 @@ export default function MainTabNavigator() {
         <Stack.Screen name="BattleCreatedSuccess" component={BattleCreatedSuccessScreen} />
         <Stack.Screen name="ChallengeReceived" component={ChallengeReceivedScreen} />
         <Stack.Screen name="ChallengeAccepted" component={ChallengeAcceptedScreen} />
+        <Stack.Screen
+          name="SubscriptionPriceChanged"
+          component={SubscriptionPriceChangedScreen}
+          options={{ headerShown: false }}
+        />
         <Stack.Screen
           name="ShareProfile"
           component={ShareProfile}
@@ -809,6 +815,11 @@ export default function MainTabNavigator() {
         <Stack.Screen
           name="ChallengeAccepted"
           component={ChallengeAcceptedScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="SubscriptionPriceChanged"
+          component={SubscriptionPriceChangedScreen}
           options={{ headerShown: false }}
         />
         <Stack.Screen
@@ -1451,6 +1462,7 @@ export default function MainTabNavigator() {
         'BattleCreatedSuccess',
         'ChallengeReceived',
         'ChallengeAccepted',
+        'SubscriptionPriceChanged',
         'ChallengeShopList',
         'ChallengeShopItems',
         'BattleLive',

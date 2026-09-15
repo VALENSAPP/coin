@@ -393,6 +393,8 @@ export default function Notifications() {
         return '🏷️';
       case 'token_purchase':
         return '💎';
+      case 'subscription_price_changed':
+        return '💳';
       default:
         return '🔔';
     }
@@ -1224,6 +1226,23 @@ export default function Notifications() {
             }
             return;
           }
+        }
+
+        if (normType === 'subscription_price_changed') {
+          const notifData = item?.raw?.data || item?.data || {};
+          const creatorId = notifData.creatorId || notifData.creator_id;
+          const newPrice = notifData.newPrice ?? notifData.new_price;
+          const oldPrice = notifData.oldPrice ?? notifData.old_price ?? notifData.previousPrice;
+          const subscriptionId = notifData.subscriptionId ?? notifData.subscription_id;
+
+          navigation.navigate('SubscriptionPriceChanged', {
+            creatorId,
+            newPrice,
+            oldPrice,
+            subscriptionId,
+            notification: item,
+          });
+          return;
         }
 
         if (normType === 'private_circle_growing') {
