@@ -11,6 +11,7 @@ import {
   ScrollView,
   useWindowDimensions,
   Platform,
+  BackHandler,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -80,12 +81,37 @@ const withAlpha = (hex, alpha = 0.12) => {
 
 const formatMoney = (value) => `$${Number(value).toFixed(2)}`;
 
-const SubscriptionDetails = () => {
+const SubscriptionDetails = ({ route }) => {
   const navigation = useNavigation();
   const { width } = useWindowDimensions();
   const { bgStyle, textStyle, bg, text, card, cardStyle, mutedText, border, accent, icon } = useAppTheme();
   const { isDarkMode } = useThemeContext();
   const { t } = useLanguage();
+
+  const handleBack = useCallback(() => {
+    if (route?.params?.returnToHome || route?.params?.fromModal) {
+      navigation.navigate('HomeMain', { screen: 'Home' });
+    } else if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      navigation.navigate('HomeMain', { screen: 'Home' });
+    }
+  }, [navigation, route?.params?.returnToHome, route?.params?.fromModal]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const onBackPress = () => {
+        if (route?.params?.returnToHome || route?.params?.fromModal) {
+          navigation.navigate('HomeMain', { screen: 'Home' });
+          return true;
+        }
+        return false;
+      };
+
+      const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      return () => subscription.remove();
+    }, [navigation, route?.params?.returnToHome, route?.params?.fromModal]),
+  );
 
   const [subscriptionData, setSubscriptionData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -326,7 +352,7 @@ const SubscriptionDetails = () => {
     <View style={[styles.headerWrap, cardStyle, { borderBottomColor: themeColors.border }]}>
       <TouchableOpacity
         style={[styles.backButton, { backgroundColor: bg, borderColor: themeColors.border }]}
-        onPress={() => navigation?.goBack()}
+        onPress={handleBack}
       >
         <Ionicons name="arrow-back" size={22} color={themeColors.icon} />
       </TouchableOpacity>

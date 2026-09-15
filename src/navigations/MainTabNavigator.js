@@ -146,6 +146,7 @@ import TransactionDetailsScreen from '../pages/wallet/TransactionDetailsScreen';
 import TotalEarningsScreen from '../pages/wallet/TotalEarningsScreen';
 import ReferralPointsScreen from '../pages/wallet/ReferralPointsScreen';
 import UseYourPointsScreen from '../pages/wallet/UseYourPointsScreen';
+import SendPointsScreen from '../pages/wallet/SendPointsScreen';
 import BuyMissionPostScreen from '../pages/wallet/BuyMissionPostScreen';
 import BuyMissionPackageScreen from '../pages/wallet/BuyMissionPackageScreen';
 import BuyMissionSuccessScreen from '../pages/wallet/BuyMissionSuccessScreen';
@@ -999,6 +1000,11 @@ export default function MainTabNavigator() {
             options={{ headerShown: false }}
           />
           <Stack.Screen
+            name="SendPoints"
+            component={SendPointsScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
             name="BuyMissionPost"
             component={BuyMissionPostScreen}
             options={{ headerShown: false }}
@@ -1096,6 +1102,11 @@ export default function MainTabNavigator() {
             component={SubventionSetupScreen}
             // ── TRANSLATION CHANGE ───────────────────────────────────────────
             options={{ headerTitle: t('walletStack.subscriptionSetup') }}
+          />
+          <Stack.Screen
+            name="subscription"
+            component={SubscriptionDetails}
+            options={{ headerShown: false }}
           />
           <Stack.Screen
             name="UpdateSubscriptionPrice"

@@ -1,9 +1,19 @@
-import React, { useMemo, useState } from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import {
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  ActivityIndicator,
+  RefreshControl,
+} from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { useLanguage } from '../../i18n';
 import { useBusinessProfileTheme } from '../../theme/useBusinessProfileTheme';
+import { getPriceUpdateSummary } from '../../services/wallet';
 
 const RESPONSE_CARDS = [
   { key: 'accepted', icon: 'checkmark-circle-outline', color: '#218A4D', background: '#F0FAF3', border: '#CBEAD5' },
@@ -19,62 +29,185 @@ const SubscriptionUpdateSummaryScreen = () => {
   const route = useRoute();
   const theme = useBusinessProfileTheme();
   const [activeTab, setActiveTab] = useState('overview');
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [apiData, setApiData] = useState(null);
 
-  const update = useMemo(() => ({
-    fromPrice: route.params?.currentPrice ?? 9.9,
-    toPrice: route.params?.newPrice ?? 14.9,
-    effective: route.params?.effective ?? t('manageSubscribers.updateSummary.nextRenewal'),
-    date: route.params?.date ?? 'May 28, 2026',
-    status: route.params?.status ?? 'completed',
-    responses: route.params?.responses ?? { accepted: 376, canceled: 32, pending: 20 },
-  }), [route.params, t]);
+  const fetchSummary = useCallback(async (isRefresh = false) => {
+    if (isRefresh) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
 
-  const statusColor = update.status === 'completed' ? '#218A4D' : '#B8771F';
+    try {
+      const res = await getPriceUpdateSummary();
+      console.log('getPriceUpdateSummary response:', res);
+      const data = res?.data?.data || res?.data || res;
+      if (data && typeof data === 'object') {
+        setApiData(data);
+      }
+    } catch (error) {
+      console.log('fetchSummary error:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchSummary();
+    }, [fetchSummary]),
+  );
+
+  const cardTitle =
+    apiData?.title ||
+    t('manageSubscribers.updateSummary.priceUpdate', 'Price update to all subscribers');
+
+  const rawStatus = apiData?.status || route.params?.status || 'Completed';
+  const isCompleted = String(rawStatus).toLowerCase() === 'completed';
+  const statusColor = isCompleted ? '#218A4D' : '#B8771F';
+
+  const fromValue =
+    apiData?.from ??
+    (apiData?.fromPrice != null ? formatPrice(apiData.fromPrice) : null) ??
+    (apiData?.oldPrice != null ? formatPrice(apiData.oldPrice) : null) ??
+    formatPrice(route.params?.currentPrice ?? 20);
+
+  const toValue =
+    apiData?.to ??
+    (apiData?.toPrice != null ? formatPrice(apiData.toPrice) : null) ??
+    (apiData?.newPrice != null ? formatPrice(apiData.newPrice) : null) ??
+    formatPrice(route.params?.newPrice ?? 20);
+
+  const effectiveValue =
+    apiData?.effective ??
+    apiData?.effectiveType ??
+    route.params?.effective ??
+    t('manageSubscribers.updateSummary.nextRenewal', 'On next renewal');
+
+  const dateValue =
+    apiData?.date ??
+    apiData?.effectiveDate ??
+    route.params?.date ??
+    'Sep 8, 2026';
+
+  const responses = {
+    accepted:
+      apiData?.responses?.accepted ??
+      apiData?.acceptedCount ??
+      route.params?.responses?.accepted ??
+      0,
+    canceled:
+      apiData?.responses?.canceled ??
+      apiData?.responses?.cancelled ??
+      apiData?.cancelledCount ??
+      route.params?.responses?.canceled ??
+      0,
+    pending:
+      apiData?.responses?.pending ??
+      apiData?.pendingCount ??
+      route.params?.responses?.pending ??
+      0,
+  };
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.bg }]}>
       <View style={styles.header}>
-        <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('manageSubscribers.updateSummary.back')} onPress={() => navigation.goBack()} style={styles.backButton}>
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel={t('manageSubscribers.updateSummary.back')}
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}
+        >
           <Ionicons name="chevron-back" size={26} color={theme.text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: theme.text }]}>{t('manageSubscribers.updateSummary.title')}</Text>
+        <Text style={[styles.headerTitle, { color: theme.text }]}>
+          {t('manageSubscribers.updateSummary.title', 'Creator – Update Summary')}
+        </Text>
         <View style={styles.headerSpacer} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={[styles.subtitle, { color: theme.mutedText }]}>{t('manageSubscribers.updateSummary.subtitle')}</Text>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => fetchSummary(true)}
+            tintColor={theme.accent}
+          />
+        }
+      >
+        <Text style={[styles.subtitle, { color: theme.mutedText }]}>
+          {t('manageSubscribers.updateSummary.subtitle', 'Track your price update.')}
+        </Text>
 
         <View style={[styles.tabs, { borderBottomColor: theme.border }]}>
           {['overview', 'responses'].map(tab => (
-            <TouchableOpacity key={tab} style={styles.tab} onPress={() => setActiveTab(tab)} accessibilityRole="tab" accessibilityState={{ selected: activeTab === tab }}>
-              <Text style={[styles.tabText, { color: activeTab === tab ? theme.accent : theme.mutedText }]}>{t(`manageSubscribers.updateSummary.${tab}`)}</Text>
-              {activeTab === tab && <View style={[styles.tabIndicator, { backgroundColor: theme.accent }]} />}
+            <TouchableOpacity
+              key={tab}
+              style={styles.tab}
+              onPress={() => setActiveTab(tab)}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: activeTab === tab }}
+            >
+              <Text
+                style={[
+                  styles.tabText,
+                  { color: activeTab === tab ? theme.accent : theme.mutedText },
+                ]}
+              >
+                {t(`manageSubscribers.updateSummary.${tab}`)}
+              </Text>
+              {activeTab === tab && (
+                <View style={[styles.tabIndicator, { backgroundColor: theme.accent }]} />
+              )}
             </TouchableOpacity>
           ))}
         </View>
 
-        {activeTab === 'overview' ? (
+        {loading && !refreshing ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={theme.accent} />
+          </View>
+        ) : activeTab === 'overview' ? (
           <>
             <View style={[styles.summaryCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
               <View style={styles.cardHeading}>
-                <Text style={[styles.cardTitle, { color: theme.text }]}>{t('manageSubscribers.updateSummary.priceUpdate')}</Text>
+                <Text style={[styles.cardTitle, { color: theme.text }]}>
+                  {cardTitle}
+                </Text>
                 <View style={[styles.statusBadge, { backgroundColor: `${statusColor}18` }]}>
-                  <Text style={[styles.statusText, { color: statusColor }]}>{t(`manageSubscribers.updateSummary.${update.status}`)}</Text>
+                  <Text style={[styles.statusText, { color: statusColor }]}>
+                    {t(`manageSubscribers.updateSummary.${rawStatus.toLowerCase()}`, rawStatus)}
+                  </Text>
                 </View>
               </View>
-              <SummaryRow label={t('manageSubscribers.updateSummary.from')} value={formatPrice(update.fromPrice)} theme={theme} />
-              <SummaryRow label={t('manageSubscribers.updateSummary.to')} value={formatPrice(update.toPrice)} theme={theme} />
-              <SummaryRow label={t('manageSubscribers.updateSummary.effective')} value={update.effective} theme={theme} />
-              <SummaryRow label={t('manageSubscribers.updateSummary.date')} value={update.date} theme={theme} last />
+              <SummaryRow label={t('manageSubscribers.updateSummary.from', 'From')} value={fromValue} theme={theme} />
+              <SummaryRow label={t('manageSubscribers.updateSummary.to', 'To')} value={toValue} theme={theme} />
+              <SummaryRow label={t('manageSubscribers.updateSummary.effective', 'Effective')} value={effectiveValue} theme={theme} />
+              <SummaryRow label={t('manageSubscribers.updateSummary.date', 'Date')} value={dateValue} theme={theme} last />
             </View>
 
-            <Text style={[styles.sectionTitle, { color: theme.accent }]}>{t('manageSubscribers.updateSummary.responses')}</Text>
+            <Text style={[styles.sectionTitle, { color: theme.accent }]}>
+              {t('manageSubscribers.updateSummary.responses', 'Responses')}
+            </Text>
+
             <View style={styles.responseGrid}>
               {RESPONSE_CARDS.map(card => (
-                <View key={card.key} style={[styles.responseCard, { backgroundColor: card.background, borderColor: card.border }]}>
+                <View
+                  key={card.key}
+                  style={[styles.responseCard, { backgroundColor: card.background, borderColor: card.border }]}
+                >
                   <Ionicons name={card.icon} size={19} color={card.color} />
-                  <Text style={[styles.responseLabel, { color: card.color }]}>{t(`manageSubscribers.updateSummary.${card.key}`)}</Text>
-                  <Text style={[styles.responseValue, { color: card.color }]}>{update.responses[card.key]}</Text>
+                  <Text style={[styles.responseLabel, { color: card.color }]}>
+                    {t(`manageSubscribers.updateSummary.${card.key}`, card.key)}
+                  </Text>
+                  <Text style={[styles.responseValue, { color: card.color }]}>
+                    {responses[card.key]}
+                  </Text>
                 </View>
               ))}
             </View>
@@ -82,21 +215,32 @@ const SubscriptionUpdateSummaryScreen = () => {
             <TouchableOpacity
               style={[styles.detailsButton, { backgroundColor: theme.card, borderColor: theme.border }]}
               onPress={() => navigation.navigate('ManageSubscribers')}
-              accessibilityRole="button">
-              <Text style={[styles.detailsText, { color: theme.accent }]}>{t('manageSubscribers.updateSummary.viewDetails')}</Text>
+              accessibilityRole="button"
+            >
+              <Text style={[styles.detailsText, { color: theme.accent }]}>
+                {t('manageSubscribers.updateSummary.viewDetails', 'View Details')}
+              </Text>
               <Ionicons name="chevron-forward" size={23} color={theme.accent} />
             </TouchableOpacity>
           </>
         ) : (
           <View style={[styles.summaryCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
-            <Text style={[styles.cardTitle, { color: theme.text }]}>{t('manageSubscribers.updateSummary.responseBreakdown')}</Text>
+            <Text style={[styles.cardTitle, { color: theme.text }]}>
+              {t('manageSubscribers.updateSummary.responseBreakdown', 'Subscriber responses')}
+            </Text>
             {RESPONSE_CARDS.map((card, index) => (
               <View key={card.key}>
                 {index > 0 && <View style={[styles.divider, { backgroundColor: theme.border }]} />}
                 <View style={styles.detailRow}>
-                  <View style={[styles.responseIcon, { backgroundColor: card.background }]}><Ionicons name={card.icon} size={20} color={card.color} /></View>
-                  <Text style={[styles.detailLabel, { color: theme.text }]}>{t(`manageSubscribers.updateSummary.${card.key}`)}</Text>
-                  <Text style={[styles.detailValue, { color: card.color }]}>{update.responses[card.key]}</Text>
+                  <View style={[styles.responseIcon, { backgroundColor: card.background }]}>
+                    <Ionicons name={card.icon} size={20} color={card.color} />
+                  </View>
+                  <Text style={[styles.detailLabel, { color: theme.text }]}>
+                    {t(`manageSubscribers.updateSummary.${card.key}`, card.key)}
+                  </Text>
+                  <Text style={[styles.detailValue, { color: card.color }]}>
+                    {responses[card.key]}
+                  </Text>
                 </View>
               </View>
             ))}
@@ -126,6 +270,7 @@ const styles = StyleSheet.create({
   tab: { flex: 1, alignItems: 'center', paddingVertical: 11 },
   tabText: { fontSize: 14, fontWeight: '700' },
   tabIndicator: { height: 3, borderRadius: 3, position: 'absolute', bottom: -1, width: '100%' },
+  loadingContainer: { paddingVertical: 40, alignItems: 'center', justifyContent: 'center' },
   summaryCard: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, padding: 16, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
   cardHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 19 },
   cardTitle: { fontSize: 15, fontWeight: '700', flex: 1, marginRight: 10 },

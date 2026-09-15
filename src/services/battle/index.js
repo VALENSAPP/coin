@@ -144,6 +144,14 @@ export const filtterBattle = async (params) => {
     return axiosInstance.get('battle/myBattleTracking', { params });
 };
 
+export const editBattleComment = async (data) => {
+    return axiosInstance.post('battle/comment/edit', data);
+};
+
+export const deleteBattleComment = async (data) => {
+    return axiosInstance.post('battle/comment/delete', data);
+};
+
 export async function getPredictionCategories() {
   return axiosInstance.get('battle/prediction/categories');
 }
