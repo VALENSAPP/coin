@@ -994,7 +994,9 @@
     "updated": "Highlight mis à jour",
     "notFound": "Highlight introuvable",
     "saveFailed": "Échec de l'enregistrement du highlight",
-    "reactionFailed": "Impossible d'envoyer la réaction. Veuillez réessayer."
+    "reactionFailed": "Impossible d’envoyer la réaction. Veuillez réessayer.",
+    "replySent": "Réponse envoyée avec succès.",
+    "replyFailed": "Impossible d’envoyer la réponse. Veuillez réessayer."
   },
   "battleInProgress": {
     "screenTitle": "Battle en cours",
@@ -1820,6 +1822,25 @@
     "gotIt": "Compris",
     "comingSoon": "Cette option sera bientot disponible."
   },
+  "sendPointsScreen": {
+    "title": "Envoyer des points",
+    "recipientLabel": "Destinataire",
+    "searchPlaceholder": "Rechercher par nom ou nom d'utilisateur...",
+    "followingTab": "Abonnements",
+    "allUsersTab": "Tous les utilisateurs",
+    "noUsersFound": "Aucun utilisateur trouvé",
+    "selectBtn": "Sélectionner",
+    "changeUser": "Changer",
+    "amountLabel": "Montant (Points)",
+    "noteLabel": "Note (Optionnel)",
+    "notePlaceholder": "Merci pour ce super contenu !",
+    "sendCta": "Envoyer des points",
+    "selectUserRequired": "Veuillez sélectionner un destinataire",
+    "invalidAmount": "Veuillez saisir un montant valide",
+    "insufficientPoints": "Solde de points insuffisant",
+    "successMessage": "Points envoyés avec succès !",
+    "failedMessage": "Échec de l'envoi des points. Veuillez réessayer."
+  },
   "market": {
     "allCreators": "Tous les créateurs",
     "viewProfile": "Voir le profil",
@@ -1922,6 +1943,7 @@
     "sectionAccount": "Compte",
     "sectionSecurity": "Sécurité",
     "profileSettings": "Paramètres du profil",
+    "valensMembership": "Adhésion Valens",
     "shopSettings": "Paramètres de la boutique",
     "verificationStatus": "Statut de vérification",
     "verifiedStatus": "Dragonfly Vérifié",
@@ -1935,6 +1957,27 @@
     "loginHistory": "Historique de connexion",
     "fetchError": "Une erreur s'est produite",
     "language": "Sélectionner la langue"
+  },
+  "regularSubscriptionPrompt": {
+    "titlePrefix": "Valens est ",
+    "titleHighlight": "gratuit !",
+    "subtitle": "Vous pouvez explorer, vous connecter, publier, acheter et plus sans frais.",
+    "premiumTitle": "Voulez-vous débloquer l'accès Premium ?",
+    "premiumSub": "Inscrivez-vous à l'adhésion Valens et obtenez :",
+    "feature1Title": "5 publications de Mission par mois",
+    "feature1Sub": "Créez des campagnes, des objectifs ou des projets.",
+    "feature2Title": "Configurez du contenu réservé aux abonnés",
+    "feature2Sub": "Créez un abonnement payant pour vos fans.",
+    "feature3Title": "Gagnez des points Valens",
+    "feature3Sub": "Soyez récompensé pour votre activité.",
+    "feature4Title": "Accès aux fonctionnalités Premium",
+    "feature4Sub": "Analyses avancées, boosts de profil et plus encore.",
+    "feature5Title": "Avantages exclusifs pour les membres",
+    "feature5Sub": "Accès anticipé aux nouvelles fonctionnalités et aux sorties spéciales.",
+    "continueFree": "Continuer gratuitement",
+    "continueFreeSub": "Explorer Valens",
+    "learnMore": "En savoir plus",
+    "learnMoreSub": "Adhésion Valens"
   },
   "shop": {
     "title": "BOUTIQUE",
@@ -3812,7 +3855,8 @@
     },
     "pctOfTotal": "{{pct}} % du total",
     "priceUpdateTitle": "Mise à jour du prix en cours",
-    "priceUpdateBody": "La mise à jour de votre prix est en cours. Vos fans ont été informés et peuvent accepter ou refuser le nouveau prix avant leur prochaine date de facturation. Vous ne pouvez pas soumettre une autre modification de prix tant que cette demande est active ; une fois celle-ci terminée, une période de grâce de six mois s'applique avant que vous puissiez à nouveau mettre à jour votre forfait.",    "viewUpdateDetails": "Voir les détails",
+    "priceUpdateBody": "La mise à jour de votre prix est en cours. Vos fans ont été informés et peuvent accepter ou refuser le nouveau prix avant leur prochaine date de facturation. Vous ne pouvez pas soumettre une autre modification de prix tant que cette demande est active ; une fois celle-ci terminée, une période de grâce de six mois s'applique avant que vous puissiez à nouveau mettre à jour votre forfait.",
+    "viewUpdateDetails": "Voir les détails",
     "searchPlaceholder": "Rechercher des abonnés...",
     "searchSubscriptions": "Rechercher des abonnements...",
     "allStatus": "Tous les statuts",

@@ -994,7 +994,9 @@
     "updated": "Highlight aggiornato",
     "notFound": "Highlight non trovato",
     "saveFailed": "Impossibile salvare highlight",
-    "reactionFailed": "Impossibile inviare la reazione. Riprova."
+    "reactionFailed": "Impossibile inviare la reazione. Riprova.",
+    "replySent": "Risposta inviata con successo.",
+    "replyFailed": "Impossibile inviare la risposta. Riprova."
   },
   "battleInProgress": {
     "screenTitle": "Battaglia in Corso",
@@ -1820,6 +1822,25 @@
     "gotIt": "Capito",
     "comingSoon": "Questa opzione sara disponibile a breve."
   },
+  "sendPointsScreen": {
+    "title": "Invia punti",
+    "recipientLabel": "Destinatario",
+    "searchPlaceholder": "Cerca per nome o nome utente...",
+    "followingTab": "Seguiti",
+    "allUsersTab": "Tutti gli utenti",
+    "noUsersFound": "Nessun utente trovato",
+    "selectBtn": "Seleziona",
+    "changeUser": "Modifica",
+    "amountLabel": "Importo (Punti)",
+    "noteLabel": "Nota (Opzionale)",
+    "notePlaceholder": "Grazie per il fantastico contenuto!",
+    "sendCta": "Invia punti",
+    "selectUserRequired": "Seleziona un utente destinatario",
+    "invalidAmount": "Inserisci un importo valido",
+    "insufficientPoints": "Saldo punti insufficiente",
+    "successMessage": "Punti inviati con successo!",
+    "failedMessage": "Impossibile inviare i punti. Riprova."
+  },
   "market": {
     "allCreators": "Tutti i Creatori",
     "viewProfile": "Visualizza Profilo",
@@ -1922,6 +1943,7 @@
     "sectionAccount": "Account",
     "sectionSecurity": "Sicurezza",
     "profileSettings": "Impostazioni profilo",
+    "valensMembership": "Abbonamento Valens",
     "shopSettings": "Impostazioni del negozio",
     "verificationStatus": "Stato verifica",
     "verifiedStatus": "Dragonfly verificato",
@@ -1935,6 +1957,27 @@
     "loginHistory": "Cronologia accessi",
     "fetchError": "Qualcosa è andato storto",
     "language": "Seleziona la lingua"
+  },
+  "regularSubscriptionPrompt": {
+    "titlePrefix": "Valens è ",
+    "titleHighlight": "gratuito!",
+    "subtitle": "Puoi esplorare, connetterti, pubblicare, fare acquisti e altro ancora a costo zero.",
+    "premiumTitle": "Vuoi sbloccare l'accesso Premium?",
+    "premiumSub": "Iscriviti all'Abbonamento Valens e ottieni:",
+    "feature1Title": "5 post Missione al mese",
+    "feature1Sub": "Crea campagne, obiettivi o progetti.",
+    "feature2Title": "Imposta contenuti privati per gli abbonati",
+    "feature2Sub": "Crea un abbonamento a pagamento per i tuoi fan.",
+    "feature3Title": "Guadagna Punti Valens",
+    "feature3Sub": "Ricevi premi per la tua attività.",
+    "feature4Title": "Accesso alle funzionalità Premium",
+    "feature4Sub": "Analisi avanzate, boost del profilo e altro ancora.",
+    "feature5Title": "Vantaggi esclusivi per i membri",
+    "feature5Sub": "Accesso anticipato a nuove funzionalità e uscite speciali.",
+    "continueFree": "Continua gratis",
+    "continueFreeSub": "Esplora Valens",
+    "learnMore": "Scopri di più",
+    "learnMoreSub": "Abbonamento Valens"
   },
   "shop": {
     "title": "SHOP",
@@ -3812,7 +3855,8 @@
     },
     "pctOfTotal": "{{pct}}% del totale",
     "priceUpdateTitle": "Aggiornamento prezzo in corso",
-    "priceUpdateBody": "L'aggiornamento del tuo prezzo è in corso. I tuoi fan sono stati informati e possono accettare o rifiutare il nuovo prezzo prima della loro prossima data di fatturazione. Non puoi inviare un'altra modifica del prezzo mentre questa richiesta è attiva; una volta completata, si applica un periodo di tolleranza di sei mesi prima che tu possa aggiornare nuovamente il tuo piano.",    "viewUpdateDetails": "Vedi dettagli",
+    "priceUpdateBody": "L'aggiornamento del tuo prezzo è in corso. I tuoi fan sono stati informati e possono accettare o rifiutare il nuovo prezzo prima della loro prossima data di fatturazione. Non puoi inviare un'altra modifica del prezzo mentre questa richiesta è attiva; una volta completata, si applica un periodo di tolleranza di sei mesi prima che tu possa aggiornare nuovamente il tuo piano.",
+    "viewUpdateDetails": "Vedi dettagli",
     "searchPlaceholder": "Cerca iscritti...",
     "searchSubscriptions": "Cerca abbonamenti...",
     "allStatus": "Tutti gli stati",

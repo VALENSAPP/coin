@@ -88,10 +88,10 @@ const UseYourPointsScreen = () => {
         icon: 'account-multiple',
         hint: t('useYourPointsScreen.sendPointsHint'),
         action: () =>
-          Alert.alert(
-            t('useYourPointsScreen.sendPointsTitle'),
-            t('useYourPointsScreen.comingSoon'),
-          ),
+          navigation.navigate('SendPoints', {
+            totalPoints: totalPts,
+            profileType: resolvedProfile,
+          }),
       },
       {
         id: 'travel',

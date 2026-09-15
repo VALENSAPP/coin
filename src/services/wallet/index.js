@@ -189,3 +189,11 @@ export const tipRecived = async (data) => {
     return await axiosInstance.post('/total-tip-earning', payload);
   }
 };
+
+export const sendPlatformPoints = async (data) => {
+  return axiosInstance.post('/user/platform-points/send', data);
+};
+
+export const getPriceUpdateSummary = async () => {
+  return axiosInstance.get('billing/pay-following/price-update-summary');
+};

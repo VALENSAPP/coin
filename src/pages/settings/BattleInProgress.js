@@ -49,6 +49,8 @@ import {
   declinetBattle,
   unpinComment,
   pinComment,
+  editBattleComment,
+  deleteBattleComment,
 } from '../../services/battle';
 import { getUserCredentials } from '../../services/post';
 import { useAppTheme } from '../../theme/useApptheme';
@@ -175,6 +177,24 @@ const filterHeadToHeadCountableEntries = (entries, format, creatorId, invitedUse
     return !isHeadToHeadParticipantUserId(userId, creatorId, invitedUserId);
   });
 };
+
+const THREE_MINUTES_MS = 3 * 60 * 1000;
+
+const isWithin3Minutes = (createdAt) => {
+  if (!createdAt) return false;
+  const timestamp = new Date(createdAt).getTime();
+  if (isNaN(timestamp)) return false;
+  const diff = Date.now() - timestamp;
+  return diff >= 0 && diff <= THREE_MINUTES_MS;
+};
+
+const removeCommentFromTree = (comments, targetId) =>
+  (Array.isArray(comments) ? comments : [])
+    .filter(comment => String(comment.id) !== String(targetId))
+    .map(comment => ({
+      ...comment,
+      replies: removeCommentFromTree(comment.replies, targetId),
+    }));
 
 const resolveEntityId = (value) => {
   if (value === undefined || value === null) return '';
@@ -674,6 +694,10 @@ export default function BattleInProgress() {
   const [submittingComment, setSubmittingComment] = useState(false);
   const [likingCommentId, setLikingCommentId] = useState('');
   const [pinningCommentId, setPinningCommentId] = useState('');
+  const [editingCommentId, setEditingCommentId] = useState('');
+  const [editingCommentText, setEditingCommentText] = useState('');
+  const [submittingCommentEdit, setSubmittingCommentEdit] = useState(false);
+  const [deletingCommentId, setDeletingCommentId] = useState('');
   const [commentTextSelections, setCommentTextSelections] = useState({});
   const [submittingHighlightAction, setSubmittingHighlightAction] = useState('');
   const [keepActiveSelectedStyle, setKeepActiveSelectedStyle] = useState(false);
@@ -1798,6 +1822,113 @@ export default function BattleInProgress() {
     ]);
   }, [handlePinComment, handleUnpinComment]);
 
+  const handleDeleteComment = useCallback(async (commentId) => {
+    const finalBattleId = resolvedBattleId || battleId;
+    if (!finalBattleId || !commentId || deletingCommentId) return;
+
+    Alert.alert(
+      'Delete Comment',
+      'Are you sure you want to delete this comment?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setDeletingCommentId(commentId);
+            try {
+              const response = await deleteBattleComment({
+                battleId: finalBattleId,
+                commentId,
+              });
+              if (!isSuccessfulResponse(response)) {
+                throw new Error(
+                  response?.message || response?.data?.message || 'Failed to delete comment',
+                );
+              }
+              setBattle(prev => ({
+                ...prev,
+                comments: removeCommentFromTree(prev.comments, commentId),
+              }));
+              await fetchBattle(true);
+            } catch (error) {
+              Alert.alert(
+                'Delete failed',
+                error?.response?.data?.message || error?.message || 'Failed to delete comment',
+              );
+            } finally {
+              setDeletingCommentId('');
+            }
+          },
+        },
+      ],
+    );
+  }, [battleId, fetchBattle, resolvedBattleId, deletingCommentId]);
+
+  const handleEditCommentSubmit = useCallback(async (commentId, newText) => {
+    const finalBattleId = resolvedBattleId || battleId;
+    const textToSubmit = String(newText || '').trim();
+    if (!finalBattleId || !commentId || !textToSubmit || submittingCommentEdit) return;
+
+    setSubmittingCommentEdit(true);
+    try {
+      const response = await editBattleComment({
+        battleId: finalBattleId,
+        commentId,
+        comment: textToSubmit,
+        text: textToSubmit,
+      });
+      if (!isSuccessfulResponse(response)) {
+        throw new Error(
+          response?.message || response?.data?.message || 'Failed to edit comment',
+        );
+      }
+      setBattle(prev => ({
+        ...prev,
+        comments: updateCommentTree(prev.comments, commentId, item => ({
+          ...item,
+          message: textToSubmit,
+        })),
+      }));
+      setEditingCommentId('');
+      setEditingCommentText('');
+      await fetchBattle(true);
+    } catch (error) {
+      Alert.alert(
+        'Edit failed',
+        error?.response?.data?.message || error?.message || 'Failed to edit comment',
+      );
+    } finally {
+      setSubmittingCommentEdit(false);
+    }
+  }, [battleId, fetchBattle, resolvedBattleId, submittingCommentEdit]);
+
+  const confirmCommentOwnActions = useCallback((comment) => {
+    if (!comment) return;
+    Alert.alert(
+      'Comment Actions',
+      'Select an option (available within 3 minutes of posting):',
+      [
+        {
+          text: 'Edit Comment',
+          onPress: () => {
+            setEditingCommentId(comment.id);
+            setEditingCommentText(comment.message || '');
+          },
+        },
+        {
+          text: 'Delete Comment',
+          style: 'destructive',
+          onPress: () => handleDeleteComment(comment.id),
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+      ],
+    );
+  }, [handleDeleteComment]);
+
   const applyCommentHighlightForComment = useCallback(async (comment, selection) => {
     const finalBattleId = resolvedBattleId || battleId;
     if (!finalBattleId || !comment?.id || submittingHighlightAction) return;
@@ -2172,62 +2303,121 @@ export default function BattleInProgress() {
 
   // ─── render helpers ────────────────────────────────────────────────────────
 
-  const renderReplyItem = reply => (
-    <View
-      key={reply.id}
-      style={[styles.replyCard, { backgroundColor: withAlpha(palette.primary, '08'), borderColor: palette.border }]}
-    >
-      <View style={styles.commentHeader}>
-        <View style={styles.commentAuthorIdentity}>
-          <TouchableOpacity activeOpacity={0.75} onPress={() => handleOpenCommentAuthorProfile(reply.userId)}>
-            {reply.avatar ? (
-              <Image source={{ uri: reply.avatar }} style={styles.commentAvatar} />
-            ) : (
-              <View style={[styles.commentAvatar, styles.commentAvatarFallback]}>
-                <Ionicons name="person-outline" size={16} color="#FFFFFF" />
-              </View>
-            )}
-          </TouchableOpacity>
-          <View style={styles.commentAuthorTextWrap}>
-            <View style={styles.commentAuthorTopRow}>
-              <TouchableOpacity
-                activeOpacity={0.75}
-                style={styles.commentAuthorNameRow}
-                onPress={() => handleOpenCommentAuthorProfile(reply.userId)}
-              >
-                <Text style={[styles.commentAuthorName, textStyle, styles.commentAuthorNameFlex]} numberOfLines={1} ellipsizeMode="tail">
-                  {reply.authorName}
-                </Text>
-              </TouchableOpacity>
-              <View style={styles.commentHeaderActions}>
-                <TouchableOpacity style={styles.replyTrigger} onPress={() => handleOpenReply(reply)}>
-                  <Text style={[styles.replyTriggerText, { color: palette.primary }]}>{t('battleInProgress.replyTrigger')}</Text>
+  const renderReplyItem = reply => {
+    const canEditOrDeleteReply = isOwnComment(reply.userId) && isWithin3Minutes(reply.createdAt);
+    return (
+      <View
+        key={reply.id}
+        style={[styles.replyCard, { backgroundColor: withAlpha(palette.primary, '08'), borderColor: palette.border }]}
+      >
+        <View style={styles.commentHeader}>
+          <View style={styles.commentAuthorIdentity}>
+            <TouchableOpacity activeOpacity={0.75} onPress={() => handleOpenCommentAuthorProfile(reply.userId)}>
+              {reply.avatar ? (
+                <Image source={{ uri: reply.avatar }} style={styles.commentAvatar} />
+              ) : (
+                <View style={[styles.commentAvatar, styles.commentAvatarFallback]}>
+                  <Ionicons name="person-outline" size={16} color="#FFFFFF" />
+                </View>
+              )}
+            </TouchableOpacity>
+            <View style={styles.commentAuthorTextWrap}>
+              <View style={styles.commentAuthorTopRow}>
+                <TouchableOpacity
+                  activeOpacity={0.75}
+                  style={styles.commentAuthorNameRow}
+                  onPress={() => handleOpenCommentAuthorProfile(reply.userId)}
+                >
+                  <Text style={[styles.commentAuthorName, textStyle, styles.commentAuthorNameFlex]} numberOfLines={1} ellipsizeMode="tail">
+                    {reply.authorName}
+                  </Text>
                 </TouchableOpacity>
-                {!isOwnComment(reply.userId) && (
-                  <TouchableOpacity style={styles.commentLikeButton} onPress={() => handleCommentLike(reply.id)} disabled={likingCommentId === reply.id}>
-                    {likingCommentId === reply.id ? (
-                      <ActivityIndicator size="small" color={palette.primary} />
-                    ) : (
-                      <>
-                          <Ionicons name={reply.isLiked ? 'heart' : 'heart-outline'} size={18} color={reply.isLiked ? '#E11D48' : mutedText} />
-                        <Text style={[styles.commentLikeText, { color: reply.isLiked ? '#E11D48' : mutedText }]}>
-                          {Number.isFinite(Number(reply.likes)) ? Number(reply.likes) : 0}
-                        </Text>
-                      </>
-                    )}
+                <View style={styles.commentHeaderActions}>
+                  <TouchableOpacity style={styles.replyTrigger} onPress={() => handleOpenReply(reply)}>
+                    <Text style={[styles.replyTriggerText, { color: palette.primary }]}>{t('battleInProgress.replyTrigger')}</Text>
                   </TouchableOpacity>
-                )}
+                  {canEditOrDeleteReply && (
+                    <TouchableOpacity
+                      style={styles.commentMenuButton}
+                      onPress={() => confirmCommentOwnActions(reply)}
+                      disabled={deletingCommentId === reply.id}
+                    >
+                      {deletingCommentId === reply.id ? (
+                        <ActivityIndicator size="small" color={palette.primary} />
+                      ) : (
+                        <Ionicons name="ellipsis-vertical" size={18} color={palette.primary} />
+                      )}
+                    </TouchableOpacity>
+                  )}
+                  {!isOwnComment(reply.userId) && (
+                    <TouchableOpacity style={styles.commentLikeButton} onPress={() => handleCommentLike(reply.id)} disabled={likingCommentId === reply.id}>
+                      {likingCommentId === reply.id ? (
+                        <ActivityIndicator size="small" color={palette.primary} />
+                      ) : (
+                        <>
+                          <Ionicons name={reply.isLiked ? 'heart' : 'heart-outline'} size={18} color={reply.isLiked ? '#E11D48' : mutedText} />
+                          <Text style={[styles.commentLikeText, { color: reply.isLiked ? '#E11D48' : mutedText }]}>
+                            {Number.isFinite(Number(reply.likes)) ? Number(reply.likes) : 0}
+                          </Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  )}
+                </View>
               </View>
+              {!!reply.authorHandle && (
+                <TouchableOpacity activeOpacity={0.75} onPress={() => handleOpenCommentAuthorProfile(reply.userId)}>
+                  <Text style={[styles.commentAuthorHandle, { color: palette.textMuted }]}>@{reply.authorHandle}</Text>
+                </TouchableOpacity>
+              )}
             </View>
-            {!!reply.authorHandle && (
-              <TouchableOpacity activeOpacity={0.75} onPress={() => handleOpenCommentAuthorProfile(reply.userId)}>
-                <Text style={[styles.commentAuthorHandle, { color: palette.textMuted }]}>@{reply.authorHandle}</Text>
-              </TouchableOpacity>
-            )}
           </View>
         </View>
-      </View>
-      {renderCommentMessage(reply, palette)}
+        {editingCommentId === reply.id ? (
+          <View style={styles.replyComposer}>
+            <Text style={[styles.replyComposerLabel, { color: palette.textMuted }]}>
+              Editing reply
+            </Text>
+            <TextInput
+              value={editingCommentText}
+              onChangeText={setEditingCommentText}
+              placeholder="Edit your reply..."
+              placeholderTextColor="#9CA3AF"
+              multiline
+              style={[
+                styles.replyInput,
+                {
+                  color: labelColor,
+                  backgroundColor: inputSurface,
+                  borderColor: palette.border,
+                },
+              ]}
+            />
+            <View style={styles.replyActions}>
+              <TouchableOpacity
+                style={[styles.replySecondaryButton, { borderColor: palette.border }]}
+                onPress={() => { setEditingCommentId(''); setEditingCommentText(''); }}
+              >
+                <Text style={[styles.replySecondaryButtonText, { color: palette.textMuted }]}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.replyPrimaryButton, { backgroundColor: palette.primary }]}
+                onPress={() => handleEditCommentSubmit(reply.id, editingCommentText)}
+                disabled={submittingCommentEdit}
+              >
+                {submittingCommentEdit ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.replyPrimaryButtonText}>Save</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : (
+          renderCommentMessage(reply, palette)
+        )}
       {replyingToComment?.id === reply.id && (
         <View style={styles.replyComposer}>
           <Text style={[styles.replyComposerLabel, { color: palette.textMuted }]}>
@@ -2273,6 +2463,7 @@ export default function BattleInProgress() {
       )}
     </View>
   );
+};
 
   const renderCommentItem = comment => {
     const hasReplies = Array.isArray(comment.replies) && comment.replies.length > 0;
@@ -2282,6 +2473,7 @@ export default function BattleInProgress() {
     const isPinned = normalizeCommentPinnedState(comment);
 
     const commentHighlights = normalizeCommentHighlights(comment);
+    const canEditOrDelete = isOwnComment(comment.userId) && isWithin3Minutes(comment.createdAt);
 
     return (
       <View
@@ -2325,6 +2517,19 @@ export default function BattleInProgress() {
                   <TouchableOpacity style={styles.replyTrigger} onPress={() => handleOpenReply(comment)}>
                     <Text style={[styles.replyTriggerText, { color: palette.primary }]}>{t('battleInProgress.replyTrigger')}</Text>
                   </TouchableOpacity>
+                  {canEditOrDelete && (
+                    <TouchableOpacity
+                      style={styles.commentMenuButton}
+                      onPress={() => confirmCommentOwnActions(comment)}
+                      disabled={deletingCommentId === comment.id}
+                    >
+                      {deletingCommentId === comment.id ? (
+                        <ActivityIndicator size="small" color={palette.primary} />
+                      ) : (
+                        <Ionicons name="ellipsis-vertical" size={18} color={palette.primary} />
+                      )}
+                    </TouchableOpacity>
+                  )}
                   {!isOwnComment(comment.userId) && (
                     <TouchableOpacity style={styles.commentLikeButton} onPress={() => handleCommentLike(comment.id)} disabled={likingCommentId === comment.id}>
                       {likingCommentId === comment.id ? (
@@ -2357,7 +2562,7 @@ export default function BattleInProgress() {
                       {pinningCommentId === comment.id ? (
                         <ActivityIndicator size="small" color={palette.primary} />
                       ) : (
-                        <Ionicons name="ellipsis-vertical" size={18} color={palette.primary} />
+                        <Ionicons name="pin-outline" size={18} color={palette.primary} />
                       )}
                     </TouchableOpacity>
                   )}
@@ -2371,7 +2576,51 @@ export default function BattleInProgress() {
             </View>
           </View>
         </View>
-        {renderCommentMessage(comment, palette)}
+        {editingCommentId === comment.id ? (
+          <View style={styles.replyComposer}>
+            <Text style={[styles.replyComposerLabel, { color: palette.textMuted }]}>
+              Editing comment
+            </Text>
+            <TextInput
+              value={editingCommentText}
+              onChangeText={setEditingCommentText}
+              placeholder="Edit your comment..."
+              placeholderTextColor="#9CA3AF"
+              multiline
+              style={[
+                styles.replyInput,
+                {
+                  color: labelColor,
+                  backgroundColor: inputSurface,
+                  borderColor: palette.border,
+                },
+              ]}
+            />
+            <View style={styles.replyActions}>
+              <TouchableOpacity
+                style={[styles.replySecondaryButton, { borderColor: palette.border }]}
+                onPress={() => { setEditingCommentId(''); setEditingCommentText(''); }}
+              >
+                <Text style={[styles.replySecondaryButtonText, { color: palette.textMuted }]}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.replyPrimaryButton, { backgroundColor: palette.primary }]}
+                onPress={() => handleEditCommentSubmit(comment.id, editingCommentText)}
+                disabled={submittingCommentEdit}
+              >
+                {submittingCommentEdit ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.replyPrimaryButtonText}>Save</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : (
+          renderCommentMessage(comment, palette)
+        )}
         {hasReplies && !isExpanded && (
           <TouchableOpacity style={styles.viewRepliesButton} onPress={() => toggleReplies(comment.id)}>
             <Text style={[styles.viewRepliesText, { color: palette.primary }]}>

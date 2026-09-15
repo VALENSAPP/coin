@@ -994,7 +994,9 @@
     "updated": "Highlight updated",
     "notFound": "Highlight not found",
     "saveFailed": "Failed to save highlight",
-    "reactionFailed": "Could not send reaction. Please try again."
+    "reactionFailed": "Could not send reaction. Please try again.",
+    "replySent": "Reply sent successfully.",
+    "replyFailed": "Could not send reply. Please try again."
   },
   "battleInProgress": {
     "screenTitle": "Battle In Progress",
@@ -1820,6 +1822,25 @@
     "gotIt": "Got it",
     "comingSoon": "This option will be available soon."
   },
+  "sendPointsScreen": {
+    "title": "Send Points",
+    "recipientLabel": "Recipient",
+    "searchPlaceholder": "Search by name or username...",
+    "followingTab": "Following",
+    "allUsersTab": "All Users",
+    "noUsersFound": "No users found",
+    "selectBtn": "Select",
+    "changeUser": "Change",
+    "amountLabel": "Amount (Points)",
+    "noteLabel": "Note (Optional)",
+    "notePlaceholder": "Thanks for the great content!",
+    "sendCta": "Send Points",
+    "selectUserRequired": "Please select a recipient user",
+    "invalidAmount": "Please enter a valid amount",
+    "insufficientPoints": "Insufficient platform points balance",
+    "successMessage": "Points sent successfully!",
+    "failedMessage": "Failed to send points. Please try again."
+  },
   "market": {
     "allCreators": "All Creators",
     "viewProfile": "View Profile",
@@ -1922,6 +1943,7 @@
     "sectionAccount": "Account",
     "sectionSecurity": "Security",
     "profileSettings": "Profile Settings",
+    "valensMembership": "Valens Membership",
     "shopSettings": "Shop Settings",
     "verificationStatus": "Verification Status",
     "verifiedStatus": "Dragonfly Verified",
@@ -1935,6 +1957,27 @@
     "loginHistory": "Login History",
     "fetchError": "Something went wrong",
     "language": "Select Language"
+  },
+  "regularSubscriptionPrompt": {
+    "titlePrefix": "Valens is ",
+    "titleHighlight": "free to use!",
+    "subtitle": "You can explore, connect, post, shop and more at no cost.",
+    "premiumTitle": "Want to unlock Premium access?",
+    "premiumSub": "Sign up for Valens Membership and get:",
+    "feature1Title": "5 Mission Posts per month",
+    "feature1Sub": "Create campaigns, goals or projects.",
+    "feature2Title": "Set up Private Subscriber Content",
+    "feature2Sub": "Create a paid subscription for your fans.",
+    "feature3Title": "Earn Valens Points",
+    "feature3Sub": "Get rewarded for your activity.",
+    "feature4Title": "Access to Premium Features",
+    "feature4Sub": "Advanced analytics, profile boosts and more.",
+    "feature5Title": "Exclusive Member Perks",
+    "feature5Sub": "Early access to new features and special drops.",
+    "continueFree": "Continue Free",
+    "continueFreeSub": "Explore Valens",
+    "learnMore": "Learn More",
+    "learnMoreSub": "Valens Membership"
   },
   "shop": {
     "title": "SHOP",

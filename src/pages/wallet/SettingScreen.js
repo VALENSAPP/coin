@@ -11,6 +11,7 @@ import {
   Alert,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { getUserCredentials } from '../../services/post';
@@ -192,6 +193,12 @@ export const SettingsScreen = ({ navigation }) => {
           },
         },
         {
+          label: t('walletSettings.valensMembership'),
+          icon: 'crown-outline',
+          iconType: 'MaterialCommunityIcons',
+          action: () => navigation.navigate('subscription'),
+        },
+        {
           label: t('walletSettings.shopSettings'),
           icon: 'storefront-outline',
           action: () => navigation.navigate('ShopSettings'),
@@ -252,7 +259,11 @@ export const SettingsScreen = ({ navigation }) => {
       disabled={item.toggle}
     >
       <View style={styles.settingLeft}>
-        <Ionicons name={item.icon} size={20} color={icon} />
+        {item.iconType === 'MaterialCommunityIcons' ? (
+          <MaterialCommunityIcons name={item.icon} size={20} color={icon} />
+        ) : (
+          <Ionicons name={item.icon} size={20} color={icon} />
+        )}
         <Text style={[styles.settingLabel, textStyle]}>{item.label}</Text>
       </View>
       <View style={styles.settingRight}>

@@ -37,6 +37,7 @@ import { getSocket, initializeSocket } from '../../services/socket';
 import useSocket from '../../hooks/useSocket';
 import { checkSubscription } from '../../services/stirpe';
 import BusinessSubscriptionPrompt from '../../components/modals/BusinessSubscriptionPrompt';
+import RegularSubscriptionPrompt from '../../components/modals/RegularSubscriptionPrompt';
 import { useLanguage } from '../../i18n';
 import StoryViewerModal from '../../components/modals/StoryViewerModal';
 import { getFollowingUserStories, getStoryByUser } from '../../services/stories';
@@ -136,6 +137,8 @@ export default function HomeScreen({ route }) {
   const [isBusinessProfile, setIsBusinessProfile] = useState(false);
   const [showBusinessSubscriptionPrompt, setShowBusinessSubscriptionPrompt] = useState(false);
   const [hasCheckedBusinessSubscription, setHasCheckedBusinessSubscription] = useState(false);
+  const [showRegularSubscriptionPrompt, setShowRegularSubscriptionPrompt] = useState(false);
+  const [hasCheckedRegularSubscription, setHasCheckedRegularSubscription] = useState(false);
   const [currentUserId, setCurrentUserId] = useState(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const [socketReady, setSocketReady] = useState(false);
@@ -494,6 +497,7 @@ export default function HomeScreen({ route }) {
           setIsBusinessProfile(false);
           setShowBusinessSubscriptionPrompt(false);
           setHasCheckedBusinessSubscription(false);
+          checkRegularSubscriptionStatus();
         }
       }
     } catch (err) {
@@ -537,6 +541,25 @@ export default function HomeScreen({ route }) {
       setShowBusinessSubscriptionPrompt(true);
     }
   }, [hasCheckedBusinessSubscription, isBusinessProfile]);
+
+  const checkRegularSubscriptionStatus = useCallback(async () => {
+    if (isBusinessProfile) return;
+
+    try {
+      setHasCheckedRegularSubscription(true);
+      const response = await checkSubscription();
+      console.log('📢 checkSubscription response (regular):', response);
+      const status = String(response?.data?.subscription?.status || response?.subscription?.status || '').toUpperCase();
+      const hasActiveSubscription = Boolean(response?.success) && (status === 'ACTIVE' || status === 'TRIALING');
+
+      if (!hasActiveSubscription) {
+        setShowRegularSubscriptionPrompt(true);
+      }
+    } catch (error) {
+      console.log('❌ Error in checkRegularSubscriptionStatus:', error);
+      setShowRegularSubscriptionPrompt(true);
+    }
+  }, [isBusinessProfile]);
 
   useEffect(() => {
     if (isInitialMountRef.current) {
@@ -597,9 +620,14 @@ export default function HomeScreen({ route }) {
   }, [addFcmToken]);
 
   useEffect(() => {
-    if (!isFocused || !isBusinessProfile) return;
-    checkBusinessSubscriptionStatus();
-  }, [isFocused, isBusinessProfile, checkBusinessSubscriptionStatus]);
+    if (!isFocused) return;
+    if (isBusinessProfile) {
+      checkBusinessSubscriptionStatus();
+    } else {
+      checkRegularSubscriptionStatus();
+    }
+  }, [isFocused, isBusinessProfile, checkBusinessSubscriptionStatus, checkRegularSubscriptionStatus]);
+
 
 const openLinkedStory = useCallback(async (sharedStoryId) => {
   const storyId = String(sharedStoryId || '').trim();
@@ -897,6 +925,19 @@ const openLinkedStory = useCallback(async (sharedStoryId) => {
         } /> */}
       </View>
 
+      <RegularSubscriptionPrompt
+        visible={showRegularSubscriptionPrompt}
+        onLearnMore={(navParams) => {
+          setShowRegularSubscriptionPrompt(false);
+          navigation.navigate('wallet', {
+            screen: 'subscription',
+            params: { returnToHome: true, fromModal: true, ...navParams },
+          });
+        }}
+        onLater={() => {
+          setShowRegularSubscriptionPrompt(false);
+        }}
+      />
       <BusinessSubscriptionPrompt
         visible={showBusinessSubscriptionPrompt}
         onActivate={() => {
