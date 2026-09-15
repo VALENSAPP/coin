@@ -63,6 +63,7 @@ const DEFAULT_REWARD_POINTS = {
   totalBattlePoints: 0,
   marketplaceBattlePoints: 0,
   referPoints: 0,
+  shopPlatformPoints: 0,
   used: 0,
 };
 
@@ -868,6 +869,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
         totalBattlePoints: parsed.totalBattlePoints,
         marketplaceBattlePoints: parsed.marketplaceBattlePoints,
         referPoints: parsed.referPoints,
+        shopPlatformPoints: parsed.shopPlatformPoints,
         used: parsed.used,
       });
 
@@ -1061,6 +1063,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
     const battle = Number(rewardSummary.totalBattlePoints) || 0;
     const shop = Number(rewardSummary.marketplaceBattlePoints) || 0;
     const refer = Number(rewardSummary.referPoints) || 0;
+    const shopPlatform = Number(rewardSummary.shopPlatformPoints) || 0;
     const used = Number(rewardSummary.used) || 0;
     const params = {
       totalPoints: total,
@@ -1068,6 +1071,8 @@ export const WalletDashboardScreen = ({ navigation }) => {
       battlePoints: battle,
       shopPoints: shop,
       referPoints: refer,
+      shopPlatformPoints: shopPlatform,
+      ShopPlatformPonits: shopPlatform,
       used,
       profileType: isBusinessProfile ? 'company' : 'user',
     };

@@ -58,6 +58,10 @@ const ReferralPointsScreen = () => {
     totalBattlePoints: Number(route?.params?.battlePoints) || 0,
     marketplaceBattlePoints: Number(route?.params?.shopPoints) || 0,
     referPoints: Number(route?.params?.referPoints) || 0,
+    shopPlatformPoints:
+      Number(route?.params?.shopPlatformPoints) ||
+      Number(route?.params?.ShopPlatformPonits) ||
+      0,
     used: initialUsed,
     availablePoints: initialTotal,
   });
@@ -141,7 +145,7 @@ const ReferralPointsScreen = () => {
         ],
       },
       {
-        id: 'shop',
+        id: 'shopBattle',
         title: t('referralPointsScreen.shopBattleTitle'),
         description: t('referralPointsScreen.shopBattleDesc'),
         totalLabel: t('referralPointsScreen.totalShopPoints'),
@@ -153,8 +157,27 @@ const ReferralPointsScreen = () => {
           { icon: 'trophy-outline', label: t('referralPointsScreen.shopBullet3') },
         ],
       },
+      {
+        id: 'shopPlatform',
+        title: t('referralPointsScreen.shopPlatformTitle'),
+        description: t('referralPointsScreen.shopPlatformDesc'),
+        totalLabel: t('referralPointsScreen.totalShopPlatformPoints'),
+        points: points.shopPlatformPoints,
+        icon: 'storefront-outline',
+        bullets: [
+          { icon: 'store-outline', label: t('referralPointsScreen.shopPlatformBullet1') },
+          { icon: 'cart-outline', label: t('referralPointsScreen.shopPlatformBullet2') },
+          { icon: 'trophy-outline', label: t('referralPointsScreen.shopPlatformBullet3') },
+        ],
+      },
     ],
-    [t, points.referPoints, points.totalBattlePoints, points.marketplaceBattlePoints],
+    [
+      t,
+      points.referPoints,
+      points.totalBattlePoints,
+      points.marketplaceBattlePoints,
+      points.shopPlatformPoints,
+    ],
   );
 
   const openUsePoints = () => {

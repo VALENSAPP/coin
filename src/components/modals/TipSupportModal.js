@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
+import { openExternalLink } from '../../utils/externalLinkHandler';
 import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { sendTip } from '../../services/stirpe';
@@ -110,7 +111,18 @@ export default function TipSupportModal({
   const openCheckoutSession = useCallback(async (url) => {
     try {
       paymentCompletedRef.current = false;
-      if (await InAppBrowser.isAvailable()) {
+      if (Platform.OS === 'ios') {
+        onClose?.();
+        setIsButtonLoading(false);
+        dispatch(hideLoader());
+        setTimeout(() => {
+          openExternalLink(url, {
+            title: 'Send Tip on Web',
+            description: 'Please copy the link below and paste it in your web browser (Safari or Chrome), where you can continue doing the payment, and then return to the app.'
+          });
+        }, 300);
+        return;
+      } else if (await InAppBrowser.isAvailable()) {
         await InAppBrowser.open(url, { ...STRIPE_BROWSER_OPTIONS, forceCloseOnRedirection: true });
         if (!paymentCompletedRef.current) {
           // showToastMessage(toast, 'danger', stripeErrorMessages.PAYMENT_CANCELLED);
@@ -124,7 +136,7 @@ export default function TipSupportModal({
       setIsButtonLoading(false);
       dispatch(hideLoader());
     }
-  }, [dispatch]);
+  }, [dispatch, onClose]);
 
   const handleConfirm = async () => {
     if (!vendorId) {

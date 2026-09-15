@@ -3,8 +3,9 @@
  * Use across: Donation, Buy Credits, Subscription purchase, Subscription activation.
  */
 import InAppBrowser from 'react-native-inappbrowser-reborn';
-import { Linking } from 'react-native';
+import { Linking, Platform } from 'react-native';
 import { createOnboardingLink, getOnboardingStatus, createCustomerSetupLink } from '../services/profile';
+import { openExternalLink } from './externalLinkHandler';
 
 /** Re-export for single import source */
 export { getOnboardingStatus, createOnboardingLink, createCustomerSetupLink };
@@ -59,7 +60,12 @@ export async function openStripeOnboarding(options = {}) {
     if (!url) {
       throw new Error(stripeErrorMessages.ONBOARDING_FAILED);
     }
-    if (await InAppBrowser.isAvailable()) {
+    if (Platform.OS === 'ios') {
+      openExternalLink(url, {
+        title: 'Complete Setup on Web',
+        description: 'To complete Stripe setup, copy the link below and open it in your web browser (Safari or Chrome), then return to the app.'
+      });
+    } else if (await InAppBrowser.isAvailable()) {
       await InAppBrowser.open(url, STRIPE_BROWSER_OPTIONS);
     } else {
       await Linking.openURL(url);
@@ -115,7 +121,12 @@ export async function openCustomerSetup(options = {}) {
     const response = await createCustomerSetupLink();
     const url = getPaymentSessionUrl(response);
     if (!url) throw new Error(stripeErrorMessages.CUSTOMER_SETUP_FAILED);
-    if (await InAppBrowser.isAvailable()) {
+    if (Platform.OS === 'ios') {
+      openExternalLink(url, {
+        title: 'Payment Setup on Web',
+        description: 'To set up your payment method, copy the link below and open it in your web browser (Safari or Chrome), then return to the app.'
+      });
+    } else if (await InAppBrowser.isAvailable()) {
       await InAppBrowser.open(url, STRIPE_BROWSER_OPTIONS);
     } else {
       await Linking.openURL(url);

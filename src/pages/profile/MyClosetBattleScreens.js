@@ -802,8 +802,18 @@ export function CreateBattleScreen({ navigation, route }) {
             ))}
           </View>
         )}
+      </ScrollView>
 
-        <View style={{ gap: 10, marginTop: 10 }}>
+      <View
+        style={{
+          padding: 16,
+          paddingBottom: Platform.OS === 'android' ? 20 : 30,
+          backgroundColor: bg || SOFT_BG,
+          borderTopWidth: 1,
+          borderTopColor: border || surfaces.listBorder,
+        }}
+      >
+        <View style={{ gap: 10 }}>
           <TouchableOpacity
             activeOpacity={0.9}
             disabled={selectedItems.length !== 2}
@@ -818,13 +828,13 @@ export function CreateBattleScreen({ navigation, route }) {
             activeOpacity={0.9}
             disabled={selectedItems.length !== 1}
             onPress={() => navigation.navigate('ChallengeShopList', { selectedItems, ...route?.params })}
-            style={[styles.secondaryButton, selectedItems.length !== 1 && { opacity: 0.5 }, { borderColor: accent, flexDirection: 'row', alignItems: 'center', gap: 6 }]}
+            style={[styles.secondaryButton, selectedItems.length !== 1 && { opacity: 0.5 }, { borderColor: accent, flexDirection: 'row', alignItems: 'center', gap: 6, justifyContent: 'center' }]}
           >
             <Ionicons name="storefront-outline" size={18} color={accent} />
             <Text style={[styles.secondaryButtonText, { color: accent }]}>{t('battle.challengeAnotherShop', 'Challenge another shop')}</Text>
           </TouchableOpacity>
         </View>
-      </ScrollView>
+      </View>
     </View>
   );
 }
@@ -1595,7 +1605,15 @@ export function ChallengeShopItemsScreen({ navigation, route }) {
         )}
       </ScrollView>
 
-      <View style={{ padding: 16, paddingBottom: Platform.OS === 'android' ? 20 : 30 }}>
+      <View
+        style={{
+          padding: 16,
+          paddingBottom: Platform.OS === 'android' ? 20 : 30,
+          backgroundColor: bg || SOFT_BG,
+          borderTopWidth: 1,
+          borderTopColor: border || surfaces.listBorder,
+        }}
+      >
         <TouchableOpacity
           activeOpacity={0.9}
           disabled={!selectedId}
@@ -2083,7 +2101,7 @@ export function BattleLiveScreen({ navigation, route }) {
             setDeletingBattle(true);
             try {
               await deleteMarketplaceBattle(battleId);
-              navigateToTargetClosetScreen(navigation, targetScreen);
+              handleBack();
             } catch (err) {
               Alert.alert(
                 t('battle.deleteBattleFailedTitle') || 'Could not delete battle',
@@ -2096,7 +2114,7 @@ export function BattleLiveScreen({ navigation, route }) {
         },
       ],
     );
-  }, [battleId, deletingBattle, navigation, t, targetScreen]);
+  }, [battleId, deletingBattle, handleBack, t]);
 
   const handleReactToComment = useCallback(async (comment, reaction) => {
     if (!battleId || !comment?.id) return;

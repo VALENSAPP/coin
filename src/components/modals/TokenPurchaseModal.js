@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Dimensions, Keyboard, Linking, AppState, DeviceEventEmitter } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Dimensions, Keyboard, Linking, AppState, DeviceEventEmitter, Platform } from 'react-native';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
@@ -8,6 +8,7 @@ import { getTokenPrice, getUserTokenInfoByBlockChain, purchaseTokenWithUSD } fro
 import { showToastMessage } from '../displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
+import { openExternalLink } from '../../utils/externalLinkHandler';
 import { useAppTheme } from '../../theme/useApptheme';
 import { getPaymentSessionUrl, STRIPE_BROWSER_OPTIONS, getStripeErrorMessages } from '../../utils/stripeOnboarding';
 import { useStripeCustomer } from '../../hooks/useStripeCustomer';
@@ -187,7 +188,17 @@ const TokenPurchaseModal = ({ onClose, onPurchase, hasFollowing = false, autoFoc
 
       if (url) {
         try {
-          if (await InAppBrowser.isAvailable()) {
+          if (Platform.OS === 'ios') {
+            onClose?.();
+            setIsProcessingPurchase(false);
+            dispatch(hideLoader());
+            setTimeout(() => {
+              openExternalLink(url, {
+                title: 'Purchase Tokens on Web',
+                description: 'Please copy the link below and paste it in your web browser (Safari or Chrome), where you can continue doing the payment, and then return to the app.'
+              });
+            }, 300);
+          } else if (await InAppBrowser.isAvailable()) {
             paymentCompletedRef.current = false;
             await InAppBrowser.open(url, STRIPE_BROWSER_OPTIONS);
             if (!paymentCompletedRef.current) {

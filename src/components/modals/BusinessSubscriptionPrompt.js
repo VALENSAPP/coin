@@ -1,5 +1,5 @@
-﻿import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Linking, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Linking, Modal, StyleSheet, Text, TouchableOpacity, View, Platform } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 import { useToast } from 'react-native-toast-notifications';
@@ -9,6 +9,7 @@ import { useAppTheme } from '../../theme/useApptheme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createOnboardingLink, getOnboardingStatus } from '../../services/profile';
 import { useLanguage } from '../../i18n';
+import { openExternalLink } from '../../utils/externalLinkHandler';
 
 const BusinessSubscriptionPrompt = ({
   visible,
@@ -77,7 +78,13 @@ const BusinessSubscriptionPrompt = ({
         const response = await createCheckoutSession();
 
         if (response?.statusCode === 200 && response?.data?.url) {
-          if (await InAppBrowser.isAvailable()) {
+          if (Platform.OS === 'ios') {
+            openExternalLink(response.data.url, {
+              title: 'Subscribe on Web',
+              description: 'To activate your business subscription, copy the link below and open it in your web browser, then return to the app.'
+            });
+            handleClose();
+          } else if (await InAppBrowser.isAvailable()) {
             await InAppBrowser.open(response.data.url, {
               dismissButtonStyle: 'close',
               preferredBarTintColor: '#ffffff',
@@ -126,7 +133,12 @@ const BusinessSubscriptionPrompt = ({
         throw new Error('Unable to create Stripe onboarding link.');
       }
 
-      if (await InAppBrowser.isAvailable()) {
+      if (Platform.OS === 'ios') {
+        openExternalLink(onboardingUrl, {
+          title: 'Stripe Onboarding on Web',
+          description: 'To complete Stripe onboarding, copy the link below and open it in your web browser, then return to the app.'
+        });
+      } else if (await InAppBrowser.isAvailable()) {
         await InAppBrowser.open(onboardingUrl, {
           dismissButtonStyle: 'close',
           preferredBarTintColor: '#ffffff',

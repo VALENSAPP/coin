@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, Linking } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Linking, Platform } from 'react-native';
 import RBSheet from 'react-native-raw-bottom-sheet';
 import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
@@ -7,6 +7,7 @@ import { buyCreditHits } from '../../services/stirpe';
 import { showToastMessage } from '../displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
+import { openExternalLink } from '../../utils/externalLinkHandler';
 import {
   getPaymentSessionUrl,
   STRIPE_BROWSER_OPTIONS,
@@ -68,6 +69,14 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
       throw new Error('Onboarding link not found');
     }
 
+    if (Platform.OS === 'ios') {
+      openExternalLink(onboardingUrl, {
+        title: 'Stripe Onboarding on Web',
+        description: 'To complete Stripe onboarding, copy the link below and paste it in your web browser, then return to the app.'
+      });
+      return { type: 'opened_external' };
+    }
+
     if (await InAppBrowser.isAvailable()) {
       return await InAppBrowser.open(onboardingUrl, {
         ...STRIPE_BROWSER_OPTIONS,
@@ -123,7 +132,15 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
       return false;
     }
     await AsyncStorage.setItem('lastScreenBeforeBrowser', route.name);
-    if (await InAppBrowser.isAvailable()) {
+    if (Platform.OS === 'ios') {
+      sheetRef.current?.close();
+      setTimeout(() => {
+        openExternalLink(url, {
+          title: 'Buy Credits on Web',
+          description: 'Please copy the link below and paste it in your web browser (Safari or Chrome), where you can continue doing the payment, and then return to the app.'
+        });
+      }, 300);
+    } else if (await InAppBrowser.isAvailable()) {
       await InAppBrowser.open(url, { ...STRIPE_BROWSER_OPTIONS, forceCloseOnRedirection: true });
     } else {
       await Linking.openURL(url);

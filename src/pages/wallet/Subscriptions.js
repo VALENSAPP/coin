@@ -23,6 +23,7 @@ import {
 import { useToast } from 'react-native-toast-notifications';
 import StoryComposer from '../../components/home/story.js/StoryComposer';
 import { showToastMessage } from '../../components/displaytoastmessage';
+import { openExternalLink } from '../../utils/externalLinkHandler';
 import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { getSubscriptionByUserID, setPrivateSubscription, setUserSubscription } from '../../services/wallet';
@@ -206,6 +207,14 @@ const SubventionSetupScreen = () => {
             throw new Error('Onboarding link not found');
         }
 
+        if (Platform.OS === 'ios') {
+            openExternalLink(onboardingUrl, {
+                title: 'Stripe Onboarding on Web',
+                description: 'To complete Stripe onboarding, copy the link below and open it in your web browser, then return to the app.'
+            });
+            return { type: 'opened_external' };
+        }
+
         if (await InAppBrowser.isAvailable()) {
             return await InAppBrowser.open(onboardingUrl, {
                 dismissButtonStyle: 'close',
@@ -240,45 +249,35 @@ const SubventionSetupScreen = () => {
 
     const handleActivationConfirm = async () => {
         try {
+            setShowActivationPopup(false);
             const onboardingStatus = await GetInbordingstatus();
             if (isOnboardingReady(onboardingStatus)) {
-                const paymentResult = await getUserSubscription();
-                setShowActivationPopup(false);
-                navigateToWalletDashboard();
-                if (paymentResult?.cancelled) return;
+                await getUserSubscription();
                 return;
             }
 
             const onboardingResult = await GetInbordingLink();
             if (onboardingResult?.alreadyOnboarded) {
-                const paymentResult = await getUserSubscription();
-                setShowActivationPopup(false);
-                navigateToWalletDashboard();
-                if (paymentResult?.cancelled) return;
+                await getUserSubscription();
                 return;
             }
 
             if (isBrowserCancelled(onboardingResult)) {
-                setShowActivationPopup(false);
-                navigateToWalletDashboard();
                 return;
             }
 
             const updatedStatus = await waitForOnboardingCompletion();
             if (isOnboardingReady(updatedStatus)) {
-                const paymentResult = await getUserSubscription();
-                setShowActivationPopup(false);
-                navigateToWalletDashboard();
-                if (paymentResult?.cancelled) return;
+                await getUserSubscription();
                 return;
             }
 
-            setShowActivationPopup(false);
-            navigateToWalletDashboard();
             showToastMessage(toast, 'warning', t('subventionSetup.stripeIncomplete'));
         } catch (error) {
             console.log('Activation flow error:', error);
             showToastMessage(toast, 'danger', error?.message || stripeErrorMessages.ONBOARDING_FAILED);
+        } finally {
+            setShowActivationPopup(false);
         }
     };
 
@@ -538,6 +537,14 @@ const SubventionSetupScreen = () => {
             response = await createCheckoutSession();
             const checkoutUrl = response?.data?.url;
             if (!checkoutUrl) throw new Error('Checkout URL not received');
+            if (Platform.OS === 'ios') {
+                openExternalLink(checkoutUrl, {
+                    title: 'Subscribe on Web',
+                    description: 'To complete your subscription, copy the link below and open it in your web browser, then return to the app.'
+                });
+                return { response, cancelled: false };
+            }
+
             if (await InAppBrowser.isAvailable()) {
                 const browserResult = await InAppBrowser.open(checkoutUrl, {
                     dismissButtonStyle: 'close',

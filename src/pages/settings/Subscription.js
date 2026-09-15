@@ -7,7 +7,9 @@ import {
   ActivityIndicator,
   Linking,
   DeviceEventEmitter,
+  Platform,
 } from 'react-native';
+import { openExternalLink } from '../../utils/externalLinkHandler';
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { cancelSubscription, checkSubscription, createCheckoutSession } from '../../services/stirpe';
 import { ScrollView } from 'react-native-gesture-handler';
@@ -230,6 +232,15 @@ const Subscription = () => {
           ?? onboardingLink?.data?.data?.onboardingUrl;
 
         if (onboardingUrl) {
+          setShowActivationPopup(false);
+          if (Platform.OS === 'ios') {
+            openExternalLink(onboardingUrl, {
+              title: 'Stripe Onboarding on Web',
+              description: 'Please copy the link below and paste it in your web browser (Safari or Chrome), where you can complete Stripe onboarding, and then return to the app.'
+            });
+            return;
+          }
+
           let browserResult;
           if (await InAppBrowser.isAvailable()) {
             browserResult = await InAppBrowser.open(onboardingUrl, {
@@ -247,7 +258,6 @@ const Subscription = () => {
 
           // User cancelled onboarding
           if (browserResult?.type === 'cancel' || browserResult?.type === 'dismiss') {
-            setShowActivationPopup(false);
             return;
           }
 
@@ -264,7 +274,6 @@ const Subscription = () => {
 
           if (!onboarded) {
             Alert.alert(t('subscription.error'), t('subventionSetup.stripeIncomplete'));
-            setShowActivationPopup(false);
             return;
           }
         }
@@ -275,8 +284,13 @@ const Subscription = () => {
       const checkoutUrl = response?.data?.url;
       if (!checkoutUrl) throw new Error('Checkout URL not received');
 
-      let cancelled = false;
-      if (await InAppBrowser.isAvailable()) {
+      setShowActivationPopup(false);
+      if (Platform.OS === 'ios') {
+        openExternalLink(checkoutUrl, {
+          title: 'Subscribe on Web',
+          description: 'Please copy the link below and paste it in your web browser (Safari or Chrome), where you can continue doing the payment, and then return to the app.'
+        });
+      } else if (await InAppBrowser.isAvailable()) {
         const browserResult = await InAppBrowser.open(checkoutUrl, {
           dismissButtonStyle: 'close',
           preferredBarTintColor: '#000',
@@ -286,20 +300,15 @@ const Subscription = () => {
           enableUrlBarHiding: true,
           enableDefaultShare: false,
         });
-        cancelled = browserResult?.type === 'cancel' || browserResult?.type === 'dismiss';
       } else {
         await Linking.openURL(checkoutUrl);
-      }
-
-      setShowActivationPopup(false);
-      if (!cancelled) {
-        await pollSubscriptionAfterPayment();
       }
     } catch (error) {
       console.error('Error activating subscription:', error);
       Alert.alert(t('subscription.error'), error?.message || t('payment.paymentErrorMsg'));
     } finally {
       setActivating(false);
+      setShowActivationPopup(false);
     }
   };
 

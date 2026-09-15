@@ -11,7 +11,9 @@ export function parseTotalPlatformPointsPayload(response) {
     (root.totalPlatformPoints != null ||
       root.referPoints != null ||
       root.totalBattlePoints != null ||
-      root.used != null)
+      root.used != null ||
+      root.ShopPlatformPonits != null ||
+      root.shopPlatformPoints != null)
       ? root
       : root?.data && typeof root.data === 'object'
         ? root.data
@@ -36,6 +38,15 @@ export function parseTotalPlatformPointsPayload(response) {
         payload?.referralPoints ??
         payload?.refer_points,
     ) || 0;
+  const shopPlatformPoints =
+    Number(
+      payload?.ShopPlatformPonits ??
+        payload?.ShopPlatformPoints ??
+        payload?.shopPlatformPoints ??
+        payload?.shopPlatformPonits ??
+        payload?.shop_platform_points ??
+        payload?.shop_platform_ponits,
+    ) || 0;
   const used =
     Number(payload?.used ?? payload?.usedPoints ?? payload?.used_points) || 0;
 
@@ -48,7 +59,8 @@ export function parseTotalPlatformPointsPayload(response) {
     ) || 0;
 
   // If API omits totalPlatformPoints, derive from known buckets.
-  const partsSum = totalBattlePoints + marketplaceBattlePoints + referPoints;
+  const partsSum =
+    totalBattlePoints + marketplaceBattlePoints + referPoints + shopPlatformPoints;
   const totalPlatformPoints = reportedTotal > 0 ? reportedTotal : partsSum;
 
   // Available = total platform points (same as "Your Platform Points").
@@ -59,6 +71,7 @@ export function parseTotalPlatformPointsPayload(response) {
     totalBattlePoints,
     marketplaceBattlePoints,
     referPoints,
+    shopPlatformPoints,
     used,
     availablePoints,
   };
