@@ -43,6 +43,8 @@ const transformSubscriber = (item) => {
   let status = STATUS.active;
   if (item.status === 'EXPIRED' || endDate < now) {
     status = STATUS.expired;
+  } else if (item.status === 'ACTIVE' && item.isActive) {
+    status = STATUS.active;
   } else if (
     item.status === 'CANCELED' ||
     item.status === 'canceled' ||
@@ -53,8 +55,6 @@ const transformSubscriber = (item) => {
     item.autoRenew === false
   ) {
     status = STATUS.canceled;
-  } else if (item.status === 'ACTIVE' && item.isActive) {
-    status = STATUS.active;
   }
 
   // Format date
@@ -191,7 +191,6 @@ const ManageSubscribersScreen = () => {
       try {
         setIsLoading(true);
         setError(null);
-
         if (mode === 'subscribers') {
           const response = await getSubscribersList();
           if (response?.statusCode === 200 && response?.data?.subscribers) {
@@ -249,7 +248,7 @@ const ManageSubscribersScreen = () => {
       else if (item.status === STATUS.canceled) statsCounts.canceled++;
       else if (item.status === STATUS.expired) statsCounts.expired++;
     });
-
+    console.log('Stats counts:', statsCounts, 'Total items:', subscribersList);
     const total = list.length || 1;
     return {
       active: { count: statsCounts.active, pct: total ? ((statsCounts.active / total) * 100).toFixed(1) : 0 },

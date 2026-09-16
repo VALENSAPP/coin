@@ -51,6 +51,19 @@ const SubscriptionPriceChangedScreen = () => {
   const newPrice = rawNewPrice != null ? String(rawNewPrice) : '';
   const oldPrice = rawOldPrice != null ? String(rawOldPrice) : '';
 
+  const rawIsCancelled =
+    route?.params?.isCancelled ??
+    route?.params?.notification?.raw?.data?.isCancelled ??
+    route?.params?.notification?.data?.isCancelled;
+
+  const parseIsCancelled = (val) => {
+    if (val === false || val === 'false' || val === 0 || val === '0') return 'accepted';
+    if (val === true || val === 'true' || val === 1 || val === '1') return 'declined';
+    return 'pending';
+  };
+
+  const [statusState, setStatusState] = useState(() => parseIsCancelled(rawIsCancelled));
+
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [creatorProfile, setCreatorProfile] = useState(null);
   const [submittingAccept, setSubmittingAccept] = useState(false);
@@ -92,7 +105,7 @@ const SubscriptionPriceChangedScreen = () => {
     creatorProfile?.name ||
     creatorProfile?.fullName ||
     creatorProfile?.first_name ||
-    'Creator';
+    t('subscriptionPriceChangedScreen.creator');
   const avatarUrl =
     creatorProfile?.profile_image ||
     creatorProfile?.avatar ||
@@ -115,9 +128,8 @@ const SubscriptionPriceChangedScreen = () => {
       if (sessionUrl) {
         if (Platform.OS === 'ios') {
           openExternalLink(sessionUrl, {
-            title: 'Subscribe on Web',
-            description:
-              'Please copy the link below and paste it in your web browser where you can complete the payment, then return to the app.',
+            title: t('subscriptionPriceChangedScreen.subscribeOnWebTitle'),
+            description: t('subscriptionPriceChangedScreen.subscribeOnWebDescription'),
           });
         } else if (await InAppBrowser.isAvailable()) {
           await InAppBrowser.open(sessionUrl, {
@@ -129,15 +141,15 @@ const SubscriptionPriceChangedScreen = () => {
         }
       }
 
-      // Alert.alert(
-      //   t('subscriptionPriceChangedScreen.title'),
-      //   t('subscriptionPriceChangedScreen.acceptSuccess'),
-      //   [{ text: 'OK', onPress: () => navigation.goBack() }]
-      // );
+      setStatusState('accepted');
+      Alert.alert(
+        t('subscriptionPriceChangedScreen.title'),
+        t('subscriptionPriceChangedScreen.acceptSuccess')
+      );
     } catch (err) {
       console.log('SubscriptionPriceChangedScreen handleAccept error:', err);
       Alert.alert(
-        'Error',
+        t('subscriptionPriceChangedScreen.errorTitle'),
         err?.response?.data?.message ||
           err?.message ||
           t('subscriptionPriceChangedScreen.errorAccept')
@@ -145,7 +157,7 @@ const SubscriptionPriceChangedScreen = () => {
     } finally {
       setSubmittingAccept(false);
     }
-  }, [creatorId, newPrice, submittingAccept, submittingDecline, t, navigation]);
+  }, [creatorId, newPrice, submittingAccept, submittingDecline, t]);
 
   const confirmDecline = useCallback(async () => {
     if (submittingAccept || submittingDecline) return;
@@ -157,15 +169,15 @@ const SubscriptionPriceChangedScreen = () => {
       }
       await cancelFanSubscription(payload);
 
+      setStatusState('declined');
       Alert.alert(
         t('subscriptionPriceChangedScreen.title'),
-        t('subscriptionPriceChangedScreen.declineSuccess'),
-        [{ text: 'OK', onPress: () => navigation.goBack() }]
+        t('subscriptionPriceChangedScreen.declineSuccess')
       );
     } catch (err) {
       console.log('SubscriptionPriceChangedScreen confirmDecline error:', err);
       Alert.alert(
-        'Error',
+        t('subscriptionPriceChangedScreen.errorTitle'),
         err?.response?.data?.message ||
           err?.message ||
           t('subscriptionPriceChangedScreen.errorDecline')
@@ -173,7 +185,7 @@ const SubscriptionPriceChangedScreen = () => {
     } finally {
       setSubmittingDecline(false);
     }
-  }, [creatorId, subscriptionId, submittingAccept, submittingDecline, t, navigation]);
+  }, [creatorId, subscriptionId, submittingAccept, submittingDecline, t]);
 
   const handleDeclinePress = useCallback(() => {
     Alert.alert(
@@ -233,12 +245,28 @@ const SubscriptionPriceChangedScreen = () => {
         {/* Price Change Summary Card */}
         <View style={[styles.card, { backgroundColor: card, borderColor: softBorder }]}>
           <View style={styles.badgeRow}>
-            <View style={[styles.statusBadge, { backgroundColor: '#FEF3C7' }]}>
-              <MaterialCommunityIcons name="clock-outline" size={16} color="#D97706" />
-              <Text style={styles.badgeText}>
-                {t('subscriptionPriceChangedScreen.autoRenewalPaused')}
-              </Text>
-            </View>
+            {statusState === 'accepted' ? (
+              <View style={[styles.statusBadge, { backgroundColor: '#D1FAE5' }]}>
+                <MaterialCommunityIcons name="check-circle-outline" size={16} color="#059669" />
+                <Text style={[styles.badgeText, { color: '#059669' }]}>
+                  {t('subscriptionPriceChangedScreen.statusAccepted')}
+                </Text>
+              </View>
+            ) : statusState === 'declined' ? (
+              <View style={[styles.statusBadge, { backgroundColor: '#FEE2E2' }]}>
+                <MaterialCommunityIcons name="close-circle-outline" size={16} color="#DC2626" />
+                <Text style={[styles.badgeText, { color: '#DC2626' }]}>
+                  {t('subscriptionPriceChangedScreen.statusDeclined')}
+                </Text>
+              </View>
+            ) : (
+              <View style={[styles.statusBadge, { backgroundColor: '#FEF3C7' }]}>
+                <MaterialCommunityIcons name="clock-outline" size={16} color="#D97706" />
+                <Text style={[styles.badgeText, { color: '#D97706' }]}>
+                  {t('subscriptionPriceChangedScreen.autoRenewalPaused')}
+                </Text>
+              </View>
+            )}
           </View>
 
           <View style={styles.priceRow}>
@@ -283,51 +311,81 @@ const SubscriptionPriceChangedScreen = () => {
         <View style={[styles.card, { backgroundColor: softBg, borderColor: softBorder }]}>
           <View style={styles.noticeHeader}>
             <MaterialCommunityIcons
-              name="information-outline"
+              name={
+                statusState === 'accepted'
+                  ? 'check-circle-outline'
+                  : statusState === 'declined'
+                  ? 'alert-circle-outline'
+                  : 'information-outline'
+              }
               size={20}
-              color={accent || text}
+              color={
+                statusState === 'accepted'
+                  ? '#059669'
+                  : statusState === 'declined'
+                  ? '#DC2626'
+                  : accent || text
+              }
             />
             <Text style={[styles.noticeTitle, textStyle]}>
               {t('subscriptionPriceChangedScreen.noticeTitle')}
             </Text>
           </View>
           <Text style={[styles.noticeBody, { color: muted }]}>
-            {t('subscriptionPriceChangedScreen.noticeBody')}
+            {statusState === 'accepted'
+              ? t('subscriptionPriceChangedScreen.acceptedNotice')
+              : statusState === 'declined'
+              ? t('subscriptionPriceChangedScreen.declinedNotice')
+              : t('subscriptionPriceChangedScreen.noticeBody')}
           </Text>
         </View>
 
         {/* Action Buttons */}
-        <View style={styles.actionsWrap}>
-          <TouchableOpacity
-            style={[styles.primaryBtn, { backgroundColor: cta.bg }]}
-            onPress={handleAccept}
-            disabled={submittingAccept || submittingDecline}
-            activeOpacity={0.8}
-          >
-            {submittingAccept ? (
-              <ActivityIndicator color={cta.fg} />
-            ) : (
-              <Text style={[styles.primaryBtnText, { color: cta.fg }]}>
-                {t('subscriptionPriceChangedScreen.acceptButton')}
-              </Text>
-            )}
-          </TouchableOpacity>
+        {statusState === 'pending' ? (
+          <View style={styles.actionsWrap}>
+            <TouchableOpacity
+              style={[styles.primaryBtn, { backgroundColor: cta.bg }]}
+              onPress={handleAccept}
+              disabled={submittingAccept || submittingDecline}
+              activeOpacity={0.8}
+            >
+              {submittingAccept ? (
+                <ActivityIndicator color={cta.fg} />
+              ) : (
+                <Text style={[styles.primaryBtnText, { color: cta.fg }]}>
+                  {t('subscriptionPriceChangedScreen.acceptButton')}
+                </Text>
+              )}
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.outlineBtn, { borderColor: border || '#EF4444' }]}
-            onPress={handleDeclinePress}
-            disabled={submittingAccept || submittingDecline}
-            activeOpacity={0.8}
-          >
-            {submittingDecline ? (
-              <ActivityIndicator color="#EF4444" />
-            ) : (
-              <Text style={styles.outlineBtnText}>
-                {t('subscriptionPriceChangedScreen.declineButton')}
+            <TouchableOpacity
+              style={[styles.outlineBtn, { borderColor: border || '#EF4444' }]}
+              onPress={handleDeclinePress}
+              disabled={submittingAccept || submittingDecline}
+              activeOpacity={0.8}
+            >
+              {submittingDecline ? (
+                <ActivityIndicator color="#EF4444" />
+              ) : (
+                <Text style={styles.outlineBtnText}>
+                  {t('subscriptionPriceChangedScreen.declineButton')}
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.actionsWrap}>
+            <TouchableOpacity
+              style={[styles.primaryBtn, { backgroundColor: cta.bg }]}
+              onPress={() => navigation.goBack()}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.primaryBtnText, { color: cta.fg }]}>
+                {t('subscriptionPriceChangedScreen.done')}
               </Text>
-            )}
-          </TouchableOpacity>
-        </View>
+            </TouchableOpacity>
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );

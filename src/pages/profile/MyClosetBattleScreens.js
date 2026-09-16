@@ -11,6 +11,7 @@ import {
   Share,
   ActivityIndicator,
   Platform,
+  Modal,
 } from 'react-native';
 import FastImage from 'react-native-fast-image';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -36,6 +37,7 @@ import {
   getMyClosetItems,
   createMarketplaceBattle,
   deleteMarketplaceBattle,
+  updateMarketplaceBattleQuestion,
   getMarketplaceBattleDetails,
   getMarketplaceBattleInsights,
   trackMarketplaceBattleView,
@@ -686,10 +688,17 @@ export function CreateBattleScreen({ navigation, route }) {
 
   console.log('CreateBattleScreen route params', { sellerId, fromRoute, headerTitle, nextRoute, targetScreen });
 
+  const initialPassedItems = useMemo(() => {
+    const passed = route?.params?.selectedItems || route?.params?.initialSelectedItems || [];
+    return Array.isArray(passed) ? passed : [];
+  }, [route?.params?.selectedItems, route?.params?.initialSelectedItems]);
+
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState(null);
-  const [selectedIds, setSelectedIds] = useState([]);
+  const [selectedIds, setSelectedIds] = useState(() => {
+    return initialPassedItems.map(i => String(i?.id || i?._id || i?.productId || i?.raw?.id || i?.raw?._id)).filter(Boolean);
+  });
 
   const loadItems = useCallback(async () => {
     if (items.length) return;
@@ -711,15 +720,34 @@ export function CreateBattleScreen({ navigation, route }) {
       );
       const normalized = normalizeItems(nextItems, t);
       prefetchImageUrls(nextItems);
-      setItems(normalized);
-      // setSelectedIds(normalized.slice(0, 2).map(i => i.id));
+
+      if (initialPassedItems.length > 0) {
+        const normalizedPassed = normalizeItems(initialPassedItems, t);
+        const mergedItems = [...normalized];
+        normalizedPassed.forEach(pItem => {
+          if (!mergedItems.some(existing => String(existing.id) === String(pItem.id))) {
+            mergedItems.unshift(pItem);
+          }
+        });
+        setItems(mergedItems);
+        setSelectedIds(normalizedPassed.map(i => i.id));
+      } else {
+        setItems(normalized);
+      }
     } catch (err) {
-      setItems([]);
-      setLoadError(t('battle.errors.itemsLoadFailed') || 'Could not load your closet items.');
+      if (initialPassedItems.length > 0) {
+        const normalizedPassed = normalizeItems(initialPassedItems, t);
+        setItems(normalizedPassed);
+        setSelectedIds(normalizedPassed.map(i => i.id));
+        setLoadError(null);
+      } else {
+        setItems([]);
+        setLoadError(t('battle.errors.itemsLoadFailed') || 'Could not load your closet items.');
+      }
     } finally {
       setLoading(false);
     }
-  }, [items.length, sellerId, t]);
+  }, [items.length, sellerId, t, initialPassedItems]);
 
   useFocusEffect(
     useCallback(() => {
@@ -817,7 +845,7 @@ export function CreateBattleScreen({ navigation, route }) {
           <TouchableOpacity
             activeOpacity={0.9}
             disabled={selectedItems.length !== 2}
-            onPress={() => navigation.navigate(nextRoute, { selectedItems, ...route?.params })}
+            onPress={() => navigation.navigate(nextRoute, { ...route?.params, selectedItems })}
           >
             <LinearGradient colors={[accent, text]} style={[styles.primaryButton, selectedItems.length !== 2 && { opacity: 0.5 }]}>
               <Text style={styles.primaryButtonText}>{t('battle.next', 'Next')}</Text>
@@ -827,7 +855,7 @@ export function CreateBattleScreen({ navigation, route }) {
           <TouchableOpacity
             activeOpacity={0.9}
             disabled={selectedItems.length !== 1}
-            onPress={() => navigation.navigate('ChallengeShopList', { selectedItems, ...route?.params })}
+            onPress={() => navigation.navigate('ChallengeShopList', { ...route?.params, selectedItems })}
             style={[styles.secondaryButton, selectedItems.length !== 1 && { opacity: 0.5 }, { borderColor: accent, flexDirection: 'row', alignItems: 'center', gap: 6, justifyContent: 'center' }]}
           >
             <Ionicons name="storefront-outline" size={18} color={accent} />
@@ -848,13 +876,13 @@ export function BattleSetupScreen({ navigation, route }) {
   const accent = text || PURPLE;
   const primaryText = text || TEXT;
   const subtleMuted = mutedText || surfaces.mutedColor;
-  const initialQuestion = route?.params?.defaultQuestion || t('battle.defaultQuestion');
+  const initialQuestion = route?.params?.question || route?.params?.defaultQuestion || t('battle.defaultQuestion');
   const handleBack = useBattleBackHandler(navigation, route);
   const [question, setQuestion] = useState(initialQuestion);
-  const [battleType, setBattleType] = useState('OPINION');
-  const [duration, setDuration] = useState('3 DAYS');
-  const [whoCanVote, setWhoCanVote] = useState(t('battle.public'));
-  const [visibility, setVisibility] = useState(t('battle.public'));
+  const [battleType, setBattleType] = useState(route?.params?.battleType || 'OPINION');
+  const [duration, setDuration] = useState(route?.params?.duration || '3 DAYS');
+  const [whoCanVote, setWhoCanVote] = useState(route?.params?.whoCanVote || t('battle.public'));
+  const [visibility, setVisibility] = useState(route?.params?.visibility || t('battle.public'));
   const [errors, setErrors] = useState({});
 
   const validate = () => {
@@ -871,6 +899,7 @@ export function BattleSetupScreen({ navigation, route }) {
     if (!validate()) return;
     const nextRoute = route?.params?.previewRoute || 'BattlePreview';
     navigation.navigate(nextRoute, {
+      ...route?.params,
       question,
       battleType,
       duration,
@@ -1061,6 +1090,7 @@ export function BattlePreviewScreen({ navigation, route }) {
     const endAt = new Date(startAt.getTime() + durationMs);
     return {
       title: previewQuestion,
+      question: previewQuestion,
       description: previewQuestion,
       category: 'Fashion',
       visibility: visibility === t('battle.private') ? 'Private' : 'Everyone',
@@ -1072,37 +1102,54 @@ export function BattlePreviewScreen({ navigation, route }) {
     };
   };
 
+  const buildEditBattlePayload = () => {
+    const { battleType, duration, whoCanVote, visibility } = route?.params || {};
+    const durationMs = DURATION_MS[duration] || DURATION_MS['3 DAYS'];
+    const startAt = new Date();
+    const endAt = new Date(startAt.getTime() + durationMs);
+    return {
+      title: previewQuestion,
+      question: previewQuestion,
+      description: previewQuestion,
+      category: 'Fashion',
+      visibility: visibility === t('battle.private') ? 'Private' : 'Everyone',
+      whoCanVote: whoCanVote === t('battle.followersOnly') ? 'Followers' : 'Everyone',
+      shareToFeed: false,
+      productIds: selectedItems.map(item => item.id),
+      endAt: endAt.toISOString(),
+    };
+  };
+
+  const isEditing = route?.params?.isEditing || !!route?.params?.editingBattleId;
+  const editingBattleId = route?.params?.editingBattleId;
+
   const handleLaunch = async () => {
     setLaunching(true);
     try {
-      const payload = buildBattlePayload();
-      const response = await createMarketplaceBattle(payload);
-      console.log("createMarketplaceBattle-------------------", response)
-      const data = response?.data?.data ?? response?.data ?? response;
-      const battle = data?.battle ?? data;
-      const battleId = battle?.id;
+      if (isEditing && editingBattleId) {
+        const payload = buildEditBattlePayload();
+        console.log("updateMarketplaceBattleQuestion-------------------", editingBattleId, payload);
+        await updateMarketplaceBattleQuestion(editingBattleId, payload);
+      } else {
+        const payload = buildBattlePayload();
+        const response = await createMarketplaceBattle(payload);
+        console.log("createMarketplaceBattle-------------------", response);
+      }
 
-      const liveRoute = route?.params?.liveRoute || 'BattleLive';
-      // navigation.navigate(liveRoute, {
-      //   battleId,
-      //   question: previewQuestion,
-      //   selectedItems,
-      //   launchedFromPreview: true,
-      // });
       navigateToTargetClosetScreen(navigation, targetScreen);
     } catch (err) {
       const status = err?.response?.status;
       const message = err?.response?.data?.message;
       if (status === 400 && message === 'One or more products were not found') {
         Alert.alert(
-          t('battle.errors.launchFailedTitle') || 'Could not launch battle',
+          t('battle.errors.launchFailedTitle') || 'Could not save battle',
           t('battle.errors.productsNotFound') ||
           'One or both items could not be found. They may have been removed — please go back and pick again.',
         );
       } else {
         Alert.alert(
-          t('battle.errors.launchFailedTitle') || 'Could not launch battle',
-          message || t('battle.errors.launchFailedGeneric') || 'Something went wrong. Please try again.',
+          t('battle.errors.launchFailedTitle') || 'Could not save battle',
+          message || err?.response?.data?.error || err?.message || t('battle.errors.launchFailedGeneric') || 'Something went wrong. Please try again.',
         );
       }
     } finally {
@@ -1160,7 +1207,9 @@ export function BattlePreviewScreen({ navigation, route }) {
             {launching ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.primaryButtonText}>{t('battle.launchBattle')}</Text>
+              <Text style={styles.primaryButtonText}>
+                {isEditing ? (t('battle.updateBattle') || 'Update Battle') : t('battle.launchBattle')}
+              </Text>
             )}
           </LinearGradient>
         </TouchableOpacity>
@@ -1718,6 +1767,7 @@ export function BattleLiveScreen({ navigation, route }) {
   const [postingComment, setPostingComment] = useState(false);
   const [deletingCommentId, setDeletingCommentId] = useState('');
   const [deletingBattle, setDeletingBattle] = useState(false);
+  const [manageModalVisible, setManageModalVisible] = useState(false);
 
   const question = battle?.title || route?.params?.question || t('battle.defaultQuestion');
   console.log("battle?.items-------------------------------------", battle)
@@ -2087,34 +2137,54 @@ export function BattleLiveScreen({ navigation, route }) {
     }
   };
 
-  const handleDeleteBattle = useCallback(() => {
+  const handleConfirmDeleteBattle = useCallback(async () => {
+    setManageModalVisible(false);
     if (!battleId || deletingBattle) return;
-    Alert.alert(
-      t('battle.deleteBattleTitle') || 'Delete battle?',
-      t('battle.deleteBattleConfirm') || 'This will permanently delete this battle.',
-      [
-        { text: t('battle.cancel') || 'Cancel', style: 'cancel' },
-        {
-          text: t('battle.delete') || 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            setDeletingBattle(true);
-            try {
-              await deleteMarketplaceBattle(battleId);
-              handleBack();
-            } catch (err) {
-              Alert.alert(
-                t('battle.deleteBattleFailedTitle') || 'Could not delete battle',
-                err?.response?.data?.message || err?.message || t('battleInProgress.tryAgain') || 'Please try again.',
-              );
-            } finally {
-              setDeletingBattle(false);
-            }
-          },
-        },
-      ],
-    );
+    setDeletingBattle(true);
+    try {
+      await deleteMarketplaceBattle(battleId);
+      handleBack();
+    } catch (err) {
+      Alert.alert(
+        t('battle.deleteBattleFailedTitle') || 'Could not delete battle',
+        err?.response?.data?.message || err?.message || t('battleInProgress.tryAgain') || 'Please try again.',
+      );
+    } finally {
+      setDeletingBattle(false);
+    }
   }, [battleId, deletingBattle, handleBack, t]);
+
+  const handleEditBattle = useCallback(() => {
+    setManageModalVisible(false);
+    if (!battleId) return;
+
+    const passedQuestion = battle?.title || route?.params?.question || question;
+    const passedItems = selectedItems;
+
+    navigation.navigate('CreateBattle', {
+      sellerId: battle?.sellerId || route?.params?.sellerId || currentUserId,
+      editingBattleId: battleId,
+      isEditing: true,
+      initialSelectedItems: passedItems,
+      selectedItems: passedItems,
+      question: passedQuestion,
+      defaultQuestion: passedQuestion,
+      battleType: battle?.battleType || battle?.type || route?.params?.battleType || 'OPINION',
+      duration: battle?.duration || route?.params?.duration || '3 DAYS',
+      whoCanVote: battle?.whoCanVote || route?.params?.whoCanVote || t('battle.public'),
+      visibility: battle?.visibility || route?.params?.visibility || t('battle.public'),
+      fromRoute: route?.params?.fromRoute,
+    });
+  }, [
+    battleId,
+    navigation,
+    battle,
+    route?.params,
+    currentUserId,
+    question,
+    selectedItems,
+    t,
+  ]);
 
   const handleReactToComment = useCallback(async (comment, reaction) => {
     if (!battleId || !comment?.id) return;
@@ -2405,7 +2475,7 @@ export function BattleLiveScreen({ navigation, route }) {
       {canDeleteBattle ? (
         <TouchableOpacity
           activeOpacity={0.85}
-          onPress={handleDeleteBattle}
+          onPress={() => setManageModalVisible(true)}
           style={[liveStyles.manageBattleCard, { backgroundColor: surface }]}
         >
           <View style={liveStyles.manageBattleIcon}>
@@ -2414,12 +2484,87 @@ export function BattleLiveScreen({ navigation, route }) {
           <View style={liveStyles.manageBattleCopy}>
             <Text style={liveStyles.manageBattleTitle}>{t('battle.deleteBattle') || 'Delete Battle'}</Text>
             <Text style={[liveStyles.manageBattleDescription, { color: subtleMuted }]}>
-              {t('battle.deleteBattleGracePeriod') || 'You have a 5 minute grace period to delete this battle.'}
+              {t('battle.deleteBattleGracePeriod') || 'You have a 5 minute grace period to edit or delete this battle.'}
+              {'\n'}
+              {t('battle.afterGracePeriod') || "After 5 minutes, it can't be edited or deleted."}
             </Text>
           </View>
           <Ionicons name="chevron-forward" size={20} color={subtleMuted} />
         </TouchableOpacity>
       ) : null}
+
+      <Modal
+        visible={manageModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setManageModalVisible(false)}
+      >
+        <View style={liveStyles.modalBackdrop}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={() => setManageModalVisible(false)}
+          />
+          <View style={[liveStyles.modalContainer, { backgroundColor: surface }]}>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => setManageModalVisible(false)}
+              style={liveStyles.modalCloseBtn}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons name="close" size={20} color={subtleMuted} />
+            </TouchableOpacity>
+
+            <View style={[liveStyles.modalHeaderIconCircle, isDarkMode && { backgroundColor: 'rgba(124, 58, 237, 0.2)' }]}>
+              <View style={liveStyles.modalIconRow}>
+                <Ionicons name="pencil" size={18} color={isDarkMode ? '#A78BFA' : '#7C3AED'} />
+                <Ionicons name="trash-outline" size={18} color={isDarkMode ? '#A78BFA' : '#7C3AED'} />
+              </View>
+            </View>
+
+            <Text style={[liveStyles.modalTitle, { color: isDarkMode ? '#F3F4F6' : '#5B21B6' }]}>
+              {t('battle.editOrDeleteTitle') || 'Edit or Delete Battle?'}
+            </Text>
+
+            <Text style={[liveStyles.modalDescription, { color: subtleMuted }]}>
+              {t('battle.editOrDeleteGracePeriod') || 'You have a 5 minute grace period to edit or delete this battle.'}
+            </Text>
+            <Text style={[liveStyles.modalSubDescription, { color: subtleMuted }]}>
+              {t('battle.afterGracePeriod') || "After 5 minutes, it can't be edited or deleted."}
+            </Text>
+
+            <View style={liveStyles.modalActionsRow}>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={handleEditBattle}
+                style={[
+                  liveStyles.modalEditBtn,
+                  { borderColor: isDarkMode ? 'rgba(167, 139, 250, 0.4)' : '#E9D5FF', backgroundColor: isDarkMode ? 'transparent' : '#FFFFFF' },
+                ]}
+              >
+                <Ionicons name="pencil" size={16} color={isDarkMode ? '#A78BFA' : '#7C3AED'} />
+                <Text style={[liveStyles.modalEditBtnText, { color: isDarkMode ? '#A78BFA' : '#7C3AED' }]}>
+                  {t('battle.edit') || 'Edit'}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={handleConfirmDeleteBattle}
+                style={[
+                  liveStyles.modalDeleteBtn,
+                  isDarkMode && { backgroundColor: 'rgba(239, 68, 68, 0.2)' },
+                ]}
+              >
+                <Ionicons name="trash-outline" size={16} color="#DC2626" />
+                <Text style={liveStyles.modalDeleteBtnText}>
+                  {t('battle.delete') || 'Delete'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Stats row: views / comments / likes */}
       <View style={[liveStyles.statsRow, { backgroundColor: surface, borderColor: border || BORDER, borderWidth: StyleSheet.hairlineWidth }]}>
@@ -2672,6 +2817,109 @@ const liveStyles = StyleSheet.create({
   manageBattleCopy: { flex: 1 },
   manageBattleTitle: { color: '#DC2626', fontSize: 15, fontWeight: '800', marginBottom: 3 },
   manageBattleDescription: { fontSize: 12, lineHeight: 17 },
+
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContainer: {
+    width: '100%',
+    maxWidth: 340,
+    borderRadius: 24,
+    paddingHorizontal: 24,
+    paddingTop: 28,
+    paddingBottom: 24,
+    alignItems: 'center',
+    position: 'relative',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  modalCloseBtn: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    zIndex: 1,
+    padding: 4,
+  },
+  modalHeaderIconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#F3E8FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  modalIconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#5B21B6',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  modalDescription: {
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: 'center',
+    color: '#6B7280',
+  },
+  modalSubDescription: {
+    fontSize: 12,
+    lineHeight: 16,
+    textAlign: 'center',
+    color: '#9CA3AF',
+    marginTop: 4,
+  },
+  modalActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 24,
+    width: '100%',
+  },
+  modalEditBtn: {
+    flex: 1,
+    height: 46,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#E9D5FF',
+    backgroundColor: '#FFFFFF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  modalEditBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#7C3AED',
+  },
+  modalDeleteBtn: {
+    flex: 1,
+    height: 46,
+    borderRadius: 14,
+    backgroundColor: '#FEE2E2',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  modalDeleteBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#DC2626',
+  },
 
 
   statsRow: { flexDirection: 'row', alignItems: 'center', borderRadius: 16, paddingVertical: 12, marginTop: 18, marginBottom: 14 },
@@ -2972,6 +3220,7 @@ export function ChallengeBattlePreviewScreen({ navigation, route }) {
           endAt: endAt.toISOString(),
           inviteExpiresInHours: 48,
         };
+
         await challengeShop(challengePayload);
       } else {
         // Standard Battle Flow

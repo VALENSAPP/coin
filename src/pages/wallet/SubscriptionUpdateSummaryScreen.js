@@ -84,8 +84,7 @@ const SubscriptionUpdateSummaryScreen = () => {
   const effectiveValue =
     apiData?.effective ??
     apiData?.effectiveType ??
-    route.params?.effective ??
-    t('manageSubscribers.updateSummary.nextRenewal', 'On next renewal');
+    route.params?.effective;
 
   const dateValue =
     apiData?.date ??
@@ -187,7 +186,11 @@ const SubscriptionUpdateSummaryScreen = () => {
               </View>
               <SummaryRow label={t('manageSubscribers.updateSummary.from', 'From')} value={fromValue} theme={theme} />
               <SummaryRow label={t('manageSubscribers.updateSummary.to', 'To')} value={toValue} theme={theme} />
-              <SummaryRow label={t('manageSubscribers.updateSummary.effective', 'Effective')} value={effectiveValue} theme={theme} />
+              <SummaryRow label={t('manageSubscribers.updateSummary.effective', 'Effective')} value={
+                effectiveValue === 'On next renewal'
+                  ? t('manageSubscribers.updateSummary.nextRenewal', 'On next renewal')
+                  : effectiveValue
+              } theme={theme} />
               <SummaryRow label={t('manageSubscribers.updateSummary.date', 'Date')} value={dateValue} theme={theme} last />
             </View>
 

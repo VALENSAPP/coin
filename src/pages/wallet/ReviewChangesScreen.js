@@ -114,7 +114,6 @@ const ReviewChangesScreen = () => {
                                     : t('manageSubscribers.priceUpdateReview.willBeNotified')}
                             </Text>
                         </View>
-                        <Ionicons name="chevron-forward" size={16} color={theme.mutedText} />
                     </View>
 
                     <View style={styles.listDivider} />
@@ -131,7 +130,6 @@ const ReviewChangesScreen = () => {
                                     : t('manageSubscribers.priceUpdateReview.willPayImmediately', { price: parsedNewPrice.toFixed(2) })}
                             </Text>
                         </View>
-                        <Ionicons name="chevron-forward" size={16} color={theme.mutedText} />
                     </View>
                     
                     <View style={styles.listDivider} />
@@ -148,7 +146,6 @@ const ReviewChangesScreen = () => {
                                     : t('manageSubscribers.priceUpdateReview.onNextRenewal')}
                             </Text>
                         </View>
-                        <Ionicons name="chevron-forward" size={16} color={theme.mutedText} />
                     </View>
                 </View>
 

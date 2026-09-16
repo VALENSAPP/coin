@@ -1058,6 +1058,7 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 15,
     minHeight: 52,
+    marginBottom: Platform.OS === 'ios' ? 20 : 16,
   },
   cancelButtonText: {
     color: '#fff',

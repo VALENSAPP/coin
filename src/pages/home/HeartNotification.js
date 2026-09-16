@@ -379,7 +379,7 @@ export default function Notifications() {
   const getNotificationIcon = type => {
     const normalizedType = normalizeNotificationType(type);
     if (normalizedType.includes('follow')) return '👥';
-    if (normalizedType.includes('comment')) return '💬';
+    if (normalizedType.includes('comment') || normalizedType.includes('chat') || normalizedType.includes('message')) return '💬';
     if (normalizedType.includes('like')) return '❤️';
     if (normalizedType.includes('order')) return '📦';
     switch (normalizedType) {
@@ -483,6 +483,7 @@ export default function Notifications() {
     try {
       if (showLoader && !notifications.length) setIsLoading(true);
       const response = await getAllNotifactions();
+      console.log("raw----------------------------", response);
       const rawPayload =
         (Array.isArray(response?.notifications) ? response.notifications : null) ??
         (Array.isArray(response?.data?.notifications) ? response.data.notifications : null) ??
@@ -490,7 +491,6 @@ export default function Notifications() {
         (Array.isArray(response?.data) ? response.data : null) ??
         (Array.isArray(response) ? response : []);
       const raw = Array.isArray(rawPayload) ? rawPayload : [];
-      console.log("raw----------------------------", raw);
       const mapped = raw.map(item => {
         const data = item?.data || {};
         const type = data?.type ?? item?.type ?? 'notification';
@@ -1234,13 +1234,31 @@ export default function Notifications() {
           const newPrice = notifData.newPrice ?? notifData.new_price;
           const oldPrice = notifData.oldPrice ?? notifData.old_price ?? notifData.previousPrice;
           const subscriptionId = notifData.subscriptionId ?? notifData.subscription_id;
+          const isCancelled = notifData.isCancelled ?? notifData.is_cancelled ?? notifData.status;
 
           navigation.navigate('SubscriptionPriceChanged', {
             creatorId,
             newPrice,
             oldPrice,
             subscriptionId,
+            isCancelled,
             notification: item,
+          });
+          return;
+        }
+
+        if (normType === 'closet_chat_message') {
+          const notifData = item?.raw?.data || item?.data || {};
+          const threadId = notifData.threadId || notifData.thread_id;
+          const senderId = notifData.senderId || notifData.sender_id || notifData.userId;
+          const messageId = notifData.messageId || notifData.message_id;
+
+          navigation.navigate('UserClosetChat', {
+            threadId,
+            sellerId: senderId,
+            otherUser: senderId ? { id: senderId } : null,
+            messageId,
+            returnTo: 'HeartNotification',
           });
           return;
         }

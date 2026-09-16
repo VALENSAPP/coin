@@ -302,14 +302,8 @@ const EbookDetailScreen = () => {
     return rawCover;
   }, [ebook]);
 
-  const allowDownload = useMemo(() => {
-    if (!pdfUrl) return false;
-    const val = ebook.allowDownload ?? ebook.isAllowDownload;
-    return val === true || val === 'true';
-  }, [ebook.allowDownload, ebook.isAllowDownload, pdfUrl]);
   const [isLiked, setIsLiked] = useState(!!ebook?.isLike);
   const [likes, setLikes] = useState(ebook?.likeCount || 0);
-
   const [isSaved, setIsSaved] = useState(ebook?.isSaved || false);
   const [comments, setComments] = useState(ebook?.commentCount || 0);
   const [currentUserId, setCurrentUserId] = useState(null);
@@ -319,6 +313,7 @@ const EbookDetailScreen = () => {
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [commentPosting, setCommentPosting] = useState(false);
   const [deletingCommentIds, setDeletingCommentIds] = useState(new Set());
+
   const createdAt = formatDate(ebook.createdAt);
   const viewerUserId = currentUserId ?? routeLoggedInUserId ?? null;
   const canShowComments = !fromEbookPublisher && !fromMyClosetShopFront && !fromAllEbooksScreen;
@@ -326,6 +321,46 @@ const EbookDetailScreen = () => {
     if (!viewerUserId || !ebook?.userId) return false;
     return String(viewerUserId) === String(ebook.userId);
   }, [viewerUserId, ebook?.userId]);
+
+  const isPurchased = useMemo(() => {
+    if (isOwner || fromEbookPublisher) return true;
+    const p =
+      ebook?.isPurchased ??
+      ebook?.purchased ??
+      ebook?.isPurchase ??
+      ebook?.purchase ??
+      ebook?.isBought ??
+      ebook?.bought ??
+      route?.params?.isPurchased ??
+      route?.params?.purchased ??
+      route?.params?.isPurchase;
+    if (p === true || p === 'true' || p === 1 || p === '1') return true;
+    return false;
+  }, [isOwner, fromEbookPublisher, ebook, route?.params]);
+
+  const isDownloadEnabled = useMemo(() => {
+    const d =
+      ebook?.download ??
+      ebook?.isDownload ??
+      ebook?.allowDownload ??
+      ebook?.isAllowDownload ??
+      ebook?.downloadable ??
+      ebook?.isDownloadable ??
+      route?.params?.download ??
+      route?.params?.isDownload ??
+      route?.params?.allowDownload;
+    if (d === true || d === 'true' || d === 1 || d === '1') return true;
+    return false;
+  }, [ebook, route?.params]);
+
+  const allowDownload = useMemo(() => {
+    if (!pdfUrl) return false;
+    // Display option for download if ebook is purchased and download is true in API
+    if (isDownloadEnabled) {
+      if (isPurchased || ebook?.isPurchased === undefined) return true;
+    }
+    return false;
+  }, [pdfUrl, isDownloadEnabled, isPurchased, ebook?.isPurchased]);
 
   useFocusEffect(
     useCallback(() => {
