@@ -69,24 +69,72 @@ const getOrderNotificationViewType = type => {
 };
 
 const extractOrderReferenceFromNotification = item => {
-  const data = item?.raw?.data || item?.data || {};
+  const raw = item?.raw || item;
+  const data = raw?.data || item?.data || {};
+  const order = data.order || raw.order || {};
 
   return {
     orderId: pickFirstString(
       data.orderId,
       data.order_id,
-      data.order?.id,
-      data.order?._id,
-      item?.raw?.orderId,
-      item?.raw?.order_id,
+      order?.id,
+      order?._id,
+      raw?.orderId,
+      raw?.order_id,
     ),
     paymentId: pickFirstString(
       data.paymentId,
       data.payment_id,
       data.payment?.id,
       data.payment?._id,
+      order?.paymentId,
+      raw?.paymentId,
+      raw?.payment_id,
+    ),
+    orderNumber: pickFirstString(
+      data.orderNumber,
+      data.order_number,
+      order?.orderNumber,
+      raw?.orderNumber,
     ),
   };
+};
+
+const inferOrderNotificationViewType = (item, loggedInUserId) => {
+  const type = normalizeNotificationType(item?.type);
+  const knownType = getOrderNotificationViewType(type);
+  if (knownType) return knownType;
+
+  const raw = item?.raw || item;
+  const data = raw?.data || item?.data || {};
+  const uid = loggedInUserId != null ? String(loggedInUserId) : '';
+  const sellerId = pickFirstString(
+    data.sellerId,
+    data.seller_id,
+    data.seller?.id,
+    data.seller?._id,
+    data.shop?.ownerId,
+    data.shop?.userId,
+  );
+  const buyerId = pickFirstString(
+    data.buyerId,
+    data.buyer_id,
+    data.buyer?.id,
+    data.buyer?._id,
+    data.userId,
+    data.user?.id,
+  );
+
+  if (uid && sellerId && String(sellerId) === uid) return 'seller';
+  if (uid && buyerId && String(buyerId) === uid) return 'buyer';
+
+  const title = String(item?.title || data?.title || '').toLowerCase();
+  const combined = `${type} ${title}`;
+  const isRequest = combined.includes('requested') || combined.includes('request');
+  if (combined.includes('cancel')) {
+    return isRequest ? 'seller' : 'buyer';
+  }
+  return null;
 };
 
 const extractPostIdFromNotification = item => {
@@ -1157,12 +1205,17 @@ export default function Notifications() {
 
         const normType = normalizeNotificationType(item.type);
 
-        const viewType = getOrderNotificationViewType(normType);
-        if (viewType) {
+        const orderViewType = inferOrderNotificationViewType(item, loggedInUserId);
+        const isCancelNotification =
+          normalizeNotificationType(item.type).includes('cancellation') ||
+          normalizeNotificationType(item.type).includes('cancel') ||
+          String(item.title || '').toLowerCase().includes('cancel');
+
+        if (orderViewType || isCancelNotification) {
           const orderReference = extractOrderReferenceFromNotification(item);
-          console.log("orderReference------------------",orderReference)
           let orderId = orderReference.orderId;
-          const { paymentId } = orderReference;
+          const { paymentId, orderNumber } = orderReference;
+          const viewType = orderViewType || 'buyer';
 
           if (!orderId && paymentId) {
             try {
@@ -1173,57 +1226,35 @@ export default function Notifications() {
             }
           }
 
-          if (orderId || paymentId) {
+          const titleLower = String(item.title || '').toLowerCase();
+          const isRequest = titleLower.includes('requested') || normalizeNotificationType(item.type).includes('request');
+
+          if ((orderId || paymentId || orderNumber) && isCancelNotification && isRequest && viewType === 'seller') {
             navigation.navigate('ProfileMain', {
-              screen: 'MyClosetOrderDetail',
+              screen: 'CancellationRequest',
               params: {
-                orderId: orderId || paymentId,
+                orderId: orderId || undefined,
                 paymentId,
-                viewType,
-                returnTo: { tab: 'HomeMain', screen: 'HeartNotification' },
+                orderNumber,
+                orderPreview: item.raw?.data || item.data || item.raw,
+                viewType: 'seller',
               },
             });
             return;
           }
-        }
 
-        const titleLower = String(item.title || '').toLowerCase();
-        if (normType.includes('cancellation') || normType.includes('cancel') || titleLower.includes('cancel')) {
-          const orderReference = extractOrderReferenceFromNotification(item);
-          let orderId = orderReference.orderId;
-          const { paymentId } = orderReference;
-          
-          if (!orderId && paymentId) {
-            try {
-              const resolved = await resolveOrderIdFromPaymentId(paymentId, 'seller');
-              if (resolved) orderId = resolved;
-            } catch (err) {
-              console.log('Error resolving orderId for cancellation:', err);
-            }
-          }
-
-          if (orderId || paymentId) {
-            const isRequest = titleLower.includes('requested') || normType.includes('request');
-            if (isRequest) {
-              navigation.navigate('ProfileMain', {
-                screen: 'CancellationRequest',
-                params: {
-                  orderId: orderId || paymentId,
-                  orderPreview: item.raw?.data || item.data || item.raw,
-                  viewType: 'seller',
-                },
-              });
-            } else {
-              navigation.navigate('ProfileMain', {
-                screen: 'MyClosetOrderDetail',
-                params: {
-                  orderId: orderId || paymentId,
-                  paymentId,
-                  viewType: 'buyer', 
-                  returnTo: { tab: 'HomeMain', screen: 'HeartNotification' },
-                },
-              });
-            }
+          if (orderId || paymentId || orderNumber) {
+            navigation.navigate('ProfileMain', {
+              screen: 'MyClosetOrderDetail',
+              params: {
+                orderId: orderId || undefined,
+                paymentId,
+                orderNumber,
+                viewType,
+                orderPreview: item.raw?.data || item.data || item.raw,
+                returnTo: { tab: 'HomeMain', screen: 'HeartNotification' },
+              },
+            });
             return;
           }
         }

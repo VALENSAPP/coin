@@ -309,10 +309,10 @@ const normalizeOrderDetail = (order, t, viewType, isLocalPickupRoute = false) =>
     status: normalizeStatus(order?.orderStatus ?? order?.status),
     createdAt: formatDate(order?.createdAt || order?.orderDate),
     buyerName: viewType === 'buyer'
-      ? (order?.sellerName || order?.seller?.userName || order?.seller?.username || order?.seller?.name || order?.sellerUsername || order?.shop?.username || order?.shop?.userName || order?.shop?.name || t('myClosetOrderDetail.seller'))
-      : (order?.buyerName || order?.buyer?.username || order?.buyer?.userName || order?.buyer?.name || order?.buyerUsername || order?.user?.username || order?.user?.userName || order?.user?.name || t('myClosetOrderDetail.buyer')),
+      ? (pickSellerDisplayName(order) || t('myClosetOrderDetail.seller'))
+      : (pickBuyerDisplayName(order) || t('myClosetOrderDetail.buyer')),
     buyerId: viewType === 'buyer'
-      ? (order?.seller?.id || order?.seller?._id || order?.sellerId || order?.shop?.id || order?.shop?._id)
+      ? (order?.seller?.id || order?.seller?._id || order?.sellerId || order?.shop?.ownerId || order?.shop?.userId || order?.shop?.id || order?.shop?._id)
       : (order?.buyer?.id || order?.buyer?._id || order?.buyerId || order?.user?.id || order?.user?._id || order?.userId),
     buyerImage: viewType === 'buyer'
       ? (order?.sellerProfileImage || order?.sellerImage || order?.seller?.profileImage || order?.seller?.image || order?.seller?.avatar || order?.seller?.profilePicture || order?.seller?.profilePic || order?.shop?.shopLogo || order?.shop?.logo || order?.shop?.profileImage || order?.shop?.image || order?.shop?.avatar || order?.shop?.profilePicture || order?.shop?.profilePic || order?.shopLogo || order?.logo)
@@ -334,9 +334,128 @@ const normalizeOrderDetail = (order, t, viewType, isLocalPickupRoute = false) =>
   };
 };
 
+const pickFirstPresent = (...values) => {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  return null;
+};
+
+const isEmptyPartyValue = value => {
+  if (value == null || value === '') return true;
+  if (typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 0) {
+    return true;
+  }
+  return false;
+};
+
+const isPlaceholderCounterpartName = (name, t) => {
+  const normalized = String(name || '').trim().toLowerCase();
+  if (!normalized) return true;
+  const placeholders = [
+    t?.('myClosetOrderDetail.seller'),
+    t?.('myClosetOrderDetail.buyer'),
+    'seller',
+    'buyer',
+  ]
+    .filter(Boolean)
+    .map(value => String(value).trim().toLowerCase());
+  return placeholders.includes(normalized);
+};
+
+const pickSellerDisplayName = order =>
+  pickFirstPresent(
+    order?.sellerName,
+    order?.seller?.userName,
+    order?.seller?.username,
+    order?.seller?.displayName,
+    order?.seller?.name,
+    order?.sellerUsername,
+    order?.shopName,
+    order?.shop?.shopName,
+    order?.shop?.username,
+    order?.shop?.userName,
+    order?.shop?.name,
+    order?.shop?.displayName,
+  );
+
+const pickBuyerDisplayName = order =>
+  pickFirstPresent(
+    order?.buyerName,
+    order?.buyer?.username,
+    order?.buyer?.userName,
+    order?.buyer?.displayName,
+    order?.buyer?.name,
+    order?.buyerUsername,
+    order?.user?.username,
+    order?.user?.userName,
+    order?.user?.displayName,
+    order?.user?.name,
+  );
+
+const PARTY_KEYS = [
+  'seller',
+  'buyer',
+  'shop',
+  'user',
+  'sellerName',
+  'buyerName',
+  'sellerUsername',
+  'buyerUsername',
+  'sellerId',
+  'buyerId',
+  'sellerImage',
+  'buyerImage',
+  'sellerProfileImage',
+  'buyerProfileImage',
+  'shopName',
+  'shopLogo',
+];
+
 const extractOrderPayload = response => {
   const payload = response?.data?.data ?? response?.data ?? response;
-  return payload?.order ?? payload?.sellerOrder ?? payload?.orderDetails ?? payload;
+  const nested = payload?.order ?? payload?.sellerOrder ?? payload?.orderDetails;
+  if (nested && typeof nested === 'object' && !Array.isArray(nested)) {
+    const merged = { ...payload, ...nested };
+    PARTY_KEYS.forEach(key => {
+      if (isEmptyPartyValue(merged[key]) && !isEmptyPartyValue(payload[key])) {
+        merged[key] = payload[key];
+      }
+    });
+    return merged;
+  }
+  return payload;
+};
+
+const mergePartyFields = (primary, secondary) => {
+  if (!primary) return secondary;
+  if (!secondary) return primary;
+  const merged = { ...secondary, ...primary };
+  PARTY_KEYS.forEach(key => {
+    const primaryValue = primary[key];
+    const secondaryValue = secondary[key];
+    if (
+      primaryValue &&
+      secondaryValue &&
+      typeof primaryValue === 'object' &&
+      typeof secondaryValue === 'object' &&
+      !Array.isArray(primaryValue) &&
+      !Array.isArray(secondaryValue)
+    ) {
+      const nested = { ...secondaryValue, ...primaryValue };
+      Object.keys(nested).forEach(nestedKey => {
+        if (isEmptyPartyValue(nested[nestedKey]) && !isEmptyPartyValue(secondaryValue[nestedKey])) {
+          nested[nestedKey] = secondaryValue[nestedKey];
+        }
+      });
+      merged[key] = nested;
+      return;
+    }
+    if (isEmptyPartyValue(merged[key]) && !isEmptyPartyValue(secondaryValue)) {
+      merged[key] = secondaryValue;
+    }
+  });
+  return merged;
 };
 
 const isOrderPayload = payload => {
@@ -366,13 +485,16 @@ const findOrderByReferences = (orders, references) => {
     const orderId = String(order?.id || order?._id || order?.orderId || '')
       .toLowerCase()
       .trim();
+    const orderNumber = String(order?.orderNumber || '')
+      .toLowerCase()
+      .trim();
     const paymentId = String(
       order?.paymentId || order?.payment_id || order?.payment?.id || '',
     )
       .toLowerCase()
       .trim();
 
-    return targets.has(orderId) || targets.has(paymentId);
+    return targets.has(orderId) || targets.has(orderNumber) || targets.has(paymentId);
   });
 };
 
@@ -641,7 +763,9 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
       }
     }
 
-    const targetId = resolvedOrderId || paymentId;
+    const orderNumber = route?.params?.orderNumber;
+    const lookupRefs = [resolvedOrderId, orderId, paymentId, orderNumber];
+    const targetId = resolvedOrderId || paymentId || orderNumber;
 
     if (!targetId) {
       setError(t('myClosetOrderDetail.missingOrderReference'));
@@ -657,6 +781,18 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
 
     let rawPayload = null;
 
+    const loadListMatch = async (loader) => {
+      try {
+        const res = await loader();
+        const data = res?.data?.orders ?? res?.data?.data ?? res?.data ?? (Array.isArray(res) ? res : []);
+        const list = Array.isArray(data) ? data : Array.isArray(data?.orders) ? data.orders : [];
+        return findOrderByReferences(list, lookupRefs) || null;
+      } catch (err) {
+        console.log('Order list lookup failed:', err?.message || err);
+        return null;
+      }
+    };
+
     // Tier 1: Try order detail API using resolvedOrderId
     if (resolvedOrderId) {
       try {
@@ -668,19 +804,7 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
           rawPayload = detailPayload;
         }
       } catch (err) {
-        console.log(`Order detail endpoint for ${viewType} failed, trying fallback:`, err?.message || err);
-        // Fallback: try the OTHER endpoint, just in case viewType was misidentified
-        try {
-          const fallbackResponse = viewType === 'buyer'
-            ? await getSellerOrderDetails(resolvedOrderId)
-            : await getBuyerOrderDetail(resolvedOrderId);
-          const detailPayload = extractOrderPayload(fallbackResponse);
-          if (isOrderPayload(detailPayload)) {
-            rawPayload = detailPayload;
-          }
-        } catch (fallbackErr) {
-          console.log(`Fallback order detail endpoint also failed:`, fallbackErr?.message || fallbackErr);
-        }
+        console.log(`Order detail endpoint for ${viewType} failed:`, err?.message || err);
       }
     }
 
@@ -697,38 +821,35 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
       }
     }
 
-    // Tier 3: Try seller orders list
-    if (!rawPayload) {
-      try {
-        const sRes = await getSellerOrders({ limit: 100 });
-        const sData = sRes?.data?.orders ?? sRes?.data?.data ?? sRes?.data ?? (Array.isArray(sRes) ? sRes : []);
-        const sList = Array.isArray(sData) ? sData : Array.isArray(sData?.orders) ? sData.orders : [];
-        const match = findOrderByReferences(sList, [resolvedOrderId, orderId, paymentId]);
-        if (isOrderPayload(match)) rawPayload = match;
-      } catch (err) {
-        console.log('Seller orders list fallback failed:', err?.message || err);
-      }
-    }
+    // Tier 3/4: Closet list payloads include seller/buyer names that detail APIs may omit
+    const preferredListMatch = await loadListMatch(
+      viewType === 'buyer' ? getBuyerOrders : () => getSellerOrders({ limit: 100 }),
+    );
 
-    // Tier 4: Try buyer orders list
     if (!rawPayload) {
-      try {
-        const bRes = await getBuyerOrders();
-        const bData = bRes?.data?.orders ?? bRes?.data?.data ?? bRes?.data ?? (Array.isArray(bRes) ? bRes : []);
-        const bList = Array.isArray(bData) ? bData : Array.isArray(bData?.orders) ? bData.orders : [];
-        const match = findOrderByReferences(bList, [resolvedOrderId, orderId, paymentId]);
-        if (isOrderPayload(match)) rawPayload = match;
-      } catch (err) {
-        console.log('Buyer orders list fallback failed:', err?.message || err);
-      }
+      rawPayload = preferredListMatch || await loadListMatch(
+        viewType === 'buyer' ? () => getSellerOrders({ limit: 100 }) : getBuyerOrders,
+      );
+    } else if (preferredListMatch) {
+      rawPayload = mergePartyFields(rawPayload, preferredListMatch);
     }
 
     if (rawPayload) {
       setOrder(prev => {
-        const newOrder = normalizeOrderDetail(rawPayload, t, viewType, isLocalPickupRoute);
+        const mergedRaw = mergePartyFields(
+          mergePartyFields(rawPayload, prev?.raw),
+          orderPreview,
+        );
+        const newOrder = normalizeOrderDetail(mergedRaw, t, viewType, isLocalPickupRoute);
         if (prev?.buyerImage && !newOrder.buyerImage) newOrder.buyerImage = prev.buyerImage;
-        if (prev?.buyerName && !newOrder.buyerName) newOrder.buyerName = prev.buyerName;
         if (prev?.buyerId && !newOrder.buyerId) newOrder.buyerId = prev.buyerId;
+        if (
+          prev?.buyerName &&
+          !isPlaceholderCounterpartName(prev.buyerName, t) &&
+          isPlaceholderCounterpartName(newOrder.buyerName, t)
+        ) {
+          newOrder.buyerName = prev.buyerName;
+        }
         return newOrder;
       });
       setError(null);
@@ -747,7 +868,7 @@ const MyClosetOrderDetailScreen = ({ navigation, route }) => {
       setError(t('myClosetOrderDetail.couldNotLoadOrder'));
     }
     setLoading(false);
-  }, [orderId, paymentId, t, viewType, isLocalPickupRoute]);
+  }, [orderId, paymentId, t, viewType, isLocalPickupRoute, route?.params?.orderNumber, orderPreview]);
 
   useFocusEffect(
     useCallback(() => {
