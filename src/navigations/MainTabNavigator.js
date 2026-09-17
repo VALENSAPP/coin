@@ -146,6 +146,7 @@ import TransactionDetailsScreen from '../pages/wallet/TransactionDetailsScreen';
 import TotalEarningsScreen from '../pages/wallet/TotalEarningsScreen';
 import ReferralPointsScreen from '../pages/wallet/ReferralPointsScreen';
 import UseYourPointsScreen from '../pages/wallet/UseYourPointsScreen';
+import MilesTravelRewardsScreen from '../pages/wallet/MilesTravelRewardsScreen';
 import SendPointsScreen from '../pages/wallet/SendPointsScreen';
 import BuyMissionPostScreen from '../pages/wallet/BuyMissionPostScreen';
 import BuyMissionPackageScreen from '../pages/wallet/BuyMissionPackageScreen';
@@ -1008,6 +1009,11 @@ export default function MainTabNavigator() {
           <Stack.Screen
             name="UseYourPoints"
             component={UseYourPointsScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="MilesTravelRewards"
+            component={MilesTravelRewardsScreen}
             options={{ headerShown: false }}
           />
           <Stack.Screen

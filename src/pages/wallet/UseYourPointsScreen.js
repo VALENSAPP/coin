@@ -99,10 +99,10 @@ const UseYourPointsScreen = () => {
         description: t('useYourPointsScreen.travelDesc'),
         icon: 'airplane',
         action: () =>
-          Alert.alert(
-            t('useYourPointsScreen.travelTitle'),
-            t('useYourPointsScreen.comingSoon'),
-          ),
+          navigation.navigate('MilesTravelRewards', {
+            totalPoints: totalPts,
+            profileType: resolvedProfile,
+          }),
       },
     ],
     [t, navigation, totalPts, resolvedProfile],
