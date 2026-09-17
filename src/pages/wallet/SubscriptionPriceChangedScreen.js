@@ -22,7 +22,6 @@ import { getUserCredentials } from '../../services/post';
 import { FanPageSubscription } from '../../services/stirpe';
 import { cancelFanSubscription } from '../../services/wallet';
 import { getPaymentSessionUrl, STRIPE_BROWSER_OPTIONS } from '../../utils/stripeOnboarding';
-import { openExternalLink } from '../../utils/externalLinkHandler';
 import { primaryCtaColors } from '../../utils/ctaContrast';
 
 const FALLBACK_AVATAR =
@@ -126,12 +125,7 @@ const SubscriptionPriceChangedScreen = () => {
       const sessionUrl = getPaymentSessionUrl(response);
 
       if (sessionUrl) {
-        if (Platform.OS === 'ios') {
-          openExternalLink(sessionUrl, {
-            title: t('subscriptionPriceChangedScreen.subscribeOnWebTitle'),
-            description: t('subscriptionPriceChangedScreen.subscribeOnWebDescription'),
-          });
-        } else if (await InAppBrowser.isAvailable()) {
+        if (await InAppBrowser.isAvailable()) {
           await InAppBrowser.open(sessionUrl, {
             ...STRIPE_BROWSER_OPTIONS,
             forceCloseOnRedirection: true,

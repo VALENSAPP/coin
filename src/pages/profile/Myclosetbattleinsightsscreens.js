@@ -21,7 +21,6 @@ import { useAppTheme } from '../../theme/useApptheme';
 import { useThemeContext } from '../../theme/ThemeContext';
 import { useLanguage } from '../../i18n';
 import { showToastMessage } from '../../components/displaytoastmessage';
-import { openExternalLink } from '../../utils/externalLinkHandler';
 import {
   getMarketplaceBattleBoostByBattle,
   createMarketplaceBattleBoostIntent,
@@ -589,12 +588,7 @@ export function ReviewBoostScreen({ navigation, route }) {
         paymentData?.payment?.checkoutUrl ||
         paymentData?.payment?.url;
       if (paymentUrl) {
-        if (Platform.OS === 'ios') {
-          openExternalLink(paymentUrl, {
-            title: 'Boost Battle on Web',
-            description: 'To complete your battle boost payment, copy the link below and paste it in your web browser, then return to the app.'
-          });
-        } else if (await InAppBrowser.isAvailable()) {
+        if (await InAppBrowser.isAvailable()) {
           await InAppBrowser.open(paymentUrl, {
             dismissButtonStyle: 'close',
             preferredBarTintColor: '#ffffff',

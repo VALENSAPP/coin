@@ -6,9 +6,7 @@ import {
     StyleSheet,
     ScrollView,
     Linking,
-    Platform,
 } from 'react-native';
-import { openExternalLink } from '../../utils/externalLinkHandler';
 import RBSheet from 'react-native-raw-bottom-sheet';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
@@ -114,14 +112,6 @@ const SubscribeFlowModal = ({
             const latestStatus = await GetInbordingstatus();
             if (isOnboardingReady(latestStatus)) return { alreadyOnboarded: true };
             throw new Error('Onboarding link not found');
-        }
-
-        if (Platform.OS === 'ios') {
-            openExternalLink(onboardingUrl, {
-                title: 'Stripe Onboarding on Web',
-                description: 'To complete Stripe onboarding, copy the link below and paste it in your web browser, then return to the app.'
-            });
-            return { type: 'opened_external' };
         }
 
         if (await InAppBrowser.isAvailable()) {
@@ -241,17 +231,7 @@ const SubscribeFlowModal = ({
                     );
                     return false;
                 }
-                if (Platform.OS === 'ios') {
-                    closeAllModals();
-                    dispatch(hideLoader());
-                    setTimeout(() => {
-                        openExternalLink(url, {
-                            title: 'Subscribe on Web',
-                            description: 'Please copy the link below and paste it in your web browser (Safari or Chrome), where you can continue doing the payment, and then return to the app.'
-                        });
-                    }, 300);
-                    return true;
-                } else if (await InAppBrowser.isAvailable()) {
+                if (await InAppBrowser.isAvailable()) {
                     await InAppBrowser.open(url, { ...STRIPE_BROWSER_OPTIONS, forceCloseOnRedirection: true });
                 } else {
                     await Linking.openURL(url);

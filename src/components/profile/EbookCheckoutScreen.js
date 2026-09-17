@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image, ActivityIndicator, Linking, Alert, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image, ActivityIndicator, Linking, Alert } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useThemeContext } from '../../theme/ThemeContext';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { InAppBrowser } from 'react-native-inappbrowser-reborn';
-import { openExternalLink } from '../../utils/externalLinkHandler';
 import { getPaymentSessionUrl, STRIPE_BROWSER_OPTIONS } from '../../utils/stripeOnboarding';
 import { payMarketplaceEbook } from '../../services/stirpe';
 import { formSurfaces, selectedSurface, themedCard } from '../../utils/closetTheme';
@@ -59,14 +58,7 @@ const EbookCheckoutScreen = () => {
         return;
       }
 
-      if (Platform.OS === 'ios') {
-        openExternalLink(url, {
-          title: 'Buy Ebook on Web',
-          description: 'Please copy the link below and paste it in your web browser (Safari or Chrome), where you can continue doing the payment, and then return to the app.'
-        });
-        setPaying(false);
-        return;
-      } else if (await InAppBrowser.isAvailable()) {
+      if (await InAppBrowser.isAvailable()) {
         await InAppBrowser.open(url, { ...STRIPE_BROWSER_OPTIONS, forceCloseOnRedirection: true });
       } else {
         await Linking.openURL(url);

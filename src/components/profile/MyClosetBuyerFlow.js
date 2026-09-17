@@ -53,7 +53,6 @@ import { useAppTheme } from '../../theme/useApptheme';
 import { useThemeContext } from '../../theme/ThemeContext';
 import { useLanguage } from '../../i18n';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
-import { openExternalLink } from '../../utils/externalLinkHandler';
 import { FlatList as GestureFlatList } from 'react-native-gesture-handler';
 import InstagramZoomableImage from '../shared/InstagramZoomableImage';
 import {
@@ -4328,28 +4327,28 @@ const MyClosetBuyerReviewScreen = ({ navigation, route }) => {
         return;
       }
 
-      if (Platform.OS === 'ios') {
-        openExternalLink(checkoutUrl, {
-          title: 'Checkout on Web',
-          description: 'To complete your order, copy the link below and paste it in your web browser, then return to the app.'
-        });
-      } else if (await InAppBrowser.isAvailable()) {
-        const result = await InAppBrowser.open(checkoutUrl, {
-          dismissButtonStyle: 'close',
-          preferredBarTintColor: '#ffffff',
-          preferredControlTintColor: '#000000',
-          readerMode: false,
-          animated: true,
-          modalPresentationStyle: 'fullScreen',
-          modalTransitionStyle: 'coverVertical',
-          enableBarCollapsing: false,
-          showTitle: true,
-          toolbarColor: '#ffffff',
-          secondaryToolbarColor: '#f0f0f0',
-          forceCloseOnRedirection: true,
-        });
+      const canOpen = await Linking.canOpenURL(checkoutUrl);
+      if (canOpen) {
+        if (await InAppBrowser.isAvailable()) {
+          const result = await InAppBrowser.open(checkoutUrl, {
+            dismissButtonStyle: 'close',
+            preferredBarTintColor: '#ffffff',
+            preferredControlTintColor: '#000000',
+            readerMode: false,
+            animated: true,
+            modalPresentationStyle: 'fullScreen',
+            modalTransitionStyle: 'coverVertical',
+            enableBarCollapsing: false,
+            showTitle: true,
+            toolbarColor: '#ffffff',
+            secondaryToolbarColor: '#f0f0f0',
+            forceCloseOnRedirection: true,
+          });
+        } else {
+          await Linking.openURL(checkoutUrl);
+        }
       } else {
-        await Linking.openURL(checkoutUrl);
+        Alert.alert(t('myClosetBuyer.errorTitle'), t('myClosetBuyer.checkoutError'));
       }
       // Note: actual order confirmation should happen after Stripe redirects back
       // (via deep link / webhook), not immediately here — see note below.

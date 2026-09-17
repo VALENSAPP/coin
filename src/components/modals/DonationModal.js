@@ -20,7 +20,6 @@ import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { addMissionDonation, purchaseTokenWithUSD } from '../../services/tokens';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
-import { openExternalLink } from '../../utils/externalLinkHandler';
 import { showToastMessage } from '../displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
 import {
@@ -93,14 +92,6 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
             throw new Error('Onboarding link not found');
         }
 
-        if (Platform.OS === 'ios') {
-            openExternalLink(onboardingUrl, {
-                title: 'Stripe Onboarding on Web',
-                description: 'To complete Stripe onboarding, copy the link below and paste it in your web browser, then return to the app.'
-            });
-            return { type: 'opened_external' };
-        }
-
         if (await InAppBrowser.isAvailable()) {
             return await InAppBrowser.open(onboardingUrl, {
                 ...STRIPE_BROWSER_OPTIONS,
@@ -157,20 +148,7 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
         const onboardingStatus = await GetInbordingstatus();
 
         const launchPaymentUrl = async (url) => {
-            if (Platform.OS === 'ios') {
-                setCustomAmount('');
-                setSelectedAmount(null);
-                setNote('');
-                setIsButtonLoading(false);
-                onClose();
-                dispatch(hideLoader());
-                setTimeout(() => {
-                    openExternalLink(url, {
-                        title: 'Donate on Web',
-                        description: 'Please copy the link below and paste it in your web browser (Safari or Chrome), where you can continue doing the payment, and then return to the app.',
-                    });
-                }, 300);
-            } else if (await InAppBrowser.isAvailable()) {
+            if (await InAppBrowser.isAvailable()) {
                 await InAppBrowser.open(url, { ...STRIPE_BROWSER_OPTIONS, forceCloseOnRedirection: true });
             } else {
                 await Linking.openURL(url);

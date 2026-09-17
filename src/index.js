@@ -13,7 +13,6 @@ import { setUserProfile } from './redux/actions/UserProfileAction';
 import { setStripeCustomerId } from './redux/actions/UserAction';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 import WelcomeValensModal from './components/modals/WelcomeValensModal';
-import ExternalLinkModal from './components/modals/ExternalLinkModal';
 import { ensureCurrentAccountSaved } from './utils/accountSession';
 import { parseProfileShareUrl } from './utils/profileShare';
 import { authSesionHistory } from './services/wallet';
@@ -834,7 +833,6 @@ export default function Main({ onSplashFinish }) {
         onDoNow={handleVerificationDoNow}
         onLater={() => setlockModal(false)}
       />
-      <ExternalLinkModal />
     </ThemeProvider>
   );
 }

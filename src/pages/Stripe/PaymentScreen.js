@@ -17,7 +17,6 @@ import {
 
 import LinearGradient from 'react-native-linear-gradient';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
-import { openExternalLink } from '../../utils/externalLinkHandler';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSelector, useDispatch } from 'react-redux';
 import { loggedOut } from '../../redux/actions/LoginAction';
@@ -152,12 +151,7 @@ const PaymentScreen = ({ onPaymentSuccess, onRetryCheck }) => {
 
   const openPaymentBrowser = async (url) => {
     try {
-      if (Platform.OS === 'ios') {
-        openExternalLink(url, {
-          title: 'Complete Subscription on Web',
-          description: 'To complete your payment, copy the link below and open it in your web browser, then return to the app.'
-        });
-      } else if (await InAppBrowser.isAvailable()) {
+      if (await InAppBrowser.isAvailable()) {
         const authResult = await InAppBrowser.openAuth(url, 'com.valens://', {
           showTitle: true,
           enableUrlBarHiding: true,

@@ -9,7 +9,6 @@ import {
   DeviceEventEmitter,
   Platform,
 } from 'react-native';
-import { openExternalLink } from '../../utils/externalLinkHandler';
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { cancelSubscription, checkSubscription, createCheckoutSession } from '../../services/stirpe';
 import { ScrollView } from 'react-native-gesture-handler';
@@ -233,14 +232,6 @@ const Subscription = () => {
 
         if (onboardingUrl) {
           setShowActivationPopup(false);
-          if (Platform.OS === 'ios') {
-            openExternalLink(onboardingUrl, {
-              title: 'Stripe Onboarding on Web',
-              description: 'Please copy the link below and paste it in your web browser (Safari or Chrome), where you can complete Stripe onboarding, and then return to the app.'
-            });
-            return;
-          }
-
           let browserResult;
           if (await InAppBrowser.isAvailable()) {
             browserResult = await InAppBrowser.open(onboardingUrl, {
@@ -285,12 +276,7 @@ const Subscription = () => {
       if (!checkoutUrl) throw new Error('Checkout URL not received');
 
       setShowActivationPopup(false);
-      if (Platform.OS === 'ios') {
-        openExternalLink(checkoutUrl, {
-          title: 'Subscribe on Web',
-          description: 'Please copy the link below and paste it in your web browser (Safari or Chrome), where you can continue doing the payment, and then return to the app.'
-        });
-      } else if (await InAppBrowser.isAvailable()) {
+      if (await InAppBrowser.isAvailable()) {
         const browserResult = await InAppBrowser.open(checkoutUrl, {
           dismissButtonStyle: 'close',
           preferredBarTintColor: '#000',
