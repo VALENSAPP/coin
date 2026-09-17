@@ -100,9 +100,18 @@ export const LanguageProvider = ({ children }) => {
 
   // ✅ Translation function (FINAL)
   const t = (key, optionsOrDefault = '', defaultValue = '') => {
-    const hasOptions = optionsOrDefault && typeof optionsOrDefault === 'object' && !Array.isArray(optionsOrDefault);
-    const options = hasOptions ? optionsOrDefault : {};
-    const resolvedDefaultValue = hasOptions ? defaultValue : optionsOrDefault;
+    let options = {};
+    let resolvedDefaultValue = '';
+
+    if (optionsOrDefault && typeof optionsOrDefault === 'object' && !Array.isArray(optionsOrDefault)) {
+      options = optionsOrDefault;
+      resolvedDefaultValue = typeof defaultValue === 'string' ? defaultValue : '';
+    } else {
+      resolvedDefaultValue = typeof optionsOrDefault === 'string' ? optionsOrDefault : '';
+      if (defaultValue && typeof defaultValue === 'object' && !Array.isArray(defaultValue)) {
+        options = defaultValue;
+      }
+    }
 
     // 1. Try current language
     const value = getTranslationValue(translations, key, options);
