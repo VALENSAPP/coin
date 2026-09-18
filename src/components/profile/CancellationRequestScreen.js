@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -8,7 +7,6 @@ import {
   TouchableOpacity,
   View,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform
 } from 'react-native';
@@ -20,6 +18,7 @@ import { useThemeContext } from '../../theme/ThemeContext';
 import { useLanguage } from '../../i18n';
 import { approveSellerCancellationRequest, declineSellerCancellationRequest, getSellerOrderDetails, getBuyerOrderDetail } from '../../services/myCloset';
 import { useToast } from 'react-native-toast-notifications';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const imageUri = image => {
   if (!image) return null;
@@ -45,8 +44,72 @@ const getOrderImage = order =>
   firstImage(order?.items?.[0]?.image) ||
   firstImage(order?.product?.images) ||
   firstImage(order?.product?.image) ||
-  order?.image ||
+  firstImage(order?.image) ||
   null;
+
+const pickFirstText = (...values) => {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) return value.trim();
+    if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  }
+  return '';
+};
+
+const extractOrderPayload = response => {
+  const payload = response?.data?.data ?? response?.data ?? response;
+  if (!payload || typeof payload !== 'object') return null;
+  const nested = payload?.order ?? payload?.sellerOrder ?? payload?.orderDetails;
+  if (nested && typeof nested === 'object' && !Array.isArray(nested)) {
+    return { ...payload, ...nested };
+  }
+  return payload;
+};
+
+const mergeOrderRecords = (preview, fetched) => {
+  const next = { ...(preview || {}), ...(fetched || {}) };
+  [
+    'buyerName',
+    'buyerDisplayName',
+    'buyerUserName',
+    'buyerUsername',
+    'buyerAvatar',
+    'buyerImage',
+    'itemName',
+    'productName',
+    'name',
+    'productImage',
+    'image',
+    'orderNumber',
+    'orderId',
+    'cancellationReason',
+    'cancellationDeclineReason',
+    'cancellationStatus',
+    'cancelledBy',
+    'reason',
+    'itemPrice',
+    'price',
+    'total',
+  ].forEach(key => {
+    if ((next[key] == null || next[key] === '') && preview?.[key] != null && preview[key] !== '') {
+      next[key] = preview[key];
+    }
+  });
+  return next;
+};
+
+const formatMoney = value => {
+  const raw = String(value ?? '').replace(/[^0-9.]/g, '');
+  const amount = Number(raw);
+  if (!Number.isFinite(amount)) return `$${value || '0.00'}`;
+  return `$${amount.toFixed(2)}`;
+};
+
+const formatRequestDate = value => {
+  if (!value) return 'N/A';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleDateString();
+};
 
 const CancellationRequestScreen = ({ navigation, route }) => {
   const { orderPreview, viewType, orderId } = route.params || {};
@@ -71,22 +134,31 @@ const CancellationRequestScreen = ({ navigation, route }) => {
     }, []),
   );
 
-  const targetOrderId = orderId || orderPreview?.id || orderPreview?._id || fullOrder?.id || fullOrder?._id;
+  const targetOrderId =
+    orderId ||
+    orderPreview?.orderId ||
+    orderPreview?.id ||
+    orderPreview?._id ||
+    fullOrder?.orderId ||
+    fullOrder?.id ||
+    fullOrder?._id;
 
   React.useEffect(() => {
     const fetchFullOrder = async () => {
       if (!targetOrderId) return;
       try {
         const orderData = viewType === 'seller' ? await getSellerOrderDetails(targetOrderId) : await getBuyerOrderDetail(targetOrderId);
-        if (orderData) {
-          setFullOrder(prev => ({ ...prev, ...orderData }));
+        const fetched = extractOrderPayload(orderData);
+        if (fetched) {
+          setFullOrder(prev => mergeOrderRecords(prev, fetched));
         }
       } catch (err) {
         console.log(`Failed to fetch full order for cancellation view (${viewType})`, err);
         try {
           const fallbackData = viewType === 'seller' ? await getBuyerOrderDetail(targetOrderId) : await getSellerOrderDetails(targetOrderId);
-          if (fallbackData) {
-            setFullOrder(prev => ({ ...prev, ...fallbackData }));
+          const fetched = extractOrderPayload(fallbackData);
+          if (fetched) {
+            setFullOrder(prev => mergeOrderRecords(prev, fetched));
           }
         } catch (fallbackErr) {
           console.log(`Fallback fetch also failed`, fallbackErr);
@@ -134,50 +206,110 @@ const CancellationRequestScreen = ({ navigation, route }) => {
   };
 
   const getOrderItemName = (order) => {
-    if (order?.item?.name || order?.item?.title) return order.item.name || order.item.title;
-    if (order?.items?.[0]?.product?.name || order?.items?.[0]?.product?.title) {
-      return order.items[0].product.name || order.items[0].product.title;
-    }
-    if (order?.items?.[0]?.name || order?.items?.[0]?.title) return order.items[0].name || order.items[0].title;
-    if (order?.product?.name || order?.product?.title) return order.product.name || order.product.title;
-    if (order?.itemName || order?.data?.itemName || order?.data?.name || order?.data?.productName) return order.itemName || order.data?.itemName || order.data?.name || order.data?.productName;
-    const count = order?.totalItemCount || order?.items?.length;
-    if (count) return `${count} item(s)`;
-    return 'Order Item';
+    return pickFirstText(
+      order?.itemName,
+      order?.productName,
+      order?.name,
+      order?.item?.name,
+      order?.item?.title,
+      order?.items?.[0]?.product?.name,
+      order?.items?.[0]?.product?.title,
+      order?.items?.[0]?.name,
+      order?.items?.[0]?.title,
+      order?.product?.name,
+      order?.product?.title,
+      order?.data?.itemName,
+      order?.data?.productName,
+      order?.data?.name,
+    ) || 'Order Item';
   };
 
   const getOrderPrice = (order) => {
-    return order?.totalAmount ?? order?.amount ?? order?.price ?? order?.data?.total ?? order?.data?.price ?? order?.item?.price ?? '0.00';
+    return order?.totalAmount ?? order?.total ?? order?.itemPrice ?? order?.amount ?? order?.price ?? order?.data?.total ?? order?.data?.price ?? order?.item?.price ?? '0.00';
   };
 
   const getOrderQty = (order) => {
-    return order?.totalItemCount ?? order?.itemCount ?? order?.items?.[0]?.quantity ?? order?.items?.length ?? order?.data?.quantity ?? 1;
+    return order?.totalItemCount ?? order?.itemCount ?? order?.quantity ?? order?.items?.[0]?.quantity ?? order?.items?.length ?? order?.data?.quantity ?? 1;
   };
 
-  const getBuyerHandle = (order) => {
-    return order?.buyerName || order?.data?.buyerUserName || order?.data?.buyerName || order?.buyer?.username || order?.buyer?.userName || order?.buyerUsername || order?.user?.username || 'Buyer';
+  const getBuyerDisplayName = (order) => {
+    return pickFirstText(
+      order?.buyerDisplayName,
+      order?.buyerName,
+      order?.data?.buyerName,
+      order?.buyer?.displayName,
+      order?.buyer?.name,
+      order?.user?.displayName,
+      order?.user?.name,
+    ) || 'Buyer';
+  };
+
+  const getBuyerUsername = (order) => {
+    return pickFirstText(
+      order?.buyerUserName,
+      order?.buyerUsername,
+      order?.data?.buyerUserName,
+      order?.buyer?.username,
+      order?.buyer?.userName,
+      order?.user?.username,
+      order?.user?.userName,
+    );
   };
 
   const imageUrl = getOrderImage(fullOrder);
   const itemName = getOrderItemName(fullOrder);
-  const price = getOrderPrice(fullOrder);
+  const price = formatMoney(getOrderPrice(fullOrder));
   const qty = getOrderQty(fullOrder);
-  const buyerName = getBuyerHandle(fullOrder);
+  const buyerName = getBuyerDisplayName(fullOrder);
+  const buyerUsername = getBuyerUsername(fullOrder);
+  const buyerAvatar = pickFirstText(
+    fullOrder?.buyerAvatar,
+    fullOrder?.buyerImage,
+    fullOrder?.avatar,
+    fullOrder?.buyer?.profileImage,
+    fullOrder?.buyer?.image,
+  );
 
   const requestDate = fullOrder?.cancellationRequestedAt || fullOrder?.createdAt || fullOrder?.data?.createdAt;
-  const requestedDateString = requestDate ? new Date(requestDate).toLocaleDateString() : 'N/A';
-  const cancelReason = fullOrder?.cancellationReason || fullOrder?.data?.reason || fullOrder?.reason || 'N/A';
-  // The cancellation API explicitly controls whether the seller can still act.
-  // Do not infer this from the legacy iscancel fields, which may remain false
-  // after a request has already been approved or declined.
+  const requestedDateString = formatRequestDate(requestDate);
+  const cancelReason = pickFirstText(
+    fullOrder?.cancellationReason,
+    fullOrder?.reason,
+    fullOrder?.data?.reason,
+  ) || 'N/A';
+  const declineReasonText = pickFirstText(
+    fullOrder?.cancellationDeclineReason,
+    fullOrder?.declineReason,
+    fullOrder?.data?.cancellationDeclineReason,
+  );
+  const cancelledBy = pickFirstText(fullOrder?.cancelledBy, fullOrder?.data?.cancelledBy).toUpperCase() || 'BUYER';
+  const requestedByLabel = cancelledBy === 'SELLER' ? 'Seller' : 'Buyer';
   const cancellationStatus = String(
     fullOrder?.cancellationStatus ??
     fullOrder?.data?.cancellationStatus ??
     fullOrder?.data?.data?.cancellationStatus ??
     orderPreview?.cancellationStatus ??
     '',
-  ).trim().toUpperCase();
+  ).trim().toUpperCase() || (
+    fullOrder?.isCancellationApproved || fullOrder?.isCancelled || fullOrder?.iscancel
+      ? 'APPROVED'
+      : fullOrder?.isCancellationDeclined
+        ? 'DECLINED'
+        : fullOrder?.isCancellationPending
+          ? 'REQUESTED'
+          : ''
+  );
   const canRespondToCancellation = viewType === 'seller' && cancellationStatus === 'REQUESTED';
+
+  const statusMeta = cancellationStatus === 'APPROVED'
+    ? { badge: 'Cancelled', color: '#16a34a', bg: '#dcfce7', icon: 'checkmark-circle-outline', agreed: 'Seller confirmed', agreedColor: '#16a34a', itemBadge: 'Cancelled' }
+    : cancellationStatus === 'DECLINED'
+      ? { badge: 'Declined', color: '#dc2626', bg: '#fee2e2', icon: 'close-circle-outline', agreed: 'Seller declined', agreedColor: '#dc2626', itemBadge: 'Request declined' }
+      : { badge: 'Action Required', color: '#d97706', bg: '#ffedd5', icon: 'hourglass-outline', agreed: 'Pending seller confirmation', agreedColor: '#d97706', itemBadge: 'Cancellation Requested' };
+
+  const bannerTitle = cancelledBy === 'SELLER'
+    ? 'Seller requested to cancel this order'
+    : `${buyerName} requested to cancel this order`;
 
   const cardBg = isDarkMode ? '#1e1e1e' : '#fff';
   const infoBg = isDarkMode ? '#2c2c2c' : '#f9f5ff';
@@ -192,9 +324,9 @@ const CancellationRequestScreen = ({ navigation, route }) => {
           <Text style={[styles.headerTitle, textStyle]}>Cancellation Request</Text>
           <Text style={[styles.headerSubtitle, mutedTextStyle]}>Order #{fullOrder?.orderNumber || fullOrder?.data?.orderNumber || targetOrderId?.slice(-6) || 'Unknown'}</Text>
         </View>
-        <View style={styles.actionRequiredBadge}>
-          <Ionicons name="hourglass-outline" size={12} color="#d97706" />
-          <Text style={styles.actionRequiredText}>Action Required</Text>
+        <View style={[styles.actionRequiredBadge, { backgroundColor: statusMeta.bg }]}>
+          <Ionicons name={statusMeta.icon} size={12} color={statusMeta.color} />
+          <Text style={[styles.actionRequiredText, { color: statusMeta.color }]}>{statusMeta.badge}</Text>
         </View>
       </View>
 
@@ -210,7 +342,7 @@ const CancellationRequestScreen = ({ navigation, route }) => {
               <Ionicons name="people-outline" size={20} color="#d97706" />
             </View>
             <View style={styles.bannerTextContainer}>
-              <Text style={[styles.bannerTitle, textStyle]}>Buyer requested to cancel this order</Text>
+              <Text style={[styles.bannerTitle, textStyle]}>{bannerTitle}</Text>
               <Text style={[styles.bannerSub, mutedTextStyle]}>
                 Both buyer and seller must agree to cancel. Please review the request details below.
               </Text>
@@ -238,8 +370,8 @@ const CancellationRequestScreen = ({ navigation, route }) => {
               </View>
               <View style={styles.itemRow}>
                 <Text style={[styles.itemQty, mutedTextStyle]}>Qty: {qty}</Text>
-                <View style={styles.requestedBadge}>
-                  <Text style={styles.requestedBadgeText}>Cancellation Requested</Text>
+                <View style={[styles.requestedBadge, { backgroundColor: statusMeta.bg }]}>
+                  <Text style={[styles.requestedBadgeText, { color: statusMeta.color }]}>{statusMeta.itemBadge}</Text>
                 </View>
               </View>
             </View>
@@ -259,11 +391,19 @@ const CancellationRequestScreen = ({ navigation, route }) => {
               </View>
               <View style={styles.detailDivider} />
               <View style={styles.detailHalf}>
-                <Ionicons name="person-outline" size={20} color="#9ca3af" style={styles.detailIcon} />
-                <View>
+                {buyerAvatar ? (
+                  <FastImage source={{ uri: buyerAvatar }} style={styles.buyerAvatar} />
+                ) : (
+                  <Ionicons name="person-outline" size={20} color="#9ca3af" style={styles.detailIcon} />
+                )}
+                <View style={{ flex: 1 }}>
                   <Text style={[styles.detailLabel, mutedTextStyle]}>Requested by</Text>
-                  <Text style={[styles.detailValue, textStyle]}>Buyer</Text>
-                  <Text style={[styles.detailSubValue, mutedTextStyle]}>@{buyerName}</Text>
+                  <Text style={[styles.detailValue, textStyle]}>{buyerName}</Text>
+                  {buyerUsername ? (
+                    <Text style={[styles.detailSubValue, mutedTextStyle]}>@{buyerUsername}</Text>
+                  ) : (
+                    <Text style={[styles.detailSubValue, mutedTextStyle]}>{requestedByLabel}</Text>
+                  )}
                 </View>
               </View>
             </View>
@@ -278,11 +418,21 @@ const CancellationRequestScreen = ({ navigation, route }) => {
 
             <View style={styles.detailRow}>
               <Ionicons name="hand-left-outline" size={20} color="#9ca3af" style={styles.detailIcon} />
-              <View>
+              <View style={{ flex: 1 }}>
                 <Text style={[styles.detailLabel, mutedTextStyle]}>Cancellation agreed by</Text>
-                <Text style={[styles.detailValue, { color: '#d97706' }]}>Pending seller confirmation</Text>
+                <Text style={[styles.detailValue, { color: statusMeta.agreedColor }]}>{statusMeta.agreed}</Text>
               </View>
             </View>
+
+            {cancellationStatus === 'DECLINED' && declineReasonText ? (
+              <View style={styles.detailRow}>
+                <Ionicons name="close-circle-outline" size={20} color="#9ca3af" style={styles.detailIcon} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.detailLabel, mutedTextStyle]}>Decline reason</Text>
+                  <Text style={[styles.detailValue, textStyle]}>{declineReasonText}</Text>
+                </View>
+              </View>
+            ) : null}
           </View>
 
           {canRespondToCancellation && (
@@ -490,6 +640,13 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
   },
   detailIcon: {
+    marginRight: 12,
+    marginTop: 2,
+  },
+  buyerAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     marginRight: 12,
     marginTop: 2,
   },

@@ -59,7 +59,7 @@ export default function TrustCommentModal({ visible, voteType, onClose, onSubmit
               <View style={[styles.shieldCircle, { backgroundColor: c.color }]}>
                 <Feather name={c.icon} size={17} color="#fff" />
               </View>
-              <View style={{ flex: 1 }}>
+              <View style={styles.headerCopy}>
                 <Text style={styles.title}>
                   {t('trustCommentModal.headerTitle')}
                 </Text>
@@ -74,10 +74,12 @@ export default function TrustCommentModal({ visible, voteType, onClose, onSubmit
 
             {/* Vote badge */}
             <View style={[styles.badge, { borderColor: c.color + '44', backgroundColor: c.color + '12' }]}>
-              <View style={[styles.dot, { backgroundColor: c.color }]} />
-              <Text style={[styles.badgeLabel, { color: c.color }]}>
-                {c.label} {t('trustCommentModal.voteSuffix')}
-              </Text>
+              <View style={styles.badgeTopRow}>
+                <View style={[styles.dot, { backgroundColor: c.color }]} />
+                <Text style={[styles.badgeLabel, { color: c.color }]}>
+                  {c.label} {t('trustCommentModal.voteSuffix')}
+                </Text>
+              </View>
               <Text style={[styles.badgeDetail, { color: c.color }]}>{c.detail}</Text>
             </View>
 
@@ -114,7 +116,7 @@ export default function TrustCommentModal({ visible, voteType, onClose, onSubmit
             {/* Actions */}
             <View style={styles.actions}>
               <TouchableOpacity style={styles.skipBtn} onPress={handleSkip} disabled={loading}>
-                <Text style={styles.skipText}>
+                <Text style={styles.skipText} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.75}>
                   {t('trustCommentModal.skipButton')}
                 </Text>
               </TouchableOpacity>
@@ -124,7 +126,7 @@ export default function TrustCommentModal({ visible, voteType, onClose, onSubmit
                 disabled={loading}>
                 {loading
                   ? <ActivityIndicator size="small" color="#fff" />
-                  : <Text style={styles.submitText}>
+                  : <Text style={styles.submitText} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.75}>
                       {t('trustCommentModal.submitButton')}
                     </Text>}
               </TouchableOpacity>
@@ -139,14 +141,16 @@ export default function TrustCommentModal({ visible, voteType, onClose, onSubmit
 const styles = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', padding: 20 },
   box: { backgroundColor: '#fff', borderRadius: 14, overflow: 'hidden' },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 16, borderBottomWidth: 0.5, borderBottomColor: '#E5E7EB' },
-  shieldCircle: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
-  title: { fontSize: 14, fontWeight: '600', color: '#111827' },
-  sub: { fontSize: 12, color: '#6B7280', marginTop: 2 },
-  badge: { flexDirection: 'row', alignItems: 'center', gap: 6, margin: 12, marginBottom: 0, padding: 8, borderWidth: 0.5, borderRadius: 8 },
-  dot: { width: 7, height: 7, borderRadius: 4 },
-  badgeLabel: { fontSize: 13, fontWeight: '600' },
-  badgeDetail: { fontSize: 12, marginLeft: 'auto' },
+  header: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, padding: 16, borderBottomWidth: 0.5, borderBottomColor: '#E5E7EB' },
+  headerCopy: { flex: 1, minWidth: 0, paddingRight: 8 },
+  shieldCircle: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
+  title: { fontSize: 14, fontWeight: '600', color: '#111827', flexShrink: 1 },
+  sub: { fontSize: 12, color: '#6B7280', marginTop: 2, flexShrink: 1 },
+  badge: { margin: 12, marginBottom: 0, padding: 10, borderWidth: 0.5, borderRadius: 8 },
+  badgeTopRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
+  dot: { width: 7, height: 7, borderRadius: 4, marginTop: 5 },
+  badgeLabel: { flex: 1, fontSize: 13, fontWeight: '600', lineHeight: 18 },
+  badgeDetail: { fontSize: 12, marginTop: 4, lineHeight: 16 },
   sectionLabel: { fontSize: 13, fontWeight: '600', color: '#6B7280', padding: 14, paddingBottom: 6 },
   optionalText: { fontWeight: '400', color: '#9CA3AF' },
   input: { marginHorizontal: 14, borderWidth: 0.5, borderColor: '#D1D5DB', borderRadius: 8, padding: 10, height: 80, fontSize: 14, color: '#111827', textAlignVertical: 'top' },
@@ -154,8 +158,8 @@ const styles = StyleSheet.create({
   infoNote: { flexDirection: 'row', gap: 6, marginHorizontal: 14, marginTop: 8, padding: 8, backgroundColor: '#F9FAFB', borderRadius: 6, borderLeftWidth: 2, borderLeftColor: '#D1D5DB' },
   infoText: { fontSize: 12, color: '#6B7280', flex: 1, lineHeight: 17 },
   actions: { flexDirection: 'row', gap: 10, padding: 16 },
-  skipBtn: { flex: 1, padding: 11, borderWidth: 0.5, borderColor: '#D1D5DB', borderRadius: 8, alignItems: 'center' },
-  skipText: { fontSize: 14, fontWeight: '500', color: '#374151' },
-  submitBtn: { flex: 2, padding: 11, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  submitText: { fontSize: 14, fontWeight: '600', color: '#fff' },
+  skipBtn: { flex: 1, minWidth: 0, paddingVertical: 11, paddingHorizontal: 8, borderWidth: 0.5, borderColor: '#D1D5DB', borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  skipText: { fontSize: 14, fontWeight: '500', color: '#374151', textAlign: 'center' },
+  submitBtn: { flex: 2, minWidth: 0, paddingVertical: 11, paddingHorizontal: 8, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  submitText: { fontSize: 14, fontWeight: '600', color: '#fff', textAlign: 'center' },
 });

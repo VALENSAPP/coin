@@ -81,12 +81,12 @@ const normalizeHighlightMedia = media => {
   return media
     .flatMap((item, index) => {
       if (typeof item === 'string') {
-      return [{
-        id: `media_${index}`,
-        uri: item,
-        type: isVideoMedia(item) ? 'video' : 'image',
-        storyId: null,
-        ownerId: null,
+        return [{
+          id: `media_${index}`,
+          uri: item,
+          type: isVideoMedia(item) ? 'video' : 'image',
+          storyId: null,
+          ownerId: null,
         }];
       }
 
@@ -285,7 +285,7 @@ const HighlightsScreen = ({ navigation, route }) => {
         Promise.allSettled(
           userHighlights.map(async hl => {
             const res = await getHighlight({ highlightId: hl.id });
-            console.log(res,'getHighlightgetHighlightgetHighlightgetHighlightgetHighlight')
+            console.log(res, 'getHighlightgetHighlightgetHighlightgetHighlightgetHighlight')
             const detail = normalizeHighlightsResponse(res?.data)[0];
             return detail ? { ...hl, ...detail } : hl;
           }),
@@ -404,7 +404,7 @@ const HighlightsScreen = ({ navigation, route }) => {
       try {
         const id = await AsyncStorage.getItem('userId');
         setCurrentUserId(id ? String(id) : null);
-      } catch (_e) {}
+      } catch (_e) { }
       const response = await getHighlight({ highlightId: highlight.id });
       const detail = normalizeHighlightsResponse(response?.data)[0];
       if (detail?.stories?.length) {
@@ -443,13 +443,8 @@ const HighlightsScreen = ({ navigation, route }) => {
   }, [closeViewer]);
 
   const currentStory = viewerStories[viewerIndex];
-  const highlightOwnerId = currentStory?.ownerId || activeHighlight?.ownerId || routeUserId;
-  const canReplyToHighlight = Boolean(
-    currentStory &&
-    highlightOwnerId &&
-    currentUserId &&
-    String(highlightOwnerId) !== String(currentUserId),
-  );
+  const canReplyToHighlight = Boolean(currentStory && readOnly);
+
   const totalStories = useMemo(
     () => highlights.reduce((sum, item) => sum + (item.storyCount || 0), 0),
     [highlights],
@@ -612,7 +607,7 @@ const HighlightsScreen = ({ navigation, route }) => {
 
     setReactionSending(true);
     try {
-      const reactionPayload = { storyId, reaction, highlightId }; 
+      const reactionPayload = { storyId, reaction, highlightId };
       console.log('[Highlight reaction] request:', reactionPayload, {
         viewerStoryId: currentStory?.id,
         normalizedStoryId: currentStory?.storyId,
@@ -948,9 +943,9 @@ const HighlightsScreen = ({ navigation, route }) => {
       <Modal visible={viewerVisible} transparent={false} animationType="fade" onRequestClose={closeViewer}>
         <View style={styles.viewerContainer}>
           <View style={styles.viewerHeader}>
-                <TouchableOpacity onPress={closeViewer} style={styles.viewerBackButton}>
-                  <Icon name="arrow-back" size={24} color="#fff" />
-                </TouchableOpacity>
+            <TouchableOpacity onPress={closeViewer} style={styles.viewerBackButton}>
+              <Icon name="arrow-back" size={24} color="#fff" />
+            </TouchableOpacity>
             <View style={styles.viewerTitleWrap}>
               <Text style={styles.viewerTitle} numberOfLines={1}>
                 {activeHighlight?.title || t('highlights.titleReadOnly')}
@@ -964,7 +959,7 @@ const HighlightsScreen = ({ navigation, route }) => {
                 <TouchableOpacity
                   onPress={() => {
                     setSelectedShareStory(currentStory);
-                    try { shareRef.current?.open?.(); } catch (_e) {}
+                    try { shareRef.current?.open?.(); } catch (_e) { }
                   }}
                   style={[styles.viewerAddButton, { marginRight: 8 }]}
                 >
@@ -994,8 +989,8 @@ const HighlightsScreen = ({ navigation, route }) => {
                     <Icon name="add" size={20} color="#fff" />
                   </TouchableOpacity>
                   <TouchableOpacity onPress={openEditModal} style={styles.viewerAddButton}>
-                      <Icon name="create-outline" size={18} color="#fff" />
-                    </TouchableOpacity>
+                    <Icon name="create-outline" size={18} color="#fff" />
+                  </TouchableOpacity>
                 </>
               ) : null}
             </View>
@@ -1116,7 +1111,7 @@ const HighlightsScreen = ({ navigation, route }) => {
       <ShareModal
         ref={shareRef}
         story={selectedShareStory}
-        onClose={() => { try { shareRef.current?.close?.(); } catch (_e) {} setSelectedShareStory(null); }}
+        onClose={() => { try { shareRef.current?.close?.(); } catch (_e) { } setSelectedShareStory(null); }}
       />
 
       {/* Create / Edit modal */}

@@ -2174,7 +2174,10 @@ function PostItem({
                     style={[
                       styles.actionCount,
                       { color: localLikesCount > 0 ? text : mutedText },
-                    ]}>
+                    ]}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.7}>
                     {localLikesCount}
                   </Text>
                 )}
@@ -2185,7 +2188,13 @@ function PostItem({
               onPress={() => onComment?.(item.id, item.UserId)}
               style={styles.actionButton}>
               <Comments width={22} height={22} style={styles.actionSvgIcon} />
-              <Text style={[styles.actionCount, { color: mutedText }]}>{localCommentsCount || 0}</Text>
+              <Text
+                style={[styles.actionCount, { color: mutedText }]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.7}>
+                {localCommentsCount || 0}
+              </Text>
             </TouchableOpacity>
 
             {item.visibleTo !== "PRIVATE_CIRCLE" &&
@@ -2196,7 +2205,13 @@ function PostItem({
                 }}
                 style={styles.actionButton}>
                 <ShareIcom width={22} height={22} style={styles.actionSvgIcon} />
-                <Text style={[styles.actionCount, { color: mutedText }]}>{t('flips.shareLabel')}</Text>
+                <Text
+                  style={[styles.actionCount, { color: mutedText }]}
+                  numberOfLines={2}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.7}>
+                  {t('flips.shareLabel')}
+                </Text>
               </TouchableOpacity>
             }
 
@@ -2216,7 +2231,11 @@ function PostItem({
                     <View style={styles.trustActionIcon}>
                       <Icon name="shield-checkmark" size={18} color="#FFFFFF" />
                     </View>
-                    <Text style={[styles.actionCount, { color: mutedText }]}>
+                    <Text
+                      style={[styles.actionCount, { color: mutedText }]}
+                      numberOfLines={2}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.7}>
                       {t('postItem.trust')}
                     </Text>
                   </TouchableOpacity>
@@ -2237,8 +2256,9 @@ function PostItem({
                               { color: mutedText },
                               (hasSubmittedTrustVote || trustVote) && styles.trustScoreActionTitleVoted,
                             ]}
-                            numberOfLines={1}
-                            ellipsizeMode="clip">
+                            numberOfLines={2}
+                            adjustsFontSizeToFit
+                            minimumFontScale={0.75}>
                             {t('postItem.trustScore')}
                           </Text>
                           <Icon name="information-circle-outline" size={10} color={mutedText} />
@@ -2247,7 +2267,9 @@ function PostItem({
                               styles.trustScoreValue,
                               (hasSubmittedTrustVote || trustVote) && styles.trustScoreValueVoted,
                             ]}
-                            numberOfLines={1}>
+                            numberOfLines={1}
+                            adjustsFontSizeToFit
+                            minimumFontScale={0.8}>
                             {Math.round(normalizedTrustScore.overall)}%
                           </Text>
                         </View>
@@ -2257,7 +2279,7 @@ function PostItem({
                             { color: mutedText },
                             (hasSubmittedTrustVote || trustVote) && styles.trustScoreActionSubVoted,
                           ]}
-                          numberOfLines={1}
+                          numberOfLines={2}
                           ellipsizeMode="tail">
                           {t('postItem.communityTrustScore')}
                         </Text>
@@ -2281,10 +2303,14 @@ function PostItem({
               {followingBusy ? (
                 <ActivityIndicator size="small" color={item.follow ? postProfileTextColor : '#FFFFFF'} />
               ) : (
-                <Text style={[
-                  styles.followButtonText,
-                  item.follow && [styles.followingButtonText, { color: postProfileTextColor }],
-                ]}>
+                <Text
+                  style={[
+                    styles.followButtonText,
+                    item.follow && [styles.followingButtonText, { color: postProfileTextColor }],
+                  ]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.7}>
                   {item.follow ? t('postItem.followed') : t('postItem.follow')}
                 </Text>
               )}
@@ -2295,7 +2321,7 @@ function PostItem({
         {!!mintedDateTime && (
           <View style={[styles.mintedSection, cardStyle]}>
             <Icon name="calendar-outline" size={14} color={mutedText} style={styles.mintedIcon} />
-            <Text style={[styles.mintedText, { color: mutedText }]}>
+            <Text style={[styles.mintedText, { color: mutedText }]} numberOfLines={2}>
               {t(mintLabelKey, { dateTime: mintedDateTime })}
             </Text>
           </View>
@@ -2330,8 +2356,18 @@ function PostItem({
                     disabled={optionDisabled}
                     activeOpacity={optionDisabled ? 1 : 0.85}>
                     <Feather name={option.icon} size={17} color={option.color} />
-                    <Text style={[styles.trustOptionLabel, textStyle]}>{t(option.labelKey)}</Text>
-                    <Text style={[styles.trustOptionDetail, { color: mutedText }]} numberOfLines={1}>{t(option.detailKey)}</Text>
+                    <Text
+                      style={[styles.trustOptionLabel, textStyle]}
+                      numberOfLines={2}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.75}>
+                      {t(option.labelKey)}
+                    </Text>
+                    <Text
+                      style={[styles.trustOptionDetail, { color: mutedText }]}
+                      numberOfLines={3}>
+                      {t(option.detailKey)}
+                    </Text>
                   </TouchableOpacity>
                 );
               })}
@@ -2365,14 +2401,14 @@ function PostItem({
                     <View style={[styles.trustMetricIconBadge, { backgroundColor: '#059669' }]}>
                       <Icon name="checkmark" size={12} color="#fff" />
                     </View>
-                    <Text style={[styles.trustMetricLabel, { color: mutedText }]}>{t('postItem.trustApprove')}</Text>
+                    <Text style={[styles.trustMetricLabel, { color: mutedText }]} numberOfLines={2}>{t('postItem.trustApprove')}</Text>
                     <Text style={[styles.trustMetricPercent, { color: '#059669' }]}>
                       {Math.round(normalizedTrustScore.agree)}%
                     </Text>
                     <Text style={[styles.trustMetricVotes, { color: mutedText }]}>
                       {t('postItem.trustVotes', { count: normalizedTrustScore.agreeVotes })}
                     </Text>
-                    <Text style={[styles.trustMetricSub, { color: mutedText }]}>
+                    <Text style={[styles.trustMetricSub, { color: mutedText }]} numberOfLines={2}>
                       {t('postItem.weightedByReputation')}
                     </Text>
                   </View>
@@ -2381,14 +2417,14 @@ function PostItem({
                     <View style={[styles.trustMetricIconBadge, { backgroundColor: '#F59E0B' }]}>
                       <Icon name="help" size={12} color="#fff" />
                     </View>
-                    <Text style={[styles.trustMetricLabel, { color: mutedText }]}>{t('postItem.trustUnsure')}</Text>
+                    <Text style={[styles.trustMetricLabel, { color: mutedText }]} numberOfLines={2}>{t('postItem.trustUnsure')}</Text>
                     <Text style={[styles.trustMetricPercent, { color: '#F59E0B' }]}>
                       {Math.round(normalizedTrustScore.notSure)}%
                     </Text>
                     <Text style={[styles.trustMetricVotes, { color: mutedText }]}>
                       {t('postItem.trustVotes', { count: normalizedTrustScore.notSureVotes })}
                     </Text>
-                    <Text style={[styles.trustMetricSub, { color: mutedText }]}>
+                    <Text style={[styles.trustMetricSub, { color: mutedText }]} numberOfLines={2}>
                       {t('postItem.weightedByReputation')}
                     </Text>
                   </View>
@@ -2397,14 +2433,14 @@ function PostItem({
                     <View style={[styles.trustMetricIconBadge, { backgroundColor: '#DC2626' }]}>
                       <Icon name="close" size={12} color="#fff" />
                     </View>
-                    <Text style={[styles.trustMetricLabel, { color: mutedText }]}>{t('postItem.trustDisagree')}</Text>
+                    <Text style={[styles.trustMetricLabel, { color: mutedText }]} numberOfLines={2}>{t('postItem.trustDisagree')}</Text>
                     <Text style={[styles.trustMetricPercent, { color: '#DC2626' }]}>
                       {Math.round(normalizedTrustScore.disagree)}%
                     </Text>
                     <Text style={[styles.trustMetricVotes, { color: mutedText }]}>
                       {t('postItem.trustVotes', { count: normalizedTrustScore.disagreeVotes })}
                     </Text>
-                    <Text style={[styles.trustMetricSub, { color: mutedText }]}>
+                    <Text style={[styles.trustMetricSub, { color: mutedText }]} numberOfLines={2}>
                       {t('postItem.weightedByReputation')}
                     </Text>
                   </View>
@@ -2415,7 +2451,9 @@ function PostItem({
                     onPress={handleTrustUndo}
                     disabled={trustLoading}
                     activeOpacity={0.85}>
-                    <Text style={[styles.trustUndoText, textStyle]}>{t('postItem.trustUndoVote')}</Text>
+                    <Text style={[styles.trustUndoText, textStyle]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+                      {t('postItem.trustUndoVote')}
+                    </Text>
                   </TouchableOpacity>
                 ) : null}
               </>
@@ -2553,7 +2591,9 @@ function PostItem({
           <View style={styles.progressSection}>
             {progressStatusLabel ? (
               <View style={styles.progressStatusBadge}>
-                <Text style={styles.progressStatusBadgeText}>{progressStatusLabel}</Text>
+                <Text style={styles.progressStatusBadgeText} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.8}>
+                  {progressStatusLabel}
+                </Text>
               </View>
             ) : null}
 
@@ -2561,7 +2601,6 @@ function PostItem({
               <View style={[
                 styles.progressBarBackground,
                 { backgroundColor: border },
-                missionStartInfo ? styles.progressBarBackgroundWithStartNote : null,
               ]}>
                 <View
                   style={[
@@ -2576,7 +2615,11 @@ function PostItem({
 
               <View style={styles.progressStatsContainer}>
                 <View style={styles.statAtStart}>
-                  <Text style={[styles.statValueSmall, { color: mutedText }]}>
+                  <Text
+                    style={[styles.statValueSmall, { color: mutedText }]}
+                    numberOfLines={2}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.7}>
                     {isLoadingDonation
                       ? '...'
                       : t('postItem.funded', {
@@ -2585,7 +2628,11 @@ function PostItem({
                   </Text>
                 </View>
                 <View style={styles.statAtCenter}>
-                  <Text style={[styles.statValueSmall, { color: mutedText }]}>
+                  <Text
+                    style={[styles.statValueSmall, styles.statValueCenter, { color: mutedText }]}
+                    numberOfLines={2}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.7}>
                     {isLoadingDonation
                       ? t('postItem.loading')
                       : t('postItem.raised', {
@@ -2595,7 +2642,11 @@ function PostItem({
                   </Text>
                 </View>
                 <View style={styles.statAtEnd}>
-                  <Text style={[styles.statValueSmall, { color: mutedText }]}>
+                  <Text
+                    style={[styles.statValueSmall, styles.statValueEnd, { color: mutedText }]}
+                    numberOfLines={2}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.7}>
                     {t('postItem.daysLeft', { count: daysLeft || 0 })}
                   </Text>
                 </View>
@@ -2985,6 +3036,7 @@ const styles = StyleSheet.create({
   trustTitle: {
     fontSize: 13,
     fontWeight: '800',
+    flexShrink: 1,
   },
   trustBodyText: {
     marginTop: 3,
@@ -2999,17 +3051,18 @@ const styles = StyleSheet.create({
   trustOptionsRow: {
     flexDirection: 'row',
     alignItems: 'stretch',
+    gap: 6,
   },
   trustOptionButton: {
     flex: 1,
-    minHeight: 62,
-    justifyContent: 'center',
+    minWidth: 0,
+    minHeight: 78,
+    justifyContent: 'flex-start',
     alignItems: 'center',
-    paddingHorizontal: 4,
-    paddingVertical: 7,
+    paddingHorizontal: 6,
+    paddingVertical: 8,
     borderRadius: 7,
     borderWidth: 1,
-    marginHorizontal: 3,
   },
   trustOptionSelected: {
     borderColor: '#10B981',
@@ -3022,10 +3075,15 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontSize: 11,
     fontWeight: '800',
+    textAlign: 'center',
+    width: '100%',
   },
   trustOptionDetail: {
     marginTop: 2,
     fontSize: 9,
+    lineHeight: 12,
+    textAlign: 'center',
+    width: '100%',
   },
   actionsSection: {
     flexDirection: 'row',
@@ -3039,12 +3097,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
     flexShrink: 1,
+    minWidth: 0,
+    marginRight: 4,
   },
   actionButton: {
-    marginRight: 10,
+    marginRight: 8,
     flexDirection: 'column',
     justifyContent: 'center',
     alignItems: 'center',
+    flexShrink: 1,
+    maxWidth: 72,
+    minWidth: 36,
   },
   likeActionGroup: {
     minWidth: 36,
@@ -3066,31 +3129,36 @@ const styles = StyleSheet.create({
   actionSvgIcon: { opacity: 1 },
   actionSvgIconInactive: { opacity: 0.7 },
   actionCount: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
+    textAlign: 'center',
+    maxWidth: 72,
   },
   actionCountClickable: {
     color: '#374151',
   },
   mintedSection: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     paddingHorizontal: 16,
     paddingBottom: 8,
   },
   mintedIcon: {
     marginRight: 6,
+    marginTop: 1,
   },
   mintedText: {
+    flex: 1,
+    flexShrink: 1,
     fontSize: 13,
     fontWeight: '500',
+    lineHeight: 18,
   },
   trustScoreActionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
     minWidth: 0,
-    maxWidth: '100%',
     paddingHorizontal: 4,
   },
   trustHeaderDivider: {
@@ -3122,23 +3190,21 @@ const styles = StyleSheet.create({
   },
   trustScoreActionTitleRow: {
     flexDirection: 'row',
-    flexWrap: 'nowrap',
+    flexWrap: 'wrap',
     alignItems: 'center',
   },
   trustScoreActionTitle: {
-    fontSize: 8,
-    fontWeight: '500',
-    // marginRight: 1,
-    // flexShrink: 1,
-    // maxWidth: 100,
-
+    flexShrink: 1,
+    minWidth: 0,
+    fontSize: 10,
+    fontWeight: '600',
   },
   trustScoreActionTitleVoted: {
     fontSize: 10,
     fontWeight: '700',
   },
   trustScoreValue: {
-    marginLeft: 1,
+    marginLeft: 2,
     fontSize: 10,
     fontWeight: '900',
     color: '#10B981',
@@ -3148,11 +3214,12 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   trustScoreActionSub: {
-    marginTop: 0,
-    fontSize: 7,
+    marginTop: 1,
+    fontSize: 9,
+    lineHeight: 12,
   },
   trustScoreActionSubVoted: {
-    fontSize: 8,
+    fontSize: 9,
     fontWeight: '600',
   },
   trustScorePanel: {
@@ -3197,9 +3264,10 @@ const styles = StyleSheet.create({
   },
   trustMetricLabel: {
     marginTop: 3,
-    fontSize: 8,
+    fontSize: 9,
     fontWeight: '800',
     textAlign: 'center',
+    width: '100%',
   },
   trustMetricPercent: {
     fontSize: 9,
@@ -3213,7 +3281,9 @@ const styles = StyleSheet.create({
   trustMetricSub: {
     marginTop: 1,
     fontSize: 7,
+    lineHeight: 10,
     textAlign: 'center',
+    width: '100%',
   },
   trustMetricDivider: {
     width: 1,
@@ -3231,7 +3301,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   followButton: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 10,
     paddingVertical: 8,
     borderRadius: 8,
     shadowOffset: { width: 0, height: 2 },
@@ -3240,6 +3310,8 @@ const styles = StyleSheet.create({
     elevation: 3,
     backgroundColor: '#5a2d82',
     marginLeft: 8,
+    flexShrink: 0,
+    maxWidth: 108,
   },
   followingButtonText: {
     color: '#fff',
@@ -3249,8 +3321,9 @@ const styles = StyleSheet.create({
   },
   followButtonText: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
+    textAlign: 'center',
   },
   buyersSection: {
     flexDirection: 'row',
@@ -3362,51 +3435,56 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.4,
     textAlign: 'center',
+    flexShrink: 1,
   },
   progressBarBackground: {
     height: 10,
     overflow: 'hidden',
-    marginBottom: 50,
+    marginBottom: 8,
     borderRadius: 5,
-  },
-  progressBarBackgroundWithStartNote: {
-    marginBottom: 68,
   },
   progressBarFill: {
     height: '100%',
   },
   progressStatsContainer: {
-    position: 'absolute',
-    top: 12,
-    left: 0,
-    right: 0,
-    height: 48,
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    paddingHorizontal: 0,
+    gap: 4,
   },
   missionStartsInText: {
-    position: 'absolute',
-    top: 52,
-    left: 0,
-    right: 0,
+    marginTop: 6,
     fontSize: 12,
     fontWeight: '700',
     textAlign: 'center',
   },
   statAtStart: {
+    flex: 1,
+    minWidth: 88,
     alignItems: 'flex-start',
   },
   statAtCenter: {
+    flex: 1,
+    minWidth: 88,
     alignItems: 'center',
   },
   statAtEnd: {
+    flex: 1,
+    minWidth: 88,
     alignItems: 'flex-end',
   },
   statValueSmall: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
-    marginBottom: 2,
+    lineHeight: 15,
+    width: '100%',
+  },
+  statValueCenter: {
+    textAlign: 'center',
+  },
+  statValueEnd: {
+    textAlign: 'right',
   },
   statLabelSmall: {
     fontSize: 10,
