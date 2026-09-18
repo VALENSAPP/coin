@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
@@ -17,6 +16,14 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useToast } from 'react-native-toast-notifications';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+import Svg, {
+  Defs,
+  ClipPath,
+  Polygon,
+  Image as SvgImage,
+  Text as SvgText,
+} from 'react-native-svg';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useLanguage } from '../../i18n';
 import { showToastMessage } from '../../components/displaytoastmessage';
@@ -31,6 +38,100 @@ const H_PADDING = 16;
 const PRESET_AMOUNTS = [50, 100, 200, 500];
 
 const formatPts = value => `${(Number(value) || 0).toLocaleString('en-US')} pts`;
+
+function extractUserArray(res) {
+  if (!res) return [];
+  const payload = res?.data ?? res;
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.users)) return payload.users;
+  if (Array.isArray(payload?.data)) return payload.data;
+  if (Array.isArray(payload?.data?.users)) return payload.data.users;
+  if (Array.isArray(payload?.data?.data)) return payload.data.data;
+  if (Array.isArray(payload?.data?.data?.users)) return payload.data.data.users;
+  if (Array.isArray(payload?.result?.users)) return payload.result.users;
+  if (Array.isArray(payload?.results)) return payload.results;
+  return [];
+}
+
+const HexagonAvatar = ({
+  uri,
+  name,
+  size = 40,
+  borderColor = 'rgba(0,0,0,0.15)',
+  bg = '#e0e0e0',
+  textColor = '#333',
+}) => {
+  const [imgErr, setImgErr] = useState(false);
+  const points = `${size / 2},0 ${size},${size / 4} ${size},${(size * 3) / 4} ${size / 2},${size} 0,${(size * 3) / 4} 0,${size / 4}`;
+  const clipId = useMemo(
+    () => `hex-avatar-${size}-${Math.random().toString(36).slice(2, 8)}`,
+    [size],
+  );
+  const initial = (name || 'U')[0].toUpperCase();
+
+  const validUri = useMemo(() => {
+    if (!uri) return null;
+    const str = typeof uri === 'object' && uri?.uri ? uri.uri : (typeof uri === 'string' ? uri : '');
+    const trimmed = String(str || '').trim();
+    if (!trimmed) return null;
+    if (
+      trimmed.startsWith('http://') ||
+      trimmed.startsWith('https://') ||
+      trimmed.startsWith('data:') ||
+      trimmed.startsWith('file://')
+    ) {
+      return trimmed;
+    }
+    if (trimmed.startsWith('/')) return `https://api.valens.app${trimmed}`;
+    return `https://api.valens.app/${trimmed}`;
+  }, [uri]);
+
+  return (
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+      <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+        <Defs>
+          <ClipPath id={clipId}>
+            <Polygon points={points} />
+          </ClipPath>
+        </Defs>
+
+        {validUri && !imgErr ? (
+          <SvgImage
+            x="0"
+            y="0"
+            width={size}
+            height={size}
+            href={{ uri: validUri }}
+            clipPath={`url(#${clipId})`}
+            preserveAspectRatio="xMidYMid slice"
+            onError={() => setImgErr(true)}
+          />
+        ) : (
+          <>
+            <Polygon points={points} fill={bg} />
+            <SvgText
+              x={size / 2}
+              y={size / 2 + size * 0.12}
+              textAnchor="middle"
+              fontSize={size * 0.4}
+              fontWeight="700"
+              fill={textColor}
+            >
+              {initial}
+            </SvgText>
+          </>
+        )}
+        <Polygon
+          points={points}
+          fill="none"
+          stroke={borderColor}
+          strokeWidth="1.5"
+          strokeLinejoin="round"
+        />
+      </Svg>
+    </View>
+  );
+};
 
 function shapeUser(item) {
   if (!item) return null;
@@ -63,12 +164,22 @@ function shapeUser(item) {
   const profileImage =
     raw?.profileImage ||
     raw?.avatar ||
+    raw?.image ||
     raw?.image_url ||
     raw?.profile_image ||
+    raw?.profilePic ||
+    raw?.profilePicture ||
+    raw?.user_image ||
+    raw?.picture ||
     item?.profileImage ||
     item?.avatar ||
+    item?.image ||
     item?.image_url ||
     item?.profile_image ||
+    item?.profilePic ||
+    item?.profilePicture ||
+    item?.user_image ||
+    item?.picture ||
     '';
 
   return { id: String(id), userName, displayName, profileImage };
@@ -126,8 +237,8 @@ const SendPointsScreen = () => {
     setLoadingUsers(true);
     try {
       const res = await apiFollowing(currentUserId);
-      const rows = res?.data?.data ?? res?.data ?? [];
-      const list = (Array.isArray(rows) ? rows : [])
+      const rows = extractUserArray(res);
+      const list = rows
         .map(shapeUser)
         .filter(u => u && u.id && u.id !== String(currentUserId));
       setFollowingList(list);
@@ -165,13 +276,13 @@ const SendPointsScreen = () => {
         if (search) {
           res = await searchUsers(search);
         } else {
-          res = await getAllUser({ limit: 20 });
+          res = await getAllUser({ limit: 50 });
         }
         if (cancelled) return;
-        const rows = res?.data?.data ?? res?.data ?? [];
-        const list = (Array.isArray(rows) ? rows : [])
+        const rows = extractUserArray(res);
+        const list = rows
           .map(shapeUser)
-          .filter(u => u && u.id && u.id !== selfUserId);
+          .filter(u => u && u.id && u.id !== String(selfUserId));
         setSearchResults(list);
       } catch (err) {
         if (!cancelled) setSearchResults([]);
@@ -281,15 +392,14 @@ const SendPointsScreen = () => {
         style={[styles.userRow, { borderBottomColor: softBorder }]}
       >
         <View style={styles.avatarBox}>
-          {item.profileImage ? (
-            <Image source={{ uri: item.profileImage }} style={styles.avatarImg} />
-          ) : (
-            <View style={[styles.avatarFallback, { backgroundColor: softBg }]}>
-              <Text style={[styles.avatarInitial, { color: text }]}>
-                {(item.displayName || 'U')[0].toUpperCase()}
-              </Text>
-            </View>
-          )}
+          <HexagonAvatar
+            uri={item.profileImage}
+            name={item.displayName || item.userName}
+            size={42}
+            borderColor={softBorder}
+            bg={softBg}
+            textColor={text}
+          />
         </View>
         <View style={styles.userInfoCol}>
           <Text style={[styles.userName, textStyle]} numberOfLines={1}>
@@ -328,11 +438,13 @@ const SendPointsScreen = () => {
         <View style={styles.headerBtn} />
       </View>
 
-      <ScrollView
+      <KeyboardAwareScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        enableOnAndroid={true}
+        extraScrollHeight={Platform.OS === 'ios' ? 20 : 50}
       >
         {/* Available Points Hero Banner */}
         <View style={[styles.heroCard, { backgroundColor: card, shadowColor: text }]}>
@@ -358,15 +470,14 @@ const SendPointsScreen = () => {
         {selectedUser ? (
           <View style={[styles.selectedUserCard, { backgroundColor: card, borderColor: accent }]}>
             <View style={styles.avatarBox}>
-              {selectedUser.profileImage ? (
-                <Image source={{ uri: selectedUser.profileImage }} style={styles.avatarImg} />
-              ) : (
-                <View style={[styles.avatarFallback, { backgroundColor: softBg }]}>
-                  <Text style={[styles.avatarInitial, { color: text }]}>
-                    {(selectedUser.displayName || 'U')[0].toUpperCase()}
-                  </Text>
-                </View>
-              )}
+              <HexagonAvatar
+                uri={selectedUser.profileImage}
+                name={selectedUser.displayName || selectedUser.userName}
+                size={46}
+                borderColor={accent || softBorder}
+                bg={softBg}
+                textColor={text}
+              />
             </View>
             <View style={styles.userInfoCol}>
               <Text style={[styles.userName, textStyle]} numberOfLines={1}>
@@ -582,7 +693,7 @@ const SendPointsScreen = () => {
             </>
           )}
         </TouchableOpacity>
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 };
