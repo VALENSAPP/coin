@@ -268,7 +268,7 @@ const UseYourPointsScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
+  safe: { flex: 1, paddingBottom: Platform.OS === 'ios' ? 26 : 32  },
   header: {
     height: 56,
     paddingHorizontal: H_PADDING,
