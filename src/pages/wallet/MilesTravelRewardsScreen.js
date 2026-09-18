@@ -11,11 +11,13 @@ import {
   ActivityIndicator,
   Platform,
   Pressable,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Clipboard from '@react-native-clipboard/clipboard';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 
 import { useAppTheme } from '../../theme/useApptheme';
 import { useLanguage } from '../../i18n';
@@ -185,11 +187,13 @@ const MilesTravelRewardsScreen = () => {
   const [checkoutModalVisible, setCheckoutModalVisible] = useState(false);
   const [selectedProgram, setSelectedProgram] = useState(null);
   const [pointsInput, setPointsInput] = useState(2000);
+  const [pointsInputText, setPointsInputText] = useState('2000');
   const [selectedAccountId, setSelectedAccountId] = useState(null);
   const [accountDropdownOpen, setAccountDropdownOpen] = useState(false);
 
   // Flow B Gift Card & Flow C Travel states
   const [giftCardDenomination, setGiftCardDenomination] = useState(50);
+  const [customGiftCardText, setCustomGiftCardText] = useState('');
   const [recipientEmail, setRecipientEmail] = useState('');
   const [travelerName, setTravelerName] = useState('');
   const [travelerNotes, setTravelerNotes] = useState('');
@@ -380,18 +384,38 @@ const MilesTravelRewardsScreen = () => {
     };
   }, [checkoutModalVisible, selectedProgram, pointsInput, triggerDebouncedQuote]);
 
+  // Manual Points Input Handler
+  const handlePointsInputChange = (rawVal) => {
+    setPointsInputText(rawVal);
+    const clean = rawVal.replace(/[^0-9]/g, '');
+    const n = parseInt(clean, 10);
+    setPointsInput(isNaN(n) ? 0 : n);
+  };
+
+  const handleStepChange = (delta) => {
+    const nextVal = Math.max(0, pointsInput + delta);
+    setPointsInput(nextVal);
+    setPointsInputText(String(nextVal));
+  };
+
   // Open Checkout Modal
   const openCheckoutModal = (program) => {
     setSelectedProgram(program);
     setQuoteData(null);
     setAccountDropdownOpen(false);
+    setCustomGiftCardText('');
 
     if (program.category === 'GIFT_CARD') {
-      setGiftCardDenomination(program.usdValue || 50);
-      setPointsInput(program.fixedValensPoints || (program.usdValue ? program.usdValue * 100 : 5000));
+      const initialDenom = program.usdValue || 50;
+      const initialPts = program.fixedValensPoints || (program.usdValue ? program.usdValue * 100 : 5000);
+      setGiftCardDenomination(initialDenom);
+      setPointsInput(initialPts);
+      setPointsInputText(String(initialPts));
     } else {
-      setPointsInput(program.minPoints || 2000);
-      triggerDebouncedQuote(program, program.minPoints || 2000);
+      const initialPts = program.minPoints || 2000;
+      setPointsInput(initialPts);
+      setPointsInputText(String(initialPts));
+      triggerDebouncedQuote(program, initialPts);
     }
 
     setCheckoutModalVisible(true);
@@ -498,8 +522,23 @@ const MilesTravelRewardsScreen = () => {
   // Select Gift Card Denomination
   const selectDenomination = (denom) => {
     setGiftCardDenomination(denom);
+    setCustomGiftCardText('');
     const pts = denom * 100;
     setPointsInput(pts);
+    setPointsInputText(String(pts));
+  };
+
+  // Custom Gift Card Amount Handler
+  const handleCustomGiftCardChange = (rawVal) => {
+    setCustomGiftCardText(rawVal);
+    const clean = rawVal.replace(/[^0-9]/g, '');
+    const n = parseInt(clean, 10);
+    if (!isNaN(n) && n > 0) {
+      setGiftCardDenomination(n);
+      const pts = n * 100;
+      setPointsInput(pts);
+      setPointsInputText(String(pts));
+    }
   };
 
   // Execute Redemption
@@ -633,10 +672,13 @@ const MilesTravelRewardsScreen = () => {
         </View>
       </View>
 
-      <ScrollView
+      <KeyboardAwareScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        enableOnAndroid={true}
+        keyboardShouldPersistTaps="handled"
+        extraScrollHeight={Platform.OS === 'ios' ? 20 : 50}
       >
         {/* HERO BANNER: Global Rewards Hub */}
         <View style={[styles.heroBannerCard, { backgroundColor: card, borderColor: softBorder }]}>
@@ -792,7 +834,7 @@ const MilesTravelRewardsScreen = () => {
             ))}
           </View>
         )}
-      </ScrollView>
+      </KeyboardAwareScrollView>
 
       {/* SCREEN 2: Link Loyalty Account Modal */}
       <Modal
@@ -802,50 +844,57 @@ const MilesTravelRewardsScreen = () => {
         onRequestClose={closeLinkModal}
       >
         <Pressable style={styles.modalOverlay} onPress={closeLinkModal}>
-          <Pressable style={[styles.modalContentCard, { backgroundColor: card, borderColor: softBorder }]} onPress={() => {}}>
-            <View style={styles.modalHeaderRow}>
-              <Text style={[styles.modalHeaderTitle, textStyle]}>{t('rewardsScreen.linkLoyaltyAccount', '🔗 Link Loyalty Account')}</Text>
-              <TouchableOpacity onPress={closeLinkModal}>
-                <Ionicons name="close" size={22} color={text} />
-              </TouchableOpacity>
-            </View>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={{ flex: 1, justifyContent: 'center', alignItems: 'center', width: '100%' }}
+          >
+            <Pressable style={[styles.modalContentCard, { backgroundColor: card, borderColor: softBorder }]} onPress={() => {}}>
+              <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} bounces={false}>
+                <View style={styles.modalHeaderRow}>
+                  <Text style={[styles.modalHeaderTitle, textStyle]}>{t('rewardsScreen.linkLoyaltyAccount', '🔗 Link Loyalty Account')}</Text>
+                  <TouchableOpacity onPress={closeLinkModal}>
+                    <Ionicons name="close" size={22} color={text} />
+                  </TouchableOpacity>
+                </View>
 
-            <Text style={[styles.fieldLabel, { color: muted }]}>{t('rewardsScreen.partnerProgram', 'Partner Program')}</Text>
-            <View style={[styles.readOnlyField, { backgroundColor: softBg, borderColor: softBorder }]}>
-              <Text style={[styles.readOnlyFieldText, textStyle]}>{linkProgramName}</Text>
-            </View>
+                <Text style={[styles.fieldLabel, { color: muted }]}>{t('rewardsScreen.partnerProgram', 'Partner Program')}</Text>
+                <View style={[styles.readOnlyField, { backgroundColor: softBg, borderColor: softBorder }]}>
+                  <Text style={[styles.readOnlyFieldText, textStyle]}>{linkProgramName}</Text>
+                </View>
 
-            <Text style={[styles.fieldLabel, { color: muted }]}>{t('rewardsScreen.frequentFlyerNumber', 'Frequent Flyer / Loyalty Number')}</Text>
-            <TextInput
-              style={[styles.inputField, { color: text, borderColor: softBorder, backgroundColor: softBg }]}
-              placeholder={t('rewardsScreen.accountNumPlaceholder', 'e.g. AC987654321')}
-              placeholderTextColor={muted}
-              value={linkAccountNumber}
-              onChangeText={setLinkAccountNumber}
-            />
+                <Text style={[styles.fieldLabel, { color: muted }]}>{t('rewardsScreen.frequentFlyerNumber', 'Frequent Flyer / Loyalty Number')}</Text>
+                <TextInput
+                  style={[styles.inputField, { color: text, borderColor: softBorder, backgroundColor: softBg }]}
+                  placeholder={t('rewardsScreen.accountNumPlaceholder', 'e.g. AC987654321')}
+                  placeholderTextColor={muted}
+                  value={linkAccountNumber}
+                  onChangeText={setLinkAccountNumber}
+                />
 
-            <Text style={[styles.fieldLabel, { color: muted }]}>{t('rewardsScreen.accountHolderName', 'Account Holder Name')}</Text>
-            <TextInput
-              style={[styles.inputField, { color: text, borderColor: softBorder, backgroundColor: softBg }]}
-              placeholder={t('rewardsScreen.namePlaceholder', 'e.g. John Doe')}
-              placeholderTextColor={muted}
-              value={linkAccountName}
-              onChangeText={setLinkAccountName}
-            />
+                <Text style={[styles.fieldLabel, { color: muted }]}>{t('rewardsScreen.accountHolderName', 'Account Holder Name')}</Text>
+                <TextInput
+                  style={[styles.inputField, { color: text, borderColor: softBorder, backgroundColor: softBg }]}
+                  placeholder={t('rewardsScreen.namePlaceholder', 'e.g. John Doe')}
+                  placeholderTextColor={muted}
+                  value={linkAccountName}
+                  onChangeText={setLinkAccountName}
+                />
 
-            <View style={styles.modalBtnRow}>
-              <TouchableOpacity style={[styles.cancelBtn, { backgroundColor: softBg, borderColor: softBorder }]} onPress={closeLinkModal}>
-                <Text style={[styles.cancelBtnText, textStyle]}>{t('rewardsScreen.cancel', 'Cancel')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.submitGoldBtn, { backgroundColor: cta.backgroundColor }]} onPress={handleLinkAccount} disabled={linkSubmitting}>
-                {linkSubmitting ? (
-                  <ActivityIndicator color={cta.color} />
-                ) : (
-                  <Text style={[styles.submitGoldBtnText, { color: cta.color }]}>{t('rewardsScreen.verifySaveAccount', 'Verify & Save Account 🔒')}</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </Pressable>
+                <View style={[styles.modalBtnRow, { marginTop: 16 }]}>
+                  <TouchableOpacity style={[styles.cancelBtn, { backgroundColor: softBg, borderColor: softBorder }]} onPress={closeLinkModal}>
+                    <Text style={[styles.cancelBtnText, textStyle]}>{t('rewardsScreen.cancel', 'Cancel')}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.submitGoldBtn, { backgroundColor: cta.backgroundColor }]} onPress={handleLinkAccount} disabled={linkSubmitting}>
+                    {linkSubmitting ? (
+                      <ActivityIndicator color={cta.color} />
+                    ) : (
+                      <Text style={[styles.submitGoldBtnText, { color: cta.color }]}>{t('rewardsScreen.verifySaveAccount', 'Verify & Save Account 🔒')}</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
+            </Pressable>
+          </KeyboardAvoidingView>
         </Pressable>
       </Modal>
 
@@ -857,211 +906,237 @@ const MilesTravelRewardsScreen = () => {
         onRequestClose={() => setCheckoutModalVisible(false)}
       >
         <Pressable style={styles.modalOverlay} onPress={() => setCheckoutModalVisible(false)}>
-          <Pressable style={[styles.modalContentCard, { backgroundColor: card, borderColor: softBorder }]} onPress={() => {}}>
-            <View style={styles.modalHeaderRow}>
-              <View style={{ flex: 1, paddingRight: 8 }}>
-                <Text style={[styles.modalHeaderTitle, textStyle]} numberOfLines={1}>
-                  ✈️ {selectedProgram?.name || 'Air Canada Aeroplan'}
-                </Text>
-                <Text style={[styles.modalSubTitle, { color: muted }]}>
-                  {selectedProgram?.category === 'GIFT_CARD'
-                    ? t('rewardsScreen.deliveryInstant', 'Instant digital claim code delivered to your email.')
-                    : t('rewardsScreen.transferDirectly', 'Transfer Valens Points directly to your frequent flyer account.')}
-                </Text>
-              </View>
-              <TouchableOpacity style={[styles.modalCloseCircle, { backgroundColor: softBg }]} onPress={() => setCheckoutModalVisible(false)}>
-                <Ionicons name="close" size={20} color={text} />
-              </TouchableOpacity>
-            </View>
-
-            {/* FLOW A: AIRLINE MILES & HOTEL POINTS CHECKOUT */}
-            {(selectedProgram?.category === 'AIRLINE_MILES' || selectedProgram?.category === 'HOTEL_POINTS' || !selectedProgram?.category) && (
-              <ScrollView style={{ maxHeight: 440 }}>
-                <Text style={[styles.fieldLabel, { color: muted }]}>{t('rewardsScreen.destinationLoyaltyAccount', 'Destination Loyalty Account')}</Text>
-
-                {/* Dropdown Selector */}
-                <TouchableOpacity
-                  style={[styles.dropdownPickerBtn, { backgroundColor: softBg, borderColor: softBorder }]}
-                  onPress={() => setAccountDropdownOpen(!accountDropdownOpen)}
-                >
-                  <Text style={[styles.dropdownPickerText, textStyle]} numberOfLines={1}>
-                    {selectedAccountObj
-                      ? `${selectedAccountObj.accountNumber} — ${selectedAccountObj.accountName || selectedAccountObj.accountHolderName || 'John Doe'} ${t('rewardsScreen.verifiedBadge', '(Verified ✅)')}`
-                      : t('rewardsScreen.enterAccountNumberBtn', '+ Enter an account number')}
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={{ flex: 1, justifyContent: 'center', alignItems: 'center', width: '100%' }}
+          >
+            <Pressable style={[styles.modalContentCard, { backgroundColor: card, borderColor: softBorder }]} onPress={() => {}}>
+              <View style={styles.modalHeaderRow}>
+                <View style={{ flex: 1, paddingRight: 8 }}>
+                  <Text style={[styles.modalHeaderTitle, textStyle]} numberOfLines={1}>
+                    ✈️ {selectedProgram?.name || 'Air Canada Aeroplan'}
                   </Text>
-                  <Ionicons name={accountDropdownOpen ? 'chevron-up' : 'chevron-down'} size={20} color={accent} />
+                  <Text style={[styles.modalSubTitle, { color: muted }]}>
+                    {selectedProgram?.category === 'GIFT_CARD'
+                      ? t('rewardsScreen.deliveryInstant', 'Instant digital claim code delivered to your email.')
+                      : t('rewardsScreen.transferDirectly', 'Transfer Valens Points directly to your frequent flyer account.')}
+                  </Text>
+                </View>
+                <TouchableOpacity style={[styles.modalCloseCircle, { backgroundColor: softBg }]} onPress={() => setCheckoutModalVisible(false)}>
+                  <Ionicons name="close" size={20} color={text} />
                 </TouchableOpacity>
+              </View>
 
-                {accountDropdownOpen && (
-                  <View style={[styles.dropdownMenuBox, { backgroundColor: card, borderColor: softBorder }]}>
-                    {linkedAccounts.map(acc => (
-                      <TouchableOpacity
-                        key={acc.id || acc._id || acc.accountNumber}
-                        style={[styles.dropdownMenuItem, { borderBottomColor: softBorder, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}
-                        onPress={() => {
-                          setSelectedAccountId(acc.id || acc._id);
-                          setAccountDropdownOpen(false);
-                        }}
-                      >
-                        <Text style={[styles.dropdownMenuItemText, textStyle, { flex: 1 }]}>
-                          ✓ {acc.accountNumber} — {acc.accountName || acc.accountHolderName || 'John Doe'} {t('rewardsScreen.verifiedBadge', '(Verified ✅)')}
-                        </Text>
-                        <TouchableOpacity onPress={() => handleUnlinkAccount(acc.id || acc._id)}>
-                          <Ionicons name="trash-outline" size={16} color="#EF4444" />
-                        </TouchableOpacity>
-                      </TouchableOpacity>
-                    ))}
-                    <TouchableOpacity style={[styles.dropdownMenuItemAdd, { backgroundColor: softBg }]} onPress={() => openLinkModal(selectedProgram)}>
-                      <Text style={[styles.dropdownMenuItemAddText, { color: accent }]}>
-                        {t('rewardsScreen.enterDifferentAccountBtn', '+ Enter a different account number')}
+              <ScrollView
+                style={{ maxHeight: 480 }}
+                contentContainerStyle={{ paddingBottom: 10 }}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+                bounces={false}
+              >
+                {/* FLOW A: AIRLINE MILES & HOTEL POINTS CHECKOUT */}
+                {(selectedProgram?.category === 'AIRLINE_MILES' || selectedProgram?.category === 'HOTEL_POINTS' || !selectedProgram?.category) && (
+                  <View>
+                    <Text style={[styles.fieldLabel, { color: muted }]}>{t('rewardsScreen.destinationLoyaltyAccount', 'Destination Loyalty Account')}</Text>
+
+                    {/* Dropdown Selector */}
+                    <TouchableOpacity
+                      style={[styles.dropdownPickerBtn, { backgroundColor: softBg, borderColor: softBorder }]}
+                      onPress={() => setAccountDropdownOpen(!accountDropdownOpen)}
+                    >
+                      <Text style={[styles.dropdownPickerText, textStyle]} numberOfLines={1}>
+                        {selectedAccountObj
+                          ? `${selectedAccountObj.accountNumber} — ${selectedAccountObj.accountName || selectedAccountObj.accountHolderName || 'John Doe'} ${t('rewardsScreen.verifiedBadge', '(Verified ✅)')}`
+                          : t('rewardsScreen.enterAccountNumberBtn', '+ Enter an account number')}
                       </Text>
+                      <Ionicons name={accountDropdownOpen ? 'chevron-up' : 'chevron-down'} size={20} color={accent} />
                     </TouchableOpacity>
+
+                    {accountDropdownOpen && (
+                      <View style={[styles.dropdownMenuBox, { backgroundColor: card, borderColor: softBorder }]}>
+                        {linkedAccounts.map(acc => (
+                          <TouchableOpacity
+                            key={acc.id || acc._id || acc.accountNumber}
+                            style={[styles.dropdownMenuItem, { borderBottomColor: softBorder, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}
+                            onPress={() => {
+                              setSelectedAccountId(acc.id || acc._id);
+                              setAccountDropdownOpen(false);
+                            }}
+                          >
+                            <Text style={[styles.dropdownMenuItemText, textStyle, { flex: 1 }]}>
+                              ✓ {acc.accountNumber} — {acc.accountName || acc.accountHolderName || 'John Doe'} {t('rewardsScreen.verifiedBadge', '(Verified ✅)')}
+                            </Text>
+                            <TouchableOpacity onPress={() => handleUnlinkAccount(acc.id || acc._id)}>
+                              <Ionicons name="trash-outline" size={16} color="#EF4444" />
+                            </TouchableOpacity>
+                          </TouchableOpacity>
+                        ))}
+                        <TouchableOpacity style={[styles.dropdownMenuItemAdd, { backgroundColor: softBg }]} onPress={() => openLinkModal(selectedProgram)}>
+                          <Text style={[styles.dropdownMenuItemAddText, { color: accent }]}>
+                            {t('rewardsScreen.enterDifferentAccountBtn', '+ Enter a different account number')}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+
+                    {/* Points to Transfer Stepper & Manual Input */}
+                    <View style={styles.stepperHeaderRow}>
+                      <Text style={[styles.stepperHeaderLabel, { color: muted }]}>{t('rewardsScreen.pointsToTransfer', 'Points to Transfer')}</Text>
+                      <Text style={[styles.stepperHeaderVal, { color: accent }]}>{formatPts(pointsInput)} Pts</Text>
+                    </View>
+
+                    <View style={[styles.stepperControlBar, { backgroundColor: softBg, borderColor: softBorder }]}>
+                      <TouchableOpacity style={[styles.stepBtn, { backgroundColor: card }]} onPress={() => handleStepChange(-500)}>
+                        <Ionicons name="remove" size={18} color={text} />
+                      </TouchableOpacity>
+                      <TextInput
+                        style={[styles.stepperNumericInput, textStyle]}
+                        keyboardType="number-pad"
+                        value={pointsInputText}
+                        onChangeText={handlePointsInputChange}
+                      />
+                      <TouchableOpacity style={[styles.stepBtn, { backgroundColor: card }]} onPress={() => handleStepChange(500)}>
+                        <Ionicons name="add" size={18} color={text} />
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* Conversion Quote Summary Box */}
+                    <View style={[styles.conversionQuoteCard, { backgroundColor: softBg, borderColor: softBorder }]}>
+                      <View style={styles.quoteRowItem}>
+                        <Text style={[styles.quoteRowLabel, { color: muted }]}>{t('rewardsScreen.exchangeRate', 'Exchange Rate')}</Text>
+                        <Text style={[styles.quoteRowValue, textStyle]}>
+                          {t('rewardsScreen.valensRatio', '{{ratio}} Valens = 1 {{unit}}', { ratio: selectedProgram?.rateRatio || 1.25, unit: selectedProgram?.unitName || 'MILES' })}
+                        </Text>
+                      </View>
+                      <View style={styles.quoteRowItem}>
+                        <Text style={[styles.quoteRowLabel, { color: muted }]}>{t('rewardsScreen.partnerProgram', 'Partner Program')}</Text>
+                        <Text style={[styles.quoteRowValue, textStyle]}>{selectedProgram?.name}</Text>
+                      </View>
+                      <View style={styles.quoteRowItem}>
+                        <Text style={[styles.quoteRowLabel, { color: muted }]}>{t('rewardsScreen.deliveryEstimate', 'Delivery Estimate')}</Text>
+                        <Text style={[styles.quoteRowValue, textStyle]}>{t('rewardsScreen.instantTo24Hours', 'Instant to 24 Hours')}</Text>
+                      </View>
+
+                      <View style={[styles.quoteRowTotal, { borderTopColor: softBorder }]}>
+                        <Text style={[styles.quoteTotalLabel, textStyle]}>{t('rewardsScreen.youWillReceive', 'You Will Receive:')}</Text>
+                        {quoteLoading ? (
+                          <ActivityIndicator size="small" color={accent} />
+                        ) : (
+                          <Text style={[styles.quoteTotalVal, { color: accent }]}>
+                            {(quoteData?.rewardAmount || Math.floor(pointsInput / (selectedProgram?.rateRatio || 1.25))).toLocaleString()} {quoteData?.rewardUnit || selectedProgram?.unitName || 'MILES'}
+                          </Text>
+                        )}
+                      </View>
+                    </View>
                   </View>
                 )}
 
-                {/* Points to Transfer Stepper */}
-                <View style={styles.stepperHeaderRow}>
-                  <Text style={[styles.stepperHeaderLabel, { color: muted }]}>{t('rewardsScreen.pointsToTransfer', 'Points to Transfer')}</Text>
-                  <Text style={[styles.stepperHeaderVal, { color: accent }]}>{formatPts(pointsInput)} Pts</Text>
-                </View>
+                {/* FLOW B: DIGITAL GIFT CARDS CHECKOUT */}
+                {selectedProgram?.category === 'GIFT_CARD' && (
+                  <View>
+                    <Text style={[styles.fieldLabel, { color: muted }]}>{t('rewardsScreen.chooseCardAmount', 'Choose Card Amount:')}</Text>
+                    <View style={styles.denomGrid}>
+                      {[10, 25, 50, 100].map(amt => {
+                        const isSelected = giftCardDenomination === amt && !customGiftCardText;
+                        return (
+                          <TouchableOpacity
+                            key={amt}
+                            onPress={() => selectDenomination(amt)}
+                            style={[
+                              styles.denomPillBtn,
+                              {
+                                backgroundColor: isSelected ? cta.backgroundColor : card,
+                                borderColor: isSelected ? cta.backgroundColor : softBorder,
+                              },
+                            ]}
+                          >
+                            <Text style={[styles.denomPillText, { color: isSelected ? cta.color : text }]}>
+                              {t('rewardsScreen.denomPts', '${{amt}} ({{pts}} pts)', { amt, pts: (amt * 100).toLocaleString() })}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
 
-                <View style={[styles.stepperControlBar, { backgroundColor: softBg, borderColor: softBorder }]}>
-                  <TouchableOpacity style={[styles.stepBtn, { backgroundColor: card }]} onPress={() => setPointsInput(p => Math.max(1000, p - 500))}>
-                    <Ionicons name="remove" size={18} color={text} />
-                  </TouchableOpacity>
-                  <TextInput
-                    style={[styles.stepperNumericInput, textStyle]}
-                    keyboardType="number-pad"
-                    value={String(pointsInput)}
-                    onChangeText={v => setPointsInput(parseInt(v.replace(/[^0-9]/g, ''), 10) || 0)}
-                  />
-                  <TouchableOpacity style={[styles.stepBtn, { backgroundColor: card }]} onPress={() => setPointsInput(p => p + 500)}>
-                    <Ionicons name="add" size={18} color={text} />
-                  </TouchableOpacity>
-                </View>
-
-                {/* Conversion Quote Summary Box */}
-                <View style={[styles.conversionQuoteCard, { backgroundColor: softBg, borderColor: softBorder }]}>
-                  <View style={styles.quoteRowItem}>
-                    <Text style={[styles.quoteRowLabel, { color: muted }]}>{t('rewardsScreen.exchangeRate', 'Exchange Rate')}</Text>
-                    <Text style={[styles.quoteRowValue, textStyle]}>
-                      {t('rewardsScreen.valensRatio', '{{ratio}} Valens = 1 {{unit}}', { ratio: selectedProgram?.rateRatio || 1.25, unit: selectedProgram?.unitName || 'MILES' })}
+                    {/* Custom Manual Gift Card Amount Entry */}
+                    <Text style={[styles.fieldLabel, { color: muted, marginTop: 8 }]}>
+                      {t('rewardsScreen.orCustomCardAmount', 'Or Enter Custom Card Amount ($ USD):')}
                     </Text>
-                  </View>
-                  <View style={styles.quoteRowItem}>
-                    <Text style={[styles.quoteRowLabel, { color: muted }]}>{t('rewardsScreen.partnerProgram', 'Partner Program')}</Text>
-                    <Text style={[styles.quoteRowValue, textStyle]}>{selectedProgram?.name}</Text>
-                  </View>
-                  <View style={styles.quoteRowItem}>
-                    <Text style={[styles.quoteRowLabel, { color: muted }]}>{t('rewardsScreen.deliveryEstimate', 'Delivery Estimate')}</Text>
-                    <Text style={[styles.quoteRowValue, textStyle]}>{t('rewardsScreen.instantTo24Hours', 'Instant to 24 Hours')}</Text>
-                  </View>
+                    <TextInput
+                      style={[styles.inputField, { color: text, borderColor: softBorder, backgroundColor: softBg }]}
+                      placeholder={t('rewardsScreen.customAmountPlaceholder', 'e.g. 35 for $35 USD')}
+                      placeholderTextColor={muted}
+                      keyboardType="number-pad"
+                      value={customGiftCardText}
+                      onChangeText={handleCustomGiftCardChange}
+                    />
 
-                  <View style={[styles.quoteRowTotal, { borderTopColor: softBorder }]}>
-                    <Text style={[styles.quoteTotalLabel, textStyle]}>{t('rewardsScreen.youWillReceive', 'You Will Receive:')}</Text>
-                    {quoteLoading ? (
-                      <ActivityIndicator size="small" color={accent} />
-                    ) : (
-                      <Text style={[styles.quoteTotalVal, { color: accent }]}>
-                        {(quoteData?.rewardAmount || Math.floor(pointsInput / (selectedProgram?.rateRatio || 1.25))).toLocaleString()} {quoteData?.rewardUnit || selectedProgram?.unitName || 'MILES'}
+                    <Text style={[styles.fieldLabel, { color: muted, marginTop: 10 }]}>{t('rewardsScreen.deliverCodeToEmail', 'Deliver Code To Email:')}</Text>
+                    <TextInput
+                      style={[styles.inputField, { color: text, borderColor: softBorder, backgroundColor: softBg }]}
+                      placeholder={t('rewardsScreen.emailPlaceholder', 'e.g. john.doe@gmail.com')}
+                      placeholderTextColor={muted}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      value={recipientEmail}
+                      onChangeText={setRecipientEmail}
+                    />
+
+                    <View style={[styles.conversionQuoteCard, { backgroundColor: softBg, borderColor: softBorder }]}>
+                      <Text style={[styles.quoteRowLabel, { color: muted }]}>{t('rewardsScreen.summary', 'Summary:')}</Text>
+                      <Text style={[styles.quoteRowValue, textStyle]}>
+                        {t('rewardsScreen.spendingPts', 'Spending: {{pts}} Points', { pts: (giftCardDenomination * 100).toLocaleString() })}
                       </Text>
-                    )}
+                      <Text style={[styles.quoteRowValue, { color: accent, fontWeight: '700', marginTop: 2 }]}>
+                        {t('rewardsScreen.receivingCode', 'Receiving: ${{usd}}.00 USD {{program}} Claim Code', { usd: giftCardDenomination, program: selectedProgram?.name || 'Gift Card' })}
+                      </Text>
+                      <Text style={[styles.quoteRowLabel, { color: muted }]}>{t('rewardsScreen.deliveryInstantEmail', 'Delivery: Instant on Screen & Sent to Email')}</Text>
+                    </View>
                   </View>
+                )}
+
+                {/* FLOW C: DIRECT TRAVEL CHECKOUT */}
+                {selectedProgram?.category === 'TRAVEL_BOOKING' && (
+                  <View>
+                    <Text style={[styles.fieldLabel, { color: muted }]}>{t('rewardsScreen.guestTravelerName', 'Guest Traveler Name:')}</Text>
+                    <TextInput
+                      style={[styles.inputField, { color: text, borderColor: softBorder, backgroundColor: softBg }]}
+                      placeholder={t('rewardsScreen.namePlaceholder', 'e.g. John Doe')}
+                      placeholderTextColor={muted}
+                      value={travelerName}
+                      onChangeText={setTravelerName}
+                    />
+
+                    <Text style={[styles.fieldLabel, { color: muted }]}>{t('rewardsScreen.bookingReferenceNotes', 'Booking Reference & Notes:')}</Text>
+                    <TextInput
+                      style={[styles.inputField, { color: text, borderColor: softBorder, backgroundColor: softBg, height: 64 }]}
+                      placeholder={t('rewardsScreen.notesPlaceholder', 'Hotel stay or itinerary notes...')}
+                      placeholderTextColor={muted}
+                      multiline
+                      value={travelerNotes}
+                      onChangeText={setTravelerNotes}
+                    />
+                  </View>
+                )}
+
+                {/* Modal Footer Buttons INSIDE ScrollView so they stay directly beneath fields above keyboard */}
+                <View style={[styles.modalBtnRow, { marginTop: 16 }]}>
+                  <TouchableOpacity style={[styles.cancelBtn, { backgroundColor: softBg, borderColor: softBorder }]} onPress={() => setCheckoutModalVisible(false)}>
+                    <Text style={[styles.cancelBtnText, textStyle]}>{t('rewardsScreen.cancel', 'Cancel')}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.submitGoldBtn, { backgroundColor: cta.backgroundColor }]} onPress={handleExecuteRedemption}>
+                    <Text style={[styles.submitGoldBtnText, { color: cta.color }]}>
+                      {selectedProgram?.category === 'GIFT_CARD'
+                        ? t('rewardsScreen.getGiftCardCode', 'Get Gift Card Code 💳')
+                        : selectedProgram?.category === 'TRAVEL_BOOKING'
+                        ? t('rewardsScreen.confirmBookingCredit', 'Confirm Booking Credit 🌴')
+                        : t('rewardsScreen.confirmTransfer', 'Confirm & Transfer 🚀')}
+                    </Text>
+                  </TouchableOpacity>
                 </View>
               </ScrollView>
-            )}
-
-            {/* FLOW B: DIGITAL GIFT CARDS CHECKOUT */}
-            {selectedProgram?.category === 'GIFT_CARD' && (
-              <ScrollView style={{ maxHeight: 440 }}>
-                <Text style={[styles.fieldLabel, { color: muted }]}>{t('rewardsScreen.chooseCardAmount', 'Choose Card Amount:')}</Text>
-                <View style={styles.denomGrid}>
-                  {[10, 25, 50, 100].map(amt => {
-                    const isSelected = giftCardDenomination === amt;
-                    return (
-                      <TouchableOpacity
-                        key={amt}
-                        onPress={() => selectDenomination(amt)}
-                        style={[
-                          styles.denomPillBtn,
-                          {
-                            backgroundColor: isSelected ? cta.backgroundColor : card,
-                            borderColor: isSelected ? cta.backgroundColor : softBorder,
-                          },
-                        ]}
-                      >
-                        <Text style={[styles.denomPillText, { color: isSelected ? cta.color : text }]}>
-                          {t('rewardsScreen.denomPts', '${{amt}} ({{pts}} pts)', { amt, pts: (amt * 100).toLocaleString() })}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-
-                <Text style={[styles.fieldLabel, { color: muted }]}>{t('rewardsScreen.deliverCodeToEmail', 'Deliver Code To Email:')}</Text>
-                <TextInput
-                  style={[styles.inputField, { color: text, borderColor: softBorder, backgroundColor: softBg }]}
-                  placeholder={t('rewardsScreen.emailPlaceholder', 'e.g. john.doe@gmail.com')}
-                  placeholderTextColor={muted}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  value={recipientEmail}
-                  onChangeText={setRecipientEmail}
-                />
-
-                <View style={[styles.conversionQuoteCard, { backgroundColor: softBg, borderColor: softBorder }]}>
-                  <Text style={[styles.quoteRowLabel, { color: muted }]}>{t('rewardsScreen.summary', 'Summary:')}</Text>
-                  <Text style={[styles.quoteRowValue, textStyle]}>
-                    {t('rewardsScreen.spendingPts', 'Spending: {{pts}} Points', { pts: (giftCardDenomination * 100).toLocaleString() })}
-                  </Text>
-                  <Text style={[styles.quoteRowValue, { color: accent, fontWeight: '700', marginTop: 2 }]}>
-                    {t('rewardsScreen.receivingCode', 'Receiving: ${{usd}}.00 USD {{program}} Claim Code', { usd: giftCardDenomination, program: selectedProgram?.name || 'Gift Card' })}
-                  </Text>
-                  <Text style={[styles.quoteRowLabel, { color: muted }]}>{t('rewardsScreen.deliveryInstantEmail', 'Delivery: Instant on Screen & Sent to Email')}</Text>
-                </View>
-              </ScrollView>
-            )}
-
-            {/* FLOW C: DIRECT TRAVEL CHECKOUT */}
-            {selectedProgram?.category === 'TRAVEL_BOOKING' && (
-              <ScrollView style={{ maxHeight: 440 }}>
-                <Text style={[styles.fieldLabel, { color: muted }]}>{t('rewardsScreen.guestTravelerName', 'Guest Traveler Name:')}</Text>
-                <TextInput
-                  style={[styles.inputField, { color: text, borderColor: softBorder, backgroundColor: softBg }]}
-                  placeholder={t('rewardsScreen.namePlaceholder', 'e.g. John Doe')}
-                  placeholderTextColor={muted}
-                  value={travelerName}
-                  onChangeText={setTravelerName}
-                />
-
-                <Text style={[styles.fieldLabel, { color: muted }]}>{t('rewardsScreen.bookingReferenceNotes', 'Booking Reference & Notes:')}</Text>
-                <TextInput
-                  style={[styles.inputField, { color: text, borderColor: softBorder, backgroundColor: softBg, height: 64 }]}
-                  placeholder={t('rewardsScreen.notesPlaceholder', 'Hotel stay or itinerary notes...')}
-                  placeholderTextColor={muted}
-                  multiline
-                  value={travelerNotes}
-                  onChangeText={setTravelerNotes}
-                />
-              </ScrollView>
-            )}
-
-            {/* Modal Footer Buttons */}
-            <View style={styles.modalBtnRow}>
-              <TouchableOpacity style={[styles.cancelBtn, { backgroundColor: softBg, borderColor: softBorder }]} onPress={() => setCheckoutModalVisible(false)}>
-                <Text style={[styles.cancelBtnText, textStyle]}>{t('rewardsScreen.cancel', 'Cancel')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.submitGoldBtn, { backgroundColor: cta.backgroundColor }]} onPress={handleExecuteRedemption}>
-                <Text style={[styles.submitGoldBtnText, { color: cta.color }]}>
-                  {selectedProgram?.category === 'GIFT_CARD'
-                    ? t('rewardsScreen.getGiftCardCode', 'Get Gift Card Code 💳')
-                    : selectedProgram?.category === 'TRAVEL_BOOKING'
-                    ? t('rewardsScreen.confirmBookingCredit', 'Confirm Booking Credit 🌴')
-                    : t('rewardsScreen.confirmTransfer', 'Confirm & Transfer 🚀')}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </Pressable>
+            </Pressable>
+          </KeyboardAvoidingView>
         </Pressable>
       </Modal>
 
@@ -1134,7 +1209,7 @@ const MilesTravelRewardsScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
+  safe: { flex: 1, paddingBottom: Platform.OS === 'ios' ? 26 : 32 },
   headerBar: {
     height: 56,
     paddingHorizontal: 16,
