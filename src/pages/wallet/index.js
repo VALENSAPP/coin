@@ -1460,18 +1460,6 @@ export const WalletDashboardScreen = ({ navigation }) => {
     const isCreditsCard = item.id === 'credits';
     const isMissionPostCard = item.id === 'Mission Post';
     const isSupportCard = item.id === 'support';
-    const isTotalEarningCard = item.id === 'Total Earning';
-    const displayKpiValue = (() => {
-      if (!isTotalEarningCard || typeof item.value !== 'string') {
-        return item.value;
-      }
-      const trimmed = item.value.trim();
-      const amount = trimmed.replace(/^\$\s*/, '');
-      if (!trimmed.startsWith('$') || amount.length <= 9) {
-        return trimmed;
-      }
-      return `$\n${amount}`;
-    })();
     const metaStatusText = isMetaMaskConnected
       ? t('walletDashboard.metamask.connected')
       : t('walletDashboard.metamask.disconnected');
@@ -1660,7 +1648,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
         end={{ x: 1, y: 1 }}
         style={[
           styles.kpiCard,
-          (isCreditsCard || isMissionPostCard || isSupportCard || isTotalEarningCard || item.id === 'referralPoints') && styles.kpiCardFillTouchable,
+          (isCreditsCard || isMissionPostCard || isSupportCard || item.id === 'referralPoints') && styles.kpiCardFillTouchable,
         ]}
       >
         <View style={[styles.kpiHeader, styles.kpiHeaderWithAction]}>
@@ -1706,16 +1694,13 @@ export const WalletDashboardScreen = ({ navigation }) => {
               <Ionicons name="information-circle-outline" size={18} color={gradientText} />            </TouchableOpacity>
           )}
         </View>
-        <Text
-          style={[
-            styles.kpiValue,
-            (isMissionPostCard || isTotalEarningCard) && styles.kpiValueMultiline,
-            { color: gradientText },
-          ]}
-          numberOfLines={isTotalEarningCard ? 2 : undefined}
-        >
-          {/* {displayKpiValue} */}
-        </Text>
+        <View style={styles.kpiValueWrap}>
+          <Text
+            style={[styles.kpiValue, isMissionPostCard && styles.kpiValueMultiline, { color: gradientText }]}
+          >
+            {item.value}
+          </Text>
+        </View>
         {isMetaMaskCard ? (
           <Text
             style={[
@@ -3018,7 +3003,7 @@ const styles = StyleSheet.create({
     minHeight: Platform.OS == "android" ? 132 : 150,
     justifyContent: 'flex-start',
     top: 15,
-    overflow: 'hidden',
+    overflow: 'visible',
   },
   kpiCardMetaMask: {
     borderRadius: 18,
@@ -3104,13 +3089,17 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
     flexShrink: 1,
   },
+  kpiValueWrap: {
+    width: '100%',
+    minWidth: 0,
+    alignSelf: 'stretch',
+  },
   kpiValue: {
     fontSize: 20,
     fontWeight: '800',
     marginBottom: 0,
     paddingBottom: 0,
     paddingLeft: Platform.OS == "android" ? 0 : 15,
-    paddingRight: 4,
     paddingTop: 0,
     lineHeight: 26,
     width: '100%',

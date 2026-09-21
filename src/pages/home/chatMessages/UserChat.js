@@ -70,6 +70,55 @@ import {
 const CHAT_LINK_REGEX =
   /((?:[a-z][a-z0-9+.-]*:\/\/|www\.)[^\s]+|(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/[^\s]*)?)/gi;
 
+const isSubscriptionRenewalChat = (msg = {}) => {
+  const chatType = String(msg.chatType || msg.typeOfChat || msg.chat_type || '').toLowerCase();
+  return chatType === 'subscription_renewal';
+};
+
+const parseSubscriptionPricesFromText = (content = '') => {
+  const match = String(content).match(/from\s*\$?\s*([\d,.]+)\s*to\s*\$?\s*([\d,.]+)/i);
+  if (!match) return {};
+  return {
+    oldPrice: match[1].replace(/,/g, ''),
+    newPrice: match[2].replace(/,/g, ''),
+  };
+};
+
+const buildSubscriptionRenewalNavParams = (msg = {}, fallbackSenderId) => {
+  const parsed = parseSubscriptionPricesFromText(msg.content || msg.message || '');
+  const creatorId =
+    msg.creatorId ||
+    msg.creator_id ||
+    msg.sender?.id ||
+    msg.sender?._id ||
+    msg.senderId ||
+    fallbackSenderId;
+  return {
+    creatorId: creatorId ? String(creatorId) : undefined,
+    newPrice: msg.newPrice ?? msg.new_price ?? parsed.newPrice,
+    oldPrice:
+      msg.oldPrice ??
+      msg.old_price ??
+      msg.previousPrice ??
+      msg.previous_price ??
+      parsed.oldPrice,
+    subscriptionId: msg.subscriptionId ?? msg.subscription_id,
+  };
+};
+
+const withSubscriptionRenewalFields = (formattedMsg, rawMsg = {}) => {
+  if (!isSubscriptionRenewalChat(rawMsg)) return formattedMsg;
+  return {
+    ...formattedMsg,
+    isSubscriptionRenewal: true,
+    chatType: 'subscription_renewal',
+    subscriptionRenewal: buildSubscriptionRenewalNavParams(
+      { ...rawMsg, content: formattedMsg.content || rawMsg.content },
+      formattedMsg.senderInfo?.id,
+    ),
+  };
+};
+
 const stripTrailingLinkPunctuation = (rawLink = '') => {
   let cleanLink = String(rawLink || '');
   let trailingText = '';
@@ -536,7 +585,7 @@ const UserChat = ({ route, navigation }) => {
       default: mappedType = 'text';
     }
 
-    const formattedMsg = {
+    const formattedMsg = withSubscriptionRenewalFields({
       id: message.id?.toString() || `msg_${Date.now()}_${Math.random()}`,
       type: mappedType,
       sender: sId === me ? 'user' : 'peer',
@@ -552,7 +601,7 @@ const UserChat = ({ route, navigation }) => {
       post: normalizeTrustPostFromMessage(message),
       story: message.story,
       reel: message.reel,
-    };
+    }, message);
 
     setMessages(prev => {
       if (prev.some(m => m.id === formattedMsg.id)) return prev;
@@ -584,7 +633,7 @@ const UserChat = ({ route, navigation }) => {
       default: mappedType = 'text';
     }
 
-    const formattedMsg = {
+    const formattedMsg = withSubscriptionRenewalFields({
       id: message.id?.toString() || `msg_${Date.now()}_${Math.random()}`,
       type: mappedType,
       sender: sId === currentUserId ? 'user' : 'peer',
@@ -600,7 +649,7 @@ const UserChat = ({ route, navigation }) => {
       post: normalizeTrustPostFromMessage(message),
       story: message.story,
       reel: message.reel,
-    };
+    }, message);
 
     setMessages(prev => {
       if (prev.some(m => m.id === formattedMsg.id)) return prev;
@@ -694,7 +743,7 @@ const UserChat = ({ route, navigation }) => {
         formattedMsg.content = msg.content || '';
       }
 
-      return formattedMsg;
+      return withSubscriptionRenewalFields(formattedMsg, msg);
     });
 
     const validMessages = formattedMessages.filter(Boolean);
@@ -1186,6 +1235,24 @@ const UserChat = ({ route, navigation }) => {
                   >
                     {renderMessageText(item.content, isUser)}
                   </View>
+                )}
+                {!isUser && item.isSubscriptionRenewal && !item.isDeletedContent && (
+                  <TouchableOpacity
+                    style={[styles.subscribeButton, { backgroundColor: accent, alignSelf: 'flex-start' }]}
+                    onPress={() => {
+                      const renewal = item.subscriptionRenewal || {};
+                      navigation.navigate('SubscriptionPriceChanged', {
+                        creatorId: renewal.creatorId || item.senderInfo?.id,
+                        newPrice: renewal.newPrice,
+                        oldPrice: renewal.oldPrice,
+                        subscriptionId: renewal.subscriptionId,
+                      });
+                    }}
+                  >
+                    <Text style={styles.subscribeButtonText}>
+                      {t('userChat.updateSubscription') ?? 'Update Subscription'}
+                    </Text>
+                  </TouchableOpacity>
                 )}
                 {item.shared && (
                   <TouchableOpacity style={styles.messageSharedContainer}>

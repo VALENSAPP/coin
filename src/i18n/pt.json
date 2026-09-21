@@ -3829,7 +3829,8 @@
     "cancel": "Cancelar",
     "views": "{{count}} visualizações",
     "subscribeToView": "Assine para visualizar este conteúdo",
-    "buySubscription": "Comprar assinatura"
+    "buySubscription": "Comprar assinatura",
+    "updateSubscription": "Atualizar assinatura"
   },
   "socialLogin": {
     "cancelled": "Cancelado",
