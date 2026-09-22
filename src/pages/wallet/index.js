@@ -421,6 +421,16 @@ const formatSupportUsd = (n) => {
   });
 };
 
+const formatKpiUsd = (n) => {
+  const v = Number(n) || 0;
+  return `$ ${v.toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+};
+
+const formatKpiCount = (n) => (Number(n) || 0).toLocaleString('en-US');
+
 /** Split display name into lines; last line is paired with the verified dragonfly icon. */
 const splitHeaderNameLines = (label, maxCharsPerLine) => {
   const trimmed = String(label || '').trim();
@@ -877,7 +887,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
       setKpiData(prevKpiData =>
         prevKpiData.map(item =>
           item.id === 'referralPoints'
-            ? { ...item, value: `${parsed.totalPlatformPoints} pts` }
+            ? { ...item, value: `${formatPointValue(parsed.totalPlatformPoints)} pts` }
             : item,
         ),
       );
@@ -1291,7 +1301,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
             if (item.id === 'followers') {
               return {
                 ...item,
-                value: totalFollowers.toString() || '0',
+                value: formatKpiCount(totalFollowers),
               };
             }
             return item;
@@ -1323,7 +1333,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
       setKpiData(prevKpiData =>
         prevKpiData.map(item =>
           item.id === 'support'
-            ? { ...item, value: `$ ${supportAmount.toFixed(2)}` }
+            ? { ...item, value: formatKpiUsd(supportAmount) }
             : item
         )
       );
@@ -1349,7 +1359,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
       setKpiData(prevKpiData =>
         prevKpiData.map(item =>
           item.id === 'Total Earning'
-            ? { ...item, value: `$ ${totalValue.toFixed(2)}` }
+            ? { ...item, value: formatKpiUsd(totalValue) }
             : item
         )
       );
@@ -1371,7 +1381,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
       setKpiData(prevKpiData =>
         prevKpiData.map(item =>
           item.id === 'metamask'
-            ? { ...item, value: `$ ${totalValue.toFixed(2)}` }
+            ? { ...item, value: formatKpiUsd(totalValue) }
             : item
         )
       );
@@ -1397,7 +1407,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
           item.id === 'Mission Post'
             ? {
               ...item,
-              value: `$ ${totalAmount.toFixed(2)} \n${t('walletDashboard.kpi.missionActive', { count: postCount || 0 })}`,
+              value: `${formatKpiUsd(totalAmount)} \n${t('walletDashboard.kpi.missionActive', { count: postCount || 0 })}`,
             }
             : item
         )

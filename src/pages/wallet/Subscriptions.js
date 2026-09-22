@@ -812,7 +812,7 @@ const SubventionSetupScreen = () => {
 
                     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
                         <TouchableOpacity
-                            onPress={openPrivacyPolicy}
+                            onPress={openTerms}
                             accessibilityRole="link"
                             accessibilityLabel={t('subventionSetup.policyHeading')}
                         >

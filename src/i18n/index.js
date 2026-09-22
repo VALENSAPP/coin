@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { applyAcceptLanguage } from '../services';
+import { updateUserLanguage } from '../services/users';
 
 // ✅ Supported languages
 const languages = ['en', 'pt', 'it', 'es', 'fr'];
@@ -69,6 +71,7 @@ export const LanguageProvider = ({ children }) => {
         const savedLang = await AsyncStorage.getItem('language');
         const lang = languages.includes(savedLang) ? savedLang : 'en';
 
+        applyAcceptLanguage(lang);
         setCurrentLanguage(lang);
         setTranslations(allTranslations[lang] || en);
       } catch (error) {
@@ -89,8 +92,16 @@ export const LanguageProvider = ({ children }) => {
       setIsLoading(true);
 
       await AsyncStorage.setItem('language', lang);
+      applyAcceptLanguage(lang);
       setCurrentLanguage(lang);
       setTranslations(allTranslations[lang] || en);
+
+      const token = await AsyncStorage.getItem('token');
+      if (token) {
+        updateUserLanguage(lang).catch((error) => {
+          console.warn('Update language error:', error);
+        });
+      }
     } catch (error) {
       console.warn('Change language error:', error);
     } finally {

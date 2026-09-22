@@ -10,12 +10,23 @@ const axiosInstance = axios.create({
     maxBodyLength: Infinity
 });
 
+const SUPPORTED_ACCEPT_LANGUAGES = ['en', 'pt', 'it', 'es', 'fr'];
+
+export const applyAcceptLanguage = (lang) => {
+    const value = SUPPORTED_ACCEPT_LANGUAGES.includes(lang) ? lang : 'en';
+    axiosInstance.defaults.headers.common['Accept-Language'] = value;
+    axios.defaults.headers.common['Accept-Language'] = value;
+    return value;
+};
+
 export const authInterceptor = axiosInstance.interceptors.request.use(
     async (config) => {
         const token = await AsyncStorage.getItem('token');
         if (token) {
             config.headers['Authorization'] = 'Bearer ' + token
         }
+        const savedLang = await AsyncStorage.getItem('language');
+        config.headers['Accept-Language'] = applyAcceptLanguage(savedLang);
         const isFormData =
             typeof FormData !== 'undefined' && config?.data instanceof FormData;
 

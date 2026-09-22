@@ -3,6 +3,8 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
+  Modal,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,6 +14,7 @@ import {
   Linking,
 } from 'react-native';
 import FastImage from 'react-native-fast-image';
+import ImageZoom from 'react-native-image-pan-zoom';
 import { useFocusEffect, useRoute } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
@@ -39,8 +42,9 @@ import {
 import { AutoScrollBattleRow } from '../search/Battlecard';
 import HexAvatar from '../home/story.js/HexAvatar';
 
-const { width: SCREEN_W } = Dimensions.get('window');
+const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 const CARD_W = (SCREEN_W - 48) / 3;
+const SHOP_LOGO_PREVIEW_SIZE = Math.min(SCREEN_W * 0.9, 340);
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -915,6 +919,7 @@ console.log("shopLogo------------------", shopLogo)
   const route = useRoute();
   const itemIdToOpen = route?.params?.itemId || route?.params?.params?.itemId || closetNavContext?.itemId;
   const [hasAutoOpened, setHasAutoOpened] = useState(false);
+  const [logoPreviewVisible, setLogoPreviewVisible] = useState(false);
 
   useEffect(() => {
     if (itemIdToOpen && !hasAutoOpened && items.length > 0) {
@@ -1002,6 +1007,7 @@ console.log("shopLogo------------------", shopLogo)
   console.log("tilestilestilestilestilestilestilestiles", tiles)
 
   return (
+    <>
     <ScrollView
       nestedScrollEnabled={true}
       style={[s.root, bgStyle]}
@@ -1012,14 +1018,18 @@ console.log("shopLogo------------------", shopLogo)
 
       {/* ── Banner ── */}
       {userData?.profile !== 'user' ? (
-        <TouchableOpacity
-          activeOpacity={0.9}
+        <View
           style={[s.banner, cardStyle, { borderColor: border, borderWidth: StyleSheet.hairlineWidth }]}
-          onPress={goStorefront}
         >
           <View style={s.bannerTopRow}>
             {shopLogo ? (
-              <View style={s.hexAvatarWrap}>
+              <TouchableOpacity
+                activeOpacity={0.9}
+                style={s.hexAvatarWrap}
+                onPress={() => setLogoPreviewVisible(true)}
+                accessibilityRole="imagebutton"
+                accessibilityLabel="View shop logo"
+              >
                 <HexAvatar
                   uri={shopLogo}
                   size={100}
@@ -1027,18 +1037,22 @@ console.log("shopLogo------------------", shopLogo)
                   borderColor={brand}
                   preserveAspectRatio="xMidYMid slice"
                 />
-              </View>
+              </TouchableOpacity>
             ) : (
-              <View style={[s.bannerIcon, { backgroundColor: `${brand}18` }]}>
+              <TouchableOpacity
+                activeOpacity={0.9}
+                style={[s.bannerIcon, { backgroundColor: `${brand}18` }]}
+                onPress={goStorefront}
+              >
                 <Ionicons name="storefront-outline" size={26} color={brand} />
-              </View>
+              </TouchableOpacity>
             )}
-            <View style={s.bannerBody}>
+            <TouchableOpacity activeOpacity={0.9} style={s.bannerBody} onPress={goStorefront}>
               <Text style={[s.bannerTitle, { color: text }]}>{shopName}</Text>
               <Text style={[s.bannerSub, { color: mutedText }]}>
                 {shopDescription ? shopDescription : t('myClosetShopFront.shopOwnerBannerSubtitle')}
               </Text>
-            </View>
+            </TouchableOpacity>
           </View>
           {!!shopLocation && (
             <>
@@ -1055,16 +1069,20 @@ console.log("shopLogo------------------", shopLogo)
               </TouchableOpacity>
             </>
           )}
-        </TouchableOpacity>
+        </View>
       ) : (
-        <TouchableOpacity
-          activeOpacity={0.9}
+        <View
           style={[s.banner, cardStyle, { borderColor: border, borderWidth: StyleSheet.hairlineWidth }]}
-          onPress={goStorefront}
         >
           <View style={s.bannerTopRow}>
             {shopLogo ? (
-              <View style={s.hexAvatarWrap}>
+              <TouchableOpacity
+                activeOpacity={0.9}
+                style={s.hexAvatarWrap}
+                onPress={() => setLogoPreviewVisible(true)}
+                accessibilityRole="imagebutton"
+                accessibilityLabel="View shop logo"
+              >
                 <HexAvatar
                   uri={shopLogo}
                   size={100}
@@ -1072,18 +1090,22 @@ console.log("shopLogo------------------", shopLogo)
                   borderColor={brand}
                   preserveAspectRatio="xMidYMid slice"
                 />
-              </View>
+              </TouchableOpacity>
             ) : (
-              <View style={[s.bannerIcon, { backgroundColor: `${brand}18` }]}>
+              <TouchableOpacity
+                activeOpacity={0.9}
+                style={[s.bannerIcon, { backgroundColor: `${brand}18` }]}
+                onPress={goStorefront}
+              >
                 <Ionicons name="bag-handle" size={26} color={brand} />
-              </View>
+              </TouchableOpacity>
             )}
-            <View style={s.bannerBody}>
+            <TouchableOpacity activeOpacity={0.9} style={s.bannerBody} onPress={goStorefront}>
               <Text style={[s.bannerTitle, { color: text }]}>{shopName}</Text>
               <Text style={[s.bannerSub, { color: mutedText }]}>
                 {shopDescription ? shopDescription : t('myClosetShopFront.userBannerSubtitle')}
               </Text>
-            </View>
+            </TouchableOpacity>
           </View>
           {!!shopLocation && (
             <>
@@ -1100,7 +1122,7 @@ console.log("shopLogo------------------", shopLogo)
               </TouchableOpacity>
             </>
           )}
-        </TouchableOpacity>
+        </View>
       )}
 
       {/* ── E-books Section ── */}
@@ -1339,6 +1361,50 @@ console.log("shopLogo------------------", shopLogo)
       </View>
 
     </ScrollView>
+
+      <Modal
+        visible={logoPreviewVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setLogoPreviewVisible(false)}
+      >
+        <Pressable
+          style={s.logoPreviewOverlay}
+          onPress={() => setLogoPreviewVisible(false)}
+        >
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => setLogoPreviewVisible(false)}
+            style={s.logoPreviewCloseBtn}
+          >
+            <Ionicons name="close" size={26} color="#FFFFFF" />
+          </TouchableOpacity>
+
+          <Pressable
+            style={s.logoPreviewZoomHost}
+            onPress={e => e?.stopPropagation?.()}
+          >
+            <ImageZoom
+              cropWidth={SCREEN_W}
+              cropHeight={SCREEN_H}
+              imageWidth={SHOP_LOGO_PREVIEW_SIZE}
+              imageHeight={SHOP_LOGO_PREVIEW_SIZE}
+              enableCenterFocus
+            >
+              <View style={s.logoPreviewHexWrap}>
+                <HexAvatar
+                  uri={shopLogo}
+                  size={SHOP_LOGO_PREVIEW_SIZE}
+                  borderWidth={2}
+                  borderColor={brand}
+                  preserveAspectRatio="xMidYMid slice"
+                />
+              </View>
+            </ImageZoom>
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </>
   );
 };
 
@@ -1454,6 +1520,34 @@ const s = StyleSheet.create({
   /* banner */
   hexAvatarWrap: {
     marginRight: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoPreviewOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.85)',
+  },
+  logoPreviewCloseBtn: {
+    position: 'absolute',
+    top: 44,
+    right: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    zIndex: 10,
+  },
+  logoPreviewZoomHost: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoPreviewHexWrap: {
+    width: SHOP_LOGO_PREVIEW_SIZE,
+    height: SHOP_LOGO_PREVIEW_SIZE,
     alignItems: 'center',
     justifyContent: 'center',
   },

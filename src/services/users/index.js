@@ -38,3 +38,8 @@ export async function clearSearchHistory() {
 export async function deleteSearchHistoryItem(id) {
   return axiosInstance.delete(`/user/search/history/${id}`);
 }
+
+export async function updateUserLanguage(language) {
+  console.log('Updating user language to:', language);
+  return axiosInstance.post('/user/update-language', { language });
+}
