@@ -45,6 +45,7 @@ const HexAvatar = ({
   size = 75,
   borderWidth = 2,
   borderColor = '#000',
+  preserveAspectRatio = 'xMidYMid slice',
 }) => {
   const [imageError, setImageError] = useState(false);
   const w = size;
@@ -89,7 +90,7 @@ const HexAvatar = ({
             y={0}
             width={w}
             height={h}
-            preserveAspectRatio="xMidYMid slice"
+            preserveAspectRatio={preserveAspectRatio}
             clipPath={`url(#${ids.clip})`}
             onError={() => {
               if (!imageError) {

@@ -46,9 +46,10 @@ const formatMoney = (value, { signed = false, tone } = {}) => {
   return formatted;
 };
 
-const formatDetailDate = value => {
+const formatDetailDate = (value, t) => {
   const date = value ? new Date(value) : null;
   if (!date || Number.isNaN(date.getTime())) return '';
+  const atStr = t ? ` ${t('transactionDetails.atTime')} ` : ' at ';
   const parts = date.toLocaleString('en-US', {
     month: 'short',
     day: '2-digit',
@@ -57,7 +58,7 @@ const formatDetailDate = value => {
     minute: '2-digit',
     hour12: true,
   });
-  return parts.replace(', ', ' at ').replace(', ', ' at ');
+  return parts.replace(', ', atStr).replace(', ', atStr);
 };
 
 const titleCase = value =>
@@ -139,7 +140,7 @@ const normalizeDetails = (payload, preview = {}, t) => {
   const headerHandle = pickFirst(counterpart.handle, formatHandle(previewSafe.profileUserName), '');
   const period =
     data.periodStart && data.periodEnd
-      ? `${formatDetailDate(data.periodStart)} – ${formatDetailDate(data.periodEnd)}`
+      ? `${formatDetailDate(data.periodStart, t)} – ${formatDetailDate(data.periodEnd, t)}`
       : '';
 
   return {
@@ -152,7 +153,7 @@ const normalizeDetails = (payload, preview = {}, t) => {
     fee: formatMoney(feeValue, { signed: true, tone: 'negative' }),
     total: formatMoney(totalValue, { signed: true, tone: amountTone }),
     amountTone,
-    date: formatDetailDate(pickFirst(data.createdAt, previewSafe.createdAt)) || previewSafe.date || '',
+    date: formatDetailDate(pickFirst(data.createdAt, previewSafe.createdAt), t) || previewSafe.date || '',
     period,
     fromId: fromParty.id,
     fromName: pickFirst(fromParty.displayName, t('transactionDetails.valensWallet')),
@@ -182,7 +183,7 @@ const statusMeta = (status, typeLabel, isReceived, t) => {
       bg: '#FEE2E2',
       icon: 'close',
       title: t('transactionDetails.statusFailed'),
-      label: 'Failed',
+      label: t('transactionDetails.statusFailed'),
       message: t('transactionDetails.statusMessageFailed', { type: typeLabel }),
     };
   }
@@ -192,7 +193,7 @@ const statusMeta = (status, typeLabel, isReceived, t) => {
       bg: '#FEF3C7',
       icon: 'time',
       title: t('transactionDetails.statusPending'),
-      label: 'Pending',
+      label: t('transactionDetails.statusPending'),
       message: t('transactionDetails.statusMessagePending', { type: typeLabel }),
     };
   }
@@ -201,7 +202,7 @@ const statusMeta = (status, typeLabel, isReceived, t) => {
     bg: '#DCFCE7',
     icon: 'checkmark',
     title: t('transactionDetails.statusSucceeded'),
-    label: 'Completed',
+    label: t('transactionDetails.statusCompleted'),
     message: isReceived
       ? t('transactionDetails.statusMessageReceived', { type: typeLabel })
       : t('transactionDetails.statusMessageSucceeded', { type: typeLabel }),
@@ -311,8 +312,8 @@ export default function TransactionDetailsScreen() {
         const uri = await viewShotRef.current.capture();
         await Share.open({
           url: uri,
-          title: 'Transaction Receipt',
-          message: 'Here is your transaction receipt.',
+          title: t('transactionDetails.receiptShareTitle'),
+          message: t('transactionDetails.receiptShareMessage'),
         });
       }
     } catch (err) {
@@ -326,7 +327,7 @@ export default function TransactionDetailsScreen() {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerBtn} hitSlop={12}>
           <Ionicons name="chevron-back" size={26} color={accent || text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: accent || text }]}>Transaction Receipt</Text>
+        <Text style={[styles.headerTitle, { color: accent || text }]}>{t('transactionDetails.receiptTitle')}</Text>
         <TouchableOpacity onPress={downloadReceipt} style={styles.headerBtn} hitSlop={12}>
           <Ionicons name="download-outline" size={22} color={accent || text} />
         </TouchableOpacity>
@@ -358,14 +359,14 @@ export default function TransactionDetailsScreen() {
             <View style={styles.titleRow}>
               <View style={styles.titleLeft}>
                 <Text style={[styles.successTitle, { color: accent || text }]}>
-                  {details.status === 'succeeded' ? 'Transaction successful' : status.title}
+                  {details.status === 'succeeded' ? t('transactionDetails.statusSucceededTitle') : status.title}
                 </Text>
                 <Text style={[styles.successSubtitle, { color: mutedText }]}>
-                  Thank you for using Valens.
+                  {t('transactionDetails.thankYouMessage')}
                 </Text>
               </View>
               <View style={styles.titleRight}>
-                <Text style={[styles.receiptDateLabel, { color: mutedText }]}>Receipt Date</Text>
+                <Text style={[styles.receiptDateLabel, { color: mutedText }]}>{t('transactionDetails.receiptDate')}</Text>
                 <Text style={[styles.receiptDateValue, { color: text }]}>{details.date}</Text>
               </View>
             </View>
@@ -376,7 +377,7 @@ export default function TransactionDetailsScreen() {
                 <Ionicons name="document-text-outline" size={20} color={accent || '#5B21B6'} />
               </View>
               <View style={styles.txnTextWrap}>
-                <Text style={[styles.txnLabel, { color: mutedText }]}>Transaction ID</Text>
+                <Text style={[styles.txnLabel, { color: mutedText }]}>{t('transactionDetails.transactionId')}</Text>
                 <Text style={[styles.txnValue, { color: accent || '#5B21B6' }]} numberOfLines={1}>
                   {details.transactionId || '—'}
                 </Text>
@@ -389,7 +390,7 @@ export default function TransactionDetailsScreen() {
             {/* From / To Section */}
             <View style={styles.partiesRow}>
               <View style={styles.partyCol}>
-                <Text style={[styles.partyLabel, { color: mutedText }]}>From</Text>
+                <Text style={[styles.partyLabel, { color: mutedText }]}>{t('transactionDetails.from')}</Text>
                 <TouchableOpacity 
                   style={styles.partyProfile}
                   onPress={() => handleProfilePress(details.fromId)}
@@ -416,7 +417,7 @@ export default function TransactionDetailsScreen() {
               </View>
               
               <View style={styles.partyCol}>
-                <Text style={[styles.partyLabel, { color: mutedText, textAlign: 'right' }]}>To</Text>
+                <Text style={[styles.partyLabel, { color: mutedText, textAlign: 'right' }]}>{t('transactionDetails.to')}</Text>
                 <TouchableOpacity 
                   style={styles.partyProfileRight}
                   onPress={() => handleProfilePress(details.toId)}
@@ -441,12 +442,12 @@ export default function TransactionDetailsScreen() {
 
             {/* Details List */}
             <View style={styles.detailsList}>
-              {row('heart-outline', 'Type', details.typeLabel, accent || text, styles.boldValue)}
-              {row('time-outline', 'Amount', details.amount, amountColor, styles.boldValue)}
+              {row('heart-outline', t('transactionDetails.type'), details.typeLabel, accent || text, styles.boldValue)}
+              {row('time-outline', t('transactionDetails.amount'), details.amount, amountColor, styles.boldValue)}
               {/* {row('pie-chart-outline', 'Valens Fee (5%)', details.fee, text, styles.boldValue)} */}
-              {row('calendar-outline', 'Total Received', details.total, amountColor, styles.totalValue, styles.totalLabel)}
-              {row('card-outline', 'Payment Method', details.paymentMethod, accent || text, styles.boldValue)}
-              {row('calendar-outline', 'Date & Time', details.date, text, styles.boldValue)}
+              {row('calendar-outline', t('transactionDetails.totalReceived'), details.total, amountColor, styles.totalValue, styles.totalLabel)}
+              {row('card-outline', t('transactionDetails.paymentMethod'), details.paymentMethod, accent || text, styles.boldValue)}
+              {row('calendar-outline', t('transactionDetails.dateTime'), details.date, text, styles.boldValue)}
               
               {/* Custom Status Row */}
               <View style={styles.detailRow}>
@@ -454,7 +455,7 @@ export default function TransactionDetailsScreen() {
                   <View style={styles.detailIconContainer}>
                     <Ionicons name="shield-checkmark-outline" size={18} color={accent || text} style={{ opacity: 0.7 }} />
                   </View>
-                  <Text style={[styles.detailLabel, { color: mutedText }]}>Status</Text>
+                  <Text style={[styles.detailLabel, { color: mutedText }]}>{t('transactionDetails.status')}</Text>
                 </View>
                 <StatusBadge />
               </View>
@@ -465,10 +466,10 @@ export default function TransactionDetailsScreen() {
               <Ionicons name="shield-checkmark-outline" size={24} color={accent || '#5B21B6'} style={styles.noticeIcon} />
               <View style={styles.noticeTextWrap}>
                 <Text style={[styles.noticeTitle, { color: accent || '#5B21B6' }]}>
-                  This is an official receipt for your records.
+                  {t('transactionDetails.officialReceiptTitle')}
                 </Text>
                 <Text style={[styles.noticeBody, { color: mutedText }]}>
-                  No physical goods or services were provided in exchange for this donation.
+                  {t('transactionDetails.officialReceiptBody')}
                 </Text>
               </View>
             </View>

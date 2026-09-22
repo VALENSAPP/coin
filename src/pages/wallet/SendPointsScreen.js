@@ -35,7 +35,7 @@ import { primaryCtaColors, contrastOn } from '../../utils/ctaContrast';
 import { SoftGrayDragonfly } from '../../assets/icons';
 
 const H_PADDING = 16;
-const PRESET_AMOUNTS = [50, 100, 200, 500];
+const PRESET_AMOUNTS = [100, 200, 500, 1000];
 
 const formatPts = value => `${(Number(value) || 0).toLocaleString('en-US')} pts`;
 
@@ -259,15 +259,12 @@ const SendPointsScreen = () => {
     }, [refreshPoints, selfUserId, loadFollowingUsers]),
   );
 
-  // Search users dynamically when query changes or when on 'all' tab
+  // Search users dynamically when on 'all' tab
   useEffect(() => {
+    if (activeTab !== 'all') return;
+
     let cancelled = false;
     const search = searchQuery.trim();
-
-    if (!search && activeTab === 'following') {
-      setSearchResults([]);
-      return;
-    }
 
     const delayDebounce = setTimeout(async () => {
       setLoadingUsers(true);
@@ -298,10 +295,16 @@ const SendPointsScreen = () => {
   }, [searchQuery, activeTab, selfUserId]);
 
   const displayUsersList = useMemo(() => {
-    if (searchQuery.trim() || activeTab === 'all') {
-      return searchResults;
+    const search = searchQuery.trim().toLowerCase();
+    if (activeTab === 'following') {
+      if (!search) return followingList;
+      return followingList.filter(u => {
+        const name = (u.displayName || '').toLowerCase();
+        const uname = (u.userName || '').toLowerCase();
+        return name.includes(search) || uname.includes(search);
+      });
     }
-    return followingList;
+    return searchResults;
   }, [searchQuery, activeTab, followingList, searchResults]);
 
   const handleSelectUser = useCallback((user) => {
@@ -328,11 +331,11 @@ const SendPointsScreen = () => {
       return;
     }
 
-    if (!numericAmount || numericAmount <= 0) {
+    if (!numericAmount || numericAmount < 100) {
       showToastMessage(
         toast,
         'danger',
-        t('sendPointsScreen.invalidAmount', 'Please enter a valid amount'),
+        t('sendPointsScreen.minPointsRequired', 'Minimum 100 points required per transfer'),
       );
       return;
     }
@@ -523,13 +526,13 @@ const SendPointsScreen = () => {
                 onPress={() => setActiveTab('following')}
                 style={[
                   styles.tabBtn,
-                  activeTab === 'following' && !searchQuery && [styles.tabBtnActive, { borderBottomColor: text }],
+                  activeTab === 'following' && [styles.tabBtnActive, { borderBottomColor: text }],
                 ]}
               >
                 <Text
                   style={[
                     styles.tabBtnText,
-                    { color: activeTab === 'following' && !searchQuery ? text : muted },
+                    { color: activeTab === 'following' ? text : muted },
                   ]}
                 >
                   {t('sendPointsScreen.followingTab', 'Following')} ({followingList.length})
@@ -540,13 +543,13 @@ const SendPointsScreen = () => {
                 onPress={() => setActiveTab('all')}
                 style={[
                   styles.tabBtn,
-                  (activeTab === 'all' || !!searchQuery) && [styles.tabBtnActive, { borderBottomColor: text }],
+                  activeTab === 'all' && [styles.tabBtnActive, { borderBottomColor: text }],
                 ]}
               >
                 <Text
                   style={[
                     styles.tabBtnText,
-                    { color: activeTab === 'all' || !!searchQuery ? text : muted },
+                    { color: activeTab === 'all' ? text : muted },
                   ]}
                 >
                   {t('sendPointsScreen.allUsersTab', 'All Users')}
@@ -644,6 +647,10 @@ const SendPointsScreen = () => {
           </View>
         </View>
 
+        <Text style={[styles.hintText, { color: muted }]}>
+          {t('sendPointsScreen.sendPointsHint', 'Min. 100 pts per transfer')}
+        </Text>
+
         {/* Note Input Section */}
         <Text style={[styles.sectionTitle, textStyle, styles.marginTopSection]}>
           {t('sendPointsScreen.noteLabel', 'Note (Optional)')}
@@ -668,11 +675,11 @@ const SendPointsScreen = () => {
         <TouchableOpacity
           activeOpacity={0.88}
           onPress={handleSendPoints}
-          disabled={submitting || !selectedUser || numericAmount <= 0 || numericAmount > totalPoints}
+          disabled={submitting || !selectedUser || numericAmount < 100 || numericAmount > totalPoints}
           style={[
             styles.ctaButton,
             { backgroundColor: cta.backgroundColor },
-            (!selectedUser || numericAmount <= 0 || numericAmount > totalPoints) && styles.disabledCta,
+            (!selectedUser || numericAmount < 100 || numericAmount > totalPoints) && styles.disabledCta,
           ]}
         >
           {submitting ? (
@@ -937,6 +944,11 @@ const styles = StyleSheet.create({
   presetChipText: {
     fontSize: 12,
     fontWeight: '700',
+  },
+  hintText: {
+    fontSize: 12,
+    marginTop: 6,
+    marginLeft: 4,
   },
   noteInput: {
     fontSize: 14,

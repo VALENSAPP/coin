@@ -205,7 +205,20 @@ const isBattleNotificationType = type =>
     'battle_invite_expired',
     'battle_forecast_missed',
     'battle_closed',
-    'battle_new'
+    'battle_new',
+    'marketplace_battle_live',
+    'marketplace_battle_is_live',
+    'marketplace_battle_started',
+    'marketplace_battle_active',
+    'marketplace_battle_created',
+    'marketplace_battle_open',
+    'marketplace_battle_ended',
+    'marketplace_battle_completed',
+    'marketplace_battle_closed',
+    'marketplace_battle_finished',
+    'marketplace_battle_challenge',
+    'marketplace_battle_challenge_accepted',
+    'marketplace_battle_challenge_declined',
   ].includes(normalizeNotificationType(type));
 const isCommentType = type =>
   normalizeNotificationType(type).includes('comment');
@@ -545,6 +558,16 @@ export default function Notifications() {
         const postId = extractPostIdFromNotification(item);
         const postImage = extractPostImageFromNotification(item);
         const avatar = extractAvatarFromNotification(item);
+        const battleImage = pickFirstString(
+          data.battleImage,
+          data.battle_image,
+          data.battle?.image,
+          data.battle?.coverImage,
+          data.battle?.thumbnail,
+          data.thumbnail,
+          data.image,
+          item.image,
+        );
 
         return {
           id: item.id,
@@ -553,7 +576,7 @@ export default function Notifications() {
           message: item.body ?? '',
           time: formatRelativeTime(item.createdAt ?? item.updatedAt),
           avatar,
-          image: postImage,
+          image: postImage || battleImage,
           price: null,
           isRead: !!item.isRead,
           postId,
@@ -741,18 +764,66 @@ export default function Notifications() {
   const openBattleFlow = useCallback(
     item => {
       const payload = item?.actionPayload ?? extractBattleActionPayload(item);
-      const battleData = item?.raw?.data?.battle || item?.raw?.battle || {};
+      const battleData = item?.raw?.data?.battle || item?.raw?.battle || item?.battle || {};
+      const battleId = payload?.battleId || battleData?.id || battleData?._id || item?.id || '';
 
-      navigation.navigate('ProfileMain', {
-        screen: 'BattleInProgress',
-        params: {
-          battleId:
-            payload?.battleId || battleData?.id || battleData?._id || '',
-          invitationId: payload?.invitationId || '',
-          battle: battleData,
-          entryPoint: 'notifications',
-        },
-      });
+      const normType = normalizeNotificationType(item?.type);
+      const status = String(item?.status || battleData?.status || '').toUpperCase();
+      const isEnded =
+        ['COMPLETED', 'FINISHED', 'ENDED', 'CLOSED', 'RESOLVED', 'EXPIRED'].includes(status) ||
+        normType === 'marketplace_battle_ended' ||
+        normType === 'marketplace_battle_completed' ||
+        normType === 'marketplace_battle_closed' ||
+        normType === 'marketplace_battle_finished' ||
+        normType === 'battle_completed' ||
+        normType === 'battle_closed' ||
+        normType === 'battle_victory';
+
+      const isMarketplace =
+        item?.format === 'MARKETPLACE' ||
+        battleData?.format === 'MARKETPLACE' ||
+        normType.includes('marketplace_battle');
+
+      if (isMarketplace) {
+        if (isEnded) {
+          navigation.navigate('ProfileMain', {
+            screen: 'BattleResultsScreen',
+            params: {
+              battleId,
+              returnTo: { tab: 'HomeMain', screen: 'HeartNotification' },
+            },
+          });
+        } else {
+          navigation.navigate('ProfileMain', {
+            screen: 'BattleLive',
+            params: {
+              battleId,
+              returnTo: { tab: 'HomeMain', screen: 'HeartNotification' },
+            },
+          });
+        }
+      } else {
+        if (isEnded) {
+          navigation.navigate('ProfileMain', {
+            screen: 'BattleResultsScreen',
+            params: {
+              battleId,
+              returnTo: { tab: 'HomeMain', screen: 'HeartNotification' },
+            },
+          });
+        } else {
+          navigation.navigate('ProfileMain', {
+            screen: 'BattleInProgress',
+            params: {
+              battleId: payload?.battleId || battleData?.id || battleData?._id || '',
+              invitationId: payload?.invitationId || '',
+              battle: battleData,
+              entryPoint: 'notifications',
+              returnTo: { tab: 'HomeMain', screen: 'HeartNotification' },
+            },
+          });
+        }
+      }
     },
     [navigation],
   );
@@ -1315,24 +1386,24 @@ export default function Notifications() {
           }
         }
 
-        if (isBattleNotificationType(item.type)) {
-          // Extract battleId from raw data since these come from getAllNotifications
-          const battleId = item?.raw?.data?.battleId || item?.raw?.data?.battle_id;
-          if (battleId) {
-            navigation.navigate('ProfileMain', {
-              screen: 'BattleInProgress',
-              params: {
-                battleId,
-                battle: {},
-                entryPoint: 'notifications',
-              },
-            });
-            return;
-          }
-        }
+        const titleLower = String(item?.title || '').toLowerCase();
+        const bodyLower = String(item?.message || item?.body || item?.raw?.body || '').toLowerCase();
+        const battleId = pickFirstValue(
+          item?.raw?.data?.battleId,
+          item?.raw?.data?.battle_id,
+          item?.raw?.data?.battle?.id,
+          item?.raw?.data?.battle?._id,
+          item?.data?.battleId,
+          item?.data?.battle_id,
+          item?.data?.battle?.id,
+          item?.data?.battle?._id,
+          item?.raw?.battleId,
+          item?.raw?.battle_id,
+          item?.battleId,
+          item?.battle_id,
+        );
 
-        if (normalizeNotificationType(item.type) === 'marketplace_battle_challenge') {
-          const battleId = item?.raw?.data?.battleId || item?.raw?.data?.battle_id || item?.data?.battleId;
+        if (normType === 'marketplace_battle_challenge') {
           if (battleId) {
             navigation.navigate('ProfileMain', {
               screen: 'ChallengeReceived',
@@ -1342,9 +1413,8 @@ export default function Notifications() {
           }
         }
 
-        if (normalizeNotificationType(item.type) === 'marketplace_battle_challenge_accepted' || normalizeNotificationType(item.type) === 'marketplace_battle_challenge_declined') {
-          const battleId = item?.raw?.data?.battleId || item?.raw?.data?.battle_id || item?.data?.battleId;
-          const status = normalizeNotificationType(item.type) === 'marketplace_battle_challenge_declined' ? 'declined' : 'accepted';
+        if (normType === 'marketplace_battle_challenge_accepted' || normType === 'marketplace_battle_challenge_declined') {
+          const status = normType === 'marketplace_battle_challenge_declined' ? 'declined' : 'accepted';
           if (battleId) {
             navigation.navigate('ProfileMain', {
               screen: 'ChallengeAccepted',
@@ -1354,16 +1424,69 @@ export default function Notifications() {
           }
         }
 
-        if (normalizeNotificationType(item.type) === 'marketplace_battle_completed') {
-          const battleId = item?.raw?.data?.battleId || item?.raw?.data?.battle_id || item?.data?.battleId;
+        const isMarketplaceBattleLive =
+          normType === 'marketplace_battle_live' ||
+          normType === 'marketplace_battle_is_live' ||
+          normType === 'marketplace_battle_started' ||
+          normType === 'marketplace_battle_active' ||
+          normType === 'marketplace_battle_created' ||
+          normType === 'marketplace_battle_open' ||
+          (titleLower.includes('marketplace battle') && (titleLower.includes('live') || bodyLower.includes('live')));
+
+        if (isMarketplaceBattleLive) {
           if (battleId) {
             navigation.navigate('ProfileMain', {
               screen: 'BattleLive',
-              params: { 
+              params: {
                 battleId,
-                returnTo: { tab: 'HomeMain', screen: 'HeartNotification' } 
+                returnTo: { tab: 'HomeMain', screen: 'HeartNotification' },
               },
             });
+            return;
+          }
+        }
+
+        const isMarketplaceBattleEnded =
+          normType === 'marketplace_battle_ended' ||
+          normType === 'marketplace_battle_completed' ||
+          normType === 'marketplace_battle_closed' ||
+          normType === 'marketplace_battle_finished' ||
+          (titleLower.includes('marketplace battle') && (titleLower.includes('ended') || titleLower.includes('completed') || titleLower.includes('finished') || bodyLower.includes('ended') || bodyLower.includes('completed')));
+
+        if (isMarketplaceBattleEnded) {
+          if (battleId) {
+            navigation.navigate('ProfileMain', {
+              screen: 'BattleResultsScreen',
+              params: {
+                battleId,
+                returnTo: { tab: 'HomeMain', screen: 'HeartNotification' },
+              },
+            });
+            return;
+          }
+        }
+
+        if (isBattleNotificationType(item.type)) {
+          const isEnded = ['battle_completed', 'battle_closed', 'battle_victory', 'battle_result', 'battle_forecast_missed'].includes(normType);
+          if (battleId) {
+            if (isEnded) {
+              navigation.navigate('ProfileMain', {
+                screen: 'BattleResultsScreen',
+                params: {
+                  battleId,
+                  returnTo: { tab: 'HomeMain', screen: 'HeartNotification' },
+                },
+              });
+            } else {
+              navigation.navigate('ProfileMain', {
+                screen: 'BattleInProgress',
+                params: {
+                  battleId,
+                  battle: {},
+                  entryPoint: 'notifications',
+                },
+              });
+            }
             return;
           }
         }
@@ -1580,12 +1703,12 @@ export default function Notifications() {
             </View>
 
             <View style={styles.rightSection}>
-              {/* {item.image && (
+              {item.image ? (
                 <Image
                   source={{ uri: item.image }}
                   style={[styles.nftImage, bgStyle]}
                 />
-              )} */}
+              ) : null}
               {item.price != null && item.price !== '' ? (
                 <Text style={[styles.priceText, textStyle]}>{item.price}</Text>
               ) : null}

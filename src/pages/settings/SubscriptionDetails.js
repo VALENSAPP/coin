@@ -672,7 +672,7 @@ const SubscriptionDetails = ({ route }) => {
           </Text>
         </View>
       </View>
-      <TouchableOpacity
+      {/* <TouchableOpacity
         style={[styles.manageButton, { borderColor: accent }]}
         onPress={() => loadSubscriptionData({ silent: true })}
         disabled={refreshing}
@@ -682,7 +682,7 @@ const SubscriptionDetails = ({ route }) => {
         ) : (
           <Text style={[styles.manageButtonText, { color: accent }]}>{t('subscription.manageSubscription')}</Text>
         )}
-      </TouchableOpacity>
+      </TouchableOpacity> */}
       <TouchableOpacity
         style={[styles.cancelButton, { backgroundColor: themeColors.warning }]}
         onPress={handleCancelSubscription}
@@ -847,7 +847,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   statusPillText: { fontSize: 12, fontWeight: '700' },
-  heroArtWrap: { width: 108, height: 108, alignItems: 'center', justifyContent: 'center' },
+  heroArtWrap: { width: 108, height: '28%', alignItems: 'center', justifyContent: 'center' },
   heroArtGlow: { position: 'absolute', width: 92, height: 92, borderRadius: 46 },
   logoBackground: {
     alignItems: 'center',

@@ -37,6 +37,7 @@ import {
   withClosetNavParams,
 } from '../../utils/closetNavigation';
 import { AutoScrollBattleRow } from '../search/Battlecard';
+import HexAvatar from '../home/story.js/HexAvatar';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const CARD_W = (SCREEN_W - 48) / 3;
@@ -795,7 +796,7 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
   const shopLogo = useMemo(() => {
     return closetDetails?.shopLogo || '';
   }, [closetDetails?.shopLogo]);
-
+console.log("shopLogo------------------", shopLogo)
   const shopLocation = useMemo(() => {
     return closetDetails?.location || '';
   }, [closetDetails?.location]);
@@ -1018,7 +1019,15 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
         >
           <View style={s.bannerTopRow}>
             {shopLogo ? (
-              <Image source={{ uri: shopLogo }} style={[s.previewLogo, { backgroundColor: logoSurface }]} />
+              <View style={s.hexAvatarWrap}>
+                <HexAvatar
+                  uri={shopLogo}
+                  size={100}
+                  borderWidth={2}
+                  borderColor={brand}
+                  preserveAspectRatio="xMidYMid slice"
+                />
+              </View>
             ) : (
               <View style={[s.bannerIcon, { backgroundColor: `${brand}18` }]}>
                 <Ionicons name="storefront-outline" size={26} color={brand} />
@@ -1055,7 +1064,15 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
         >
           <View style={s.bannerTopRow}>
             {shopLogo ? (
-              <Image source={{ uri: shopLogo }} style={[s.previewLogo, { backgroundColor: logoSurface }]} />
+              <View style={s.hexAvatarWrap}>
+                <HexAvatar
+                  uri={shopLogo}
+                  size={100}
+                  borderWidth={2}
+                  borderColor={brand}
+                  preserveAspectRatio="xMidYMid slice"
+                />
+              </View>
             ) : (
               <View style={[s.bannerIcon, { backgroundColor: `${brand}18` }]}>
                 <Ionicons name="bag-handle" size={26} color={brand} />
@@ -1435,6 +1452,11 @@ const s = StyleSheet.create({
   content: { paddingBottom: 60 },
 
   /* banner */
+  hexAvatarWrap: {
+    marginRight: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   previewLogo: {
     width: 64,
     height: 64,
