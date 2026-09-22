@@ -2668,17 +2668,9 @@ function PostItem({
                 item?.end_time && (
                   <TouchableOpacity
                     onPress={() => setDonation(true)}
-                    style={[{
-                      backgroundColor: postButtonColor,
-                      width: '25%',
-                      left: '74%',
-                      marginBottom: 5,
-                      marginTop: -10,
-                      paddingVertical: 8,
-                      borderRadius: 8,
-                      alignItems: 'center',
-                    }]}>
-                    <Text style={styles.followButtonText}>
+                    style={[styles.donateButton, { backgroundColor: postButtonColor }]}
+                  >
+                    <Text style={styles.followButtonText} numberOfLines={1}>
                       {t('postItem.donate')}
                     </Text>
                   </TouchableOpacity>
@@ -3415,7 +3407,7 @@ const styles = StyleSheet.create({
   progressSection: {
     marginTop: 12,
     paddingHorizontal: 12,
-    paddingBottom: 24,
+    paddingBottom: 12,
   },
   progressBarWrapper: {
     position: 'relative',
@@ -3485,6 +3477,17 @@ const styles = StyleSheet.create({
   },
   statValueEnd: {
     textAlign: 'right',
+  },
+  donateButton: {
+    alignSelf: 'flex-end',
+    marginTop: 10,
+    minWidth: 96,
+    maxWidth: '100%',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   statLabelSmall: {
     fontSize: 10,
