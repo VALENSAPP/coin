@@ -385,7 +385,7 @@ const CustomDrawerContent = (props) => {
             color: drawerColors.inactive,
           }}
         >
-          Dark Mode
+          {t('drawerNav.darkMode')}
         </Text>
 
         <Switch

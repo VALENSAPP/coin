@@ -594,15 +594,15 @@ const BusinessShopScreen = ({
           <View style={[styles.screen, bgStyle, styles.lockedContainer]}>
             <View style={[styles.lockedCard, { opacity: 0.92 }]}>
               <Text style={styles.lockedIcon}>📭</Text>
-              <Text style={[styles.lockedTitle, textStyle]}>No private posts yet</Text>
-              <Text style={styles.lockedSubtitle}>Check back later.</Text>
+              <Text style={[styles.lockedTitle, textStyle]}>{t('privateContent.noPrivatePostsYet')}</Text>
+              <Text style={styles.lockedSubtitle}>{t('privateContent.checkBackLater')}</Text>
             </View>
           </View>
         );
       }
       return <LockedCard />;
     },
-    [LockedCard, bgStyle, canViewPrivateContent, textStyle],
+    [LockedCard, bgStyle, canViewPrivateContent, textStyle, t],
   );
 
   if (isCompany) {

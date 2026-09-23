@@ -86,11 +86,15 @@ const SubscriptionUpdateSummaryScreen = () => {
     apiData?.effectiveType ??
     route.params?.effective;
 
-  const dateValue =
+  const dateValue = String(
     apiData?.date ??
     apiData?.effectiveDate ??
     route.params?.date ??
-    'Sep 8, 2026';
+    'Sep 8, 2026',
+  ).replace(
+    /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b/g,
+    (month) => t(`date.monthNamesAbbr.${month.toLowerCase()}`),
+  );
 
   const responses = {
     accepted:

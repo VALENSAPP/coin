@@ -287,12 +287,12 @@ export default function ProfileBattleHub({
 
   const levelInfo = useMemo(
     () => ({
-      tier: currentBattleLevel.title,
-      levelText: `LEVEL ${currentBattleLevel.level}`,
+      tier: t(`battleHub.levels.${currentBattleLevel.id}`),
+      levelText: t('battleHub.levelsModal.levelPill', { level: currentBattleLevel.level }),
       color: currentBattleLevel.color,
       Icon: getBattleLevelDragonflyIcon(currentBattleLevel.iconId, isDarkMode),
     }),
-    [currentBattleLevel, isDarkMode],
+    [currentBattleLevel, isDarkMode, t],
   );
 
   const requirementLabels = useMemo(
@@ -312,14 +312,14 @@ export default function ProfileBattleHub({
 
   const stats = useMemo(
     () => [
-      { key: 'level', label: t('battleHub.statLevel'), value: currentBattleLevel.title },
+      { key: 'level', label: t('battleHub.statLevel'), value: t(`battleHub.levels.${currentBattleLevel.id}`) },
       { key: 'joined', label: t('battleHub.statJoined'), value: battlePointSummary.totals.totalBattlesJoined },
       { key: 'won', label: t('battleHub.statWon'), value: battlePointSummary.totals.totalBattlesWon },
       { key: 'accuracy', label: t('battleHub.statAccuracy'), value: `${battlePointSummary.predictionAccuracyPercent}%` },
       { key: 'points', label: t('battleHub.statPoints'), value: battlePointSummary.points },
       { key: 'credibility', label: t('battleHub.statCredibility'), value: battlePointSummary.credibilityScore },
     ],
-    [battlePointSummary, currentBattleLevel.title, t],
+    [battlePointSummary, currentBattleLevel.id, t],
   );
 
   const openBattle = useCallback(
@@ -684,7 +684,7 @@ export default function ProfileBattleHub({
                         style={[styles.levelTitle, { color: tier.color }]}
                         numberOfLines={2}
                       >
-                        {tier.title}
+                        {t(`battleHub.levels.${tier.id}`)}
                       </Text>
                       {requirements.map((req) => (
                         <View key={`${tier.id}-${req.key}`} style={styles.reqRow}>
@@ -1065,6 +1065,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '900',
     textAlign: 'center',
+    textTransform: 'uppercase',
     marginBottom: 8,
     minHeight: 28,
   },

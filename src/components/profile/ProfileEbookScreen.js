@@ -265,7 +265,7 @@ const ProfileEbookScreen = ({
           <Text style={{ fontSize: 48, marginBottom: 16 }}>📚</Text>
           <Text style={[styles.lockedTitle, { color: primaryText }]}>No E-books Yet</Text>
           <Text style={[styles.lockedSubtitle, { color: muted }]}>
-            This creator hasn't published any e-books yet. Check back soon for exclusive content!
+            {t('ebookPublisher.noEbooksYetSubtitle')}
           </Text>
         </View>
       </View>

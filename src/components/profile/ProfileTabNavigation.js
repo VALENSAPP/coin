@@ -233,10 +233,10 @@ const ProfileTabs = memo(({
   const PRIVATE_CIRCLE_TAB_INDEX = 1;
   const PRIVATE_CONTENT_TAB_INDEX = 3;
   const MEDIA_TABS = useMemo(() => ([
-    { key: 'photo', label: 'Photos', icon: 'images-outline' },
-    { key: 'video', label: 'Videos', icon: 'videocam-outline' },
-    { key: 'ebook', label: 'E-books', icon: 'book-outline' },
-  ]), []);
+    { key: 'photo', label: t('privateContent.mediaPhotos'), icon: 'images-outline' },
+    { key: 'video', label: t('privateContent.mediaVideos'), icon: 'videocam-outline' },
+    { key: 'ebook', label: t('privateContent.mediaEbooks'), icon: 'book-outline' },
+  ]), [t]);
 
   // closetId can come from the closet object we already fetched, or directly
   // off userData if the profile payload includes it. Adjust the userData

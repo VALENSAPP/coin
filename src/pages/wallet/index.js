@@ -53,6 +53,7 @@ import {
 } from '../../assets/icons';
 import Svg, { Polygon, Path, Text as SvgText, Defs, LinearGradient as SvgLinearGradient, Stop, Circle, Rect } from 'react-native-svg';
 import { useLanguage } from '../../i18n';
+import { formatDisplayCurrency, formatDisplayNumber, formatDisplayTime } from '../../utils/displayLocale';
 const { width, height } = Dimensions.get('window');
 const KPI_GRID_GAP = 12;
 const AVATAR_PREVIEW_SIZE = Math.min(width * 0.9, 340);
@@ -135,7 +136,7 @@ function formatActivityWeekLabel(date) {
 
 function formatActivityHourLabel(date) {
   if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
-  return date.toLocaleTimeString(undefined, { hour: 'numeric', hour12: true });
+  return formatDisplayTime(date);
 }
 
 const formatActivityBucketLabel = (timestamp, range) => {
@@ -160,6 +161,10 @@ const shortenActivityAxisLabel = (label, timestamp, range) => {
         : null;
 
   if (/monday|tuesday|wednesday|thursday|friday|saturday|sunday/i.test(raw)) {
+    const dayKey = raw.trim().toLowerCase();
+    if (['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'].includes(dayKey)) {
+      return raw.trim();
+    }
     return date ? formatActivityDayLabel(date) : raw.slice(0, 3);
   }
 
@@ -411,25 +416,11 @@ const seriesDelta = (points) => {
   return b - a;
 };
 
-const formatSupportUsd = (n) => {
-  const v = Number(n) || 0;
-  return v.toLocaleString('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-};
+const formatSupportUsd = (n) => formatDisplayCurrency(n);
 
-const formatKpiUsd = (n) => {
-  const v = Number(n) || 0;
-  return `$ ${v.toLocaleString('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
-};
+const formatKpiUsd = (n) => formatDisplayCurrency(n);
 
-const formatKpiCount = (n) => (Number(n) || 0).toLocaleString('en-US');
+const formatKpiCount = (n) => formatDisplayNumber(n);
 
 /** Split display name into lines; last line is paired with the verified dragonfly icon. */
 const splitHeaderNameLines = (label, maxCharsPerLine) => {
@@ -482,6 +473,7 @@ function ActivityTrendSvg({
   colorSupport,
   range = 'weekly',
 }) {
+  const { t } = useLanguage();
   const pairedSorted = useMemo(() => {
     const len = Math.min(
       timestamps.length,
@@ -517,9 +509,13 @@ function ActivityTrendSvg({
   const unfollowersValuesSorted = pairedSorted.map((r) => r.uv);
   const supportValuesSorted = pairedSorted.map((r) => r.sv);
   const timestampsSorted = pairedSorted.map((r) => r.t);
-  const labelsSorted = pairedSorted.map((r) =>
-    shortenActivityAxisLabel(r.label, r.t, range),
-  );
+  const labelsSorted = pairedSorted.map((r) => {
+    const dayKey = String(r.label || '').trim().toLowerCase();
+    if (['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'].includes(dayKey)) {
+      return t(`date.dayNames.${dayKey}`);
+    }
+    return shortenActivityAxisLabel(r.label, r.t, range);
+  });
 
   const xs = Array.from({ length: n }, (_, i) =>
     padL + (n <= 1 ? innerW / 2 : (i / (n - 1)) * innerW),
@@ -778,8 +774,12 @@ export const WalletDashboardScreen = ({ navigation }) => {
 
   const activityChartW = width - 64;
   const activityChartH = 200;
-  const activityPeriodDeltaLabel =
-    activityPeriod === 'Weekly' ? 'vs last week' : 'vs prior day';
+  const moneyPeriodLabel = activityPeriod === 'Weekly'
+    ? t('formats.vsLastWeek')
+    : t('formats.vsPriorDay');
+  const countPeriodLabel = activityPeriod === 'Weekly'
+    ? t('formats.sinceLastWeek')
+    : t('formats.vsPriorDay');
 
   const followersTrendDelta = seriesDelta(activityFollowersSeries);
   const unfollowersTrendDelta = seriesDelta(activityUnfollowersSeries);
@@ -823,7 +823,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
 
   const formatPointValue = (value) => {
     const numericValue = Number(value) || 0;
-    return numericValue.toLocaleString('en-US');
+    return formatDisplayNumber(numericValue);
   };
 
   const rewardPointCards = useMemo(
@@ -2001,21 +2001,18 @@ export const WalletDashboardScreen = ({ navigation }) => {
 
           <View style={[styles.periodSelector, cardStyle, { borderColor: border, backgroundColor: card }]}>
             {[
-              t('walletDashboard.activityOverview.periodDaily'),
-              t('walletDashboard.activityOverview.periodWeekly'),
-            ].map((period) => {
-              // Map translated label back to internal key
-              const periodKey =
-                period === t('walletDashboard.activityOverview.periodDaily') ? 'Daily' : 'Weekly';
-              const isActive = activityPeriod === periodKey;
+              { key: 'Daily', label: t('walletDashboard.activityOverview.periodDaily') },
+              { key: 'Weekly', label: t('walletDashboard.activityOverview.periodWeekly') },
+            ].map(({ key, label }) => {
+              const isActive = activityPeriod === key;
               return (
                 <TouchableOpacity
-                  key={period}
+                  key={key}
                   style={[
                     styles.periodButton,
                     isActive && { backgroundColor: accent },
                   ]}
-                  onPress={() => setActivityPeriod(periodKey)}
+                  onPress={() => setActivityPeriod(key)}
                 >
                   <Text
                     style={[
@@ -2027,7 +2024,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
                     adjustsFontSizeToFit
                     minimumFontScale={0.75}
                   >
-                    {period}
+                    {label}
                   </Text>
                 </TouchableOpacity>
               );
@@ -2042,11 +2039,11 @@ export const WalletDashboardScreen = ({ navigation }) => {
                   <Ionicons name="people" size={14} color={activityFollowersIconColor} />
                 </View>
                 <Text style={[styles.activityMetricValue, styles.activityMetricValueCompact, textStyle]}>
-                  {Math.round(followersCount).toLocaleString()}
+                  {formatDisplayNumber(Math.round(followersCount))}
                 </Text>
-                <Text style={[styles.activityMetricLabel, styles.activityMetricLabelCompact, { color: mutedText }]}>Followers</Text>
+                <Text style={[styles.activityMetricLabel, styles.activityMetricLabelCompact, { color: mutedText }]}>{t('walletDashboard.activityOverview.followers')}</Text>
                 <Text style={[styles.activityFollowingHint, styles.activityMetricSubCompact, textStyle]} numberOfLines={1}>
-                  Following {Math.round(followingCount).toLocaleString()}
+                  {t('walletDashboard.activityOverview.followingCount', { count: formatDisplayNumber(Math.round(followingCount)) })}
                 </Text>
                 <View
                   style={[
@@ -2071,7 +2068,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
                     ]}
                     numberOfLines={1}
                   >
-                    {`${followersTrendDelta >= 0 ? '+' : ''}${Math.round(followersTrendDelta)} ${activityPeriodDeltaLabel}`}
+                    {`${followersTrendDelta >= 0 ? '+' : ''}${formatDisplayNumber(Math.round(followersTrendDelta))} ${countPeriodLabel}`}
                   </Text>
                 </View>
               </View>
@@ -2084,10 +2081,10 @@ export const WalletDashboardScreen = ({ navigation }) => {
                   {formatSupportUsd(supportReceivedUsd)}
                 </Text>
                 <Text style={[styles.activityMetricLabel, styles.activityMetricLabelCompact, { color: mutedText }]} numberOfLines={1}>
-                  Total support
+                  {t('walletDashboard.activityOverview.totalSupport')}
                 </Text>
                 <Text style={[styles.activityMetricSub, styles.activityMetricSubCompact, { color: mutedText }]} numberOfLines={1}>
-                  Subscriptions & tips
+                  {t('walletDashboard.activityOverview.subscriptionsAndTips')}
                 </Text>
                 <View
                   style={[
@@ -2112,7 +2109,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
                     ]}
                     numberOfLines={1}
                   >
-                    {`${supportTrendDelta >= 0 ? '+' : '-'}${formatSupportUsd(Math.abs(supportTrendDelta))} ${activityPeriodDeltaLabel}`}
+                    {`${supportTrendDelta >= 0 ? '+' : '-'}${formatSupportUsd(Math.abs(supportTrendDelta))} ${moneyPeriodLabel}`}
                   </Text>
                 </View>
               </View>
@@ -2122,11 +2119,11 @@ export const WalletDashboardScreen = ({ navigation }) => {
                   <Ionicons name="person-remove-outline" size={14} color={ACTIVITY_UNFOLLOW_PINK} />
                 </View>
                 <Text style={[styles.activityMetricValue, styles.activityMetricValueCompact, { color: ACTIVITY_UNFOLLOW_PINK }]}>
-                  {unfollowersDisplay.toLocaleString()}
+                  {formatDisplayNumber(unfollowersDisplay)}
                 </Text>
-                <Text style={[styles.activityMetricLabel, styles.activityMetricLabelCompact, { color: mutedText }]}>Unfollowers</Text>
+                <Text style={[styles.activityMetricLabel, styles.activityMetricLabelCompact, { color: mutedText }]}>{t('walletDashboard.activityOverview.unfollowers')}</Text>
                 <Text style={[styles.activityMetricSub, styles.activityMetricSubCompact, { color: mutedText }]} numberOfLines={1}>
-                  Lost over this range
+                  {t('walletDashboard.activityOverview.lostOverRange')}
                 </Text>
                 <View
                   style={[
@@ -2151,7 +2148,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
                     ]}
                     numberOfLines={1}
                   >
-                    {`${unfollowersTrendDelta >= 0 ? '+' : ''}${Math.round(unfollowersTrendDelta)} ${activityPeriodDeltaLabel}`}
+                    {`${unfollowersTrendDelta >= 0 ? '+' : ''}${formatDisplayNumber(Math.round(unfollowersTrendDelta))} ${countPeriodLabel}`}
                   </Text>
                 </View>
               </View>
@@ -2160,15 +2157,15 @@ export const WalletDashboardScreen = ({ navigation }) => {
             <View style={styles.activityLegend}>
               <View style={styles.activityLegendItem}>
                 <View style={[styles.activityLegendDot, { backgroundColor: accent }]} />
-                <Text style={[styles.activityLegendText, { color: mutedText }]}>Followers</Text>
+                <Text style={[styles.activityLegendText, { color: mutedText }]}>{t('walletDashboard.activityOverview.followers')}</Text>
               </View>
               <View style={styles.activityLegendItem}>
                 <View style={[styles.activityLegendDot, { backgroundColor: activitySupportLine }]} />
-                <Text style={[styles.activityLegendText, { color: mutedText }]}>Support trend</Text>
+                <Text style={[styles.activityLegendText, { color: mutedText }]}>{t('walletDashboard.activityOverview.supportTrend')}</Text>
               </View>
               <View style={styles.activityLegendItem}>
                 <View style={[styles.activityLegendDot, { backgroundColor: ACTIVITY_UNFOLLOW_PINK }]} />
-                <Text style={[styles.activityLegendText, { color: mutedText }]}>Unfollowers</Text>
+                <Text style={[styles.activityLegendText, { color: mutedText }]}>{t('walletDashboard.activityOverview.unfollowers')}</Text>
               </View>
             </View>
 
@@ -2206,7 +2203,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
                   />
                 </ScrollView>
                 <Text style={[styles.activityChartFootnote, { color: mutedText }]}>
-                  Lines use separate scales. Swipe the chart sideways when points are crowded.
+                  {t('walletDashboard.activityOverview.chartFootnote')}
                 </Text>
               </>
             ) : (

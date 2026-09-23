@@ -57,12 +57,15 @@ const getTranslationValue = (source, key, options = {}) => {
   return getValueByPath(source, key);
 };
 
-const LanguageContext = createContext();
+let activeLanguage = 'en';
+
+export const getActiveLanguage = () => activeLanguage;
 
 export const LanguageProvider = ({ children }) => {
   const [currentLanguage, setCurrentLanguage] = useState('en');
   const [translations, setTranslations] = useState(en);
   const [isLoading, setIsLoading] = useState(true);
+  activeLanguage = currentLanguage;
 
   // ✅ Init language
   useEffect(() => {

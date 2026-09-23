@@ -80,7 +80,7 @@
     "businessFeatures": {
       "shop": "Criar Loja",
       "community": "Apoie a Comunidade",
-      "missions": "Lançar Missões",
+      "missions": "Criar Missões",
       "battles": "Criar Batalhas",
       "verified": "Seja Verificado - KYB",
       "vip": "Posts Privados VIP"
@@ -800,7 +800,7 @@
     "usernameRequired": "O nome de usuário é obrigatório",
     "usernameCannotChange": "Seu nome de usuário não pode ser alterado",
     "bioLabel": "Bio",
-    "bioPlaceholder": "Conte-nos sobre você...",
+    "bioPlaceholder": "Fale mais sobre você...",
     "bioMaxLength": "A biografia precisa ter menos de 200 caracteres",
     "genderLabel": "Gênero",
     "selectGender": "Selecionar Gênero",
@@ -1402,7 +1402,7 @@
     "premiumBadge": "VALENS PREMIUM",
     "notActiveTitle": "Sua assinatura ainda não está ativa",
     "notActiveSubtitle": "Assine para obter acesso total a todos os recursos e benefícios premium.",
-    "notActiveBadge": "Ainda não ativa",
+    "notActiveBadge": "Inativa",
     "activeTitle": "Sua assinatura está ATIVA AGORA!",
     "activeSubtitle": "Bem-vindo à experiência completa do Valens. Aproveite todos os recursos e benefícios premium.",
     "premiumAccessTitle": "Seu acesso premium inclui:",
@@ -1444,7 +1444,7 @@
     "ebooksDesc": "Acesse downloads e conteúdo digital premium.",
     "services": "Serviços e Reservas",
     "servicesDesc": "Compre e venda utilizando recursos premium do mercado.",
-    "privateContent": "Conteúdo privado",
+    "privateContent": "Escreva algo na seção conteúdo privado",
     "privateContentDesc": "Desbloqueie conteúdo exclusivo apenas para assinantes.",
     "events": "Eventos e Ingressos",
     "eventsDesc": "Crie e participe de eventos e ingressos premium.",
@@ -1547,10 +1547,12 @@
     "recentActivity": "Atividade Recente",
     "filters": {
       "all": "Todos",
-      "following": "Seguindo"
+      "following": "Seguindo",
+      "unfollowing": "Não seguindo"
     },
     "actions": {
       "followedYou": "começou a seguir você",
+      "unfollowedYou": "deixou de seguir você",
       "boughtTokens": "comprou {{count}} tokens",
       "soldTokens": "vendeu {{count}} tokens"
     },
@@ -1663,7 +1665,7 @@
     "headerDefaultUser": "Usuário",
     "kpi": {
       "totalEarning": "Ganhos Totais",
-      "subscriptionEarning": "Ganhos de Assinatura",
+      "subscriptionEarning": "Receita de Assinaturas",
       "followers": "Seguidores",
       "creditsLeft": "Créditos Restantes",
       "missionPost": "Post de Missão",
@@ -1710,12 +1712,20 @@
       "usedPoints": "Pontos Utilizados"
     },
     "activityOverview": {
-      "sectionTitle": "Visão Geral da Atividade",
+      "sectionTitle": "Resumo das Atividades",
       "chartLabel": "Seguidores",
+      "followers": "Seguidores",
+      "followingCount": "Seguindo {{count}}",
+      "supportTrend": "Apoiar tendência",
+      "unfollowers": "Não seguidores",
+      "lostOverRange": "Perdidos durante esse período",
+      "totalSupport": "Apoio total",
+      "subscriptionsAndTips": "Assinaturas e Gorjetas",
       "periodDaily": "Diário",
       "periodWeekly": "Semanal",
       "noDataTitle": "Nenhum dado disponível",
-      "noDataSubtitle": "Volte mais tarde para atualizações de atividade"
+      "noDataSubtitle": "Volte mais tarde para atualizações de atividade",
+      "chartFootnote": "As linhas usam escalas separadas. Deslize o gráfico para o lado quando os pontos estiverem aglomerados."
     },
     "dragonflyModal": {
       "title": "O Que Isso Significa",
@@ -2003,7 +2013,8 @@
     "periodDaily": "Diário",
     "periodWeekly": "Semanal",
     "periodMonthly": "Mensal",
-    "subscriptionEarnings": "Ganhos de Assinatura",
+    "subscriptionEarnings": "Receita de Assinaturas",
+    "periodEarnings": "Receita do Período",
     "loadingChart": "Carregando gráfico⬦",
     "noDataAvailable": "Nenhum dado disponível",
     "checkBackLater": "Volte mais tarde para atualizações de ganhos",
@@ -2156,7 +2167,7 @@
     "secureCheckoutDesc": "Receba pagamentos com segurança no Valens",
     "whoCanBuy": "Quem pode comprar?",
     "everyone": "Todos",
-    "launchButton": "Lançar Minha Loja",
+    "launchButton": "Criar Minha Loja",
     "liveTitle": "Sua loja está no ar!",
     "liveSubtitle": "Sua loja pessoal está pronta. Comece a adicionar itens e compartilhe seu estilo.",
     "shopLink": "Link da sua loja",
@@ -2215,7 +2226,7 @@
     "noScreenshots": "Capturas de tela não permitidas",
     "autoBan": "Banimento automático após 3 tentativas",
     "demoPrintWarning": "🧪 Demo: ativar aviso de tirar print",
-    "policyHeading": "Aceitar termos e acordo",
+    "policyHeading": "POLÍTICA MASTER DO ASSINANTE VALENS",
     "agreePrefix": "Eu concordo com os",
     "creatorTermsLink": "Termos do Criador Valens",
     "agreeSuffix": "incluindo taxas, condições de pagamento, regras da plataforma e reconheço que estou agindo como criador independente e não como funcionário ou agente da Valens. \n\nAs assinaturas fornecem acesso apenas a conteúdo digital e não criam quaisquer direitos de propriedade, parceria ou financeiros.",
@@ -2246,7 +2257,7 @@
     "messageForVideos": "Mensagem para vídeos",
     "messageForEbooks": "Mensagem para e-books",
     "messageTypePhotos": "fotos",
-    "messageTypeVideos": "vídeos",
+    "messageTypeVideos": "Vídeos",
     "messageTypeEbooks": "e-books",
     "messageForType": "Para {{type}}",
     "editMessageTitle": "Editar mensagem",
@@ -2310,16 +2321,23 @@
     "publishButton": "Publicar e-book",
     "published": "Publicado",
     "publishSuccessTitle": "Pronto para publicar",
-    "publishSuccessMessage": "Por enquanto, este é apenas um fluxo de interface. Seu e-book está pronto para a integração com API.",
+    "publishSuccessMessage": "Por enquanto, este é apenas um fluxo de interface. Seu e-book está pronto para integração com a API.",
     "continue": "Continuar",
     "reviewButton": "Revisar",
     "back": "Voltar",
     "subscriberOnlyTitle": "Somente para assinantes",
     "subscriberOnlyDescription": "Somente os assinantes podem acessar e ler este e-book.",
     "uploadMyBook": "Enviar meu livro",
-    "myLibrary": "Minha biblioteca",
+    "myLibrary": "Minha Biblioteca",
     "libraryLoadFailed": "Não foi possível carregar sua biblioteca agora.",
-    "noLibraryItems": "Nenhum e-book comprado encontrado ainda."
+    "noLibraryItems": "Nenhum e-book comprado encontrado ainda.",
+    "rootStepUpload": "Enviar",
+    "rootStepDetails": "Detalhes",
+    "rootStepPricing": "Preço",
+    "rootStepPublish": "Publicar",
+    "purchasedFromCreators": "E-books que você comprou de criadores no Valens.",
+    "searchLibrary": "Procure em sua biblioteca",
+    "noEbooksYetSubtitle": "Este criador ainda não publicou nenhum e-book. Volte em breve para conteúdo exclusivo!"
   },
   "transactions": {
     "loadFailed": "Falha ao carregar transações",
@@ -2423,10 +2441,10 @@
     "loadFailed": "Falha ao carregar status da verificação"
   },
   "totalEarnings": {
-    "title": "Lucros",
-    "totalEarnings": "Lucros totais",
-    "allTimeEarnings": "Lucros de todos os tempos",
-    "bySource": "Lucros por fonte",
+    "title": "Ganhos Totais",
+    "totalEarnings": "Ganhos Totais",
+    "allTimeEarnings": "Ganhos Acumulados",
+    "bySource": "Ganhos por fonte",
     "missionPost": "Post de Missão",
     "tip": "Gorjeta",
     "walletToWallet": "Carteira para carteira",
@@ -2500,16 +2518,16 @@
     "totalValueHoldings": "Valor total das participações",
     "postCredits": "Posts de missão",
     "creditsRemaining": "{{count}} / 5 restantes",
-    "buyCredits": "Obter Post de Missão (R$ 1,99 cada)",
+    "buyCredits": "Adquirir Post de Missão (R$ 1,99 cada)",
     "referralPoints": "Pontos de indicação",
     "referralPts": "{{count}} pts",
     "missionPostTitle": "O que é Post de Missão?",
-    "missionPostDescription": "Os Posts de Missão transformam seu público em apoiadores. Defina uma meta, compartilhe sua visão e deixe sua comunidade financiar o que importa. Financiamento coletivo integrado, sem atritos.",
-    "missionRulesTitle": "Regras das publicações de missão",
+    "missionPostDescription": "O Post de Missão funciona como uma vaquinha virtual, permitindo arrecadar doações para apoiar uma causa, um projeto, ou uma missão específica.",
+    "missionRulesTitle": "Regras dos posts de missão",
     "monthlyMembersTitle": "Membros mensais",
     "monthlyMembersDescription": "Sua assinatura Valens inclui 5 posts de missão por mês sem custo adicional.",
     "nonMembersTitle": "Não membros",
-    "nonMembersDescription": "Os Posts de Missão custam R$ 1,99 cada, com um máximo de 5 por mês.",
+    "nonMembersDescription": "Cada Posts de Missão custa R$ 1,99, com um máximo de 5 por mês.",
     "monthlyLimitTitle": "Limite mensal",
     "monthlyLimitDescription": "Todos podem criar até 5 posts de missão por mês. As publicações não utilizadas não se acumulam. No início de cada novo mês, seu limite volta para 5.",
     "maxCreditsReached": "Você já possui o número máximo de créditos.",
@@ -2624,7 +2642,7 @@
     "linkPrefix": "Link",
     "goalAmountRaised": "META ARRECADADA",
     "daysCompleted": "DIAS CONCLUÍDOS",
-    "funded": "{{percent}}% financiado",
+    "funded": "{{percent}}% arrecadado",
     "loading": "...",
     "raised": "{{current}} / {{goal}}",
     "daysLeft": "{{count}} DIAS RESTANTES",
@@ -2891,13 +2909,13 @@
     "bodyIntro": "Você está prestes a criar um Post de Missão.",
     "bodyDescription": "Os Posts de Missão permitem que você compartilhe algo importante com sua comunidade - seja uma meta, ideia ou momento significativo - e convide outras pessoas para apoiar ou participar.",
     "creditUnlocks": "Este crédito desbloqueia um Post de Missão, que você pode usar para:",
-    "bullet1": "Lançar um projeto pessoal",
+    "bullet1": "Criar um projeto pessoal",
     "bullet2": "Compartilhar uma causa importante",
     "bullet3": "Pedir apoio da sua rede",
     "bullet4": "Criar um momento em torno de algo que importa para você",
     "bodyFollowers": "Seus seguidores podem interagir e apoiar sua missão de forma simples e transparente.",
     "unlockCta": "Desbloqueie o Post de Missão para continuar",
-    "launchButton": "Lançar missão",
+    "launchButton": "Criar missão",
     "notNowButton": "Agora não"
   },
   "businessPlanModal": {
@@ -2921,7 +2939,7 @@
     "step2Title": "Desbloquear recursos empresariais",
     "step2Body": "Para acessar Posts de Missão e Posicionamentos de Marketing, você precisará de uma Assinatura Empresarial ativa.",
     "featuresTitle": "Com uma Assinatura Empresarial, você pode:",
-    "feature1": "Lançar Posts de Missão (campanhas baseadas em objetivos)",
+    "feature1": "Criar Posts de Missão (campanhas baseadas em objetivos)",
     "feature2": "✔ Promover sua marca com posicionamentos de marketing",
     "feature3": "✔ Colaborar com criadores",
     "feature4": "Acessar análises avançadas e ferramentas de campanha",
@@ -2974,7 +2992,7 @@
     "title": "Escolher tipo de Mint",
     "missionMintLabel": "💸 Missão Mint",
     "supportLabel": "💸 Apoio",
-    "creditsLeft": "Créditos restantes - {{count}}",
+    "creditsLeft": "Créditos Restantes - {{count}}",
     "noCreditsAvailable": "Nenhum crédito disponível",
     "regularMintLabel": "📝 Mint normal",
     "buyCreditsTitle": "Nenhum crédito disponível",
@@ -3102,7 +3120,7 @@
     "step1Subtitle": "Você está prestes a se inscrever!",
     "step1Body": "Desbloqueie posts exclusivos, drops privados e acesso direto ao mundo Valens deste criador.\n\nSeu apoio se transforma em recompensas em tempo real — cada assinatura impulsiona a jornada dele e a sua.",
     "confirmQuestion": "Confirmar assinatura?",
-    "yesButton": "Sim, estou dentro",
+    "yesButton": "Sim, confirmar",
     "notNow": "Agora não",
     "membershipLabel": "Assinatura",
     "perMonth": "/ mês",
@@ -3292,7 +3310,7 @@
     "paymentCompleted": "Pagamento concluído!",
     "minAmountError": "O valor total a pagar deve ser de pelo menos R$0,50",
     "errorTitle": "Erro",
-    "fetchPriceError": "Falha ao obter o preço do token"
+    "fetchPriceError": "Não foi possível carregar o valor de compra do token"
   },
   "tokenSell": {
     "loading": "Carregando...",
@@ -3305,7 +3323,7 @@
     "errorTitle": "Erro",
     "sellError": "Falha ao processar a venda dos tokens. Verifique sua conexão e tente novamente.",
     "fetchAmountError": "Falha ao obter o valor de compra dos tokens",
-    "fetchPriceError": "Falha ao obter o preço do token"
+    "fetchPriceError": "Não foi possível carregar o valor de compra do token"
   },
   "topHolders": {
     "activityTab": "Atividade",
@@ -3513,7 +3531,8 @@
     "unknownUser": "Desconhecido",
     "activityNewComment": "Novo comentário",
     "activityPostLiked": "Post curtido",
-    "activityInteracted": "Interagiu com um post"
+    "activityInteracted": "Interagiu com um post",
+    "addMember": "Adicionar membro"
   },
   "privateCircleMint": {
     "setupError": "Não foi possível configurar o Círculo Privado. Tente novamente.",
@@ -3581,7 +3600,13 @@
     "lockedTitle": "Assine para desbloquear conteúdo privado",
     "lockedSubtitle": "Os posts exclusivos estão disponíveis apenas para assinantes ativos.",
     "notCircleMemberTitle": "Post do círculo privado",
-    "notCircleMemberMessage": "Você não pode ver este post pois não é membro do círculo privado deste usuário."
+    "notCircleMemberMessage": "Você não pode ver este post pois não é membro do círculo privado deste usuário.",
+    "addMessagePlaceholder": "Adicione uma mensagem para o conteúdo privado",
+    "noPrivatePostsYet": "Nenhum post privado publicado.",
+    "checkBackLater": "Verifique novamente mais tarde.",
+    "mediaPhotos": "Fotos",
+    "mediaVideos": "Vídeos",
+    "mediaEbooks": "E-books"
   },
   "battleHub": {
     "heroEyebrow": "Desempenho em Batalhas",
@@ -3615,6 +3640,18 @@
     "finished": "Finalizada",
     "inProgress": "Em andamento",
     "noBattlesFound": "Nenhuma batalha encontrada",
+    "levels": {
+      "entry": "INICIANTE",
+      "challenger": "DESAFIANTE",
+      "contender": "PARTICIPANTE",
+      "strategist": "ESTRATEGISTA",
+      "dominator": "DOMINADOR",
+      "titan": "TITÃ",
+      "oracle": "ORÁCULO",
+      "phantom": "FANTASMA",
+      "immortal": "IMORTAL",
+      "champion": "CAMPEÃO VALENS"
+    },
     "levelsModal": {
       "title": "Reputação Valens",
       "subtitle": "Esta medalha lhe informa sobre rankings de batalha e conquistas.",
@@ -3684,7 +3721,7 @@
     "following": "Seguindo",
     "followback": "Seguir de volta",
     "message": "Mensagem",
-    "totalSupport": "Suporte total",
+    "totalSupport": "Apoio total",
     "editProfile": "Editar perfil",
     "invite": "Convidar",
     "inviteToBattle": "Convidar para Batalha",
@@ -3709,7 +3746,8 @@
     "unableToOpenLink": "Não foi possível abrir o link",
     "verifiedAccount": "Conta verificada",
     "unfollow": "Deixar de seguir",
-    "followingActionsPrompt": "Escolha uma ação."
+    "followingActionsPrompt": "Escolha uma ação.",
+    "totalReputation": "Reputação Total"
   },
   "profileTabs": {
     "postsTab": "Posts",
@@ -3744,7 +3782,7 @@
     "bulletPersonalItems": "itens pessoais",
     "bulletExclusivePieces": "peças exclusivas",
     "ownSimple": "Simples, direto e seu.",
-    "ownListIt": "Liste. Compartilhe. Venda.",
+    "ownListIt": "Anuncie. Compartilhe. Venda.",
     "ownYourStyle": "Seu estilo, seu closet.",
     "startNowButton": "Comece agora",
     "guestTitle": "Meu Closet 🛍️",
@@ -3955,7 +3993,8 @@
     "settings": "Configurações",
     "ebook": "Ebook",
     "services": "Serviços",
-    "manageSubscribers": "Gerenciar meus assinantes"
+    "manageSubscribers": "Gerenciar meus assinantes",
+    "darkMode": "Modo Escuro"
   },
   "walletStack": {
     "buyMissionCredits": "Comprar Créditos de Missão",
@@ -3963,7 +4002,7 @@
     "cashOut": "Sacar",
     "send": "Enviar",
     "valensWallet": "Carteira Valens",
-    "myCloset": "Meu Guarda-Roupa",
+    "myCloset": "Meu Closet",
     "shop": "Loja",
     "privateCircle": "Círculo Privado",
     "recentActivities": "Atividades Recentes",
@@ -3979,7 +4018,7 @@
     "twoFactorAuth": "Autenticação de Dois Fatores",
     "loginHistory": "Histórico de Login",
     "subscriptionSetup": "Configuração do Programa de Assinatura",
-    "viewMissionPost": "Ver Post da Missão",
+    "viewMissionPost": "Ver Post de Missão",
     "revenueFromSubscriptions": "Receita de Assinaturas",
     "selectLanguage": "Selecionar Idioma",
     "marketplaceAnalytics": "Análises do Marketplace",
@@ -3999,7 +4038,7 @@
       "canceled": "Cancelados",
       "expired": "Expirados"
     },
-    "pctOfTotal": "{{pct}}% do total",
+    "pctOfTotal": "{{pct}}% do valor total",
     "priceUpdateTitle": "Atualização de preço em andamento",
     "priceUpdateBody": "Você atualizou o preço de R${{from}} para R${{to}}/mês. Os assinantes pendentes foram avisados e escolherão antes da próxima cobrança.",
     "viewUpdateDetails": "Ver detalhes",
@@ -4495,11 +4534,11 @@
       "subtitle": "Vamos configurar sua loja pessoal e deixá-la com a sua cara."
     },
     "uploadLogo": {
-      "title": "Adicione o logotipo da sua loja",
+      "title": "Adicione o logo da sua loja",
       "subtitle": "Ele representará seu closet em toda a Valens."
     },
     "tellUs": {
-      "title": "Conte-nos sobre o seu closet",
+      "title": "Fale mais sobre o seu closet",
       "subtitle": "Compartilhe uma breve descrição e ajude as pessoas a conhecerem o seu estilo."
     },
     "preferences": {
@@ -4541,7 +4580,7 @@
       "others": "Outros"
     },
     "returnPolicy": {
-      "noReturns": "Sem devoluções",
+      "noReturns": "Sem Devoluções",
       "sevenDay": "Devoluções em 7 dias",
       "fourteenDay": "Devoluções em 14 dias",
       "exchangeOnly": "Somente troca"
@@ -4593,13 +4632,13 @@
     }
   },
   "myClosetUploadLogo": {
-    "uploadLogo": "Enviar logotipo",
+    "uploadLogo": "Enviar logo",
     "chooseFromLibrary": "Escolher da galeria",
     "recommendationHint": "Recomendamos uma imagem quadrada ou hexagonal de pelo menos 500x500 px.",
     "unableToOpenLibrary": "Não foi possível abrir a galeria de fotos.",
     "unableToOpenCamera": "Não foi possível abrir a câmera.",
-    "uploadRequired": "Envie um logotipo para continuar.",
-    "cameraPermissionMessage": "É necessário permitir o acesso à câmera para tirar uma foto do logotipo."
+    "uploadRequired": "Envie um logo para continuar.",
+    "cameraPermissionMessage": "É necessário permitir o acesso à câmera para tirar uma foto do logo."
   },
   "myClosetTellUs": {
     "descriptionLabel": "Descrição da loja",
@@ -4615,15 +4654,15 @@
   },
   "myClosetPreferences": {
     "shippingOptionsLabel": "Opções de envio",
-    "shipItemsDescription": "Enviarei os itens aos compradores",
-    "localPickupDescription": "Os compradores retiram os itens no local",
+    "shipItemsDescription": "Farei o envio do item ao comprador",
+    "localPickupDescription": "O comprador deve retirar o item no local",
     "returnPolicyLabel": "Política de devolução",
     "returnPolicyPlaceholder": "Selecione uma política de devolução",
     "paymentTitle": "Checkout Seguro Valens",
     "paymentSubtitle": "Receba seus pagamentos com segurança na Valens",
     "whoCanBuyLabel": "Quem pode comprar?",
     "whoCanBuyPlaceholder": "Selecione quem pode comprar",
-    "launchButton": "Lançar Meu Closet",
+    "launchButton": "Criar Meu Closet",
     "createSuccess": "Meu Closet criado com sucesso.",
     "createFailure": "Falha ao criar Meu Closet.",
     "errors": {
@@ -4681,11 +4720,11 @@
     "subtitle": "Configure sua política de envio e devolução.",
     "shippingOptionsTitle": "Opções de envio",
     "shippingOptionsHelper": "Escolha como os compradores receberão este item.",
-    "iWillShipLabel": "Eu enviarei",
+    "iWillShipLabel": "Farei o envio",
     "iWillShipDescription": "Enviar para os compradores",
     "shipBulletAddress": "O comprador fornece o endereço",
     "shipBulletHandle": "Você cuida do envio",
-    "pickupDescription": "Os compradores retiram no local",
+    "pickupDescription": "O comprador retira o item no local",
     "pickupBulletBuyer": "O comprador faz a retirada",
     "pickupBulletNoCost": "Sem custo de envio",
     "bothSelectedTitle": "Ambas as opções selecionadas",
@@ -4784,7 +4823,7 @@
     "addNewItem": "Adicionar novo item",
     "ebooksTitle": "Meus e-books",
     "allEbooksTitle": "Todos os e-books",
-    "noEbooksYet": "Ainda não há e-books",
+    "noEbooksYet": "Nenhum E-book publicado",
     "ebookUntitled": "E-book",
     "ebookNoDescription": "Nenhuma descrição disponível",
     "ebookChapters": "{{count}} capítulos",
@@ -4922,7 +4961,7 @@
   },
   "myClosetEarnings": {
     "title": "Ganhos",
-    "totalEarningsLabel": "Ganhos totais",
+    "totalEarningsLabel": "Ganhos Totais",
     "vsLastMonth": "em comparação com o mês passado",
     "itemSales": "Vendas de itens",
     "shippingEarnings": "Receita de frete",
@@ -5041,8 +5080,8 @@
     "deleteCommentMessage": "Este comentário será removido permanentemente.",
     "delete": "Excluir",
     "deleteBattle": "Excluir batalha",
-    "deleteBattleGracePeriod": "Você tem um período de carência de 5 minutos para editar ou excluir esta batalha.",
-    "editOrDeleteGracePeriod": "Você tem um período de carência de 5 minutos para editar ou excluir esta batalha.",
+    "deleteBattleGracePeriod": "Você tem 5 minutos em caso de precisar editar ou excluir esta batalha.",
+    "editOrDeleteGracePeriod": "Você tem 5 minutos em caso de precisar editar ou excluir esta batalha.",
     "afterGracePeriod": "Após 5 minutos, ela não poderá ser editada ou excluída.",
     "editOrDeleteTitle": "Editar ou excluir batalha?",
     "updateBattle": "Atualizar batalha",
@@ -5304,7 +5343,7 @@
     "ends": "Termina",
     "startsValue": "Imediatamente",
     "endsValue": "Após {{duration}}",
-    "launch": "Lançar promoção",
+    "launch": "Criar promoção",
     "liveTitle": "Promoção ativa 🎉",
     "liveMessage": "Sua promoção já está ativa no item."
   },
@@ -5379,7 +5418,7 @@
       "other": "Outro (especifique)"
     },
     "additionalComments": "Comentários adicionais (opcional)",
-    "commentsPlaceholder": "Conte-nos mais...",
+    "commentsPlaceholder": "Fale mais sobre...",
     "whatNext": "O que acontecerá agora?",
     "whatNextDesc": "Você receberá uma confirmação por e-mail assim que seu cancelamento for processado.",
     "cancelMyOrder": "Cancelar meu pedido",
@@ -5417,5 +5456,37 @@
     "willCancel": "Será cancelado",
     "keepFullAccess": "Você manterá acesso total até",
     "backToDashboard": "Voltar ao painel"
+  },
+  "date": {
+    "dayNames": {
+      "sunday": "Domingo",
+      "monday": "Segunda-feira",
+      "tuesday": "Terça-feira",
+      "wednesday": "Quarta-feira",
+      "thursday": "Quinta-feira",
+      "friday": "Sexta-feira",
+      "saturday": "Sábado"
+    },
+    "monthNamesAbbr": {
+      "jan": "Jan",
+      "feb": "Fev",
+      "mar": "Mar",
+      "apr": "Abr",
+      "may": "Mai",
+      "jun": "Jun",
+      "jul": "Jul",
+      "aug": "Ago",
+      "sep": "Set",
+      "oct": "Out",
+      "nov": "Nov",
+      "dec": "Dez"
+    }
+  },
+  "formats": {
+    "vsLastWeek": "desde a semana passada",
+    "sinceLastWeek": "desde a última semana",
+    "vsPriorDay": "em relação ao dia anterior",
+    "vsLastMonth": "desde o mês passado",
+    "vsPriorPeriod": "em relação ao período anterior"
   }
 }

@@ -4,6 +4,7 @@ import {
   Animated, TouchableOpacity, View, Text, Image,
   StyleSheet, PanResponder, Modal, Pressable, ScrollView,
 } from 'react-native';
+import { useLanguage } from '../../i18n';
 
 const CATEGORY_CONFIG = {
   NEW_FOLLOWER: {
@@ -25,6 +26,7 @@ const CATEGORY_CONFIG = {
 };
 
 export default function NotificationToast({ notification, onDismiss, onAction }) {
+  const { t } = useLanguage();
   const translateY = useRef(new Animated.Value(80)).current;
   const opacity = useRef(new Animated.Value(0)).current;
 
@@ -150,7 +152,7 @@ export default function NotificationToast({ notification, onDismiss, onAction })
                   {data?.totalFollowers && (
                     <View style={styles.stat}>
                       <Text style={styles.statValue}>{data.totalFollowers}</Text>
-                      <Text style={styles.statLabel}>Followers</Text>
+                      <Text style={styles.statLabel}>{t('walletDashboard.activityOverview.followers')}</Text>
                     </View>
                   )}
                   {data?.accuracyRate && (

@@ -35,12 +35,6 @@ const PERIOD_MAP = {
     Monthly: 'monthly',
 };
 
-const PERIOD_DELTA_LABEL = {
-    Daily: 'vs prior day',
-    Weekly: 'vs last week',
-    Monthly: 'vs last month',
-};
-
 const pickFirst = (...values) =>
     values.find((value) => value !== undefined && value !== null && value !== '');
 
@@ -386,7 +380,15 @@ export default function RevenueFromSubscriptions({ navigation, route }) {
                         <SubscriptionTrendChart
                             points={graphData}
                             totalAmount={graphTotalAmount}
-                            periodDeltaLabel={PERIOD_DELTA_LABEL[chartPeriod] ?? 'vs prior period'}
+                            periodDeltaLabel={
+                                chartPeriod === 'Weekly'
+                                    ? t('formats.vsLastWeek')
+                                    : chartPeriod === 'Monthly'
+                                        ? t('formats.vsLastMonth')
+                                        : chartPeriod === 'Daily'
+                                            ? t('formats.vsPriorDay')
+                                            : t('formats.vsPriorPeriod')
+                            }
                             chartViewportWidth={CHART_VIEWPORT_WIDTH}
                             lineColor={SUBSCRIPTION_CHART_LINE}
                             textColor={text}

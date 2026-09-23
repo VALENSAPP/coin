@@ -841,11 +841,11 @@ const ProfilePersonData = ({
       ? BATTLE_LEVELS[currentIndex + 1]
       : null;
 
-    const levelText = `LEVEL ${tier.level}`;
+    const levelText = t('battleHub.levelsModal.levelPill', { level: tier.level });
     const maxPoints = nextTier ? nextTier.points : tier.points;
 
     return { tier, levelText, maxPoints };
-  }, [battlePointSummary.level, battlePointSummary.points, battlePointSummary.credibilityScore]);
+  }, [battlePointSummary.level, battlePointSummary.points, battlePointSummary.credibilityScore, t]);
 
   const fetchBattleStats = useCallback(async () => {
     if (!viewedBattleUserId) return;
@@ -1424,7 +1424,9 @@ const ProfilePersonData = ({
 
                   {/* Tier & Level */}
                   <Text style={{ fontSize: 10, fontWeight: '800', color: text, textTransform: 'uppercase', marginBottom: 1, letterSpacing: 0.5 }}>
-                    {levelInfo.tier?.title || levelInfo.tier}
+                    {levelInfo.tier?.id
+                      ? t(`battleHub.levels.${levelInfo.tier.id}`)
+                      : (levelInfo.tier?.title || levelInfo.tier)}
                   </Text>
                   <Text style={{ fontSize: 8, fontWeight: '700', color: accent, textTransform: 'uppercase', marginBottom: 4 }}>
                     {levelInfo.levelText}
@@ -1448,7 +1450,7 @@ const ProfilePersonData = ({
                         {battlePointSummary.credibilityScore}
                       </Text>
                       <Text style={{ fontSize: 7.5, fontWeight: '600', color: mutedText, lineHeight: 10 }}>
-                        Total Reputation
+                        {t('profilePersonData.totalReputation')}
                       </Text>
                     </View>
                   </View>

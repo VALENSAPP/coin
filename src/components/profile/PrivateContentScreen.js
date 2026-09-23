@@ -688,15 +688,15 @@ const PrivateContentScreen = ({
           <View style={[styles.screen, bgStyle, styles.lockedContainer]}>
             <View style={[styles.lockedCard, cardStyle, { borderColor: border, opacity: 0.92 }]}>
               <Text style={styles.lockedIcon}>📭</Text>
-              <Text style={[styles.lockedTitle, textStyle]}>No private posts yet</Text>
-              <Text style={[styles.lockedSubtitle, mutedTextStyle]}>Check back later.</Text>
+              <Text style={[styles.lockedTitle, textStyle]}>{t('privateContent.noPrivatePostsYet')}</Text>
+              <Text style={[styles.lockedSubtitle, mutedTextStyle]}>{t('privateContent.checkBackLater')}</Text>
             </View>
           </View>
         );
       }
       return <LockedCard />;
     },
-    [LockedCard, bgStyle, border, canViewPrivateContent, cardStyle, mutedTextStyle, textStyle],
+    [LockedCard, bgStyle, border, canViewPrivateContent, cardStyle, mutedTextStyle, textStyle, t],
   );
 
   // if (isCompany) {

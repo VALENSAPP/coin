@@ -1547,10 +1547,12 @@
     "recentActivity": "Recent Activity",
     "filters": {
       "all": "All",
-      "following": "Following"
+      "following": "Following",
+      "unfollowing": "Unfollowing"
     },
     "actions": {
       "followedYou": "followed you",
+      "unfollowedYou": "unfollowed you",
       "boughtTokens": "bought {{count}} tokens",
       "soldTokens": "sold {{count}} tokens"
     },
@@ -1712,10 +1714,18 @@
     "activityOverview": {
       "sectionTitle": "Activity Overview",
       "chartLabel": "Followers",
-      "periodDaily": "Last 24 hours",
-      "periodWeekly": "Last 7 days",
+      "followers": "Followers",
+      "followingCount": "Following {{count}}",
+      "supportTrend": "Support trend",
+      "unfollowers": "Unfollowers",
+      "lostOverRange": "Lost over this range",
+      "totalSupport": "Total support",
+      "subscriptionsAndTips": "Subscriptions & tips",
+      "periodDaily": "Daily",
+      "periodWeekly": "Weekly",
       "noDataTitle": "No data available",
-      "noDataSubtitle": "Check back later for activity updates"
+      "noDataSubtitle": "Check back later for activity updates",
+      "chartFootnote": "Lines use separate scales. Swipe the chart sideways when points are crowded."
     },
     "dragonflyModal": {
       "title": "What This Means",
@@ -2004,6 +2014,7 @@
     "periodWeekly": "Weekly",
     "periodMonthly": "Monthly",
     "subscriptionEarnings": "Subscription Earnings",
+    "periodEarnings": "Period earnings",
     "loadingChart": "Loading chart…",
     "noDataAvailable": "No data available",
     "checkBackLater": "Check back later for earnings updates",
@@ -2319,7 +2330,14 @@
     "uploadMyBook": "Upload My Book",
     "myLibrary": "My Library",
     "libraryLoadFailed": "We could not load your library right now.",
-    "noLibraryItems": "No purchased e-books found yet."
+    "noLibraryItems": "No purchased e-books found yet.",
+    "rootStepUpload": "Upload",
+    "rootStepDetails": "Details",
+    "rootStepPricing": "Pricing",
+    "rootStepPublish": "Publish",
+    "purchasedFromCreators": "E-books you've purchased from creators on Valens.",
+    "searchLibrary": "Search your library",
+    "noEbooksYetSubtitle": "This creator hasn't published any e-books yet. Check back soon for exclusive content!"
   },
   "transactions": {
     "loadFailed": "Failed to load transactions",
@@ -3513,7 +3531,8 @@
     "unknownUser": "Unknown",
     "activityNewComment": "New Comment",
     "activityPostLiked": "Post Liked",
-    "activityInteracted": "Interacted with a post"
+    "activityInteracted": "Interacted with a post",
+    "addMember": "Add member"
   },
   "privateCircleMint": {
     "setupError": "Unable to set up Private Circle. Please try again.",
@@ -3581,7 +3600,13 @@
     "lockedTitle": "Subscribe to unlock private content",
     "lockedSubtitle": "Exclusive posts are available only for active subscribers.",
     "notCircleMemberTitle": "Private Circle Post",
-    "notCircleMemberMessage": "You can't view this post as you are not a member of this user's private circle."
+    "notCircleMemberMessage": "You can't view this post as you are not a member of this user's private circle.",
+    "addMessagePlaceholder": "Add a message for private content",
+    "noPrivatePostsYet": "No private posts yet",
+    "checkBackLater": "Check back later.",
+    "mediaPhotos": "Photos",
+    "mediaVideos": "Videos",
+    "mediaEbooks": "E-books"
   },
   "battleHub": {
     "heroEyebrow": "Battle Performance",
@@ -3615,6 +3640,18 @@
     "finished": "Finished",
     "inProgress": "In progress",
     "noBattlesFound": "No battles match your search",
+    "levels": {
+      "entry": "ENTRY",
+      "challenger": "CHALLENGER",
+      "contender": "CONTENDER",
+      "strategist": "STRATEGIST",
+      "dominator": "DOMINATOR",
+      "titan": "TITAN",
+      "oracle": "ORACLE",
+      "phantom": "PHANTOM",
+      "immortal": "IMMORTAL",
+      "champion": "VALENS CHAMPION"
+    },
     "levelsModal": {
       "title": "Valens Reputation",
       "subtitle": "This badge level informs you about battle ranks and achievements.",
@@ -3709,7 +3746,8 @@
     "unableToOpenLink": "Unable to open link",
     "verifiedAccount": "Verified account",
     "unfollow": "Unfollow",
-    "followingActionsPrompt": "Choose an action."
+    "followingActionsPrompt": "Choose an action.",
+    "totalReputation": "Total Reputation"
   },
   "profileTabs": {
     "postsTab": "Posts",
@@ -3955,7 +3993,8 @@
     "settings": "Settings",
     "ebook": "Ebook",
     "services": "Services",
-    "manageSubscribers": "Manage my subscribers"
+    "manageSubscribers": "Manage my subscribers",
+    "darkMode": "Dark Mode"
   },
   "walletStack": {
     "buyMissionCredits": "Buy Mission Credits",
@@ -5417,5 +5456,37 @@
     "willCancel": "Will Cancel",
     "keepFullAccess": "You will keep full access until",
     "backToDashboard": "Back to Dashboard"
+  },
+  "date": {
+    "dayNames": {
+      "sunday": "Sunday",
+      "monday": "Monday",
+      "tuesday": "Tuesday",
+      "wednesday": "Wednesday",
+      "thursday": "Thursday",
+      "friday": "Friday",
+      "saturday": "Saturday"
+    },
+    "monthNamesAbbr": {
+      "jan": "Jan",
+      "feb": "Feb",
+      "mar": "Mar",
+      "apr": "Apr",
+      "may": "May",
+      "jun": "Jun",
+      "jul": "Jul",
+      "aug": "Aug",
+      "sep": "Sep",
+      "oct": "Oct",
+      "nov": "Nov",
+      "dec": "Dec"
+    }
+  },
+  "formats": {
+    "vsLastWeek": "vs last week",
+    "sinceLastWeek": "since last week",
+    "vsPriorDay": "vs prior day",
+    "vsLastMonth": "vs last month",
+    "vsPriorPeriod": "vs prior period"
   }
 }

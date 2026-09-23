@@ -8,7 +8,17 @@ import Svg, {
   Stop,
 } from 'react-native-svg';
 import { format, startOfDay, startOfMonth, startOfWeek, subDays, subMonths, subWeeks } from 'date-fns';
+import { formatDisplayCurrency } from '../../utils/displayLocale';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import { useLanguage } from '../../i18n';
+
+const WEEKDAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+
+const translateWeekdayLabel = (label, t) => {
+  const key = String(label || '').trim().toLowerCase();
+  if (WEEKDAY_KEYS.includes(key)) return t(`date.dayNames.${key}`);
+  return label;
+};
 
 export const SUBSCRIPTION_CHART_LINE = '#8b5cf6';
 const CHART_POINT_GAP = 46;
@@ -229,15 +239,7 @@ export const parseSubscriptionGraphResponse = (response, requestedInterval = 'da
   };
 };
 
-export const formatSupportUsd = (n) => {
-  const v = Number(n) || 0;
-  return v.toLocaleString('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-};
+export const formatSupportUsd = (n) => formatDisplayCurrency(n);
 
 export const seriesDelta = (points) => {
   if (!points || points.length < 2) return 0;
@@ -247,6 +249,7 @@ export const seriesDelta = (points) => {
 };
 
 function SubscriptionTrendSvg({ points, chartWidth, chartHeight, lineColor, interval = 'daily' }) {
+  const { t } = useLanguage();
   const pairedSorted = useMemo(() => {
     return [...points]
       .map((p) => ({
@@ -334,7 +337,7 @@ function SubscriptionTrendSvg({ points, chartWidth, chartHeight, lineColor, inte
       {labelIndexes.map((i) => {
         const item = pairedSorted[i];
         const ts = item.t;
-        const displayLabel = item.label || formatLabel(ts);
+        const displayLabel = translateWeekdayLabel(item.label || formatLabel(ts), t);
         if (!displayLabel) return null;
         const anchor = interval === 'monthly' || interval === 'weekly' ? 'middle' : 'middle';
         return (
@@ -369,6 +372,7 @@ export default function SubscriptionTrendChart({
   interval = 'daily',
 }) {
   const scrollRef = useRef(null);
+  const { t } = useLanguage();
   const trendDelta = seriesDelta(points);
   const hasData = points.length > 0;
 
@@ -416,7 +420,7 @@ export default function SubscriptionTrendChart({
           <Text style={[styles.metricValue, { color: lineColor }]}>
             {formatSupportUsd(totalAmount)}
           </Text>
-          <Text style={styles.metricLabel}>Period earnings</Text>
+          <Text style={styles.metricLabel}>{t('revenue.periodEarnings')}</Text>
           <View
             style={[
               styles.deltaPill,
@@ -447,7 +451,7 @@ export default function SubscriptionTrendChart({
       <View style={styles.legend}>
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, { backgroundColor: lineColor }]} />
-          <Text style={styles.legendText}>Subscription earnings</Text>
+          <Text style={styles.legendText}>{t('revenue.subscriptionEarnings')}</Text>
         </View>
       </View>
 

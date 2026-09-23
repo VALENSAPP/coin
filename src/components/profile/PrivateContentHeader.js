@@ -19,6 +19,7 @@ import {
   updateMessages,
 } from '../../services/post';
 import { showToastMessage } from '../displaytoastmessage';
+import { useLanguage } from '../../i18n';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -47,7 +48,7 @@ const PrivateContentHeader = ({
   messageType = null, // 'photos' | 'videos' | 'ebooks'
   canEdit = false,
   onSave = () => {},
-  placeholder = 'Add a message for private content',
+  placeholder,
   userId = null,
   profileType,
   style,
@@ -63,6 +64,8 @@ const PrivateContentHeader = ({
     messageForEbooks: '',
   });
   const { bg, card, text, mutedText, accent } = useAppTheme(profileType);
+  const { t } = useLanguage();
+  const resolvedPlaceholder = placeholder || t('privateContent.addMessagePlaceholder');
   const { isDarkMode } = useThemeContext();
   const toast = useToast();
 
@@ -156,7 +159,7 @@ const PrivateContentHeader = ({
 
   const displayedMessage = message && message.length > 0
     ? message
-    : (canEdit ? placeholder : 'No message added');
+    : (canEdit ? resolvedPlaceholder : 'No message added');
 
   const handleMessageLayout = ({ nativeEvent }) => {
     // `lines` contains the natural line layout, allowing us to show the control
@@ -231,7 +234,7 @@ const PrivateContentHeader = ({
             <TextInput
               value={draft}
               onChangeText={setDraft}
-              placeholder={placeholder}
+              placeholder={resolvedPlaceholder}
               placeholderTextColor={mutedText}
               multiline
               style={[styles.textInput, { color: text, borderColor: 'rgba(0,0,0,0.06)' }]}

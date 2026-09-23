@@ -570,10 +570,10 @@ const EbookPublisher = ({ navigation }) => {
   ];
 
   const rootSteps = [
-    { key: 1, label: 'Upload', done: rootStep > 1 || isPublished, active: rootStep === 1 && !isPublished },
-    { key: 2, label: 'Details', done: rootStep > 2 || isPublished, active: rootStep === 2 && !isPublished },
-    { key: 3, label: 'Pricing', done: rootStep > 3 || isPublished, active: rootStep === 3 && !isPublished },
-    { key: 4, label: 'Publish', active: isPublished },
+    { key: 1, label: t('ebookPublisher.rootStepUpload'), done: rootStep > 1 || isPublished, active: rootStep === 1 && !isPublished },
+    { key: 2, label: t('ebookPublisher.rootStepDetails'), done: rootStep > 2 || isPublished, active: rootStep === 2 && !isPublished },
+    { key: 3, label: t('ebookPublisher.rootStepPricing'), done: rootStep > 3 || isPublished, active: rootStep === 3 && !isPublished },
+    { key: 4, label: t('ebookPublisher.rootStepPublish'), active: isPublished },
   ];
 
   const earningsAmount = Number(String(amount || '0')) || 0;
@@ -643,15 +643,15 @@ const EbookPublisher = ({ navigation }) => {
         </>
       ) : (
         <View style={styles.libraryPanel}>
-          <Text style={[styles.libraryTitle, textStyle]}>My Library</Text>
-          <Text style={styles.sectionText}>E-books you&apos;ve purchased from creators on Valens.</Text>
+          <Text style={[styles.libraryTitle, textStyle]}>{t('ebookPublisher.myLibrary')}</Text>
+          <Text style={styles.sectionText}>{t('ebookPublisher.purchasedFromCreators')}</Text>
 
           <View style={styles.searchBar}>
             <Ionicons name="search" size={16} color={mutedText} />
             <TextInput
               value={librarySearch}
               onChangeText={setLibrarySearch}
-              placeholder="Search your library"
+              placeholder={t('ebookPublisher.searchLibrary')}
               placeholderTextColor={mutedText}
               style={styles.searchInput}
               returnKeyType="search"
@@ -1168,15 +1168,15 @@ const EbookPublisher = ({ navigation }) => {
                   </>
                 ) : (
                   <View style={styles.libraryPanel}>
-                    <Text style={[styles.libraryTitle, textStyle]}>My Library</Text>
-                    <Text style={styles.sectionText}>E-books you&apos;ve purchased from creators on Valens.</Text>
+                    <Text style={[styles.libraryTitle, textStyle]}>{t('ebookPublisher.myLibrary')}</Text>
+                    <Text style={styles.sectionText}>{t('ebookPublisher.purchasedFromCreators')}</Text>
 
                     <View style={styles.searchBar}>
                       <Ionicons name="search" size={16} color={mutedText} />
                       <TextInput
                         value={librarySearch}
                         onChangeText={setLibrarySearch}
-                        placeholder="Search your library"
+                        placeholder={t('ebookPublisher.searchLibrary')}
                         placeholderTextColor={mutedText}
                         style={styles.searchInput}
                         returnKeyType="search"

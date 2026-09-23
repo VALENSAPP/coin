@@ -805,7 +805,7 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
                     onPress={openAddMemberScreen}
                   >
                     <Ionicons name="person-add-outline" size={13} color={accent} />
-                    <Text style={[styles.inviteButtonText, { color: accent }]}>Add member</Text>
+                    <Text style={[styles.inviteButtonText, { color: accent }]}>{t('privateCircle.addMember')}</Text>
                   </TouchableOpacity>
                 </View>
                 {previewMembers.map((member) => (

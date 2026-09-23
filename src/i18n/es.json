@@ -1547,10 +1547,12 @@
     "recentActivity": "Actividad reciente",
     "filters": {
       "all": "Todos",
-      "following": "Siguiendo"
+      "following": "Siguiendo",
+      "unfollowing": "No siguiendo"
     },
     "actions": {
       "followedYou": "te siguió",
+      "unfollowedYou": "dejó de seguirte",
       "boughtTokens": "compró {{count}} tokens",
       "soldTokens": "vendió {{count}} tokens"
     },
@@ -1712,10 +1714,18 @@
     "activityOverview": {
       "sectionTitle": "Resumen de actividad",
       "chartLabel": "Seguidores",
+      "followers": "Seguidores",
+      "followingCount": "Siguiendo {{count}}",
+      "supportTrend": "Tendencia de apoyo",
+      "unfollowers": "Dejaron de seguir",
+      "lostOverRange": "Perdidos durante este período",
+      "totalSupport": "Soporte total",
+      "subscriptionsAndTips": "Suscripciones y propinas",
       "periodDaily": "Diario",
       "periodWeekly": "Semanal",
       "noDataTitle": "No hay datos disponibles",
-      "noDataSubtitle": "Vuelve más tarde para actualizaciones de actividad"
+      "noDataSubtitle": "Vuelve más tarde para actualizaciones de actividad",
+      "chartFootnote": "Las líneas usan escalas separadas. Desliza el gráfico hacia un lado cuando los puntos estén amontonados."
     },
     "dragonflyModal": {
       "title": "Qué significa esto",
@@ -2004,6 +2014,7 @@
     "periodWeekly": "Semanal",
     "periodMonthly": "Mensual",
     "subscriptionEarnings": "Ganancias por suscripción",
+    "periodEarnings": "Ingresos del período",
     "loadingChart": "Cargando gráfico…",
     "noDataAvailable": "No hay datos disponibles",
     "checkBackLater": "Vuelve más tarde para actualizaciones de ganancias",
@@ -2319,7 +2330,14 @@
     "uploadMyBook": "Subir mi libro",
     "myLibrary": "Mi biblioteca",
     "libraryLoadFailed": "No pudimos cargar tu biblioteca en este momento.",
-    "noLibraryItems": "Aún no se han encontrado libros electrónicos comprados."
+    "noLibraryItems": "Aún no se han encontrado libros electrónicos comprados.",
+    "rootStepUpload": "Subir",
+    "rootStepDetails": "Detalles",
+    "rootStepPricing": "Precio",
+    "rootStepPublish": "Publicar",
+    "purchasedFromCreators": "E-books que has comprado de creadores en Valens.",
+    "searchLibrary": "Busca en tu biblioteca",
+    "noEbooksYetSubtitle": "Este creador aún no ha publicado ningún e-book. Vuelve pronto para ver contenido exclusivo."
   },
   "transactions": {
     "loadFailed": "No se pudieron cargar las transacciones",
@@ -3513,7 +3531,8 @@
     "unknownUser": "Desconocido",
     "activityNewComment": "Nuevo comentario",
     "activityPostLiked": "Publicación con like",
-    "activityInteracted": "Interactuó con una publicación"
+    "activityInteracted": "Interactuó con una publicación",
+    "addMember": "Añadir miembro"
   },
   "privateCircleMint": {
     "setupError": "No se pudo configurar el Círculo Privado. Inténtalo de nuevo.",
@@ -3581,7 +3600,13 @@
     "lockedTitle": "Suscríbete para desbloquear contenido privado",
     "lockedSubtitle": "Las publicaciones exclusivas están disponibles solo para suscriptores activos.",
     "notCircleMemberTitle": "Publicación del círculo privado",
-    "notCircleMemberMessage": "No puedes ver esta publicación porque no eres miembro del círculo privado de este usuario."
+    "notCircleMemberMessage": "No puedes ver esta publicación porque no eres miembro del círculo privado de este usuario.",
+    "addMessagePlaceholder": "Añade un mensaje para el contenido privado",
+    "noPrivatePostsYet": "Aún no hay publicaciones privadas",
+    "checkBackLater": "Vuelve más tarde.",
+    "mediaPhotos": "Fotos",
+    "mediaVideos": "Videos",
+    "mediaEbooks": "E-books"
   },
   "battleHub": {
     "heroEyebrow": "Rendimiento en Batallas",
@@ -3615,11 +3640,23 @@
     "finished": "Finalizada",
     "inProgress": "En curso",
     "noBattlesFound": "No se encontraron batallas",
+    "levels": {
+      "entry": "PRINCIPIANTE",
+      "challenger": "RETADOR",
+      "contender": "CONTENDIENTE",
+      "strategist": "ESTRATEGA",
+      "dominator": "DOMINADOR",
+      "titan": "TITÁN",
+      "oracle": "ORÁCULO",
+      "phantom": "FANTASMA",
+      "immortal": "INMORTAL",
+      "champion": "CAMPEÓN VALENS"
+    },
     "levelsModal": {
       "title": "Valens Reputation",
       "subtitle": "This badge level informs you about battle ranks and achievements.",
       "currentBadge": "Current",
-      "levelPill": "LEVEL {{level}}",
+      "levelPill": "NIVEL {{level}}",
       "points": "Points",
       "battlesWon": "Battles Won",
       "credibility": "Credibility",
@@ -3709,7 +3746,8 @@
     "unableToOpenLink": "No se puede abrir el enlace",
     "verifiedAccount": "Cuenta verificada",
     "unfollow": "Dejar de seguir",
-    "followingActionsPrompt": "Elige una acción."
+    "followingActionsPrompt": "Elige una acción.",
+    "totalReputation": "Reputación total"
   },
   "profileTabs": {
     "postsTab": "Publicaciones",
@@ -3955,7 +3993,8 @@
     "settings": "Configuración",
     "ebook": "Ebook",
     "services": "Servicios",
-    "manageSubscribers": "Gestionar mis suscriptores"
+    "manageSubscribers": "Gestionar mis suscriptores",
+    "darkMode": "Modo oscuro"
   },
   "walletStack": {
     "buyMissionCredits": "Comprar Créditos de Misión",
@@ -5417,5 +5456,37 @@
     "willCancel": "Se cancelará",
     "keepFullAccess": "Mantendrás acceso completo hasta",
     "backToDashboard": "Volver al panel"
+  },
+  "date": {
+    "dayNames": {
+      "sunday": "Domingo",
+      "monday": "Lunes",
+      "tuesday": "Martes",
+      "wednesday": "Miércoles",
+      "thursday": "Jueves",
+      "friday": "Viernes",
+      "saturday": "Sábado"
+    },
+    "monthNamesAbbr": {
+      "jan": "Ene",
+      "feb": "Feb",
+      "mar": "Mar",
+      "apr": "Abr",
+      "may": "May",
+      "jun": "Jun",
+      "jul": "Jul",
+      "aug": "Ago",
+      "sep": "Sep",
+      "oct": "Oct",
+      "nov": "Nov",
+      "dec": "Dic"
+    }
+  },
+  "formats": {
+    "vsLastWeek": "vs la semana pasada",
+    "sinceLastWeek": "desde la semana pasada",
+    "vsPriorDay": "vs el día anterior",
+    "vsLastMonth": "vs el mes pasado",
+    "vsPriorPeriod": "vs el período anterior"
   }
 }
