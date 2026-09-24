@@ -2284,6 +2284,7 @@
   },
   "ebookPublisher": {
     "title": "Enviar e-book",
+    "sellTitle": "Vender E-book",
     "subtitle": "Crie um fluxo de post de PDF profissional",
     "stepUpload": "Enviar PDF",
     "stepCustomize": "Personalizar",

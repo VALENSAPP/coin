@@ -2284,6 +2284,7 @@
   },
   "ebookPublisher": {
     "title": "Subir libro electrónico",
+    "sellTitle": "Vender e-book",
     "subtitle": "Crea un flujo de publicación de PDF profesional",
     "stepUpload": "Subir PDF",
     "stepCustomize": "Personalizar",

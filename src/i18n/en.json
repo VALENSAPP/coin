@@ -2284,6 +2284,7 @@
   },
   "ebookPublisher": {
     "title": "Upload E-book",
+    "sellTitle": "Sell E-book",
     "subtitle": "Create a polished PDF publishing flow",
     "stepUpload": "Upload PDF",
     "stepCustomize": "Customize",

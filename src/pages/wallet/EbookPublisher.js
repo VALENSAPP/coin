@@ -1027,7 +1027,7 @@ const EbookPublisher = ({ navigation }) => {
           <Ionicons name="arrow-back" size={22} color={text} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <Text style={[styles.title, textStyle]}>{rootMode ? 'Sell E-book' : t('ebookPublisher.title')}</Text>
+          <Text style={[styles.title, textStyle]}>{t(rootMode ? 'ebookPublisher.sellTitle' : 'ebookPublisher.title')}</Text>
           {!rootMode && <Text style={styles.subtitle}>{t('ebookPublisher.subtitle')}</Text>}
         </View>
         {rootMode ? (

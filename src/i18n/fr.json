@@ -2284,6 +2284,7 @@
   },
   "ebookPublisher": {
     "title": "Téléverser un livre numérique",
+    "sellTitle": "Vendre un e-book",
     "subtitle": "Créez un flux de publication PDF professionnel",
     "stepUpload": "Téléverser le PDF",
     "stepCustomize": "Personnaliser",

@@ -2284,6 +2284,7 @@
   },
   "ebookPublisher": {
     "title": "Carica e-book",
+    "sellTitle": "Vendi e-book",
     "subtitle": "Crea un flusso di pubblicazione PDF professionale",
     "stepUpload": "Carica PDF",
     "stepCustomize": "Personalizza",
