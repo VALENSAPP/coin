@@ -57,6 +57,8 @@ const getTranslationValue = (source, key, options = {}) => {
   return getValueByPath(source, key);
 };
 
+const LanguageContext = createContext();
+
 let activeLanguage = 'en';
 
 export const getActiveLanguage = () => activeLanguage;
