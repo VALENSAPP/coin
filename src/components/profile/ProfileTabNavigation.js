@@ -27,7 +27,7 @@ import {
   parsePrivateCircleSetup,
   isPrivateCircleApiSuccess,
 } from '../../services/privatecircle';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../displaytoastmessage';
 import ProfileEbookScreen from './ProfileEbookScreen';
@@ -516,6 +516,19 @@ const ProfileTabs = memo(({
   ]);
 
   useEffect(() => {
+    if (initialTab) {
+      const resolvedInitialTab = (initialTab === 'closet' || initialTab === 'shop') ? closetTabKey : initialTab;
+      const index = tabs.findIndex(tab => tab.key === resolvedInitialTab);
+      if (index >= 0) {
+        setActiveTab(index);
+        return;
+      }
+    }
+    setActiveTab(0);
+    setShowSubscribeModal(false);
+  }, [targetProfileId]);
+
+  useEffect(() => {
     if (!initialTab) return;
     const resolvedInitialTab = (initialTab === 'closet' || initialTab === 'shop') ? closetTabKey : initialTab;
     const index = tabs.findIndex(tab => tab.key === resolvedInitialTab);
@@ -546,6 +559,31 @@ const ProfileTabs = memo(({
     tabs,
     closetTabKey,
   ]);
+
+  useFocusEffect(
+    useCallback(() => {
+      let isCancelled = false;
+
+      const checkModalOnFocus = async () => {
+        if (!loggedInUserId || isOwnProfile || isSubscribed) return;
+
+        const currentTabKey = tabs[activeTab]?.key;
+        if (currentTabKey === 'privateContent') {
+          const hasActive = await getSubscriptionStatus(targetProfileId);
+          if (!hasActive && !isCancelled) {
+            setPrivatKey(p => p + 1);
+            setShowSubscribeModal(true);
+          }
+        }
+      };
+
+      checkModalOnFocus();
+
+      return () => {
+        isCancelled = true;
+      };
+    }, [activeTab, tabs, loggedInUserId, isOwnProfile, isSubscribed, targetProfileId, getSubscriptionStatus]),
+  );
 
   return (
     <View style={styles.tabsRoot}>

@@ -164,7 +164,7 @@ const MilesTravelRewardsScreen = () => {
 
   const profileType = String(route?.params?.profileType || '').toLowerCase();
   const isBusinessProfile = profileType === 'company';
-  const { bgStyle, textStyle, text, card, accent, border } = useAppTheme(
+  const { bgStyle, textStyle, text, card, accent, border, isDarkMode } = useAppTheme(
     isBusinessProfile ? 'company' : undefined,
   );
 
@@ -412,7 +412,7 @@ const MilesTravelRewardsScreen = () => {
       setPointsInput(initialPts);
       setPointsInputText(String(initialPts));
     } else {
-      const initialPts = program.minPoints || 2000;
+      const initialPts = program.minPoints || 1000;
       setPointsInput(initialPts);
       setPointsInputText(String(initialPts));
       triggerDebouncedQuote(program, initialPts);
@@ -554,10 +554,15 @@ const MilesTravelRewardsScreen = () => {
       ptsToRedeem = giftCardDenomination * 100;
     }
 
-    if (totalPts < ptsToRedeem) {
+    const minRequiredPts = selectedProgram?.minPoints || 1000;
+    if (totalPts < minRequiredPts || ptsToRedeem < minRequiredPts || totalPts < ptsToRedeem) {
       Alert.alert(
-        t('rewardsScreen.insufficientBalance', 'Insufficient Balance'),
-        t('rewardsScreen.insufficientBalanceMsg', 'You need {{pts}} Pts for this redemption.', { pts: formatPts(ptsToRedeem) })
+        t('rewardsScreen.cannotTransferTitle', 'Cannot Transfer'),
+        totalPts < minRequiredPts
+          ? t('rewardsScreen.minAvailableRequired', 'Minimum {{pts}} available points required to transfer.', { pts: formatPts(minRequiredPts) })
+          : ptsToRedeem < minRequiredPts
+          ? t('rewardsScreen.minTransferRequired', 'Minimum {{pts}} points can be transferred.', { pts: formatPts(minRequiredPts) })
+          : t('rewardsScreen.insufficientBalanceMsg', 'You need {{pts}} Pts for this redemption.', { pts: formatPts(ptsToRedeem) })
       );
       return;
     }
@@ -648,6 +653,18 @@ const MilesTravelRewardsScreen = () => {
 
   // Selected Account details for Flow A Dropdown
   const selectedAccountObj = linkedAccounts.find(a => (a.id || a._id) === selectedAccountId) || linkedAccounts[0];
+
+  // Transfer validation & disabled state helper
+  const isGiftCard = selectedProgram?.category === 'GIFT_CARD';
+  const minRequiredPts = selectedProgram?.minPoints || 1000;
+  const currentPtsToRedeem = isGiftCard ? giftCardDenomination * 100 : pointsInput;
+  const isAvailablePtsInsufficient = totalPts < minRequiredPts || totalPts < currentPtsToRedeem;
+  const isPointsInputBelowMin = !isGiftCard && pointsInput < minRequiredPts;
+  const isPointsInputAboveBalance = pointsInput > totalPts;
+  const isTransferDisabled = isAvailablePtsInsufficient || isPointsInputBelowMin || isPointsInputAboveBalance;
+
+  const isSubtractDisabled = totalPts < minRequiredPts || pointsInput <= minRequiredPts || (pointsInput - 500 < minRequiredPts);
+  const isAddDisabled = totalPts < minRequiredPts || (pointsInput + 500 > totalPts);
 
   return (
     <SafeAreaView style={[styles.safe, bgStyle]} edges={['top', 'left', 'right']}>
@@ -982,23 +999,45 @@ const MilesTravelRewardsScreen = () => {
                     {/* Points to Transfer Stepper & Manual Input */}
                     <View style={styles.stepperHeaderRow}>
                       <Text style={[styles.stepperHeaderLabel, { color: muted }]}>{t('rewardsScreen.pointsToTransfer', 'Points to Transfer')}</Text>
-                      <Text style={[styles.stepperHeaderVal, { color: accent }]}>{formatPts(pointsInput)} Pts</Text>
+                      <Text style={[styles.stepperHeaderVal, { color: isTransferDisabled ? muted : accent }]}>{formatPts(pointsInput)} Pts</Text>
                     </View>
 
                     <View style={[styles.stepperControlBar, { backgroundColor: softBg, borderColor: softBorder }]}>
-                      <TouchableOpacity style={[styles.stepBtn, { backgroundColor: card }]} onPress={() => handleStepChange(-500)}>
-                        <Ionicons name="remove" size={18} color={text} />
+                      <TouchableOpacity
+                        style={[styles.stepBtn, { backgroundColor: card }, isSubtractDisabled && { opacity: 0.4 }]}
+                        onPress={() => handleStepChange(-500)}
+                        disabled={isSubtractDisabled}
+                      >
+                        <Ionicons name="remove" size={18} color={isSubtractDisabled ? muted : text} />
                       </TouchableOpacity>
                       <TextInput
-                        style={[styles.stepperNumericInput, textStyle]}
+                        style={[styles.stepperNumericInput, textStyle, isTransferDisabled && { color: muted }]}
                         keyboardType="number-pad"
                         value={pointsInputText}
                         onChangeText={handlePointsInputChange}
+                        editable={totalPts >= minRequiredPts}
                       />
-                      <TouchableOpacity style={[styles.stepBtn, { backgroundColor: card }]} onPress={() => handleStepChange(500)}>
-                        <Ionicons name="add" size={18} color={text} />
+                      <TouchableOpacity
+                        style={[styles.stepBtn, { backgroundColor: card }, isAddDisabled && { opacity: 0.4 }]}
+                        onPress={() => handleStepChange(500)}
+                        disabled={isAddDisabled}
+                      >
+                        <Ionicons name="add" size={18} color={isAddDisabled ? muted : text} />
                       </TouchableOpacity>
                     </View>
+
+                    {(totalPts < minRequiredPts || pointsInput < minRequiredPts) && (
+                      <Text style={{ color: '#EF4444', fontSize: 11, fontWeight: '600', marginTop: 2, marginBottom: 4 }}>
+                        {totalPts < minRequiredPts
+                          ? t('rewardsScreen.insufficientMinPointsMsg', '⚠️ Minimum {{pts}} available points required to transfer.', { pts: formatPts(minRequiredPts) })
+                          : t('rewardsScreen.minTransferMsg', '⚠️ Minimum {{pts}} points can be transferred.', { pts: formatPts(minRequiredPts) })}
+                      </Text>
+                    )}
+                    {pointsInput > totalPts && totalPts >= minRequiredPts && pointsInput >= minRequiredPts && (
+                      <Text style={{ color: '#EF4444', fontSize: 11, fontWeight: '600', marginTop: 2, marginBottom: 4 }}>
+                        {t('rewardsScreen.exceedsBalanceMsg', '⚠️ Entered points exceed your available balance ({{total}} Pts).', { total: formatPts(totalPts) })}
+                      </Text>
+                    )}
 
                     {/* Conversion Quote Summary Box */}
                     <View style={[styles.conversionQuoteCard, { backgroundColor: softBg, borderColor: softBorder }]}>
@@ -1022,7 +1061,7 @@ const MilesTravelRewardsScreen = () => {
                         {quoteLoading ? (
                           <ActivityIndicator size="small" color={accent} />
                         ) : (
-                          <Text style={[styles.quoteTotalVal, { color: accent }]}>
+                          <Text style={[styles.quoteTotalVal, { color: isTransferDisabled ? muted : accent }]}>
                             {(quoteData?.rewardAmount || Math.floor(pointsInput / (selectedProgram?.rateRatio || 1.25))).toLocaleString()} {quoteData?.rewardUnit || selectedProgram?.unitName || 'MILES'}
                           </Text>
                         )}
@@ -1087,7 +1126,7 @@ const MilesTravelRewardsScreen = () => {
                       <Text style={[styles.quoteRowValue, textStyle]}>
                         {t('rewardsScreen.spendingPts', 'Spending: {{pts}} Points', { pts: (giftCardDenomination * 100).toLocaleString() })}
                       </Text>
-                      <Text style={[styles.quoteRowValue, { color: accent, fontWeight: '700', marginTop: 2 }]}>
+                      <Text style={[styles.quoteRowValue, { color: isTransferDisabled ? muted : accent, fontWeight: '700', marginTop: 2 }]}>
                         {t('rewardsScreen.receivingCode', 'Receiving: ${{usd}}.00 USD {{program}} Claim Code', { usd: giftCardDenomination, program: selectedProgram?.name || 'Gift Card' })}
                       </Text>
                       <Text style={[styles.quoteRowLabel, { color: muted }]}>{t('rewardsScreen.deliveryInstantEmail', 'Delivery: Instant on Screen & Sent to Email')}</Text>
@@ -1124,8 +1163,15 @@ const MilesTravelRewardsScreen = () => {
                   <TouchableOpacity style={[styles.cancelBtn, { backgroundColor: softBg, borderColor: softBorder }]} onPress={() => setCheckoutModalVisible(false)}>
                     <Text style={[styles.cancelBtnText, textStyle]}>{t('rewardsScreen.cancel', 'Cancel')}</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={[styles.submitGoldBtn, { backgroundColor: cta.backgroundColor }]} onPress={handleExecuteRedemption}>
-                    <Text style={[styles.submitGoldBtnText, { color: cta.color }]}>
+                  <TouchableOpacity
+                    style={[
+                      styles.submitGoldBtn,
+                      { backgroundColor: isTransferDisabled ? (isDarkMode ? '#374151' : '#D1D5DB') : cta.backgroundColor },
+                    ]}
+                    onPress={handleExecuteRedemption}
+                    disabled={isTransferDisabled}
+                  >
+                    <Text style={[styles.submitGoldBtnText, { color: isTransferDisabled ? muted : cta.color }]}>
                       {selectedProgram?.category === 'GIFT_CARD'
                         ? t('rewardsScreen.getGiftCardCode', 'Get Gift Card Code 💳')
                         : selectedProgram?.category === 'TRAVEL_BOOKING'

@@ -1234,25 +1234,25 @@ const UserChat = ({ route, navigation }) => {
                     ]}
                   >
                     {renderMessageText(item.content, isUser)}
+                    {!isUser && item.isSubscriptionRenewal && !item.isDeletedContent && (
+                      <TouchableOpacity
+                        style={[styles.subscribeButton, { backgroundColor: accent, marginTop: 10, alignSelf: 'flex-start' }]}
+                        onPress={() => {
+                          const renewal = item.subscriptionRenewal || {};
+                          navigation.navigate('SubscriptionPriceChanged', {
+                            creatorId: renewal.creatorId || item.senderInfo?.id,
+                            newPrice: renewal.newPrice,
+                            oldPrice: renewal.oldPrice,
+                            subscriptionId: renewal.subscriptionId,
+                          });
+                        }}
+                      >
+                        <Text style={styles.subscribeButtonText}>
+                          {t('userChat.updateSubscription') ?? 'Update Subscription'}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
-                )}
-                {!isUser && item.isSubscriptionRenewal && !item.isDeletedContent && (
-                  <TouchableOpacity
-                    style={[styles.subscribeButton, { backgroundColor: accent, alignSelf: 'flex-start' }]}
-                    onPress={() => {
-                      const renewal = item.subscriptionRenewal || {};
-                      navigation.navigate('SubscriptionPriceChanged', {
-                        creatorId: renewal.creatorId || item.senderInfo?.id,
-                        newPrice: renewal.newPrice,
-                        oldPrice: renewal.oldPrice,
-                        subscriptionId: renewal.subscriptionId,
-                      });
-                    }}
-                  >
-                    <Text style={styles.subscribeButtonText}>
-                      {t('userChat.updateSubscription') ?? 'Update Subscription'}
-                    </Text>
-                  </TouchableOpacity>
                 )}
                 {item.shared && (
                   <TouchableOpacity style={styles.messageSharedContainer}>

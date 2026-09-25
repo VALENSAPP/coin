@@ -443,9 +443,9 @@ export default function TransactionDetailsScreen() {
             {/* Details List */}
             <View style={styles.detailsList}>
               {row('heart-outline', t('transactionDetails.type'), details.typeLabel, accent || text, styles.boldValue)}
+              {row('calendar-outline', t('transactionDetails.totalReceived'), details.total, amountColor, styles.totalValue, styles.totalLabel)}
               {row('time-outline', t('transactionDetails.amount'), details.amount, amountColor, styles.boldValue)}
               {/* {row('pie-chart-outline', 'Valens Fee (5%)', details.fee, text, styles.boldValue)} */}
-              {row('calendar-outline', t('transactionDetails.totalReceived'), details.total, amountColor, styles.totalValue, styles.totalLabel)}
               {row('card-outline', t('transactionDetails.paymentMethod'), details.paymentMethod, accent || text, styles.boldValue)}
               {row('calendar-outline', t('transactionDetails.dateTime'), details.date, text, styles.boldValue)}
               

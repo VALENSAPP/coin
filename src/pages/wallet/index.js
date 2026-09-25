@@ -1706,7 +1706,11 @@ export const WalletDashboardScreen = ({ navigation }) => {
         </View>
         <View style={styles.kpiValueWrap}>
           <Text
-            style={[styles.kpiValue, isMissionPostCard && styles.kpiValueMultiline, { color: gradientText }]}
+            style={[
+              styles.kpiValue,
+              (isMissionPostCard || String(item.value ?? '').length > 6) && styles.kpiValueMultiline,
+              { color: gradientText },
+            ]}
           >
             {item.value}
           </Text>
@@ -3107,6 +3111,8 @@ const styles = StyleSheet.create({
     marginBottom: 0,
     paddingBottom: 0,
     paddingLeft: Platform.OS == "android" ? 0 : 15,
+    paddingRight: 15,
+    paddingEnd: 15,
     paddingTop: 0,
     lineHeight: 26,
     width: '100%',

@@ -2173,7 +2173,7 @@ function PostItem({
                   <Text
                     style={[
                       styles.actionCount,
-                      { color: localLikesCount > 0 ? text : mutedText },
+                      { color: localLikesCount > 0 ? mutedText : mutedText },
                     ]}
                     numberOfLines={1}
                     adjustsFontSizeToFit

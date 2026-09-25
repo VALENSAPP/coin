@@ -407,7 +407,7 @@ export default function WalletComponent() {
     return (
         <SafeAreaView style={[styles.container, bgStyle]}>
             <ScrollView
-                contentContainerStyle={{ paddingBottom: '5%', marginTop: Platform.OS === "ios" ? 20 : 0 }}
+                contentContainerStyle={{ paddingBottom: '20%', marginTop: Platform.OS === "ios" ? 20 : 0 }}
                 showsVerticalScrollIndicator={false}
             >
                 <View style={{ paddingHorizontal: 15 }}>
