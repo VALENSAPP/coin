@@ -6,6 +6,7 @@ import { useAppTheme } from '../../theme/useApptheme';
 import { useThemeContext } from '../../theme/ThemeContext';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { formSurfaces, themedCard } from '../../utils/closetTheme';
+import { useLanguage } from '../../i18n';
 
 const getCoverImage = (item) => {
   if (!item) return null;
@@ -19,6 +20,7 @@ const getCoverImage = (item) => {
 const EbookPaymentSuccessScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
+  const { t } = useLanguage();
   const { ebook, userData } = route.params || {};
 
   const { bgStyle, text, card, border, mutedText, accent, bg } = useAppTheme(userData?.profile);
@@ -31,8 +33,8 @@ const EbookPaymentSuccessScreen = () => {
   const surfaceBorder = border || surfaces.listBorder;
 
   const coverImage = getCoverImage(ebook);
-  const title = ebook?.caption || ebook?.title || 'E-book';
-  const author = ebook?.userName || userData?.displayName || 'Unknown Author';
+  const title = ebook?.caption || ebook?.title || t('ebookBuyDetails.defaultTitle', 'E-book');
+  const author = ebook?.userName || userData?.displayName || t('ebookBuyDetails.unknownAuthor', 'Unknown Author');
   const price = Number(ebook?.amount || 0);
   const pdfUrl = useMemo(() => {
     let rawPdf = ebook?.ebookpdf || ebook?.ebookPdf || ebook?.pdfUrl || ebook?.pdf || ebook?.fileUrl;
@@ -63,7 +65,7 @@ const EbookPaymentSuccessScreen = () => {
 
   const handleReadBook = async () => {
     if (!pdfUrl) {
-      Alert.alert('Error', 'Ebook PDF URL is not available');
+      Alert.alert('Error', t('ebookPaymentSuccess.pdfNotAvailable', 'Ebook PDF URL is not available'));
       return;
     }
     try {
@@ -76,11 +78,11 @@ const EbookPaymentSuccessScreen = () => {
           enableBarCollapsing: true,
         });
       } else {
-        Alert.alert('Error', 'InAppBrowser is not available on this device');
+        Alert.alert('Error', t('ebookPaymentSuccess.browserNotAvailable', 'InAppBrowser is not available on this device'));
       }
     } catch (err) {
       console.log('InAppBrowser opening failed:', err);
-      Alert.alert('Error', 'Unable to open ebook. Invalid or unreachable PDF link.');
+      Alert.alert('Error', t('ebookPaymentSuccess.unableToOpen', 'Unable to open ebook. Invalid or unreachable PDF link.'));
     }
   };
 
@@ -94,16 +96,16 @@ const EbookPaymentSuccessScreen = () => {
         <TouchableOpacity onPress={handleContinueShopping} style={styles.backBtn} hitSlop={10}>
           <Ionicons name="arrow-back" size={22} color={primaryText} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: primaryText }]}>Payment</Text>
+        <Text style={[styles.headerTitle, { color: primaryText }]}>{t('ebookPaymentSuccess.headerTitle', 'Payment')}</Text>
         <View style={styles.placeholder} />
       </View>
 
       <View style={styles.content}>
         <View style={styles.successWrapper}>
           <Ionicons name="checkmark-circle" size={80} color="#22c55e" />
-          <Text style={[styles.successTitle, { color: primaryText }]}>Payment Successful!</Text>
+          <Text style={[styles.successTitle, { color: primaryText }]}>{t('ebookPaymentSuccess.paymentSuccessful', 'Payment Successful!')}</Text>
           <Text style={[styles.successSubtitle, { color: muted }]}>
-            Your e-book has been purchased successfully.
+            {t('ebookPaymentSuccess.successSubtitle', 'Your e-book has been purchased successfully.')}
           </Text>
         </View>
 
@@ -119,7 +121,7 @@ const EbookPaymentSuccessScreen = () => {
           </View>
           <View style={styles.summaryDetails}>
             <Text style={[styles.summaryTitle, { color: primaryText }]} numberOfLines={1}>{title}</Text>
-            <Text style={[styles.summaryAuthor, { color: muted }]} numberOfLines={1}>by {author}</Text>
+            <Text style={[styles.summaryAuthor, { color: muted }]} numberOfLines={1}>{t('ebookBuyDetails.byAuthor', { author }, `by ${author}`)}</Text>
             <Text style={[styles.summaryPrice, { color: brandAccent }]}>${price.toFixed(2)}</Text>
           </View>
         </View>
@@ -141,7 +143,7 @@ const EbookPaymentSuccessScreen = () => {
           activeOpacity={0.88}
         >
           <Ionicons name="book-outline" size={18} color="#fff" />
-          <Text style={styles.readNowBtnText}>Read it now</Text>
+          <Text style={styles.readNowBtnText}>{t('ebookPaymentSuccess.readNow', 'Read it now')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -149,7 +151,7 @@ const EbookPaymentSuccessScreen = () => {
           onPress={handleGoToLibrary}
           activeOpacity={0.88}
         >
-          <Text style={styles.libraryBtnText}>Go to My Library</Text>
+          <Text style={styles.libraryBtnText}>{t('ebookPaymentSuccess.goToLibrary', 'Go to My Library')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -157,7 +159,7 @@ const EbookPaymentSuccessScreen = () => {
           onPress={handleContinueShopping}
           activeOpacity={0.7}
         >
-          <Text style={[styles.continueBtnText, { color: brandAccent }]}>Continue Shopping</Text>
+          <Text style={[styles.continueBtnText, { color: brandAccent }]}>{t('ebookPaymentSuccess.continueShopping', 'Continue Shopping')}</Text>
         </TouchableOpacity>
       </View>
     </View>

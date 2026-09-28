@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { applyAcceptLanguage } from '../services';
-import { updateUserLanguage } from '../services/users';
+import { updateUserLanguage, getUserLanguage } from '../services/users';
+import { getAuthDeviceId } from '../services/authentication';
 
 // ✅ Supported languages
 const languages = ['en', 'pt', 'it', 'es', 'fr'];
@@ -28,6 +29,55 @@ const allTranslations = {
   it,
   es,
   fr
+};
+
+// Global setter callback for outside calls (e.g. app startup, login success)
+let _setAppLanguageGlobal = null;
+
+/**
+ * Call GET /user/language and apply the user's preferred language
+ */
+export const fetchAndApplyUserLanguage = async (deviceId) => {
+  try {
+    const token = await AsyncStorage.getItem('token');
+    if (!token) return null;
+
+    const resolvedDeviceId = deviceId || (await getAuthDeviceId());
+    console.log('Fetched deviceId:', resolvedDeviceId);
+    const response = await getUserLanguage(resolvedDeviceId);
+    console.log('Fetched user language response:', response);
+    const rawData = response?.data;
+    const lang =
+      typeof rawData === 'string'
+        ? rawData
+        : rawData?.language ||
+          rawData?.data?.language ||
+          rawData?.data ||
+          rawData?.preferredLanguage ||
+          rawData?.userLanguage;
+
+    if (lang && typeof lang === 'string') {
+      const rawLang = lang.trim().toLowerCase();
+      const code = rawLang.split(/[-_]/)[0];
+      const targetLang = languages.includes(rawLang)
+        ? rawLang
+        : languages.includes(code)
+        ? code
+        : null;
+
+      if (targetLang) {
+        await AsyncStorage.setItem('language', targetLang);
+        applyAcceptLanguage(targetLang);
+        if (_setAppLanguageGlobal) {
+          _setAppLanguageGlobal(targetLang);
+        }
+        return targetLang;
+      }
+    }
+  } catch (error) {
+    console.warn('Fetch user language error:', error?.message || error);
+  }
+  return null;
 };
 
 // ✅ Helper: get nested value (important)
@@ -68,6 +118,18 @@ export const LanguageProvider = ({ children }) => {
   const [translations, setTranslations] = useState(en);
   const [isLoading, setIsLoading] = useState(true);
   activeLanguage = currentLanguage;
+
+  useEffect(() => {
+    _setAppLanguageGlobal = (lang) => {
+      if (languages.includes(lang)) {
+        setCurrentLanguage(lang);
+        setTranslations(allTranslations[lang] || en);
+      }
+    };
+    return () => {
+      _setAppLanguageGlobal = null;
+    };
+  }, []);
 
   // ✅ Init language
   useEffect(() => {
@@ -157,6 +219,7 @@ export const LanguageProvider = ({ children }) => {
         languageNames,
         languages,
         changeLanguage,
+        fetchUserLanguage: fetchAndApplyUserLanguage,
         t,
         isLoading
       }}
@@ -176,3 +239,4 @@ export const useLanguage = () => {
 
   return context;
 };
+

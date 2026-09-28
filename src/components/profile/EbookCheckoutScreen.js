@@ -9,6 +9,7 @@ import { InAppBrowser } from 'react-native-inappbrowser-reborn';
 import { getPaymentSessionUrl, STRIPE_BROWSER_OPTIONS } from '../../utils/stripeOnboarding';
 import { payMarketplaceEbook } from '../../services/stirpe';
 import { formSurfaces, selectedSurface, themedCard } from '../../utils/closetTheme';
+import { useLanguage } from '../../i18n';
 
 const getCoverImage = (item) => {
   if (!item) return null;
@@ -22,6 +23,7 @@ const getCoverImage = (item) => {
 const EbookCheckoutScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
+  const { t } = useLanguage();
   const { ebook, userData, loggedInUserId } = route.params || {};
   const { bgStyle, text, card, border, mutedText, accent, bg } = useAppTheme(userData?.profile);
   const { isDarkMode } = useThemeContext();
@@ -35,8 +37,8 @@ const EbookCheckoutScreen = () => {
   const [paying, setPaying] = useState(false);
 
   const coverImage = getCoverImage(ebook);
-  const title = ebook?.caption || ebook?.title || 'E-book';
-  const author = ebook?.userName || userData?.displayName || 'Unknown Author';
+  const title = ebook?.caption || ebook?.title || t('ebookBuyDetails.defaultTitle', 'E-book');
+  const author = ebook?.userName || userData?.displayName || t('ebookBuyDetails.unknownAuthor', 'Unknown Author');
 
   const price = Number(ebook?.amount || 0);
   const total = price;
@@ -53,7 +55,7 @@ const EbookCheckoutScreen = () => {
       const url = getPaymentSessionUrl(response);
 
       if (!url) {
-        Alert.alert('Payment Failed', response?.message || response?.data?.message || 'Failed to create payment session. Please try again.');
+        Alert.alert(t('ebookCheckout.paymentFailed', 'Payment Failed'), response?.message || response?.data?.message || t('ebookCheckout.paymentFailedMsg', 'Failed to create payment session. Please try again.'));
         setPaying(false);
         return;
       }
@@ -75,7 +77,7 @@ const EbookCheckoutScreen = () => {
       });
     } catch (err) {
       console.log('Error executing ebook payment:', err);
-      Alert.alert('Payment Error', 'An error occurred during payment processing. Please try again.');
+      Alert.alert(t('ebookCheckout.paymentError', 'Payment Error'), t('ebookCheckout.paymentErrorMsg', 'An error occurred during payment processing. Please try again.'));
       setPaying(false);
     }
   };
@@ -86,7 +88,7 @@ const EbookCheckoutScreen = () => {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} hitSlop={10}>
           <Ionicons name="arrow-back" size={22} color={primaryText} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: primaryText }]}>Checkout</Text>
+        <Text style={[styles.headerTitle, { color: primaryText }]}>{t('ebookCheckout.headerTitle', 'Checkout')}</Text>
         <View style={styles.placeholder} />
       </View>
 
@@ -103,7 +105,7 @@ const EbookCheckoutScreen = () => {
           </View>
           <View style={styles.summaryDetails}>
             <Text style={[styles.summaryTitle, { color: primaryText }]} numberOfLines={1}>{title}</Text>
-            <Text style={[styles.summaryAuthor, { color: muted }]} numberOfLines={1}>by {author}</Text>
+            <Text style={[styles.summaryAuthor, { color: muted }]} numberOfLines={1}>{t('ebookBuyDetails.byAuthor', { author }, `by ${author}`)}</Text>
             <Text style={[styles.summaryPrice, { color: brandAccent }]}>${price.toFixed(2)}</Text>
           </View>
         </View>
@@ -118,16 +120,16 @@ const EbookCheckoutScreen = () => {
           ]}
         >
           <View style={styles.invoiceRow}>
-            <Text style={[styles.invoiceLabel, { color: muted }]}>Price</Text>
+            <Text style={[styles.invoiceLabel, { color: muted }]}>{t('ebookCheckout.price', 'Price')}</Text>
             <Text style={[styles.invoiceValue, { color: primaryText }]}>${price.toFixed(2)}</Text>
           </View>
           <View style={[styles.invoiceRow, styles.totalRow, { borderTopColor: surfaceBorder }]}>
-            <Text style={[styles.totalLabel, { color: primaryText }]}>Total</Text>
+            <Text style={[styles.totalLabel, { color: primaryText }]}>{t('ebookCheckout.total', 'Total')}</Text>
             <Text style={[styles.totalValue, { color: primaryText }]}>${total.toFixed(2)}</Text>
           </View>
         </View>
 
-        <Text style={[styles.sectionTitle, { color: primaryText }]}>Payment Method</Text>
+        <Text style={[styles.sectionTitle, { color: primaryText }]}>{t('ebookCheckout.paymentMethod', 'Payment Method')}</Text>
         <View style={styles.paymentMethods}>
           <View
             style={[
@@ -142,7 +144,7 @@ const EbookCheckoutScreen = () => {
             <View style={styles.methodLeft}>
               <Ionicons name="shield-checkmark-outline" size={22} color={brandAccent} />
               <Text style={[styles.methodText, { color: primaryText, fontWeight: '800' }]}>
-                Valens Secure Checkout
+                {t('ebookCheckout.secureCheckout', 'Valens Secure Checkout')}
               </Text>
             </View>
             <View style={[styles.radioCircle, { borderColor: brandAccent }]}>
@@ -171,12 +173,12 @@ const EbookCheckoutScreen = () => {
           {paying ? (
             <ActivityIndicator size="small" color="#fff" />
           ) : (
-            <Text style={styles.payBtnText}>Pay ${total.toFixed(2)}</Text>
+            <Text style={styles.payBtnText}>{t('ebookCheckout.payButton', { amount: total.toFixed(2) }, `Pay $${total.toFixed(2)}`)}</Text>
           )}
         </TouchableOpacity>
         <View style={styles.securedRow}>
           <Ionicons name="lock-closed" size={12} color={muted} />
-          <Text style={[styles.securedText, { color: muted }]}> Secured by Valens</Text>
+          <Text style={[styles.securedText, { color: muted }]}> {t('ebookCheckout.securedBy', 'Secured by Valens')}</Text>
         </View>
       </View>
     </View>

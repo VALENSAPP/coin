@@ -3358,6 +3358,26 @@ export function BattleCreatedSuccessScreen({ navigation, route }) {
   const leftItem = selectedItems?.[0] || {};
   const rightItem = selectedItems?.[1] || {};
 
+  const rawDuration = route?.params?.duration || route?.params?.battle?.duration || route?.params?.durationLabel;
+  const durationDisplay = useMemo(() => {
+    if (!rawDuration) return '3 Days';
+    const str = String(rawDuration).trim().toUpperCase();
+    if (str === '24 HOURS' || str === '24H' || str === '1 DAY' || str === '1') {
+      return '24 Hours';
+    }
+    if (str === '3 DAYS' || str === '3D' || str === '3') {
+      return '3 Days';
+    }
+    if (str === '7 DAYS' || str === '7D' || str === '7') {
+      return '7 Days';
+    }
+    if (!isNaN(Number(rawDuration))) {
+      const num = Number(rawDuration);
+      return num === 1 ? '1 Day' : `${num} Days`;
+    }
+    return String(rawDuration);
+  }, [rawDuration]);
+
   const leftProfileId =
     leftItem?.sellerId ||
     leftItem?.userId ||
@@ -3450,7 +3470,7 @@ export function BattleCreatedSuccessScreen({ navigation, route }) {
           <Text style={{ color: primaryText, fontSize: 13, fontWeight: '700' }}>{t('battle.votingEndsIn', 'Voting ends in')}</Text>
           <View style={{ backgroundColor: isDarkMode ? surfaces.listSurface : '#F3EFFF', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <Ionicons name="time-outline" size={16} color={accent} />
-            <Text style={{ color: primaryText, fontWeight: '800', fontSize: 13 }}>3 Days</Text>
+            <Text style={{ color: primaryText, fontWeight: '800', fontSize: 13 }}>{durationDisplay}</Text>
           </View>
         </View>
 

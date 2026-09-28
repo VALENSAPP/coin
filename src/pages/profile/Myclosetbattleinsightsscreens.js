@@ -294,6 +294,7 @@ export function PromotionExpiredScreen({ navigation, winnerItem, battleId }) {
   const surface = card || surfaces.listSurface;
   const { t } = useLanguage();
   const accent = text || PURPLE;
+  const targetScreen = useTargetClosetScreen();
 
   return (
     <View style={[styles.screen, bgStyle, { backgroundColor: bg || SOFT_BG }]}>
