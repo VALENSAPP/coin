@@ -82,9 +82,10 @@ const isMarketplaceEbookItem = (item) => {
   return false;
 };
 
-const getDescription = (ebookItem) => {
+const getDescription = (ebookItem, t) => {
+  const fallback = t?.('ebookBuyDetails.noDescription', 'No description available') || 'No description available';
   const textField = ebookItem?.text ?? ebookItem?.description;
-  if (!textField) return 'No description available';
+  if (!textField) return fallback;
 
   if (typeof textField === 'string') {
     try {
@@ -93,7 +94,7 @@ const getDescription = (ebookItem) => {
         return parsed[0];
       }
     } catch (e) {
-      return textField || 'No description available';
+      return textField || fallback;
     }
   }
 
@@ -101,7 +102,7 @@ const getDescription = (ebookItem) => {
     return textField[0];
   }
 
-  return 'No description available';
+  return fallback;
 };
 
 const formatDate = (dateString) => {
@@ -245,7 +246,7 @@ const EbookDetailScreen = () => {
   const [holdScreenshotProtection, setHoldScreenshotProtection] = useState(false);
   const commentInputRef = useRef(null);
 
-  const title = ebook.caption || ebook.title || 'E-book';
+  const title = ebook.caption || ebook.title || t('ebookBuyDetails.defaultTitle', 'E-book');
   const userName = formatDisplayName(
     ebook.purchasedFrom ||
     route?.params?.username ||
@@ -258,7 +259,7 @@ const EbookDetailScreen = () => {
     routeUserData?.shopName ||
     routeUserData?.shopUsername ||
     routeUserData?.displayName ||
-    'Unknown Author'
+    t('ebookBuyDetails.unknownAuthor', 'Unknown Author')
   );
   const userAvatarSource = useMemo(() => {
     const uri = ebook.userImage || ebook.avatar || ebook.user?.avatar || ebook.user?.image || ebook.creator?.avatar || ebook.creator?.image;
@@ -267,7 +268,7 @@ const EbookDetailScreen = () => {
     }
     return require('../../assets/icons/pngicons/blackUser.png');
   }, [ebook]);
-  const description = getDescription(ebook);
+  const description = getDescription(ebook, t);
 
   const pdfUrl = useMemo(() => {
     let rawPdf =
@@ -615,21 +616,21 @@ const EbookDetailScreen = () => {
     const commentId = comment?.id || comment?._id;
     if (!commentId || deletingCommentIds.has(String(commentId))) return;
 
-    Alert.alert('Delete comment', 'Are you sure you want to delete this comment?', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('ebookDetail.deleteCommentTitle', 'Delete comment'), t('ebookDetail.deleteCommentMessage', 'Are you sure you want to delete this comment?'), [
+      { text: t('common.cancel', 'Cancel'), style: 'cancel' },
       {
-        text: 'Delete',
+        text: t('common.delete', 'Delete'),
         style: 'destructive',
         onPress: async () => {
           setDeletingCommentIds(prev => new Set(prev).add(String(commentId)));
           try {
             const response = await deleteComment(String(commentId), String(ebook.id));
             if (response?.success === false) {
-              throw new Error(response?.data?.message || 'Unable to delete comment');
+              throw new Error(response?.data?.message || t('ebookDetail.unableToDeleteComment', 'Unable to delete comment'));
             }
             await fetchEbookComments();
           } catch (error) {
-            showToastMessage(toast, 'danger', error?.response?.data?.message || error?.message || 'Unable to delete comment');
+            showToastMessage(toast, 'danger', error?.response?.data?.message || error?.message || t('ebookDetail.unableToDeleteComment', 'Unable to delete comment'));
           } finally {
             setDeletingCommentIds(prev => {
               const next = new Set(prev);
@@ -640,7 +641,7 @@ const EbookDetailScreen = () => {
         },
       },
     ]);
-  }, [deletingCommentIds, ebook?.id, fetchEbookComments, toast]);
+  }, [deletingCommentIds, ebook?.id, fetchEbookComments, t, toast]);
 
   const handleCommentProfilePress = useCallback((commentUserId) => {
     if (!commentUserId) return;
@@ -667,15 +668,15 @@ const EbookDetailScreen = () => {
   }, [ebookData, navigation, route?.params, routeUserData]);
   const handleDelete = () => {
     Alert.alert(
-      'Delete E-book',
-      'Are you sure you want to delete this e-book?',
+      t('ebookDetail.deleteEbookTitle', 'Delete E-book'),
+      t('ebookDetail.deleteEbookMessage', 'Are you sure you want to delete this e-book?'),
       [
         {
-          text: 'Cancel',
+          text: t('common.cancel', 'Cancel'),
           style: 'cancel',
         },
         {
-          text: 'Delete',
+          text: t('common.delete', 'Delete'),
           style: 'destructive',
           onPress: async () => {
             try {
@@ -687,7 +688,7 @@ const EbookDetailScreen = () => {
                 showToastMessage(
                   toast,
                   'danger',
-                  'Unable to delete this e-book right now.',
+                  t('ebookDetail.unableToDelete', 'Unable to delete this e-book right now.'),
                 );
                 return;
               }
@@ -705,7 +706,7 @@ const EbookDetailScreen = () => {
                 showToastMessage(
                   toast,
                   'danger',
-                  res?.data?.message || res?.message || 'Failed to delete e-book',
+                  res?.data?.message || res?.message || t('ebookDetail.deleteFailed', 'Failed to delete e-book'),
                 );
                 return;
               }
@@ -713,7 +714,7 @@ const EbookDetailScreen = () => {
               showToastMessage(
                 toast,
                 'success',
-                res?.data?.message || 'E-book deleted successfully',
+                res?.data?.message || t('ebookDetail.deleteSuccess', 'E-book deleted successfully'),
               );
               navigation.goBack();
             } catch (error) {
@@ -721,7 +722,7 @@ const EbookDetailScreen = () => {
               showToastMessage(
                 toast,
                 'danger',
-                error?.response?.data?.message || error?.message || 'Delete failed',
+                error?.response?.data?.message || error?.message || t('ebookDetail.deleteFailed', 'Delete failed'),
               );
             }
           },
@@ -732,7 +733,7 @@ const EbookDetailScreen = () => {
   const handleReadBook = async () => {
     console.log('📖 Attempting to read ebook. Passed params:', { ebook, pdfUrl });
     if (!pdfUrl) {
-      Alert.alert('Error', 'Ebook PDF URL is not available');
+      Alert.alert(t('common.error', 'Error'), t('ebookDetail.pdfUrlNotAvailable', 'Ebook PDF URL is not available'));
       return;
     }
     try {
@@ -745,11 +746,11 @@ const EbookDetailScreen = () => {
           enableBarCollapsing: true,
         });
       } else {
-        Alert.alert('Error', 'InAppBrowser is not available on this device');
+        Alert.alert(t('common.error', 'Error'), t('ebookPaymentSuccess.browserNotAvailable', 'InAppBrowser is not available on this device'));
       }
     } catch (err) {
       console.log('InAppBrowser opening failed:', err);
-      Alert.alert('Error', 'Unable to open ebook. Invalid or unreachable PDF link.');
+      Alert.alert(t('common.error', 'Error'), t('ebookPaymentSuccess.unableToOpen', 'Unable to open ebook. Invalid or unreachable PDF link.'));
     }
   };
   const chapters = useMemo(() => {
@@ -761,12 +762,17 @@ const EbookDetailScreen = () => {
         return ebook.tableContent.filter(ch => ch !== '');
       }
     }
-    return chaptersFallback;
-  }, [ebook.tableContent]);
+    return [
+      t('ebookDetail.chapter1Fallback', chaptersFallback[0]),
+      t('ebookDetail.chapter2Fallback', chaptersFallback[1]),
+      t('ebookDetail.chapter3Fallback', chaptersFallback[2]),
+      t('ebookDetail.chapter4Fallback', chaptersFallback[3]),
+    ];
+  }, [ebook.tableContent, t]);
 
   const handleDownloadPdf = async () => {
     if (!pdfUrl) {
-      Alert.alert('Error', 'PDF URL not available');
+      Alert.alert(t('common.error', 'Error'), t('ebookDetail.pdfUrlNotAvailable', 'PDF URL not available'));
       return;
     }
 
@@ -785,11 +791,6 @@ const EbookDetailScreen = () => {
       }).promise;
 
       if (downloadResult.statusCode === 200) {
-        // showToastMessage(
-        //   toast,
-        //   'success',
-        //   t('myClosetDashboard.ebookDownloadSuccess') || 'PDF downloaded successfully',
-        // );
         if (!isOwner) {
           setHoldScreenshotProtection(true);
         }
@@ -804,11 +805,11 @@ const EbookDetailScreen = () => {
           }
         }
       } else {
-        Alert.alert('Error', 'Failed to download PDF');
+        Alert.alert(t('common.error', 'Error'), t('ebookDetail.unableToDownload', 'Failed to download PDF'));
       }
     } catch (error) {
       console.log('Download error:', error);
-      Alert.alert('Download Failed', error.message || 'Unable to download PDF');
+      Alert.alert(t('ebookDetail.downloadFailed', 'Download Failed'), error.message || t('ebookDetail.unableToDownload', 'Unable to download PDF'));
     } finally {
       setIsDownloading(false);
     }
@@ -846,7 +847,7 @@ const EbookDetailScreen = () => {
             </View>
             {!fromEbookPublisher && !fromMyClosetShopFront && !fromAllEbooksScreen ? (
               <View style={[styles.subscriberPill, cardStyle, { borderColor: surfaceBorder }]}>
-                <Text style={[styles.subscriberPillText, textStyle]}>Subscribers</Text>
+                <Text style={[styles.subscriberPillText, textStyle]}>{t('ebookDetail.subscribers', 'Subscribers')}</Text>
               </View>
             ) : null}
             {isOwner ? (
@@ -883,26 +884,26 @@ const EbookDetailScreen = () => {
             ) : (
               <View style={[styles.cover, { backgroundColor: brandAccent }]}>
                 <Text style={styles.coverText} numberOfLines={3}>{title}</Text>
-                <Text style={styles.coverSub}>E-book</Text>
+                <Text style={styles.coverSub}>{t('ebookBuyDetails.defaultTitle', 'E-book')}</Text>
                 <Text style={styles.coverAuthor}>{userName.toUpperCase()}</Text>
               </View>
             )}
           </View>
           <View style={styles.cardRight}>
             <Text style={[styles.ebookTitle, textStyle]}>{title}</Text>
-            <Text style={[styles.byline, mutedTextStyle]}>By {userName}</Text>
+            <Text style={[styles.byline, mutedTextStyle]}>{t('ebookDetail.byAuthor', { author: userName }, `By ${userName}`)}</Text>
             <Text style={[styles.description, mutedTextStyle]}>
               {description}
             </Text>
             <View style={styles.metricsRow}>
-              <Text style={[styles.metric, textStyle]}>📚 {chapters.length} Chapters</Text>
+              <Text style={[styles.metric, textStyle]}>{t('ebookDetail.chaptersCount', { count: chapters.length }, `📚 ${chapters.length} Chapters`)}</Text>
             </View>
           </View>
         </View>
 
         {chapters.length > 0 ? (
           <View style={[styles.chaptersCard, themedCard(surface, surfaceBorder)]}>
-            <Text style={[styles.sectionTitle, textStyle]}>Table of Contents</Text>
+            <Text style={[styles.sectionTitle, textStyle]}>{t('ebookDetail.tableOfContents', 'Table of Contents')}</Text>
             {chapters.map((ch, idx) => (
               <View
                 key={`${idx}-${ch}`}
@@ -934,7 +935,7 @@ const EbookDetailScreen = () => {
             ) : (
               <>
                 <Ionicons name="download-outline" size={16} color="#fff" />
-                <Text style={styles.downloadButtonText}>Download PDF</Text>
+                <Text style={styles.downloadButtonText}>{t('ebookDetail.downloadPdf', 'Download PDF')}</Text>
               </>
             )}
           </TouchableOpacity>
@@ -945,7 +946,7 @@ const EbookDetailScreen = () => {
           onPress={handleReadBook}
         >
           <Ionicons name="book-outline" size={16} color="#fff" />
-          <Text style={styles.readButtonText}>Read e-book</Text>
+          <Text style={styles.readButtonText}>{t('ebookDetail.readEbook', 'Read e-book')}</Text>
         </TouchableOpacity>
 
         {!fromEbookPublisher && !fromMyClosetShopFront && !fromAllEbooksScreen ? (
@@ -981,7 +982,7 @@ const EbookDetailScreen = () => {
 
         {canShowComments ? (
           <View style={[styles.commentsSection, { borderTopColor: surfaceBorder }]}>
-            <Text style={[styles.commentsTitle, textStyle]}>Comments ({comments})</Text>
+            <Text style={[styles.commentsTitle, textStyle]}>{t('ebookDetail.commentsTitle', { count: comments }, `Comments (${comments})`)}</Text>
             {commentsLoading ? (
               <ActivityIndicator size="small" color={brandAccent} style={styles.commentsLoader} />
             ) : commentItems.length > 0 ? (
@@ -989,7 +990,7 @@ const EbookDetailScreen = () => {
                 const commentId = String(comment?.id || comment?._id || '');
                 const commentUserId = String(comment?.userId ?? comment?.user?.id ?? '');
                 const isOwnComment = Boolean(currentUserId && commentUserId && commentUserId === String(currentUserId));
-                const commentName = formatDisplayName(comment?.displayName || comment?.user?.displayName || comment?.user?.userName || comment?.userName || comment?.username || 'Unknown');
+                const commentName = formatDisplayName(comment?.displayName || comment?.user?.displayName || comment?.user?.userName || comment?.userName || comment?.username || t('ebookBuyDetails.unknownAuthor', 'Unknown'));
                 const commentAvatar = comment?.image || comment?.user?.image || comment?.user?.avatar || '';
                 return (
                   <View key={commentId} style={[styles.commentItem, { borderBottomColor: surfaceBorder, marginLeft: Math.min(comment.depth || 0, 2) * 18 }]}>
@@ -1027,7 +1028,7 @@ const EbookDetailScreen = () => {
                 );
               })
             ) : (
-              <Text style={[styles.noCommentsText, mutedTextStyle]}>Be the first to comment.</Text>
+              <Text style={[styles.noCommentsText, mutedTextStyle]}>{t('ebookDetail.beTheFirstComment', 'Be the first to comment.')}</Text>
             )}
           </View>
         ) : null}
@@ -1039,7 +1040,7 @@ const EbookDetailScreen = () => {
             ref={commentInputRef}
             value={commentText}
             onChangeText={setCommentText}
-            placeholder="Add a comment..."
+            placeholder={t('ebookDetail.addCommentPlaceholder', 'Add a comment...')}
             placeholderTextColor={muted}
             style={[styles.commentInput, { color: primaryText, backgroundColor: isDarkMode ? withAlpha('#ffffff', 0.08) : '#F5F3F7', borderColor: surfaceBorder }]}
             multiline

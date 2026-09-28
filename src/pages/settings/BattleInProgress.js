@@ -1098,9 +1098,10 @@ export default function BattleInProgress() {
   }, [isLiveStatus, statusPulseAnim]);
 
   const endTimeInfo = useMemo(() => {
+    const endedText = t?.('battleCard.ended') || 'Ended';
     if (isBattleCancelled) {
       return {
-        relative: t?.('battleCard.ended') || 'Ended',
+        relative: endedText,
         absolute: '',
         isEndingSoon: false,
       };
@@ -2691,7 +2692,7 @@ export default function BattleInProgress() {
       <View style={styles.heroTopRow}>
         <View style={[styles.statusPill, { backgroundColor: withAlpha(statusMeta.color, '1F') }]}>
           <Animated.View style={[styles.statusDot, { backgroundColor: statusMeta.color, opacity: statusPulseAnim }]} />
-          <Text style={[styles.statusPillText, { color: endTimeInfo.relative == 'Ended' ? '#4B5563' : statusMeta.color }]}>{endTimeInfo.relative == 'Ended' ? 'Closed' : statusMeta.label}</Text>
+          <Text style={[styles.statusPillText, { color: endTimeInfo.relative == 'Ended' ? '#4B5563' : statusMeta.color }]}>{endTimeInfo.relative == 'Ended' ? t('battleInProgress.closed', 'Closed') : statusMeta.label}</Text>
         </View>
         <View style={[styles.timerPill, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(107,95,166,0.12)' }]}>
           <Ionicons name="time-outline" size={12} color={mutedText} />
@@ -2723,16 +2724,18 @@ export default function BattleInProgress() {
         <View style={styles.heroInfoRow}>
           <View style={styles.heroInfoChip}>
             <Ionicons name="people-outline" size={12} color={mutedText} />
-            <Text style={[styles.heroInfoText, { color: mutedText }]}>{battle.primaryCount} {battle.primaryCountLabel}</Text>
+            <Text style={[styles.heroInfoText, { color: mutedText }]}>
+              {battle.primaryCount} {t(battle.primaryCountLabel === 'votes' ? 'battleInProgress.primaryLabelVotes' : 'battleInProgress.primaryLabelParticipants', battle.primaryCountLabel === 'votes' ? 'votes' : 'participants')}
+            </Text>
           </View>
           <View style={styles.heroInfoChip}>
             <Ionicons name="calendar-outline" size={12} color={mutedText} />
-            <Text style={[styles.heroInfoText, { color: mutedText }]}>{battle.format === 'HEAD_TO_HEAD' ? 'Head-to-Head' : 'Battle Poll'}</Text>
+            <Text style={[styles.heroInfoText, { color: mutedText }]}>{battle.format === 'HEAD_TO_HEAD' ? t('battleInProgress.formatHeadToHead', 'Head-to-Head') : t('battleInProgress.formatPoll', 'Battle Poll')}</Text>
           </View>
           <View style={styles.heroInfoChip}>
             <Ionicons name="flash" size={12} color={mutedText} />
             <Text style={[styles.heroInfoText, { color: mutedText }]}>
-              Stakes: {formatStakeAmount(battle.stake)}
+              {t('battleInProgress.stakesLabel', 'Stakes:')} {formatStakeAmount(battle.stake)}
             </Text>
           </View>
           {canEditBattleQuestion ? (
@@ -2787,7 +2790,7 @@ export default function BattleInProgress() {
                     styles.heroLiveIndicatorText,
                     { color: endTimeInfo.relative == 'Ended' ? '#EF4444' : statusMeta.color },
                   ]}>
-                    {endTimeInfo.relative == 'Ended' ? 'Closed' : statusMeta.label}
+                    {endTimeInfo.relative == 'Ended' ? t('battleInProgress.closed', 'Closed') : statusMeta.label}
                   </Text>
                 </View>
               </View>
@@ -2827,7 +2830,7 @@ export default function BattleInProgress() {
             return (
               <Text style={styles.heroChallengeLine} numberOfLines={2}>
                 <Text style={styles.heroChallengeStrong}>{creatorName}</Text>
-                {' challenged '}
+                {' '}{t('battleInProgress.challenged', 'challenged')}{' '}
                 <Text style={styles.heroChallengeStrong}>{opponentName}</Text>
               </Text>
             );
@@ -2922,7 +2925,7 @@ export default function BattleInProgress() {
                           <Text style={styles.playerSidePillText}>{p0?.side}</Text>
                         </View>
                         <View>
-                          <Text style={[styles.playerName, { color: '#fff' }]}>{d0?.name || 'User'} Says:</Text>
+                          <Text style={[styles.playerName, { color: '#fff' }]}>{d0?.name || t('battleInProgress.fallbackUser', 'User')} {t('battleInProgress.says', 'Says:')}</Text>
                         </View>
                         {!!opening0 && (
                           <Text style={styles.playerOpeningArgument} numberOfLines={3}>
@@ -2965,7 +2968,7 @@ export default function BattleInProgress() {
                           <Text style={styles.playerSidePillText}>{p1?.side}</Text>
                         </View>
                         <View>
-                          <Text style={[styles.playerName, { color: '#fff' }]}>{d1?.name || 'User'} Says:</Text>
+                          <Text style={[styles.playerName, { color: '#fff' }]}>{d1?.name || t('battleInProgress.fallbackUser', 'User')} {t('battleInProgress.says', 'Says:')}</Text>
                         </View>
                         {!!opening1 && (
                           <Text style={styles.playerOpeningArgument} numberOfLines={3}>
@@ -3195,7 +3198,7 @@ export default function BattleInProgress() {
                   style={[styles.viewVotesBtn, { borderColor: palette.border }]}
                 >
                   <Text style={[styles.viewVotesText, { color: palette.primary }]}>
-                    View votes
+                    {t('battleInProgress.viewVotes')}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -3311,7 +3314,7 @@ export default function BattleInProgress() {
               </View>
 
               <Text style={[styles.argumentLabel, { color: mutedText }]}>
-                {hasUserVoted ? 'Comment' : 'Your argument'}
+                {hasUserVoted ? t('battleInProgress.howToWinCommentLabel', 'Comment') : t('battleInProgress.yourArgumentLabel', 'Your argument')}
               </Text>
               <TextInput
                 editable={isBattleCancelled || endTimeInfo.relative == 'Ended' ? false : true}
@@ -3375,7 +3378,7 @@ export default function BattleInProgress() {
                           : shouldShowAcceptBattleCta
                             ? t('battleInProgress.acceptBattle')
                             : (isHeadToHead && isHeadToHeadCreator && !creatorSelectionLocked
-                              ? 'Activate battle'
+                              ? t('battleInProgress.activateBattle', 'Activate battle')
                               : t('battleInProgress.voteInBattle'))}
                     </Text>
                   }

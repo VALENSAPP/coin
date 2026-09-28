@@ -75,8 +75,9 @@ const getCoverImage = (item) => {
   return null;
 };
 
-const getDescription = (item) => {
-  if (!item) return 'No description available';
+const getDescription = (item, t) => {
+  const fallback = t?.('ebookBuyDetails.noDescription', 'No description available') || 'No description available';
+  if (!item) return fallback;
 
   // If text is a JSON string, parse it
   if (typeof item.text === 'string') {
@@ -87,7 +88,7 @@ const getDescription = (item) => {
       }
     } catch (e) {
       // If parsing fails, return as is
-      return item.text || 'No description available';
+      return item.text || fallback;
     }
   }
 
@@ -97,7 +98,7 @@ const getDescription = (item) => {
   }
 
   // Fallback to description field
-  return item.description || 'No description available';
+  return item.description || fallback;
 };
 
 const EbookCard = memo(({
@@ -106,6 +107,7 @@ const EbookCard = memo(({
   profileThemeType,
   isCompanyProfile,
 }) => {
+  const { t } = useLanguage();
   const { textStyle, mutedTextStyle, accent, card, border, mutedText } = useAppTheme(profileThemeType);
   const { isDarkMode } = useThemeContext();
   const surfaces = formSurfaces(isDarkMode);
@@ -114,8 +116,8 @@ const EbookCard = memo(({
   const surface = card || surfaces.listSurface;
   const surfaceBorder = border || surfaces.listBorder;
   const coverImage = getCoverImage(item);
-  const title = item.caption || item.title || 'E-book';
-  const description = getDescription(item);
+  const title = item.caption || item.title || t('ebookBuyDetails.defaultTitle', 'E-book');
+  const description = getDescription(item, t);
   const palette = themeStyles[item.theme] || (isCompanyProfile ? themeStyles.gold : themeStyles.purple);
 
   return (

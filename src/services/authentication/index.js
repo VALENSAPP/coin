@@ -5,6 +5,7 @@ import Geolocation from 'react-native-geolocation-service';
 import { PermissionsAndroid, Platform } from 'react-native';
 import { saveOrUpdateAccount } from '../../utils/accountSession';
 import { setUserProfile } from '../../redux/actions/UserProfileAction';
+import { fetchAndApplyUserLanguage } from '../../i18n';
 
 let appPermissionsReady = false;
 
@@ -15,6 +16,9 @@ export const markAppPermissionsReady = () => {
 export const handleLoginSuccess = async (token, dispatch, navigation, getProfileData, toast, accessToken, refreshToken, t) => {
     if (token) {
         await AsyncStorage.setItem('token', token);
+        fetchAndApplyUserLanguage().catch(e => {
+            console.log('fetchAndApplyUserLanguage on handleLoginSuccess error:', e?.message || e);
+        });
         getProfileData(dispatch, navigation, toast, accessToken, refreshToken, t);
         // navigation.reset({ index: 0, routes: [{ name: 'MainTabNavigator' }] });
     } else {
@@ -201,14 +205,30 @@ export const getAuthDeviceId = async () => {
             if (id) {
                 const s = String(id);
                 await AsyncStorage.setItem('device_id', s);
+                await AsyncStorage.setItem('deviceId', s);
                 return s;
             }
         }
     } catch (e) {
         console.warn('[auth] getAuthDeviceId', e?.message);
     }
-    const existing = await AsyncStorage.getItem('device_id');
-    return existing ? String(existing) : null;
+
+    try {
+        if (DeviceInfo.getUniqueIdSync) {
+            const syncId = DeviceInfo.getUniqueIdSync();
+            if (syncId) {
+                const s = String(syncId);
+                await AsyncStorage.setItem('device_id', s);
+                await AsyncStorage.setItem('deviceId', s);
+                return s;
+            }
+        }
+    } catch (e) {
+        console.warn('[auth] getAuthDeviceId sync fallback', e?.message);
+    }
+
+    const existing = (await AsyncStorage.getItem('device_id')) || (await AsyncStorage.getItem('deviceId'));
+    return existing ? String(existing) : '';
 };
 
 /** POST /auth/device-accounts — list accounts saved on this device */

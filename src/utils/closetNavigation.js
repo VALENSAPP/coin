@@ -34,7 +34,8 @@ export const useTargetClosetScreen = () => {
 
 export const navigateToTargetClosetScreen = (navigation, targetScreen, extraParams = {}) => {
   if (!navigation) return;
-  const targetParams = Object.keys(extraParams).length > 0 ? { screen: targetScreen, params: extraParams } : { screen: targetScreen };
+  const resolvedTarget = targetScreen || 'MyCloset';
+  const targetParams = Object.keys(extraParams).length > 0 ? { screen: resolvedTarget, params: extraParams } : { screen: resolvedTarget };
 
   try {
     navigation.navigate('wallet', targetParams);

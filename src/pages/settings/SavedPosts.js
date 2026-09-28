@@ -54,8 +54,9 @@ const getEbookCoverImage = (item) => {
   return null;
 };
 
-const getEbookDescription = (item) => {
-  if (!item) return 'No description available';
+const getEbookDescription = (item, t) => {
+  const fallback = t?.('ebookBuyDetails.noDescription', 'No description available') || 'No description available';
+  if (!item) return fallback;
   if (typeof item.text === 'string') {
     try {
       const parsed = JSON.parse(item.text);
@@ -63,19 +64,20 @@ const getEbookDescription = (item) => {
         return parsed[0];
       }
     } catch (e) {
-      return item.text || 'No description available';
+      return item.text || fallback;
     }
   }
   if (Array.isArray(item.text) && item.text.length > 0) {
     return item.text[0];
   }
-  return item.description || 'No description available';
+  return item.description || fallback;
 };
 
 const EbookCard = ({ item, onPress, cardStyle, textStyle, themeText }) => {
+  const { t } = useLanguage();
   const coverImage = getEbookCoverImage(item);
-  const title = item.caption || item.title || 'E-book';
-  const description = getEbookDescription(item);
+  const title = item.caption || item.title || t('ebookBuyDetails.defaultTitle', 'E-book');
+  const description = getEbookDescription(item, t);
   const palette = ebookThemeStyles[item.theme] || ebookThemeStyles.purple;
   const activeTint = themeText || '#5A2D82';
 

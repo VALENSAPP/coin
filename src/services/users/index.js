@@ -1,4 +1,5 @@
 import axiosInstance from '..';
+import { getAuthDeviceId } from '../authentication';
 
 export async function getAllUser(params = {}) {
     
@@ -39,7 +40,21 @@ export async function deleteSearchHistoryItem(id) {
   return axiosInstance.delete(`/user/search/history/${id}`);
 }
 
-export async function updateUserLanguage(language) {
-  console.log('Updating user language to:', language);
-  return axiosInstance.post('/user/update-language', { language });
+export async function updateUserLanguage(language, deviceId) {
+  const resolvedDeviceId = (deviceId || (await getAuthDeviceId())) ?? '';
+  console.log('Updating user language to:', language, 'deviceId:', resolvedDeviceId);
+  return axiosInstance.post('/user/update-language', {
+    language,
+    deviceId: resolvedDeviceId,
+  });
 }
+
+/**
+ * Get preferred language for authenticated user (GET /user/language?deviceId=...)
+ */
+export async function getUserLanguage(deviceId) {
+  const resolvedDeviceId = (deviceId || (await getAuthDeviceId())) ?? '';
+  console.log('Fetching user language with deviceId:', resolvedDeviceId);
+    return axiosInstance.get('/user/language/?deviceId=' + resolvedDeviceId);
+}
+

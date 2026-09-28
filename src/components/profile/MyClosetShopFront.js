@@ -494,8 +494,9 @@ const getCoverImage = (item) => {
   return null;
 };
 
-const getDescription = (item) => {
-  if (!item) return 'No description available';
+const getDescription = (item, t) => {
+  const fallback = t?.('ebookBuyDetails.noDescription', 'No description available') || 'No description available';
+  if (!item) return fallback;
   if (typeof item.text === 'string') {
     try {
       const parsed = JSON.parse(item.text);
@@ -503,13 +504,13 @@ const getDescription = (item) => {
         return parsed[0];
       }
     } catch (e) {
-      return item.text || 'No description available';
+      return item.text || fallback;
     }
   }
   if (Array.isArray(item.text) && item.text.length > 0) {
     return item.text[0];
   }
-  return item.description || 'No description available';
+  return item.description || fallback;
 };
 
 const EbookRowItem = React.memo(({
@@ -523,11 +524,12 @@ const EbookRowItem = React.memo(({
   border,
   onPress,
 }) => {
+  const { t } = useLanguage();
   const coverImage = getCoverImage(item);
-  const title = item.caption || item.title || 'E-book';
-  const description = getDescription(item);
+  const title = item.caption || item.title || t('ebookBuyDetails.defaultTitle', 'E-book');
+  const description = getDescription(item, t);
   const palette = themeStyles[item.theme] || themeStyles.purple;
-  const priceLabel = item.amount != null ? `$${parseFloat(item.amount).toFixed(2)}` : 'Free';
+  const priceLabel = item.amount != null ? `$${parseFloat(item.amount).toFixed(2)}` : t('ebookBuyDetails.free', 'Free');
   const showPurchasedBadge = isOwnProfile || isPurchased;
 
   return (

@@ -1,4 +1,5 @@
 import axiosinstance from '../../services';
+import { fetchAndApplyUserLanguage } from '../../i18n';
 
 // export const getProfile = async (data) => {
 //     return axiosinstance.get('user/profile', data);
@@ -9,7 +10,11 @@ export const getProfile = async (userId) => {
     throw new Error('getProfile: you must pass a valid userId');
   }
   try {
-    return  await axiosinstance.get('user/profile', {
+    fetchAndApplyUserLanguage().catch((e) => {
+      console.log('fetchAndApplyUserLanguage in getProfile error:', e?.message || e);
+    });
+
+    return await axiosinstance.get('user/profile', {
       params: { userId }
     });
 

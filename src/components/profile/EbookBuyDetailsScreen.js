@@ -6,6 +6,7 @@ import { useThemeContext } from '../../theme/ThemeContext';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { getMarketplaceEbookById } from '../../services/post';
 import { formSurfaces, themedCard } from '../../utils/closetTheme';
+import { useLanguage } from '../../i18n';
 
 const getCoverImage = (item) => {
   if (!item) return null;
@@ -16,8 +17,9 @@ const getCoverImage = (item) => {
   return null;
 };
 
-const getDescription = (item) => {
-  if (!item) return 'No description available';
+const getDescription = (item, t) => {
+  const fallback = t?.('ebookBuyDetails.noDescription', 'No description available') || 'No description available';
+  if (!item) return fallback;
   if (typeof item.text === 'string') {
     try {
       const parsed = JSON.parse(item.text);
@@ -25,18 +27,19 @@ const getDescription = (item) => {
         return parsed[0];
       }
     } catch (e) {
-      return item.text || 'No description available';
+      return item.text || fallback;
     }
   }
   if (Array.isArray(item.text) && item.text.length > 0) {
     return item.text[0];
   }
-  return item.description || 'No description available';
+  return item.description || fallback;
 };
 
 const EbookBuyDetailsScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
+  const { t } = useLanguage();
   const { ebook, userData, loggedInUserId } = route.params || {};
   const [loadedEbook, setLoadedEbook] = useState(null);
   useEffect(() => {
@@ -68,7 +71,7 @@ const EbookBuyDetailsScreen = () => {
   const surfaceBorder = border || surfaces.listBorder;
 
   const coverImage = getCoverImage(currentEbook);
-  const title = currentEbook?.caption || currentEbook?.title || 'E-book';
+  const title = currentEbook?.caption || currentEbook?.title || t('ebookBuyDetails.defaultTitle', 'E-book');
   const author =
     currentEbook?.purchasedFrom ||
     route?.params?.username ||
@@ -81,10 +84,10 @@ const EbookBuyDetailsScreen = () => {
     userData?.shopName ||
     userData?.shopUsername ||
     userData?.displayName ||
-    'Unknown Author';
-  const description = getDescription(currentEbook);
+    t('ebookBuyDetails.unknownAuthor', 'Unknown Author');
+  const description = getDescription(currentEbook, t);
 
-  const priceLabel = currentEbook?.amount != null ? `$${parseFloat(currentEbook.amount).toFixed(2)}` : 'Free';
+  const priceLabel = currentEbook?.amount != null ? `$${parseFloat(currentEbook.amount).toFixed(2)}` : t('ebookBuyDetails.free', 'Free');
   const chapterCount = currentEbook?.tableContent?.length || 4;
 
   const handleBuyNow = () => {
@@ -101,7 +104,7 @@ const EbookBuyDetailsScreen = () => {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} hitSlop={10}>
           <Ionicons name="arrow-back" size={22} color={primaryText} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: primaryText }]}>E-book Details</Text>
+        <Text style={[styles.headerTitle, { color: primaryText }]}>{t('ebookBuyDetails.headerTitle', 'E-book Details')}</Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -121,12 +124,12 @@ const EbookBuyDetailsScreen = () => {
 
         <View style={styles.infoWrapper}>
           <Text style={[styles.titleText, { color: primaryText }]}>{title}</Text>
-          <Text style={[styles.authorText, { color: muted }]}>by {author}</Text>
+          <Text style={[styles.authorText, { color: muted }]}>{t('ebookBuyDetails.byAuthor', { author }, `by ${author}`)}</Text>
           <Text style={[styles.descriptionText, { color: muted }]}>{description}</Text>
 
           {ebook?.tableContent && ebook.tableContent.length > 0 && (
             <View style={styles.chaptersWrapper}>
-              <Text style={[styles.chaptersTitle, { color: primaryText }]}>Table of Contents</Text>
+              <Text style={[styles.chaptersTitle, { color: primaryText }]}>{t('ebookBuyDetails.tableOfContents', 'Table of Contents')}</Text>
               {ebook.tableContent.map((ch, idx) => (
                 <View key={idx} style={styles.chapterItem}>
                   <Ionicons name="bookmark-outline" size={14} color={brandAccent} style={styles.chapterIcon} />
@@ -139,18 +142,18 @@ const EbookBuyDetailsScreen = () => {
           <View style={styles.statsRow}>
             <View style={[styles.statCard, themedCard(surface, surfaceBorder)]}>
               <Ionicons name="document-text-outline" size={20} color={brandAccent} />
-              <Text style={[styles.statLabel, { color: muted }]}>Pages</Text>
-              <Text style={[styles.statValue, { color: primaryText }]}>{chapterCount * 8} approx</Text>
+              <Text style={[styles.statLabel, { color: muted }]}>{t('ebookBuyDetails.pages', 'Pages')}</Text>
+              <Text style={[styles.statValue, { color: primaryText }]}>{t('ebookBuyDetails.approxPages', { count: chapterCount * 8 }, `${chapterCount * 8} approx`)}</Text>
             </View>
             <View style={[styles.statCard, themedCard(surface, surfaceBorder)]}>
               <Ionicons name="globe-outline" size={20} color={brandAccent} />
-              <Text style={[styles.statLabel, { color: muted }]}>Language</Text>
-              <Text style={[styles.statValue, { color: primaryText }]}>English</Text>
+              <Text style={[styles.statLabel, { color: muted }]}>{t('ebookBuyDetails.language', 'Language')}</Text>
+              <Text style={[styles.statValue, { color: primaryText }]}>{t('ebookBuyDetails.english', 'English')}</Text>
             </View>
             <View style={[styles.statCard, themedCard(surface, surfaceBorder)]}>
               <Ionicons name="download-outline" size={20} color={brandAccent} />
-              <Text style={[styles.statLabel, { color: muted }]}>Format</Text>
-              <Text style={[styles.statValue, { color: primaryText }]}>PDF</Text>
+              <Text style={[styles.statLabel, { color: muted }]}>{t('ebookBuyDetails.format', 'Format')}</Text>
+              <Text style={[styles.statValue, { color: primaryText }]}>{t('ebookBuyDetails.pdfFormat', 'PDF')}</Text>
             </View>
           </View>
         </View>
@@ -166,7 +169,7 @@ const EbookBuyDetailsScreen = () => {
         ]}
       >
         <View style={styles.priceContainer}>
-          <Text style={[styles.priceLabelLabel, { color: muted }]}>Price</Text>
+          <Text style={[styles.priceLabelLabel, { color: muted }]}>{t('ebookBuyDetails.price', 'Price')}</Text>
           <Text style={[styles.priceValueText, { color: primaryText }]}>{priceLabel}</Text>
         </View>
         <TouchableOpacity
@@ -174,7 +177,7 @@ const EbookBuyDetailsScreen = () => {
           onPress={handleBuyNow}
           activeOpacity={0.88}
         >
-          <Text style={styles.buyBtnText}>Buy Now</Text>
+          <Text style={styles.buyBtnText}>{t('ebookBuyDetails.buyNow', 'Buy Now')}</Text>
         </TouchableOpacity>
       </View>
     </View>
