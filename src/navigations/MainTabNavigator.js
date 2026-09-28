@@ -1117,8 +1117,15 @@ export default function MainTabNavigator() {
           <Stack.Screen
             name="SubscriptionSetup"
             component={SubventionSetupScreen}
-            // ── TRANSLATION CHANGE ───────────────────────────────────────────
-            options={{ headerTitle: t('walletStack.subscriptionSetup') }}
+            options={{
+              headerTitle: t('walletStack.subscriptionSetup'),
+              headerTitleStyle: {
+                fontSize: 15,
+                fontWeight: '700',
+                marginLeft: -20,
+                marginRight: -40,
+              },
+            }}
           />
           <Stack.Screen
             name="subscription"

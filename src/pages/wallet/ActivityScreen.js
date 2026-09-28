@@ -166,24 +166,24 @@ export const ActivityScreen = ({ navigation }) => {
           const filteredMock = filterKey === 'all'
             ? initialMockActivities
             : initialMockActivities.filter(item => {
-                if (filterKey === 'following') return item.type === 'follow';
-                if (filterKey === 'unfollowing') return item.type === 'unfollow';
-                if (filterKey === 'drops') return item.type === 'drop';
-                if (filterKey === 'flips') return item.type === 'flip';
-                return true;
-              });
-          setActivities(filteredMock);
-        }
-      } else {
-        const filteredMock = filterKey === 'all'
-          ? initialMockActivities
-          : initialMockActivities.filter(item => {
               if (filterKey === 'following') return item.type === 'follow';
               if (filterKey === 'unfollowing') return item.type === 'unfollow';
               if (filterKey === 'drops') return item.type === 'drop';
               if (filterKey === 'flips') return item.type === 'flip';
               return true;
             });
+          setActivities(filteredMock);
+        }
+      } else {
+        const filteredMock = filterKey === 'all'
+          ? initialMockActivities
+          : initialMockActivities.filter(item => {
+            if (filterKey === 'following') return item.type === 'follow';
+            if (filterKey === 'unfollowing') return item.type === 'unfollow';
+            if (filterKey === 'drops') return item.type === 'drop';
+            if (filterKey === 'flips') return item.type === 'flip';
+            return true;
+          });
         setActivities(filteredMock);
       }
     } catch (error) {
@@ -191,12 +191,12 @@ export const ActivityScreen = ({ navigation }) => {
       const filteredMock = filterKey === 'all'
         ? initialMockActivities
         : initialMockActivities.filter(item => {
-            if (filterKey === 'following') return item.type === 'follow';
-            if (filterKey === 'unfollowing') return item.type === 'unfollow';
-            if (filterKey === 'drops') return item.type === 'drop';
-            if (filterKey === 'flips') return item.type === 'flip';
-            return true;
-          });
+          if (filterKey === 'following') return item.type === 'follow';
+          if (filterKey === 'unfollowing') return item.type === 'unfollow';
+          if (filterKey === 'drops') return item.type === 'drop';
+          if (filterKey === 'flips') return item.type === 'flip';
+          return true;
+        });
       setActivities(filteredMock);
     } finally {
       dispatch(hideLoader());
@@ -240,6 +240,8 @@ export const ActivityScreen = ({ navigation }) => {
     if (activeFilter === 'unfollowing') return t('activity.unfollowingActivity', 'Unfollowing Activity');
     if (activeFilter === 'drops') return t('activity.dropsActivity', 'Drops Activity');
     if (activeFilter === 'flips') return t('activity.flipsActivity', 'Flips Activity');
+    if (activeFilter === 'pending') return t('activity.pendingActivity', 'Pending Activity');
+
     return t('activity.allActivity', 'All Activity');
   };
 
@@ -324,11 +326,11 @@ export const ActivityScreen = ({ navigation }) => {
                 style={[
                   styles.filterPillButton,
                   isActive
-                    ? { backgroundColor:text, borderColor: text }
+                    ? { backgroundColor: text, borderColor: text }
                     : {
-                        backgroundColor: isDarkMode ? '#1E1B2E' : '#FFFFFF',
-                        borderColor: isDarkMode ? '#2D2844' : '#E5E7EB',
-                      },
+                      backgroundColor: isDarkMode ? '#1E1B2E' : '#FFFFFF',
+                      borderColor: isDarkMode ? '#2D2844' : '#E5E7EB',
+                    },
                 ]}
                 onPress={() => setActiveFilter(filter.key)}
               >
@@ -357,7 +359,7 @@ export const ActivityScreen = ({ navigation }) => {
 
         {/* Activity Section */}
         <View style={styles.sectionContainer}>
-          <Text style={[styles.sectionTitleText, { color:text }]}>
+          <Text style={[styles.sectionTitleText, { color: text }]}>
             {getSectionTitle()}
           </Text>
           <FlatList

@@ -2070,7 +2070,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
                       styles.activityDeltaTextCompact,
                       { color: followersTrendDelta >= 0 ? '#059669' : '#dc2626' },
                     ]}
-                    numberOfLines={1}
+                    numberOfLines={2}
                   >
                     {`${followersTrendDelta >= 0 ? '+' : ''}${formatDisplayNumber(Math.round(followersTrendDelta))} ${countPeriodLabel}`}
                   </Text>
@@ -2096,7 +2096,9 @@ export const WalletDashboardScreen = ({ navigation }) => {
                     styles.activityDeltaPillCompact,
                     {
                       backgroundColor:
-                        supportTrendDelta >= 0 ? 'rgba(16,185,129,0.14)' : 'rgba(239,68,68,0.14)',
+                        supportTrendDelta >= 0
+                          ? 'rgba(16,185,129,0.14)'
+                          : 'rgba(239,68,68,0.14)',
                     },
                   ]}
                 >
@@ -2105,15 +2107,22 @@ export const WalletDashboardScreen = ({ navigation }) => {
                     size={10}
                     color={supportTrendDelta >= 0 ? '#059669' : '#dc2626'}
                   />
+
                   <Text
                     style={[
                       styles.activityDeltaText,
                       styles.activityDeltaTextCompact,
-                      { color: supportTrendDelta >= 0 ? '#059669' : '#dc2626' },
+                      {
+                        color:
+                          supportTrendDelta >= 0 ? '#059669' : '#dc2626',
+                      },
                     ]}
-                    numberOfLines={1}
+                    numberOfLines={2}
+                    ellipsizeMode="tail"
                   >
-                    {`${supportTrendDelta >= 0 ? '+' : '-'}${formatSupportUsd(Math.abs(supportTrendDelta))} ${moneyPeriodLabel}`}
+                    {`${supportTrendDelta >= 0 ? '+' : '-'}${formatSupportUsd(
+                      Math.abs(supportTrendDelta)
+                    )} ${moneyPeriodLabel}`}
                   </Text>
                 </View>
               </View>
@@ -2150,7 +2159,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
                       styles.activityDeltaTextCompact,
                       { color: unfollowersTrendDelta <= 0 ? '#059669' : ACTIVITY_UNFOLLOW_PINK },
                     ]}
-                    numberOfLines={1}
+                    numberOfLines={2}
                   >
                     {`${unfollowersTrendDelta >= 0 ? '+' : ''}${formatDisplayNumber(Math.round(unfollowersTrendDelta))} ${countPeriodLabel}`}
                   </Text>

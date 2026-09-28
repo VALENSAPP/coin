@@ -749,6 +749,11 @@ const SubventionSetupScreen = () => {
     const shouldShowAgreedButton = hasActiveSubscription && hasAgreedTerms;
     const canSaveSubscription = shouldShowAgreedButton || isChecked;
 
+
+    console.log('Subscription Setup Render:', {
+        subscriptionStatus
+    });
+
     return (
         <>
             <View style={{ flex: 1, paddingBottom: 20 }}>
@@ -843,7 +848,7 @@ const SubventionSetupScreen = () => {
                                     <Text style={[styles.linkText, { color: accent }]} onPress={openTerms}>
                                         {t('subventionSetup.creatorTermsLink')}
                                     </Text>
-                                    {t('subventionSetup.agreeSuffix')}
+                                    {' '}{t('subventionSetup.agreeSuffix')}
                                 </Text>
                             </TouchableOpacity>
                         )}

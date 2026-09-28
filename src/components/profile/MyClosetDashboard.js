@@ -76,11 +76,11 @@ const buildStatCards = (data, t) => ([
   {
     key: 'revenue',
     label: t('myClosetDashboard.stats.revenue'),
-    value: `$${Number(data?.revenue ?? 0).toFixed(0)}`,
+    value: `R$${Number(data?.revenue ?? 0).toFixed(0)}`,
     delta: formatDelta(data?.changes?.revenuePercent),
     icon: 'cash-outline',
   },
-   {
+  {
     key: 'cancelledorders',
     label: t('myClosetDashboard.stats.cancelledOrders'),
     value: String(data?.cancelledOrdersCount ?? 0),
@@ -94,7 +94,11 @@ const buildStatCards = (data, t) => ([
 const buildOverviewCards = (data, t) => ([
   { key: 'items', label: t('myClosetDashboard.overview.items'), value: String(data?.totalItems ?? 0) },
   { key: 'sold', label: t('myClosetDashboard.overview.sold'), value: String(data?.sold ?? 0) },
-  { key: 'earnings', label: t('myClosetDashboard.overview.earnings'), value: `$${Number(data?.revenue ?? 0).toFixed(0)}` },
+  {
+    key: 'earnings',
+    label: t('myClosetDashboard.overview.earnings'),
+    value: `${t('myClosetDashboard.overview.currency')}${Number(data?.revenue ?? 0).toFixed(0)}`
+  },
   // { key: 'rating', label: t('myClosetDashboard.overview.rating'), value: data?.rating != null ? String(data.rating) : '—' },
 ]);
 
@@ -121,10 +125,10 @@ const formatCurrency = value => {
 const fastImageSource = uri =>
   uri
     ? {
-        uri,
-        priority: FastImage.priority.high,
-        cache: FastImage.cacheControl.immutable,
-      }
+      uri,
+      priority: FastImage.priority.high,
+      cache: FastImage.cacheControl.immutable,
+    }
     : null;
 
 const normalizePriorityBattle = battle => {
@@ -184,7 +188,7 @@ const ORDER_STATUS_COLORS = {
 
 const normalizeOrderStatus = raw => {
   const value = String(raw || '').trim().toLowerCase();
-  if (['localpickup','delivered', 'shipped', 'processing', 'confirmed', 'cancelled'].includes(value)) {
+  if (['localpickup', 'delivered', 'shipped', 'processing', 'confirmed', 'cancelled'].includes(value)) {
     return value;
   }
   return 'pending';
@@ -335,7 +339,7 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
           : Array.isArray(payload?.data)
             ? payload.data
             : [];
-      console.log("-----------------list-------------------",list)
+      console.log("-----------------list-------------------", list)
       setRecentOrders(list.slice(0, 3).map((order, index) => normalizeBuyerOrder(order, index, t)));
     } catch (error) {
       console.warn('Unable to load recent orders:', error);
@@ -596,9 +600,9 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
         console.warn('Cannot share: no userId found');
         return;
       }
-      
+
       const username = shopHandle || userData?.username || userData?.userName || userProfile?.username || userProfile?.userName;
-      
+
       const link = `${BASE_URL}/closet/${encodeURIComponent(String(userId))}`;
       const profileLabel = username ? `@${username}` : 'this closet';
       const shareMessage = [
@@ -794,439 +798,439 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-      {/* ── Hero Profile Card ── */}
-      <View style={[styles.heroCard, cardStyle, { borderColor: border }]}>
-        <View style={styles.heroTop}>
-          <View style={styles.heroLeft}>
-            <View style={[styles.heroBadge, { backgroundColor: withAlpha(accent, 0.15) }]}>
-              {avatarUri ? (
-                <Image source={{ uri: avatarUri }} style={styles.heroAvatar} />
-              ) : (
-                <Ionicons name="bag-handle" size={30} color={accent} />
-              )}
-              <View style={[styles.verifiedDot, { backgroundColor: accent }]}>
-                <Ionicons name="checkmark" size={9} color="#fff" />
+        {/* ── Hero Profile Card ── */}
+        <View style={[styles.heroCard, cardStyle, { borderColor: border }]}>
+          <View style={styles.heroTop}>
+            <View style={styles.heroLeft}>
+              <View style={[styles.heroBadge, { backgroundColor: withAlpha(accent, 0.15) }]}>
+                {avatarUri ? (
+                  <Image source={{ uri: avatarUri }} style={styles.heroAvatar} />
+                ) : (
+                  <Ionicons name="bag-handle" size={30} color={accent} />
+                )}
+                <View style={[styles.verifiedDot, { backgroundColor: accent }]}>
+                  <Ionicons name="checkmark" size={9} color="#fff" />
+                </View>
+              </View>
+              <View style={styles.heroMeta}>
+                <Text style={[styles.heroTitle, textStyle]}>{shopName}</Text>
+                <Text style={[styles.heroHandle, mutedTextStyle]}>valens.app/{String(shopHandle).toLowerCase().replace(/\s+/g, '')}</Text>
               </View>
             </View>
-            <View style={styles.heroMeta}>
-              <Text style={[styles.heroTitle, textStyle]}>{shopName}</Text>
-              <Text style={[styles.heroHandle, mutedTextStyle]}>valens.app/{String(shopHandle).toLowerCase().replace(/\s+/g, '')}</Text>
-            </View>
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onPress={handleSharePress}
+              style={[styles.shareButton, { borderColor: withAlpha(accent, 0.35) }]}
+            >
+              <Text style={[styles.shareButtonText, { color: accent }]}>{t('myClosetDashboard.shareShop')}</Text>
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity
-            activeOpacity={0.9}
-            onPress={handleSharePress}
-            style={[styles.shareButton, { borderColor: withAlpha(accent, 0.35) }]}
-          >
-            <Text style={[styles.shareButtonText, { color: accent }]}>{t('myClosetDashboard.shareShop')}</Text>
-          </TouchableOpacity>
+
+          {/* Stats row */}
+          <View style={styles.heroStatsRow}>
+            {overviewCards.map((card, idx) => (
+              <React.Fragment key={card.key}>
+                <TouchableOpacity
+                  activeOpacity={card.key === 'earnings' ? 0.8 : 1}
+                  onPress={card.key === 'earnings' ? handleOpenEarnings : undefined}
+                  disabled={card.key !== 'earnings'}
+                  style={styles.heroStatTouchable}
+                >
+                  <View style={styles.heroStatItem}>
+                    <Text style={[styles.heroStatValue, textStyle]}>{card.value}</Text>
+                    <Text style={[styles.heroStatLabel, mutedTextStyle]}>{card.label}</Text>
+                  </View>
+                </TouchableOpacity>
+                {idx < overviewCards.length - 1 && (
+                  <View style={[styles.heroStatDivider, { backgroundColor: withAlpha(accent, 0.12) }]} />
+                )}
+              </React.Fragment>
+            ))}
+          </View>
+
+          {/* Live banner */}
+          <View style={[styles.liveBanner, { backgroundColor: withAlpha(accent, 0.12) }]}>
+            <Ionicons name="bag-handle-outline" size={16} color={accent} />
+            <Text style={[styles.liveBannerText, textStyle]}>
+              {t('myClosetDashboard.liveBannerTitle')}{'  '}
+              <Text style={[styles.liveBannerSub, mutedTextStyle]}>{t('myClosetDashboard.liveBannerSubtitle')}</Text>
+            </Text>
+          </View>
         </View>
 
-        {/* Stats row */}
-        <View style={styles.heroStatsRow}>
-          {overviewCards.map((card, idx) => (
-            <React.Fragment key={card.key}>
-              <TouchableOpacity
-                activeOpacity={card.key === 'earnings' ? 0.8 : 1}
-                onPress={card.key === 'earnings' ? handleOpenEarnings : undefined}
-                disabled={card.key !== 'earnings'}
-                style={styles.heroStatTouchable}
-              >
-                <View style={styles.heroStatItem}>
-                  <Text style={[styles.heroStatValue, textStyle]}>{card.value}</Text>
-                  <Text style={[styles.heroStatLabel, mutedTextStyle]}>{card.label}</Text>
-                </View>
-              </TouchableOpacity>
-              {idx < overviewCards.length - 1 && (
-                <View style={[styles.heroStatDivider, { backgroundColor: withAlpha(accent, 0.12) }]} />
+        {/* ── Pinned Item ── */}
+        {(priorityBattlesLoading || pinnedItems.length > 0) && (
+          <View style={[styles.pinnedSection, cardStyle, { borderColor: border }]}>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, textStyle]}>{t('myClosetDashboard.pinnedItemTitle') || 'Pinned Item'}</Text>
+              {showPinnedViewAll && (
+                <TouchableOpacity activeOpacity={0.8} onPress={() => navigateToBattleList(navigation, resolvedClosetId, userProfile)}>
+                  <Text style={[styles.sectionMeta, mutedTextStyle]}>{t('myClosetDashboard.viewAllPinned')} ›</Text>
+                </TouchableOpacity>
               )}
-            </React.Fragment>
-          ))}
-        </View>
-
-        {/* Live banner */}
-        <View style={[styles.liveBanner, { backgroundColor: withAlpha(accent, 0.12) }]}>
-          <Ionicons name="bag-handle-outline" size={16} color={accent} />
-          <Text style={[styles.liveBannerText, textStyle]}>
-            {t('myClosetDashboard.liveBannerTitle')}{'  '}
-            <Text style={[styles.liveBannerSub, mutedTextStyle]}>{t('myClosetDashboard.liveBannerSubtitle')}</Text>
-          </Text>
-        </View>
-      </View>
-
-      {/* ── Pinned Item ── */}
-      {(priorityBattlesLoading || pinnedItems.length > 0) && (
-        <View style={[styles.pinnedSection, cardStyle, { borderColor: border }]}>
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, textStyle]}>{t('myClosetDashboard.pinnedItemTitle') || 'Pinned Item'}</Text>
-            {showPinnedViewAll && (
-              <TouchableOpacity activeOpacity={0.8} onPress={() => navigateToBattleList(navigation, resolvedClosetId, userProfile)}>
-                <Text style={[styles.sectionMeta, mutedTextStyle]}>{t('myClosetDashboard.viewAllPinned')} ›</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-          {priorityBattlesLoading && pinnedItems.length === 0 ? (
-            <View style={styles.itemsLoadingWrap}>
-              <ActivityIndicator color={accent} />
             </View>
-          ) : (
-            pinnedItems.map(item => (
-              <View key={item.id} style={[styles.pinnedCard, { borderTopColor: isDarkMode ? border : '#f3f4f6' }]}>
-                <View style={[styles.pinnedThumbWrap, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.06)' : '#f5f3ef' }]}>
-                  {item.image ? (
-                    <FastImage
-                      source={fastImageSource(item.image)}
-                      style={styles.pinnedThumb}
-                      resizeMode={FastImage.resizeMode.cover}
-                    />
-                  ) : (
-                    <View style={[styles.pinnedThumb, styles.pinnedThumbPlaceholder]}>
-                      <Ionicons name="shirt-outline" size={26} color={accent} />
-                    </View>
-                  )}
-                </View>
-
-                <View style={styles.pinnedBody}>
-                  <View style={styles.pinnedTopRow}>
-                    <Text style={[styles.pinnedTitle, textStyle]} numberOfLines={1}>{item.title}</Text>
-                    {item.badge ? (
-                      <View style={styles.winnerBadge}>
-                        <Text style={styles.winnerBadgeText}>🏆 {item.badge}</Text>
+            {priorityBattlesLoading && pinnedItems.length === 0 ? (
+              <View style={styles.itemsLoadingWrap}>
+                <ActivityIndicator color={accent} />
+              </View>
+            ) : (
+              pinnedItems.map(item => (
+                <View key={item.id} style={[styles.pinnedCard, { borderTopColor: isDarkMode ? border : '#f3f4f6' }]}>
+                  <View style={[styles.pinnedThumbWrap, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.06)' : '#f5f3ef' }]}>
+                    {item.image ? (
+                      <FastImage
+                        source={fastImageSource(item.image)}
+                        style={styles.pinnedThumb}
+                        resizeMode={FastImage.resizeMode.cover}
+                      />
+                    ) : (
+                      <View style={[styles.pinnedThumb, styles.pinnedThumbPlaceholder]}>
+                        <Ionicons name="shirt-outline" size={26} color={accent} />
                       </View>
-                    ) : null}
+                    )}
                   </View>
 
-                  <Text style={[styles.pinnedPrice, textStyle]}>{item.price}</Text>
+                  <View style={styles.pinnedBody}>
+                    <View style={styles.pinnedTopRow}>
+                      <Text style={[styles.pinnedTitle, textStyle]} numberOfLines={1}>{item.title}</Text>
+                      {item.badge ? (
+                        <View style={styles.winnerBadge}>
+                          <Text style={styles.winnerBadgeText}>🏆 {item.badge}</Text>
+                        </View>
+                      ) : null}
+                    </View>
 
-                  <View style={styles.pinnedBottomRow}>
-                    {/* {item.promoLabel ? (
+                    <Text style={[styles.pinnedPrice, textStyle]}>{item.price}</Text>
+
+                    <View style={styles.pinnedBottomRow}>
+                      {/* {item.promoLabel ? (
                       <View style={styles.promoPill}>
                         <Text style={styles.promoPillText}>{item.promoLabel}</Text>
                       </View>
                     ) : <View />} */}
 
-                    {item.pinLabel ? (
-                      <View style={[styles.pinPill, { backgroundColor: isDarkMode ? withAlpha(accent, 0.15) : '#f5f3ff' }]}>
-                        <Ionicons name="pin-outline" size={14} color={accent} />
-                        <Text style={[styles.pinPillText, { color: accent }]}>{item.pinLabel}</Text>
-                      </View>
-                    ) : null}
+                      {item.pinLabel ? (
+                        <View style={[styles.pinPill, { backgroundColor: isDarkMode ? withAlpha(accent, 0.15) : '#f5f3ff' }]}>
+                          <Ionicons name="pin-outline" size={14} color={accent} />
+                          <Text style={[styles.pinPillText, { color: accent }]}>{item.pinLabel}</Text>
+                        </View>
+                      ) : null}
+                    </View>
                   </View>
                 </View>
-              </View>
-            ))
-          )}
-        </View>
-      )}
+              ))
+            )}
+          </View>
+        )}
 
-      {/* ── Overview (by range) ── */}
-      <View style={[styles.sectionCard, cardStyle, { borderColor: border }]}>
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, textStyle]}>{t('myClosetDashboard.overviewTitle')}</Text>
-          <TouchableOpacity activeOpacity={0.8} onPress={handleOpenAnalytics}>
-            <Text style={[styles.sectionMeta, mutedTextStyle]}>{t('myClosetDashboard.viewAll')} ›</Text>
+        {/* ── Overview (by range) ── */}
+        <View style={[styles.sectionCard, cardStyle, { borderColor: border }]}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, textStyle]}>{t('myClosetDashboard.overviewTitle')}</Text>
+            <TouchableOpacity activeOpacity={0.8} onPress={handleOpenAnalytics}>
+              <Text style={[styles.sectionMeta, mutedTextStyle]}>{t('myClosetDashboard.viewAll')} ›</Text>
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity activeOpacity={0.8} onPress={handleToggleRange} style={{ marginBottom: 12 }}>
+            <Text style={[styles.sectionMeta, mutedTextStyle]}>
+              {overviewRange === 'weekly' ? t('myClosetDashboard.thisWeek') : t('myClosetDashboard.thisMonth')} ▾
+            </Text>
           </TouchableOpacity>
+
+          <View style={styles.quickGrid}>
+            {marketplaceLoading ? (
+              <View style={styles.itemsLoadingWrap}>
+                <ActivityIndicator color={accent} />
+              </View>
+            ) : (
+              <View style={styles.quickGrid}>
+                {statCards.map(card => (
+                  <View key={card.key} style={[styles.quickCard, { backgroundColor: surface }]}>
+                    <Ionicons name={card.icon} size={18} color={accent} />
+                    <Text style={[styles.quickValue, textStyle]}>{card.value}</Text>
+                    <Text style={[styles.quickLabel, mutedTextStyle]}>{card.label}</Text>
+                    {card.delta != null && (
+                      <Text
+                        style={[
+                          styles.quickDelta,
+                          { color: card.delta.startsWith('-') ? '#dc2626' : '#16a34a' },
+                        ]}
+                      >
+                        {card.delta}
+                      </Text>
+                    )}
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
         </View>
 
-        <TouchableOpacity activeOpacity={0.8} onPress={handleToggleRange} style={{ marginBottom: 12 }}>
-          <Text style={[styles.sectionMeta, mutedTextStyle]}>
-            {overviewRange === 'weekly' ? t('myClosetDashboard.thisWeek') : t('myClosetDashboard.thisMonth')} ▾
-          </Text>
-        </TouchableOpacity>
+        {/* ── Battle Performance ── */}
+        <View style={[styles.sectionCard, cardStyle, { borderColor: border }]}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.rowCenter}>
+              <Ionicons name="flame-outline" size={16} color={accent} style={{ marginRight: 5 }} />
+              <Text style={[styles.sectionTitle, textStyle]}>{t('myClosetDashboard.battlePerformanceTitle')}</Text>
+              <Ionicons name="information-circle-outline" size={14} color={mutedText} style={{ marginLeft: 4 }} />
+            </View>
+            <TouchableOpacity activeOpacity={0.8} onPress={handleViewAllBattles}>
+              <Text style={[styles.sectionMeta, mutedTextStyle]}>{t('myClosetDashboard.viewAll')} ›</Text>
+            </TouchableOpacity>
+          </View>
 
-        <View style={styles.quickGrid}>
-          {marketplaceLoading ? (
+          <View style={styles.battleGrid}>
+            {battleStats.map(stat => (
+              <View key={stat.key} style={[styles.battleCard, { backgroundColor: surface }]}>
+                <Ionicons name={stat.icon} size={20} color={accent} />
+                <Text style={[styles.battleValue, textStyle]}>{stat.value}</Text>
+                <Text style={[styles.battleLabel, mutedTextStyle]}>{stat.label}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        {/* ── Seller Order History (orders you've received) ── */}
+        <View style={[styles.sectionCard, cardStyle, { borderColor: border }]}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, textStyle]}>{t('myClosetDashboard.sellerOrdersTitle')}</Text>
+            <TouchableOpacity activeOpacity={0.8} onPress={handleViewAllOrders}>
+              <Text style={[styles.sectionMeta, mutedTextStyle]}>{t('myClosetDashboard.viewAll')} ›</Text>
+            </TouchableOpacity>
+          </View>
+
+          {ordersLoading ? (
             <View style={styles.itemsLoadingWrap}>
               <ActivityIndicator color={accent} />
             </View>
-          ) : (
-            <View style={styles.quickGrid}>
-              {statCards.map(card => (
-                <View key={card.key} style={[styles.quickCard, { backgroundColor: surface }]}>
-                  <Ionicons name={card.icon} size={18} color={accent} />
-                  <Text style={[styles.quickValue, textStyle]}>{card.value}</Text>
-                  <Text style={[styles.quickLabel, mutedTextStyle]}>{card.label}</Text>
-                  {card.delta != null && (
-                    <Text
-                      style={[
-                        styles.quickDelta,
-                        { color: card.delta.startsWith('-') ? '#dc2626' : '#16a34a' },
-                      ]}
-                    >
-                      {card.delta}
+          ) : recentOrders.length ? (
+            <View style={styles.itemList}>
+              {recentOrders.map(item => (
+                <TouchableOpacity
+                  key={item.key}
+                  activeOpacity={0.8}
+                  style={styles.orderRow}
+                  onPress={() => handleOpenOrder(item)}
+                >
+                  <View style={[styles.itemThumb, { backgroundColor: withAlpha(accent, 0.1) }]}>
+                    {item.image ? (
+                      <Image source={{ uri: item.image }} style={styles.itemGridImage} />
+                    ) : (
+                      <Ionicons name="shirt-outline" size={18} color={accent} />
+                    )}
+                  </View>
+                  <View style={styles.itemCopy}>
+                    <Text style={[styles.itemName, textStyle]} numberOfLines={1}>{item.name}</Text>
+                    <Text style={[styles.itemOrder, mutedTextStyle]}>{item.order}</Text>
+                    <Text style={[styles.itemMeta, mutedTextStyle]} numberOfLines={1}>
+                      {item.buyerName}
+                      {item.createdAt ? ` • ${new Date(item.createdAt).toLocaleDateString()}` : ''}
                     </Text>
-                  )}
-                </View>
+                  </View>
+                  <View style={styles.orderRight}>
+                    <View style={[styles.statusBadge, { backgroundColor: `${text}18` }]}>
+                      <Text style={[styles.statusText, { color: text }]}>{item.status}</Text>
+                    </View>
+                    <Text style={[styles.orderPrice, textStyle]}>{item.totalAmount}</Text>
+                    <View style={styles.orderCountRow}>
+                      <Text style={[styles.orderCount, mutedTextStyle]}>{item.totalItemCount} item{item.totalItemCount === 1 ? '' : 's'}</Text>
+                      {unviewedOrderIds.includes(String(item.id || item.raw?.id || item.raw?._id)) ? (
+                        <View style={[styles.newOrderBadge, { backgroundColor: accent }]}>
+                          <Text style={styles.newOrderBadgeText}>{t('myClosetDashboard.newOrderBadge')}</Text>
+                        </View>
+                      ) : null}
+                    </View>
+                  </View>
+                </TouchableOpacity>
               ))}
             </View>
+          ) : (
+            <View style={[styles.emptyItemsCard, { borderColor: border }]}>
+              <Ionicons name="bag-outline" size={24} color={accent} />
+              <Text style={[styles.emptyItemsText, textStyle]}>{t('myClosetDashboard.noOrdersYet')}</Text>
+            </View>
           )}
         </View>
-      </View>
 
-      {/* ── Battle Performance ── */}
-      <View style={[styles.sectionCard, cardStyle, { borderColor: border }]}>
-        <View style={styles.sectionHeader}>
-          <View style={styles.rowCenter}>
-            <Ionicons name="flame-outline" size={16} color={accent} style={{ marginRight: 5 }} />
-            <Text style={[styles.sectionTitle, textStyle]}>{t('myClosetDashboard.battlePerformanceTitle')}</Text>
-            <Ionicons name="information-circle-outline" size={14} color={mutedText} style={{ marginLeft: 4 }} />
-          </View>
-          <TouchableOpacity activeOpacity={0.8} onPress={handleViewAllBattles}>
-            <Text style={[styles.sectionMeta, mutedTextStyle]}>{t('myClosetDashboard.viewAllBattles')} ›</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.battleGrid}>
-          {battleStats.map(stat => (
-            <View key={stat.key} style={[styles.battleCard, { backgroundColor: surface }]}>
-              <Ionicons name={stat.icon} size={20} color={accent} />
-              <Text style={[styles.battleValue, textStyle]}>{stat.value}</Text>
-              <Text style={[styles.battleLabel, mutedTextStyle]}>{stat.label}</Text>
+        {/* ── Buyer Order History (orders you've placed) ── */}
+        <View style={[styles.sectionCard, cardStyle, { borderColor: border }]}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.rowCenter}>
+              <Ionicons name="cart-outline" size={16} color={accent} style={{ marginRight: 5 }} />
+              <Text style={[styles.sectionTitle, textStyle]}>{t('myClosetDashboard.buyerOrdersTitle')}</Text>
             </View>
-          ))}
-        </View>
-      </View>
+            <TouchableOpacity activeOpacity={0.8} onPress={handleViewAllBuyerOrders}>
+              <Text style={[styles.sectionMeta, mutedTextStyle]}>{t('myClosetDashboard.viewAll')} ›</Text>
+            </TouchableOpacity>
+          </View>
 
-      {/* ── Seller Order History (orders you've received) ── */}
-      <View style={[styles.sectionCard, cardStyle, { borderColor: border }]}>
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, textStyle]}>{t('myClosetDashboard.sellerOrdersTitle')}</Text>
-          <TouchableOpacity activeOpacity={0.8} onPress={handleViewAllOrders}>
-            <Text style={[styles.sectionMeta, mutedTextStyle]}>{t('myClosetDashboard.viewAll')} ›</Text>
-          </TouchableOpacity>
-        </View>
-
-        {ordersLoading ? (
-          <View style={styles.itemsLoadingWrap}>
-            <ActivityIndicator color={accent} />
-          </View>
-        ) : recentOrders.length ? (
-          <View style={styles.itemList}>
-            {recentOrders.map(item => (
-              <TouchableOpacity
-                key={item.key}
-                activeOpacity={0.8}
-                style={styles.orderRow}
-                onPress={() => handleOpenOrder(item)}
-              >
-                <View style={[styles.itemThumb, { backgroundColor: withAlpha(accent, 0.1) }]}>
-                  {item.image ? (
-                    <Image source={{ uri: item.image }} style={styles.itemGridImage} />
-                  ) : (
-                    <Ionicons name="shirt-outline" size={18} color={accent} />
-                  )}
-                </View>
-                <View style={styles.itemCopy}>
-                  <Text style={[styles.itemName, textStyle]} numberOfLines={1}>{item.name}</Text>
-                  <Text style={[styles.itemOrder, mutedTextStyle]}>{item.order}</Text>
-                  <Text style={[styles.itemMeta, mutedTextStyle]} numberOfLines={1}>
-                    {item.buyerName}
-                    {item.createdAt ? ` • ${new Date(item.createdAt).toLocaleDateString()}` : ''}
-                  </Text>
-                </View>
-                <View style={styles.orderRight}>
-                  <View style={[styles.statusBadge, { backgroundColor: `${text}18` }]}>
-                    <Text style={[styles.statusText, { color: text }]}>{item.status}</Text>
-                  </View>
-                  <Text style={[styles.orderPrice, textStyle]}>{item.totalAmount}</Text>
-                  <View style={styles.orderCountRow}>
-                    <Text style={[styles.orderCount, mutedTextStyle]}>{item.totalItemCount} item{item.totalItemCount === 1 ? '' : 's'}</Text>
-                    {unviewedOrderIds.includes(String(item.id || item.raw?.id || item.raw?._id)) ? (
-                      <View style={[styles.newOrderBadge, { backgroundColor: accent }]}>
-                        <Text style={styles.newOrderBadgeText}>{t('myClosetDashboard.newOrderBadge')}</Text>
-                      </View>
-                    ) : null}
-                  </View>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </View>
-        ) : (
-          <View style={[styles.emptyItemsCard, { borderColor: border }]}>
-            <Ionicons name="bag-outline" size={24} color={accent} />
-            <Text style={[styles.emptyItemsText, textStyle]}>{t('myClosetDashboard.noOrdersYet')}</Text>
-          </View>
-        )}
-      </View>
-
-      {/* ── Buyer Order History (orders you've placed) ── */}
-      <View style={[styles.sectionCard, cardStyle, { borderColor: border }]}>
-        <View style={styles.sectionHeader}>
-          <View style={styles.rowCenter}>
-            <Ionicons name="cart-outline" size={16} color={accent} style={{ marginRight: 5 }} />
-            <Text style={[styles.sectionTitle, textStyle]}>{t('myClosetDashboard.buyerOrdersTitle')}</Text>
-          </View>
-          <TouchableOpacity activeOpacity={0.8} onPress={handleViewAllBuyerOrders}>
-            <Text style={[styles.sectionMeta, mutedTextStyle]}>{t('myClosetDashboard.viewAll')} ›</Text>
-          </TouchableOpacity>
-        </View>
-
-        {buyerOrdersLoading ? (
-          <View style={styles.itemsLoadingWrap}>
-            <ActivityIndicator color={accent} />
-          </View>
-        ) : buyerOrders.length ? (
-          <View style={styles.itemList}>
-            {buyerOrders.map(item => (
-              <TouchableOpacity
-                key={item.key}
-                activeOpacity={0.8}
-                style={styles.orderRow}
-                onPress={() => handleOpenBuyerOrder(item)}
-              >
-                <View style={[styles.itemThumb, { backgroundColor: withAlpha(accent, 0.1) }]}>
-                  {item.image ? (
-                    <Image source={{ uri: item.image }} style={styles.itemGridImage} />
-                  ) : (
-                    <Ionicons name="shirt-outline" size={18} color={accent} />
-                  )}
-                </View>
-                <View style={styles.itemCopy}>
-                  <Text style={[styles.itemName, textStyle]} numberOfLines={1}>{item.name}</Text>
-                  <Text style={[styles.itemOrder, mutedTextStyle]}>{item.order}</Text>
-                  <Text style={[styles.itemMeta, mutedTextStyle]} numberOfLines={1}>
-                    {/* {item.buyerName} */}
-                    {item.createdAt ? ` ${new Date(item.createdAt).toLocaleDateString()}` : ''}
-                  </Text>
-                </View>
-                <View style={styles.orderRight}>
-                  <View style={[styles.statusBadge, { backgroundColor: `${text}18` }]}>
-                    <Text style={[styles.statusText, { color: text }]}>{item.status}</Text>
-                  </View>
-                  <Text style={[styles.orderPrice, textStyle]}>{item.totalAmount}</Text>
-                  <Text style={[styles.orderCount, mutedTextStyle]}>{item.totalItemCount} item{item.totalItemCount === 1 ? '' : 's'}</Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </View>
-        ) : (
-          <View style={[styles.emptyItemsCard, { borderColor: border }]}>
-            <Ionicons name="cart-outline" size={24} color={accent} />
-            <Text style={[styles.emptyItemsText, textStyle]}>{t('myClosetDashboard.noPurchasesYet')}</Text>
-          </View>
-        )}
-      </View>
-
-      {/* ── Your Items Grid ── */}
-      <View style={[styles.sectionCard, cardStyle, { borderColor: border }]}>
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, textStyle]}>{t('myClosetDashboard.yourItemsTitle')}</Text>
-          <TouchableOpacity activeOpacity={0.8} onPress={handleViewAllItems}>
-            <Text style={[styles.sectionMeta, mutedTextStyle]}>{t('myClosetDashboard.viewAll')} ›</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.itemsGrid}>
-          {itemsLoading ? (
+          {buyerOrdersLoading ? (
             <View style={styles.itemsLoadingWrap}>
               <ActivityIndicator color={accent} />
             </View>
-          ) : displayItems.length ? (
-            displayItems.map(item => (
-              <TouchableOpacity
-                key={item.key}
-                activeOpacity={0.85}
-                style={styles.itemGridCard}
-                onPress={() =>
-                  navigation?.navigate?.('ProfileMain', {
-                    screen: 'MyClosetItemEditor',
-                    params: {
-                      item: item.raw || item,
+          ) : buyerOrders.length ? (
+            <View style={styles.itemList}>
+              {buyerOrders.map(item => (
+                <TouchableOpacity
+                  key={item.key}
+                  activeOpacity={0.8}
+                  style={styles.orderRow}
+                  onPress={() => handleOpenBuyerOrder(item)}
+                >
+                  <View style={[styles.itemThumb, { backgroundColor: withAlpha(accent, 0.1) }]}>
+                    {item.image ? (
+                      <Image source={{ uri: item.image }} style={styles.itemGridImage} />
+                    ) : (
+                      <Ionicons name="shirt-outline" size={18} color={accent} />
+                    )}
+                  </View>
+                  <View style={styles.itemCopy}>
+                    <Text style={[styles.itemName, textStyle]} numberOfLines={1}>{item.name}</Text>
+                    <Text style={[styles.itemOrder, mutedTextStyle]}>{item.order}</Text>
+                    <Text style={[styles.itemMeta, mutedTextStyle]} numberOfLines={1}>
+                      {/* {item.buyerName} */}
+                      {item.createdAt ? ` ${new Date(item.createdAt).toLocaleDateString()}` : ''}
+                    </Text>
+                  </View>
+                  <View style={styles.orderRight}>
+                    <View style={[styles.statusBadge, { backgroundColor: `${text}18` }]}>
+                      <Text style={[styles.statusText, { color: text }]}>{item.status}</Text>
+                    </View>
+                    <Text style={[styles.orderPrice, textStyle]}>{item.totalAmount}</Text>
+                    <Text style={[styles.orderCount, mutedTextStyle]}>{item.totalItemCount} item{item.totalItemCount === 1 ? '' : 's'}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : (
+            <View style={[styles.emptyItemsCard, { borderColor: border }]}>
+              <Ionicons name="cart-outline" size={24} color={accent} />
+              <Text style={[styles.emptyItemsText, textStyle]}>{t('myClosetDashboard.noPurchasesYet')}</Text>
+            </View>
+          )}
+        </View>
+
+        {/* ── Your Items Grid ── */}
+        <View style={[styles.sectionCard, cardStyle, { borderColor: border }]}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, textStyle]}>{t('myClosetDashboard.yourItemsTitle')}</Text>
+            <TouchableOpacity activeOpacity={0.8} onPress={handleViewAllItems}>
+              <Text style={[styles.sectionMeta, mutedTextStyle]}>{t('myClosetDashboard.viewAll')} ›</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.itemsGrid}>
+            {itemsLoading ? (
+              <View style={styles.itemsLoadingWrap}>
+                <ActivityIndicator color={accent} />
+              </View>
+            ) : displayItems.length ? (
+              displayItems.map(item => (
+                <TouchableOpacity
+                  key={item.key}
+                  activeOpacity={0.85}
+                  style={styles.itemGridCard}
+                  onPress={() =>
+                    navigation?.navigate?.('ProfileMain', {
+                      screen: 'MyClosetItemEditor',
+                      params: {
+                        item: item.raw || item,
+                        returnTo: 'MyClosetDashboard',
+                      },
+                    })
+                  }
+                >
+                  <View style={[styles.itemGridThumb, { backgroundColor: withAlpha(accent, 0.08) }]}>
+                    {item.image ? (
+                      <Image source={{ uri: item.image }} style={styles.itemGridImage} />
+                    ) : (
+                      <Ionicons name="shirt-outline" size={28} color={accent} />
+                    )}
+                  </View>
+                  <Text style={[styles.itemGridName, textStyle]} numberOfLines={1}>{item.name}</Text>
+                  <Text style={[styles.itemGridPrice, mutedTextStyle]}>{item.price}</Text>
+                </TouchableOpacity>
+              ))
+            ) : (
+              <View style={[styles.emptyItemsCard, { borderColor: border }]}>
+                <Ionicons name="shirt-outline" size={24} color={accent} />
+                <Text style={[styles.emptyItemsText, textStyle]}>{t('myClosetDashboard.noItemsYet')}</Text>
+              </View>
+            )}
+
+            {/* Add New Item tile */}
+            <TouchableOpacity activeOpacity={0.85} style={styles.itemGridCard} onPress={handleAddItemPress}>
+              <View style={[styles.itemGridThumb, styles.addItemThumb, { borderColor: withAlpha(accent, 0.2) }]}>
+                <Ionicons name="add" size={28} color={accent} />
+              </View>
+              <Text style={[styles.itemGridName, { color: accent, fontWeight: '700' }]}>{t('myClosetDashboard.addNewItem')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View style={[styles.sectionCard, cardStyle, { borderColor: withAlpha(text, 0.12) }]}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.ebooksCtaCopy}>
+              <Ionicons name="book-outline" size={18} color={text} style={{ marginRight: 8 }} />
+              <Text style={[styles.ebooksCtaTitle, textStyle]}>{t('myClosetDashboard.ebooksTitle')}</Text>
+            </View>
+            <TouchableOpacity activeOpacity={0.8} onPress={handleViewAllEbooks}>
+              <Text style={[styles.sectionMeta, mutedTextStyle]}>{t('myClosetDashboard.viewAll')} ›</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={[styles.ebooksCta, { borderTopColor: border }]}>
+            {ebooksLoading ? (
+              <View style={styles.itemsLoadingWrap}>
+                <ActivityIndicator color={text} />
+              </View>
+            ) : dashboardEbooks.length ? (
+              dashboardEbooks.map(item => (
+                <EbookCard
+                  key={String(item.id || item._id)}
+                  item={item}
+                  isPurchased={true}
+                  isOwnProfile={true}
+                  accentColor={text}
+                  onPress={() => {
+                    navigation?.navigate?.('EbookDetail', {
+                      ebook: item,
+                      userData,
+                      loggedInUserId: userData?.id || userData?._id,
+                      from: 'MyClosetDashboard',
                       returnTo: 'MyClosetDashboard',
-                    },
-                  })
-                }
-              >
-                <View style={[styles.itemGridThumb, { backgroundColor: withAlpha(accent, 0.08) }]}>
-                  {item.image ? (
-                    <Image source={{ uri: item.image }} style={styles.itemGridImage} />
-                  ) : (
-                    <Ionicons name="shirt-outline" size={28} color={accent} />
-                  )}
-                </View>
-                <Text style={[styles.itemGridName, textStyle]} numberOfLines={1}>{item.name}</Text>
-                <Text style={[styles.itemGridPrice, mutedTextStyle]}>{item.price}</Text>
-              </TouchableOpacity>
-            ))
-          ) : (
-            <View style={[styles.emptyItemsCard, { borderColor: border }]}>
-              <Ionicons name="shirt-outline" size={24} color={accent} />
-              <Text style={[styles.emptyItemsText, textStyle]}>{t('myClosetDashboard.noItemsYet')}</Text>
-            </View>
-          )}
-
-          {/* Add New Item tile */}
-          <TouchableOpacity activeOpacity={0.85} style={styles.itemGridCard} onPress={handleAddItemPress}>
-            <View style={[styles.itemGridThumb, styles.addItemThumb, { borderColor: withAlpha(accent, 0.2) }]}>
-              <Ionicons name="add" size={28} color={accent} />
-            </View>
-            <Text style={[styles.itemGridName, { color: accent, fontWeight: '700' }]}>{t('myClosetDashboard.addNewItem')}</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <View style={[styles.sectionCard, cardStyle, { borderColor: withAlpha(text, 0.12) }]}>
-        <View style={styles.sectionHeader}>
-          <View style={styles.ebooksCtaCopy}>
-            <Ionicons name="book-outline" size={18} color={text} style={{ marginRight: 8 }} />
-            <Text style={[styles.ebooksCtaTitle, textStyle]}>{t('myClosetDashboard.ebooksTitle')}</Text>
-          </View>
-          <TouchableOpacity activeOpacity={0.8} onPress={handleViewAllEbooks}>
-            <Text style={[styles.sectionMeta, mutedTextStyle]}>{t('myClosetDashboard.viewAll')} ›</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={[styles.ebooksCta, { borderTopColor: border }]}>
-          {ebooksLoading ? (
-            <View style={styles.itemsLoadingWrap}>
-              <ActivityIndicator color={text} />
-            </View>
-          ) : dashboardEbooks.length ? (
-            dashboardEbooks.map(item => (
-              <EbookCard
-                key={String(item.id || item._id)}
-                item={item}
-                isPurchased={true}
-                isOwnProfile={true}
-                accentColor={text}
-                onPress={() => {
-                  navigation?.navigate?.('EbookDetail', {
-                    ebook: item,
-                    userData,
-                    loggedInUserId: userData?.id || userData?._id,
-                    from: 'MyClosetDashboard',
-                    returnTo: 'MyClosetDashboard',
-                    username: currentUserName || userData?.userName || userData?.username || item?.userName || item?.creator?.name,
-                  })
-                }}
-              />
-            ))
-          ) : (
-            <View style={[styles.emptyItemsCard, { borderColor: border }]}>
-              <Ionicons name="book-outline" size={24} color={text} />
-              <Text style={[styles.emptyItemsText, textStyle]}>{t('myClosetDashboard.noEbooksYet')}</Text>
-            </View>
-          )}
-        </View>
-      </View>
-
-      {/* ── Battle Item CTA ── */}
-      <TouchableOpacity
-        activeOpacity={0.9}
-        onPress={handleCreateBattlePress}
-        style={[styles.battleCta, { backgroundColor: accent }]}
-      >
-        <View style={styles.battleCtaLeft}>
-          <Ionicons name="flame" size={20} color="#fff" />
-          <View style={{ marginLeft: 10 }}>
-            <Text style={styles.battleCtaTitle}>{t('myClosetDashboard.battleCtaTitle')}</Text>
-            <Text style={styles.battleCtaSub}>{t('myClosetDashboard.battleCtaSubtitle')}</Text>
+                      username: currentUserName || userData?.userName || userData?.username || item?.userName || item?.creator?.name,
+                    })
+                  }}
+                />
+              ))
+            ) : (
+              <View style={[styles.emptyItemsCard, { borderColor: border }]}>
+                <Ionicons name="book-outline" size={24} color={text} />
+                <Text style={[styles.emptyItemsText, textStyle]}>{t('myClosetDashboard.noEbooksYet')}</Text>
+              </View>
+            )}
           </View>
         </View>
-        <View style={[styles.battleCtaButton, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
-          <Text style={styles.battleCtaButtonText}>{t('myClosetDashboard.createBattleButton')}</Text>
-        </View>
-      </TouchableOpacity>
+
+        {/* ── Battle Item CTA ── */}
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={handleCreateBattlePress}
+          style={[styles.battleCta, { backgroundColor: accent }]}
+        >
+          <View style={styles.battleCtaLeft}>
+            <Ionicons name="flame" size={20} color="#fff" />
+            <View style={{ marginLeft: 10 }}>
+              <Text style={styles.battleCtaTitle}>{t('myClosetDashboard.battleCtaTitle')}</Text>
+              <Text style={styles.battleCtaSub}>{t('myClosetDashboard.battleCtaSubtitle')}</Text>
+            </View>
+          </View>
+          <View style={[styles.battleCtaButton, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
+            <Text style={styles.battleCtaButtonText}>{t('myClosetDashboard.createBattleButton')}</Text>
+          </View>
+        </TouchableOpacity>
       </ScrollView>
     </View>
   );

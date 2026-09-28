@@ -1450,7 +1450,8 @@
     "eventsDesc": "Create and join premium events and tickets.",
     "activeStatus": "ACTIVE",
     "perMonth": "/ month",
-    "perYear": "/ year"
+    "perYear": "/ year",
+    "currency": "$"
   },
   "splash": {
     "tagline": "We are all Valens"
@@ -1548,8 +1549,15 @@
     "filters": {
       "all": "All",
       "following": "Following",
-      "unfollowing": "Unfollowing"
+      "unfollowing": "Unfollowing",
+      "pending": "Pending"
     },
+    "followingActivity": "Following Activity",
+    "unfollowingActivity": "Unfollowing Activity",
+    "dropsActivity": "Drops Activity",
+    "flipsActivity": "Flips Activity",
+    "pendingActivity": "Pending Activity",
+    "allActivity": "All Activity",
     "actions": {
       "followedYou": "followed you",
       "unfollowedYou": "unfollowed you",

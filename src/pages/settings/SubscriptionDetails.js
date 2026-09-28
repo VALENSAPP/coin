@@ -79,7 +79,8 @@ const withAlpha = (hex, alpha = 0.12) => {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
 
-const formatMoney = (value) => `$${Number(value).toFixed(2)}`;
+const formatMoney = (value, currency = '$') =>
+  `${currency}${Number(value ?? 0).toFixed(2)}`;
 
 const SubscriptionDetails = ({ route }) => {
   const navigation = useNavigation();
@@ -493,8 +494,15 @@ const SubscriptionDetails = ({ route }) => {
         </View>
         <Text style={[styles.planDesc, { color: themeColors.subText }]}>{t(`subscription.${plan.descKey}`)}</Text>
         <View style={styles.planPriceRow}>
-          <Text style={[styles.planPrice, { color: themeColors.bodyText }]}>{formatMoney(plan.price)}</Text>
-          <Text style={[styles.planPeriod, { color: themeColors.subText }]}>{t(`subscription.${plan.periodKey}`)}</Text>
+          <View style={styles.planPriceRow}>
+            <Text style={[styles.planPrice, { color: themeColors.bodyText }]}>
+              {formatMoney(plan.price, t('subscription.currency'))}
+            </Text>
+
+            <Text style={[styles.planPeriod, { color: themeColors.subText }]}>
+              {t(`subscription.${plan.periodKey}`)}
+            </Text>
+          </View>
         </View>
         {plan.originalPrice ? (
           <Text style={[styles.planOriginalPrice, { color: themeColors.subText }]}>
@@ -637,7 +645,7 @@ const SubscriptionDetails = ({ route }) => {
             {t('subscription.totalToday')}
           </Text>
           <Text style={[styles.footerPriceValue, { color: themeColors.bodyText }]}>
-            {formatMoney(selected.price)}
+            {formatMoney(selected.price, t('subscription.currency'))}
           </Text>
         </View>
         <TouchableOpacity
@@ -784,7 +792,7 @@ const SubscriptionDetails = ({ route }) => {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   loadingContainer: { flex: 1, },
-  loadingText: { marginTop: 16, fontSize: 16, fontWeight: '500',textAlign:'center',alignSelf:'center' },
+  loadingText: { marginTop: 16, fontSize: 16, fontWeight: '500', textAlign: 'center', alignSelf: 'center' },
   headerWrap: {
     paddingTop: Platform.OS === 'ios' ? 54 : 40,
     paddingBottom: 14,
@@ -822,10 +830,10 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
     padding: 10,
-    minHeight:'17%',
+    minHeight: '17%',
     overflow: 'hidden',
   },
-  heroContent: { flexDirection: 'row', alignItems: 'center',paddingRight:15 },
+  heroContent: { flexDirection: 'row', alignItems: 'center', paddingRight: 15 },
   heroCopy: { flex: 1, paddingRight: 8 },
   premiumBadge: {
     alignSelf: 'flex-start',
