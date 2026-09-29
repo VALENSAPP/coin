@@ -1459,7 +1459,8 @@
     "activeStatus": "ATIVA",
     "perMonth": "/ mês",
     "perYear": "/ ano",
-     "currency": "R$"
+    "currency": "R$",
+    "SCurrency": "R"
   },
   "splash": {
     "tagline": "Todos nós somos Valens"

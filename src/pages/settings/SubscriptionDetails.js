@@ -25,6 +25,7 @@ import { useThemeContext } from '../../theme/ThemeContext';
 import { useLanguage } from '../../i18n';
 import SubscriptionActivationPopup from '../../components/modals/SubscriptionActivationPopUp';
 import { LogoIcon } from '../../assets/icons';
+import { formatLocalizedActivityDate } from '../../utils/dateTimeFormatter';
 
 const PAYMENT_POLL_ATTEMPTS = 8;
 const PAYMENT_POLL_DELAY_MS = 1500;
@@ -87,7 +88,7 @@ const SubscriptionDetails = ({ route }) => {
   const { width } = useWindowDimensions();
   const { bgStyle, textStyle, bg, text, card, cardStyle, mutedText, border, accent, icon } = useAppTheme();
   const { isDarkMode } = useThemeContext();
-  const { t } = useLanguage();
+  const { t, currentLanguage } = useLanguage();
 
   const handleBack = useCallback(() => {
     if (route?.params?.returnToHome || route?.params?.fromModal) {
@@ -566,7 +567,7 @@ const SubscriptionDetails = ({ route }) => {
         ) : (
           <>
             {renderDetailRow('card-outline', t('subscription.billingLabel'), billingLabel)}
-            {renderDetailRow('time-outline', t('subscription.renewsOnLabel'), formatDateISO(subscription?.currentPeriodEnd))}
+            {renderDetailRow('time-outline', t('subscription.renewsOnLabel'), formatLocalizedActivityDate(subscription?.currentPeriodEnd, currentLanguage))}
             {renderDetailRow('close-circle-outline', t('subscription.cancelAnytimeLabel'), t('subscription.cancelAnytimeYes'))}
           </>
         )}

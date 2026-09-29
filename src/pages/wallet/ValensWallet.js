@@ -466,6 +466,7 @@ const ValensWallet = ({ navigation }) => {
             },
         });
     };
+    
 
     return (
         <SafeAreaView style={[styles.container, bgStyle]}>
@@ -684,7 +685,7 @@ const ValensWallet = ({ navigation }) => {
                                     <View style={styles.activityRight}>
                                         <Text style={[styles.activityAmount, { color: amountColor }]}>
                                             <Text style={styles.currencySymbol}>
-                                                {t('subscription.currency')}
+                                                {t('subscription.SCurrency')}
                                             </Text>
                                             {activity.amount}
                                         </Text>
