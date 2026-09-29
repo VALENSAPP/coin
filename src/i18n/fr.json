@@ -1458,7 +1458,8 @@
     "eventsDesc": "Créez et rejoignez des événements et billets premium.",
     "activeStatus": "ACTIF",
     "perMonth": "/ mois",
-    "perYear": "/ an"
+    "perYear": "/ an",
+    "currency": "$"
   },
   "splash": {
     "tagline": "Nous sommes tous Valens"
@@ -1556,8 +1557,15 @@
     "filters": {
       "all": "Tous",
       "following": "Abonnements",
-      "unfollowing": "Ne suit plus"
+      "unfollowing": "Ne suit plus",
+      "pending": "En attente"
     },
+    "followingActivity": "Activité de suivi",
+    "unfollowingActivity": "Activité de désabonnement",
+    "dropsActivity": "Activité des Drops",
+    "flipsActivity": "Activité des Flips",
+    "pendingActivity": "Activité en attente",
+    "allActivity": "Toute l’activité",
     "actions": {
       "followedYou": "vous a suivi",
       "unfollowedYou": "ne vous suit plus",

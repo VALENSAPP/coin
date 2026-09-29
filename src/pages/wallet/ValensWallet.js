@@ -38,6 +38,8 @@ import {
 import { appKit } from '../../config/AppKitConfig';
 import { useLanguage } from '../../i18n';
 import { resolveTransactionAmount } from '../../utils/transactionAmount';
+import { formatLocalizedActivityDate } from '../../utils/dateTimeFormatter';
+
 
 const WALLET_ICON_BY_TYPE = {
     metamask: require('../../assets/icons/pngicons/Emeta.png'),
@@ -77,7 +79,7 @@ const ValensWallet = ({ navigation }) => {
     const { isBusinessProfile, bgStyle, text, cardStyle, accent, card } = useBusinessProfileTheme();
     const { isDarkMode } = useThemeContext();
     const { width: screenWidth } = useWindowDimensions();
-    const { t } = useLanguage();
+    const { t, currentLanguage } = useLanguage();
     const { openWalletConnect, isConnected: isWalletConnected, address: sessionAddress } =
         useWalletConnectSupport();
 
@@ -224,19 +226,19 @@ const ValensWallet = ({ navigation }) => {
                     };
                 });
 
-                const formatActivityDate = (value) => {
-                    const date = value ? new Date(value) : null;
-                    if (!date || Number.isNaN(date.getTime())) return '';
-                    const parts = date.toLocaleString('en-US', {
-                        month: 'short',
-                        day: '2-digit',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        hour12: true,
-                    });
-                    return parts.replace(', ', ' • ').replace(', ', ' • ');
-                };
+                // const formatActivityDate = (value) => {
+                //     const date = value ? new Date(value) : null;
+                //     if (!date || Number.isNaN(date.getTime())) return '';
+                //     const parts = date.toLocaleString('en-US', {
+                //         month: 'short',
+                //         day: '2-digit',
+                //         year: 'numeric',
+                //         hour: '2-digit',
+                //         minute: '2-digit',
+                //         hour12: true,
+                //     });
+                //     return parts.replace(', ', ' • ').replace(', ', ' • ');
+                // };
 
                 const resolveIcon = (type) => {
                     const t = String(type || '').toLowerCase();
@@ -301,7 +303,7 @@ const ValensWallet = ({ navigation }) => {
                         subtitle: subtitle ? String(subtitle) : [typeLabel, status].filter(Boolean).join(' • ') || '—',
                         amount,
                         amountTone,
-                        date: formatActivityDate(createdAt),
+                        date: createdAt,
                         typeLabel,
                         status,
                         profileUserId: transactionUserId ? String(transactionUserId) : '',
@@ -680,8 +682,15 @@ const ValensWallet = ({ navigation }) => {
                                         </View>
                                     </TouchableOpacity>
                                     <View style={styles.activityRight}>
-                                        <Text style={[styles.activityAmount, { color: amountColor }]}>{activity.amount}</Text>
-                                        <Text style={[styles.activityDate, { color: `${text}80` }]}>{activity.date}</Text>
+                                        <Text style={[styles.activityAmount, { color: amountColor }]}>
+                                            <Text style={styles.currencySymbol}>
+                                                {t('subscription.currency')}
+                                            </Text>
+                                            {activity.amount}
+                                        </Text>
+                                        <Text style={[styles.activityDate, { color: `${text}80` }]}>
+                                            {formatLocalizedActivityDate(activity.date, currentLanguage)}
+                                        </Text>
                                     </View>
                                     <Ionicons name="chevron-forward" size={18} color={`${text}66`} style={styles.activityChevron} />
                                 </TouchableOpacity>

@@ -774,7 +774,9 @@ const SubventionSetupScreen = () => {
                         <Text style={[styles.sectionSubtitle, { color: mutedText }]}>{t('subventionSetup.priceSectionSubtitle')}</Text>
 
                         <View style={styles.priceInputContainer}>
-                            <Text style={[styles.currencySymbol, { color: accent }]}>$</Text>
+                            <Text style={[styles.currencySymbol, { color: accent }]}>
+                                {t('subscription.currency')}
+                            </Text>
                             <TextInput
                                 style={[styles.priceInput, textStyle, { borderBottomColor: accent }]}
                                 value={price}
@@ -789,8 +791,13 @@ const SubventionSetupScreen = () => {
                         </View>
 
                         <View style={styles.priceRange}>
-                            <Text style={[styles.rangeText, { color: mutedText }]}>{t('subventionSetup.minPrice')}: $9</Text>
-                            <Text style={[styles.rangeText, { color: mutedText }]}>{t('subventionSetup.maxPrice')}: $1000</Text>
+                            <Text style={[styles.rangeText, { color: mutedText }]}>
+                                {t('subventionSetup.minPrice')}: {t('subscription.currency')}9
+                            </Text>
+
+                            <Text style={[styles.rangeText, { color: mutedText }]}>
+                                {t('subventionSetup.maxPrice')}: {t('subscription.currency')}1000
+                            </Text>
                         </View>
 
                         <TextInput
