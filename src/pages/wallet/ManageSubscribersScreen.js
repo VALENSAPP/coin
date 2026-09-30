@@ -18,6 +18,7 @@ import HexAvatar from '../../components/home/story.js/HexAvatar';
 import { getSubscribersList, getMySubscriptionsList } from '../../services/wallet';
 import { useEffect } from 'react';
 import { navigateToUserProfile } from '../../utils/navigateToUserProfile';
+import { formatLocalizedDate } from '../../utils/dateTimeFormatter';
 
 const STATUS = {
   active: 'active',
@@ -34,7 +35,7 @@ const STATUS_COLORS = {
 };
 
 // Helper function to map API subscriber response to display format
-const transformSubscriber = (item) => {
+const transformSubscriber = (item, language) => {
   const startDate = new Date(item.startDate);
   const endDate = new Date(item.endDate);
   const now = new Date();
@@ -60,11 +61,7 @@ const transformSubscriber = (item) => {
   // Format date
   const formatDate = (date) => {
     if (!date) return 'N/A';
-    return new Date(date).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
+    return formatLocalizedDate(date, language) || 'N/A';
   };
 
   const calculateDaysUntil = (date) => {
@@ -99,7 +96,7 @@ const transformSubscriber = (item) => {
 };
 
 // Helper function to map API subscription response to display format
-const transformSubscription = (item) => {
+const transformSubscription = (item, language) => {
   const startDate = new Date(item.startDate);
   const endDate = new Date(item.endDate);
   const now = new Date();
@@ -123,11 +120,7 @@ const transformSubscription = (item) => {
 
   const formatDate = (date) => {
     if (!date) return 'N/A';
-    return new Date(date).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
+    return formatLocalizedDate(date, language) || 'N/A';
   };
 
   const calculateDaysUntil = (date) => {
@@ -163,7 +156,7 @@ const transformSubscription = (item) => {
 const SORT_OPTIONS = ['newest', 'oldest', 'priceHigh', 'priceLow'];
 
 const ManageSubscribersScreen = () => {
-  const { t } = useLanguage();
+  const { t, currentLanguage } = useLanguage();
   const navigation = useNavigation();
   const route = useRoute();
   const theme = useBusinessProfileTheme();
@@ -194,10 +187,10 @@ const ManageSubscribersScreen = () => {
         if (mode === 'subscribers') {
           const response = await getSubscribersList();
           if (response?.statusCode === 200 && response?.data?.subscribers) {
-            const transformedData = response.data.subscribers.map(transformSubscriber);
+            const transformedData = response.data.subscribers.map(item => transformSubscriber(item, currentLanguage));
             setSubscribersList(transformedData);
           } else if (response?.status === 200 && response?.data?.subscribers) {
-            const transformedData = response.data.subscribers.map(transformSubscriber);
+            const transformedData = response.data.subscribers.map(item => transformSubscriber(item, currentLanguage));
             setSubscribersList(transformedData);
           } else {
             setSubscribersList([]);
@@ -205,10 +198,10 @@ const ManageSubscribersScreen = () => {
         } else {
           const response = await getMySubscriptionsList();
           if (response?.statusCode === 200 && response?.data?.subscriptions) {
-            const transformedData = response.data.subscriptions.map(transformSubscription);
+            const transformedData = response.data.subscriptions.map(item => transformSubscription(item, currentLanguage));
             setMySubscriptionsList(transformedData);
           } else if (response?.status === 200 && response?.data?.subscriptions) {
-            const transformedData = response.data.subscriptions.map(transformSubscription);
+            const transformedData = response.data.subscriptions.map(item => transformSubscription(item, currentLanguage));
             setMySubscriptionsList(transformedData);
           } else {
             setMySubscriptionsList([]);
@@ -223,7 +216,7 @@ const ManageSubscribersScreen = () => {
     };
 
     fetchData();
-  }, [mode]);
+  }, [mode, currentLanguage]);
 
   const isSubscriberView = mode === 'subscriptions';
   const sourceList = isSubscriberView ? mySubscriptionsList : subscribersList;

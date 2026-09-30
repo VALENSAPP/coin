@@ -22,6 +22,7 @@ import { useLanguage } from '../../i18n';
 import SubscriptionActivationPopup from '../../components/modals/SubscriptionActivationPopUp';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 import { createOnboardingLink, getOnboardingStatus } from '../../services/profile';
+import { formatLocalizedDateTime } from '../../utils/dateTimeFormatter';
 
 const PAYMENT_POLL_ATTEMPTS = 8;
 const PAYMENT_POLL_DELAY_MS = 1500;
@@ -49,7 +50,7 @@ const Subscription = () => {
   const profileThemeType = isBusinessProfile ? 'company' : undefined;
   const { bgStyle, textStyle, bg, text, card, accent, mutedText, border, icon } = useAppTheme(profileThemeType);
   const { isDarkMode } = useThemeContext();
-  const { t } = useLanguage();
+  const { t, currentLanguage } = useLanguage();
 
   const loadProfileType = useCallback(async () => {
     const type = await AsyncStorage.getItem('profile');
@@ -300,14 +301,7 @@ const Subscription = () => {
 
   const formatDateISO = isoString => {
     if (!isoString) return t('subscription.notAvailable');
-    const date = new Date(isoString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    return formatLocalizedDateTime(isoString, currentLanguage) || t('subscription.notAvailable');
   };
 
   const getTimeRemaining = endDate => {

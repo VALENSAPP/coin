@@ -548,7 +548,6 @@ export default function HomeScreen({ route }) {
     try {
       setHasCheckedRegularSubscription(true);
       const response = await checkSubscription();
-      console.log('📢 checkSubscription response (regular):', response);
       const status = String(response?.data?.subscription?.status || response?.subscription?.status || '').toUpperCase();
       const hasActiveSubscription = Boolean(response?.success) && (status === 'ACTIVE' || status === 'TRIALING');
 

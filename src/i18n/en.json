@@ -1460,7 +1460,7 @@
     "perMonth": "/ month",
     "perYear": "/ year",
     "currency": "$",
-    "SCurrency": ""
+    "SCurrency": "$"
   },
   "splash": {
     "tagline": "We are all Valens"
@@ -4872,7 +4872,8 @@
       "items": "Items",
       "sold": "Sold",
       "earnings": "Earnings",
-      "rating": "Rating"
+      "rating": "Rating",
+      "currency": "$"
     },
     "battle": {
       "entered": "Battles Entered",

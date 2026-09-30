@@ -1459,7 +1459,8 @@
     "activeStatus": "ATTIVO",
     "perMonth": "/ mese",
     "perYear": "/ anno",
-    "currency": "$"
+    "currency": "$",
+    "SCurrency": "€"
   },
   "splash": {
     "tagline": "Siamo tutti Valens"
@@ -4871,7 +4872,8 @@
       "items": "Articoli",
       "sold": "Venduti",
       "earnings": "Guadagni",
-      "rating": "Valutazione"
+      "rating": "Valutazione",
+      "currency": "$"
     },
     "battle": {
       "entered": "Sfide partecipate",

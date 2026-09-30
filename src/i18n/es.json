@@ -1459,7 +1459,8 @@
     "activeStatus": "ACTIVA",
     "perMonth": "/ mes",
     "perYear": "/ año",
-    "currency": "$"
+    "currency": "$",
+    "SCurrency": "€"
   },
   "splash": {
     "tagline": "Todos somos Valens"
@@ -4871,7 +4872,8 @@
       "items": "Artículos",
       "sold": "Vendidos",
       "earnings": "Ganancias",
-      "rating": "Calificación"
+      "rating": "Calificación",
+      "currency": "$"
     },
     "battle": {
       "entered": "Batallas participadas",

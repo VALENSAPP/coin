@@ -627,7 +627,7 @@ function PostItem({
   useEffect(() => { setLocalLiked(liked); }, [liked]);
   useEffect(() => { setLocalLikesCount(likesCount || 0); }, [likesCount]);
 
-  const { t } = useLanguage();
+  const { t, currentLanguage } = useLanguage();
   const showTrustControls = isTruthyTrustPost(isTrustPost) || resolveIsTrustPost(item);
 
   const currentUserIdStr = useMemo(() => (userId != null ? String(userId) : ''), [userId]);
@@ -706,8 +706,8 @@ function PostItem({
   }, [item?.caption, item?.id, item?.UserId, item?.location]);
 
   const mintedDateTime = useMemo(
-    () => formatMintedDateTime(resolveMintTimestamp(item)),
-    [item?.createdAt, item?.created_at, item?.mintedAt, item?.minted_at, item?.updatedAt, item?.updated_at],
+    () => formatMintedDateTime(resolveMintTimestamp(item), currentLanguage),
+    [item?.createdAt, item?.created_at, item?.mintedAt, item?.minted_at, item?.updatedAt, item?.updated_at, currentLanguage],
   );
   const mintLabelKey = useMemo(() => getMintLabelKey(item), [item]);
   const isPostOwner = Boolean(

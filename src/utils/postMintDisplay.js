@@ -3,19 +3,29 @@ import {
   isPrivateContentPost,
 } from '../hooks/useScreenshotProtection';
 
-export const formatMintedDateTime = value => {
+const DATE_TIME_LOCALES = {
+  en: { locale: 'en-US', hour12: true },
+  pt: { locale: 'pt-BR', hour12: false },
+  it: { locale: 'it-IT', hour12: false },
+  es: { locale: 'es-ES', hour12: false },
+  fr: { locale: 'fr-FR', hour12: false },
+};
+
+export const formatMintedDateTime = (value, language = 'en') => {
   const date = value ? new Date(value) : null;
   if (!date || Number.isNaN(date.getTime())) return '';
 
-  const datePart = date.toLocaleDateString('en-US', {
+  const languageCode = String(language || 'en').toLowerCase().split(/[-_]/)[0];
+  const { locale, hour12 } = DATE_TIME_LOCALES[languageCode] || DATE_TIME_LOCALES.en;
+  const datePart = date.toLocaleDateString(locale, {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
   });
-  const timePart = date.toLocaleTimeString('en-US', {
+  const timePart = date.toLocaleTimeString(locale, {
     hour: 'numeric',
     minute: '2-digit',
-    hour12: true,
+    hour12,
   });
 
   return `${datePart} • ${timePart}`;

@@ -329,10 +329,18 @@ const ValensWallet = ({ navigation }) => {
 
     const formatMoney = (value) => {
         if (typeof value !== 'number' || Number.isNaN(value)) return '$0.00';
+
         return `$${value.toLocaleString(undefined, {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2,
         })}`;
+    };
+
+    const getNumericActivityAmount = (value) => {
+        const cleaned = String(value ?? '').replace(/[^0-9.-]/g, '');
+        const parsed = Number(cleaned);
+
+        return Number.isFinite(parsed) ? Math.abs(parsed) : 0;
     };
 
     const maskMoney = (formattedMoney) => {
@@ -466,7 +474,7 @@ const ValensWallet = ({ navigation }) => {
             },
         });
     };
-    
+
 
     return (
         <SafeAreaView style={[styles.container, bgStyle]}>
@@ -684,13 +692,11 @@ const ValensWallet = ({ navigation }) => {
                                     </TouchableOpacity>
                                     <View style={styles.activityRight}>
                                         <Text style={[styles.activityAmount, { color: amountColor }]}>
+                                            {activity.amountTone === 'positive' ? '+' : '-'}
                                             <Text style={styles.currencySymbol}>
                                                 {t('subscription.SCurrency')}
                                             </Text>
-                                            {activity.amount}
-                                        </Text>
-                                        <Text style={[styles.activityDate, { color: `${text}80` }]}>
-                                            {formatLocalizedActivityDate(activity.date, currentLanguage)}
+                                            {getNumericActivityAmount(activity.amount).toFixed(2)}
                                         </Text>
                                     </View>
                                     <Ionicons name="chevron-forward" size={18} color={`${text}66`} style={styles.activityChevron} />

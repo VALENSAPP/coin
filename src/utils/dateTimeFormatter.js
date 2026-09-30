@@ -3,6 +3,7 @@ const LOCALE_MAP = {
     pt: 'pt-BR',
     it: 'it-IT',
     es: 'es-ES',
+    fr: 'fr-FR',
 };
 
 const getLanguageCode = (language) => {
@@ -14,14 +15,30 @@ const getLocale = (language) => {
     return LOCALE_MAP[languageCode] || 'en-US';
 };
 
+const parseDateValue = (value) => {
+    if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+    if (typeof value === 'number' && Number.isFinite(value)) {
+        const date = new Date(Math.abs(value) < 1e12 ? value * 1000 : value);
+        return Number.isNaN(date.getTime()) ? null : date;
+    }
+    if (typeof value !== 'string' || !value.trim()) return null;
+
+    const normalized = value.trim();
+    // Do not treat localized values such as "Sim" or boolean-like strings as dates.
+    if (!/\d/.test(normalized)) return null;
+    const numericValue = Number(normalized);
+    const dateValue = Number.isFinite(numericValue) && normalized.length <= 13
+        ? (Math.abs(numericValue) < 1e12 ? numericValue * 1000 : numericValue)
+        : normalized;
+    const date = new Date(dateValue);
+    return Number.isNaN(date.getTime()) ? null : date;
+};
+
 export const formatLocalizedActivityDate = (value, language) => {
     if (!value) return '';
 
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) {
-        return '';
-    }
+    const date = parseDateValue(value);
+    if (!date) return '';
 
     const languageCode = getLanguageCode(language);
 
@@ -54,4 +71,32 @@ export const formatLocalizedActivityDate = (value, language) => {
     }).format(date);
 
     return `${datePart} • ${timePart}`;
+};
+
+export const formatLocalizedDateTime = (value, language) => {
+    if (!value) return '';
+
+    const date = parseDateValue(value);
+    if (!date) return '';
+
+    return new Intl.DateTimeFormat(getLocale(language), {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+}).format(date);
+};
+
+export const formatLocalizedDate = (value, language) => {
+    if (!value) return '';
+
+    const date = parseDateValue(value);
+    if (!date) return '';
+
+    return new Intl.DateTimeFormat(getLocale(language), {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+    }).format(date);
 };

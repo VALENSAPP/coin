@@ -41,6 +41,7 @@ import { createCheckoutSession } from '../../services/stirpe';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 import { getUserCredentials } from '../../services/post';
 import { useLanguage } from '../../i18n';
+import { formatLocalizedDate } from '../../utils/dateTimeFormatter';
 import FanSubscriptionIntroBanner from '../../components/wallet/FanSubscriptionIntroBanner';
 import { postMessagePrivate, getMessagesPrivateById, getMyMessagesPrivate, updateMessages } from '../../services/post';
 
@@ -77,7 +78,7 @@ const SubventionSetupScreen = () => {
     const { isBusinessProfile, bgStyle, textStyle, text, cardStyle, accent, mutedText, border, card, icon } = useBusinessProfileTheme();
     const { isDarkMode } = useThemeContext();
     const [credential, setCredential] = useState(null);
-    const { t } = useLanguage();
+    const { t, currentLanguage } = useLanguage();
     const stripeErrorMessages = getStripeErrorMessages(t);
 
     const [composerVisible, setComposerVisible] = useState(false);
@@ -554,7 +555,7 @@ const SubventionSetupScreen = () => {
         if (!dateValue) return 'N/A';
         const parsed = new Date(dateValue);
         if (Number.isNaN(parsed.getTime())) return 'N/A';
-        return parsed.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: '2-digit' });
+        return formatLocalizedDate(parsed, currentLanguage) || 'N/A';
     };
 
     const handlePrintAttempt = () => {
