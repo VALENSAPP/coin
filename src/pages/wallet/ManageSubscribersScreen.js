@@ -473,9 +473,9 @@ const ManageSubscribersScreen = () => {
                   {t('manageSubscribers.priceUpdateTitle')}
                 </Text>
               </View>
-              <Text style={[styles.bannerBody, { color: theme.mutedText }]}>
+              {/* <Text style={[styles.bannerBody, { color: theme.mutedText }]}>
                 {t('manageSubscribers.priceUpdateBody', { from: '9.90', to: '14.90' })}
-              </Text>
+              </Text> */}
             </View>
             <TouchableOpacity
               style={[styles.bannerBtn, { backgroundColor: theme.card, borderColor: theme.accent }]}

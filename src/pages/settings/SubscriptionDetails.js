@@ -23,10 +23,9 @@ import { createOnboardingLink, getOnboardingStatus } from '../../services/profil
 import { useAppTheme } from '../../theme/useApptheme';
 import { useThemeContext } from '../../theme/ThemeContext';
 import { useLanguage } from '../../i18n';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import SubscriptionActivationPopup from '../../components/modals/SubscriptionActivationPopUp';
 import { LogoIcon } from '../../assets/icons';
-import { formatLocalizedDateTime } from '../../utils/dateTimeFormatter';
+import { formatLocalizedActivityDate } from '../../utils/dateTimeFormatter';
 
 const PAYMENT_POLL_ATTEMPTS = 8;
 const PAYMENT_POLL_DELAY_MS = 1500;
@@ -87,7 +86,6 @@ const formatMoney = (value, currency = '$') =>
 const SubscriptionDetails = ({ route }) => {
   const navigation = useNavigation();
   const { width } = useWindowDimensions();
-  const insets = useSafeAreaInsets();
   const { bgStyle, textStyle, bg, text, card, cardStyle, mutedText, border, accent, icon } = useAppTheme();
   const { isDarkMode } = useThemeContext();
   const { t, currentLanguage } = useLanguage();
@@ -178,7 +176,6 @@ const SubscriptionDetails = ({ route }) => {
           try {
             const response = await checkSubscription();
             if (response?.success) {
-              console.log('check subscription response---------------------', response);
               setSubscriptionData(response.data);
               if (hasActiveSubscriptionAccess(response.data?.subscription)) return true;
             }
@@ -221,17 +218,14 @@ const SubscriptionDetails = ({ route }) => {
 
   const formatDateISO = (isoString) => {
     if (!isoString) return t('subscription.notAvailable');
-    return formatLocalizedDateTime(isoString, currentLanguage) || t('subscription.notAvailable');
+    return new Date(isoString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   };
-
-  const getSubscriptionEndDate = () => [
-    subscription?.currentPeriodEnd,
-    subscription?.subscriptionEnd,
-    subscription?.endDate,
-    subscription?.current_period_end,
-  ].find(value => formatLocalizedDateTime(value, currentLanguage));
-
-  console.log('SubscriptionDetails render: subscriptionData:', subscription);
 
   const getTimeRemaining = (endDate) => {
     if (!endDate) return t('subscription.notAvailable');
@@ -567,13 +561,13 @@ const SubscriptionDetails = ({ route }) => {
             {renderDetailRow(
               'time-outline',
               t('subscription.renewsOnLabel'),
-              formatDateISO(getSubscriptionEndDate()),
+              formatDateISO(subscription?.currentPeriodEnd),
             )}
           </>
         ) : (
           <>
             {renderDetailRow('card-outline', t('subscription.billingLabel'), billingLabel)}
-            {renderDetailRow('time-outline', t('subscription.renewsOnLabel'), formatDateISO(getSubscriptionEndDate()))}
+            {renderDetailRow('time-outline', t('subscription.renewsOnLabel'), formatLocalizedActivityDate(subscription?.currentPeriodEnd, currentLanguage))}
             {renderDetailRow('close-circle-outline', t('subscription.cancelAnytimeLabel'), t('subscription.cancelAnytimeYes'))}
           </>
         )}
@@ -753,7 +747,7 @@ const SubscriptionDetails = ({ route }) => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: (showInactiveExperience ? 180 : 40) + insets.bottom },
+          { paddingBottom: showInactiveExperience ? 180 : 40 },
         ]}
       >
         {(refreshing || activating) && (
@@ -773,7 +767,6 @@ const SubscriptionDetails = ({ route }) => {
         {renderLegalLinks()}
 
         {isSubscriptionActive && !isCancelledSubscription && renderActiveFooter()}
-
         {isCancelledSubscription && isSubscriptionActive && (
           <View style={[styles.cancelledBanner, { backgroundColor: themeColors.warningBg, borderColor: themeColors.warning }]}>
             <Ionicons name="warning-outline" size={18} color={themeColors.warning} />
@@ -797,7 +790,7 @@ const SubscriptionDetails = ({ route }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: { flex: 1,paddingbottom: 30 },
   loadingContainer: { flex: 1, },
   loadingText: { marginTop: 16, fontSize: 16, fontWeight: '500', textAlign: 'center', alignSelf: 'center' },
   headerWrap: {
@@ -1037,7 +1030,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   secureText: { fontSize: 12, color: '#6B7280' },
-  activeFooter: { gap: 14, marginTop: 4 },
+  activeFooter: { gap: 14, marginTop: 4,marginBottom: '10%' },
   safeSecureBlock: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
   safeSecureCopy: { flex: 1 },
   safeSecureTitle: { fontSize: 15, fontWeight: '800', marginBottom: 4 },
@@ -1073,6 +1066,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
     alignItems: 'flex-start',
+    marginBottom: '10%',
   },
   cancelledBannerText: { flex: 1, fontSize: 13, lineHeight: 18 },
   errorWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },

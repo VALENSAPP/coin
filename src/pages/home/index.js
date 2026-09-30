@@ -123,6 +123,50 @@ const findStoryBySharedId = (storyRows, sharedStoryId, fallbackUserId = '') => {
   return null;
 };
 
+const hasValidSubscriptionAccess = (response) => {
+  if (!response) return false;
+
+  const subData = response?.data?.subscription || response?.subscription || response?.data || response;
+
+  const isCanceled = Boolean(
+    subData?.isCanceled === true ||
+    subData?.is_canceled === true ||
+    subData?.isCancelled === true ||
+    subData?.is_cancelled === true ||
+    subData?.isCanceled === 'true' ||
+    subData?.is_canceled === 'true' ||
+    response?.data?.isCanceled === true ||
+    response?.data?.is_canceled === true ||
+    response?.isCanceled === true ||
+    response?.is_canceled === true
+  );
+
+  const status = String(subData?.status || response?.data?.status || '').toUpperCase();
+  const endDateValue =
+    subData?.currentPeriodEnd ||
+    subData?.current_period_end ||
+    subData?.subscriptionEnd ||
+    subData?.expiresAt ||
+    response?.data?.currentPeriodEnd ||
+    response?.data?.subscriptionEnd;
+
+  if (status === 'ACTIVE' || status === 'TRIALING') {
+    return true;
+  }
+
+  if (isCanceled || status === 'CANCELED' || status === 'CANCELLED') {
+    if (endDateValue) {
+      const endDate = new Date(endDateValue);
+      if (!Number.isNaN(endDate.getTime())) {
+        return endDate >= new Date();
+      }
+    }
+    return isCanceled;
+  }
+
+  return false;
+};
+
 export default function HomeScreen({ route }) {
   const styles = createStyles();
   const navigation = useNavigation();
@@ -531,8 +575,7 @@ export default function HomeScreen({ route }) {
     try {
       setHasCheckedBusinessSubscription(true);
       const response = await checkSubscription();
-      const status = String(response?.data?.subscription?.status || '').toUpperCase();
-      const hasActiveSubscription = Boolean(response?.success) && (status === 'ACTIVE' || status === 'TRIALING');
+      const hasActiveSubscription = hasValidSubscriptionAccess(response);
 
       if (!hasActiveSubscription) {
         setShowBusinessSubscriptionPrompt(true);
@@ -548,8 +591,8 @@ export default function HomeScreen({ route }) {
     try {
       setHasCheckedRegularSubscription(true);
       const response = await checkSubscription();
-      const status = String(response?.data?.subscription?.status || response?.subscription?.status || '').toUpperCase();
-      const hasActiveSubscription = Boolean(response?.success) && (status === 'ACTIVE' || status === 'TRIALING');
+      console.log('📢 checkSubscription response (regular):', response);
+      const hasActiveSubscription = hasValidSubscriptionAccess(response);
 
       if (!hasActiveSubscription) {
         setShowRegularSubscriptionPrompt(true);
