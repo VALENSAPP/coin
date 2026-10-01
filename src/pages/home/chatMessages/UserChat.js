@@ -20,6 +20,7 @@ import {
   ActivityIndicator,
   Linking,
   RefreshControl,
+  BackHandler,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
@@ -238,8 +239,25 @@ const UserChat = ({ route, navigation }) => {
 
   const { t } = useLanguage();
 
+  const handleBack = useCallback(() => {
+    if (routeParams.returnToSubscriptionUpdateSummary) {
+      navigation.getParent()?.navigate('wallet', { screen: 'SubscriptionUpdateSummary' });
+      return true;
+    }
+    navigation.goBack();
+    return true;
+  }, [navigation, routeParams.returnToSubscriptionUpdateSummary]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!routeParams.returnToSubscriptionUpdateSummary) return undefined;
+      const subscription = BackHandler.addEventListener('hardwareBackPress', handleBack);
+      return () => subscription.remove();
+    }, [handleBack, routeParams.returnToSubscriptionUpdateSummary]),
+  );
+
   const [messages, setMessages] = useState([]);
-  const [inputText, setInputText] = useState('');
+  const [inputText, setInputText] = useState(routeParams.initialMessage || '');
   const [isViewerVisible, setViewerVisible] = useState(false);
   const [currentImages, setCurrentImages] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -300,6 +318,10 @@ const UserChat = ({ route, navigation }) => {
   }, [currentUserId, targetUserId]);
 
   useEffect(() => { seenEmitRef.current = new Set(); }, [targetUserId]);
+
+  useEffect(() => {
+    if (routeParams.initialMessage) setInputText(routeParams.initialMessage);
+  }, [routeParams.initialMessage, targetUserId]);
 
   // Initialize socket
   useEffect(() => {
@@ -1735,7 +1757,7 @@ const UserChat = ({ route, navigation }) => {
       <SafeAreaView style={[styles.safeArea, bgStyle]}>
         <View style={[styles.loadingContainer, bgStyle]}>
           <Text style={[styles.loadingText, textStyle]}>{t('userChat.invalidChatSession')}</Text>
-          <TouchableOpacity style={[styles.backButton, { shadowColor: text }]} onPress={() => navigation.goBack()}>
+          <TouchableOpacity style={[styles.backButton, { shadowColor: text }]} onPress={handleBack}>
             <Text style={[styles.backButtonText, textStyle]}>{t('userChat.goBack')}</Text>
           </TouchableOpacity>
         </View>
@@ -1759,7 +1781,7 @@ const UserChat = ({ route, navigation }) => {
             {/* Header */}
             <View style={[styles.headerGradient, bgStyle]}>
               <View style={styles.headerContent}>
-                <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+                <TouchableOpacity style={styles.backButton} onPress={handleBack}>
                   <SafeIcon name="arrow-back" size={24} color={icon} />
                 </TouchableOpacity>
                 <View style={styles.logoContainer}>
