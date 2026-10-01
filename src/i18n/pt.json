@@ -179,7 +179,7 @@
       "category": "Categoria da Empresa",
       "categoryPlaceholder": "Ex: Varejo, Serviços, Alimentação",
       "address": "Endereço da Empresa",
-      "addressPlaceholder": "Rua, cidade, estado, código postal, país",
+      "addressPlaceholder": "Rua, cidade, estado, CEP, país",
       "description": "Descrição da Empresa",
       "descriptionPlaceholder": "Fale mais sobre a sua empresa",
       "website": "Site",
@@ -551,7 +551,7 @@
     "removeDrawing": "Remover desenho",
     "invalidLink": "Por favor, digite um link válido começando com http:// ou https://",
     "postSuccess": "Post criado com sucesso",
-    "flipSuccess": "Flipped",
+    "flipSuccess": "Flipado",
     "postFail": "Por favor, tente novamente",
     "postError": "Algo deu errado",
     "communityTrustTitle": "Post de confiança da comunidade",
@@ -602,11 +602,11 @@
     "headerTitle": "Moeda de criador",
     "copiedClipboard": "Copiado para a área de transferência",
     "yourBalance": "Seu saldo",
-    "stripePayments": "Pagamentos via Stripe",
+    "stripePayments": "Pagamentos via Pagbank",
     "stripeActive": "Ativo",
     "stripeSetupRequired": "Configuração necessária",
-    "stripeAccount": "Conta Stripe",
-    "stripeSetupCta": "Conclua a configuração do Stripe para receber pagamentos",
+    "stripeAccount": "Conta Pagbank",
+    "stripeSetupCta": "Conclua a configuração do Pagbank para receber pagamentos",
     "holders": "Detentores",
     "totalVolume": "Volume total",
     "copyAddress": "Copiar endereço",
@@ -1095,7 +1095,7 @@
     "winnerDeclared": "Vencedor Declarado",
     "youLostBattle": "Você perdeu a batalha",
     "battleOngoing": "Batalha em Andamento",
-    "battleOpen": "Batalha Aberta",
+    "battleOpen": "Abra uma Batalha",
     "battleClosed": "Batalha Encerrada",
     "stakesLabel": "Apostas:",
     "winningUser": "Usuário Vencedor",
@@ -1196,7 +1196,7 @@
     "loadingAccounts": "Carregando contas⬦",
     "addAccounts": "Adicionar contas",
     "logOut": "Sair",
-    "logout": "Logout",
+    "logout": "Sair",
     "cancel": "Cancelar",
     "logOutConfirmMessage": "Tem certeza de que deseja sair?",
     "logOutAllAccounts": "Sair de Todas as Contas",
@@ -1457,8 +1457,8 @@
     "events": "Eventos e Ingressos",
     "eventsDesc": "Crie e participe de eventos e ingressos premium.",
     "activeStatus": "ATIVA",
-    "perMonth": "/ mês",
-    "perYear": "/ ano",
+    "perMonth": "/mês",
+    "perYear": "/ano",
     "currency": "R$",
     "SCurrency": "R$"
   },
@@ -1482,7 +1482,7 @@
       "cancelAnytime": "Cancele a qualquer momento"
     },
     "security": {
-      "stripe": "Pagamento seguro com tecnologia Stripe",
+      "stripe": "Pagamento seguro com tecnologia Pagbank",
       "cancel": "Cancele a qualquer momento nas configurações da sua conta",
       "terms": "Leia os Termos e a Política de Privacidade antes de cancelar",
       "disclaimer": "As moedas de perfil são colecionáveis digitais projetadas para o engajamento da comunidade. Elas não representam valores mobiliários nem itens financeiros."
@@ -1736,7 +1736,7 @@
       "supportTrend": "Apoiar tendência",
       "unfollowers": "Não seguidores",
       "lostOverRange": "Perdidos durante esse período",
-      "totalSupport": "Apoio total",
+      "totalSupport": "Apoio",
       "subscriptionsAndTips": "Assinaturas e Gorjetas",
       "periodDaily": "Diário",
       "periodWeekly": "Semanal",
@@ -2293,7 +2293,7 @@
     "storyUploadSuccess": "Story enviado com sucesso",
     "storyUploadFail": "Falha ao enviar story, tente novamente",
     "somethingWentWrong": "Algo deu errado! Tente novamente",
-    "stripeIncomplete": "A integração do Stripe ainda não foi concluída.",
+    "stripeIncomplete": "A integração do Pagbank ainda não foi concluída.",
     "businessBasicMode": "Seu perfil comercial está ativo no modo Básico. Você pode atualizar a qualquer momento para desbloquear todos os recursos comerciais.",
     "updateSuccess": "Assinatura atualizada com sucesso",
     "createSuccess": "Assinatura criada com sucesso",
@@ -2690,7 +2690,7 @@
     "trustNotSureDetail": "Precisa de mais informações",
     "trustDisagree": "Discordo",
     "trustDisagreeDetail": "Não é confiável",
-    "trustApprove": "Aprovar",
+    "trustApprove": "Aprovado",
     "trustUnsure": "Incerto",
     "trustVotes": "{{count}} votos",
     "weightedByReputation": "Ponderado pela reputação",
@@ -2699,7 +2699,7 @@
     "trustSubmitError": "Não foi possível enviar o voto",
     "trustUndoError": "Não foi possível desfazer o voto",
     "defaultCreatorName": "Criador",
-    "mintedLabel": "Cunhado {{dateTime}}",
+    "mintedLabel": "Criado em {{dateTime}}",
     "flippedLabel": "Flipped",
     "privateMintLabel": "Mint Privado {{dateTime}}",
     "privateContentLabel": "Conteúdo Privado {{dateTime}}",
@@ -2727,7 +2727,7 @@
     "mutedMessage": "Você não receberá mais notificações deste usuário.",
     "errorHideFailed": "Falha ao ocultar post",
     "errorUnhideFailed": "Falha ao reexibir post",
-    "successHidden": "Post ocultodo",
+    "successHidden": "Post ocultado",
     "successUnhidden": "Post restaurado",
     "errorGeneric": "Algo deu errado. Tente novamente.",
     "copyAddress": "Copiar endereço",
@@ -2760,7 +2760,7 @@
     "somethingWentWrong": "Algo deu errado",
     "tokenPurchaseFailed": "Falha na compra do token",
     "tokensSoldSuccess": "Tokens vendidos com sucesso!",
-    "ableToUpdateFollow": "Não foi possível atualizar o seguimento"
+    "ableToUpdateFollow": "Não foi possível atualizar o seguir"
   },
   "suggestion": {
     "suggestedForYou": "Sugerido para você",
@@ -2987,9 +2987,9 @@
     "onceConnected": "Depois de conectada, você poderá apoiar."
   },
   "connectStripeModal": {
-    "message": "Você deve concluir a configuração do Stripe para receber pagamentos de assinatura.",
+    "message": "Você deve concluir a configuração do Pagbank para receber pagamentos de assinatura.",
     "cancelButton": "Cancelar",
-    "connectButton": "Conectar Stripe"
+    "connectButton": "Conectar Pagbank"
   },
   "missionSupportScreen": {
     "title": "💖 POST DE MISSÃO VALENS",
@@ -3004,18 +3004,18 @@
     "processingButton": "Processando...",
     "cancelButton": "Cancelar",
     "donationSuccess": "Doação concluída com sucesso!",
-    "onboardingIncomplete": "A configuração do Stripe ainda não foi concluída."
+    "onboardingIncomplete": "A configuração do Pagbank ainda não foi concluída."
   },
   "postTypeModal": {
     "title": "Escolher tipo de Mint",
-    "missionMintLabel": "💸 Missão Mint",
+    "missionMintLabel": "💸 Post de Missão",
     "supportLabel": "💸 Apoio",
     "creditsLeft": "Créditos Restantes - {{count}}",
     "noCreditsAvailable": "Nenhum crédito disponível",
     "regularMintLabel": "📝 Mint normal",
     "buyCreditsTitle": "Nenhum crédito disponível",
     "buyCreditsMessage": "Você precisa de créditos para criar um {{type}}. Compre créditos para continuar.",
-    "missionMintType": "Missão Mint",
+    "missionMintType": "Post de Missão",
     "supportType": "Apoio",
     "PrivateCircle": "Círculo privado",
     "privateCircleMintLabel": "Mint Círculo Privado",
@@ -3030,7 +3030,7 @@
     "createTitle": "Criar",
     "flipsLabel": "Flips",
     "newMintLabel": "Novo Mint",
-    "dropsLabel": "drops",
+    "dropsLabel": "Drops",
     "dropsHighlightsLabel": "Destaques dos Drops",
     "addDropsTitle": "Adicionar Drops",
     "addDropsMessage": "Escolha como adicionar seus drops",
@@ -3067,7 +3067,7 @@
     "confirmPurchaseMessage_other": "Comprar {{count}} créditos adicionais?",
     "confirmCancel": "Cancelar",
     "confirmPurchase": "Comprar",
-    "onboardingIncomplete": "A configuração do Stripe ainda não foi concluída."
+    "onboardingIncomplete": "A configuração do Pagbank ainda não foi concluída."
   },
   "reportFlow": {
     "sheetTitle": "Denunciar este conteúdo",
@@ -3149,7 +3149,7 @@
     "completePaymentButton": "✅ Pronto — Concluir pagamento",
     "subscriptionAmountNotSet": "Este criador ainda não definiu um valor de assinatura.",
     "amountUnavailable": "O valor da assinatura não está disponível. Tente novamente.",
-    "onboardingIncomplete": "A configuração do Stripe ainda não foi concluída."
+    "onboardingIncomplete": "A configuração do Pagbank ainda não foi concluída."
   },
   "subscriptionActivation": {
     "title": "Torne-se um assinante privado",
@@ -3167,9 +3167,9 @@
     "acceptButton": "Aceitar"
   },
   "stripePaymentMethod": {
-    "message": "Conclua a configuração do Stripe para adicionar um método de pagamento.",
+    "message": "Conclua a configuração do Pagbank para adicionar um método de pagamento.",
     "cancelButton": "Cancelar",
-    "connectButton": "Conectar ao Stripe"
+    "connectButton": "Conectar ao Pagbank"
   },
   "supportCreator": {
     "disclaimerTitle": "Apoiar \"{{creatorName}}\"?",
@@ -3209,7 +3209,7 @@
     "continueButton": "Continuar para o pagamento",
     "maybeLater": "Talvez mais tarde",
     "tipSuccess": "Gorjeta enviada com sucesso!",
-    "onboardingIncomplete": "A configuração do Stripe ainda não está completa.",
+    "onboardingIncomplete": "A configuração do Pagbank ainda não está completa.",
     "missingCreator": "Não foi possível enviar a gorjeta. Informações do criador ausentes.",
     "minAmountError": "O valor mínimo da gorjeta é R$0.50."
   },
@@ -3478,8 +3478,8 @@
     "noPostsSubtitle": "Compartilhe seu primeiro momento",
     "pinPost": "Fixar post",
     "unpinPost": "Desafixar post",
-    "pinConfirm": "Deseja fixar esta post?",
-    "unpinConfirm": "Deseja desafixar esta post?",
+    "pinConfirm": "Deseja fixar este post?",
+    "unpinConfirm": "Deseja desafixar este post?",
     "cancel": "Cancelar",
     "pin": "Fixar",
     "pinned": "Fixado",
@@ -3518,7 +3518,7 @@
     "copyMissionText": "✨ Apoie a missão de @{{username}} no Valens\nFaça parte do impacto. Doe com segurança abaixo.\n{{link}}",
     "copyPostText": "Confira este post no app Valens\n{{link}}",
     "screenshotWarningTitle": "Capturas restritas",
-    "screenshotWarningMessage": "Você não pode capturar capturas de tela de conteúdo privado."
+    "screenshotWarningMessage": "Você não pode realizar capturas de tela de conteúdo privado."
   },
   "privateCircle": {
     "ownTitle": "Mint privado - O que é?",
@@ -3739,11 +3739,11 @@
     "following": "Seguindo",
     "followback": "Seguir de volta",
     "message": "Mensagem",
-    "totalSupport": "Apoio total",
+    "totalSupport": "Apoio",
     "editProfile": "Editar perfil",
     "invite": "Convidar",
     "inviteToBattle": "Convidar para Batalha",
-    "openBattle": "Batalha aberta",
+    "openBattle": "Abra uma Batalha",
     "battle": "Batalha",
     "live": "AO VIVO",
     "battlesLabel": "Batalhas",
@@ -3765,7 +3765,7 @@
     "verifiedAccount": "Conta verificada",
     "unfollow": "Deixar de seguir",
     "followingActionsPrompt": "Escolha uma ação.",
-    "totalReputation": "Reputação Total"
+    "totalReputation": "Reputação"
   },
   "profileTabs": {
     "postsTab": "Posts",
@@ -3840,9 +3840,9 @@
     "paymentCancelled": "Pagamento cancelado",
     "sessionFailed": "Não foi possível criar a sessão de pagamento. Tente novamente.",
     "networkError": "Erro de rede. Verifique sua conexão e tente novamente.",
-    "onboardingFailed": "Falha ao abrir a configuração do Stripe",
+    "onboardingFailed": "Falha ao abrir a configuração do Pagbank",
     "recipientNotReady": "O destinatário do pagamento ainda não concluiu a configuração.",
-    "customerSetupRequired": "Conclua a configuração do Stripe para adicionar uma forma de pagamento.",
+    "customerSetupRequired": "Conclua a configuração do Pagbank para adicionar uma forma de pagamento.",
     "customerSetupFailed": "Não foi possível abrir a configuração de pagamento. Tente novamente."
   },
   "userChat": {
@@ -4413,7 +4413,7 @@
     "shippingMethod": "Método de envio",
     "shippingAndPickupHelper": "Há duas formas de receber o seu item",
     "shippingOnlyHelper": "Este item pode ser entregue à sua porta",
-    "pickupOnlyHelper": "Este item está disponível para retirada local",
+    "pickupOnlyHelper": "Este item está disponível para retirada no local",
     "shipItemsTitle": "Enviar itens",
     "shipItemsHelper": "Nós o entregaremos à sua porta",
     "pickupLocationTitle": "Local de retirada",
@@ -4478,7 +4478,7 @@
       "country": "País",
       "postalCode": "CEP",
       "invalidPhone": "Digite um número de telefone válido",
-      "invalidPostalCode": "Digite um código postal válido",
+      "invalidPostalCode": "Digite um CEP válido",
       "required": "{{label}} é obrigatório"
     },
     "editAddressTitle": "Editar endereço",
@@ -4504,11 +4504,11 @@
     "shipChoiceTitle": "O vendedor cuidará do envio",
     "shipChoiceRow1": "O comprador fornece o endereço",
     "shipChoiceRow2": "O vendedor cuida do envio",
-    "localChoiceTitle": "Levantamento no local",
+    "localChoiceTitle": "Retirada no local",
     "localChoiceRow1": "O comprador faz a retirada",
     "localChoiceRow2": "Sem custo de envio",
     "fixedShipNote": "Este item será enviado para o seu endereço.",
-    "fixedLocalNote": "Este item é apenas para levantamento no local — não é necessário endereço.",
+    "fixedLocalNote": "Este item é apenas para retirada no local — não é necessário endereço.",
     "shippingFee": "Custo de envio",
     "taxAmount": "Imposto",
     "platformFee": "Taxa de serviço",
@@ -4760,10 +4760,10 @@
     "selectCityFirst": "Selecione uma cidade primeiro",
     "viewOnMap": "Ver no mapa",
     "availableHoursLabel": "Horário disponível",
-    "weekdaysAbbrev": "Seg - Sex",
-    "weekendsAbbrev": "Sáb - Dom",
-    "weekdaysLabel": "Dias úteis (Seg - Sex)",
-    "weekendsLabel": "Fim de semana (Sáb - Dom)",
+    "weekdaysAbbrev": "Seg-Sex",
+    "weekendsAbbrev": "Sáb-Dom",
+    "weekdaysLabel": "Dias úteis (Seg-Sex)",
+    "weekendsLabel": "Fim de semana (Sáb-Dom)",
     "opensLabel": "Abre",
     "closesLabel": "Fecha",
     "startTimePlaceholder": "Horário de início",
@@ -4971,7 +4971,7 @@
       "pending": "Aguardando envio",
       "pickup": "Retirada",
       "confirmed": "Confirmado",
-      "processing": "Em elaboração",
+      "processing": "Em processamento",
       "shipped": "Enviado",
       "delivered": "Entregue",
       "cancelled": "Cancelado",
@@ -5189,7 +5189,7 @@
     "shippingReturnPlaceholder": "Informe aos compradores como funciona o envio e as devoluções.",
     "paymentMethods": "Formas de pagamento",
     "paymentMethodsSubtitle": "Informe aos compradores como eles podem pagar.",
-    "paymentMethodsPlaceholder": "Stripe, dinheiro, cartão, etc.",
+    "paymentMethodsPlaceholder": "Pagbank, dinheiro, cartão, etc.",
     "preferences": "Preferências da loja",
     "preferencesSubtitle": "Público, estilo e preferências de pedido.",
     "preferencesPlaceholder": "Estilo preferido, público, regras de pedido...",
@@ -5249,7 +5249,7 @@
       },
       "paymentMethod": {
         "title": "Formas de Pagamento",
-        "placeholder": "Stripe, dinheiro, cartão, etc."
+        "placeholder": "Pagbank, dinheiro, cartão, etc."
       },
       "shopPreferences": {
         "title": "Preferências da loja",

@@ -25,7 +25,7 @@ import { useThemeContext } from '../../theme/ThemeContext';
 import { useLanguage } from '../../i18n';
 import SubscriptionActivationPopup from '../../components/modals/SubscriptionActivationPopUp';
 import { LogoIcon } from '../../assets/icons';
-import { formatLocalizedActivityDate } from '../../utils/dateTimeFormatter';
+import { formatLocalizedDateTime } from '../../utils/dateTimeFormatter';
 
 const PAYMENT_POLL_ATTEMPTS = 8;
 const PAYMENT_POLL_DELAY_MS = 1500;
@@ -218,14 +218,15 @@ const SubscriptionDetails = ({ route }) => {
 
   const formatDateISO = (isoString) => {
     if (!isoString) return t('subscription.notAvailable');
-    return new Date(isoString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    return formatLocalizedDateTime(isoString, currentLanguage) || t('subscription.notAvailable');
   };
+
+  const getSubscriptionEndDate = () => [
+    subscription?.currentPeriodEnd,
+    subscription?.subscriptionEnd,
+    subscription?.endDate,
+    subscription?.current_period_end,
+  ].find((value) => formatLocalizedDateTime(value, currentLanguage));
 
   const getTimeRemaining = (endDate) => {
     if (!endDate) return t('subscription.notAvailable');
@@ -561,13 +562,13 @@ const SubscriptionDetails = ({ route }) => {
             {renderDetailRow(
               'time-outline',
               t('subscription.renewsOnLabel'),
-              formatDateISO(subscription?.currentPeriodEnd),
+              formatDateISO(getSubscriptionEndDate()),
             )}
           </>
         ) : (
           <>
             {renderDetailRow('card-outline', t('subscription.billingLabel'), billingLabel)}
-            {renderDetailRow('time-outline', t('subscription.renewsOnLabel'), formatLocalizedActivityDate(subscription?.currentPeriodEnd, currentLanguage))}
+            {renderDetailRow('time-outline', t('subscription.renewsOnLabel'), formatDateISO(getSubscriptionEndDate()))}
             {renderDetailRow('close-circle-outline', t('subscription.cancelAnytimeLabel'), t('subscription.cancelAnytimeYes'))}
           </>
         )}
