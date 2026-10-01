@@ -197,3 +197,7 @@ export const sendPlatformPoints = async (data) => {
 export const getPriceUpdateSummary = async () => {
   return axiosInstance.get('billing/pay-following/price-update-summary');
 };
+
+export const getPriceUpdateSubscribers = async (params = {}) => {
+  return axiosInstance.get('billing/pay-following/price-update-subscribers', { params });
+};

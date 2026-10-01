@@ -8,12 +8,13 @@ import {
   View,
   ActivityIndicator,
   RefreshControl,
+  Image,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { useLanguage } from '../../i18n';
 import { useBusinessProfileTheme } from '../../theme/useBusinessProfileTheme';
-import { getPriceUpdateSummary } from '../../services/wallet';
+import { getPriceUpdateSummary, getPriceUpdateSubscribers } from '../../services/wallet';
 
 const RESPONSE_CARDS = [
   { key: 'accepted', icon: 'checkmark-circle-outline', color: '#218A4D', background: '#F0FAF3', border: '#CBEAD5' },
@@ -32,6 +33,9 @@ const SubscriptionUpdateSummaryScreen = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [apiData, setApiData] = useState(null);
+  const [selectedResponse, setSelectedResponse] = useState(null);
+  const [subscriberList, setSubscriberList] = useState([]);
+  const [subscriberLoading, setSubscriberLoading] = useState(false);
 
   const fetchSummary = useCallback(async (isRefresh = false) => {
     if (isRefresh) {
@@ -46,6 +50,18 @@ const SubscriptionUpdateSummaryScreen = () => {
       const data = res?.data?.data || res?.data || res;
       if (data && typeof data === 'object') {
         setApiData(data);
+        const statuses = ['ACCEPTED', 'DECLINED', 'PENDING'];
+        const counts = await Promise.all(statuses.map(async status => {
+          const response = await getPriceUpdateSubscribers({ page: 1, limit: 50, status });
+          const body = response?.data?.data || response?.data || response;
+          const list = Array.isArray(body) ? body : body?.subscribers || body?.users || body?.items || body?.results || [];
+          const total = body?.totalCount ?? body?.total ?? body?.pagination?.total ?? body?.meta?.total ?? list.length;
+          return Number(total) || 0;
+        }));
+        setApiData(current => ({
+          ...(current || data),
+          responses: { accepted: counts[0], canceled: counts[1], pending: counts[2] },
+        }));
       }
     } catch (error) {
       console.log('fetchSummary error:', error);
@@ -113,6 +129,38 @@ const SubscriptionUpdateSummaryScreen = () => {
       apiData?.pendingCount ??
       route.params?.responses?.pending ??
       0,
+  };
+
+  const openResponse = async key => {
+    const status = key === 'accepted' ? 'ACCEPTED' : key === 'canceled' ? 'DECLINED' : 'PENDING';
+    setSelectedResponse(key);
+    setSubscriberLoading(true);
+    try {
+      const res = await getPriceUpdateSubscribers({ page: 1, limit: 50, status });
+      const body = res?.data?.data || res?.data || res;
+      const list = Array.isArray(body) ? body : body?.subscribers || body?.users || body?.items || body?.results || [];
+      setSubscriberList(list);
+    } catch (error) {
+      console.log('getPriceUpdateSubscribers error:', error);
+      setSubscriberList([]);
+    } finally {
+      setSubscriberLoading(false);
+    }
+  };
+
+  const startChat = subscriber => {
+    const user = subscriber?.user || subscriber?.subscriber || subscriber;
+    const userId = user?.userId || user?.id || subscriber?.userId || subscriber?.subscriberId;
+    if (!userId) return;
+    navigation.getParent()?.navigate('HomeMain', {
+      screen: 'UserChat',
+      params: {
+        userId,
+        user,
+        returnToSubscriptionUpdateSummary: true,
+        initialMessage: t('manageSubscribers.updateSummary.friendlyMessage', 'Hi! Thanks for being part of my community. I wanted to reach out and see if you have any questions about my subscription update.'),
+      },
+    });
   };
 
   return (
@@ -204,9 +252,14 @@ const SubscriptionUpdateSummaryScreen = () => {
 
             <View style={styles.responseGrid}>
               {RESPONSE_CARDS.map(card => (
-                <View
+                <TouchableOpacity
                   key={card.key}
                   style={[styles.responseCard, { backgroundColor: card.background, borderColor: card.border }]}
+                  onPress={() => {
+                    setActiveTab('responses');
+                    openResponse(card.key);
+                  }}
+                  accessibilityRole="button"
                 >
                   <Ionicons name={card.icon} size={19} color={card.color} />
                   <Text style={[styles.responseLabel, { color: card.color }]}>
@@ -215,7 +268,7 @@ const SubscriptionUpdateSummaryScreen = () => {
                   <Text style={[styles.responseValue, { color: card.color }]}>
                     {responses[card.key]}
                   </Text>
-                </View>
+                </TouchableOpacity>
               ))}
             </View>
 
@@ -236,9 +289,9 @@ const SubscriptionUpdateSummaryScreen = () => {
               {t('manageSubscribers.updateSummary.responseBreakdown', 'Subscriber responses')}
             </Text>
             {RESPONSE_CARDS.map((card, index) => (
-              <View key={card.key}>
+                <View key={card.key}>
                 {index > 0 && <View style={[styles.divider, { backgroundColor: theme.border }]} />}
-                <View style={styles.detailRow}>
+                <TouchableOpacity style={styles.detailRow} onPress={() => openResponse(card.key)} accessibilityRole="button">
                   <View style={[styles.responseIcon, { backgroundColor: card.background }]}>
                     <Ionicons name={card.icon} size={20} color={card.color} />
                   </View>
@@ -248,9 +301,30 @@ const SubscriptionUpdateSummaryScreen = () => {
                   <Text style={[styles.detailValue, { color: card.color }]}>
                     {responses[card.key]}
                   </Text>
-                </View>
+                </TouchableOpacity>
               </View>
             ))}
+            {selectedResponse && (
+              <View style={styles.subscriberSection}>
+                <View style={styles.listHeading}>
+                  <Text style={[styles.cardTitle, { color: theme.text }]}>
+                    {t(`manageSubscribers.updateSummary.${selectedResponse}`, selectedResponse)}
+                  </Text>
+                  <TouchableOpacity onPress={() => setSelectedResponse(null)} accessibilityRole="button">
+                    <Ionicons name="close" size={22} color={theme.mutedText} />
+                  </TouchableOpacity>
+                </View>
+                {subscriberLoading ? <ActivityIndicator color={theme.accent} style={styles.listLoader} /> : subscriberList.length ? subscriberList.map((item, index) => {
+                  const user = item?.user || item?.subscriber || item;
+                  const name = user?.displayName || user?.userName || user?.username || user?.name || t('manageSubscribers.updateSummary.subscriber', 'Subscriber');
+                  return <TouchableOpacity key={String(user?.id || user?.userId || index)} style={[styles.subscriberRow, { borderTopColor: theme.border }]} onPress={() => startChat(item)} accessibilityRole="button">
+                    {user?.image || user?.avatar ? <Image source={{ uri: user.image || user.avatar }} style={styles.avatar} /> : <View style={[styles.avatar, styles.avatarFallback, { backgroundColor: theme.accent }]}><Text style={styles.avatarLetter}>{String(name).charAt(0).toUpperCase()}</Text></View>}
+                    <View style={styles.subscriberInfo}><Text style={[styles.subscriberName, { color: theme.text }]}>{name}</Text><Text style={[styles.messageHint, { color: theme.mutedText }]}>{t('manageSubscribers.updateSummary.sendFriendlyMessage', 'Send a friendly message')}</Text></View>
+                    <Ionicons name="chatbubble-ellipses-outline" size={21} color={theme.accent} />
+                  </TouchableOpacity>;
+                }) : <Text style={[styles.emptyList, { color: theme.mutedText }]}>{t('manageSubscribers.updateSummary.noSubscribers', 'No subscribers found.')}</Text>}
+              </View>
+            )}
           </View>
         )}
       </ScrollView>
@@ -299,6 +373,17 @@ const styles = StyleSheet.create({
   responseIcon: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
   detailLabel: { flex: 1, fontSize: 15, fontWeight: '600' },
   detailValue: { fontSize: 20, fontWeight: '700' },
+  subscriberSection: { marginTop: 14 },
+  listHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10 },
+  listLoader: { paddingVertical: 18 },
+  subscriberRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderTopWidth: StyleSheet.hairlineWidth },
+  avatar: { width: 42, height: 42, borderRadius: 21 },
+  avatarFallback: { alignItems: 'center', justifyContent: 'center' },
+  avatarLetter: { color: '#fff', fontSize: 17, fontWeight: '700' },
+  subscriberInfo: { flex: 1, marginHorizontal: 12 },
+  subscriberName: { fontSize: 14, fontWeight: '700' },
+  messageHint: { fontSize: 12, marginTop: 3 },
+  emptyList: { paddingVertical: 14, fontSize: 14 },
 });
 
 export default SubscriptionUpdateSummaryScreen;
