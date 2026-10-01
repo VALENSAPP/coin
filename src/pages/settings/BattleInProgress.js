@@ -606,6 +606,11 @@ const normalizeBattle = (raw, currentUserId = '') => {
     predictionCounts: normalizedPredictionCounts,
     voteCounts: normalizedVoteCounts,
     optionImages: Array.isArray(raw?.optionImages) ? raw.optionImages.filter(Boolean) : [],
+    externalTeams:
+      raw?.externalPrediction?.raw?.teams ||
+      raw?.externalPrediction?.teams ||
+      raw?.externalPrediction?.raw?.raw?.teams ||
+      null,
     comments,
     headToHeadSides: headToHeadSides || undefined,
   };
@@ -3066,6 +3071,47 @@ export default function BattleInProgress() {
     </Animated.View>
   );
 
+  const renderExternalTeamMatchup = () => {
+    const teams = battle?.externalTeams;
+    const matchupTeams = [teams?.home, teams?.away].filter(team => team?.name);
+    if (!isPrediction || matchupTeams.length !== 2) return null;
+
+    const getTeamPercentage = team => {
+      const matchingOption = battle.options.find(option =>
+        normalizeSideKey(pickFirst(option?.side, option?.label, '')) === normalizeSideKey(team.name),
+      );
+      return Number(matchingOption?.percentage || 0);
+    };
+
+    return (
+      <View style={styles.externalMatchupRow}>
+        {matchupTeams.map((team, index) => (
+          <React.Fragment key={`${team.id || team.name}-${index}`}>
+            <View style={[styles.externalTeamCard, { backgroundColor: optionSurface }]}>
+              {!!team.flag && (
+                <Image source={{ uri: team.flag }} style={styles.externalTeamFlag} resizeMode="contain" />
+              )}
+              {!!(team.logo || team.image) && (
+                <Image source={{ uri: team.logo || team.image }} style={styles.externalTeamLogo} resizeMode="contain" />
+              )}
+              <Text style={[styles.externalTeamName, { color: labelColor }]} numberOfLines={2}>
+                {team.name}
+              </Text>
+              <Text style={[styles.externalTeamPercentage, { color: accent }]}>
+                {getTeamPercentage(team)}%
+              </Text>
+            </View>
+            {index === 0 && (
+              <View style={[styles.externalMatchupVs, { backgroundColor: palette.soft }]}>
+                <Text style={{ color: palette.primary, fontWeight: '800' }}>VS</Text>
+              </View>
+            )}
+          </React.Fragment>
+        ))}
+      </View>
+    );
+  };
+
   // ─── render how to win ─────────────────────────────────────────────────────
 
   const renderHowToWinCard = () => (
@@ -3155,6 +3201,7 @@ export default function BattleInProgress() {
           </View>
 
           {renderHeroCard()}
+          {renderExternalTeamMatchup()}
           {renderHowToWinCard()}
 
           {/* Winner Logic */}
@@ -3699,6 +3746,13 @@ const styles = StyleSheet.create({
 
   // Option pills
   optionGrid: { flexDirection: 'column', gap: 10, marginBottom: 6 },
+  externalMatchupRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 6 },
+  externalTeamCard: { flex: 1, minHeight: 150, borderRadius: 16, alignItems: 'center', justifyContent: 'center', padding: 12, gap: 6 },
+  externalTeamFlag: { width: 34, height: 24 },
+  externalTeamLogo: { width: 62, height: 62 },
+  externalTeamName: { fontSize: 15, fontWeight: '700', textAlign: 'center' },
+  externalTeamPercentage: { fontSize: 23, fontWeight: '800' },
+  externalMatchupVs: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginHorizontal: -10, zIndex: 1 },
   optionPillCard: { flexDirection: 'row', alignItems: 'center', minHeight: 56, borderRadius: 15, borderWidth: 1.5, paddingVertical: 8, paddingHorizontal: 10, gap: 8 },
   optionPillAvatarWrap: { flexShrink: 0 },
   optionPillAvatarFallback: { width: 36, height: 36, borderRadius: 18, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },

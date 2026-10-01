@@ -39,10 +39,8 @@ let _setAppLanguageGlobal = null;
  */
 export const fetchAndApplyUserLanguage = async (deviceId) => {
   try {
-    const token = await AsyncStorage.getItem('token');
-    if (!token) return null;
-
     const resolvedDeviceId = deviceId || (await getAuthDeviceId());
+    if (!resolvedDeviceId) return null;
     console.log('Fetched deviceId:', resolvedDeviceId);
     const response = await getUserLanguage(resolvedDeviceId);
     console.log('Fetched user language response:', response);
@@ -141,6 +139,11 @@ export const LanguageProvider = ({ children }) => {
         applyAcceptLanguage(lang);
         setCurrentLanguage(lang);
         setTranslations(allTranslations[lang] || en);
+
+        // Sync the latest device preference from the server on every app launch.
+        fetchAndApplyUserLanguage().catch((error) => {
+          console.warn('Fetch device language on app launch failed:', error?.message || error);
+        });
       } catch (error) {
         console.warn('Language init error:', error);
       } finally {
@@ -163,12 +166,7 @@ export const LanguageProvider = ({ children }) => {
       setCurrentLanguage(lang);
       setTranslations(allTranslations[lang] || en);
 
-      const token = await AsyncStorage.getItem('token');
-      if (token) {
-        updateUserLanguage(lang).catch((error) => {
-          console.warn('Update language error:', error);
-        });
-      }
+      await updateUserLanguage(lang);
     } catch (error) {
       console.warn('Change language error:', error);
     } finally {

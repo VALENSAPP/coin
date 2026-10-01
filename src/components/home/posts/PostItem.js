@@ -613,6 +613,14 @@ function PostItem({
   const [isLoadingDonation, setIsLoadingDonation] = useState(false);
   const [trustPanelVisible, setTrustPanelVisible] = useState(false);
   const [trustScoreVisible, setTrustScoreVisible] = useState(false);
+  const [showTrustTooltip, setShowTrustTooltip] = useState(false);
+
+  useEffect(() => {
+    if (showTrustTooltip) {
+      const timer = setTimeout(() => setShowTrustTooltip(false), 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [showTrustTooltip]);
   const [trustLoading, setTrustLoading] = useState(false);
   const [trustScoreLoading, setTrustScoreLoading] = useState(false);
   const [trustVote, setTrustVote] = useState(null);
@@ -2244,47 +2252,62 @@ function PostItem({
                 {trustScore && (
                   <>
                     <View style={[styles.trustHeaderDivider, { backgroundColor: border }]} />
-                    <TouchableOpacity
-                      onPress={handleTrustScorePress}
-                      style={styles.trustScoreActionButton}
-                      activeOpacity={0.85}>
-                      <View style={styles.trustScoreActionTextWrap}>
-                        <View style={styles.trustScoreActionTitleRow}>
-                          <Text
-                            style={[
-                              styles.trustScoreActionTitle,
-                              { color: mutedText },
-                              (hasSubmittedTrustVote || trustVote) && styles.trustScoreActionTitleVoted,
-                            ]}
-                            numberOfLines={2}
-                            adjustsFontSizeToFit
-                            minimumFontScale={0.75}>
-                            {t('postItem.trustScore')}
-                          </Text>
-                          <Icon name="information-circle-outline" size={10} color={mutedText} />
-                          <Text
-                            style={[
-                              styles.trustScoreValue,
-                              (hasSubmittedTrustVote || trustVote) && styles.trustScoreValueVoted,
-                            ]}
-                            numberOfLines={1}
-                            adjustsFontSizeToFit
-                            minimumFontScale={0.8}>
-                            {Math.round(normalizedTrustScore.overall)}%
-                          </Text>
+                    <View style={styles.trustScoreContainer}>
+                      {showTrustTooltip && (
+                        <TouchableOpacity
+                          activeOpacity={0.9}
+                          onPress={() => setShowTrustTooltip(false)}
+                          style={styles.trustTooltipBubbleContainer}>
+                          <View style={styles.trustTooltipBubble}>
+                            <Text style={styles.trustTooltipText}>
+                              {t('postItem.communityTrustScore')}
+                            </Text>
+                          </View>
+                          <View style={styles.trustTooltipArrow} />
+                        </TouchableOpacity>
+                      )}
+                      <TouchableOpacity
+                        onPress={handleTrustScorePress}
+                        style={styles.trustScoreActionButton}
+                        activeOpacity={0.85}
+                        accessibilityLabel={`${t('postItem.trustScore')}: ${Math.round(normalizedTrustScore.overall)}%`}
+                        accessibilityHint={t('postItem.communityTrustScore')}>
+                        <View style={styles.trustScoreActionTextWrap}>
+                          <View style={styles.trustScoreActionTitleRow}>
+                            <Text
+                              style={[
+                                styles.trustScoreActionTitle,
+                                { color: mutedText },
+                                (hasSubmittedTrustVote || trustVote) && styles.trustScoreActionTitleVoted,
+                              ]}
+                              numberOfLines={1}
+                              adjustsFontSizeToFit
+                              minimumFontScale={0.75}>
+                              {t('postItem.trustScore')}
+                            </Text>
+                            <TouchableOpacity
+                              onPress={(e) => {
+                                e?.stopPropagation?.();
+                                setShowTrustTooltip(prev => !prev);
+                              }}
+                              hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                              activeOpacity={0.6}>
+                              <Icon name="information-circle-outline" size={11} color={mutedText} style={{ marginHorizontal: 2 }} />
+                            </TouchableOpacity>
+                            <Text
+                              style={[
+                                styles.trustScoreValue,
+                                (hasSubmittedTrustVote || trustVote) && styles.trustScoreValueVoted,
+                              ]}
+                              numberOfLines={1}
+                              adjustsFontSizeToFit
+                              minimumFontScale={0.8}>
+                              {Math.round(normalizedTrustScore.overall)}%
+                            </Text>
+                          </View>
                         </View>
-                        <Text
-                          style={[
-                            styles.trustScoreActionSub,
-                            { color: mutedText },
-                            (hasSubmittedTrustVote || trustVote) && styles.trustScoreActionSubVoted,
-                          ]}
-                          numberOfLines={2}
-                          ellipsizeMode="tail">
-                          {t('postItem.communityTrustScore')}
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
+                      </TouchableOpacity>
+                    </View>
                   </>
                 )}
               </>
@@ -3145,6 +3168,48 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
     lineHeight: 18,
+  },
+  trustScoreContainer: {
+    position: 'relative',
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  trustTooltipBubbleContainer: {
+    position: 'absolute',
+    bottom: '100%',
+    left: 0,
+    marginBottom: 6,
+    zIndex: 9999,
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    alignItems: 'center',
+  },
+  trustTooltipBubble: {
+    backgroundColor: '#1E293B',
+    borderRadius: 6,
+    paddingVertical: 5,
+    paddingHorizontal: 9,
+  },
+  trustTooltipText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  trustTooltipArrow: {
+    width: 0,
+    height: 0,
+    borderStyle: 'solid',
+    borderLeftWidth: 5,
+    borderRightWidth: 5,
+    borderTopWidth: 5,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderTopColor: '#1E293B',
+    alignSelf: 'center',
   },
   trustScoreActionButton: {
     flexDirection: 'row',

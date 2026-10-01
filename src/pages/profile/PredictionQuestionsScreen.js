@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   RefreshControl,
   StyleSheet,
   Text,
@@ -98,6 +99,7 @@ export default function PredictionQuestionsScreen({
             : [];
 
         setQuestions(prev => (nextPage === 1 ? list : [...prev, ...list]));
+        console.log('Fetched questions:', list, 'Next page:', nextPage);
         setHasMore(list.length >= 20);
         setPage(nextPage);
       } catch (error) {
@@ -121,6 +123,13 @@ export default function PredictionQuestionsScreen({
 
   const handleSelectQuestion = question => {
     onSelectQuestion?.(question);
+  };
+
+  const getTeamForOption = (item, option) => {
+    const normalizedOption = String(option || '').trim().toLowerCase();
+    return [item?.raw?.teams?.home, item?.raw?.teams?.away].find(team =>
+      team?.name && String(team.name).trim().toLowerCase() === normalizedOption,
+    );
   };
 
   const renderQuestion = ({ item }) => (
@@ -151,16 +160,26 @@ export default function PredictionQuestionsScreen({
 
       {Array.isArray(item?.options) && item.options.length > 0 && (
         <View style={styles.optionsRow}>
-          {item.options.slice(0, 4).map((opt, index) => (
-            <View
-              key={`${opt}-${index}`}
-              style={[styles.optionChip, { borderColor: themeBorder }]}
-            >
-              <Text style={[styles.optionChipText, { color: labelColor }]}>
-                {opt}
-              </Text>
-            </View>
-          ))}
+          {item.options.slice(0, 4).map((opt, index) => {
+            const team = getTeamForOption(item, opt);
+            return (
+              <View
+                key={`${opt}-${index}`}
+                style={[styles.optionChip, { borderColor: themeBorder }]}
+              >
+                {!!team?.logo && (
+                  <Image
+                    source={{ uri: team.logo }}
+                    style={styles.teamLogo}
+                    resizeMode="contain"
+                  />
+                )}
+                <Text style={[styles.optionChipText, { color: labelColor }]}>
+                  {opt}
+                </Text>
+              </View>
+            );
+          })}
         </View>
       )}
 
@@ -373,7 +392,11 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
   },
+  teamLogo: { width: 18, height: 18 },
   optionChipText: { fontSize: 11, fontWeight: '700' },
   selectRow: { alignItems: 'flex-end', marginTop: 8 },
   centerState: {
