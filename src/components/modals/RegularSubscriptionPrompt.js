@@ -10,16 +10,35 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useLanguage } from '../../i18n';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useThemeContext } from '../../theme/ThemeContext';
 
-const RegularSubscriptionPrompt = ({ visible, onLearnMore, onLater }) => {
+const RegularSubscriptionPrompt = ({ visible, onLearnMore, onLater, isBusinessProfile }) => {
   const { t } = useLanguage();
-  const { cardStyle, textStyle, text ,bgStyle} = useAppTheme();
+  const { isDarkMode } = useThemeContext();
+  const { cardStyle, textStyle, text, bgStyle, mutedText, border, card, accent } = useAppTheme();
 
   if (!visible) return null;
 
+  const isCompany = Boolean(isBusinessProfile);
+
+  // Theme Colors for User & Company profile in Dark & Light modes
+  const themeAccent = isCompany ? (accent || '#C9A15A') : (isDarkMode ? '#A78BFA' : (text || accent));
+  const themeBtnBg = isCompany ? (accent || '#C9A15A') : (isDarkMode ? accent : accent);
+
+  const cardBg = isDarkMode ? '#1E1E1E' : '#FFFFFF';
+  const cardBorder = isDarkMode ? '#333333' : '#E5E7EB';
+  const innerCardBg = isDarkMode ? '#18181B' : '#F8F5FF';
+  const innerCardBorder = isDarkMode ? '#3F3F46' : '#F0E7FF';
+
+  const titleColor = isDarkMode ? '#FFFFFF' : '#1F2937';
+  const subtextColor = isDarkMode ? '#9CA3AF' : '#6B7280';
+  const featureBadgeBg = isDarkMode
+    ? (isCompany ? 'rgba(201, 161, 90, 0.2)' : 'rgba(167, 139, 250, 0.18)')
+    : (isCompany ? 'rgba(201, 161, 90, 0.12)' : 'rgba(107, 33, 168, 0.1)');
+
   return (
     <View style={styles.overlay} pointerEvents="auto">
-      <View style={[styles.modalCard, cardStyle]}>
+      <View style={[styles.modalCard, { backgroundColor: cardBg, borderColor: cardBorder, borderWidth: isDarkMode ? 1 : 0 }]}>
         {/* Close button */}
         <TouchableOpacity
           style={styles.closeButton}
@@ -27,7 +46,7 @@ const RegularSubscriptionPrompt = ({ visible, onLearnMore, onLater }) => {
           activeOpacity={0.7}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Ionicons name="close" size={22} color="#6B7280" />
+          <Ionicons name="close" size={22} color={subtextColor} />
         </TouchableOpacity>
 
         <ScrollView
@@ -37,45 +56,45 @@ const RegularSubscriptionPrompt = ({ visible, onLearnMore, onLater }) => {
           {/* Header Crown Graphic */}
           <View style={styles.crownContainer}>
             <View style={styles.sparkleLeft}>
-              <MaterialCommunityIcons name="star-four-points" size={16} color={text} />
+              <MaterialCommunityIcons name="star-four-points" size={16} color={accent} />
             </View>
             <View style={styles.sparkleTopLeft}>
-              <MaterialCommunityIcons name="star-four-points" size={12} color={text}/>
+              <MaterialCommunityIcons name="star-four-points" size={12} color={accent} />
             </View>
             <View style={styles.sparkleRight}>
-              <MaterialCommunityIcons name="star-four-points" size={18} color={text} />
+              <MaterialCommunityIcons name="star-four-points" size={18} color={accent} />
             </View>
             <View style={styles.sparkleTopRight}>
-              <MaterialCommunityIcons name="star-four-points" size={14} color={text} />
+              <MaterialCommunityIcons name="star-four-points" size={14} color={accent} />
             </View>
 
-            <MaterialCommunityIcons name="crown" size={54} color={text}/>
-            <View style={[styles.valensBanner, { backgroundColor: text }]}>
-              <Text style={styles.valensBannerText}>VALENS</Text>
+            <MaterialCommunityIcons name="crown" size={54} color={accent} />
+            <View style={[styles.valensBanner, { backgroundColor: accent }]}>
+              <Text style={[styles.valensBannerText, { color: '#FFFFFF' }]}>VALENS</Text>
             </View>
           </View>
 
           {/* Title & Subtitle */}
-          <Text style={[styles.title, textStyle]}>
+          <Text style={[styles.title, { color: titleColor }]}>
             {t('regularSubscriptionPrompt.titlePrefix')}
-            <Text style={[styles.titleHighlight, textStyle]}>
+            <Text style={[styles.titleHighlight, { color: accent }]}>
               {t('regularSubscriptionPrompt.titleHighlight')}
             </Text>
           </Text>
 
-          <Text style={[styles.subtitle, { color: text }]}>
+          <Text style={[styles.subtitle, { color: subtextColor }]}>
             {t('regularSubscriptionPrompt.subtitle')}
           </Text>
 
           {/* Premium Container Card */}
-          <View style={[styles.premiumCard, bgStyle]}>
+          <View style={[styles.premiumCard, { backgroundColor: innerCardBg, borderColor: innerCardBorder }]}>
             <View style={styles.premiumHeaderRow}>
-              <MaterialCommunityIcons name="crown" size={24} color={text} style={styles.headerCrownIcon} />
+              <MaterialCommunityIcons name="crown" size={24} color={accent} style={styles.headerCrownIcon} />
               <View style={styles.premiumHeaderTexts}>
-                <Text style={[styles.premiumTitle, { color: text }]}>
+                <Text style={[styles.premiumTitle, { color: titleColor }]}>
                   {t('regularSubscriptionPrompt.premiumTitle')}
                 </Text>
-                <Text style={[styles.premiumSub, { color: text }]}>
+                <Text style={[styles.premiumSub, { color: subtextColor }]}>
                   {t('regularSubscriptionPrompt.premiumSub')}
                 </Text>
               </View>
@@ -85,14 +104,14 @@ const RegularSubscriptionPrompt = ({ visible, onLearnMore, onLater }) => {
             <View style={styles.featureList}>
               {/* Feature 1 */}
               <View style={styles.featureRow}>
-                <View style={[styles.featureIconBadge, {backgroundColor: `${text}28`}]}>
-                  <MaterialCommunityIcons name="target" size={18} color={text} />
+                <View style={[styles.featureIconBadge, { backgroundColor: featureBadgeBg }]}>
+                  <MaterialCommunityIcons name="target" size={18} color={accent} />
                 </View>
                 <View style={styles.featureTexts}>
-                  <Text style={styles.featureTitle}>
+                  <Text style={[styles.featureTitle, { color: titleColor }]}>
                     {t('regularSubscriptionPrompt.feature1Title')}
                   </Text>
-                  <Text style={styles.featureSub}>
+                  <Text style={[styles.featureSub, { color: subtextColor }]}>
                     {t('regularSubscriptionPrompt.feature1Sub')}
                   </Text>
                 </View>
@@ -100,14 +119,14 @@ const RegularSubscriptionPrompt = ({ visible, onLearnMore, onLater }) => {
 
               {/* Feature 2 */}
               <View style={styles.featureRow}>
-                <View style={[styles.featureIconBadge, {backgroundColor: `${text}28`}]}>
-                  <MaterialCommunityIcons name="crown" size={18} color={text} />
+                <View style={[styles.featureIconBadge, { backgroundColor: featureBadgeBg }]}>
+                  <MaterialCommunityIcons name="crown" size={18} color={accent} />
                 </View>
                 <View style={styles.featureTexts}>
-                  <Text style={styles.featureTitle}>
+                  <Text style={[styles.featureTitle, { color: titleColor }]}>
                     {t('regularSubscriptionPrompt.feature2Title')}
                   </Text>
-                  <Text style={styles.featureSub}>
+                  <Text style={[styles.featureSub, { color: subtextColor }]}>
                     {t('regularSubscriptionPrompt.feature2Sub')}
                   </Text>
                 </View>
@@ -115,14 +134,14 @@ const RegularSubscriptionPrompt = ({ visible, onLearnMore, onLater }) => {
 
               {/* Feature 3 */}
               <View style={styles.featureRow}>
-                <View style={[styles.featureIconBadge, {backgroundColor: `${text}28`}]}>
-                  <MaterialCommunityIcons name="star" size={18} color={text} />
+                <View style={[styles.featureIconBadge, { backgroundColor: featureBadgeBg }]}>
+                  <MaterialCommunityIcons name="star" size={18} color={accent} />
                 </View>
                 <View style={styles.featureTexts}>
-                  <Text style={styles.featureTitle}>
+                  <Text style={[styles.featureTitle, { color: titleColor }]}>
                     {t('regularSubscriptionPrompt.feature3Title')}
                   </Text>
-                  <Text style={styles.featureSub}>
+                  <Text style={[styles.featureSub, { color: subtextColor }]}>
                     {t('regularSubscriptionPrompt.feature3Sub')}
                   </Text>
                 </View>
@@ -130,14 +149,14 @@ const RegularSubscriptionPrompt = ({ visible, onLearnMore, onLater }) => {
 
               {/* Feature 4 */}
               <View style={styles.featureRow}>
-                <View style={[styles.featureIconBadge, {backgroundColor: `${text}28`}]}>
-                  <MaterialCommunityIcons name="poll" size={18} color={text} />
+                <View style={[styles.featureIconBadge, { backgroundColor: featureBadgeBg }]}>
+                  <MaterialCommunityIcons name="poll" size={18} color={accent} />
                 </View>
                 <View style={styles.featureTexts}>
-                  <Text style={styles.featureTitle}>
+                  <Text style={[styles.featureTitle, { color: titleColor }]}>
                     {t('regularSubscriptionPrompt.feature4Title')}
                   </Text>
-                  <Text style={styles.featureSub}>
+                  <Text style={[styles.featureSub, { color: subtextColor }]}>
                     {t('regularSubscriptionPrompt.feature4Sub')}
                   </Text>
                 </View>
@@ -145,14 +164,14 @@ const RegularSubscriptionPrompt = ({ visible, onLearnMore, onLater }) => {
 
               {/* Feature 5 */}
               <View style={styles.featureRow}>
-                <View style={[styles.featureIconBadge, {backgroundColor: `${text}28`}]}>
-                  <MaterialCommunityIcons name="gift" size={18} color={text} />
+                <View style={[styles.featureIconBadge, { backgroundColor: featureBadgeBg }]}>
+                  <MaterialCommunityIcons name="gift" size={18} color={accent} />
                 </View>
                 <View style={styles.featureTexts}>
-                  <Text style={styles.featureTitle}>
+                  <Text style={[styles.featureTitle, { color: titleColor }]}>
                     {t('regularSubscriptionPrompt.feature5Title')}
                   </Text>
-                  <Text style={styles.featureSub}>
+                  <Text style={[styles.featureSub, { color: subtextColor }]}>
                     {t('regularSubscriptionPrompt.feature5Sub')}
                   </Text>
                 </View>
@@ -163,27 +182,27 @@ const RegularSubscriptionPrompt = ({ visible, onLearnMore, onLater }) => {
           {/* Bottom Action Buttons */}
           <View style={styles.buttonRow}>
             <TouchableOpacity
-              style={[styles.continueFreeBtn, { borderColor: text , }]}
+              style={[styles.continueFreeBtn, { backgroundColor: cardBg, borderColor: accent }]}
               onPress={onLater}
               activeOpacity={0.8}
             >
-              <Text style={[styles.continueFreeText, { color: text }]}>
+              <Text style={[styles.continueFreeText, { color: accent }]}>
                 {t('regularSubscriptionPrompt.continueFree')}
               </Text>
-              <Text style={[styles.continueFreeSubText, { color: text }]}>
+              <Text style={[styles.continueFreeSubText, { color: subtextColor }]}>
                 {t('regularSubscriptionPrompt.continueFreeSub')}
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.learnMoreBtn, { backgroundColor: text }]}
+              style={[styles.learnMoreBtn, { backgroundColor: themeBtnBg }]}
               onPress={() => onLearnMore?.({ returnToHome: true, fromModal: true })}
               activeOpacity={0.8}
             >
-              <Text style={styles.learnMoreText}>
+              <Text style={[styles.learnMoreText, { color: isCompany && isDarkMode ? '#000000' : '#FFFFFF' }]}>
                 {t('regularSubscriptionPrompt.learnMore')}
               </Text>
-              <Text style={styles.learnMoreSubText}>
+              <Text style={[styles.learnMoreSubText, { color: isCompany && isDarkMode ? '#374151' : '#DDD6FE' }]}>
                 {t('regularSubscriptionPrompt.learnMoreSub')}
               </Text>
             </TouchableOpacity>
@@ -264,14 +283,12 @@ const styles = StyleSheet.create({
     top: 28,
   },
   valensBanner: {
-    backgroundColor: '#6B21A8',
     paddingHorizontal: 12,
     paddingVertical: 2,
     borderRadius: 6,
     marginTop: -8,
   },
   valensBannerText: {
-    color: '#FFFFFF',
     fontSize: 9,
     fontWeight: '800',
     letterSpacing: 1.5,
@@ -280,16 +297,13 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '800',
     textAlign: 'center',
-    color: '#1F2937',
     marginBottom: 6,
   },
   titleHighlight: {
-    color: '#6B21A8',
     fontWeight: '900',
   },
   subtitle: {
     fontSize: 13,
-    color: '#6B7280',
     textAlign: 'center',
     paddingHorizontal: 12,
     marginBottom: 18,
@@ -297,10 +311,8 @@ const styles = StyleSheet.create({
   },
   premiumCard: {
     width: '100%',
-    backgroundColor: '#F8F5FF',
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#F0E7FF',
     padding: 16,
     marginBottom: 20,
   },
@@ -319,12 +331,10 @@ const styles = StyleSheet.create({
   premiumTitle: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#5B21B6',
     marginBottom: 2,
   },
   premiumSub: {
     fontSize: 12,
-    color: '#6B7280',
   },
   featureList: {
     gap: 12,
@@ -347,11 +357,9 @@ const styles = StyleSheet.create({
   featureTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#1F2937',
   },
   featureSub: {
     fontSize: 11,
-    color: '#6B7280',
   },
   buttonRow: {
     flexDirection: 'row',
@@ -361,26 +369,21 @@ const styles = StyleSheet.create({
   continueFreeBtn: {
     flex: 1,
     borderWidth: 1.5,
-    borderColor: '#6B21A8',
     borderRadius: 14,
     paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
   },
   continueFreeText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#6B21A8',
   },
   continueFreeSubText: {
     fontSize: 11,
-    color: '#6B7280',
     marginTop: 1,
   },
   learnMoreBtn: {
     flex: 1,
-    backgroundColor: '#4C1D95',
     borderRadius: 14,
     paddingVertical: 10,
     alignItems: 'center',
@@ -389,11 +392,9 @@ const styles = StyleSheet.create({
   learnMoreText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#FFFFFF',
   },
   learnMoreSubText: {
     fontSize: 11,
-    color: '#DDD6FE',
     marginTop: 1,
   },
 });

@@ -22,6 +22,7 @@ import { showToastMessage } from '../../components/displaytoastmessage';
 import { getTransactionDetails } from '../../services/wallet';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useLanguage } from '../../i18n';
+import { formatDisplayCurrency } from '../../utils/displayLocale';
 import { resolveTransactionDirection } from '../../utils/transactionAmount';
 import { Dragonfly } from '../../assets/icons';
 import { navigateToUserProfile } from '../../utils/navigateToUserProfile';
@@ -34,31 +35,38 @@ const toNumber = value => {
   return Number.isFinite(num) ? num : 0;
 };
 
-const formatMoney = (value, { signed = false, tone } = {}) => {
-  const amount = Math.abs(toNumber(value));
-  const formatted = `$${amount.toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+const formatMoney = (value, language, { signed = false, tone } = {}) => {
+  const formatted = formatDisplayCurrency(Math.abs(toNumber(value)), language);
   if (!signed) return formatted;
   if (tone === 'positive') return `+${formatted}`;
   if (tone === 'negative') return `-${formatted}`;
   return formatted;
 };
 
-const formatDetailDate = (value, t) => {
+const formatDetailDate = (value, t, language) => {
   const date = value ? new Date(value) : null;
   if (!date || Number.isNaN(date.getTime())) return '';
-  const atStr = t ? ` ${t('transactionDetails.atTime')} ` : ' at ';
-  const parts = date.toLocaleString('en-US', {
+  const localeByLanguage = {
+    en: 'en-US',
+    pt: 'pt-BR',
+    it: 'it-IT',
+    es: 'es-ES',
+    fr: 'fr-FR',
+  };
+  const locale = localeByLanguage[language] || 'en-US';
+  const isEnglish = language === 'en' || !language;
+  const datePart = date.toLocaleDateString(locale, {
     month: 'short',
-    day: '2-digit',
+    day: isEnglish ? '2-digit' : 'numeric',
     year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true,
   });
-  return parts.replace(', ', atStr).replace(', ', atStr);
+  const timePart = date.toLocaleTimeString(locale, {
+    hour: isEnglish ? 'numeric' : '2-digit',
+    minute: '2-digit',
+    hour12: isEnglish,
+  });
+  const at = t ? t('transactionDetails.atTime') : 'at';
+  return `${datePart} ${at} ${timePart}`;
 };
 
 const titleCase = value =>
@@ -108,7 +116,7 @@ const unwrapPayload = payload => {
   return payload;
 };
 
-const normalizeDetails = (payload, preview = {}, t) => {
+const normalizeDetails = (payload, preview = {}, t, language) => {
   const data = unwrapPayload(payload);
   const previewSafe = preview && typeof preview === 'object' ? preview : {};
   const fromParty = partyFrom(data.from || {});
@@ -140,7 +148,7 @@ const normalizeDetails = (payload, preview = {}, t) => {
   const headerHandle = pickFirst(counterpart.handle, formatHandle(previewSafe.profileUserName), '');
   const period =
     data.periodStart && data.periodEnd
-      ? `${formatDetailDate(data.periodStart, t)} – ${formatDetailDate(data.periodEnd, t)}`
+      ? `${formatDetailDate(data.periodStart, t, language)} – ${formatDetailDate(data.periodEnd, t, language)}`
       : '';
 
   return {
@@ -149,11 +157,11 @@ const normalizeDetails = (payload, preview = {}, t) => {
     typeLabel,
     status: statusRaw,
     isReceived,
-    amount: formatMoney(amountValue, { signed: true, tone: amountTone }),
-    fee: formatMoney(feeValue, { signed: true, tone: 'negative' }),
-    total: formatMoney(totalValue, { signed: true, tone: amountTone }),
+    amount: formatMoney(amountValue, language, { signed: true, tone: amountTone }),
+    fee: formatMoney(feeValue, language, { signed: true, tone: 'negative' }),
+    total: formatMoney(totalValue, language, { signed: true, tone: amountTone }),
     amountTone,
-    date: formatDetailDate(pickFirst(data.createdAt, previewSafe.createdAt), t) || previewSafe.date || '',
+    date: formatDetailDate(pickFirst(data.createdAt, previewSafe.createdAt), t, language) || previewSafe.date || '',
     period,
     fromId: fromParty.id,
     fromName: pickFirst(fromParty.displayName, t('transactionDetails.valensWallet')),
@@ -213,13 +221,13 @@ export default function TransactionDetailsScreen() {
   const navigation = useNavigation();
   const route = useRoute();
   const toast = useToast();
-  const { t } = useLanguage();
+  const { t, currentLanguage } = useLanguage();
   const { bg, bgStyle, text, card, border, mutedText, accent, icon } = useAppTheme();
 
   const paymentId = pickFirst(route?.params?.paymentId, route?.params?.id, '');
   const preview = route?.params?.preview || {};
 
-  const [details, setDetails] = useState(() => normalizeDetails({}, preview, t));
+  const [details, setDetails] = useState(() => normalizeDetails({}, preview, t, currentLanguage));
   const [loading, setLoading] = useState(true);
 
   const loadDetails = useCallback(async () => {
@@ -234,18 +242,18 @@ export default function TransactionDetailsScreen() {
       if (response?.error || (response?.statusCode && response.statusCode >= 400 && !response?.success)) {
         throw new Error(response?.message || t('transactionDetails.loadFailed'));
       }
-      setDetails(normalizeDetails(response, preview, t));
+      setDetails(normalizeDetails(response, preview, t, currentLanguage));
     } catch (error) {
       showToastMessage(
         toast,
         'danger',
         error?.response?.data?.message || error?.message || t('transactionDetails.loadFailed'),
       );
-      setDetails(normalizeDetails({}, preview, t));
+      setDetails(normalizeDetails({}, preview, t, currentLanguage));
     } finally {
       setLoading(false);
     }
-  }, [paymentId, preview, t, toast]);
+  }, [paymentId, preview, t, toast, currentLanguage]);
 
   useFocusEffect(
     useCallback(() => {
@@ -693,12 +701,12 @@ const styles = StyleSheet.create({
   },
   totalLabel: {
     fontSize: 15,
-    fontWeight: '800',
-    color: '#5B21B6',
+   
+   
   },
   totalValue: {
-    fontSize: 18,
-    fontWeight: '800',
+    fontSize: 15,
+   fontWeight: '700',
   },
   
   noticeBox: {

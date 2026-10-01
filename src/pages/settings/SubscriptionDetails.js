@@ -90,6 +90,17 @@ const SubscriptionDetails = ({ route }) => {
   const { isDarkMode } = useThemeContext();
   const { t, currentLanguage } = useLanguage();
 
+  useFocusEffect(
+    useCallback(() => {
+      const tabNavigation = navigation.getParent();
+      tabNavigation?.setOptions({ tabBarStyle: { display: 'none' } });
+
+      return () => {
+        tabNavigation?.setOptions({ tabBarStyle: undefined });
+      };
+    }, [navigation]),
+  );
+
   const handleBack = useCallback(() => {
     if (route?.params?.returnToHome || route?.params?.fromModal) {
       navigation.navigate('HomeMain', { screen: 'Home' });
@@ -778,7 +789,7 @@ const SubscriptionDetails = ({ route }) => {
       </ScrollView>
 
       {showInactiveExperience && renderInactiveFooter()}
-
+      <View style={{ height: showInactiveExperience ? '10%' : '5%' }} />
       <SubscriptionActivationPopup
         visible={showActivationPopup}
         onClose={() => setShowActivationPopup(false)}
@@ -790,7 +801,7 @@ const SubscriptionDetails = ({ route }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1,paddingbottom: 30 },
+  container: { flex: 1, paddingbottom: 30 },
   loadingContainer: { flex: 1, },
   loadingText: { marginTop: 16, fontSize: 16, fontWeight: '500', textAlign: 'center', alignSelf: 'center' },
   headerWrap: {
@@ -1030,7 +1041,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   secureText: { fontSize: 12, color: '#6B7280' },
-  activeFooter: { gap: 14, marginTop: 4,marginBottom: '10%' },
+  activeFooter: { gap: 14, marginTop: 4, marginBottom: '10%' },
   safeSecureBlock: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
   safeSecureCopy: { flex: 1 },
   safeSecureTitle: { fontSize: 15, fontWeight: '800', marginBottom: 4 },

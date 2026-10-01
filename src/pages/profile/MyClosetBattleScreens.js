@@ -659,12 +659,12 @@ export const StatRow = ({ items, card, border, textColor, mutedColor }) => (
 // CreateBattleScreen — now loads real closet items from GET /mycloset/items
 // ---------------------------------------------------------------------
 export function CreateBattleScreen({ navigation, route }) {
-  const { bgStyle, text, card, bg, border, mutedText } = useAppTheme();
+  const { bgStyle, text, card, bg, border, mutedText, accent: themeAccent } = useAppTheme();
   const { isDarkMode } = useThemeContext();
   const surfaces = formSurfaces(isDarkMode);
   const idleSurface = card || surfaces.listSurface;
   const { t } = useLanguage();
-  const accent = text || PURPLE;
+  const accent = themeAccent || PURPLE;
   const primaryText = text || TEXT;
   const subtleMuted = mutedText || surfaces.mutedColor;
   const ghostBorder = isDarkMode ? 'rgba(255,255,255,0.45)' : '#D8CBEF';
@@ -847,7 +847,7 @@ export function CreateBattleScreen({ navigation, route }) {
             disabled={selectedItems.length !== 2}
             onPress={() => navigation.navigate(nextRoute, { ...route?.params, selectedItems })}
           >
-            <LinearGradient colors={[accent, text]} style={[styles.primaryButton, selectedItems.length !== 2 && { opacity: 0.5 }]}>
+            <LinearGradient colors={themeGradient(accent)} style={[styles.primaryButton, selectedItems.length !== 2 && { opacity: 0.5 }]}>
               <Text style={styles.primaryButtonText}>{t('battle.next', 'Next')}</Text>
             </LinearGradient>
           </TouchableOpacity>
@@ -868,12 +868,12 @@ export function CreateBattleScreen({ navigation, route }) {
 }
 
 export function BattleSetupScreen({ navigation, route }) {
-  const { bgStyle, text, card, bg, border, mutedText } = useAppTheme();
+  const { bgStyle, text, card, bg, border, mutedText, accent: themeAccent } = useAppTheme();
   const { isDarkMode } = useThemeContext();
   const surfaces = formSurfaces(isDarkMode);
   const idleSurface = card || surfaces.listSurface;
   const { t } = useLanguage();
-  const accent = text || PURPLE;
+  const accent = themeAccent || PURPLE;
   const primaryText = text || TEXT;
   const subtleMuted = mutedText || surfaces.mutedColor;
   const initialQuestion = route?.params?.question || route?.params?.defaultQuestion || t('battle.defaultQuestion');
@@ -1037,7 +1037,7 @@ export function BattleSetupScreen({ navigation, route }) {
           </TouchableOpacity>
         </View>
         <TouchableOpacity activeOpacity={0.9} onPress={handlePreview}>
-          <LinearGradient colors={[accent, text]} style={styles.primaryButton}>
+          <LinearGradient colors={themeGradient(accent)} style={styles.primaryButton}>
             <Text style={styles.primaryButtonText}>{t('battle.previewBattle')}</Text>
           </LinearGradient>
         </TouchableOpacity>
@@ -1050,11 +1050,11 @@ export function BattleSetupScreen({ navigation, route }) {
 // BattlePreviewScreen — "Launch Battle" now calls POST /marketplace-battles
 // ---------------------------------------------------------------------
 export function BattlePreviewScreen({ navigation, route }) {
-  const { bgStyle, text, card, bg, border, mutedText } = useAppTheme();
+  const { bgStyle, text, card, bg, border, mutedText, accent: themeAccent } = useAppTheme();
   const { isDarkMode } = useThemeContext();
   const surfaces = formSurfaces(isDarkMode);
   const { t } = useLanguage();
-  const accent = text || PURPLE;
+  const accent = themeAccent || PURPLE;
   const primaryText = text || TEXT;
   const subtleMuted = mutedText || surfaces.mutedColor;
   const surface = card || surfaces.listSurface;
@@ -1203,7 +1203,7 @@ export function BattlePreviewScreen({ navigation, route }) {
             { label: t('battle.stats.comments'), value: '0', icon: 'chatbubble-outline' },
           ]} />
         <TouchableOpacity activeOpacity={0.9} disabled={launching} onPress={handleLaunch}>
-          <LinearGradient colors={[accent, text]} style={[styles.primaryButton, launching && { opacity: 0.6 }]}>
+          <LinearGradient colors={themeGradient(accent)} style={[styles.primaryButton, launching && { opacity: 0.6 }]}>
             {launching ? (
               <ActivityIndicator color="#fff" />
             ) : (
@@ -1220,12 +1220,12 @@ export function BattlePreviewScreen({ navigation, route }) {
 
 
 export function ChallengeBattleSetupScreen({ navigation, route }) {
-  const { bgStyle, text, card, bg, border, mutedText } = useAppTheme();
+  const { bgStyle, text, card, bg, border, mutedText, accent: themeAccent } = useAppTheme();
   const { isDarkMode } = useThemeContext();
   const surfaces = formSurfaces(isDarkMode);
   const idleSurface = card || surfaces.listSurface;
   const { t } = useLanguage();
-  const accent = text || PURPLE;
+  const accent = themeAccent || PURPLE;
   const primaryText = text || TEXT;
   const subtleMuted = mutedText || surfaces.mutedColor;
   const initialQuestion = route?.params?.question || route?.params?.defaultQuestion || '';
@@ -1341,7 +1341,7 @@ export function ChallengeBattleSetupScreen({ navigation, route }) {
         </View>
 
         <TouchableOpacity activeOpacity={0.9} onPress={handleNext} style={{ marginTop: 20 }}>
-          <LinearGradient colors={[accent, text]} style={styles.primaryButton}>
+          <LinearGradient colors={themeGradient(accent)} style={styles.primaryButton}>
             <Text style={styles.primaryButtonText}>{t('battle.next', 'Next')}</Text>
           </LinearGradient>
         </TouchableOpacity>
@@ -1351,12 +1351,12 @@ export function ChallengeBattleSetupScreen({ navigation, route }) {
 }
 
 export function ChallengeBattleSettingsScreen({ navigation, route }) {
-  const { bgStyle, text, card, bg, border, mutedText } = useAppTheme();
+  const { bgStyle, text, card, bg, border, mutedText, accent: themeAccent } = useAppTheme();
   const { isDarkMode } = useThemeContext();
   const surfaces = formSurfaces(isDarkMode);
   const idleSurface = card || surfaces.listSurface;
   const { t } = useLanguage();
-  const accent = text || PURPLE;
+  const accent = themeAccent || PURPLE;
   const primaryText = text || TEXT;
   const subtleMuted = mutedText || surfaces.mutedColor;
   const handleBack = useBattleBackHandler(navigation, route);
@@ -1430,7 +1430,7 @@ export function ChallengeBattleSettingsScreen({ navigation, route }) {
         </View>
 
         <TouchableOpacity activeOpacity={0.9} onPress={handleNext} style={{ marginTop: 20 }}>
-          <LinearGradient colors={[accent, text]} style={styles.primaryButton}>
+          <LinearGradient colors={themeGradient(accent)} style={styles.primaryButton}>
             <Text style={styles.primaryButtonText}>{t('battle.next', 'Next')}</Text>
           </LinearGradient>
         </TouchableOpacity>
@@ -1440,12 +1440,12 @@ export function ChallengeBattleSettingsScreen({ navigation, route }) {
 }
 
 export function ChallengeShopListScreen({ navigation, route }) {
-  const { bgStyle, text, card, bg, border, mutedText } = useAppTheme();
+  const { bgStyle, text, card, bg, border, mutedText, accent: themeAccent } = useAppTheme();
   const { isDarkMode } = useThemeContext();
   const surfaces = formSurfaces(isDarkMode);
   const idleSurface = card || surfaces.listSurface;
   const { t } = useLanguage();
-  const accent = text || PURPLE;
+  const accent = themeAccent || PURPLE;
   const primaryText = text || TEXT;
   const subtleMuted = mutedText || surfaces.mutedColor;
   const handleBack = () => navigation.goBack();
@@ -1540,12 +1540,12 @@ export function ChallengeShopListScreen({ navigation, route }) {
 }
 
 export function ChallengeShopItemsScreen({ navigation, route }) {
-  const { bgStyle, text, card, bg, border, mutedText } = useAppTheme();
+  const { bgStyle, text, card, bg, border, mutedText, accent: themeAccent } = useAppTheme();
   const { isDarkMode } = useThemeContext();
   const surfaces = formSurfaces(isDarkMode);
   const idleSurface = card || surfaces.listSurface;
   const { t } = useLanguage();
-  const accent = text || PURPLE;
+  const accent = themeAccent || PURPLE;
   const primaryText = text || TEXT;
   const subtleMuted = mutedText || surfaces.mutedColor;
   const handleBack = () => navigation.goBack();
@@ -1668,7 +1668,7 @@ export function ChallengeShopItemsScreen({ navigation, route }) {
           disabled={!selectedId}
           onPress={handleCreateBattle}
         >
-          <LinearGradient colors={[accent, text]} style={[styles.primaryButton, !selectedId && { opacity: 0.5 }]}>
+          <LinearGradient colors={themeGradient(accent)} style={[styles.primaryButton, !selectedId && { opacity: 0.5 }]}>
             <Text style={styles.primaryButtonText}>{t('battle.createBattleBtn2', 'Create Battle')}</Text>
           </LinearGradient>
         </TouchableOpacity>
@@ -1683,7 +1683,7 @@ export function BattleLiveScreen({ navigation, route }) {
   const { t } = useLanguage();
   const brandAccent = themeAccent || PURPLE;
   // Label/price color: profile text (purple/gold in light, white/gold in dark)
-  const accent = text || brandAccent;
+  const accent = themeAccent || brandAccent;
   const primaryText = text || TEXT;
   const subtleMuted = mutedText || MUTED;
   const surface = card || (isDarkMode ? '#1E1E1E' : '#fff');
@@ -2963,11 +2963,11 @@ const liveStyles = StyleSheet.create({
 });
 
 export function BattleResultsScreen({ navigation, route }) {
-  const { bgStyle, text, card, bg, border, mutedText } = useAppTheme();
+  const { bgStyle, text, card, bg, border, mutedText, accent: themeAccent } = useAppTheme();
   const { isDarkMode } = useThemeContext();
   const { t } = useLanguage();
-  const brandAccent = text || PURPLE;
-  const accent = text || brandAccent;
+  const brandAccent = themeAccent || PURPLE;
+  const accent = themeAccent || brandAccent;
   const primaryText = text || TEXT;
   const subtleMuted = mutedText || MUTED;
   const surface = card || (isDarkMode ? '#1E1E1E' : '#fff');
@@ -3182,12 +3182,12 @@ export function BattleResultsScreen({ navigation, route }) {
 
 
 export function ChallengeBattlePreviewScreen({ navigation, route }) {
-  const { bgStyle, text, card, bg, border, mutedText } = useAppTheme();
+  const { bgStyle, text, card, bg, border, mutedText, accent: themeAccent } = useAppTheme();
   const { isDarkMode } = useThemeContext();
   const surfaces = formSurfaces(isDarkMode);
   const idleSurface = card || surfaces.listSurface;
   const { t } = useLanguage();
-  const accent = text || PURPLE;
+  const accent = themeAccent || PURPLE;
   const primaryText = text || TEXT;
   const subtleMuted = mutedText || surfaces.mutedColor;
   const handleBack = () => navigation.goBack();
@@ -3329,7 +3329,7 @@ export function ChallengeBattlePreviewScreen({ navigation, route }) {
         </View>
 
         <TouchableOpacity activeOpacity={0.9} disabled={launching} onPress={handleLaunch}>
-          <LinearGradient colors={launching ? ['#aaa', '#aaa'] : [accent, text]} style={[styles.primaryButton, launching && { opacity: 0.6 }]}>
+          <LinearGradient colors={launching ? ['#aaa', '#aaa'] : themeGradient(accent)} style={[styles.primaryButton, launching && { opacity: 0.6 }]}>
             {launching ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryButtonText}>{t('battle.publishBattle', 'Publish Battle')}</Text>}
           </LinearGradient>
         </TouchableOpacity>
@@ -3343,12 +3343,12 @@ export function ChallengeBattlePreviewScreen({ navigation, route }) {
 }
 
 export function BattleCreatedSuccessScreen({ navigation, route }) {
-  const { bgStyle, text, card, bg, border, mutedText } = useAppTheme();
+  const { bgStyle, text, card, bg, border, mutedText, accent: themeAccent } = useAppTheme();
   const { isDarkMode } = useThemeContext();
   const surfaces = formSurfaces(isDarkMode);
   const idleSurface = card || surfaces.listSurface;
   const { t } = useLanguage();
-  const accent = text || PURPLE;
+  const accent = themeAccent || PURPLE;
   const primaryText = text || TEXT;
   const subtleMuted = mutedText || surfaces.mutedColor;
   const targetScreen = useTargetClosetScreen();
@@ -3475,7 +3475,7 @@ export function BattleCreatedSuccessScreen({ navigation, route }) {
         </View>
 
         <TouchableOpacity activeOpacity={0.9} onPress={() => navigateToTargetClosetScreen(navigation, targetScreen)}>
-          <LinearGradient colors={[accent, text]} style={styles.primaryButton}>
+          <LinearGradient colors={themeGradient(accent)} style={styles.primaryButton}>
             <Text style={styles.primaryButtonText}>{t('battle.backToCloset', 'Back To Closet')}</Text>
           </LinearGradient>
         </TouchableOpacity>
@@ -3490,12 +3490,12 @@ export function BattleCreatedSuccessScreen({ navigation, route }) {
 }
 
 export function ChallengeReceivedScreen({ navigation, route }) {
-  const { bgStyle, text, card, bg, border, mutedText } = useAppTheme();
+  const { bgStyle, text, card, bg, border, mutedText, accent: themeAccent } = useAppTheme();
   const { isDarkMode } = useThemeContext();
   const surfaces = formSurfaces(isDarkMode);
   const idleSurface = card || surfaces.listSurface;
   const { t } = useLanguage();
-  const accent = text || PURPLE;
+  const accent = themeAccent || PURPLE;
   const primaryText = text || TEXT;
   const subtleMuted = mutedText || surfaces.mutedColor;
   const handleBack = () => navigation.navigate('HomeMain', { screen: 'HeartNotification' });
@@ -3667,7 +3667,7 @@ export function ChallengeReceivedScreen({ navigation, route }) {
               onPress={handleAccept}
               style={{ flex: 1 }}
             >
-              <LinearGradient colors={accepting ? ['#aaa', '#aaa'] : [accent, text]} style={[styles.actionBtn, accepting && { opacity: 0.6 }]}>
+              <LinearGradient colors={accepting ? ['#aaa', '#aaa'] : themeGradient(accent)} style={[styles.actionBtn, accepting && { opacity: 0.6 }]}>
                 {accepting ? <ActivityIndicator color="#fff" /> : <Text style={styles.actionBtnText}>Accept Challenge</Text>}
               </LinearGradient>
             </TouchableOpacity>
@@ -3685,12 +3685,12 @@ export function ChallengeReceivedScreen({ navigation, route }) {
 }
 
 export function ChallengeAcceptedScreen({ navigation, route }) {
-  const { bgStyle, text, card, bg, border, mutedText } = useAppTheme();
+  const { bgStyle, text, card, bg, border, mutedText, accent: themeAccent } = useAppTheme();
   const { isDarkMode } = useThemeContext();
   const surfaces = formSurfaces(isDarkMode);
   const idleSurface = card || surfaces.listSurface;
   const { t } = useLanguage();
-  const accent = text || PURPLE;
+  const accent = themeAccent || PURPLE;
   const primaryText = text || TEXT;
   const subtleMuted = mutedText || surfaces.mutedColor;
   const targetScreen = useTargetClosetScreen();
@@ -3782,7 +3782,7 @@ export function ChallengeAcceptedScreen({ navigation, route }) {
           onPress={() => navigateToTargetClosetScreen(navigation, targetScreen)}
           style={{ width: '100%', marginBottom: 12 }}
         >
-          <LinearGradient colors={[accent, text]} style={styles.actionBtn}>
+          <LinearGradient colors={themeGradient(accent)} style={styles.actionBtn}>
             <Text style={styles.actionBtnText}>View My Battles</Text>
           </LinearGradient>
         </TouchableOpacity>

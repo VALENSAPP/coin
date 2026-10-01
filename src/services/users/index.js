@@ -43,18 +43,20 @@ export async function deleteSearchHistoryItem(id) {
 export async function updateUserLanguage(language, deviceId) {
   const resolvedDeviceId = (deviceId || (await getAuthDeviceId())) ?? '';
   console.log('Updating user language to:', language, 'deviceId:', resolvedDeviceId);
-  return axiosInstance.post('/user/update-language', {
+  return axiosInstance.post('/user/deviceLanguageUpdate', {
     language,
     deviceId: resolvedDeviceId,
   });
 }
 
 /**
- * Get preferred language for authenticated user (GET /user/language?deviceId=...)
+ * Get preferred language for this device.
  */
 export async function getUserLanguage(deviceId) {
   const resolvedDeviceId = (deviceId || (await getAuthDeviceId())) ?? '';
   console.log('Fetching user language with deviceId:', resolvedDeviceId);
-    return axiosInstance.get('/user/language/?deviceId=' + resolvedDeviceId);
+  return axiosInstance.get('/user/deviceLanguage', {
+    params: { deviceId: resolvedDeviceId },
+  });
 }
 

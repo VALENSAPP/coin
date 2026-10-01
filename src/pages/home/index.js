@@ -979,6 +979,7 @@ const openLinkedStory = useCallback(async (sharedStoryId) => {
         onLater={() => {
           setShowRegularSubscriptionPrompt(false);
         }}
+        isBusinessProfile={isBusinessProfile}
       />
       <BusinessSubscriptionPrompt
         visible={showBusinessSubscriptionPrompt}

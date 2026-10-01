@@ -6,6 +6,7 @@ import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from '
 import {
     View,
     Text,
+    Image,
     TouchableOpacity,
     StyleSheet,
     Animated,
@@ -243,7 +244,7 @@ const StakePill = ({ amount, t }) => {
     );
 };
 
-const OptionChip = ({ option, isSelected, onPress, disabled, avatarUrl, percent }) => {
+const OptionChip = ({ option, isSelected, onPress, disabled, avatarUrl, teamLogoUrl, percent }) => {
     const { accent, accentLight, accentSoftText, card, text: themeText, border, isDarkMode } = useBattleAccent();
     const safePercent = Number.isFinite(percent)
         ? Math.max(0, Math.min(100, Math.round(percent)))
@@ -265,7 +266,11 @@ const OptionChip = ({ option, isSelected, onPress, disabled, avatarUrl, percent 
             ]}
         >
             <View style={styles.optionChipTopRow}>
-                <HexAvatar uri={normalizeImageUrl(avatarUrl) || DEFAULT_AVATAR} size={22} borderWidth={1.5} borderColor={accent} fadeDuration={0} />
+                {teamLogoUrl ? (
+                    <Image source={{ uri: normalizeImageUrl(teamLogoUrl) }} style={styles.teamLogo} resizeMode="contain" />
+                ) : (
+                    <HexAvatar uri={normalizeImageUrl(avatarUrl) || DEFAULT_AVATAR} size={22} borderWidth={1.5} borderColor={accent} fadeDuration={0} />
+                )}
                 <Text
                     style={[styles.optionChipLabel, { color: labelColor }]}
                     numberOfLines={1}
@@ -363,6 +368,18 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
         () => (Array.isArray(item?.options) ? item.options : []).map(opt => String(opt?.label || opt || '')),
         [item?.options],
     );
+    const getTeamLogoForOption = option => {
+        const normalizedOption = String(option?.label || option || '').trim().toLowerCase();
+        const teams =
+            item?.raw?.externalPrediction?.raw?.teams ||
+            item?.raw?.externalPrediction?.teams ||
+            item?.raw?.externalPrediction?.raw?.raw?.teams ||
+            item?.raw?.teams;
+        const team = [teams?.home, teams?.away].find(candidate =>
+            candidate?.name && String(candidate.name).trim().toLowerCase() === normalizedOption,
+        );
+        return team?.flag || team?.logo || team?.image || null;
+    };
     console.log("itemitemitemitemitemitemitemitem",item)
     const optionPercents = useMemo(() => {
         const countsSource = item?.voteCounts && Object.keys(item.voteCounts).length > 0
@@ -433,6 +450,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
                                     isSelected={isSelected}
                                     disabled={ended}
                                     avatarUrl={optionImageUrl || option?.image || DEFAULT_AVATAR}
+                                    teamLogoUrl={getTeamLogoForOption(option)}
                                     onPress={() => handleOption(label)}
                                     percent={optionPercents[idx]}
                                 />
@@ -562,6 +580,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
                                 isSelected={isSelected}
                                 disabled={ended}
                                 avatarUrl={optionImageUrl || option?.image || DEFAULT_AVATAR}
+                                teamLogoUrl={getTeamLogoForOption(option)}
                                 onPress={() => handleOption(label)}
                                 percent={optionPercents[idx]}
                             />
@@ -1072,6 +1091,7 @@ const styles = StyleSheet.create({
         gap: 8,
         minWidth: 0,
     },
+    teamLogo: { width: 22, height: 22 },
     optionChipTextWrap: { flex: 1, minWidth: 0 },
     optionChipLabel: { flex: 1, fontSize: 11, fontWeight: '600', color: TEXT, minWidth: 0 },
     optionChipLabelSelected: { color: PURPLE_DARK },

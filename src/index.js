@@ -17,7 +17,7 @@ import { ensureCurrentAccountSaved } from './utils/accountSession';
 import { parseProfileShareUrl } from './utils/profileShare';
 import { authSesionHistory } from './services/wallet';
 import { lockProfile, updatLoginModal } from './services/kycverification';
-import { useLanguage, fetchAndApplyUserLanguage } from './i18n';
+import { useLanguage } from './i18n';
 import { useNotificationToast } from './utils/useNotificationToast';
 import { initializeSocket } from './services/socket';
 import { getUserCredentials } from './services/post';
@@ -352,13 +352,6 @@ export default function Main({ onSplashFinish }) {
 
     return () => clearTimeout(timer);
   }, [blockedVerificationProfile, isLoading, isLoggedIn, isNavigationReady]);
-
-  useEffect(() => {
-    if (!isLoggedIn) return;
-    fetchAndApplyUserLanguage().catch(err => {
-      console.log('Fetch user language on login/init failed:', err?.message || err);
-    });
-  }, [isLoggedIn]);
 
   useEffect(() => {
     if (!isLoggedIn) return;
