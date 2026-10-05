@@ -561,8 +561,8 @@ const MilesTravelRewardsScreen = () => {
         totalPts < minRequiredPts
           ? t('rewardsScreen.minAvailableRequired', 'Minimum {{pts}} available points required to transfer.', { pts: formatPts(minRequiredPts) })
           : ptsToRedeem < minRequiredPts
-          ? t('rewardsScreen.minTransferRequired', 'Minimum {{pts}} points can be transferred.', { pts: formatPts(minRequiredPts) })
-          : t('rewardsScreen.insufficientBalanceMsg', 'You need {{pts}} Pts for this redemption.', { pts: formatPts(ptsToRedeem) })
+            ? t('rewardsScreen.minTransferRequired', 'Minimum {{pts}} points can be transferred.', { pts: formatPts(minRequiredPts) })
+            : t('rewardsScreen.insufficientBalanceMsg', 'You need {{pts}} Pts for this redemption.', { pts: formatPts(ptsToRedeem) })
       );
       return;
     }
@@ -865,7 +865,7 @@ const MilesTravelRewardsScreen = () => {
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             style={{ flex: 1, justifyContent: 'center', alignItems: 'center', width: '100%' }}
           >
-            <Pressable style={[styles.modalContentCard, { backgroundColor: card, borderColor: softBorder }]} onPress={() => {}}>
+            <Pressable style={[styles.modalContentCard, { backgroundColor: card, borderColor: softBorder }]} onPress={() => { }}>
               <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} bounces={false}>
                 <View style={styles.modalHeaderRow}>
                   <Text style={[styles.modalHeaderTitle, textStyle]}>{t('rewardsScreen.linkLoyaltyAccount', '🔗 Link Loyalty Account')}</Text>
@@ -927,7 +927,7 @@ const MilesTravelRewardsScreen = () => {
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             style={{ flex: 1, justifyContent: 'center', alignItems: 'center', width: '100%' }}
           >
-            <Pressable style={[styles.modalContentCard, { backgroundColor: card, borderColor: softBorder }]} onPress={() => {}}>
+            <Pressable style={[styles.modalContentCard, { backgroundColor: card, borderColor: softBorder }]} onPress={() => { }}>
               <View style={styles.modalHeaderRow}>
                 <View style={{ flex: 1, paddingRight: 8 }}>
                   <Text style={[styles.modalHeaderTitle, textStyle]} numberOfLines={1}>
@@ -1175,8 +1175,8 @@ const MilesTravelRewardsScreen = () => {
                       {selectedProgram?.category === 'GIFT_CARD'
                         ? t('rewardsScreen.getGiftCardCode', 'Get Gift Card Code 💳')
                         : selectedProgram?.category === 'TRAVEL_BOOKING'
-                        ? t('rewardsScreen.confirmBookingCredit', 'Confirm Booking Credit 🌴')
-                        : t('rewardsScreen.confirmTransfer', 'Confirm & Transfer 🚀')}
+                          ? t('rewardsScreen.confirmBookingCredit', 'Confirm Booking Credit 🌴')
+                          : t('rewardsScreen.confirmTransfer', 'Confirm & Transfer 🚀')}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -1194,7 +1194,7 @@ const MilesTravelRewardsScreen = () => {
         onRequestClose={() => setSuccessModalVisible(false)}
       >
         <Pressable style={styles.modalOverlay} onPress={() => setSuccessModalVisible(false)}>
-          <Pressable style={[styles.modalContentCard, { backgroundColor: card, borderColor: softBorder, alignItems: 'center' }]} onPress={() => {}}>
+          <Pressable style={[styles.modalContentCard, { backgroundColor: card, borderColor: softBorder, alignItems: 'center' }]} onPress={() => { }}>
             <View style={[styles.successCircleBox, { backgroundColor: `${accent}22` }]}>
               <Ionicons name="checkmark-circle" size={56} color={accent} />
             </View>
@@ -1407,7 +1407,15 @@ const styles = StyleSheet.create({
   modalBtnRow: { flexDirection: 'row', marginTop: 18 },
   cancelBtn: { flex: 1, height: 46, borderRadius: 10, borderWidth: 1, alignItems: 'center', justifyContent: 'center', marginRight: 6 },
   cancelBtnText: { fontSize: 14, fontWeight: '700' },
-  submitGoldBtn: { flex: 1.5, height: 46, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginLeft: 6 },
+  submitGoldBtn: {
+    flex: 1.6,
+    height: 48,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+    paddingHorizontal: 12,
+  },
   submitGoldBtnText: { fontSize: 14, fontWeight: '900' },
   successCircleBox: { width: 76, height: 76, borderRadius: 38, alignItems: 'center', justifyContent: 'center' },
   successTitleText: { fontSize: 20, fontWeight: '900', marginTop: 12 },

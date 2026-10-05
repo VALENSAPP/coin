@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,7 +12,7 @@ import {
   Share,
 } from 'react-native';
 import FastImage from 'react-native-fast-image';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useRoute } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useThemeContext } from '../../theme/ThemeContext';
@@ -289,6 +290,8 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
   const [currentUserName, setCurrentUserName] = useState('');
   const [dashboardEbooks, setDashboardEbooks] = useState([]);
   const [ebooksLoading, setEbooksLoading] = useState(false);
+  const [battleInfoVisible, setBattleInfoVisible] = useState(false);
+  const route = useRoute();
 
   const {
     bgStyle,
@@ -306,6 +309,11 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
   const userProfile = useSelector(state => state.userProfile.userProfile);
 
   const dispatch = useDispatch();
+
+  const isBusinessProfile = userData?.profile === 'company';
+  const walletIcon = isBusinessProfile
+    ? require('../../assets/icons/pngicons/goldentrophy.png')
+    : require('../../assets/icons/pngicons/closettrophy.png');
 
   useEffect(() => {
     let isMounted = true;
@@ -1214,6 +1222,34 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
           </View>
         </View>
 
+        {/* ── Battle explainer ── */}
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() => setBattleInfoVisible(true)}
+          accessibilityRole="button"
+          accessibilityLabel={t('myClosetDashboard.battleExplainerTitle')}
+          style={[
+            styles.battleExplainer,
+            {
+              backgroundColor: surface,
+              borderColor: withAlpha(accent, isDarkMode ? 0.3 : 0.12),
+            },
+          ]}
+        >
+          <View style={[styles.battleExplainerIcon, { backgroundColor: withAlpha(accent, isDarkMode ? 0.2 : 0.1) }]}>
+            <Ionicons name="bulb-outline" size={22} color={accent} />
+          </View>
+          <View style={styles.battleExplainerCopy}>
+            <Text style={[styles.battleExplainerTitle, { color: accent }]}>
+              {t('myClosetDashboard.battleExplainerTitle')}
+            </Text>
+            <Text style={[styles.battleExplainerSubtitle, mutedTextStyle]}>
+              {t('myClosetDashboard.battleExplainerSubtitle')}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={mutedText} />
+        </TouchableOpacity>
+
         {/* ── Battle Item CTA ── */}
         <TouchableOpacity
           activeOpacity={0.9}
@@ -1232,6 +1268,104 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
           </View>
         </TouchableOpacity>
       </ScrollView>
+
+      <Modal
+        visible={battleInfoVisible}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => setBattleInfoVisible(false)}
+      >
+        <View style={styles.battleModalOverlay}>
+          <View style={[styles.battleModalCard, { backgroundColor: cardStyle.backgroundColor }]}>
+            <ScrollView
+              style={styles.battleModalScroll}
+              contentContainerStyle={styles.battleModalContent}
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={styles.battleModalTop}>
+                <View style={styles.battleModalHeading}>
+                  <Text style={[styles.battleModalTitle, { color: accent }]}>{t('myClosetDashboard.battleModal.title')}</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setBattleInfoVisible(false)}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('myClosetDashboard.battleModal.close')}
+                  style={[styles.battleModalClose, { backgroundColor: withAlpha(accent, 0.1) }]}
+                >
+                  <Ionicons name="close" size={23} color={accent} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.battleModalIntroRow}>
+                <Text style={[styles.battleModalIntro, { color: mutedText }]}>
+                  {t('myClosetDashboard.battleModal.intro')}
+                </Text>
+                <View
+                // style={[
+                //   styles.battleModalTrophy,
+                //   // { backgroundColor: withAlpha(accent, 0.1) },
+                // ]}
+                >
+                  <Image
+                    source={walletIcon}
+                    style={styles.battleModalTrophyIcon}
+                    resizeMode="contain"
+                  />
+                </View>
+              </View>
+
+              <Text style={[styles.battleModalSectionTitle, { color: accent }]}>{t('myClosetDashboard.battleModal.howTitle')}</Text>
+              <View style={styles.battleStepsRow}>
+                {[
+                  { number: '1', icon: 'cube-outline', title: 'step1Title', description: 'step1Description' },
+                  { number: '2', icon: 'people-outline', title: 'step2Title', description: 'step2Description' },
+                  { number: '3', icon: 'trophy-outline', title: 'step3Title', description: 'step3Description' },
+                ].map(step => (
+                  <View key={step.number} style={[styles.battleStep, { backgroundColor: surface }]}>
+                    <View style={[styles.battleStepNumber, { backgroundColor: withAlpha(accent, 0.14) }]}>
+                      <Text style={[styles.battleStepNumberText, { color: accent }]}>{step.number}</Text>
+                    </View>
+                    <Ionicons name={step.icon} size={27} color={accent} style={styles.battleStepIcon} />
+                    <Text style={[styles.battleStepTitle, { color: accent }]}>{t(`myClosetDashboard.battleModal.${step.title}`)}</Text>
+                    <Text style={[styles.battleStepDescription, { color: mutedText }]}>{t(`myClosetDashboard.battleModal.${step.description}`)}</Text>
+                  </View>
+                ))}
+              </View>
+
+              <Text style={[styles.battleModalSectionTitle, styles.battleModalBenefitsTitle, { color: accent }]}>
+                {t('myClosetDashboard.battleModal.benefitsTitle')}
+              </Text>
+              {[
+                { icon: 'rocket-outline', title: 'boostTitle', description: 'boostDescription' },
+                { icon: 'pricetag-outline', title: 'discountTitle', description: 'discountDescription' },
+                { icon: 'car-outline', title: 'shippingTitle', description: 'shippingDescription' },
+                { icon: 'pin-outline', title: 'pinTitle', description: 'pinDescription' },
+                { icon: 'trophy-outline', title: 'storesTitle', description: 'storesDescription' },
+              ].map(benefit => (
+                <View key={benefit.title} style={[styles.battleBenefit, { backgroundColor: surface }]}>
+                  <View style={[styles.battleBenefitIcon, { backgroundColor: withAlpha(accent, 0.11) }]}>
+                    <Ionicons name={benefit.icon} size={25} color={accent} />
+                  </View>
+                  <View style={styles.battleBenefitCopy}>
+                    <Text style={[styles.battleBenefitTitle, { color: accent }]}>{t(`myClosetDashboard.battleModal.${benefit.title}`)}</Text>
+                    <Text style={[styles.battleBenefitDescription, { color: mutedText }]}>{t(`myClosetDashboard.battleModal.${benefit.description}`)}</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color={mutedText} />
+                </View>
+              ))}
+            </ScrollView>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() => setBattleInfoVisible(false)}
+              accessibilityRole="button"
+              style={[styles.battleModalDone, { backgroundColor: accent }]}
+            >
+              <Text style={styles.battleModalDoneText}>{t('myClosetDashboard.battleModal.gotIt')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -1277,6 +1411,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1.5,
     borderColor: '#fff',
+  },
+  battleModalTrophyIcon: {
+    width: 120,
+    height: 120,
   },
   heroMeta: { flex: 1 },
   heroTitle: { fontSize: 18, fontWeight: '800' },
@@ -1565,6 +1703,71 @@ const styles = StyleSheet.create({
   },
 
   // Battle CTA
+  battleExplainer: {
+    minHeight: 76,
+    borderRadius: 20,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  battleExplainerIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  battleExplainerCopy: { flex: 1, marginRight: 8 },
+  battleExplainerTitle: { fontSize: 13, fontWeight: '800' },
+  battleExplainerSubtitle: { fontSize: 12, lineHeight: 16, marginTop: 3 },
+  battleModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.62)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 18,
+    paddingVertical: 24,
+  },
+  battleModalCard: {
+    width: '100%',
+    maxWidth: 560,
+    maxHeight: '100%',
+    borderRadius: 26,
+    paddingHorizontal: 18,
+    paddingTop: 18,
+    paddingBottom: 14,
+    overflow: 'hidden',
+  },
+  battleModalScroll: { flexShrink: 1 },
+  battleModalContent: { paddingBottom: 10 },
+  battleModalTop: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
+  battleModalHeading: { flex: 1, paddingRight: 10 },
+  battleModalTitle: { fontSize: 28, lineHeight: 30, fontWeight: '900' },
+  battleModalClose: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  battleModalIntroRow: { flexDirection: 'row', alignItems: 'center', minHeight: 130, marginTop: 8, marginBottom: 8 },
+  battleModalIntro: { flex: 1, fontSize: 14, lineHeight: 20, paddingRight: 4 },
+  battleModalTrophy: { width: 105, height: 105, borderRadius: 52, alignItems: 'center', justifyContent: 'center', marginLeft: 4 },
+  battleModalSparkle: { position: 'absolute', top: 9, right: 9 },
+  battleModalSectionTitle: { fontSize: 19, lineHeight: 24, fontWeight: '900', marginTop: 8, marginBottom: 10 },
+  battleStepsRow: { flexDirection: 'row', gap: 8 },
+  battleStep: { flex: 1, minHeight: 166, borderRadius: 18, padding: 10, alignItems: 'center' },
+  battleStepNumber: { alignSelf: 'flex-start', width: 29, height: 29, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+  battleStepNumberText: { fontSize: 16, fontWeight: '900' },
+  battleStepIcon: { marginTop: -21, marginBottom: 10 },
+  battleStepTitle: { fontSize: 12, lineHeight: 15, fontWeight: '800', textAlign: 'center', minHeight: 30 },
+  battleStepDescription: { fontSize: 10, lineHeight: 14, textAlign: 'center', marginTop: 4 },
+  battleModalBenefitsTitle: { marginTop: 18 },
+  battleBenefit: { minHeight: 76, borderRadius: 18, padding: 10, marginBottom: 8, flexDirection: 'row', alignItems: 'center' },
+  battleBenefitIcon: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center', marginRight: 11 },
+  battleBenefitCopy: { flex: 1, paddingRight: 8 },
+  battleBenefitTitle: { fontSize: 14, lineHeight: 18, fontWeight: '800' },
+  battleBenefitDescription: { fontSize: 12, lineHeight: 16, marginTop: 2 },
+  battleModalDone: { minHeight: 52, borderRadius: 18, alignItems: 'center', justifyContent: 'center', marginTop: 8 },
+  battleModalDoneText: { color: '#fff', fontSize: 17, fontWeight: '900' },
   battleCta: {
     borderRadius: 20,
     paddingHorizontal: 16,
