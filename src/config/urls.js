@@ -1,5 +1,5 @@
 // Toggle between Development and Production URLs here
-export const IS_PRODUCTION = true; // Set to true for production
+export const IS_PRODUCTION = false; // Set to true for production
 
 export const DEV_API_URL = 'https://api.valens.app/';
 export const PROD_API_URL = 'https://prod-api.valens.app/';
