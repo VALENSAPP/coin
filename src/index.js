@@ -3,7 +3,7 @@ import MainStack from './navigations/RootNavigator';
 import { loggedOut, loggedIn } from './redux/actions/LoginAction';
 import { useDispatch, useSelector } from 'react-redux';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Linking, AppState, DeviceEventEmitter, View } from 'react-native';
+import { Linking, AppState, DeviceEventEmitter, View, BackHandler } from 'react-native';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Splash from './pages/splashSceen/Splash';
 import { hideLoader } from './redux/actions/LoaderAction';
@@ -263,6 +263,11 @@ export default function Main({ onSplashFinish }) {
       profile: 'user',
     });
   }, [isLoggedIn, verificationProfileType]);
+
+  const handleVerificationLater = React.useCallback(() => {
+    setlockModal(false);
+    BackHandler.exitApp();
+  }, []);
 
   const handleWelcomeModalClose = async () => {
     if (welcomeModalCloseInFlight.current) return;
@@ -831,7 +836,7 @@ export default function Main({ onSplashFinish }) {
         visible={lockModal}
         profileType={verificationProfileType}
         onDoNow={handleVerificationDoNow}
-        onLater={() => setlockModal(false)}
+        onLater={handleVerificationLater}
       />
     </ThemeProvider>
   );

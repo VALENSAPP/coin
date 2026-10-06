@@ -5063,6 +5063,8 @@
     "daysLeft": "Il reste {{count}} jours",
     "everyoneCanVote": "Tout le monde peut voter",
     "aboutTitle": "À propos de ce duel",
+    "aboutPlaceholder": "Ajoutez une courte description de ce duel...",
+    "defaultDescription": "Choisissez votre produit préféré",
     "aboutTextPreview": "Aidez les autres à choisir leur favori !",
     "launchBattle": "Lancer le duel",
     "liveTitle": "Duel en direct",

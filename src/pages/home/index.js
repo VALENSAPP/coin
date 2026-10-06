@@ -31,6 +31,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getProfile } from '../../services/createProfile';
 import { setProfileImg } from '../../redux/actions/ProfileImgAction';
 import { setUserProfile } from '../../redux/actions/UserProfileAction';
+import { setRegularSubscriptionPrompt } from '../../redux/actions/LoginAction';
 import { useAppTheme } from '../../theme/useApptheme';
 import { unReadNotification, updateFcmToken } from '../../services/notifications';
 import { getSocket, initializeSocket } from '../../services/socket';
@@ -129,7 +130,7 @@ const hasValidSubscriptionAccess = (response) => {
   const subData = response?.data?.subscription || response?.subscription || response?.data || response;
 
   const isCanceled = Boolean(
-    subData?.isCanceled === true ||
+    subData?.isCanceled === 'No' ||
     subData?.is_canceled === true ||
     subData?.isCancelled === true ||
     subData?.is_cancelled === true ||
@@ -182,7 +183,8 @@ export default function HomeScreen({ route }) {
   const [showBusinessSubscriptionPrompt, setShowBusinessSubscriptionPrompt] = useState(false);
   const [hasCheckedBusinessSubscription, setHasCheckedBusinessSubscription] = useState(false);
   const [showRegularSubscriptionPrompt, setShowRegularSubscriptionPrompt] = useState(false);
-  const [hasCheckedRegularSubscription, setHasCheckedRegularSubscription] = useState(false);
+  const promptFromRedux = useSelector(state => state.login.showRegularSubscriptionPrompt);
+  const promptFromRoute = route?.params?.showRegularSubscriptionPrompt;
   const [currentUserId, setCurrentUserId] = useState(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const [socketReady, setSocketReady] = useState(false);
@@ -541,7 +543,6 @@ export default function HomeScreen({ route }) {
           setIsBusinessProfile(false);
           setShowBusinessSubscriptionPrompt(false);
           setHasCheckedBusinessSubscription(false);
-          checkRegularSubscriptionStatus();
         }
       }
     } catch (err) {
@@ -585,23 +586,17 @@ export default function HomeScreen({ route }) {
     }
   }, [hasCheckedBusinessSubscription, isBusinessProfile]);
 
-  const checkRegularSubscriptionStatus = useCallback(async () => {
+  useEffect(() => {
     if (isBusinessProfile) return;
 
-    try {
-      setHasCheckedRegularSubscription(true);
-      const response = await checkSubscription();
-      console.log('📢 checkSubscription response (regular):', response);
-      const hasActiveSubscription = hasValidSubscriptionAccess(response);
-
-      if (!hasActiveSubscription) {
-        setShowRegularSubscriptionPrompt(true);
-      }
-    } catch (error) {
-      console.log('❌ Error in checkRegularSubscriptionStatus:', error);
+    if (promptFromRedux || promptFromRoute === true || promptFromRoute === 'true') {
       setShowRegularSubscriptionPrompt(true);
+      dispatch(setRegularSubscriptionPrompt(false));
+      if (navigation?.setParams) {
+        navigation.setParams({ showRegularSubscriptionPrompt: false });
+      }
     }
-  }, [isBusinessProfile]);
+  }, [promptFromRedux, promptFromRoute, isBusinessProfile, dispatch, navigation]);
 
   useEffect(() => {
     if (isInitialMountRef.current) {
@@ -665,10 +660,8 @@ export default function HomeScreen({ route }) {
     if (!isFocused) return;
     if (isBusinessProfile) {
       checkBusinessSubscriptionStatus();
-    } else {
-      checkRegularSubscriptionStatus();
     }
-  }, [isFocused, isBusinessProfile, checkBusinessSubscriptionStatus, checkRegularSubscriptionStatus]);
+  }, [isFocused, isBusinessProfile, checkBusinessSubscriptionStatus]);
 
 
 const openLinkedStory = useCallback(async (sharedStoryId) => {
@@ -971,6 +964,7 @@ const openLinkedStory = useCallback(async (sharedStoryId) => {
         visible={showRegularSubscriptionPrompt}
         onLearnMore={(navParams) => {
           setShowRegularSubscriptionPrompt(false);
+          dispatch(setRegularSubscriptionPrompt(false));
           navigation.navigate('wallet', {
             screen: 'subscription',
             params: { returnToHome: true, fromModal: true, ...navParams },
@@ -978,6 +972,7 @@ const openLinkedStory = useCallback(async (sharedStoryId) => {
         }}
         onLater={() => {
           setShowRegularSubscriptionPrompt(false);
+          dispatch(setRegularSubscriptionPrompt(false));
         }}
         isBusinessProfile={isBusinessProfile}
       />

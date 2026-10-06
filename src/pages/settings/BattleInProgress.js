@@ -3076,11 +3076,97 @@ export default function BattleInProgress() {
     const matchupTeams = [teams?.home, teams?.away].filter(team => team?.name);
     if (!isPrediction || matchupTeams.length !== 2) return null;
 
-    const getTeamPercentage = team => {
-      const matchingOption = battle.options.find(option =>
-        normalizeSideKey(pickFirst(option?.side, option?.label, '')) === normalizeSideKey(team.name),
-      );
-      return Number(matchingOption?.percentage || 0);
+    const findOptionForTeam = (team, index) => {
+      const options = Array.isArray(battle?.options) ? battle.options : [];
+      if (!options.length) return null;
+
+      const teamName = normalizeSideKey(team?.name);
+
+      // 1. Exact match on side or label
+      let match = options.find(option => {
+        const side = normalizeSideKey(pickFirst(option?.side, option?.label, ''));
+        const label = normalizeSideKey(pickFirst(option?.label, option?.side, ''));
+        return Boolean(teamName && (side === teamName || label === teamName));
+      });
+      if (match) return match;
+
+      // 2. Partial / substring match
+      if (teamName) {
+        match = options.find(option => {
+          const side = normalizeSideKey(pickFirst(option?.side, option?.label, ''));
+          const label = normalizeSideKey(pickFirst(option?.label, option?.side, ''));
+          return (
+            (side && (teamName.includes(side) || side.includes(teamName))) ||
+            (label && (teamName.includes(label) || label.includes(teamName)))
+          );
+        });
+        if (match) return match;
+      }
+
+      // 3. Match by home / away keyword or position
+      const role = index === 0 ? 'home' : 'away';
+      match = options.find(option => {
+        const side = normalizeSideKey(pickFirst(option?.side, option?.label, ''));
+        const label = normalizeSideKey(pickFirst(option?.label, option?.side, ''));
+        return side === role || label === role;
+      });
+      if (match) return match;
+
+      // 4. Fallback by index
+      if (index === 0 && options[0]) return options[0];
+      if (index === 1) {
+        return options.length > 2 ? options[options.length - 1] : options[1] || null;
+      }
+
+      return options[index] || null;
+    };
+
+    const getOptionVoteCount = (option = {}, team = {}) => {
+      const label = String(pickFirst(option?.label, option?.side, '')).trim();
+      const side = String(pickFirst(option?.side, option?.label, '')).trim();
+      const teamName = String(team?.name || '').trim();
+      return Number(pickFirst(
+        getCountFromSideMap(battle?.predictionCounts, side),
+        getCountFromSideMap(battle?.voteCounts, side),
+        getCountFromSideMap(battle?.predictionCounts, label),
+        getCountFromSideMap(battle?.voteCounts, label),
+        teamName ? getCountFromSideMap(battle?.predictionCounts, teamName) : undefined,
+        teamName ? getCountFromSideMap(battle?.voteCounts, teamName) : undefined,
+        option?.votes,
+        option?.voteCount,
+        option?._count?.votes,
+        0,
+      ));
+    };
+
+    const homeTeam = matchupTeams[0];
+    const awayTeam = matchupTeams[1];
+    const homeOption = findOptionForTeam(homeTeam, 0);
+    const awayOption = findOptionForTeam(awayTeam, 1);
+
+    const homeVotes = getOptionVoteCount(homeOption, homeTeam);
+    const awayVotes = getOptionVoteCount(awayOption, awayTeam);
+    const totalVotes = homeVotes + awayVotes;
+
+    const homeOptionPct = Number(pickFirst(homeOption?.percentage, homeOption?.votePercentage, 0));
+    const awayOptionPct = Number(pickFirst(awayOption?.percentage, awayOption?.votePercentage, 0));
+
+    let homePct = 0;
+    let awayPct = 0;
+
+    if (totalVotes > 0) {
+      homePct = Math.round((homeVotes / totalVotes) * 100);
+      awayPct = 100 - homePct;
+    } else if (homeOptionPct > 0 || awayOptionPct > 0) {
+      const optionTotal = homeOptionPct + awayOptionPct;
+      homePct = optionTotal > 0 ? Math.round((homeOptionPct / optionTotal) * 100) : homeOptionPct;
+      awayPct = optionTotal > 0 ? 100 - homePct : awayOptionPct;
+    }
+
+    const getTeamPercentage = (team, index) => {
+      if (index === 0) return homePct;
+      if (index === 1) return awayPct;
+      return 0;
     };
 
     return (
@@ -3098,7 +3184,7 @@ export default function BattleInProgress() {
                 {team.name}
               </Text>
               <Text style={[styles.externalTeamPercentage, { color: accent }]}>
-                {getTeamPercentage(team)}%
+                {getTeamPercentage(team, index)}%
               </Text>
             </View>
             {index === 0 && (
