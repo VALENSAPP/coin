@@ -5063,6 +5063,8 @@
     "daysLeft": "Quedan {{count}} días",
     "everyoneCanVote": "Todos pueden votar",
     "aboutTitle": "Acerca de esta batalla",
+    "aboutPlaceholder": "Añade una breve descripción sobre esta batalla...",
+    "defaultDescription": "Elige tu producto favorito",
     "aboutTextPreview": "¡Ayuda a otros a elegir su favorito!",
     "launchBattle": "Iniciar batalla",
     "liveTitle": "Batalla en vivo",

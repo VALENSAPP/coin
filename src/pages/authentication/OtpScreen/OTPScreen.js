@@ -32,6 +32,7 @@ import { ensureCurrentAccountSaved } from '../../../utils/accountSession';
 import { clearSignupFormData } from '../../../redux/actions/SignupFormAction';
 import { useLanguage } from '../../../i18n';
 import { normalizeProfileType } from '../../../utils/supportEligibility';
+import { checkSubscription } from '../../../services/stirpe';
 
 const { height } = Dimensions.get('window');
 
@@ -116,6 +117,49 @@ export default function OTPScreen() {
     }
   };
 
+ const hasValidSubscriptionAccess = (response) => {
+    if (!response) return false;
+
+    const subData = response?.data?.subscription || response?.subscription || response?.data || response;
+    console.log('📢 Subscription data:', subData);
+    const isCanceled = Boolean(
+      response?.data?.isCancel === 'No' ||
+      response?.data?.isCancel === true ||
+      response?.data?.isCancel === true ||
+      response?.data?.is_cancelled === true ||
+      response?.data?.isCanceled === 'true' ||
+      response?.data?.is_canceled === 'true' ||
+      response?.data?.isCanceled === true ||
+      response?.data?.is_canceled === true ||
+      response?.isCanceled === true ||
+      response?.is_canceled === true
+    );
+
+    const status = String(subData?.status || response?.data?.status || '').toUpperCase();
+    const endDateValue =
+      subData?.currentPeriodEnd ||
+      subData?.current_period_end ||
+      subData?.subscriptionEnd ||
+      subData?.expiresAt ||
+      response?.data?.currentPeriodEnd ||
+      response?.data?.subscriptionEnd;
+
+    if (status === 'ACTIVE' || status === 'TRIALING') {
+      return true;
+    }
+
+    if (isCanceled || status === 'CANCELED' || status === 'CANCELLED') {
+      if (endDateValue) {
+        const endDate = new Date(endDateValue);
+        if (!Number.isNaN(endDate.getTime())) {
+          return endDate >= new Date();
+        }
+      }
+      return isCanceled;
+    }
+
+    return false;
+  };
   const handleResend = async () => {
     setResendLoading(true);
     dispatch(showLoader());
@@ -186,7 +230,23 @@ export default function OTPScreen() {
             response.data.user.walletMnemonic,
           );
         }
-        await getProfileData('fromlogin', response?.data?.user?.id, profileType);
+
+        let showRegularSubscriptionPrompt = false;
+        if (profileType !== 'company') {
+          try {
+            const subResponse = await checkSubscription();
+            console.log('📢 checkSubscription response on signup complete:', subResponse);
+            const hasActiveSubscription = hasValidSubscriptionAccess(subResponse);
+            if (!hasActiveSubscription) {
+              showRegularSubscriptionPrompt = true;
+            }
+          } catch (subErr) {
+            console.log('❌ Error in checkSubscription on signup complete:', subErr);
+            showRegularSubscriptionPrompt = true;
+          }
+        }
+
+        await getProfileData('fromlogin', response?.data?.user?.id, profileType, showRegularSubscriptionPrompt);
       } else {
         showToastMessage(toast, 'danger', response.message);
       }
@@ -197,7 +257,7 @@ export default function OTPScreen() {
     }
   };
 
-  const getProfileData = async (type, userid, profileType = profile) => {
+  const getProfileData = async (type, userid, profileType = profile, showRegularPrompt = false) => {
     try {
       dispatch(showLoader());
       const storedId = await AsyncStorage.getItem('userId');
@@ -216,11 +276,11 @@ export default function OTPScreen() {
           return;
         } else if (response.statusCode === 200 && response.data.kycStatus === 'DECLINED') {
           showToastMessage(toast, 'danger', t('kyc.kycRejectedMessage'));
-          navigation.navigate('CreateProfile', { profile, id });
+          navigation.navigate('CreateProfile', { profile, id, showRegularSubscriptionPrompt: showRegularPrompt });
         } else if (response.statusCode === 200 && response.data.kyc == false) {
-          navigation.navigate('CreateProfile', { profile, id });
+          navigation.navigate('CreateProfile', { profile, id, showRegularSubscriptionPrompt: showRegularPrompt });
         } else if (response.statusCode === 200 && response.data.bio == null) {
-          navigation.navigate('CreateProfile', { profile, id });
+          navigation.navigate('CreateProfile', { profile, id, showRegularSubscriptionPrompt: showRegularPrompt });
         } else {
           await persistStripeCustomerId(response?.data?.stripeCustomerId ?? null, dispatch);
 
@@ -230,7 +290,7 @@ export default function OTPScreen() {
             email: response?.data?.email || (await AsyncStorage.getItem('email')),
           });
           await AsyncStorage.setItem('isLoggedIn', 'true');
-          dispatch(loggedIn());
+          dispatch(loggedIn({ showRegularSubscriptionPrompt: showRegularPrompt }));
           dispatch(clearSignupFormData());
         }
       }
