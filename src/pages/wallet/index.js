@@ -771,6 +771,10 @@ export const WalletDashboardScreen = ({ navigation }) => {
   const [followersCount, setFollowersCount] = useState(0);
   const [userId, setUserId] = useState(null);
   const [connectedWalletType, setConnectedWalletType] = useState(null);
+  // const isBusinessProfilee = userData?.profile === 'company';
+  const butterflyIcon = isBusinessProfile
+    ? require('../../assets/icons/pngicons/buttflypieceG.png')
+    : require('../../assets/icons/pngicons/butterflypiece.png');
 
   const activityChartW = width - 64;
   const activityChartH = 200;
@@ -1732,6 +1736,9 @@ export const WalletDashboardScreen = ({ navigation }) => {
               styles.kpiMetaSingleLine,
               styles.kpiMetaBuyCredits, { color: gradientText }
             ]}
+            numberOfLines={2}
+            adjustsFontSizeToFit
+            minimumFontScale={0.75}
           >
             {t('walletDashboard.kpi.tapToBuyCredits')}
           </Text>
@@ -1868,9 +1875,14 @@ export const WalletDashboardScreen = ({ navigation }) => {
             style={styles.headerCard}
           >
             <View style={styles.headerGlow} />
+
             <View style={styles.headerRow}>
+              {/* Avatar */}
               <View style={styles.headerAvatarWrap}>
-                <TouchableOpacity activeOpacity={0.85} onPress={openAvatarPreview}>
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={openAvatarPreview}
+                >
                   <HexAvatar
                     uri={profileImage || userProfile.image || FALLBACK_AVATAR}
                     size={72}
@@ -1879,36 +1891,54 @@ export const WalletDashboardScreen = ({ navigation }) => {
                   />
                 </TouchableOpacity>
               </View>
+
+              {/* User information */}
               <View style={styles.headerText}>
                 <View style={styles.headerNameBlock}>
                   {headerNameLines.slice(0, -1).map((line, index) => (
                     <Text
                       key={`${line}-${index}`}
-                      style={[styles.headerName, { color: gradientText }]}
+                      style={[
+                        styles.headerName,
+                        { color: gradientText },
+                      ]}
                       numberOfLines={1}
                     >
                       {line}
                     </Text>
                   ))}
-                  <View style={styles.headerNameLastRow}>
-                    <Text
-                      style={[styles.headerName, styles.headerNameLastLine, { color: gradientText }]}
-                      numberOfLines={1}
-                      ellipsizeMode="tail"
-                    >
-                      {headerNameLines[headerNameLines.length - 1]}
-                    </Text>
-                    {kyc === true && (
-                      <DragonflyIcon width={20} height={20} style={styles.headerNameDragonfly} />
-                    )}
-                  </View>
+
+                  <Text
+                    style={[
+                      styles.headerName,
+                      styles.headerNameLastLine,
+                      { color: gradientText },
+                    ]}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    {headerNameLines[headerNameLines.length - 1]}
+                  </Text>
                 </View>
+
                 {kyc === true && (
-                  <Text style={[styles.headerStatusText, { color: gradientText }]}>
+                  <Text
+                    style={[
+                      styles.headerStatusText,
+                      { color: gradientText },
+                    ]}
+                  >
                     {t('walletDashboard.headerVerified')}
                   </Text>
                 )}
               </View>
+
+              {/* Only butterfly PNG */}
+              <Image
+                source={butterflyIcon}
+                style={styles.headerButterfly}
+                resizeMode="contain"
+              />
             </View>
           </LinearGradient>
         </View>
@@ -3156,7 +3186,12 @@ const styles = StyleSheet.create({
   },
   kpiMetaBuyCredits: {
     opacity: 0.75,
-    paddingLeft: Platform.OS == "android" ? 0 : 15,
+    paddingLeft: 0,
+    paddingRight: 18,
+    width: '100%',
+    minWidth: 0,
+    flexShrink: 1,
+    alignSelf: 'stretch',
   },
   kpiChevronInline: {
     position: 'absolute',
@@ -3778,6 +3813,13 @@ const styles = StyleSheet.create({
     height: AVATAR_PREVIEW_SIZE,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  headerButterfly: {
+    position: 'absolute',
+    right: -10,
+    bottom: -8,
+    width: 80,
+    height: 80,
   },
 });
 

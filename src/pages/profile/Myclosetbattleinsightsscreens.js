@@ -141,13 +141,16 @@ const ActionRow = ({ icon, title, subtitle, accent, onPress, cardBg, titleColor,
  * winning item stays visible while the user decides what to do next.
  */
 export function BattleInsightsActionsScreen({ navigation, route }) {
-  const { bgStyle, text, card, bg, border, mutedText } = useAppTheme();
+  const { bgStyle, text, card, bg, border, mutedText, accent: themeAccent } = useAppTheme();
   const { isDarkMode } = useThemeContext();
   const surfaces = formSurfaces(isDarkMode);
   const subtleMuted = mutedText || surfaces.mutedColor;
   const surface = card || surfaces.listSurface;
   const { t } = useLanguage();
-  const accent = text || PURPLE;
+  const accent = themeAccent || text || PURPLE;
+  const promoColors = isDarkMode
+    ? [surface || '#1E1E1E', bg || '#121212']
+    : [accent, accent];
   const targetScreen = useTargetClosetScreen();
   const winnerItem = route?.params?.winnerItem || {
     name: 'Mini Shoulder Bag',
@@ -189,7 +192,7 @@ export function BattleInsightsActionsScreen({ navigation, route }) {
     <View style={[styles.screen, bgStyle, { backgroundColor: bg || SOFT_BG }]}>
       <Header title={t('battleInsights.headerTitle')} onBack={() => navigation.goBack()} accentColor={accent} titleColor={text || TEXT} rightIcon="ellipsis-horizontal" />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <LinearGradient colors={[accent, text]} start={{ x: 0.05, y: 0.05 }} end={{ x: 0.95, y: 0.95 }} style={[styles.promoBanner, { minHeight: 167, paddingTop: 0, paddingBottom: 18, marginTop: 8 }]}>
+        <LinearGradient colors={promoColors} start={{ x: 0.05, y: 0.05 }} end={{ x: 0.95, y: 0.95 }} style={[styles.promoBanner, { minHeight: 167, paddingTop: 0, paddingBottom: 18, marginTop: 8 }]}>
           <View style={styles.promoBannerGlowA} />
           <View style={styles.promoBannerGlowB} />
           {/* <Text style={[styles.promoBannerTag, { marginBottom: 12 }]}>{t('battleInsights.headerTitle')?.toUpperCase?.() || 'BATTLE WINNER'}</Text> */}
@@ -697,13 +700,14 @@ export function ReviewBoostScreen({ navigation, route }) {
 /* --------------------------- Promotion flow ---------------------------- */
 
 export function CreateWinnerPromotionScreen({ navigation, route }) {
-  const { bgStyle, text, card, bg, border, mutedText } = useAppTheme();
+  const { bgStyle, text, card, bg, border, mutedText, accent: themeAccent } = useAppTheme();
   const { isDarkMode } = useThemeContext();
   const surfaces = formSurfaces(isDarkMode);
   const idleSurface = card || surfaces.inputSurface;
   const subtleMuted = mutedText || surfaces.mutedColor;
   const { t } = useLanguage();
-  const accent = text || PURPLE;
+  const accent = themeAccent || text || PURPLE;
+  const buttonColors = isDarkMode ? ['#333333', '#222222'] : [accent, accent];
   const winnerItem = route?.params?.winnerItem;
   const battleId = route?.params?.battleId;
   const [selectedType, setSelectedType] = useState('discount24');
@@ -742,7 +746,7 @@ export function CreateWinnerPromotionScreen({ navigation, route }) {
           activeOpacity={0.9}
           onPress={() => navigation.navigate('PromotionDetails', { winnerItem, promotionType: selectedType, battleId })}
         >
-          <LinearGradient colors={[accent, text]} style={styles.primaryButton}>
+          <LinearGradient colors={buttonColors} style={styles.primaryButton}>
             <Text style={styles.primaryButtonText}>{t('promotion.next')}</Text>
           </LinearGradient>
         </TouchableOpacity>
@@ -752,14 +756,16 @@ export function CreateWinnerPromotionScreen({ navigation, route }) {
 }
 
 export function PromotionDetailsScreen({ navigation, route }) {
-  const { bgStyle, text, card, bg, border, mutedText } = useAppTheme();
+  const { bgStyle, text, card, bg, border, mutedText, accent: themeAccent } = useAppTheme();
   const { isDarkMode } = useThemeContext();
   const surfaces = formSurfaces(isDarkMode);
   const idleSurface = card || surfaces.inputSurface;
   const subtleMuted = mutedText || surfaces.mutedColor;
   const surface = card || surfaces.listSurface;
   const { t } = useLanguage();
-  const accent = text || PURPLE;
+  const accent = themeAccent || text || PURPLE;
+  const promoColors = isDarkMode ? [surface || '#1E1E1E', bg || '#121212'] : [accent, accent];
+  const buttonColors = isDarkMode ? ['#333333', '#222222'] : [accent, accent];
   const { winnerItem, promotionType, battleId } = route?.params || {};
   const isFreeShipping = promotionType === 'freeShipping';
   const defaultFreeShippingMsg = 'Thank you for voting! Enjoy free shipping on our battle winner.';
@@ -775,7 +781,7 @@ export function PromotionDetailsScreen({ navigation, route }) {
     <KeyboardAvoidingView style={[styles.screen, bgStyle, { backgroundColor: bg || SOFT_BG }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <Header title={t('promotion.detailsTitle')} onBack={() => navigation.goBack()} accentColor={accent} titleColor={text || TEXT} />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <LinearGradient colors={[accent, text]} start={{ x: 0.05, y: 0.05 }} end={{ x: 0.95, y: 0.95 }} style={styles.promoBanner}>
+        <LinearGradient colors={promoColors} start={{ x: 0.05, y: 0.05 }} end={{ x: 0.95, y: 0.95 }} style={styles.promoBanner}>
           <View style={styles.promoBannerGlowA} />
           <View style={styles.promoBannerGlowB} />
           <Text style={styles.promoBannerTag}>{t('promotion.bannerTag')}</Text>
@@ -861,7 +867,7 @@ export function PromotionDetailsScreen({ navigation, route }) {
             })
           }
         >
-          <LinearGradient colors={[accent, text]} style={styles.primaryButton}>
+          <LinearGradient colors={buttonColors} style={styles.primaryButton}>
             <Text style={styles.primaryButtonText}>{t('promotion.preview')}</Text>
           </LinearGradient>
         </TouchableOpacity>
@@ -871,14 +877,22 @@ export function PromotionDetailsScreen({ navigation, route }) {
 }
 
 export function PreviewPromotionScreen({ navigation, route }) {
-  const { bgStyle, text, card, bg, border, mutedText } = useAppTheme();
+  const { bgStyle, text, card, bg, border, mutedText, accent: themeAccent } = useAppTheme();
   const { isDarkMode } = useThemeContext();
   const surfaces = formSurfaces(isDarkMode);
   const subtleMuted = mutedText || surfaces.mutedColor;
   const surface = card || surfaces.listSurface;
   const { t } = useLanguage();
   const toast = useToast();
-  const accent = text || PURPLE;
+  const accent = themeAccent || text || PURPLE;
+  // Promotion artwork follows the active surface palette in dark mode. Using
+  // the light title color as a gradient stop made the banner lavender on black.
+  const promoColors = isDarkMode
+    ? [surface || '#1E1E1E', bg || '#121212']
+    : [accent, themeAccent || accent];
+  const buttonColors = isDarkMode
+    ? ['#333333', '#222222']
+    : [accent, themeAccent || accent];
   const targetScreen = useTargetClosetScreen();
   const { winnerItem, discount, duration, message, promotionType, battleId } = route?.params || {};
   const isFreeShipping = promotionType === 'freeShipping';
@@ -918,7 +932,7 @@ export function PreviewPromotionScreen({ navigation, route }) {
     <View style={[styles.screen, bgStyle, { backgroundColor: bg || SOFT_BG }]}>
       <Header title={t('promotion.previewTitle')} onBack={() => navigation.goBack()} accentColor={accent} titleColor={text || TEXT} />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <LinearGradient colors={[accent, text]} start={{ x: 0.05, y: 0.05 }} end={{ x: 0.95, y: 0.95 }} style={styles.promoBanner}>
+        <LinearGradient colors={promoColors} start={{ x: 0.05, y: 0.05 }} end={{ x: 0.95, y: 0.95 }} style={styles.promoBanner}>
           <View style={styles.promoBannerGlowA} />
           <View style={styles.promoBannerGlowB} />
           <Text style={styles.promoBannerTag}>{t('promotion.bannerTag')}</Text>
@@ -963,7 +977,7 @@ export function PreviewPromotionScreen({ navigation, route }) {
         </View>
 
         <TouchableOpacity activeOpacity={0.9} onPress={handleLaunch} disabled={launching}>
-          <LinearGradient colors={[accent, text]} style={styles.primaryButton}>
+          <LinearGradient colors={buttonColors} style={styles.primaryButton}>
             <Text style={styles.primaryButtonText}>{launching ? (t('boost.loading') || 'Loading...') : t('promotion.launch')}</Text>
           </LinearGradient>
         </TouchableOpacity>

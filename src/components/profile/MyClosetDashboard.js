@@ -43,70 +43,76 @@ const nestedSurface = (isDarkMode, accent) =>
 
 // Formats a raw percent number (e.g. -100, 18, 0) into a signed display string ("+18%", "-100%", "0%").
 // Returns null when there is no meaningful value yet, so the UI can hide the delta pill.
-const formatDelta = percent => {
+const formatLocalizedNumber = (value, locale, options = {}) =>
+  new Intl.NumberFormat(locale || 'en', options).format(Number(value) || 0);
+
+const formatDelta = (percent, locale) => {
   if (percent == null || Number.isNaN(Number(percent))) return null;
   const value = Number(percent);
+  const formatted = formatLocalizedNumber(Math.abs(value), locale, {
+    maximumFractionDigits: 2,
+  });
   if (value === 0) return '0%';
-  return `${value > 0 ? '+' : ''}${value}%`;
+  return `${value > 0 ? '+' : '-'}${formatted}%`;
 };
 
 // data here is the /dashboard/marketPlaceOverview payload:
 // { viewsCount, likesCount, ordersCount, revenue, previousPeriod, changes }
-const buildStatCards = (data, t) => ([
+const buildStatCards = (data, t, locale) => ([
   {
     key: 'views',
     label: t('myClosetDashboard.stats.views'),
-    value: String(data?.viewsCount ?? 0),
-    delta: formatDelta(data?.changes?.viewsPercent),
+    value: formatLocalizedNumber(data?.viewsCount, locale),
+    delta: formatDelta(data?.changes?.viewsPercent, locale),
     icon: 'eye-outline',
   },
   {
     key: 'likes',
     label: t('myClosetDashboard.stats.likes'),
-    value: String(data?.likesCount ?? 0),
-    delta: formatDelta(data?.changes?.likesPercent),
+    value: formatLocalizedNumber(data?.likesCount, locale),
+    delta: formatDelta(data?.changes?.likesPercent, locale),
     icon: 'heart-outline',
   },
   {
     key: 'orders',
     label: t('myClosetDashboard.stats.orders'),
-    value: String(data?.ordersCount ?? 0),
-    delta: formatDelta(data?.changes?.ordersPercent),
+    value: formatLocalizedNumber(data?.ordersCount, locale),
+    delta: formatDelta(data?.changes?.ordersPercent, locale),
     icon: 'bag-outline',
   },
   {
     key: 'revenue',
     label: t('myClosetDashboard.stats.revenue'),
-    value: `R$${Number(data?.revenue ?? 0).toFixed(0)}`,
-    delta: formatDelta(data?.changes?.revenuePercent),
+    value: `${t('myClosetDashboard.overview.currency')}${formatLocalizedNumber(data?.revenue, locale, { maximumFractionDigits: 0 })}`,
+    delta: formatDelta(data?.changes?.revenuePercent, locale),
     icon: 'cash-outline',
   },
   {
     key: 'cancelledorders',
     label: t('myClosetDashboard.stats.cancelledOrders'),
-    value: String(data?.cancelledOrdersCount ?? 0),
-    delta: formatDelta(data?.changes?.cancelledOrdersPercent ?? 0),
+    value: formatLocalizedNumber(data?.cancelledOrdersCount, locale),
+    delta: formatDelta(data?.changes?.cancelledOrdersPercent ?? 0, locale),
     icon: 'close-circle-outline',
   },
 ]);
 
 // This still comes from the general /dashboard endpoint (totalItems/sold/rating aren't
 // part of the marketplace overview by-range payload).
-const buildOverviewCards = (data, t) => ([
-  { key: 'items', label: t('myClosetDashboard.overview.items'), value: String(data?.totalItems ?? 0) },
-  { key: 'sold', label: t('myClosetDashboard.overview.sold'), value: String(data?.sold ?? 0) },
+const buildOverviewCards = (data, t, locale) => ([
+  { key: 'items', label: t('myClosetDashboard.overview.items'), value: formatLocalizedNumber(data?.totalItems, locale) },
+  { key: 'sold', label: t('myClosetDashboard.overview.sold'), value: formatLocalizedNumber(data?.sold, locale) },
   {
     key: 'earnings',
     label: t('myClosetDashboard.overview.earnings'),
-    value: `${t('myClosetDashboard.overview.currency')}${Number(data?.revenue ?? 0).toFixed(0)}`
+    value: `${t('myClosetDashboard.overview.currency')}${formatLocalizedNumber(data?.revenue, locale, { maximumFractionDigits: 0 })}`
   },
   // { key: 'rating', label: t('myClosetDashboard.overview.rating'), value: data?.rating != null ? String(data.rating) : '—' },
 ]);
 
-const buildBattleStats = (data, t) => ([
-  { key: 'created', label: t('myClosetDashboard.battle.created'), value: String(data?.totalBattlesCreated ?? 0), icon: 'trophy-outline' },
-  { key: 'votes', label: t('myClosetDashboard.battle.votes'), value: String(data?.totalVotes ?? 0), icon: 'people-outline' },
-  { key: 'views', label: t('myClosetDashboard.battle.views'), value: String(data?.totalViews ?? 0), icon: 'eye-outline' },
+const buildBattleStats = (data, t, locale) => ([
+  { key: 'created', label: t('myClosetDashboard.battle.created'), value: formatLocalizedNumber(data?.totalBattlesCreated, locale), icon: 'trophy-outline' },
+  { key: 'votes', label: t('myClosetDashboard.battle.votes'), value: formatLocalizedNumber(data?.totalVotes, locale), icon: 'people-outline' },
+  { key: 'views', label: t('myClosetDashboard.battle.views'), value: formatLocalizedNumber(data?.totalViews, locale), icon: 'eye-outline' },
 ]);
 
 const unwrapBattlePriorityResponse = source => {
@@ -264,7 +270,8 @@ const normalizeBuyerOrder = (order, index, t) => {
 };
 
 const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
-  const { t } = useLanguage();
+  const { t, currentLanguage } = useLanguage();
+  const numberLocale = currentLanguage || 'en';
   const [storedUsername, setStoredUsername] = useState('');
   const [closetItems, setClosetItems] = useState([]);
   const [shopName, setShopName] = useState('');
@@ -305,7 +312,7 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
   } = useAppTheme(userData?.profile);
   const { isDarkMode } = useThemeContext();
   const surface = nestedSurface(isDarkMode, accent);
-  const battleStats = useMemo(() => buildBattleStats(battlePerformance, t), [battlePerformance, t]);
+  const battleStats = useMemo(() => buildBattleStats(battlePerformance, t, numberLocale), [battlePerformance, t, numberLocale]);
   const userProfile = useSelector(state => state.userProfile.userProfile);
 
   const dispatch = useDispatch();
@@ -574,8 +581,8 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
     loadEbooks();
   }, [closetId, loadPriorityBattles, loadEbooks]);
 
-  const statCards = useMemo(() => buildStatCards(marketplaceOverview, t), [marketplaceOverview, t]);
-  const overviewCards = useMemo(() => buildOverviewCards(dashboardData, t), [dashboardData, t]);
+  const statCards = useMemo(() => buildStatCards(marketplaceOverview, t, numberLocale), [marketplaceOverview, t, numberLocale]);
+  const overviewCards = useMemo(() => buildOverviewCards(dashboardData, t, numberLocale), [dashboardData, t, numberLocale]);
 
   const handleToggleRange = () => {
     setOverviewRange(prev => (prev === 'weekly' ? 'monthly' : 'weekly'));
@@ -957,7 +964,14 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
                   <View key={card.key} style={[styles.quickCard, { backgroundColor: surface }]}>
                     <Ionicons name={card.icon} size={18} color={accent} />
                     <Text style={[styles.quickValue, textStyle]}>{card.value}</Text>
-                    <Text style={[styles.quickLabel, mutedTextStyle]}>{card.label}</Text>
+                    <Text
+                      style={[styles.quickLabel, mutedTextStyle]}
+                      numberOfLines={2}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.78}
+                    >
+                      {card.label}
+                    </Text>
                     {card.delta != null && (
                       <Text
                         style={[
