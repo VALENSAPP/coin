@@ -49,6 +49,7 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useLanguage } from '../../../i18n';
 import { useAppTheme } from '../../../theme/useApptheme';
 import { clearSignupFormData } from '../../../redux/actions/SignupFormAction';
+import { checkSubscription } from '../../../services/stirpe';
 
 const { width, height } = Dimensions.get('window');
 const STRIPE_ONBOARDING_STATUS_KEY = 'stripeOnboardingStatus';
@@ -80,8 +81,50 @@ export default function LoginScreen() {
       dispatch(setUserProfile('user'));
     }, [dispatch])
   );
+  const hasValidSubscriptionAccess = (response) => {
+    if (!response) return false;
 
-  const getProfileData = async (type, userid) => {
+    const subData = response?.data?.subscription || response?.subscription || response?.data || response;
+    console.log('📢 Subscription data:', subData);
+    const isCanceled = Boolean(
+      response?.data?.isCancel === 'No' ||
+      response?.data?.isCancel === true ||
+      response?.data?.isCancel === true ||
+      response?.data?.is_cancelled === true ||
+      response?.data?.isCanceled === 'true' ||
+      response?.data?.is_canceled === 'true' ||
+      response?.data?.isCanceled === true ||
+      response?.data?.is_canceled === true ||
+      response?.isCanceled === true ||
+      response?.is_canceled === true
+    );
+
+    const status = String(subData?.status || response?.data?.status || '').toUpperCase();
+    const endDateValue =
+      subData?.currentPeriodEnd ||
+      subData?.current_period_end ||
+      subData?.subscriptionEnd ||
+      subData?.expiresAt ||
+      response?.data?.currentPeriodEnd ||
+      response?.data?.subscriptionEnd;
+
+    if (status === 'ACTIVE' || status === 'TRIALING') {
+      return true;
+    }
+
+    if (isCanceled || status === 'CANCELED' || status === 'CANCELLED') {
+      if (endDateValue) {
+        const endDate = new Date(endDateValue);
+        if (!Number.isNaN(endDate.getTime())) {
+          return endDate >= new Date();
+        }
+      }
+      return isCanceled;
+    }
+
+    return false;
+  };
+  const getProfileData = async (type, userid, showRegularPrompt = false) => {
     try {
       dispatch(showLoader());
       const storedId = await AsyncStorage.getItem('userId');
@@ -114,7 +157,7 @@ export default function LoginScreen() {
           });
           await AsyncStorage.removeItem(ADDING_ACCOUNT_FLAG_KEY);
           await AsyncStorage.setItem('isLoggedIn', 'true');
-          dispatch(loggedIn());
+          dispatch(loggedIn({ showRegularSubscriptionPrompt: showRegularPrompt }));
           dispatch(clearSignupFormData());
           dispatch(setIsAddAccount(false));
           // showToastMessage(toast, 'danger', 'KYC Verificaion is still pending. Please check again later.');
@@ -122,7 +165,7 @@ export default function LoginScreen() {
         }
         else if (response.statusCode === 200 && (normalizedKycStatus === 'DECLINED' || normalizedKycStatus === 'REJECTED')) {
           showToastMessage(toast, 'danger', 'KYC Verificaion is rejected. Please try again.', 3500);
-          navigation.navigate('CreateProfile', { profile: response.data.profile || 'user', id });
+          navigation.navigate('CreateProfile', { profile: response.data.profile || 'user', id, showRegularSubscriptionPrompt: showRegularPrompt });
         }
         else if (response.statusCode === 200 && response.data.kyc == false) {
 
@@ -131,7 +174,7 @@ export default function LoginScreen() {
             await AsyncStorage.setItem('profile', profile);
             dispatch(setUserProfile(profile));
           }
-          navigation.navigate('CreateProfile', { profile: profile || 'user', id });
+          navigation.navigate('CreateProfile', { profile: profile || 'user', id, showRegularSubscriptionPrompt: showRegularPrompt });
         }
         else if (response.statusCode === 200 && response.data.bio == null) {
 
@@ -140,7 +183,7 @@ export default function LoginScreen() {
             await AsyncStorage.setItem('profile', profile);
             dispatch(setUserProfile(profile));
           }
-          navigation.navigate('CreateProfile', { profile: profile || 'user', id });
+          navigation.navigate('CreateProfile', { profile: profile || 'user', id, showRegularSubscriptionPrompt: showRegularPrompt });
         }
         else {
           await persistStripeCustomerId(response?.data?.stripeCustomerId ?? null, dispatch);
@@ -153,7 +196,7 @@ export default function LoginScreen() {
           await AsyncStorage.removeItem(ADDING_ACCOUNT_FLAG_KEY);
           showToastMessage(toast, 'success', 'User logged in successfully');
           await AsyncStorage.setItem('isLoggedIn', 'true');
-          dispatch(loggedIn());
+          dispatch(loggedIn({ showRegularSubscriptionPrompt: showRegularPrompt }));
           dispatch(clearSignupFormData());
           dispatch(setIsAddAccount(false));
         }
@@ -333,7 +376,23 @@ export default function LoginScreen() {
             response.data.user.walletMnemonic,
           );
         }
-        await getProfileData('fromlogin', response.data.user.id);
+
+        let showRegularSubscriptionPrompt = false;
+        if (normalizedProfileType !== 'company') {
+          try {
+            const subResponse = await checkSubscription();
+            console.log('📢 checkSubscription response on login:', subResponse);
+            const hasActiveSubscription = hasValidSubscriptionAccess(subResponse);
+            if (!hasActiveSubscription) {
+              showRegularSubscriptionPrompt = true;
+            }
+          } catch (subErr) {
+            console.log('❌ Error in checkSubscription on login:', subErr);
+            showRegularSubscriptionPrompt = true;
+          }
+        }
+
+        await getProfileData('fromlogin', response.data.user.id, showRegularSubscriptionPrompt);
       } else {
         showToastMessage(toast, 'danger', response.message);
       }

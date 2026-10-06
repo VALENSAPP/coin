@@ -1383,7 +1383,7 @@ const ProfilePersonData = ({
                     <HexAvatar uri={avatarUri} size={110} borderWidth={2} borderColor={accent} />
                     {showIdentityVerified && (
                       <View
-                        style={styles.verifiedAvatarBadge}
+                        style={[styles.verifiedAvatarBadge, { backgroundColor: accent }]}
                         accessibilityLabel={t('profilePersonData.verifiedAccount')}
                         pointerEvents="none"
                       >
@@ -1981,7 +1981,6 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 14,
-    backgroundColor: '#1D9BF0',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2.5,

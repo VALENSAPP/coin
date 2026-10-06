@@ -315,6 +315,7 @@ const normalizeBattle = raw => {
     id: raw?.id,
     battleId: raw?.battleId || raw?.id,
     title: raw?.title,
+    description: raw?.description || '',
     category: raw?.category,
     status: raw?.status,
     outcome: raw?.outcome,
@@ -880,6 +881,7 @@ export function BattleSetupScreen({ navigation, route }) {
   const handleBack = useBattleBackHandler(navigation, route);
   const [question, setQuestion] = useState(initialQuestion);
   const [battleType, setBattleType] = useState(route?.params?.battleType || 'OPINION');
+  const [description, setDescription] = useState(route?.params?.description || '');
   const [duration, setDuration] = useState(route?.params?.duration || '3 DAYS');
   const [whoCanVote, setWhoCanVote] = useState(route?.params?.whoCanVote || t('battle.public'));
   const [visibility, setVisibility] = useState(route?.params?.visibility || t('battle.public'));
@@ -901,6 +903,7 @@ export function BattleSetupScreen({ navigation, route }) {
     navigation.navigate(nextRoute, {
       ...route?.params,
       question,
+      description,
       battleType,
       duration,
       whoCanVote,
@@ -996,6 +999,36 @@ export function BattleSetupScreen({ navigation, route }) {
           {errors.battleType ? <Text style={styles.errorText}>{errors.battleType}</Text> : null}
         </View>
         <View style={styles.field}>
+          <Text style={[styles.fieldLabel, { color: primaryText }]}>{t('battle.aboutTitle', 'About this battle')}</Text>
+          <View
+            style={[
+              styles.inputCard,
+              { backgroundColor: idleSurface, borderColor: border || surfaces.listBorder, minHeight: 96, paddingBottom: 8 },
+            ]}
+          >
+            <TextInput
+              value={description}
+              onChangeText={setDescription}
+              placeholder={t('battle.aboutPlaceholder', 'Add a short description about this battle...')}
+              placeholderTextColor={surfaces.placeholderColor}
+              multiline
+              maxLength={300}
+              style={[
+                styles.inputText,
+                {
+                  color: surfaces.inputText,
+                  minHeight: 56,
+                  textAlignVertical: 'top',
+                  paddingTop: 0,
+                },
+              ]}
+            />
+            <Text style={{ alignSelf: 'flex-end', fontSize: 11, fontWeight: '600', color: subtleMuted, marginTop: 4 }}>
+              {`${description.length}/300`}
+            </Text>
+          </View>
+        </View>
+        <View style={styles.field}>
           <Text style={[styles.fieldLabel, { color: primaryText }]}>{t('battle.durationLabel')}</Text>
           <View style={styles.pillRow}>
             {[['24 HOURS', t('battle.duration24h')], ['3 DAYS', t('battle.duration3d')], ['7 DAYS', t('battle.duration7d')]].map(([value, label]) => (
@@ -1084,14 +1117,14 @@ export function BattlePreviewScreen({ navigation, route }) {
   }
 
   const buildBattlePayload = () => {
-    const { battleType, duration, whoCanVote, visibility } = route?.params || {};
+    const { battleType, duration, whoCanVote, visibility, description } = route?.params || {};
     const durationMs = DURATION_MS[duration] || DURATION_MS['3 DAYS'];
     const startAt = new Date();
     const endAt = new Date(startAt.getTime() + durationMs);
     return {
       title: previewQuestion,
       question: previewQuestion,
-      description: previewQuestion,
+      description: description?.trim() || null,
       category: 'Fashion',
       visibility: visibility === t('battle.private') ? 'Private' : 'Everyone',
       whoCanVote: whoCanVote === t('battle.followersOnly') ? 'Followers' : 'Everyone',
@@ -1103,14 +1136,14 @@ export function BattlePreviewScreen({ navigation, route }) {
   };
 
   const buildEditBattlePayload = () => {
-    const { battleType, duration, whoCanVote, visibility } = route?.params || {};
+    const { battleType, duration, whoCanVote, visibility, description } = route?.params || {};
     const durationMs = DURATION_MS[duration] || DURATION_MS['3 DAYS'];
     const startAt = new Date();
     const endAt = new Date(startAt.getTime() + durationMs);
     return {
       title: previewQuestion,
       question: previewQuestion,
-      description: previewQuestion,
+      description: description?.trim() || null,
       category: 'Fashion',
       visibility: visibility === t('battle.private') ? 'Private' : 'Everyone',
       whoCanVote: whoCanVote === t('battle.followersOnly') ? 'Followers' : 'Everyone',
@@ -1130,13 +1163,17 @@ export function BattlePreviewScreen({ navigation, route }) {
         const payload = buildEditBattlePayload();
         console.log("updateMarketplaceBattleQuestion-------------------", editingBattleId, payload);
         await updateMarketplaceBattleQuestion(editingBattleId, payload);
+        navigateToTargetClosetScreen(navigation, targetScreen);
       } else {
         const payload = buildBattlePayload();
         const response = await createMarketplaceBattle(payload);
         console.log("createMarketplaceBattle-------------------", response);
+        navigation.navigate('BattleCreatedSuccess', {
+          ...route?.params,
+          battle: response?.data || response,
+          isMarketplaceBattle: true,
+        });
       }
-
-      navigateToTargetClosetScreen(navigation, targetScreen);
     } catch (err) {
       const status = err?.response?.status;
       const message = err?.response?.data?.message;
@@ -1188,10 +1225,14 @@ export function BattlePreviewScreen({ navigation, route }) {
           <Text style={[styles.infoText, { color: subtleMuted }]}>{t('battle.daysLeft', { count: daysLeft })}</Text>
           <Text style={[styles.infoText, { color: subtleMuted }]}>{voteAudienceText}</Text>
         </View>
-        <View style={[styles.aboutCard, themedCard(surface, border || surfaces.listBorder)]}>
-          <Text style={[styles.aboutTitle, { color: primaryText }]}>{t('battle.aboutTitle')}</Text>
-          <Text style={[styles.aboutText, { color: subtleMuted }]}>{t('battle.aboutTextPreview')}</Text>
-        </View>
+        {route?.params?.description?.trim() ? (
+          <View style={[styles.aboutCard, themedCard(surface, border || surfaces.listBorder)]}>
+            <Text style={[styles.aboutTitle, { color: primaryText }]}>{t('battle.aboutTitle', 'About this battle')}</Text>
+            <Text style={[styles.aboutText, { color: subtleMuted }]}>
+              {route?.params?.description?.trim()}
+            </Text>
+          </View>
+        ) : null}
         <StatRow
           card={surface}
           border={border || surfaces.listBorder}
@@ -1770,6 +1811,7 @@ export function BattleLiveScreen({ navigation, route }) {
   const [manageModalVisible, setManageModalVisible] = useState(false);
 
   const question = battle?.title || route?.params?.question || t('battle.defaultQuestion');
+  const battleDescription = (battle?.description || route?.params?.description || '').trim();
   console.log("battle?.items-------------------------------------", battle)
   const selectedItems = useMemo(
     () => (battle?.items?.length ? battle.items : route?.params?.selectedItems || []),
@@ -2169,6 +2211,7 @@ export function BattleLiveScreen({ navigation, route }) {
       selectedItems: passedItems,
       question: passedQuestion,
       defaultQuestion: passedQuestion,
+      description: battle?.description || route?.params?.description || '',
       battleType: battle?.battleType || battle?.type || route?.params?.battleType || 'OPINION',
       duration: battle?.duration || route?.params?.duration || '3 DAYS',
       whoCanVote: battle?.whoCanVote || route?.params?.whoCanVote || t('battle.public'),
@@ -2354,6 +2397,30 @@ export function BattleLiveScreen({ navigation, route }) {
         onLeftPress={() => openBattleProduct(showWinnerCard ? winnerItem : leftItem)}
         onRightPress={() => openBattleProduct(showWinnerCard ? runnerUpItem : rightItem)}
       />
+
+      {/* About this battle section */}
+      {battleDescription ? (
+        <View style={{ marginTop: 14 }}>
+          <Text style={[liveStyles.commentsTitle, { color: primaryText, marginBottom: 8 }]}>
+            {t('battle.aboutTitle', 'About this battle')}
+          </Text>
+          <View
+            style={[
+              styles.aboutCard,
+              {
+                // backgroundColor: surface,
+                borderColor: border || BORDER,
+                paddingHorizontal: 14,
+                paddingVertical: 12,
+              },
+            ]}
+          >
+            <Text style={[styles.aboutText, { color: subtleMuted, fontSize: 13, lineHeight: 19 }]}>
+              {battleDescription}
+            </Text>
+          </View>
+        </View>
+      ) : null}
 
       {/* Vote choice buttons with live counts */}
       {!isOwnProfile && !isCreator ? (
@@ -3410,7 +3477,9 @@ export function BattleCreatedSuccessScreen({ navigation, route }) {
           </View>
 
           <Text style={{ color: primaryText, fontSize: 24, fontWeight: '900', marginTop: 24 }}>{t('battle.battleCreatedSuccess', 'Battle Created!')}</Text>
-          <Text style={{ color: primaryText, fontSize: 16, fontWeight: '700', marginTop: 8 }}>{t('battle.battleLive', { shopName: (rightItem?.shopName || rightItem?.userName || rightItem?.sellerName || 'Style Hub') })}</Text>
+          {Boolean(route?.params?.shop && !route?.params?.isMarketplaceBattle) && (
+            <Text style={{ color: primaryText, fontSize: 16, fontWeight: '700', marginTop: 8 }}>{t('battle.battleLive', { shopName: (rightItem?.shopName || rightItem?.userName || rightItem?.sellerName || 'Style Hub') })}</Text>
+          )}
           <Text style={{ color: subtleMuted, fontSize: 14, fontWeight: '600', marginTop: 12, textAlign: 'center' }}>
             {t('battle.communityCanVote', 'The community can now vote.\nMay the best item win! 🏆')}
           </Text>

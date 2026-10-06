@@ -157,9 +157,37 @@ const EbookDetailScreen = () => {
     const profileUserId = routeUserData?.id || routeUserData?.userId || null;
     return {
       ...ebookData,
-      userName: ebookData?.userName || profileName || '',
-      userImage: ebookData?.userImage || ebookData?.avatar || profileImage || '',
-      userId: ebookData?.userId || profileUserId || ebookData?.user?.id || null,
+      userName:
+        ebookData?.userName ||
+        ebookData?.username ||
+        ebookData?.creator?.name ||
+        ebookData?.creator?.userName ||
+        ebookData?.creator?.username ||
+        ebookData?.user?.name ||
+        ebookData?.user?.userName ||
+        ebookData?.user?.username ||
+        profileName ||
+        '',
+      userImage:
+        ebookData?.userImage ||
+        ebookData?.avatar ||
+        ebookData?.creator?.avatar ||
+        ebookData?.creator?.image ||
+        ebookData?.creator?.profileImage ||
+        ebookData?.user?.avatar ||
+        ebookData?.user?.image ||
+        profileImage ||
+        '',
+      userId:
+        ebookData?.userId ||
+        ebookData?.UserId ||
+        ebookData?.user?.id ||
+        ebookData?.user?._id ||
+        ebookData?.creator?.id ||
+        ebookData?.creator?._id ||
+        ebookData?.creatorId ||
+        profileUserId ||
+        null,
     };
   }, [ebookData, routeUserData]);
   const fromRootNavigator = route?.params?.fromRootNavigator;
@@ -249,25 +277,36 @@ const EbookDetailScreen = () => {
   const title = ebook.caption || ebook.title || t('ebookBuyDetails.defaultTitle', 'E-book');
   const userName = formatDisplayName(
     ebook.purchasedFrom ||
-    route?.params?.username ||
     ebook.userName ||
     ebook.username ||
     ebook.creator?.name ||
     ebook.creator?.username ||
+    ebook.creator?.userName ||
     ebook.user?.name ||
     ebook.user?.username ||
+    ebook.user?.userName ||
+    route?.params?.username ||
     routeUserData?.shopName ||
     routeUserData?.shopUsername ||
     routeUserData?.displayName ||
     t('ebookBuyDetails.unknownAuthor', 'Unknown Author')
   );
   const userAvatarSource = useMemo(() => {
-    const uri = ebook.userImage || ebook.avatar || ebook.user?.avatar || ebook.user?.image || ebook.creator?.avatar || ebook.creator?.image;
+    const uri =
+      ebook.userImage ||
+      ebook.avatar ||
+      ebook.user?.avatar ||
+      ebook.user?.image ||
+      ebook.creator?.avatar ||
+      ebook.creator?.image ||
+      routeUserData?.profileImage ||
+      routeUserData?.avatar ||
+      routeUserData?.image;
     if (uri && typeof uri === 'string' && uri.trim().length > 0) {
       return { uri: uri.trim() };
     }
     return require('../../assets/icons/pngicons/blackUser.png');
-  }, [ebook]);
+  }, [ebook, routeUserData]);
   const description = getDescription(ebook, t);
 
   const pdfUrl = useMemo(() => {
@@ -682,7 +721,7 @@ const EbookDetailScreen = () => {
             try {
               const resolvedUserId = currentUserId || (await AsyncStorage.getItem('userId'));
               const userId = resolvedUserId ? String(resolvedUserId) : '';
-              const postId = ebook?.id ? String(ebook.id) : '';
+              const postId = String(ebook?.id || ebook?._id || ebookData?.id || ebookData?._id || route?.params?.ebook?.id || route?.params?.ebook?._id || '').trim();
 
               if (!postId || !userId) {
                 showToastMessage(
@@ -695,10 +734,33 @@ const EbookDetailScreen = () => {
 
               let res;
               const fromNav = route?.params?.from;
-              if (fromNav === 'MyClosetShopFront' || fromNav === 'Shop') {
+              const isMarketplace =
+                fromNav === 'MyClosetDashboard' ||
+                fromNav === 'MyClosetShopFront' ||
+                fromNav === 'Shop' ||
+                route?.params?.isMarketplace === true ||
+                isMarketplaceEbookItem(ebook) ||
+                isMarketplaceEbookItem(ebookData) ||
+                isMarketplaceEbookItem(route?.params?.ebook);
+
+              if (isMarketplace) {
                 res = await deleteMarketplaceEbook(postId);
+                const isNotFound = res?.statusCode === 404 || res?.error === true || /not found/i.test(String(res?.message || ''));
+                if (isNotFound) {
+                  const fallbackRes = await deletePost(postId, userId).catch(() => null);
+                  if (fallbackRes?.statusCode === 200 && (fallbackRes?.success ?? true)) {
+                    res = fallbackRes;
+                  }
+                }
               } else {
                 res = await deletePost(postId, userId);
+                const isNotFound = res?.statusCode === 404 || res?.error === true || /post not found/i.test(String(res?.message || ''));
+                if (isNotFound) {
+                  const fallbackRes = await deleteMarketplaceEbook(postId).catch(() => null);
+                  if (fallbackRes?.statusCode === 200 && (fallbackRes?.success ?? true)) {
+                    res = fallbackRes;
+                  }
+                }
               }
               const ok = res?.statusCode === 200 && (res?.success ?? true);
 
@@ -716,6 +778,7 @@ const EbookDetailScreen = () => {
                 'success',
                 res?.data?.message || t('ebookDetail.deleteSuccess', 'E-book deleted successfully'),
               );
+              DeviceEventEmitter.emit('EBOOK_DELETED', { postId });
               navigation.goBack();
             } catch (error) {
               console.log('Delete Error', error);

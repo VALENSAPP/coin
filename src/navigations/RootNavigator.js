@@ -674,8 +674,26 @@ const GlobalDrawerNavigator = () => {
 export default function MainStack({ isFirstLaunch }) {
   const isLogin = useSelector(state => state.login.IS_LOGGED_IN);
   const isAddAccount = useSelector(state => state.addAccount.isAddAccount);
+  const [hasStoredLogin, setHasStoredLogin] = React.useState(null);
+
+  React.useEffect(() => {
+    AsyncStorage.getItem('isLoggedIn').then(val => {
+      setHasStoredLogin(val === 'true');
+    }).catch(() => {
+      setHasStoredLogin(false);
+    });
+  }, []);
 
   if (!isLogin || isAddAccount) {
+    // While checking storage or if stored session indicates logged in, render WhiteScreen until Redux isLogin resolves
+    if (hasStoredLogin === null || (hasStoredLogin && !isLogin && !isAddAccount)) {
+      return (
+        <Stack.Navigator key="whiteStack" screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="WhiteScreen" component={WhiteScreen} />
+        </Stack.Navigator>
+      );
+    }
+
     return (
       <Stack.Navigator key={isAddAccount ? 'authStack' : 'unauthStack'}
         initialRouteName={
@@ -683,7 +701,7 @@ export default function MainStack({ isFirstLaunch }) {
             ? 'Login'
             : isFirstLaunch
               ? 'SelectAccountType'
-              : isLogin
+              : isLogin || hasStoredLogin
                 ? 'WhiteScreen'
                 : 'Login'
         }

@@ -103,7 +103,7 @@ export default function WalletScreen({ route }) {
         setTimeout(async () => {
           setShowModal(false);
           await AsyncStorage.setItem('isLoggedIn', 'true');
-          dispatch(loggedIn());
+          dispatch(loggedIn({ showRegularSubscriptionPrompt: Boolean(route?.params?.showRegularSubscriptionPrompt) }));
           dispatch(clearSignupFormData());
         }, 5000);
       } else if (code === 500) {

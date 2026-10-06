@@ -1,7 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  DeviceEventEmitter,
   Image,
   Modal,
   ScrollView,
@@ -30,10 +31,10 @@ import {
   getClosetBattlesPriority,
   getbattlePerformance,
 } from '../../services/myCloset';
-import { getMarketplaceEbooksByClosetId } from '../../services/post';
+import { getMarketplaceEbooksByClosetId, getUserCredentials } from '../../services/post';
 import { EbookCard } from './AllEbooksScreen';
 import { useDispatch, useSelector } from 'react-redux';
-import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
+import { hideLoader } from '../../redux/actions/LoaderAction';
 import { buildProfileSharePayload } from '../../utils/profileShare';
 import { mixWithWhite, withAlpha } from '../../utils/closetTheme';
 import { BASE_URL } from '../../config/urls';
@@ -270,6 +271,7 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
   const [shopName, setShopName] = useState('');
   const [shopHandle, setShopHandle] = useState('');
   const [closetId, setClosetId] = useState(null);
+  const closetIdRef = useRef(null);
   const [itemsLoading, setItemsLoading] = useState(false);
   const [recentOrders, setRecentOrders] = useState([]);            // Seller: orders received
   const [ordersLoading, setOrdersLoading] = useState(false);
@@ -288,6 +290,9 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
   const [priorityBattles, setPriorityBattles] = useState([]);
   const [priorityBattlesLoading, setPriorityBattlesLoading] = useState(false);
   const [currentUserName, setCurrentUserName] = useState('');
+  const [currentUserId, setCurrentUserId] = useState(null);
+  const [currentUserData, setCurrentUserData] = useState(null);
+  const [shopLogo, setShopLogo] = useState(null);
   const [dashboardEbooks, setDashboardEbooks] = useState([]);
   const [ebooksLoading, setEbooksLoading] = useState(false);
   const [battleInfoVisible, setBattleInfoVisible] = useState(false);
@@ -317,16 +322,32 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
 
   useEffect(() => {
     let isMounted = true;
-    const loadUsername = async () => {
+    const loadUserData = async () => {
       try {
-        const value = await AsyncStorage.getItem('currentUsername');
-        setCurrentUserName(value)
-        if (isMounted && value) setStoredUsername(value);
+        const [storedId, storedCurrentUsername, storedUsernameVal] = await Promise.all([
+          AsyncStorage.getItem('userId'),
+          AsyncStorage.getItem('currentUsername'),
+          AsyncStorage.getItem('username'),
+        ]);
+        if (!isMounted) return;
+        if (storedId) setCurrentUserId(String(storedId));
+        const usernameVal = storedCurrentUsername || storedUsernameVal || '';
+        if (usernameVal) {
+          setCurrentUserName(usernameVal);
+          setStoredUsername(usernameVal);
+        }
+        if (storedId) {
+          const res = await getUserCredentials(storedId).catch(() => null);
+          const user = res?.data?.user || res?.data || null;
+          if (user && isMounted) {
+            setCurrentUserData(user);
+          }
+        }
       } catch {
         // Ignore storage read issues
       }
     };
-    loadUsername();
+    loadUserData();
     return () => { isMounted = false; };
   }, []);
 
@@ -442,15 +463,16 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
 
   const resolvedClosetId = closetId || userData?.closetId || userData?.myClosetId || userData?.closet?.id || userData?.closet?._id;
 
-  const loadPriorityBattles = useCallback(async () => {
-    if (!resolvedClosetId) {
+  const loadPriorityBattles = useCallback(async (cId = null) => {
+    const targetClosetId = cId || closetIdRef.current || resolvedClosetId;
+    if (!targetClosetId) {
       setPriorityBattles([]);
       return;
     }
 
     setPriorityBattlesLoading(true);
     try {
-      const response = await getClosetBattlesPriority(resolvedClosetId, { page: 1, limit: 10 });
+      const response = await getClosetBattlesPriority(targetClosetId, { page: 1, limit: 10 });
       const battles = unwrapBattlePriorityResponse(response)
         .filter(battle => battle?.isPinnedOnTop)
         .map(normalizePriorityBattle)
@@ -462,16 +484,31 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
     } finally {
       setPriorityBattlesLoading(false);
     }
-  }, [closetId, userData?.closetId, userData?.myClosetId, userData?.closet?.id, userData?.closet?._id]);
+  }, [resolvedClosetId]);
 
-  const loadEbooks = useCallback(async () => {
-    if (!resolvedClosetId) {
-      setDashboardEbooks([]);
+  const loadEbooks = useCallback(async (cId = null) => {
+    let targetClosetId = cId || closetIdRef.current || resolvedClosetId;
+    if (!targetClosetId) {
+      try {
+        const response = await getMyClosetMe();
+        const data = response?.data?.data ?? response?.data ?? {};
+        targetClosetId = data?.closetId ?? data?.id ?? data?._id ?? data?.closet?.id ?? data?.closet?._id ?? null;
+        if (targetClosetId) {
+          closetIdRef.current = targetClosetId;
+          setClosetId(targetClosetId);
+        }
+      } catch (err) {
+        console.warn('Unable to fetch closetId for loadEbooks:', err);
+      }
+    }
+
+    if (!targetClosetId) {
       return;
     }
+
     setEbooksLoading(true);
     try {
-      const response = await getMarketplaceEbooksByClosetId(resolvedClosetId);
+      const response = await getMarketplaceEbooksByClosetId(targetClosetId);
       const payload =
         response?.data?.ebooks ??
         response?.ebooks ??
@@ -492,7 +529,7 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
               : [];
 
       const ebookData = formattedData.filter((post) => {
-        if (post?.ebookpdf) return true;
+        if (post?.ebookpdf || post?.ebookPdf || post?.pdfUrl || post?.pdf) return true;
         const formatValue = String(post?.format || post?.type || '').toLowerCase();
         const imageUrl = String(post?.images?.[0] || post?.image || post?.video || '');
         const isPdf = /\.pdf(\?|$)/i.test(imageUrl);
@@ -500,13 +537,12 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
         return (
           !post?.visibleTo || post.visibleTo === ''
         ) && (
-            formatValue === 'ebook' || formatValue === 'book' || isPdf || formatValue === 'private'
+            formatValue === 'ebook' || formatValue === 'book' || isPdf || formatValue === 'private' || !post?.format
           );
       });
       setDashboardEbooks(ebookData.slice(0, 3));
     } catch (error) {
       console.warn('Unable to load ebooks:', error);
-      setDashboardEbooks([]);
     } finally {
       setEbooksLoading(false);
     }
@@ -539,34 +575,59 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
     }
   }, []);
 
-  const checkShopState = async () => {
-    dispatch(showLoader());
+  const checkShopState = useCallback(async () => {
     try {
       const response = await getMyClosetMe();
       const data = response?.data?.data ?? response?.data ?? {};
+      const resolvedCId = data?.closetId ?? data?.id ?? data?._id ?? data?.closet?.id ?? data?.closet?._id ?? null;
       setShopName(data?.shopName);
       setShopHandle(data?.shopUsername);
-      setClosetId(data?.closetId ?? data?.id ?? data?._id ?? data?.closet?.id ?? data?.closet?._id ?? null);
+      setClosetId(resolvedCId);
+      closetIdRef.current = resolvedCId;
+      if (data?.shopLogo) {
+        setShopLogo(data.shopLogo);
+      }
+      if (data?.userId && !currentUserId) {
+        setCurrentUserId(String(data.userId));
+      }
+      return resolvedCId;
     } catch (error) {
       console.warn('Unable to load closet items:', error);
-    } finally {
-      dispatch(hideLoader());
+      return closetIdRef.current;
     }
-  };
+  }, [currentUserId]);
 
   useFocusEffect(
     useCallback(() => {
-      checkShopState();
-      loadClosetItems();
-      loadRecentOrders();
-      loadUnviewedOrderIds();
-      loadBuyerOrders();
-      loadDashboard();
-      loadMarketplaceOverview(overviewRange);
-      loadBattlePerformance();
-      loadPriorityBattles();
-    }, [loadClosetItems, loadPriorityBattles, loadRecentOrders, loadUnviewedOrderIds, loadBuyerOrders, loadDashboard, loadMarketplaceOverview, loadBattlePerformance, overviewRange]),
+      dispatch(hideLoader());
+      const loadAll = async () => {
+        const cId = await checkShopState();
+        loadClosetItems();
+        loadRecentOrders();
+        loadUnviewedOrderIds();
+        loadBuyerOrders();
+        loadDashboard();
+        loadMarketplaceOverview(overviewRange);
+        loadBattlePerformance();
+        loadPriorityBattles(cId);
+        loadEbooks(cId);
+      };
+      loadAll();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [overviewRange]),
   );
+
+  useEffect(() => {
+    const sub = DeviceEventEmitter.addListener('EBOOK_DELETED', ({ postId }) => {
+      if (postId) {
+        setDashboardEbooks(prev => prev.filter(item => String(item.id || item._id) !== String(postId)));
+      }
+      loadEbooks();
+    });
+    return () => {
+      sub.remove();
+    };
+  }, [loadEbooks]);
 
   useEffect(() => {
     if (!closetId) return;
@@ -583,6 +644,10 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
 
   const avatarUri =
     shopDraft?.logo?.uri ||
+    shopLogo ||
+    currentUserData?.image ||
+    currentUserData?.avatar ||
+    currentUserData?.profilePicture ||
     userData?.image ||
     userData?.avatar ||
     userData?.profilePicture ||
@@ -630,7 +695,7 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
     navigation?.navigate?.('ProfileMain', {
       screen: 'CreateBattle', // same — must exist in ProfileStack
       params: {
-        sellerId: userData?.id || userData?._id,
+        sellerId: currentUserId || userData?.id || userData?._id,
       },
     });
   };
@@ -646,16 +711,190 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
     });
   };
 
+  const handleEbookPress = useCallback((item) => {
+    const ebookOwnerName =
+      item?.userName ||
+      item?.username ||
+      item?.creator?.name ||
+      item?.creator?.userName ||
+      item?.creator?.username ||
+      item?.user?.name ||
+      item?.user?.userName ||
+      item?.user?.username ||
+      item?.author ||
+      item?.authorName ||
+      item?.purchasedFrom;
+
+    const fallbackOwnerName =
+      currentUserData?.userName ||
+      currentUserData?.username ||
+      currentUserData?.displayName ||
+      shopHandle ||
+      shopName ||
+      currentUserName ||
+      storedUsername ||
+      userData?.userName ||
+      userData?.username ||
+      userData?.displayName ||
+      '';
+
+    const resolvedOwnerName = ebookOwnerName || fallbackOwnerName;
+
+    const resolvedOwnerId =
+      item?.userId ||
+      item?.UserId ||
+      item?.user?.id ||
+      item?.user?._id ||
+      item?.creator?.id ||
+      item?.creator?._id ||
+      item?.creatorId ||
+      item?.ownerId ||
+      currentUserData?.id ||
+      currentUserData?._id ||
+      currentUserId ||
+      userData?.id ||
+      userData?._id ||
+      null;
+
+    const resolvedOwnerImage =
+      item?.userImage ||
+      item?.avatar ||
+      item?.user?.avatar ||
+      item?.user?.image ||
+      item?.user?.profileImage ||
+      item?.creator?.avatar ||
+      item?.creator?.image ||
+      item?.creator?.profileImage ||
+      currentUserData?.profileImage ||
+      currentUserData?.image ||
+      currentUserData?.avatar ||
+      currentUserData?.profilePicture ||
+      shopLogo ||
+      avatarUri ||
+      '';
+
+    const resolvedLoggedInUserId =
+      currentUserId ||
+      currentUserData?.id ||
+      currentUserData?._id ||
+      userData?.id ||
+      userData?._id ||
+      null;
+
+    const resolvedProfileType =
+      item?.creator?.profile ||
+      item?.user?.profile ||
+      currentUserData?.profile ||
+      userData?.profile ||
+      'user';
+
+    const resolvedUserData = {
+      ...userData,
+      ...currentUserData,
+      id: resolvedOwnerId,
+      _id: resolvedOwnerId,
+      userId: resolvedOwnerId,
+      userName: resolvedOwnerName,
+      username: resolvedOwnerName,
+      displayName: currentUserData?.displayName || item?.creator?.name || item?.user?.name || resolvedOwnerName,
+      profileImage: resolvedOwnerImage,
+      avatar: resolvedOwnerImage,
+      image: resolvedOwnerImage,
+      shopName: shopName || currentUserData?.shopName || userData?.shopName,
+      shopUsername: shopHandle || currentUserData?.shopUsername || userData?.shopUsername,
+      profile: resolvedProfileType,
+    };
+
+    const enrichedEbook = {
+      ...item,
+      userName: item?.userName || resolvedOwnerName,
+      userImage: item?.userImage || resolvedOwnerImage,
+      userId: item?.userId || resolvedOwnerId,
+      ...(item?.creator
+        ? { creator: item.creator }
+        : {
+            creator: {
+              id: resolvedOwnerId,
+              _id: resolvedOwnerId,
+              name: resolvedOwnerName,
+              userName: resolvedOwnerName,
+              avatar: resolvedOwnerImage,
+              image: resolvedOwnerImage,
+            },
+          }),
+      ...(item?.user
+        ? { user: item.user }
+        : {
+            user: {
+              id: resolvedOwnerId,
+              _id: resolvedOwnerId,
+              name: resolvedOwnerName,
+              userName: resolvedOwnerName,
+              avatar: resolvedOwnerImage,
+              image: resolvedOwnerImage,
+            },
+          }),
+    };
+
+    navigation?.navigate?.('EbookDetail', {
+      ebook: enrichedEbook,
+      userData: resolvedUserData,
+      loggedInUserId: resolvedLoggedInUserId,
+      from: 'MyClosetDashboard',
+      returnTo: 'MyClosetDashboard',
+      username: resolvedOwnerName,
+      isPurchased: true,
+      isOwnProfile: true,
+    });
+  }, [avatarUri, currentUserData, currentUserId, currentUserName, navigation, shopHandle, shopLogo, shopName, storedUsername, userData]);
+
   const handleViewAllEbooks = () => {
-    const username = currentUserName;
+    const resolvedOwnerName =
+      currentUserData?.userName ||
+      currentUserData?.username ||
+      currentUserData?.displayName ||
+      shopHandle ||
+      shopName ||
+      currentUserName ||
+      storedUsername ||
+      userData?.userName ||
+      userData?.username ||
+      userData?.displayName ||
+      '';
+
+    const resolvedLoggedInUserId =
+      currentUserId ||
+      currentUserData?.id ||
+      currentUserData?._id ||
+      userData?.id ||
+      userData?._id ||
+      null;
+
+    const resolvedUserData = {
+      ...userData,
+      ...currentUserData,
+      id: resolvedLoggedInUserId,
+      _id: resolvedLoggedInUserId,
+      userId: resolvedLoggedInUserId,
+      userName: resolvedOwnerName,
+      username: resolvedOwnerName,
+      displayName: currentUserData?.displayName || resolvedOwnerName,
+      profileImage: avatarUri,
+      avatar: avatarUri,
+      image: avatarUri,
+      shopName: shopName || currentUserData?.shopName || userData?.shopName,
+      shopUsername: shopHandle || currentUserData?.shopUsername || userData?.shopUsername,
+      profile: currentUserData?.profile || userData?.profile || 'user',
+    };
+
     navigation?.navigate?.('ProfileMain', {
       screen: 'AllEbooks',
       params: {
-        userData,
-        loggedInUserId: userData?.id || userData?._id,
+        userData: resolvedUserData,
+        loggedInUserId: resolvedLoggedInUserId,
         isOwnProfile: true,
         closetId: resolvedClosetId,
-        username,
+        username: resolvedOwnerName,
         from: 'MyClosetDashboard',
         returnTo: 'MyClosetDashboard',
       },
@@ -1201,16 +1440,7 @@ const MyClosetDashboard = ({ navigation, userData, shopDraft }) => {
                   isPurchased={true}
                   isOwnProfile={true}
                   accentColor={text}
-                  onPress={() => {
-                    navigation?.navigate?.('EbookDetail', {
-                      ebook: item,
-                      userData,
-                      loggedInUserId: userData?.id || userData?._id,
-                      from: 'MyClosetDashboard',
-                      returnTo: 'MyClosetDashboard',
-                      username: currentUserName || userData?.userName || userData?.username || item?.userName || item?.creator?.name,
-                    })
-                  }}
+                  onPress={() => handleEbookPress(item)}
                 />
               ))
             ) : (

@@ -5063,6 +5063,8 @@
     "daysLeft": "Restano {{count}} giorni",
     "everyoneCanVote": "Tutti possono votare",
     "aboutTitle": "Informazioni su questa sfida",
+    "aboutPlaceholder": "Aggiungi una breve descrizione di questa sfida...",
+    "defaultDescription": "Scegli il tuo prodotto preferito",
     "aboutTextPreview": "Aiuta gli altri a scegliere il loro preferito!",
     "launchBattle": "Avvia sfida",
     "liveTitle": "Sfida in diretta",
