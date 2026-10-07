@@ -269,6 +269,7 @@ export default function BattleExplore({ onClose, profile }) {
 
   const handleBattleCardPress = useCallback(async(battleItem) => {
     const raw = battleItem?.raw || battleItem;
+    const battleProfileType = battleItem?.profileType || raw?.profileType || battleItem?.raw?.profileType || battleItem?.profile || raw?.profile;
     const fmt = String(raw?.format || battleItem?.format || '').toLowerCase();
     const tbb = String(raw?.typeByBattle || battleItem?.typeByBattle || '').toLowerCase();
 
@@ -325,6 +326,8 @@ export default function BattleExplore({ onClose, profile }) {
             battleWinner: winnerMeta || null,
             returnTo: { tab: 'Search', screen: 'SearchHome', params: {} },
             returnParams: {},
+            entryPoint: 'battleExplore',
+            profileType: battleProfileType,
           },
         ),
       });
@@ -338,6 +341,9 @@ export default function BattleExplore({ onClose, profile }) {
         battleId: mappedBattle?.id,
         initialBattle: mappedBattle?.raw || mappedBattle,
         userProfile: profile,
+        entryPoint: 'battleExplore',
+        profileType: battleProfileType,
+        returnTo: { tab: 'Search', screen: 'SearchHome', params: {} },
         selectedItems: [mappedBattle?.left, mappedBattle?.right].filter(Boolean),
         isOwnProfile: isOwnProfileForCloset(closet),
         returnToProfile: buildClosetReturnTo({
@@ -357,6 +363,7 @@ export default function BattleExplore({ onClose, profile }) {
         selectedOption: selectedBattleOptionsRef.current[battleItem?.id] || '',
         returnTo: 'Search',
         profile,
+        profileType: battleProfileType,
       },
     });
   }, [navigation, profile]);

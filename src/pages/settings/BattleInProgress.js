@@ -613,6 +613,7 @@ const normalizeBattle = (raw, currentUserId = '') => {
       null,
     comments,
     headToHeadSides: headToHeadSides || undefined,
+    profileType: raw?.profileType || raw?.profile || raw?.raw?.profileType,
   };
 };
 
@@ -670,19 +671,30 @@ export default function BattleInProgress() {
   const navigation = useNavigation();
   const route = useRoute();
   const { t } = useLanguage();
-  const { profile } = route.params || {};
-  const resolvedProfileType = normalizeProfileType(profile);
+  const { profile, profileType, entryPoint } = route.params || {};
+  const routeBattle = useMemo(() => route?.params?.battle || {}, [route?.params?.battle]);
+  const hasInitialBattleData = Object.keys(routeBattle || {}).length > 0;
+  const battleId = route?.params?.battleId || routeBattle.id || routeBattle._id || routeBattle.battleId || '';
+  const [currentUserId, setCurrentUserId] = useState('');
+  const [battle, setBattle] = useState(() => normalizeBattle(routeBattle, ''));
+
+  const isFromBattleExploreOrSearch = entryPoint === 'battleExplore' || entryPoint === 'search';
+  const effectiveProfileType = isFromBattleExploreOrSearch
+    ? (
+        profileType ||
+        battle?.profileType ||
+        routeBattle?.profileType ||
+        routeBattle?.raw?.profileType ||
+        profile
+      )
+    : profile;
+  const resolvedProfileType = normalizeProfileType(effectiveProfileType);
   const { bgStyle, textStyle, cardStyle, accent, card, border, mutedText, bg } = useAppTheme(resolvedProfileType);
   const { isDarkMode } = useThemeContext();
   const labelColor = isDarkMode ? '#ffffff' : '#111827';
   const inputSurface = isDarkMode ? 'rgba(255,255,255,0.08)' : card;
   const optionSurface = isDarkMode ? 'rgba(255,255,255,0.06)' : '#F9FAFB';
   const optionBorder = isDarkMode ? border : '#E5E7EB';
-  const routeBattle = useMemo(() => route?.params?.battle || {}, [route?.params?.battle]);
-  const hasInitialBattleData = Object.keys(routeBattle || {}).length > 0;
-  const battleId = route?.params?.battleId || routeBattle.id || routeBattle._id || routeBattle.battleId || '';
-  const [currentUserId, setCurrentUserId] = useState('');
-  const [battle, setBattle] = useState(() => normalizeBattle(routeBattle, ''));
   const [selectedOption, setSelectedOption] = useState(() => String(route?.params?.selectedOption || ''));
   const [optionImagePreviewVisible, setOptionImagePreviewVisible] = useState(false);
   const [optionImagePreviewUri, setOptionImagePreviewUri] = useState('');

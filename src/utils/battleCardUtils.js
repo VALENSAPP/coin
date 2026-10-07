@@ -241,6 +241,7 @@ export const mapBattleCard = battle => {
         ? battle.predictionCounts
         : {},
     typeByBattle: battle?.typeByBattle || 'normal',
+    profileType: battle?.profileType || battle?.profile,
     raw: battle,
   };
 };

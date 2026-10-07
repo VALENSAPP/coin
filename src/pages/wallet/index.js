@@ -3884,10 +3884,10 @@ const styles = StyleSheet.create({
   },
   headerButterfly: {
     position: 'absolute',
-    right: -10,
-    bottom: -8,
-    width: 80,
-    height: 80,
+    right: 15,
+    bottom: 20,
+    width: 100,
+    height: 100,
   },
 });
 

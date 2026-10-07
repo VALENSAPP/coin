@@ -1612,6 +1612,7 @@ const SearchScreen = () => {
   const handleBattleCardPressRef = useRef(null);
   handleBattleCardPressRef.current = (battleItem) => {
     const raw = battleItem?.raw || battleItem;
+    const battleProfileType = battleItem?.profileType || raw?.profileType || battleItem?.raw?.profileType || battleItem?.profile || raw?.profile;
     const fmt = String(raw?.format || battleItem?.format || '').toLowerCase();
     const tbb = String(raw?.typeByBattle || battleItem?.typeByBattle || '').toLowerCase();
 
@@ -1666,6 +1667,8 @@ const SearchScreen = () => {
             battleWinner: winnerMeta || null,
             returnTo: { tab: 'Search', screen: 'SearchHome', params: route?.params || {} },
             returnParams: route?.params || {},
+            entryPoint: 'search',
+            profileType: battleProfileType,
           },
         ),
       });
@@ -1679,6 +1682,8 @@ const SearchScreen = () => {
         battleId: mappedBattle?.id,
         initialBattle: mappedBattle?.raw || mappedBattle,
         userProfile: profile,
+        entryPoint: 'search',
+        profileType: battleProfileType,
         returnTo: { tab: 'Search', screen: 'SearchHome', params: route?.params || {} },
         selectedItems: [mappedBattle?.left, mappedBattle?.right].filter(Boolean),
         isOwnProfile: String(userId || '') === String(mappedBattle?.closet?.id || mappedBattle?.closetId || battleItem?.raw?.closet?.id || battleItem?.raw?.closetId || ''),
@@ -1701,6 +1706,7 @@ const SearchScreen = () => {
         returnTo: route.name,
         returnParams: route.params,
         profile,
+        profileType: battleProfileType,
       },
     });
   };

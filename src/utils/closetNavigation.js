@@ -58,14 +58,21 @@ export const navigateToTargetClosetScreen = (navigation, targetScreen, extraPara
   } catch (_e) {}
 };
 
-export const getClosetRouteProfile = route =>
-  normalizeProfileType(
+export const getClosetRouteProfile = route => {
+  if (
+    (route?.params?.entryPoint === 'battleExplore' || route?.params?.entryPoint === 'search') &&
+    route?.params?.profileType
+  ) {
+    return normalizeProfileType(route.params.profileType);
+  }
+  return normalizeProfileType(
     route?.params?.sellerProfile ||
     route?.params?.seller?.profile ||
     route?.params?.profileType ||
     route?.params?.profile ||
     route?.params?.userProfile,
   );
+};
 
 export const useClosetTheme = route => {
   const profileType = getClosetRouteProfile(route);
