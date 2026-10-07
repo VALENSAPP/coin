@@ -278,12 +278,30 @@ const CustomDrawerContent = (props) => {
         ) : (
           <MaterialCommunityIcons name="hanger" size={20} color={drawerColors.inactive} style={{ marginRight: 16 }} />
         )}
-        <Text style={{ fontSize: 15, color: drawerColors.inactive, fontWeight: '600' }}>
-          {isCompanyProfile ? t('drawerNav.shop') : t('drawerNav.myCloset')}
-          {!isCompanyProfile && unviewedCount > 0 && (
-            <Text style={{ color: accent }}> |  {t('myClosetDashboard.newOrder')}  [{unviewedCount}]</Text>
-          )}
-        </Text>
+        <View style={{ flex: 1, minWidth: 0, paddingRight: 10 }}>
+          <Text
+            style={{
+              fontSize: 15,
+              color: drawerColors.inactive,
+              fontWeight: '600',
+              flexShrink: 1,
+              flexWrap: 'wrap',
+            }}
+          >
+            {isCompanyProfile ? (
+              t('drawerNav.shop')
+            ) : (
+              <>
+                {t('drawerNav.myCloset')}
+                {unviewedCount > 0 && (
+                  <Text style={{ color: accent }}>
+                    {' | '}{t('myClosetDashboard.newOrder')} [{unviewedCount}]
+                  </Text>
+                )}
+              </>
+            )}
+          </Text>
+        </View>
         {/* {unviewedCount > 0 && (
           <View style={{ marginLeft: 8, backgroundColor: '#E0E7FF', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 12 }}>
             <Text style={{ fontSize: 10, color: '#4F46E5', fontWeight: 'bold' }}>{unviewedCount} NEW</Text>
@@ -306,7 +324,7 @@ const CustomDrawerContent = (props) => {
       </TouchableOpacity>
 
       <TouchableOpacity
-        onPress={() => {}}
+        onPress={() => { }}
         activeOpacity={0.75}
         style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 18, opacity: 0.75 }}
       >

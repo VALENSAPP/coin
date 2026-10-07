@@ -776,6 +776,18 @@ export const WalletDashboardScreen = ({ navigation }) => {
     ? require('../../assets/icons/pngicons/buttflypieceG.png')
     : require('../../assets/icons/pngicons/butterflypiece.png');
 
+  const butterflyWallet = isBusinessProfile
+    ? require('../../assets/icons/pngicons/ButterflyWalletG.png')
+    : require('../../assets/icons/pngicons/butterWallet.png');
+
+  const butterflyTip = isBusinessProfile
+    ? require('../../assets/icons/pngicons/ButterflyPointG.png')
+    : require('../../assets/icons/pngicons/butterPoint.png');
+
+  const butterflyPoints = isBusinessProfile
+    ? require('../../assets/icons/pngicons/ButterflyWaveG.png')
+    : require('../../assets/icons/pngicons/wave.png');
+
   const activityChartW = width - 64;
   const activityChartH = 200;
   const moneyPeriodLabel = activityPeriod === 'Weekly'
@@ -986,6 +998,11 @@ export const WalletDashboardScreen = ({ navigation }) => {
   const gradientText = getWalletGradientText(isBusinessProfile, isDarkMode, text);
   const kpiIconWrapStyle = getWalletGradientIconWrapStyle(isBusinessProfile, isDarkMode, accent);
   const platformPointsHexBg = text;
+  const pointsDividerColor = isDarkMode
+    ? 'rgba(255,255,255,0.28)'
+    : isBusinessProfile
+      ? 'rgba(160,125,65,0.24)'
+      : 'rgba(90,45,130,0.16)';
   const activityMetricCardBg = isDarkMode ? '#2A2A2A' : '#fafafa';
   const activityFollowersIconColor = isDarkMode ? accent : text;
   const activityFollowersIconBg = isDarkMode ? `${accent}28` : `${text}18`;
@@ -1542,13 +1559,23 @@ export const WalletDashboardScreen = ({ navigation }) => {
                       >
                         {metaStatusText}
                       </Text>
-                      <Text style={[styles.kpiMetaMaskHint, { color: gradientText }]} numberOfLines={1}>
+                      <Text style={[styles.kpiMetaMaskHint, { color: gradientText }]} numberOfLines={2}>
                         {metaActionText}
                       </Text>
                     </View>
                   </View>
                 </View>
-                <Ionicons name="chevron-forward" size={18} color={gradientText} style={styles.kpiChevron} />
+                <Image
+                  source={butterflyWallet}
+                  style={[
+                    styles.kpiCardMascot,
+                    { width: Math.min(132, width * 0.28), height: Math.min(124, width * 0.28) },
+                  ]}
+                  resizeMode="contain"
+                  pointerEvents="none"
+                  accessible={false}
+                />
+                <Ionicons name="chevron-forward" size={18} color={gradientText} style={styles.kpiIllustratedChevron} />
               </View>
             </LinearGradient>
           </TouchableOpacity>
@@ -1586,7 +1613,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
                     <Text style={[styles.kpiTitle, { color: text }]} numberOfLines={1}>
                       {item.title}
                     </Text>
-                    <Text style={[styles.kpiTipDescription, { color: text }]} numberOfLines={3}>
+                    <Text style={[styles.kpiTipDescription, { color: text }]}>
                       {t('walletDashboard.tipPayout.description')}
                     </Text>
                     <View style={styles.kpiMetaMaskStatusRow}>
@@ -1605,13 +1632,23 @@ export const WalletDashboardScreen = ({ navigation }) => {
                       >
                         {tipStatusText}
                       </Text>
-                      <Text style={[styles.kpiMetaMaskHint, { color: text }]} numberOfLines={1}>
+                      <Text style={[styles.kpiMetaMaskHint, { color: text }]} numberOfLines={2}>
                         {tipActionText}
                       </Text>
                     </View>
                   </View>
                 </View>
-                <Ionicons name="chevron-forward" size={18} color={text} style={styles.kpiChevron} />
+                <Image
+                  source={butterflyTip}
+                  style={[
+                    styles.kpiCardMascot,
+                    { width: Math.min(120, width * 0.26), height: Math.min(124, width * 0.28) },
+                  ]}
+                  resizeMode="contain"
+                  pointerEvents="none"
+                  accessible={false}
+                />
+                <Ionicons name="chevron-forward" size={18} color={text} style={styles.kpiIllustratedChevron} />
               </View>
             </LinearGradient>
           </TouchableOpacity>
@@ -1962,6 +1999,12 @@ export const WalletDashboardScreen = ({ navigation }) => {
             style={styles.pointsCard}
           >
             <View style={styles.pointsGlow} />
+            <Image
+              source={butterflyPoints}
+              style={styles.pointsMascot}
+              resizeMode="contain"
+              accessible={false}
+            />
             <View style={styles.pointsFourColRow}>
               <TouchableOpacity
                 style={styles.pointsMainCol}
@@ -2017,7 +2060,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
                     )}
                   </TouchableOpacity>
                   {index !== rewardPointCards.length - 1 ? (
-                    <View style={styles.pointsDivider} />
+                    <View style={[styles.pointsDivider, { backgroundColor: pointsDividerColor }]} />
                   ) : null}
                 </React.Fragment>
               ))}
@@ -2794,6 +2837,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   pointsCard: {
+    position: 'relative',
     borderRadius: 24,
     padding: 2,
     overflow: 'hidden',
@@ -2812,11 +2856,21 @@ const styles = StyleSheet.create({
     right: -40,
     backgroundColor: 'rgba(255,255,255,0.1)',
   },
+  pointsMascot: {
+    position: 'absolute',
+    top: 0,
+    right: 14,
+    width: 100,
+    height: 70,
+    zIndex: 1,
+  },
   pointsFourColRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
-    paddingVertical: 20,
+    paddingTop: 50,
+    paddingBottom: 20,
+    zIndex: 2,
   },
   pointsDivider: {
     width: 1,
@@ -3056,10 +3110,12 @@ const styles = StyleSheet.create({
     overflow: 'visible',
   },
   kpiCardMetaMask: {
+    position: 'relative',
     borderRadius: 18,
     padding: 16,
-    minHeight: 108,
+    minHeight: Math.max(164, Math.min(198, width * 0.42)),
     width: '100%',
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.12,
@@ -3203,9 +3259,21 @@ const styles = StyleSheet.create({
     opacity: 0.8,
   },
   kpiMetaMaskRow: {
+    position: 'relative',
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    minHeight: 112,
+  },
+  kpiCardMascot: {
+    flexShrink: 0,
+    alignSelf: 'center',
+  },
+  kpiIllustratedChevron: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    zIndex: 2,
+    opacity: 0.8,
   },
   kpiMetaMaskLeft: {
     flexDirection: 'row',
