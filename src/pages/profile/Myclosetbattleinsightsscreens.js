@@ -12,6 +12,7 @@ import {
   View,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import FastImage from 'react-native-fast-image';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -25,8 +26,11 @@ import {
   getMarketplaceBattleBoostByBattle,
   createMarketplaceBattleBoostIntent,
   createMarketplaceBattleBoostPaymentSession,
-  createMarketplaceBattleWinnerPromotion,
   getMarketplaceBattleBoostPackages,
+  getMarketplaceWinnerPromotionPackages,
+  getMarketplaceWinnerPromotionByBattle,
+  createMarketplaceBattleWinnerPromotion,
+  createMarketplaceWinnerPromotionPaymentSession,
 } from '../../services/myCloset';
 import { Header, CHALLENGE_ITEMS } from './MyClosetBattleScreens';
 import { formSurfaces, selectedSurface, themedCard } from '../../utils/closetTheme';
@@ -67,6 +71,69 @@ const FALLBACK_BOOST_PACKAGES = [
   { id: 'boostPlus', days: 14, priceLabel: '$19.99', viewsLabel: '~40K - 80K' },
 ];
 
+const FALLBACK_PROMOTION_PACKAGES = [
+  {
+    id: '1a2b3c4d-8d27-4ebf-8f49-c6448b14c801',
+    name: '10% Off (or more) - 24 Hours',
+    description: 'DISCOUNT_10_PERCENT_24H',
+    days: 1,
+    durationHours: 24,
+    durationLabel: '24 Hours',
+    price: 4.99,
+    priceLabel: '$4.99',
+  },
+  {
+    id: '2a2b3c4d-d8cb-4c1c-8f6d-7f77ec7fe102',
+    name: '10% Off (or more) - 3 Days',
+    description: 'DISCOUNT_10_PERCENT_72H',
+    days: 3,
+    durationHours: 72,
+    durationLabel: '3 Days',
+    price: 8.99,
+    priceLabel: '$8.99',
+  },
+  {
+    id: '3a2b3c4d-e799-4237-b2b7-1574f7a9f403',
+    name: '10% Off (or more) - 7 Days',
+    description: 'DISCOUNT_10_PERCENT_168H',
+    days: 7,
+    durationHours: 168,
+    durationLabel: '7 Days',
+    price: 19.99,
+    priceLabel: '$19.99',
+  },
+  {
+    id: '4a2b3c4d-45dc-4fb6-8abf-4b7f2ab9f104',
+    name: 'Free Shipping - 24 Hours',
+    description: 'FREE_SHIPPING_24H',
+    days: 1,
+    durationHours: 24,
+    durationLabel: '24 Hours',
+    price: 4.99,
+    priceLabel: '$4.99',
+  },
+  {
+    id: '5a2b3c4d-c53d-4f31-ab70-7690d1212105',
+    name: 'Free Shipping - 3 Days',
+    description: 'FREE_SHIPPING_72H',
+    days: 3,
+    durationHours: 72,
+    durationLabel: '3 Days',
+    price: 8.99,
+    priceLabel: '$8.99',
+  },
+  {
+    id: '6a2b3c4d-f62e-4a99-b1d5-2e88dc92a106',
+    name: 'Free Shipping - 7 Days',
+    description: 'FREE_SHIPPING_168H',
+    days: 7,
+    durationHours: 168,
+    durationLabel: '7 Days',
+    price: 19.99,
+    priceLabel: '$19.99',
+  },
+];
+
 const PROMO_TYPES = [
   { id: 'discount24', icon: 'pricetag-outline' },
   { id: 'freeShipping', icon: 'car-outline' },
@@ -81,6 +148,51 @@ const PROMO_TYPE_API_MAP = {
   // exclusiveDrop: 'EXCLUSIVE_DROP',
   // vipOnly: 'VIP_ONLY',
   // winnerSale: 'WINNER_SALE',
+};
+
+const getDefaultWinnerPromotionMessage = (pkg, disc, isFreeShipping) => {
+  const days = pkg?.days || 3;
+  const durText = days === 1 ? '24 hours' : `${days} days`;
+  if (isFreeShipping) {
+    return `Enjoy free shipping on our winner for ${durText}!`;
+  }
+  return `Special ${disc || 20}% off our battle winner for ${durText}!`;
+};
+
+export const navigateToClosetShopFront = (navigation, extraParams = {}) => {
+  if (!navigation) return;
+  const targetParams = {
+    initialTab: 'closet',
+    ...extraParams,
+  };
+
+  try {
+    navigation.navigate('ProfileMain', {
+      screen: 'Profile',
+      params: targetParams,
+    });
+    return;
+  } catch (_e) {}
+
+  try {
+    const parent = navigation.getParent?.();
+    if (parent) {
+      parent.navigate('ProfileMain', {
+        screen: 'Profile',
+        params: targetParams,
+      });
+      return;
+    }
+  } catch (_e) {}
+
+  try {
+    navigation.navigate('Profile', targetParams);
+    return;
+  } catch (_e) {}
+
+  if (navigation.canGoBack?.()) {
+    navigation.goBack();
+  }
 };
 
 const imageUri = img => {
@@ -763,19 +875,288 @@ export function PromotionDetailsScreen({ navigation, route }) {
   const subtleMuted = mutedText || surfaces.mutedColor;
   const surface = card || surfaces.listSurface;
   const { t } = useLanguage();
+  const toast = useToast();
   const accent = themeAccent || text || PURPLE;
   const promoColors = isDarkMode ? [surface || '#1E1E1E', bg || '#121212'] : [accent, accent];
   const buttonColors = isDarkMode ? ['#333333', '#222222'] : [accent, accent];
-  const { winnerItem, promotionType, battleId } = route?.params || {};
-  const isFreeShipping = promotionType === 'freeShipping';
-  const defaultFreeShippingMsg = 'Thank you for voting! Enjoy free shipping on our battle winner.';
-  const defaultMsg = isFreeShipping
-    ? (t('promotion.defaultFreeShippingMessage') || defaultFreeShippingMsg)
-    : t('promotion.defaultMessage');
 
-  const [discount, setDiscount] = useState('10');
-  const [duration, setDuration] = useState('24 HOURS');
-  const [message, setMessage] = useState(defaultMsg);
+  const { winnerItem, promotionType } = route?.params || {};
+  const battleId = route?.params?.battleId || route?.params?.id || winnerItem?.battleId;
+  const isFreeShipping = promotionType === 'freeShipping';
+
+  const initialFallbackPackages = FALLBACK_PROMOTION_PACKAGES.filter(p =>
+    isFreeShipping ? p.description?.includes('FREE_SHIPPING') : p.description?.includes('DISCOUNT')
+  );
+  const [packages, setPackages] = useState(initialFallbackPackages);
+  const [loadingPackages, setLoadingPackages] = useState(false);
+  const [selectedPackageId, setSelectedPackageId] = useState(
+    isFreeShipping ? '6a2b3c4d-f62e-4a99-b1d5-2e88dc92a106' : '2a2b3c4d-d8cb-4c1c-8f6d-7f77ec7fe102'
+  );
+
+  const [discount, setDiscount] = useState('20');
+  const [userEditedMessage, setUserEditedMessage] = useState(false);
+  const [message, setMessage] = useState('');
+  const [isAlreadyPromoted, setIsAlreadyPromoted] = useState(false);
+  const [existingPendingPromoId, setExistingPendingPromoId] = useState(null);
+  const [checkingStatus, setCheckingStatus] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const currentPackage = packages.find(p => p.id === selectedPackageId) || packages[0];
+  const durationLabel = currentPackage?.durationLabel || (currentPackage?.days === 1 ? '24 Hours' : `${currentPackage?.days || 3} Days`);
+
+  useEffect(() => {
+    if (!userEditedMessage) {
+      const days = currentPackage?.days || 3;
+      const durText = days === 1 ? '24 hours' : `${days} days`;
+      if (isFreeShipping) {
+        setMessage(`Enjoy free shipping on our winner for ${durText}!`);
+      } else {
+        setMessage(`Special ${discount || 20}% off our battle winner for ${durText}!`);
+      }
+    }
+  }, [currentPackage, discount, isFreeShipping, userEditedMessage]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadPackagesAndCheckBattle = async () => {
+      // 1. Fetch packages
+      setLoadingPackages(true);
+      try {
+        const pkgRes = await getMarketplaceWinnerPromotionPackages();
+        const rawItems = Array.isArray(pkgRes?.data?.data)
+          ? pkgRes.data.data
+          : Array.isArray(pkgRes?.data)
+          ? pkgRes.data
+          : Array.isArray(pkgRes)
+          ? pkgRes
+          : [];
+
+        const isPkgFreeShipping = item => {
+          const desc = String(item?.description || '').toUpperCase();
+          const name = String(item?.name || '').toUpperCase();
+          return desc.includes('FREE_SHIPPING') || name.includes('FREE SHIPPING');
+        };
+
+        const filteredRaw = rawItems.filter(item => (isFreeShipping ? isPkgFreeShipping(item) : !isPkgFreeShipping(item)));
+        const sourceItems = filteredRaw.length > 0 ? filteredRaw : rawItems;
+
+        if (mounted && sourceItems.length > 0) {
+          const mapped = sourceItems.map((item, idx) => {
+            const durationHours = Number(item?.durationHours ?? item?.duration ?? 0) || 0;
+            const days =
+              durationHours === 24
+                ? 1
+                : durationHours === 72
+                ? 3
+                : durationHours === 168
+                ? 7
+                : Number(item?.days ?? item?.durationDays ?? 0) ||
+                  (durationHours > 0 ? Math.max(1, Math.round(durationHours / 24)) : (idx === 0 ? 1 : idx === 1 ? 3 : 7));
+            const priceValue = item?.price != null ? Number(item.price) : 0;
+            const pkgDurationLabel = days === 1 ? '24 Hours' : `${days} Days`;
+            return {
+              id: item?.id || item?._id || item?.packageId || `package-${idx}`,
+              name: item?.name || (isFreeShipping ? 'Free Shipping' : 'Discount'),
+              description: item?.description || '',
+              days,
+              durationHours: durationHours || days * 24,
+              durationLabel: pkgDurationLabel,
+              price: priceValue,
+              priceLabel:
+                item?.currency && priceValue
+                  ? `${item.currency === 'USD' ? '$' : item.currency}${priceValue.toFixed(2)}`
+                  : item?.price
+                  ? `$${Number(item.price).toFixed(2)}`
+                  : '',
+            };
+          });
+          setPackages(mapped);
+
+          const matchingPkg = isFreeShipping
+            ? mapped.find(p => p.days === 7 || p.id === '6a2b3c4d-f62e-4a99-b1d5-2e88dc92a106') || mapped[0]
+            : mapped.find(p => p.days === 3 || p.id === '2a2b3c4d-d8cb-4c1c-8f6d-7f77ec7fe102') || mapped[0];
+          if (matchingPkg) {
+            setSelectedPackageId(matchingPkg.id);
+          }
+        }
+      } catch (err) {
+        console.log('Could not load promotion packages:', err);
+      } finally {
+        if (mounted) setLoadingPackages(false);
+      }
+
+      // 2. Check if battle is already promoted
+      if (battleId) {
+        setCheckingStatus(true);
+        try {
+          const checkRes = await getMarketplaceWinnerPromotionByBattle(battleId);
+          const checkData = checkRes?.data?.data || checkRes?.data || checkRes;
+          const st = String(checkData?.paymentStatus || checkData?.status || checkData?.state || '').toLowerCase();
+          const promoId = checkData?.promotionId || checkData?.id || checkData?._id;
+
+          if (st === 'paid' || st === 'active' || st === 'completed' || st === 'success') {
+            if (mounted) setIsAlreadyPromoted(true);
+          } else if (promoId && (st === 'pending_payment' || st === 'pending')) {
+            if (mounted) setExistingPendingPromoId(promoId);
+          }
+        } catch (e) {
+          console.log('Error checking battle promotion status:', e);
+        } finally {
+          if (mounted) setCheckingStatus(false);
+        }
+      }
+    };
+
+    loadPackagesAndCheckBattle();
+    return () => {
+      mounted = false;
+    };
+  }, [battleId, isFreeShipping]);
+
+  const handlePaymentAndLaunch = async () => {
+    if (!battleId) {
+      showToastMessage(toast, 'danger', 'Missing battle id');
+      return;
+    }
+    if (isAlreadyPromoted) {
+      Alert.alert(
+        'Already Promoted',
+        'This battle winner has already been promoted.',
+        [{ text: t('boost.done') || 'Done', onPress: () => navigateToClosetShopFront(navigation, { promotedItemId: winnerItem?.id }) }]
+      );
+      return;
+    }
+    if (!selectedPackageId) {
+      showToastMessage(toast, 'danger', 'Please select a package');
+      return;
+    }
+    if (!isFreeShipping && (!discount || Number(String(discount).replace(/[^0-9.]/g, '')) <= 0)) {
+      showToastMessage(toast, 'danger', 'Please enter a valid discount percentage');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+
+      // Verify status right before creating intent
+      const checkRes = await getMarketplaceWinnerPromotionByBattle(battleId);
+      const checkData = checkRes?.data?.data || checkRes?.data || checkRes;
+      const checkStatus = String(checkData?.paymentStatus || checkData?.status || checkData?.state || '').toLowerCase();
+
+      if (checkStatus === 'paid' || checkStatus === 'active' || checkStatus === 'completed' || checkStatus === 'success') {
+        setIsAlreadyPromoted(true);
+        Alert.alert(
+          'Already Promoted',
+          'This battle winner has already been promoted.',
+          [{ text: t('boost.done') || 'Done', onPress: () => navigateToClosetShopFront(navigation, { promotedItemId: winnerItem?.id }) }]
+        );
+        return;
+      }
+
+      let promotionId = checkData?.promotionId || checkData?.id || checkData?._id || existingPendingPromoId;
+
+      // Create promotion intent (PENDING_PAYMENT)
+      if (!promotionId || (checkStatus !== 'pending_payment' && checkStatus !== 'pending')) {
+        const payload = isFreeShipping
+          ? {
+              packageId: selectedPackageId,
+              message: message?.trim() || getDefaultWinnerPromotionMessage(currentPackage, discount, true),
+            }
+          : {
+              packageId: selectedPackageId,
+              discount: Number(String(discount).replace(/[^0-9.]/g, '')) || 20,
+              message: message?.trim() || getDefaultWinnerPromotionMessage(currentPackage, discount, false),
+            };
+
+        const intentRes = await createMarketplaceBattleWinnerPromotion(battleId, payload);
+        const intentStatus = intentRes?.status || intentRes?.statusCode;
+        if (intentRes?.error || (intentStatus && intentStatus >= 400)) {
+          throw new Error(intentRes?.data?.message || intentRes?.message || 'Unable to create promotion intent');
+        }
+
+        const intentData = intentRes?.data?.data || intentRes?.data || intentRes;
+        promotionId = intentData?.promotionId || intentData?.id || intentData?._id;
+      }
+
+      if (!promotionId) {
+        throw new Error('Promotion ID missing from response');
+      }
+
+      // Create or reuse payment session
+      const paymentRes = await createMarketplaceWinnerPromotionPaymentSession(promotionId);
+      const paymentStatus = paymentRes?.status || paymentRes?.statusCode;
+      if (paymentRes?.error || (paymentStatus && paymentStatus >= 400)) {
+        throw new Error(paymentRes?.data?.message || paymentRes?.message || 'Unable to start payment session');
+      }
+
+      const paymentData = paymentRes?.data?.data || paymentRes?.data || paymentRes;
+      const paymentUrl =
+        paymentData?.url ||
+        paymentData?.checkoutUrl ||
+        paymentData?.paymentUrl ||
+        paymentData?.payment?.checkoutUrl ||
+        paymentData?.payment?.url;
+
+      if (!paymentUrl) {
+        throw new Error('Payment URL missing from response');
+      }
+
+      // Open in-app browser for payment
+      if (await InAppBrowser.isAvailable()) {
+        await InAppBrowser.open(paymentUrl, {
+          dismissButtonStyle: 'close',
+          preferredBarTintColor: '#ffffff',
+          preferredControlTintColor: '#000000',
+          readerMode: false,
+          animated: true,
+          modalPresentationStyle: 'fullScreen',
+          modalTransitionStyle: 'coverVertical',
+          enableBarCollapsing: false,
+          showTitle: true,
+          toolbarColor: '#ffffff',
+          secondaryToolbarColor: '#f0f0f0',
+          forceCloseOnRedirection: true,
+        });
+      } else {
+        await Linking.openURL(paymentUrl);
+      }
+
+      // Poll to check payment status
+      let isPaid = false;
+      try {
+        for (let i = 0; i < 4; i++) {
+          const verifyRes = await getMarketplaceWinnerPromotionByBattle(battleId);
+          const verifyData = verifyRes?.data?.data || verifyRes?.data || verifyRes;
+          const st = String(verifyData?.paymentStatus || verifyData?.status || verifyData?.state || '').toLowerCase();
+
+          if (st === 'paid' || st === 'active' || st === 'success' || st === 'completed') {
+            isPaid = true;
+            break;
+          }
+          if (st === 'failed' || st === 'cancelled' || st === 'canceled') {
+            break;
+          }
+          await new Promise(r => setTimeout(r, 1500));
+        }
+      } catch (e) {
+        console.error('Error verifying promotion payment status:', e);
+      }
+
+      if (isPaid) {
+        setIsAlreadyPromoted(true);
+        Alert.alert(
+          t('promotion.liveTitle') || 'Promotion Live 🎉',
+          t('promotion.liveMessage') || 'Your promotion is now live on the product.',
+          [{ text: t('boost.done') || 'Done', onPress: () => navigateToClosetShopFront(navigation, { promotedItemId: winnerItem?.id }) }]
+        );
+      }
+    } catch (error) {
+      Alert.alert(error?.response?.data?.message || error?.message || 'Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <KeyboardAvoidingView style={[styles.screen, bgStyle, { backgroundColor: bg || SOFT_BG }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -795,7 +1176,7 @@ export function PromotionDetailsScreen({ navigation, route }) {
               <Text style={styles.promoBannerDiscountSuffix}> OFF</Text>
             </Text>
           )}
-          <Text style={styles.promoBannerSub}>{t('promotion.bannerSub', { duration: duration?.toLowerCase?.() || duration })}</Text>
+          <Text style={styles.promoBannerSub}>{t('promotion.bannerSub', { duration: durationLabel.toLowerCase() })}</Text>
           <View style={styles.promoBannerItemRow}>
             {getPromoImage(winnerItem) ? <FastImage source={fastImageSource(getPromoImage(winnerItem))} style={styles.promoBannerImage} resizeMode={FastImage.resizeMode.cover} /> : <View style={styles.promoBannerImagePlaceholder} />}
             <View style={styles.promoBannerItemCopy}>
@@ -806,7 +1187,27 @@ export function PromotionDetailsScreen({ navigation, route }) {
           </View>
         </LinearGradient>
 
-        {promotionType !== 'freeShipping' ? (
+        {checkingStatus ? (
+          <ActivityIndicator size="small" color={accent} style={{ marginVertical: 4 }} />
+        ) : null}
+
+        {isAlreadyPromoted ? (
+          <View style={[styles.winnerNotice, themedCard(surface, border || surfaces.listBorder), { backgroundColor: `${accent}15` }]}>
+            <View style={styles.winnerNoticeHeader}>
+              <View style={[styles.winnerNoticeIcon, { backgroundColor: `${accent}25` }]}>
+                <Ionicons name="checkmark-circle-outline" size={20} color={accent} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.winnerNoticeTitle, { color: text || TEXT }]}>🎉 Already Promoted</Text>
+                <Text style={[styles.winnerNoticeText, { color: subtleMuted }]}>
+                  This battle winner has already been promoted and is currently active.
+                </Text>
+              </View>
+            </View>
+          </View>
+        ) : null}
+
+        {!isFreeShipping ? (
           <View style={styles.field}>
             <Text style={[styles.fieldLabel, { color: text || TEXT }]}>{t('promotion.discountLabel')}</Text>
             <View style={[styles.inputCard, { backgroundColor: idleSurface, borderColor: border || surfaces.listBorder }]}>
@@ -822,21 +1223,34 @@ export function PromotionDetailsScreen({ navigation, route }) {
         ) : null}
 
         <View style={styles.field}>
-          <Text style={[styles.fieldLabel, { color: text || TEXT }]}>{t('promotion.durationLabel')}</Text>
-          <View style={styles.pillRow}>
-            {[['24 HOURS', t('battle.duration24h')], ['3 DAYS', t('battle.duration3d')], ['7 DAYS', t('battle.duration7d')]].map(([value, label]) => (
-              <TouchableOpacity
-                key={value}
-                onPress={() => setDuration(value)}
-                style={[
-                  styles.pill,
-                  { backgroundColor: idleSurface, borderColor: border || surfaces.listBorder },
-                  duration === value && { borderColor: accent, backgroundColor: selectedSurface(accent, isDarkMode) },
-                ]}
-              >
-                <Text style={[styles.pillText, { color: text || TEXT }, duration === value && { color: accent, fontWeight: '800' }]}>{label}</Text>
-              </TouchableOpacity>
-            ))}
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+            <Text style={[styles.fieldLabel, { color: text || TEXT }]}>{t('promotion.durationLabel') || 'Select Package'}</Text>
+            {loadingPackages ? <ActivityIndicator size="small" color={accent} /> : null}
+          </View>
+          <View style={styles.packageRow}>
+            {packages.map(p => {
+              const selected = p.id === selectedPackageId;
+              return (
+                <TouchableOpacity
+                  key={p.id}
+                  activeOpacity={0.9}
+                  onPress={() => setSelectedPackageId(p.id)}
+                  style={[
+                    styles.packageCard,
+                    { backgroundColor: idleSurface, borderColor: border || surfaces.listBorder },
+                    selected && { borderColor: accent, backgroundColor: selectedSurface(accent, isDarkMode) },
+                  ]}
+                >
+                  <Text style={[styles.packageDays, { color: text || TEXT }, selected && { color: accent }]}>
+                    {p.durationLabel}
+                  </Text>
+                  <Text style={[styles.packagePrice, { color: accent }]}>{p.priceLabel}</Text>
+                  <Text style={[styles.packageViews, { color: subtleMuted }]} numberOfLines={2}>
+                    {isFreeShipping ? 'Free Shipping' : '10% Off+'}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
 
@@ -845,9 +1259,12 @@ export function PromotionDetailsScreen({ navigation, route }) {
           <View style={[styles.inputCard, { backgroundColor: idleSurface, borderColor: border || surfaces.listBorder }]}>
             <TextInput
               value={message}
-              onChangeText={setMessage}
+              onChangeText={val => {
+                setUserEditedMessage(true);
+                setMessage(val);
+              }}
               multiline
-              maxLength={100}
+              maxLength={120}
               placeholderTextColor={surfaces.placeholderColor}
               style={[styles.inputText, { color: surfaces.inputText, minHeight: 60 }]}
             />
@@ -856,20 +1273,43 @@ export function PromotionDetailsScreen({ navigation, route }) {
 
         <TouchableOpacity
           activeOpacity={0.9}
+          onPress={handlePaymentAndLaunch}
+          disabled={submitting || isAlreadyPromoted}
+        >
+          <LinearGradient colors={buttonColors} style={styles.primaryButton}>
+            {submitting ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={styles.primaryButtonText}>
+                {isAlreadyPromoted
+                  ? 'Already Promoted'
+                  : currentPackage?.priceLabel
+                  ? `Pay ${currentPackage.priceLabel} & Launch`
+                  : t('promotion.launch') || 'Launch Promotion'}
+              </Text>
+            )}
+          </LinearGradient>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          activeOpacity={0.8}
+          style={{ alignItems: 'center', paddingVertical: 10 }}
           onPress={() =>
             navigation.navigate('PreviewPromotion', {
               winnerItem,
               promotionType,
               discount,
-              duration,
+              duration: durationLabel,
               message,
               battleId,
+              packageId: selectedPackageId,
+              selectedPackage: currentPackage,
             })
           }
         >
-          <LinearGradient colors={buttonColors} style={styles.primaryButton}>
-            <Text style={styles.primaryButtonText}>{t('promotion.preview')}</Text>
-          </LinearGradient>
+          <Text style={{ color: accent, fontWeight: '700', fontSize: 14 }}>
+            {t('promotion.preview') || 'Preview Promotion'}
+          </Text>
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -885,16 +1325,23 @@ export function PreviewPromotionScreen({ navigation, route }) {
   const { t } = useLanguage();
   const toast = useToast();
   const accent = themeAccent || text || PURPLE;
-  // Promotion artwork follows the active surface palette in dark mode. Using
-  // the light title color as a gradient stop made the banner lavender on black.
   const promoColors = isDarkMode
     ? [surface || '#1E1E1E', bg || '#121212']
     : [accent, themeAccent || accent];
   const buttonColors = isDarkMode
     ? ['#333333', '#222222']
     : [accent, themeAccent || accent];
-  const targetScreen = useTargetClosetScreen();
-  const { winnerItem, discount, duration, message, promotionType, battleId } = route?.params || {};
+  const {
+    winnerItem,
+    discount,
+    duration,
+    message,
+    promotionType,
+    battleId: paramBattleId,
+    packageId,
+    selectedPackage,
+  } = route?.params || {};
+  const battleId = paramBattleId || winnerItem?.battleId;
   const isFreeShipping = promotionType === 'freeShipping';
   const promoImage = getPromoImage(winnerItem);
   const promoPrice = getPromoPrice(winnerItem);
@@ -906,21 +1353,122 @@ export function PreviewPromotionScreen({ navigation, route }) {
       showToastMessage(toast, 'danger', 'Missing battle id');
       return;
     }
+    const resolvedPackageId =
+      packageId ||
+      selectedPackage?.id ||
+      (isFreeShipping ? '6a2b3c4d-f62e-4a99-b1d5-2e88dc92a106' : '2a2b3c4d-d8cb-4c1c-8f6d-7f77ec7fe102');
+
     try {
       setLaunching(true);
-      const response = await createMarketplaceBattleWinnerPromotion(battleId, {
-        promoType: PROMO_TYPE_API_MAP[promotionType] || String(promotionType || '').toUpperCase(),
-        discount: isFreeShipping ? undefined : discount,
-        duration,
-        message: message || t('promotion.defaultMessage'),
-      });
-      const status = response?.status || response?.statusCode;
-      if (![200, 201].includes(status)) {
-        throw new Error(response?.data?.message || response?.message || 'Unable to launch promotion');
+
+      // 1. Check if already promoted
+      const checkRes = await getMarketplaceWinnerPromotionByBattle(battleId);
+      const checkData = checkRes?.data?.data || checkRes?.data || checkRes;
+      const checkStatus = String(checkData?.paymentStatus || checkData?.status || checkData?.state || '').toLowerCase();
+
+      if (checkStatus === 'paid' || checkStatus === 'active' || checkStatus === 'completed' || checkStatus === 'success') {
+        Alert.alert(
+          'Already Promoted',
+          'This battle winner has already been promoted.',
+          [{ text: t('boost.done') || 'Done', onPress: () => navigateToClosetShopFront(navigation, { promotedItemId: winnerItem?.id }) }]
+        );
+        return;
       }
-      Alert.alert(t('promotion.liveTitle'), t('promotion.liveMessage'), [
-        { text: t('boost.done'), onPress: () => navigateToTargetClosetScreen(navigation, targetScreen, { promotedItemId: winnerItem?.id }) }
-      ]);
+
+      let promotionId = checkData?.promotionId || checkData?.id || checkData?._id;
+
+      // 2. Create promotion intent if not already created
+      if (!promotionId || (checkStatus !== 'pending_payment' && checkStatus !== 'pending')) {
+        const payload = isFreeShipping
+          ? {
+              packageId: resolvedPackageId,
+              message: message || (t('promotion.defaultFreeShippingMessage') || 'Enjoy free shipping on our winner!'),
+            }
+          : {
+              packageId: resolvedPackageId,
+              discount: Number(String(discount).replace(/[^0-9.]/g, '')) || 20,
+              message: message || t('promotion.defaultMessage'),
+            };
+
+        const response = await createMarketplaceBattleWinnerPromotion(battleId, payload);
+        const status = response?.status || response?.statusCode;
+        if (response?.error || (status && status >= 400)) {
+          throw new Error(response?.data?.message || response?.message || 'Unable to launch promotion');
+        }
+
+        const intentData = response?.data?.data || response?.data || response;
+        promotionId = intentData?.promotionId || intentData?.id || intentData?._id;
+      }
+
+      if (!promotionId) {
+        throw new Error('Promotion ID missing from response');
+      }
+
+      // 3. Create or reuse payment session
+      const paymentRes = await createMarketplaceWinnerPromotionPaymentSession(promotionId);
+      const paymentStatus = paymentRes?.status || paymentRes?.statusCode;
+      if (paymentRes?.error || (paymentStatus && paymentStatus >= 400)) {
+        throw new Error(paymentRes?.data?.message || paymentRes?.message || 'Unable to start payment session');
+      }
+
+      const paymentData = paymentRes?.data?.data || paymentRes?.data || paymentRes;
+      const paymentUrl =
+        paymentData?.url ||
+        paymentData?.checkoutUrl ||
+        paymentData?.paymentUrl ||
+        paymentData?.payment?.checkoutUrl ||
+        paymentData?.payment?.url;
+
+      if (!paymentUrl) {
+        throw new Error('Payment URL missing from response');
+      }
+
+      // 4. Open browser for payment
+      if (await InAppBrowser.isAvailable()) {
+        await InAppBrowser.open(paymentUrl, {
+          dismissButtonStyle: 'close',
+          preferredBarTintColor: '#ffffff',
+          preferredControlTintColor: '#000000',
+          readerMode: false,
+          animated: true,
+          modalPresentationStyle: 'fullScreen',
+          modalTransitionStyle: 'coverVertical',
+          enableBarCollapsing: false,
+          showTitle: true,
+          toolbarColor: '#ffffff',
+          secondaryToolbarColor: '#f0f0f0',
+          forceCloseOnRedirection: true,
+        });
+      } else {
+        await Linking.openURL(paymentUrl);
+      }
+
+      // 5. Poll to verify payment
+      let isPaid = false;
+      try {
+        for (let i = 0; i < 4; i++) {
+          const verifyRes = await getMarketplaceWinnerPromotionByBattle(battleId);
+          const verifyData = verifyRes?.data?.data || verifyRes?.data || verifyRes;
+          const st = String(verifyData?.paymentStatus || verifyData?.status || verifyData?.state || '').toLowerCase();
+
+          if (st === 'paid' || st === 'active' || st === 'success' || st === 'completed') {
+            isPaid = true;
+            break;
+          }
+          if (st === 'failed' || st === 'cancelled' || st === 'canceled') {
+            break;
+          }
+          await new Promise(r => setTimeout(r, 1500));
+        }
+      } catch (e) {
+        console.error('Error verifying promotion payment status:', e);
+      }
+
+      if (isPaid) {
+        Alert.alert(t('promotion.liveTitle'), t('promotion.liveMessage'), [
+          { text: t('boost.done'), onPress: () => navigateToClosetShopFront(navigation, { promotedItemId: winnerItem?.id }) }
+        ]);
+      }
     } catch (error) {
       showToastMessage(toast, 'danger', error?.response?.data?.message || error?.message || 'Please try again.');
     } finally {
@@ -978,7 +1526,11 @@ export function PreviewPromotionScreen({ navigation, route }) {
 
         <TouchableOpacity activeOpacity={0.9} onPress={handleLaunch} disabled={launching}>
           <LinearGradient colors={buttonColors} style={styles.primaryButton}>
-            <Text style={styles.primaryButtonText}>{launching ? (t('boost.loading') || 'Loading...') : t('promotion.launch')}</Text>
+            {launching ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={styles.primaryButtonText}>{t('promotion.launch')}</Text>
+            )}
           </LinearGradient>
         </TouchableOpacity>
       </ScrollView>

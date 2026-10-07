@@ -559,8 +559,24 @@ export const createMarketplaceBattleBoostPaymentSession = async boostId => {
   return axiosInstance.post(`/marketplace-battle-boosts/${boostId}/payment`);
 };
 
+export const getMarketplaceBattleWinnerPromotionPackages = async () => {
+  return axiosInstance.get('/marketplace-winner-promotions/packages');
+};
+
+export const getMarketplaceWinnerPromotionPackages = async () => {
+  return axiosInstance.get('/marketplace-winner-promotions/packages');
+};
+
+export const getMarketplaceWinnerPromotionByBattle = async battleId => {
+  return axiosInstance.post('/marketplace-winner-promotions/by-battle', { battleId });
+};
+
 export const createMarketplaceBattleWinnerPromotion = async (battleId, data) => {
   return axiosInstance.post(`/marketplace-battles/${battleId}/winner-promotion`, data);
+};
+
+export const createMarketplaceWinnerPromotionPaymentSession = async promotionId => {
+  return axiosInstance.post(`/marketplace-winner-promotions/${promotionId}/payment`);
 };
 
 export const getEarning = async (data) => {

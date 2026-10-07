@@ -3267,6 +3267,7 @@ const styles = StyleSheet.create({
   kpiCardMascot: {
     flexShrink: 0,
     alignSelf: 'center',
+    right: 10,
   },
   kpiIllustratedChevron: {
     position: 'absolute',
