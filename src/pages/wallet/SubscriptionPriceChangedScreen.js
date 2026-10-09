@@ -45,23 +45,51 @@ const SubscriptionPriceChangedScreen = () => {
     newPrice: rawNewPrice,
     oldPrice: rawOldPrice,
     subscriptionId,
+    priceUpdateStatus: routePriceUpdateStatus,
   } = route?.params || {};
 
   const newPrice = rawNewPrice != null ? String(rawNewPrice) : '';
   const oldPrice = rawOldPrice != null ? String(rawOldPrice) : '';
+
+  const rawPriceUpdateStatus =
+    routePriceUpdateStatus ??
+    route?.params?.priceUpdateStatus ??
+    route?.params?.notification?.priceUpdateStatus ??
+    route?.params?.notification?.raw?.data?.priceUpdateStatus ??
+    route?.params?.notification?.data?.priceUpdateStatus ??
+    route?.params?.notification?.raw?.priceUpdateStatus ??
+    route?.params?.notification?.status ??
+    route?.params?.notification?.data?.status;
 
   const rawIsCancelled =
     route?.params?.isCancelled ??
     route?.params?.notification?.raw?.data?.isCancelled ??
     route?.params?.notification?.data?.isCancelled;
 
-  const parseIsCancelled = (val) => {
-    if (val === false || val === 'false' || val === 0 || val === '0') return 'accepted';
-    if (val === true || val === 'true' || val === 1 || val === '1') return 'declined';
+  const resolveStatusState = () => {
+    if (rawPriceUpdateStatus != null) {
+      const normalized = String(rawPriceUpdateStatus).trim().toUpperCase();
+      if (normalized === 'ACCEPTED') return 'accepted';
+      if (normalized === 'DECLINED') return 'declined';
+      if (normalized === 'PENDING') return 'pending';
+    }
+
+    const notif = route?.params?.notification;
+    if (notif?.isAccepted || route?.params?.isAccepted) return 'accepted';
+    if (notif?.isDeclined || route?.params?.isDeclined) return 'declined';
+    if (notif?.isPending || route?.params?.isPending) return 'pending';
+
+    if (rawIsCancelled === false || rawIsCancelled === 'false' || rawIsCancelled === 0 || rawIsCancelled === '0') return 'accepted';
+    if (rawIsCancelled === true || rawIsCancelled === 'true' || rawIsCancelled === 1 || rawIsCancelled === '1') return 'declined';
+
     return 'pending';
   };
 
-  const [statusState, setStatusState] = useState(() => parseIsCancelled(rawIsCancelled));
+  const [statusState, setStatusState] = useState(resolveStatusState);
+
+  useEffect(() => {
+    setStatusState(resolveStatusState());
+  }, [rawPriceUpdateStatus, rawIsCancelled]);
 
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [creatorProfile, setCreatorProfile] = useState(null);

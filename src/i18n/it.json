@@ -5112,7 +5112,10 @@
       "commentNotDeleted": "Impossibile eliminare il commento.",
       "commentReactionFailed": "Impossibile aggiornare la reazione.",
       "voteFailedTitle": "Impossibile votare",
-      "voteFailedGeneric": "Qualcosa è andato storto. Riprova."
+      "voteFailedGeneric": "Qualcosa è andato storto. Riprova.",
+      "errorTitle": "Errore",
+      "acceptChallengeFailed": "Impossibile accettare la sfida. Riprova.",
+      "declineChallengeFailed": "Impossibile rifiutare la sfida. Riprova."
     },
     "noItems": "Non sono ancora presenti articoli nel tuo armadio.",
     "retry": "Riprova",
@@ -5193,7 +5196,24 @@
     "settingsInfo": "La community voterà e il vincitore sarà mostrato su entrambi gli articoli.",
     "challengeShopHeading": "Sfida un altro negozio",
     "challengeShopSub": "Scegli un negozio da sfidare",
-    "searchShops": "Cerca negozi..."
+    "searchShops": "Cerca negozi...",
+    "voted": "Votato",
+    "challengeExpiredTitle": "Sfida Scaduta",
+    "challengeDeclinedTitle": "Sfida Rifiutata",
+    "challengeAccepted": "Sfida Accettata",
+    "challengeExpiredNotice": "La tua sfida è scaduta senza risposta.",
+    "challengeDeclinedNotice": "Hai rifiutato questa sfida. Non procederà.",
+    "challengedYourItem": "ha sfidato il tuo articolo in una Battaglia di Opinione.",
+    "fromYourShop": "Dal tuo negozio",
+    "yourShop": "Il Tuo Negozio",
+    "valensCommunity": "Comunità Valens",
+    "battleNotFound": "Battaglia non trovata",
+    "goBack": "Torna Indietro",
+    "from": "Da",
+    "challengeStatusPrefix": "La sfida è {{status}}",
+    "noLongerAvailable": "non più disponibile",
+    "view": "Visualizza",
+    "itemsCount": "articoli"
   },
   "shopSettings": {
     "title": "Impostazioni del negozio",
@@ -5354,8 +5374,8 @@
     "chooseType": "Choisissez votre promotion",
     "types": {
       "discount24": {
-        "title": "10 % de réduction pendant 24 heures",
-        "subtitle": "Réduction à durée limitée"
+        "title": "Offri uno sconto sul tuo articolo",
+        "subtitle": "Sconto a tempo limitato"
       },
       "freeShipping": {
         "title": "Livraison gratuite",

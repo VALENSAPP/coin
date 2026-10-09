@@ -30,6 +30,7 @@ import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../displaytoastmessage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { navigateClosetReturn } from '../../utils/closetNavigation';
+import { navigateToUserProfile } from '../../utils/navigateToUserProfile';
 
 const chaptersFallback = [
   'Build your personal brand',
@@ -705,6 +706,41 @@ const EbookDetailScreen = () => {
     }
     navigation.navigate('HomeMain', { screen: 'UsersProfile', params });
   }, [ebookData, navigation, route?.params, routeUserData]);
+
+  const targetUserId =
+    ebook?.userId ||
+    ebook?.UserId ||
+    ebook?.user?.id ||
+    ebook?.user?._id ||
+    ebook?.creator?.id ||
+    ebook?.creator?._id ||
+    ebook?.creatorId ||
+    ebook?.authorId ||
+    ebook?.ownerId ||
+    routeUserData?.id ||
+    routeUserData?.userId ||
+    route?.params?.userId ||
+    null;
+
+  const handleProfilePress = useCallback(() => {
+    if (!targetUserId) return;
+    const returnParams = {
+      ...route?.params,
+      ebook: ebookData,
+      userData: routeUserData,
+    };
+    void navigateToUserProfile(navigation, targetUserId, {
+      username: userName,
+      user: {
+        id: targetUserId,
+        userName,
+        image: typeof userAvatarSource === 'object' && userAvatarSource?.uri ? userAvatarSource.uri : undefined,
+      },
+      returnTo: 'EbookDetail',
+      returnParams,
+    });
+  }, [ebookData, navigation, route?.params, routeUserData, targetUserId, userAvatarSource, userName]);
+
   const handleDelete = () => {
     Alert.alert(
       t('ebookDetail.deleteEbookTitle', 'Delete E-book'),
@@ -899,15 +935,24 @@ const EbookDetailScreen = () => {
             <Ionicons name="arrow-back" size={20} color={primaryText} />
           </TouchableOpacity>
           <View style={styles.authorWrap}>
-            <View style={styles.avatarStack}>
-              <Image source={userAvatarSource} style={styles.avatar} />
-            </View>
-            <View style={styles.authorTextWrap}>
-              <View style={styles.authorTopLine}>
-                <Text style={[styles.authorName, textStyle]}>{userName}</Text>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={handleProfilePress}
+              disabled={!targetUserId}
+              style={styles.authorProfileButton}
+              accessibilityRole="button"
+              accessibilityLabel={`View ${userName}'s profile`}
+            >
+              <View style={styles.avatarStack}>
+                <Image source={userAvatarSource} style={styles.avatar} />
               </View>
-              <Text style={[styles.metaText, mutedTextStyle]}>{createdAt}</Text>
-            </View>
+              <View style={styles.authorTextWrap}>
+                <View style={styles.authorTopLine}>
+                  <Text style={[styles.authorName, textStyle]}>{userName}</Text>
+                </View>
+                <Text style={[styles.metaText, mutedTextStyle]}>{createdAt}</Text>
+              </View>
+            </TouchableOpacity>
             {!fromEbookPublisher && !fromMyClosetShopFront && !fromAllEbooksScreen ? (
               <View style={[styles.subscriberPill, cardStyle, { borderColor: surfaceBorder }]}>
                 <Text style={[styles.subscriberPillText, textStyle]}>{t('ebookDetail.subscribers', 'Subscribers')}</Text>
@@ -1157,6 +1202,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 15,
     marginTop: 15
+  },
+  authorProfileButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 8,
   },
   avatarStack: {
     marginRight: 10,

@@ -1945,13 +1945,23 @@ const MyClosetBattlesScreen = ({ navigation, route }) => {
       initialBattle: battle?.raw || battle,
       selectedItems: [battle?.left, battle?.right].filter(Boolean),
       userProfile: userProfile,
+      fromBattlePicks: true,
+      returnTo: {
+        screen: 'MyClosetBattles',
+        params: {
+          closetId,
+          isOwnProfile,
+          userProfile,
+          returnTo: route?.params?.returnTo || { tab: 'wallet', screen: 'Shop' },
+        },
+      },
       returnToProfile: buildClosetReturnTo({
         isOwnProfile,
         sellerProfile: route?.params?.seller?.profile || route?.params?.sellerProfile,
         sellerId: route?.params?.seller?.id || route?.params?.sellerId,
       }),
     }));
-  }, [navigation, isOwnProfile, route, route?.params?.seller?.id, route?.params?.seller?.profile, route?.params?.sellerId, route?.params?.sellerProfile, userProfile]);
+  }, [navigation, isOwnProfile, route, route?.params?.seller?.id, route?.params?.seller?.profile, route?.params?.sellerId, route?.params?.sellerProfile, userProfile, closetId]);
 
   useFocusEffect(
     useCallback(() => {

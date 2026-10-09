@@ -8,7 +8,7 @@
     "android:clean": "cd android && gradlew.bat clean",
     "ios": "react-native run-ios",
     "lint": "eslint .",
-    "start": "react-native start",
+    "start": "node api.js && react-native start",
     "test": "jest",
     "postinstall": "node scripts/patch-metro-symbolicate.js && patch-package && node scripts/sync-overlay-fonts.js"
   },

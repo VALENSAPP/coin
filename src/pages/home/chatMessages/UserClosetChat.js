@@ -35,6 +35,7 @@ import useSocket from '../../../hooks/useSocket';
 import { useLanguage } from '../../../i18n';
 import HexAvatar from '../../../components/home/story.js/HexAvatar';
 import { getBuyerOrderDetail } from '../../../services/myCloset';
+import { getUserCredentials } from '../../../services/post';
 
 const ONLINE_PLACEHOLDER = 'https://ui-avatars.com/api/?name=User&background=e0e0e0&color=888&size=128';
 
@@ -122,7 +123,20 @@ export default function UserClosetChat({ route, navigation }) {
   const { threadId: routeThreadId, otherUser: routeOtherUser, orderInfo: routeOrderInfo, sellerId, seller } = routeParams;
 
   const [threadId, setThreadId] = useState(routeThreadId || null);
-  const otherUser = routeOtherUser || seller || (sellerId ? { id: sellerId } : null);
+  const [resolvedOtherUser, setResolvedOtherUser] = useState(null);
+
+  const initialOtherUser = useMemo(
+    () => routeOtherUser || seller || (sellerId ? { id: sellerId } : null) || {},
+    [routeOtherUser, seller, sellerId],
+  );
+
+  const otherUser = useMemo(() => {
+    return {
+      ...initialOtherUser,
+      ...(resolvedOtherUser || {}),
+    };
+  }, [initialOtherUser, resolvedOtherUser]);
+
   const orderInfo = useMemo(
     () => routeOrderInfo || (routeParams.orderId ? { orderId: routeParams.orderId } : null),
     [routeOrderInfo, routeParams.orderId],
@@ -147,34 +161,87 @@ export default function UserClosetChat({ route, navigation }) {
   }, [routeThreadId]);
 
   useEffect(() => {
-    if (!threadId && (targetSellerId || orderInfo?.orderId)) {
-      const resolveThread = async () => {
+    let isMounted = true;
+
+    const resolveThreadAndUser = async () => {
+      let resolvedSellerId = targetSellerId;
+
+      // 1. Resolve thread and otherUser from closet chat threads API
+      if (threadId || resolvedSellerId || orderInfo?.orderId) {
         try {
           const res = await getClosetChatThreadsApi();
           const threads = Array.isArray(res?.data) ? res.data : (res?.data?.threads || []);
           const match = threads.find(t => {
+            const tId = String(t?.threadId || t?.id || '');
             const tOtherId = String(t?.otherUser?.id || t?.otherUser?.userId || t?.sellerId || '');
             const tOrderId = String(t?.orderInfo?.orderId || t?.orderId || '');
             return (
-              (orderInfo?.orderId && tOrderId === String(orderInfo.orderId)) ||
-              (targetSellerId && tOtherId === String(targetSellerId))
+              (threadId && tId === String(threadId)) ||
+              (resolvedSellerId && tOtherId === String(resolvedSellerId)) ||
+              (orderInfo?.orderId && tOrderId === String(orderInfo.orderId))
             );
           });
-          if (match?.threadId || match?.id) {
-            setThreadId(match.threadId || match.id);
-          } else {
-            const fallbackId = orderInfo?.orderId ? `thread_order_${orderInfo.orderId}` : `thread_${targetSellerId}`;
+
+          if (match && isMounted) {
+            if (!threadId && (match.threadId || match.id)) {
+              setThreadId(match.threadId || match.id);
+            }
+            if (match.otherUser) {
+              if (!resolvedSellerId) {
+                resolvedSellerId = match.otherUser.id || match.otherUser.userId;
+              }
+              setResolvedOtherUser(prev => ({
+                ...(match.otherUser || {}),
+                ...(prev || {}),
+              }));
+            }
+            if (match.orderInfo && !orderInfo) {
+              setOrderMeta(prev => ({ ...(match.orderInfo || {}), ...prev }));
+            }
+          } else if (!threadId && isMounted) {
+            const fallbackId = orderInfo?.orderId ? `thread_order_${orderInfo.orderId}` : `thread_${resolvedSellerId}`;
             setThreadId(fallbackId);
           }
         } catch (err) {
-          console.warn('Error resolving closet chat thread:', err);
-          const fallbackId = orderInfo?.orderId ? `thread_order_${orderInfo.orderId}` : `thread_${targetSellerId}`;
-          setThreadId(fallbackId);
+          console.warn('[UserClosetChat] Error resolving closet chat thread:', err);
+          if (!threadId && isMounted) {
+            const fallbackId = orderInfo?.orderId ? `thread_order_${orderInfo.orderId}` : `thread_${resolvedSellerId}`;
+            setThreadId(fallbackId);
+          }
         }
-      };
-      resolveThread();
-    }
-  }, [threadId, targetSellerId, orderInfo?.orderId]);
+      }
+
+      // 2. If name or avatar is missing, fetch user details via getUserCredentials
+      if (resolvedSellerId && isMounted) {
+        try {
+          const userRes = await getUserCredentials(resolvedSellerId);
+          const userData = userRes?.data?.data || userRes?.data;
+          if (userData && isMounted) {
+            const formatted = {
+              id: resolvedSellerId,
+              username: userData.userName || userData.username || userData.displayName || userData.name,
+              displayName: userData.displayName || userData.userName || userData.username || userData.name,
+              avatar: userData.profile_image || userData.profileImage || userData.avatar || userData.image,
+              image: userData.profile_image || userData.profileImage || userData.avatar || userData.image,
+              ...userData,
+            };
+            setResolvedOtherUser(prev => ({
+              ...(prev || {}),
+              ...formatted,
+            }));
+          }
+        } catch (err) {
+          console.warn('[UserClosetChat] Error loading user credentials:', err);
+        }
+      }
+    };
+
+    resolveThreadAndUser();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [threadId, targetSellerId, orderInfo]);
 
   const { t } = useLanguage();
   const { bgStyle, textStyle, text, bg, card, border, mutedText, accent, icon } = useAppTheme();
@@ -656,8 +723,19 @@ export default function UserClosetChat({ route, navigation }) {
     );
   };
 
-  const username = otherUser?.username || otherUser?.displayName || 'Chat Partner';
-  const avatarUrl = otherUser?.avatar || otherUser?.image || ONLINE_PLACEHOLDER;
+  const username =
+    otherUser?.displayName ||
+    otherUser?.username ||
+    otherUser?.userName ||
+    otherUser?.name ||
+    otherUser?.fullName ||
+    'Chat Partner';
+  const avatarUrl =
+    otherUser?.avatar ||
+    otherUser?.image ||
+    otherUser?.profile_image ||
+    otherUser?.profileImage ||
+    ONLINE_PLACEHOLDER;
 
   const emptyComponent = (
     <View style={styles.emptyContainer}>

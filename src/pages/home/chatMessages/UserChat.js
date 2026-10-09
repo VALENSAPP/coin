@@ -94,6 +94,15 @@ const buildSubscriptionRenewalNavParams = (msg = {}, fallbackSenderId) => {
     msg.sender?._id ||
     msg.senderId ||
     fallbackSenderId;
+  const priceUpdateStatus =
+    msg.priceUpdateStatus ||
+    msg.price_update_status ||
+    msg.data?.priceUpdateStatus ||
+    msg.data?.status ||
+    msg.raw?.priceUpdateStatus ||
+    msg.raw?.data?.priceUpdateStatus ||
+    (msg.isAccepted ? 'ACCEPTED' : msg.isDeclined ? 'DECLINED' : msg.isPending ? 'PENDING' : null) ||
+    msg.status;
   return {
     creatorId: creatorId ? String(creatorId) : undefined,
     newPrice: msg.newPrice ?? msg.new_price ?? parsed.newPrice,
@@ -104,6 +113,7 @@ const buildSubscriptionRenewalNavParams = (msg = {}, fallbackSenderId) => {
       msg.previous_price ??
       parsed.oldPrice,
     subscriptionId: msg.subscriptionId ?? msg.subscription_id,
+    priceUpdateStatus,
   };
 };
 
@@ -1261,11 +1271,22 @@ const UserChat = ({ route, navigation }) => {
                         style={[styles.subscribeButton, { backgroundColor: accent, marginTop: 10, alignSelf: 'flex-start' }]}
                         onPress={() => {
                           const renewal = item.subscriptionRenewal || {};
+                          const priceUpdateStatus =
+                            renewal.priceUpdateStatus ||
+                            item.priceUpdateStatus ||
+                            item.price_update_status ||
+                            item.data?.priceUpdateStatus ||
+                            item.data?.status ||
+                            item.raw?.priceUpdateStatus ||
+                            item.raw?.data?.priceUpdateStatus ||
+                            (item.isAccepted ? 'ACCEPTED' : item.isDeclined ? 'DECLINED' : item.isPending ? 'PENDING' : null) ||
+                            item.status;
                           navigation.navigate('SubscriptionPriceChanged', {
                             creatorId: renewal.creatorId || item.senderInfo?.id,
                             newPrice: renewal.newPrice,
                             oldPrice: renewal.oldPrice,
                             subscriptionId: renewal.subscriptionId,
+                            priceUpdateStatus,
                           });
                         }}
                       >

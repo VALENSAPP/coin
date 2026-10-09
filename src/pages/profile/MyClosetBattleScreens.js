@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   Platform,
   Modal,
+  BackHandler,
 } from 'react-native';
 import FastImage from 'react-native-fast-image';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -31,7 +32,7 @@ import {
 import { navigateToUserProfile } from '../../utils/navigateToUserProfile';
 import { formSurfaces, selectedSurface, themedCard } from '../../utils/closetTheme';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, StackActions } from '@react-navigation/native';
 import Svg, { Defs, ClipPath, Polygon, Image as SvgImage } from 'react-native-svg';
 import {
   getMyClosetItems,
@@ -509,7 +510,7 @@ export const BattleCard = ({ left, right, showWinner = false, winnerPercent, acc
             backgroundColor: '#fbbf24', borderRadius: 999, paddingHorizontal: 10,
             paddingVertical: 5, marginTop: 6, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
           }}>
-            <Text style={{ fontSize: 10, fontWeight: '900', color: '#111827', letterSpacing: 0.2, textAlign: 'center' }}>🏆 Winner</Text>
+            <Text style={{ fontSize: 10, fontWeight: '900', color: '#111827', letterSpacing: 0.2, textAlign: 'center' }}>🏆 {t('battle.winner', 'Winner')}</Text>
           </View>}
       </>
     );
@@ -674,18 +675,25 @@ export function CreateBattleScreen({ navigation, route }) {
   // undefined, in which case getMyClosetItems() just omits the userId query param.
   const sellerId = route?.params?.sellerId;
   const fromRoute = route?.params?.fromRoute;
+  const isEditing = route?.params?.isEditing === true || !!route?.params?.editingBattleId || route?.params?.fromEdit === true;
   const headerTitle = route?.params?.headerTitle || t('battle.headerTitle');
   const nextRoute = route?.params?.nextRoute || 'BattleSetup';
   const targetScreen = useTargetClosetScreen();
   const handleBack = useCallback(() => {
-    if(fromRoute == "PromotionExpired"){            
-      navigation.goBack();
+    if (isEditing || route?.params?.fromEdit || fromRoute === "PromotionExpired" || fromRoute === "BattleLive") {
+      if (navigation.canGoBack?.()) {
+        navigation.goBack();
+        return;
+      }
+      if (route?.params?.editingBattleId) {
+        navigation.navigate('BattleLive', { battleId: route?.params?.editingBattleId });
+        return;
+      }
+      navigation.goBack?.();
       return;
     }
-    else {
-      navigateToTargetClosetScreen(navigation, targetScreen);
-    }
-  }, [navigation, targetScreen]);
+    navigateToTargetClosetScreen(navigation, targetScreen);
+  }, [isEditing, route?.params?.fromEdit, route?.params?.editingBattleId, fromRoute, navigation, targetScreen]);
 
   console.log('CreateBattleScreen route params', { sellerId, fromRoute, headerTitle, nextRoute, targetScreen });
 
@@ -754,6 +762,19 @@ export function CreateBattleScreen({ navigation, route }) {
     useCallback(() => {
       loadItems();
     }, [loadItems])
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      if (isEditing || route?.params?.fromEdit || fromRoute === "PromotionExpired" || fromRoute === "BattleLive") {
+        const onBackPress = () => {
+          handleBack();
+          return true;
+        };
+        const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+        return () => subscription.remove();
+      }
+    }, [handleBack, isEditing, route?.params?.fromEdit, fromRoute])
   );
 
   const selectedItems = useMemo(
@@ -1163,7 +1184,24 @@ export function BattlePreviewScreen({ navigation, route }) {
         const payload = buildEditBattlePayload();
         console.log("updateMarketplaceBattleQuestion-------------------", editingBattleId, payload);
         await updateMarketplaceBattleQuestion(editingBattleId, payload);
-        navigateToTargetClosetScreen(navigation, targetScreen);
+        const popParams = {
+          battleId: editingBattleId,
+          question: previewQuestion,
+          refresh: Date.now(),
+        };
+        try {
+          if (typeof navigation.popTo === 'function') {
+            navigation.popTo('BattleLive', popParams);
+          } else {
+            navigation.dispatch(StackActions.popTo('BattleLive', popParams, { merge: true }));
+          }
+        } catch (_err) {
+          try {
+            navigation.dispatch(StackActions.pop(3));
+          } catch (_e2) {
+            navigation.navigate('BattleLive', popParams);
+          }
+        }
       } else {
         const payload = buildBattlePayload();
         const response = await createMarketplaceBattle(payload);
@@ -1331,7 +1369,7 @@ export function ChallengeBattleSetupScreen({ navigation, route }) {
         <View style={{ alignItems: 'center', marginVertical: -10, zIndex: 10 }}>
           <View style={{ backgroundColor: bg || SOFT_BG, borderRadius: 18, padding: 4 }}>
             <View style={{ backgroundColor: idleSurface, borderColor: border || surfaces.listBorder, borderWidth: 1, width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={{ color: primaryText, fontWeight: '900', fontSize: 14 }}>VS</Text>
+              <Text style={{ color: primaryText, fontWeight: '900', fontSize: 14 }}>{t('battle.vs', 'VS')}</Text>
             </View>
           </View>
         </View>
@@ -1554,13 +1592,13 @@ export function ChallengeShopListScreen({ navigation, route }) {
               <View style={{ flex: 1, marginLeft: 12 }}>
                 <Text style={{ fontSize: 14, fontWeight: '800', color: primaryText }}>{user.shopName || user.name || 'Valens Closet'}</Text>
                 <Text style={{ fontSize: 12, color: subtleMuted, marginTop: 2 }}>@{user.shopUsername || user.userName || 'shop'}</Text>
-                <Text style={{ fontSize: 12, color: subtleMuted, marginTop: 2 }}>{user.activeItemCount ?? user.itemsCount ?? 0} items</Text>
+                <Text style={{ fontSize: 12, color: subtleMuted, marginTop: 2 }}>{user.activeItemCount ?? user.itemsCount ?? 0} {t('battle.itemsCount', 'items')}</Text>
               </View>
               <TouchableOpacity
                 style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: accent }}
                 onPress={() => navigation.navigate('ChallengeShopItems', { shop: user, ...route?.params })}
               >
-                <Text style={{ fontSize: 12, fontWeight: '700', color: accent }}>View</Text>
+                <Text style={{ fontSize: 12, fontWeight: '700', color: accent }}>{t('battle.view', 'View')}</Text>
               </TouchableOpacity>
             </View>
           ))
@@ -1753,10 +1791,24 @@ export function BattleLiveScreen({ navigation, route }) {
       });
       return;
     }
+    else if (returnTo?.screen === 'MyClosetBattles' || route?.params?.fromBattlePicks) {
+      if (navigation.canGoBack?.()) {
+        navigation.goBack();
+        return;
+      }
+      navigation.navigate('ProfileMain', {
+        screen: 'MyClosetBattles',
+        params: returnTo?.params || {
+          isOwnProfile: true,
+          returnTo: { tab: 'wallet', screen: 'Shop' },
+        },
+      });
+      return;
+    }
     else {
       battleBack();
     }
-  }, [returnTo, navigation, battleBack]);
+  }, [returnTo, navigation, battleBack, route?.params?.fromBattlePicks]);
   const handleDonePress = useCallback(() => {
     // Search opens BattleLive inside the profile stack. Go directly to its tab
     // instead of popping to the profile screen that happens to be beneath it.
@@ -2213,6 +2265,7 @@ export function BattleLiveScreen({ navigation, route }) {
       sellerId: battle?.sellerId || route?.params?.sellerId || currentUserId,
       editingBattleId: battleId,
       isEditing: true,
+      fromEdit: true,
       initialSelectedItems: passedItems,
       selectedItems: passedItems,
       question: passedQuestion,
@@ -2222,7 +2275,10 @@ export function BattleLiveScreen({ navigation, route }) {
       duration: battle?.duration || route?.params?.duration || '3 DAYS',
       whoCanVote: battle?.whoCanVote || route?.params?.whoCanVote || t('battle.public'),
       visibility: battle?.visibility || route?.params?.visibility || t('battle.public'),
-      fromRoute: route?.params?.fromRoute,
+      fromRoute: 'BattleLive',
+      fromBattlePicks: route?.params?.fromBattlePicks,
+      returnTo: route?.params?.returnTo,
+      returnToProfile: route?.params?.returnToProfile,
     });
   }, [
     battleId,
@@ -2290,13 +2346,14 @@ export function BattleLiveScreen({ navigation, route }) {
     AsyncStorage.getItem('userId').then(setCurrentUserId).catch(() => { });
   }, []);
 
+  const refreshParam = route?.params?.refresh;
   useEffect(() => {
-    if (initialBattle) {
+    if (initialBattle && !refreshParam) {
       setBattle(normalizeBattle(initialBattle));
       setLoadError(null);
     }
     loadBattle();
-  }, [initialBattle, loadBattle]);
+  }, [initialBattle, loadBattle, refreshParam]);
 
   useEffect(() => {
     checkExistingVote();
@@ -2309,7 +2366,16 @@ export function BattleLiveScreen({ navigation, route }) {
   useFocusEffect(
     useCallback(() => {
       trackBattleView();
-    }, [trackBattleView])
+      if (route?.params?.refresh) {
+        loadBattle();
+      }
+      const onBackPress = () => {
+        handleBack();
+        return true;
+      };
+      const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      return () => subscription.remove();
+    }, [trackBattleView, route?.params?.refresh, loadBattle, handleBack])
   );
 
   // Early returns come AFTER every hook above — nothing hook-related below this point
@@ -3356,7 +3422,7 @@ export function ChallengeBattlePreviewScreen({ navigation, route }) {
           </View>
 
           <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: idleSurface, borderWidth: 1, borderColor: border || surfaces.listBorder, alignItems: 'center', justifyContent: 'center', marginTop: 40, marginHorizontal: -10, zIndex: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 }}>
-            <Text style={{ color: primaryText, fontWeight: '900', fontSize: 14 }}>VS</Text>
+            <Text style={{ color: primaryText, fontWeight: '900', fontSize: 14 }}>{t('battle.vs', 'VS')}</Text>
           </View>
 
           <View style={{ flex: 1, alignItems: 'center' }}>
@@ -3395,7 +3461,7 @@ export function ChallengeBattlePreviewScreen({ navigation, route }) {
               <Ionicons name="people-outline" size={18} color={subtleMuted} />
               <Text style={{ color: subtleMuted, fontWeight: '600', fontSize: 13 }}>{t('battle.whoCanVoteLabel', 'Who can vote')}</Text>
             </View>
-            <Text style={{ color: accent, fontWeight: '800', fontSize: 13 }}>Valens Community</Text>
+            <Text style={{ color: accent, fontWeight: '800', fontSize: 13 }}>{t('battle.valensCommunity', 'Valens Community')}</Text>
           </View>
         </View>
 
@@ -3511,7 +3577,7 @@ export function BattleCreatedSuccessScreen({ navigation, route }) {
           </TouchableOpacity>
 
           <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: idleSurface, borderWidth: 1, borderColor: border || surfaces.listBorder, alignItems: 'center', justifyContent: 'center', marginHorizontal: 10 }}>
-            <Text style={{ color: accent, fontWeight: '900', fontSize: 12 }}>VS</Text>
+            <Text style={{ color: accent, fontWeight: '900', fontSize: 12 }}>{t('battle.vs', 'VS')}</Text>
           </View>
 
           <TouchableOpacity
@@ -3616,7 +3682,7 @@ export function ChallengeReceivedScreen({ navigation, route }) {
       console.log("response in acceptMarketplaceBattle-----------", response)
       navigation.replace('ChallengeAccepted', { battleId, battle });
     } catch (err) {
-      Alert.alert('Error', 'Could not accept challenge. Please try again.');
+      Alert.alert(t('battle.errors.errorTitle', 'Error'), t('battle.errors.acceptChallengeFailed', 'Could not accept challenge. Please try again.'));
     } finally {
       setAccepting(false);
     }
@@ -3628,7 +3694,7 @@ export function ChallengeReceivedScreen({ navigation, route }) {
       await declineMarketplaceBattle(battleId);
       navigation.replace('ChallengeAccepted', { battleId, battle, status: 'declined' });
     } catch (err) {
-      Alert.alert('Error', 'Could not decline challenge. Please try again.');
+      Alert.alert(t('battle.errors.errorTitle', 'Error'), t('battle.errors.declineChallengeFailed', 'Could not decline challenge. Please try again.'));
     } finally {
       setDeclining(false);
     }
@@ -3645,8 +3711,8 @@ export function ChallengeReceivedScreen({ navigation, route }) {
   if (!battle) {
     return (
       <View style={[styles.screen, bgStyle, { backgroundColor: bg || '#FBF8FF', justifyContent: 'center', alignItems: 'center' }]}>
-        <Text style={{ color: primaryText }}>Battle not found</Text>
-        <TouchableOpacity onPress={handleBack} style={{ marginTop: 16 }}><Text style={{ color: accent, fontWeight: '700' }}>Go Back</Text></TouchableOpacity>
+        <Text style={{ color: primaryText }}>{t('battle.battleNotFound', 'Battle not found')}</Text>
+        <TouchableOpacity onPress={handleBack} style={{ marginTop: 16 }}><Text style={{ color: accent, fontWeight: '700' }}>{t('battle.goBack', 'Go Back')}</Text></TouchableOpacity>
       </View>
     );
   }
@@ -3662,14 +3728,14 @@ export function ChallengeReceivedScreen({ navigation, route }) {
 
   return (
     <View style={[styles.screen, bgStyle, { backgroundColor: bg || '#FBF8FF' }]}>
-      <Header title="You got a challenge! ⚔️" onBack={handleBack} titleColor={text} />
+      <Header title={t('battle.youGotAChallenge', 'You got a challenge! ⚔️')} onBack={handleBack} titleColor={text} />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
         {/* Banner */}
         <View style={[styles.aboutCard, { backgroundColor: idleSurface, borderColor: border || surfaces.listBorder, flexDirection: 'row', alignItems: 'center', marginBottom: 20 }]}>
           <FastImage source={fastImageSource(rightItem?.image)} style={{ width: 40, height: 40, borderRadius: 20, marginRight: 12, backgroundColor: '#E0E0E0' }} />
           <Text style={{ color: primaryText, flex: 1, fontSize: 13, fontWeight: '500' }}>
-            <Text style={{ fontWeight: '800' }}>{rightItem?.shopName || rightItem?.userName || 'Valens Closet'}</Text> challenged your item in an Opinion Battle.
+            <Text style={{ fontWeight: '800' }}>{rightItem?.shopName || rightItem?.userName || 'Valens Closet'}</Text> {t('battle.challengedYourItem', 'challenged your item in an Opinion Battle.')}
           </Text>
           <Ionicons name="shield-checkmark" size={28} color={accent} />
         </View>
@@ -3677,30 +3743,30 @@ export function ChallengeReceivedScreen({ navigation, route }) {
         <Text style={[styles.fieldLabel, { color: primaryText, fontSize: 15, textAlign: 'center', marginTop: -7 }]}>{battle?.title}</Text>
 
         {/* Your item */}
-        <Text style={[styles.fieldLabel, { color: primaryText, fontSize: 15 }]}>Your item</Text>
+        <Text style={[styles.fieldLabel, { color: primaryText, fontSize: 15 }]}>{t('battle.yourItem', 'Your item')}</Text>
         <View style={[styles.aboutCard, { backgroundColor: idleSurface, borderColor: border || surfaces.listBorder, flexDirection: 'row', alignItems: 'flex-start', padding: 12, marginBottom: -10 }]}>
           <FastImage source={fastImageSource(leftItem?.image)} style={{ width: 90, height: 90, borderRadius: 12, marginRight: 16, backgroundColor: '#E0E0E0' }} />
           <View style={{ flex: 1, justifyContent: 'center', height: 90 }}>
             <Text style={{ color: primaryText, fontWeight: '900', fontSize: 14 }}>{leftItem?.name || 'Item Name'}</Text>
             <Text style={{ color: primaryText, fontWeight: '800', fontSize: 13, marginTop: 4 }}>{leftItem?.price || '$0.00'}</Text>
-            <Text style={{ color: subtleMuted, fontSize: 12, marginTop: 8 }}>From your shop</Text>
-            <Text style={{ color: subtleMuted, fontSize: 12 }}>{leftItem?.shopName || leftItem?.userName || 'Your Shop'}</Text>
+            <Text style={{ color: subtleMuted, fontSize: 12, marginTop: 8 }}>{t('battle.fromYourShop', 'From your shop')}</Text>
+            <Text style={{ color: subtleMuted, fontSize: 12 }}>{leftItem?.shopName || leftItem?.userName || t('battle.yourShop', 'Your Shop')}</Text>
           </View>
         </View>
 
         {/* VS Badge */}
         <View style={{ zIndex: 10, alignSelf: 'center', width: 36, height: 36, borderRadius: 18, backgroundColor: idleSurface, borderWidth: 1, borderColor: border || surfaces.listBorder, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 }}>
-          <Text style={{ color: primaryText, fontWeight: '900', fontSize: 12 }}>VS</Text>
+          <Text style={{ color: primaryText, fontWeight: '900', fontSize: 12 }}>{t('battle.vs', 'VS')}</Text>
         </View>
 
         {/* Challenger's item */}
-        <Text style={[styles.fieldLabel, { color: primaryText, marginTop: -6, fontSize: 15 }]}>Challenger's item</Text>
+        <Text style={[styles.fieldLabel, { color: primaryText, marginTop: -6, fontSize: 15 }]}>{t('battle.challengerItem', "Challenger's item")}</Text>
         <View style={[styles.aboutCard, { backgroundColor: idleSurface, borderColor: border || surfaces.listBorder, flexDirection: 'row', alignItems: 'flex-start', padding: 12, marginBottom: 20 }]}>
           <FastImage source={fastImageSource(rightItem?.image)} style={{ width: 90, height: 90, borderRadius: 12, marginRight: 16, backgroundColor: '#E0E0E0' }} />
           <View style={{ flex: 1, justifyContent: 'center', height: 90 }}>
             <Text style={{ color: primaryText, fontWeight: '900', fontSize: 14 }}>{rightItem?.name || 'Item Name'}</Text>
             <Text style={{ color: primaryText, fontWeight: '800', fontSize: 13, marginTop: 4 }}>{rightItem?.price || '$0.00'}</Text>
-            <Text style={{ color: subtleMuted, fontSize: 12, marginTop: 8 }}>From {rightItem?.shopName || rightItem?.userName || 'Valens Closet'}</Text>
+            <Text style={{ color: subtleMuted, fontSize: 12, marginTop: 8 }}>{t('battle.from', 'From')} {rightItem?.shopName || rightItem?.userName || 'Valens Closet'}</Text>
             <Text style={{ color: subtleMuted, fontSize: 12 }}>@{rightItem?.userName?.toLowerCase()?.replace(/\s+/g, '') || rightItem?.shopName?.toLowerCase()?.replace(/\s+/g, '') || 'valenscloset'}</Text>
           </View>
         </View>
@@ -3709,8 +3775,8 @@ export function ChallengeReceivedScreen({ navigation, route }) {
         <View style={[styles.aboutCard, { backgroundColor: '#fff', borderColor: 'transparent', flexDirection: 'row', alignItems: 'flex-start', marginBottom: 16 }]}>
           <Ionicons name="information-circle-outline" size={20} color={accent} style={{ marginRight: 12 }} />
           <View style={{ flex: 1 }}>
-            <Text style={[styles.aboutTitle, { color: primaryText, fontSize: 14 }]}>This is an Opinion Battle.</Text>
-            <Text style={[styles.aboutText, { color: primaryText, marginTop: 4 }]}>The community will vote to decide which item they prefer.</Text>
+            <Text style={[styles.aboutTitle, { color: primaryText, fontSize: 14 }]}>{t('battle.thisIsOpinionBattle', 'This is an Opinion Battle.')}</Text>
+            <Text style={[styles.aboutText, { color: primaryText, marginTop: 4 }]}>{t('battle.communityWillVote', 'The community will vote to decide which item they prefer.')}</Text>
           </View>
         </View>
 
@@ -3718,7 +3784,7 @@ export function ChallengeReceivedScreen({ navigation, route }) {
         <View style={[styles.aboutCard, { backgroundColor: '#fff', borderColor: 'transparent', flexDirection: 'row', alignItems: 'center', marginBottom: 24 }]}>
           <Ionicons name="time-outline" size={20} color={accent} style={{ marginRight: 12 }} />
           <View style={{ flex: 1 }}>
-            <Text style={[styles.aboutText, { color: primaryText }]}>Challenge expires in</Text>
+            <Text style={[styles.aboutText, { color: primaryText }]}>{t('battle.challengeExpiresIn', 'Challenge expires in')}</Text>
             <Text style={[styles.aboutTitle, { color: primaryText, fontSize: 14, marginTop: 2 }]}>{battle.daysLeft ? `${battle.daysLeft} Days` : '24 Hours'}</Text>
           </View>
         </View>
@@ -3732,7 +3798,7 @@ export function ChallengeReceivedScreen({ navigation, route }) {
               onPress={handleDecline}
               style={[styles.outlineBtn, { borderColor: accent }]}
             >
-              {declining ? <ActivityIndicator color={accent} /> : <Text style={[styles.outlineBtnText, { color: accent }]}>Decline</Text>}
+              {declining ? <ActivityIndicator color={accent} /> : <Text style={[styles.outlineBtnText, { color: accent }]}>{t('battle.decline', 'Decline')}</Text>}
             </TouchableOpacity>
             <TouchableOpacity
               activeOpacity={0.9}
@@ -3741,14 +3807,16 @@ export function ChallengeReceivedScreen({ navigation, route }) {
               style={{ flex: 1 }}
             >
               <LinearGradient colors={accepting ? ['#aaa', '#aaa'] : themeGradient(accent)} style={[styles.actionBtn, accepting && { opacity: 0.6 }]}>
-                {accepting ? <ActivityIndicator color="#fff" /> : <Text style={styles.actionBtnText}>Accept Challenge</Text>}
+                {accepting ? <ActivityIndicator color="#fff" /> : <Text style={styles.actionBtnText}>{t('battle.acceptChallenge', 'Accept Challenge')}</Text>}
               </LinearGradient>
             </TouchableOpacity>
           </View>
         ) : (
           <View style={{ marginBottom: 20 }}>
             <Text style={{ color: primaryText, textAlign: 'center', fontSize: 16, fontWeight: '600' }}>
-              Challenge is {challengeStatus?.inviteStatus?.toLowerCase() || 'no longer available'}
+              {t('battle.challengeStatusPrefix', 'Challenge is {{status}}', {
+                status: challengeStatus?.inviteStatus?.toLowerCase() || t('battle.noLongerAvailable', 'no longer available'),
+              })}
             </Text>
           </View>
         )}
@@ -3788,6 +3856,7 @@ export function ChallengeAcceptedScreen({ navigation, route }) {
   const rightItem = battle?.items?.[0] || battle?.items?.[1];
 
   const isDeclined = status === 'declined';
+  const isExpired = status === 'expired' || status === 'cancelled';
 
   if (loading) {
     return (
@@ -3799,36 +3868,62 @@ export function ChallengeAcceptedScreen({ navigation, route }) {
 
   return (
     <View style={[styles.screen, bgStyle, { backgroundColor: bg || '#FBF8FF' }]}>
-      <Header title={isDeclined ? "Challenge Declined" : "Challenge Accepted"} onBack={() => navigation.navigate('HomeMain', { screen: 'HeartNotification' })} titleColor={text} />
+      <Header
+        title={isExpired ? t('battle.challengeExpiredTitle', 'Challenge Expired') : isDeclined ? t('battle.challengeDeclinedTitle', 'Challenge Declined') : t('battle.challengeAccepted', 'Challenge Accepted')}
+        onBack={() => navigation.navigate('HomeMain', { screen: 'HeartNotification' })}
+        titleColor={text}
+      />
       <ScrollView contentContainerStyle={[styles.scrollContent, { alignItems: 'center', paddingTop: 20 }]} showsVerticalScrollIndicator={false}>
 
-        {/* Success / Error Icon */}
-        <View style={{ width: 100, height: 100, borderRadius: 50, backgroundColor: isDeclined ? '#EF4444' : '#4ADE80', alignItems: 'center', justifyContent: 'center', marginBottom: 20, shadowColor: isDeclined ? '#EF4444' : '#4ADE80', shadowOpacity: 0.3, shadowRadius: 20, shadowOffset: { width: 0, height: 8 } }}>
-          <Ionicons name={isDeclined ? "close" : "checkmark"} size={60} color="#fff" />
+        {/* Success / Error / Expired Icon */}
+        <View style={{
+          width: 100,
+          height: 100,
+          borderRadius: 50,
+          backgroundColor: isExpired ? '#F59E0B' : isDeclined ? '#EF4444' : '#4ADE80',
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginBottom: 20,
+          shadowColor: isExpired ? '#F59E0B' : isDeclined ? '#EF4444' : '#4ADE80',
+          shadowOpacity: 0.3,
+          shadowRadius: 20,
+          shadowOffset: { width: 0, height: 8 }
+        }}>
+          <Ionicons name={isExpired ? "time-outline" : isDeclined ? "close" : "checkmark"} size={60} color="#fff" />
         </View>
 
-        <Text style={{ color: primaryText, fontSize: 24, fontWeight: '900', marginBottom: 12 }}>{isDeclined ? "Challenge Declined" : "Challenge Accepted!"}</Text>
+        <Text style={{ color: primaryText, fontSize: 24, fontWeight: '900', marginBottom: 12 }}>
+          {isExpired ? t('battle.challengeExpiredTitle', 'Challenge Expired') : isDeclined ? t('battle.challengeDeclinedTitle', 'Challenge Declined') : t('battle.challengeAcceptedTitle', 'Challenge Accepted!')}
+        </Text>
 
-        {!isDeclined && <Text style={{ color: primaryText, fontSize: 15, fontWeight: '700', marginBottom: 6 }}>Your item is now in the battle.</Text>}
+        {!isDeclined && !isExpired && (
+          <Text style={{ color: primaryText, fontSize: 15, fontWeight: '700', marginBottom: 6 }}>
+            {t('battle.yourItemInBattle', 'Your item is now in the battle.')}
+          </Text>
+        )}
 
         <Text style={{ color: subtleMuted, fontSize: 13, textAlign: 'center', marginBottom: 30, paddingHorizontal: 20 }}>
-          {isDeclined ? "You have declined this challenge. It will not proceed." : "The battle will go live once both items are accepted."}
+          {isExpired
+            ? t('battle.challengeExpiredNotice', 'Your challenge expired without a response.')
+            : isDeclined
+            ? t('battle.challengeDeclinedNotice', 'You have declined this challenge. It will not proceed.')
+            : t('battle.battleGoLiveWait', 'The battle will go live once both items are accepted.')}
         </Text>
 
         {/* Battle Preview Box */}
         {battle && (
-          <View style={[styles.aboutCard, { backgroundColor: idleSurface, borderColor: border || surfaces.listBorder, width: '100%', padding: 16, marginBottom: 20, opacity: isDeclined ? 0.6 : 1 }]}>
-            <Text style={[styles.fieldLabel, { color: primaryText, marginBottom: 16 }]}>Battle Preview</Text>
+          <View style={[styles.aboutCard, { backgroundColor: idleSurface, borderColor: border || surfaces.listBorder, width: '100%', padding: 16, marginBottom: 20, opacity: (isDeclined || isExpired) ? 0.6 : 1 }]}>
+            <Text style={[styles.fieldLabel, { color: primaryText, marginBottom: 16 }]}>{t('battle.battlePreview', 'Battle Preview')}</Text>
             <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
               <View style={{ flex: 1, alignItems: 'center' }}>
                 <FastImage source={fastImageSource(leftItem?.image)} style={{ width: 100, height: 100, borderRadius: 12, backgroundColor: '#E0E0E0' }} />
                 <Text style={{ color: primaryText, fontWeight: '900', fontSize: 13, marginTop: 12, textAlign: 'center' }}>{leftItem?.name || 'Item Name'}</Text>
                 <Text style={{ color: primaryText, fontWeight: '800', fontSize: 12, marginTop: 4 }}>{leftItem?.price || '$0.00'}</Text>
-                <Text style={{ color: subtleMuted, fontSize: 11, marginTop: 4 }}>Your Shop</Text>
+                <Text style={{ color: subtleMuted, fontSize: 11, marginTop: 4 }}>{t('battle.yourShop', 'Your Shop')}</Text>
               </View>
 
               <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: idleSurface, borderWidth: 1, borderColor: border || surfaces.listBorder, alignItems: 'center', justifyContent: 'center', marginTop: 34, marginHorizontal: -5, zIndex: 10 }}>
-                <Text style={{ color: primaryText, fontWeight: '900', fontSize: 11 }}>VS</Text>
+                <Text style={{ color: primaryText, fontWeight: '900', fontSize: 11 }}>{t('battle.vs', 'VS')}</Text>
               </View>
 
               <View style={{ flex: 1, alignItems: 'center' }}>
@@ -3842,30 +3937,32 @@ export function ChallengeAcceptedScreen({ navigation, route }) {
         )}
 
         {/* Notification Alert */}
-        {!isDeclined && (
+        {!isDeclined && !isExpired && (
           <View style={[styles.aboutCard, { backgroundColor: '#F3EFFF', borderColor: 'transparent', flexDirection: 'row', alignItems: 'flex-start', marginBottom: 24, width: '100%' }]}>
             <Ionicons name="notifications" size={20} color={accent} style={{ marginRight: 12 }} />
-            <Text style={[styles.aboutText, { color: primaryText, flex: 1 }]}>You'll be notified when the battle goes live and when the results are in.</Text>
+            <Text style={[styles.aboutText, { color: primaryText, flex: 1 }]}>{t('battle.notifyWhenLive', "You'll be notified when the battle goes live and when the results are in.")}</Text>
           </View>
         )}
 
         {/* Buttons */}
+        {!isExpired && 
         <TouchableOpacity
           activeOpacity={0.9}
           onPress={() => navigateToTargetClosetScreen(navigation, targetScreen)}
           style={{ width: '100%', marginBottom: 12 }}
         >
           <LinearGradient colors={themeGradient(accent)} style={styles.actionBtn}>
-            <Text style={styles.actionBtnText}>View My Battles</Text>
+            <Text style={styles.actionBtnText}>{t('battle.viewMyBattles', 'View My Battles')}</Text>
           </LinearGradient>
         </TouchableOpacity>
+        }
 
         {/* <TouchableOpacity 
           activeOpacity={0.9} 
           onPress={() => navigation.navigate('MainApp', { screen: 'wallet', params: { screen: 'MyCloset' } })} 
           style={[styles.outlineBtn, { borderColor: accent, width: '100%', height: 46 }]}
         >
-          <Text style={[styles.outlineBtnText, { color: accent }]}>Back to Shop</Text>
+          <Text style={[styles.outlineBtnText, { color: accent }]}>{t('battle.backToShop', 'Back to Shop')}</Text>
         </TouchableOpacity> */}
 
       </ScrollView>

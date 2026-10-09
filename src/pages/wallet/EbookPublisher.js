@@ -636,7 +636,7 @@ const EbookPublisher = ({ navigation }) => {
             </View>
           )}
 
-          <View style={[styles.infoBox, {marginBottom: 12}]}>
+          <View style={[styles.infoBox, { marginBottom: 12 }]}>
             <Ionicons name="information-circle-outline" size={18} color={text} />
             <Text style={styles.infoText}>{t('ebookPublisher.pdfHelp')}</Text>
           </View>
@@ -1017,7 +1017,10 @@ const EbookPublisher = ({ navigation }) => {
       setStep(step - 1);
       return;
     }
-    navigation.goBack?.();
+    navigation.navigate('MainApp', {
+      screen: 'wallet',
+      params: { screen: 'Dashboard' }
+    });
   };
 
   return (

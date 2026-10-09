@@ -1246,7 +1246,7 @@ export function PromotionDetailsScreen({ navigation, route }) {
                   </Text>
                   <Text style={[styles.packagePrice, { color: accent }]}>{p.priceLabel}</Text>
                   <Text style={[styles.packageViews, { color: subtleMuted }]} numberOfLines={2}>
-                    {isFreeShipping ? 'Free Shipping' : '10% Off+'}
+                    {isFreeShipping ? 'Free Shipping' : `${discount ? `${discount}% Off+` : '10% Off+'}`}
                   </Text>
                 </TouchableOpacity>
               );

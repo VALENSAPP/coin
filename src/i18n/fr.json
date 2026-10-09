@@ -5112,7 +5112,10 @@
       "commentNotDeleted": "Impossible de supprimer le commentaire.",
       "commentReactionFailed": "Impossible de mettre à jour la réaction.",
       "voteFailedTitle": "Impossible de voter",
-      "voteFailedGeneric": "Une erreur s'est produite. Veuillez réessayer."
+      "voteFailedGeneric": "Une erreur s'est produite. Veuillez réessayer.",
+      "errorTitle": "Erreur",
+      "acceptChallengeFailed": "Impossible d'accepter le défi. Veuillez réessayer.",
+      "declineChallengeFailed": "Impossible de refuser le défi. Veuillez réessayer."
     },
     "noItems": "Aucun article trouvé dans votre dressing pour le moment.",
     "retry": "Réessayer",
@@ -5193,7 +5196,24 @@
     "settingsInfo": "La communauté votera et le gagnant sera affiché sur les deux articles.",
     "challengeShopHeading": "Défier une autre boutique",
     "challengeShopSub": "Choisissez une boutique à défier",
-    "searchShops": "Rechercher des boutiques..."
+    "searchShops": "Rechercher des boutiques...",
+    "voted": "Voté",
+    "challengeExpiredTitle": "Défi Expiré",
+    "challengeDeclinedTitle": "Défi Refusé",
+    "challengeAccepted": "Défi Accepté",
+    "challengeExpiredNotice": "Votre défi a expiré sans réponse.",
+    "challengeDeclinedNotice": "Vous avez refusé ce défi. Il ne se poursuivra pas.",
+    "challengedYourItem": "a défié votre article dans une Bataille d'Opinion.",
+    "fromYourShop": "De votre boutique",
+    "yourShop": "Votre Boutique",
+    "valensCommunity": "Communauté Valens",
+    "battleNotFound": "Bataille introuvable",
+    "goBack": "Retour",
+    "from": "De",
+    "challengeStatusPrefix": "Le défi est {{status}}",
+    "noLongerAvailable": "n'est plus disponible",
+    "view": "Voir",
+    "itemsCount": "articles"
   },
   "shopSettings": {
     "title": "Paramètres de la boutique",
@@ -5354,7 +5374,7 @@
     "chooseType": "Choisissez votre promotion",
     "types": {
       "discount24": {
-        "title": "10 % de réduction pendant 24 heures",
+        "title": "Offrez une réduction sur votre article",
         "subtitle": "Réduction à durée limitée"
       },
       "freeShipping": {
