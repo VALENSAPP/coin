@@ -1,10 +1,10 @@
 {
   "name": "story-youtube-audio-clip",
   "private": true,
-  "description": "Dev/local sidecar: POST /story/youtube-audio-clip → { data: { url } } for trimmed MP3",
+  "description": "Dev/local sidecar: POST /story/youtube-audio-clip \u2192 { data: { url } } for trimmed MP3",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node api.js && node index.js"
   },
   "dependencies": {
     "@distube/ytdl-core": "^4.16.12",

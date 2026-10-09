@@ -5112,7 +5112,10 @@
       "commentNotDeleted": "No se pudo eliminar el comentario.",
       "commentReactionFailed": "No se pudo actualizar la reacción.",
       "voteFailedTitle": "No se pudo votar",
-      "voteFailedGeneric": "Algo salió mal. Inténtalo de nuevo."
+      "voteFailedGeneric": "Algo salió mal. Inténtalo de nuevo.",
+      "errorTitle": "Error",
+      "acceptChallengeFailed": "No se pudo aceptar el desafío. Por favor, inténtalo de nuevo.",
+      "declineChallengeFailed": "No se pudo rechazar el desafío. Por favor, inténtalo de nuevo."
     },
     "noItems": "Aún no se encontraron artículos en tu armario.",
     "retry": "Reintentar",
@@ -5193,7 +5196,24 @@
     "settingsInfo": "La comunidad votará y el ganador se mostrará en ambos artículos.",
     "challengeShopHeading": "Desafiar a otra tienda",
     "challengeShopSub": "Elige una tienda para desafiar",
-    "searchShops": "Buscar tiendas..."
+    "searchShops": "Buscar tiendas...",
+    "voted": "Votado",
+    "challengeExpiredTitle": "Desafío Expirado",
+    "challengeDeclinedTitle": "Desafío Rechazado",
+    "challengeAccepted": "Desafío Aceptado",
+    "challengeExpiredNotice": "Tu desafío expiró sin respuesta.",
+    "challengeDeclinedNotice": "Has rechazado este desafío. No continuará.",
+    "challengedYourItem": "desafió tu artículo en una Batalla de Opinión.",
+    "fromYourShop": "De tu tienda",
+    "yourShop": "Tu Tienda",
+    "valensCommunity": "Comunidad Valens",
+    "battleNotFound": "Batalla no encontrada",
+    "goBack": "Volver",
+    "from": "De",
+    "challengeStatusPrefix": "El desafío está {{status}}",
+    "noLongerAvailable": "ya no está disponible",
+    "view": "Ver",
+    "itemsCount": "artículos"
   },
   "shopSettings": {
     "title": "Configuración de la tienda",
@@ -5354,7 +5374,7 @@
     "chooseType": "Elige tu promoción",
     "types": {
       "discount24": {
-        "title": "10 % de descuento durante 24 horas",
+        "title": "Ofrece un descuento en tu artículo",
         "subtitle": "Descuento por tiempo limitado"
       },
       "freeShipping": {

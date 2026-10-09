@@ -219,6 +219,7 @@ const isBattleNotificationType = type =>
     'marketplace_battle_challenge',
     'marketplace_battle_challenge_accepted',
     'marketplace_battle_challenge_declined',
+    'marketplace_battle_challenge_expired',
   ].includes(normalizeNotificationType(type));
 const isCommentType = type =>
   normalizeNotificationType(type).includes('comment');
@@ -770,8 +771,10 @@ export default function Notifications() {
   const openBattleFlow = useCallback(
     item => {
       const payload = item?.actionPayload ?? extractBattleActionPayload(item);
-      const battleData = item?.raw?.data?.battle || item?.raw?.battle || item?.battle || {};
-      const battleId = payload?.battleId || battleData?.id || battleData?._id || item?.id || '';
+      const rawBattleId = payload?.battleId || battleData?.id || battleData?._id || item?.id || '';
+      const battleId = String(rawBattleId || '').includes(':')
+        ? String(rawBattleId).split(':').pop()
+        : String(rawBattleId || '');
 
       const normType = normalizeNotificationType(item?.type);
       const status = String(item?.status || battleData?.status || '').toUpperCase();
@@ -826,6 +829,39 @@ export default function Notifications() {
         normType.includes('marketplace_battle');
 
       if (isMarketplace) {
+        if (
+          normType === 'marketplace_battle_challenge' ||
+          normType === 'marketplace_battle_challenge_received'
+        ) {
+          if (battleId) {
+            navigation.navigate('ProfileMain', {
+              screen: 'ChallengeReceived',
+              params: { battleId },
+            });
+            return;
+          }
+        }
+
+        if (
+          normType === 'marketplace_battle_challenge_accepted' ||
+          normType === 'marketplace_battle_challenge_declined' ||
+          normType === 'marketplace_battle_challenge_expired'
+        ) {
+          const chStatus =
+            normType === 'marketplace_battle_challenge_declined'
+              ? 'declined'
+              : normType === 'marketplace_battle_challenge_expired'
+              ? 'expired'
+              : 'accepted';
+          if (battleId) {
+            navigation.navigate('ProfileMain', {
+              screen: 'ChallengeAccepted',
+              params: { battleId, status: chStatus },
+            });
+            return;
+          }
+        }
+
         if (isEnded) {
           navigation.navigate('ProfileMain', {
             screen: 'BattleResultsScreen',
@@ -1378,13 +1414,23 @@ export default function Notifications() {
           const oldPrice = notifData.oldPrice ?? notifData.old_price ?? notifData.previousPrice;
           const subscriptionId = notifData.subscriptionId ?? notifData.subscription_id;
           const isCancelled = notifData.isCancelled ?? notifData.is_cancelled ?? notifData.status;
-
+          const priceUpdateStatus =
+            item?.priceUpdateStatus ||
+            notifData?.priceUpdateStatus ||
+            item?.data?.priceUpdateStatus ||
+            item?.raw?.priceUpdateStatus ||
+            item?.raw?.data?.priceUpdateStatus ||
+            (item?.isAccepted ? 'ACCEPTED' : item?.isDeclined ? 'DECLINED' : item?.isPending ? 'PENDING' : null) ||
+            notifData?.status ||
+            item?.status;
+          console.log('Subscription price changed notification:', notifData, 'priceUpdateStatus:', priceUpdateStatus);
           navigation.navigate('SubscriptionPriceChanged', {
             creatorId,
             newPrice,
             oldPrice,
             subscriptionId,
             isCancelled,
+            priceUpdateStatus,
             notification: item,
           });
           return;
@@ -1396,10 +1442,28 @@ export default function Notifications() {
           const senderId = notifData.senderId || notifData.sender_id || notifData.userId;
           const messageId = notifData.messageId || notifData.message_id;
 
+          const senderUser =
+            item?.sender ||
+            item?.user ||
+            item?.raw?.sender ||
+            item?.raw?.user ||
+            notifData?.sender ||
+            notifData?.user ||
+            notifData?.otherUser;
+
+          const otherUser = senderUser || (senderId ? {
+            id: senderId,
+            userId: senderId,
+            username: item?.senderUsername || item?.userName || item?.username || notifData?.username || notifData?.userName,
+            displayName: item?.senderName || item?.name || notifData?.senderName || notifData?.name || notifData?.displayName,
+            avatar: item?.avatar || item?.profileImage || notifData?.avatar || notifData?.profileImage,
+            image: item?.avatar || item?.profileImage || notifData?.avatar || notifData?.profileImage,
+          } : null);
+
           navigation.navigate('UserClosetChat', {
             threadId,
             sellerId: senderId,
-            otherUser: senderId ? { id: senderId } : null,
+            otherUser,
             messageId,
             returnTo: 'HeartNotification',
           });
@@ -1437,7 +1501,7 @@ export default function Notifications() {
           item?.data?.battle ||
           item?.battle ||
           {};
-        const battleId = pickFirstValue(
+        const rawBattleId = pickFirstValue(
           payload?.battleId,
           battleData?.id,
           battleData?._id,
@@ -1455,6 +1519,9 @@ export default function Notifications() {
           item?.battle_id,
           item?.id,
         );
+        const battleId = String(rawBattleId || '').includes(':')
+          ? String(rawBattleId).split(':').pop()
+          : String(rawBattleId || '');
 
         const rawBattleType = pickFirstValue(
           battleData?.battleType,
@@ -1489,7 +1556,19 @@ export default function Notifications() {
           return;
         }
 
-        if (normType === 'marketplace_battle_challenge') {
+        const isMarketplaceChallengeReceived =
+          normType === 'marketplace_battle_challenge' ||
+          normType === 'marketplace_battle_challenge_received';
+
+        const isMarketplaceChallengeOutcome =
+          normType === 'marketplace_battle_challenge_accepted' ||
+          normType === 'marketplace_battle_challenge_declined' ||
+          normType === 'marketplace_battle_challenge_expired' ||
+          titleLower.includes('challenge expired') ||
+          rawTitleLower.includes('challenge expired') ||
+          bodyLower.includes('expired without a response');
+
+        if (isMarketplaceChallengeReceived) {
           if (battleId) {
             navigation.navigate('ProfileMain', {
               screen: 'ChallengeReceived',
@@ -1499,8 +1578,16 @@ export default function Notifications() {
           }
         }
 
-        if (normType === 'marketplace_battle_challenge_accepted' || normType === 'marketplace_battle_challenge_declined') {
-          const status = normType === 'marketplace_battle_challenge_declined' ? 'declined' : 'accepted';
+        if (isMarketplaceChallengeOutcome) {
+          const status =
+            normType === 'marketplace_battle_challenge_declined'
+              ? 'declined'
+              : (normType === 'marketplace_battle_challenge_expired' ||
+                 titleLower.includes('challenge expired') ||
+                 rawTitleLower.includes('challenge expired') ||
+                 bodyLower.includes('expired without a response'))
+              ? 'expired'
+              : 'accepted';
           if (battleId) {
             navigation.navigate('ProfileMain', {
               screen: 'ChallengeAccepted',

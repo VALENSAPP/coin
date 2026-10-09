@@ -5112,7 +5112,10 @@
       "commentNotDeleted": "Could not delete comment",
       "commentReactionFailed": "Could not update reaction.",
       "voteFailedTitle": "Unable to vote",
-      "voteFailedGeneric": "Something went wrong. Please try again."
+      "voteFailedGeneric": "Something went wrong. Please try again.",
+      "errorTitle": "Error",
+      "acceptChallengeFailed": "Could not accept challenge. Please try again.",
+      "declineChallengeFailed": "Could not decline challenge. Please try again."
     },
     "noItems": "No closet items found yet.",
     "retry": "Retry",
@@ -5193,7 +5196,24 @@
     "settingsInfo": "The community will vote and the winner will be shown on both items.",
     "challengeShopHeading": "Challenge another shop",
     "challengeShopSub": "Choose a shop to challenge",
-    "searchShops": "Search shops..."
+    "searchShops": "Search shops...",
+    "voted": "Voted",
+    "challengeExpiredTitle": "Challenge Expired",
+    "challengeDeclinedTitle": "Challenge Declined",
+    "challengeAccepted": "Challenge Accepted",
+    "challengeExpiredNotice": "Your challenge expired without a response.",
+    "challengeDeclinedNotice": "You have declined this challenge. It will not proceed.",
+    "challengedYourItem": "challenged your item in an Opinion Battle.",
+    "fromYourShop": "From your shop",
+    "yourShop": "Your Shop",
+    "valensCommunity": "Valens Community",
+    "battleNotFound": "Battle not found",
+    "goBack": "Go Back",
+    "from": "From",
+    "challengeStatusPrefix": "Challenge is {{status}}",
+    "noLongerAvailable": "no longer available",
+    "view": "View",
+    "itemsCount": "items"
   },
   "shopSettings": {
     "title": "Shop Settings",
@@ -5354,7 +5374,7 @@
     "chooseType": "Choose your promotion",
     "types": {
       "discount24": {
-        "title": "10% Off for 24 Hours",
+        "title": "Offer a Discount on Your Item",
         "subtitle": "Limited time discount"
       },
       "freeShipping": {

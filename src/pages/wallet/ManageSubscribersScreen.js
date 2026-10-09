@@ -392,7 +392,7 @@ const ManageSubscribersScreen = () => {
           </View>
         </View>
 
-        {isSubscriberView && row.status !== STATUS.canceled && (
+        {isSubscriberView && row.status !== STATUS.canceled && row.status !== STATUS.expired && (
           <View style={{ marginTop: 16 }}>
             <TouchableOpacity
               style={[styles.outlineBtn, { borderColor: theme.border }]}
