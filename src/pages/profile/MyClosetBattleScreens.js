@@ -1818,22 +1818,27 @@ export function BattleLiveScreen({ navigation, route }) {
     [battle?.items, route?.params?.selectedItems],
   );
   const isCreator = !!currentUserId && !!battle?.createdBy && String(currentUserId) === String(battle.createdBy);
+  const isBattleLive =
+    String(battle?.status || '').toUpperCase() === 'LIVE' &&
+    String(battle?.outcome || '').toUpperCase() === 'PENDING';
+  const isBattleExpired =
+    String(battle?.status || '').toUpperCase() === 'EXPIRED' ||
+    String(battle?.outcome || '').toUpperCase() === 'EXPIRED' ||
+    (!isBattleLive && battle?.daysLeft === 0);
+  const isBattleFinished = ['COMPLETED', 'FINISHED', 'ENDED', 'CLOSED', 'RESOLVED'].includes(
+    String(battle?.status || '').toUpperCase(),
+  );
+  const isBattleVotingOpen =
+    (isBattleLive || (!isBattleExpired && !isBattleFinished)) &&
+    String(battle?.outcome || '').toUpperCase() !== 'CANCELLED';
+  const canVote = isBattleVotingOpen && !hasVoted && !checkingVote;
   const showResultsBar =
     hasVoted ||
-    isOwnProfile ||
-    isCreator ||
+    isBattleFinished ||
+    isBattleExpired ||
     !!route?.params?.showResultsBar ||
-    cameFromCard ||
-    (battle && (battle.status !== 'LIVE' || battle.outcome !== 'PENDING'));
+    (battle && (String(battle.status || '').toUpperCase() !== 'LIVE' || String(battle.outcome || '').toUpperCase() !== 'PENDING'));
   const voteAudienceText = battle?.whoCanVote === 'Followers' ? t('battle.followersOnly') : t('battle.everyoneCanVote');
-  const isBattleLive = battle?.status === 'LIVE' && battle?.outcome === 'PENDING';
-  const isBattleExpired =
-    battle?.status === 'EXPIRED' ||
-    battle?.outcome === 'EXPIRED' ||
-    (!isBattleLive && battle?.daysLeft === 0);
-  const isBattleFinished = ['COMPLETED', 'FINISHED', 'ENDED', 'CLOSED'].includes(String(battle?.status || '').toUpperCase());
-  const isBattleVotingOpen = !isBattleExpired && battle?.outcome !== 'CANCELLED';
-  const canVote = isBattleVotingOpen && !hasVoted && !checkingVote && !isOwnProfile && !isCreator;
   const battleCreatedAt = battle?.createdAt ? new Date(battle.createdAt).getTime() : NaN;
   // The API remains the authority for this window. If an older response does
   // not include a timestamp, leave deletion available and let the API give
@@ -2002,10 +2007,10 @@ export function BattleLiveScreen({ navigation, route }) {
       const response = await getBattleVoters(battleId, 1, 100);
       const data = response?.data?.data ?? response?.data ?? response;
       const voters = data?.voters || [];
-      const myVote = voters.find(v => v?.user?.id === userId);
+      const myVote = voters.find(v => (v?.user?.id || v?.userId || v?.id) === userId);
       if (myVote) {
         setHasVoted(true);
-        setVotedParticipantId(myVote?.participant?.id ?? null);
+        setVotedParticipantId(myVote?.participant?.id ?? myVote?.participantId ?? null);
       }
     } catch {
       // Non-fatal — if this fails, the user just sees the vote buttons again.
@@ -2065,7 +2070,8 @@ export function BattleLiveScreen({ navigation, route }) {
   }, [battle?.createdBy, battleId, currentUserId, loadBattle]);
 
   const handleVote = async () => {
-    const item = [leftItem, rightItem].find(entry => entry?.participantId === selectedParticipantId);
+    const item = [leftItem, rightItem].find(entry => (entry?.participantId || entry?.id) === selectedParticipantId);
+    const targetParticipantId = item?.participantId || item?.id || selectedParticipantId;
     if (checkingVote || hasVoted || votedParticipantId) {
       Alert.alert(
         t('battle.errors.voteFailedTitle') || 'Could not submit vote',
@@ -2073,18 +2079,18 @@ export function BattleLiveScreen({ navigation, route }) {
       );
       return;
     }
-    if (!battleId || !item?.participantId) {
+    if (!battleId || !targetParticipantId) {
       Alert.alert(
         t('battle.errors.voteFailedTitle') || 'Could not submit vote',
         t('battleInProgress.voteAlertSelectOption') || t('battle.errors.voteFailedGeneric') || 'Something went wrong. Please try again.',
       );
       return;
     }
-    setVotingParticipantId(item.participantId);
+    setVotingParticipantId(targetParticipantId);
     try {
-      const response = await voteOnBattle(battleId, item.participantId);
+      const response = await voteOnBattle(battleId, targetParticipantId);
       setHasVoted(true);
-      setVotedParticipantId(item.participantId);
+      setVotedParticipantId(targetParticipantId);
       await loadBattle();
     } catch (err) {
       const statusCode = err?.response?.data?.statusCode || err?.response?.status;
@@ -2423,61 +2429,59 @@ export function BattleLiveScreen({ navigation, route }) {
       ) : null}
 
       {/* Vote choice buttons with live counts */}
-      {!isOwnProfile && !isCreator ? (
-        <View style={liveStyles.voteButtonsRow}>
-          {[leftItem, rightItem].map((item, index) => {
-            const isThisVoting = votingParticipantId === item?.participantId;
-            const isThisVoted = votedParticipantId === item?.participantId;
-            const isSelected = selectedParticipantId === item?.participantId;
-            const sideLabel = index === 0 ? 'A' : 'B';
-            return (
-              <TouchableOpacity
-                key={item?.participantId || item?.id || index}
-                activeOpacity={0.9}
-                disabled={!canVote || isThisVoting}
-                onPress={() => setSelectedParticipantId(item?.participantId)}
+      <View style={liveStyles.voteButtonsRow}>
+        {[leftItem, rightItem].map((item, index) => {
+          const participantKey = item?.participantId || item?.id;
+          const isThisVoting = votingParticipantId === participantKey;
+          const isThisVoted = votedParticipantId === participantKey;
+          const isSelected = selectedParticipantId === participantKey;
+          const sideLabel = index === 0 ? 'A' : 'B';
+          return (
+            <TouchableOpacity
+              key={participantKey || index}
+              activeOpacity={0.9}
+              disabled={!canVote || isThisVoting || hasVoted}
+              onPress={() => setSelectedParticipantId(participantKey)}
+              style={[
+                liveStyles.voteButtonWrap,
+                isSelected && liveStyles.voteButtonWrapSelected,
+                (!canVote || isThisVoting) && { opacity: 0.7 },
+              ]}
+            >
+              <LinearGradient
+                colors={isThisVoted ? ['#22C55E', '#16A34A'] : isSelected ? [brandAccent, accent] : voteIdleColors}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
                 style={[
-                  liveStyles.voteButtonWrap,
-                  isSelected && liveStyles.voteButtonWrapSelected,
-                  (!canVote || isThisVoting) && { opacity: 0.7 },
+                  liveStyles.voteButtonInner,
+                  {
+                    borderWidth: 1,
+                    borderColor: isThisVoted ? '#16A34A' : isSelected ? brandAccent : voteIdleBorder,
+                  },
                 ]}
               >
-                <LinearGradient
-
-                  colors={isThisVoted ? ['#22C55E', '#16A34A'] : isSelected ? [brandAccent, accent] : voteIdleColors}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={[
-                    liveStyles.voteButtonInner,
-                    {
-                      borderWidth: 1,
-                      borderColor: isThisVoted ? '#16A34A' : isSelected ? brandAccent : voteIdleBorder,
-                    },
-                  ]}
-                >
-                  {isThisVoting ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : (
-                    <>
-                      <Ionicons
-                        name={isThisVoted ? 'checkmark-circle' : 'thumbs-up'}
-                        size={16}
-                        color={isThisVoted || isSelected ? '#fff' : accent}
-                      />
-                      <Text style={[liveStyles.voteButtonText, { color: isThisVoted || isSelected ? '#fff' : primaryText }]}>
-                        {t('battle.vote') || 'Vote'}
-                      </Text>
-                      <Text style={[liveStyles.voteButtonCount, { color: isThisVoted || isSelected ? '#fff' : accent }]}>
-                        {sideLabel}
-                      </Text>
-                    </>
-                  )}
-                </LinearGradient>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      ) : null}
+                {isThisVoting ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <>
+                    <Ionicons
+                      name={isThisVoted ? 'checkmark-circle' : 'thumbs-up'}
+                      size={16}
+                      color={isThisVoted || isSelected ? '#fff' : accent}
+                    />
+                    <Text style={[liveStyles.voteButtonText, { color: isThisVoted || isSelected ? '#fff' : primaryText }]}>
+                      {isThisVoted ? (t('battle.voted') || 'Voted') : (t('battle.vote') || 'Vote')}
+                    </Text>
+                    <Text style={[liveStyles.voteButtonCount, { color: isThisVoted || isSelected ? '#fff' : accent }]}>
+                      {sideLabel}
+                    </Text>
+                  </>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
 
 
       {canVote && !hasVoted ? (

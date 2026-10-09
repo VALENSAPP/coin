@@ -351,6 +351,11 @@ const normalizeBattleNotification = (item, t) => {
   const normalizedStatus = String(battle?.status || data?.status || '')
     .toUpperCase()
     .trim();
+  const normalizedBattleType = String(
+    pickFirstString(battle?.battleType, data?.battleType, item?.battleType) || '',
+  )
+    .toUpperCase()
+    .trim();
   const inviteHandled = hasBattleInviteBeenHandled(item);
   const isHeadToHeadInvite =
     normalizedType === 'battle_invite' && normalizedFormat === 'HEAD_TO_HEAD';
@@ -389,6 +394,7 @@ const normalizeBattleNotification = (item, t) => {
     actionPayload,
     question: pickFirstString(battle?.question, battle?.title, data?.question),
     format: normalizedFormat || pickFirstString(battle?.format, data?.format),
+    battleType: normalizedBattleType,
     status: normalizedStatus,
     stake: pickFirstValue(battle?.stake, data?.stake),
     options: Array.isArray(battle?.options) ? battle.options : [],
@@ -769,6 +775,41 @@ export default function Notifications() {
 
       const normType = normalizeNotificationType(item?.type);
       const status = String(item?.status || battleData?.status || '').toUpperCase();
+
+      const rawBattleType = pickFirstValue(
+        battleData?.battleType,
+        battleData?.type,
+        item?.battleType,
+        item?.raw?.data?.battleType,
+        item?.raw?.battleType,
+        item?.data?.battleType,
+        item?.raw?.data?.battle?.battleType,
+        item?.raw?.battle?.battleType,
+      );
+      const battleType = String(rawBattleType || '').toUpperCase().trim();
+      const isPrediction = battleType === 'PREDICTION';
+
+      const isBattleClosed =
+        normType === 'battle_closed' ||
+        normType === 'marketplace_battle_closed' ||
+        String(item?.title || '').toLowerCase().includes('battle closed') ||
+        String(item?.raw?.title || '').toLowerCase().includes('battle closed') ||
+        String(item?.raw?.data?.rawTitle || '').toLowerCase().includes('battle closed');
+
+      if (isBattleClosed && isPrediction) {
+        navigation.navigate('ProfileMain', {
+          screen: 'BattleInProgress',
+          params: {
+            battleId: payload?.battleId || battleData?.id || battleData?._id || battleId,
+            invitationId: payload?.invitationId || battleData?.invitationId || item?.raw?.data?.invitationId || '',
+            battle: battleData,
+            entryPoint: 'notifications',
+            returnTo: { tab: 'HomeMain', screen: 'HeartNotification' },
+          },
+        });
+        return;
+      }
+
       const isEnded =
         ['COMPLETED', 'FINISHED', 'ENDED', 'CLOSED', 'RESOLVED', 'EXPIRED'].includes(status) ||
         normType === 'marketplace_battle_ended' ||
@@ -1388,7 +1429,18 @@ export default function Notifications() {
 
         const titleLower = String(item?.title || '').toLowerCase();
         const bodyLower = String(item?.message || item?.body || item?.raw?.body || '').toLowerCase();
+        const rawTitleLower = String(item?.raw?.data?.rawTitle || item?.raw?.title || '').toLowerCase();
+        const payload = extractBattleActionPayload(item);
+        const battleData =
+          item?.raw?.data?.battle ||
+          item?.raw?.battle ||
+          item?.data?.battle ||
+          item?.battle ||
+          {};
         const battleId = pickFirstValue(
+          payload?.battleId,
+          battleData?.id,
+          battleData?._id,
           item?.raw?.data?.battleId,
           item?.raw?.data?.battle_id,
           item?.raw?.data?.battle?.id,
@@ -1401,7 +1453,41 @@ export default function Notifications() {
           item?.raw?.battle_id,
           item?.battleId,
           item?.battle_id,
+          item?.id,
         );
+
+        const rawBattleType = pickFirstValue(
+          battleData?.battleType,
+          battleData?.type,
+          item?.battleType,
+          item?.raw?.data?.battleType,
+          item?.raw?.battleType,
+          item?.data?.battleType,
+          item?.raw?.data?.battle?.battleType,
+          item?.raw?.battle?.battleType,
+        );
+        const battleType = String(rawBattleType || '').toUpperCase().trim();
+        const isPrediction = battleType === 'PREDICTION';
+
+        const isBattleClosed =
+          normType === 'battle_closed' ||
+          normType === 'marketplace_battle_closed' ||
+          titleLower.includes('battle closed') ||
+          rawTitleLower.includes('battle closed');
+
+        if (isBattleClosed && isPrediction && battleId) {
+          navigation.navigate('ProfileMain', {
+            screen: 'BattleInProgress',
+            params: {
+              battleId,
+              invitationId: payload?.invitationId || battleData?.invitationId || item?.raw?.data?.invitationId || '',
+              battle: battleData,
+              entryPoint: 'notifications',
+              returnTo: { tab: 'HomeMain', screen: 'HeartNotification' },
+            },
+          });
+          return;
+        }
 
         if (normType === 'marketplace_battle_challenge') {
           if (battleId) {
@@ -1482,8 +1568,10 @@ export default function Notifications() {
                 screen: 'BattleInProgress',
                 params: {
                   battleId,
-                  battle: {},
+                  invitationId: payload?.invitationId || battleData?.invitationId || '',
+                  battle: battleData,
                   entryPoint: 'notifications',
+                  returnTo: { tab: 'HomeMain', screen: 'HeartNotification' },
                 },
               });
             }

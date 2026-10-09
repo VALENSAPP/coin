@@ -587,10 +587,12 @@ const MyClosetShopFront = ({ navigation, userData, shopDraft, isOwnProfile = tru
     });
   }, []);
 
-  const resolvedIsOwnProfile = useMemo(
-    () => String(loggedInUserId || currentUserId || '') === String(userData?.id || ''),
-    [currentUserId, loggedInUserId, userData?.id],
-  );
+  const resolvedIsOwnProfile = useMemo(() => {
+    const myId = loggedInUserId || currentUserId;
+    const targetId = userData?.id;
+    if (!myId || !targetId) return false;
+    return String(myId) === String(targetId);
+  }, [currentUserId, loggedInUserId, userData?.id]);
 
   const fetchEbooks = useCallback(async (userId, cId = null) => {
     if (!userId && !cId) {

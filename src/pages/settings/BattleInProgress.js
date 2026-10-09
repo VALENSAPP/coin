@@ -111,7 +111,7 @@ const HexagonImage = ({ uri, size = 110, borderColor = 'rgba(255,255,255,0.4)', 
 
 const normalizeOption = (option, index) => {
   if (typeof option === 'string') {
-    return { id: `${index}`, label: option, votes: 0, likes: 0, percentage: 0 };
+    return { id: `${index}`, label: option, side: option, votes: 0, likes: 0, percentage: 0 };
   }
   const label = pickFirst(
     option?.side, option?.label, option?.text, option?.value,
@@ -565,8 +565,8 @@ const normalizeBattle = (raw, currentUserId = '') => {
     creatorId,
     invitedUserId,
     invitationId,
-    resultValue: pickFirst(raw?.resultValue, raw?.actualResult, raw?.winningOption, ''),
-    winningSide: String(pickFirst(raw?.winningSide, raw?.resultValue, raw?.actualResult, '')),
+    resultValue: pickFirst(raw?.resultValue, raw?.correctSide, raw?.actualResult, raw?.winningOption, ''),
+    winningSide: String(pickFirst(raw?.winningSide, raw?.correctSide, raw?.winningSideLabel, raw?.resultValue, raw?.actualResult, '')),
     winnerUserId: String(pickFirst(raw?.winnerUserId, raw?.winner?.id, raw?.winner?._id, '')),
     winnerName: pickFirst(raw?.winner?.name, raw?.winner?.displayName, raw?.winner?.userName, raw?.winnerName, ''),
     creator: {

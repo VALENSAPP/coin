@@ -34,7 +34,7 @@ import {
 } from '../../services/myCloset';
 import { Header, CHALLENGE_ITEMS } from './MyClosetBattleScreens';
 import { formSurfaces, selectedSurface, themedCard } from '../../utils/closetTheme';
-import { useTargetClosetScreen, navigateToTargetClosetScreen } from '../../utils/closetNavigation';
+import { useTargetClosetScreen, navigateToTargetClosetScreen, themeGradient } from '../../utils/closetNavigation';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 import { BASE_URL } from '../../config/urls';
 
@@ -402,13 +402,13 @@ export function BattleInsightsActionsScreen({ navigation, route }) {
 }
 
 export function PromotionExpiredScreen({ navigation, winnerItem, battleId }) {
-  const { bgStyle, text, card, bg, border, mutedText } = useAppTheme();
+  const { bgStyle, text, card, bg, border, mutedText, accent: themeAccent } = useAppTheme();
   const { isDarkMode } = useThemeContext();
   const surfaces = formSurfaces(isDarkMode);
   const subtleMuted = mutedText || surfaces.mutedColor;
   const surface = card || surfaces.listSurface;
   const { t } = useLanguage();
-  const accent = text || PURPLE;
+  const accent = themeAccent || PURPLE;
   const targetScreen = useTargetClosetScreen();
 
   return (
@@ -494,7 +494,7 @@ export function PromotionExpiredScreen({ navigation, winnerItem, battleId }) {
           }
           style={{width: '100%'}}
         >
-          <LinearGradient colors={[accent, text]} style={[styles.primaryButton, {flexDirection: 'row'}]}>
+          <LinearGradient colors={themeGradient(accent)} style={[styles.primaryButton, {flexDirection: 'row'}]}>
             <Ionicons name="flash-outline" size={16} color="#fff" style={{ marginRight: 8 }} />
             <Text style={styles.primaryButtonText}>
               {t('battleInsights.createNewBattle') || 'Create New Battle'}
@@ -520,14 +520,14 @@ export function PromotionExpiredScreen({ navigation, winnerItem, battleId }) {
 /* ----------------------------- Boost flow ----------------------------- */
 
 export function BoostWinningItemScreen({ navigation, route }) {
-  const { bgStyle, text, card, bg, border, mutedText } = useAppTheme();
+  const { bgStyle, text, card, bg, border, mutedText, accent: themeAccent } = useAppTheme();
   const { isDarkMode } = useThemeContext();
   const surfaces = formSurfaces(isDarkMode);
   const idleSurface = card || surfaces.inputSurface;
   const subtleMuted = mutedText || surfaces.mutedColor;
   const surface = card || surfaces.listSurface;
   const { t } = useLanguage();
-  const accent = text || PURPLE;
+  const accent = themeAccent || PURPLE;
   const winnerItem = route?.params?.winnerItem;
   const battleId = route?.params?.battleId;
   const [showBadge, setShowBadge] = useState(true);
@@ -636,7 +636,7 @@ export function BoostWinningItemScreen({ navigation, route }) {
             })
           }
         >
-          <LinearGradient colors={[accent, text]} style={styles.primaryButton}>
+          <LinearGradient colors={themeGradient(accent)} style={styles.primaryButton}>
             <Text style={styles.primaryButtonText}>{t('boost.continue')}</Text>
           </LinearGradient>
         </TouchableOpacity>
@@ -646,7 +646,7 @@ export function BoostWinningItemScreen({ navigation, route }) {
 }
 
 export function ReviewBoostScreen({ navigation, route }) {
-  const { bgStyle, text, card, bg, border, mutedText } = useAppTheme();
+  const { bgStyle, text, card, bg, border, mutedText, accent: themeAccent } = useAppTheme();
   const { isDarkMode } = useThemeContext();
   const surfaces = formSurfaces(isDarkMode);
   const subtleMuted = mutedText || surfaces.mutedColor;
@@ -654,7 +654,7 @@ export function ReviewBoostScreen({ navigation, route }) {
   const rowBorder = isDarkMode ? (border || surfaces.listBorder) : '#F1E8FB';
   const { t } = useLanguage();
   const toast = useToast();
-  const accent = text || PURPLE;
+  const accent = themeAccent || PURPLE;
   const targetScreen = useTargetClosetScreen();
   const { winnerItem, showBadge, pinOnTop, selectedPackage, battleId, boostPackage } = route?.params || {};
   const [submitting, setSubmitting] = useState(false);
@@ -800,7 +800,7 @@ export function ReviewBoostScreen({ navigation, route }) {
         </View>
 
         <TouchableOpacity activeOpacity={0.9} onPress={handleBoostNow} disabled={submitting}>
-          <LinearGradient colors={[accent, text]} style={styles.primaryButton}>
+          <LinearGradient colors={themeGradient(accent)} style={styles.primaryButton}>
             <Text style={styles.primaryButtonText}>{submitting ? (t('boost.loading') || 'Loading...') : t('boost.boostNow')}</Text>
           </LinearGradient>
         </TouchableOpacity>
