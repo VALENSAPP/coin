@@ -398,7 +398,7 @@ const BattleSlide = ({
           </View>
           <Text style={[styles.fighterName, { color: textColor }]} numberOfLines={2}>{battle.left.name}</Text>
           <Text style={[styles.fighterPrice, { color: textColor }]}>{battle.left.price}</Text>
-          <Text style={[styles.pct, { color: accent }]}>{battle.left.pct}%</Text>
+          <Text style={[styles.pct, { color: textColor }]}>{battle.left.pct}%</Text>
           {renderWinnerBadge('left')}
         </View>
 
@@ -417,7 +417,7 @@ const BattleSlide = ({
           </View>
           <Text style={[styles.fighterName, { color: textColor }]} numberOfLines={2}>{battle.right.name}</Text>
           <Text style={[styles.fighterPrice, { color: textColor }]}>{battle.right.price}</Text>
-          <Text style={[styles.pctRed, { color: accent }]}>{battle.right.pct}%</Text>
+          <Text style={[styles.pctRed, { color: textColor }]}>{battle.right.pct}%</Text>
           {renderWinnerBadge('right')}
         </View>
       </View>
