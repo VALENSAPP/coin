@@ -32,7 +32,7 @@ import {
 import { navigateToUserProfile } from '../../utils/navigateToUserProfile';
 import { formSurfaces, selectedSurface, themedCard } from '../../utils/closetTheme';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
-import { useFocusEffect, StackActions } from '@react-navigation/native';
+import { useFocusEffect, StackActions, useIsFocused } from '@react-navigation/native';
 import Svg, { Defs, ClipPath, Polygon, Image as SvgImage } from 'react-native-svg';
 import {
   getMyClosetItems,
@@ -54,6 +54,7 @@ import {
   acceptMarketplaceBattle,
   declineMarketplaceBattle,
   getMarketplaceBattleChallengeStatus,
+  getMarketplaceBattleViews,
 } from '../../services/myCloset';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getAllUser } from '../../services/users';
@@ -1776,6 +1777,7 @@ export function BattleLiveScreen({ navigation, route }) {
   const cameFromCard = !!initialBattle;
   const battleBack = useBattleBackHandler(navigation, route);
   const targetScreen = useTargetClosetScreen();
+  const isFocused = useIsFocused();
 
   console.log("-----------------initialBattle-----------------", initialBattle)
   const handleBack = useCallback(() => {
@@ -2362,6 +2364,21 @@ export function BattleLiveScreen({ navigation, route }) {
   useEffect(() => {
     loadComments();
   }, [loadComments]);
+
+  useEffect(() => {
+    if (!isFocused || !battleId) return;
+
+    const fetchBattleViews = async () => {
+      try {
+        const response = await getMarketplaceBattleViews(battleId);
+        console.log('Battle views:', response);
+      } catch (error) {
+        console.error('Error fetching battle views:', error);
+      }
+    };
+
+    fetchBattleViews();
+  }, [isFocused, battleId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -3906,8 +3923,8 @@ export function ChallengeAcceptedScreen({ navigation, route }) {
           {isExpired
             ? t('battle.challengeExpiredNotice', 'Your challenge expired without a response.')
             : isDeclined
-            ? t('battle.challengeDeclinedNotice', 'You have declined this challenge. It will not proceed.')
-            : t('battle.battleGoLiveWait', 'The battle will go live once both items are accepted.')}
+              ? t('battle.challengeDeclinedNotice', 'You have declined this challenge. It will not proceed.')
+              : t('battle.battleGoLiveWait', 'The battle will go live once both items are accepted.')}
         </Text>
 
         {/* Battle Preview Box */}
@@ -3945,16 +3962,16 @@ export function ChallengeAcceptedScreen({ navigation, route }) {
         )}
 
         {/* Buttons */}
-        {!isExpired && 
-        <TouchableOpacity
-          activeOpacity={0.9}
-          onPress={() => navigateToTargetClosetScreen(navigation, targetScreen)}
-          style={{ width: '100%', marginBottom: 12 }}
-        >
-          <LinearGradient colors={themeGradient(accent)} style={styles.actionBtn}>
-            <Text style={styles.actionBtnText}>{t('battle.viewMyBattles', 'View My Battles')}</Text>
-          </LinearGradient>
-        </TouchableOpacity>
+        {!isExpired &&
+          <TouchableOpacity
+            activeOpacity={0.9}
+            onPress={() => navigateToTargetClosetScreen(navigation, targetScreen)}
+            style={{ width: '100%', marginBottom: 12 }}
+          >
+            <LinearGradient colors={themeGradient(accent)} style={styles.actionBtn}>
+              <Text style={styles.actionBtnText}>{t('battle.viewMyBattles', 'View My Battles')}</Text>
+            </LinearGradient>
+          </TouchableOpacity>
         }
 
         {/* <TouchableOpacity 

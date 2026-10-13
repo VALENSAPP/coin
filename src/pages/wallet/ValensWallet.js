@@ -247,6 +247,8 @@ const ValensWallet = ({ navigation }) => {
                     if (t.includes('subscription')) return 'people-outline';
                     if (t.includes('support') || t.includes('follow')) return 'heart-outline';
                     if (t.includes('transfer') || t.includes('wallet')) return 'swap-horizontal-outline';
+                    if (t.includes('ebook') || t.includes('book')) return 'book-outline';
+                    if (t.includes('market') || t.includes('shop')) return 'bag-handle-outline';
                     return 'receipt-outline';
                 };
 
@@ -310,6 +312,12 @@ const ValensWallet = ({ navigation }) => {
                         profileImage: userProfile?.image || '',
                         profileUserName: userProfile?.userName || '',
                         profileDisplayName: userProfile?.displayName || '',
+                        typeTransaction: tx?.typeTransaction,
+                        type: tx?.type,
+                        totalAmount: pickFirst(tx?.totalAmount, tx?.total),
+                        rawAmount: tx?.amount,
+                        platformFee: pickFirst(tx?.platformFee, tx?.fee),
+                        rawTx: tx,
                     };
                 });
 

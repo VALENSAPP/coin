@@ -71,6 +71,8 @@ const resolveIcon = (type) => {
   if (t.includes('subscription')) return 'people-outline';
   if (t.includes('support') || t.includes('follow')) return 'heart-outline';
   if (t.includes('transfer') || t.includes('wallet')) return 'swap-horizontal-outline';
+  if (t.includes('ebook') || t.includes('book')) return 'book-outline';
+  if (t.includes('market') || t.includes('shop')) return 'bag-handle-outline';
   return 'receipt-outline';
 };
 
@@ -166,6 +168,12 @@ const mapTransactionsToActivity = async (raw) => {
       profileImage: userProfile?.image || '',
       profileUserName: userProfile?.userName || '',
       profileDisplayName: userProfile?.displayName || '',
+      typeTransaction: tx?.typeTransaction,
+      type: tx?.type,
+      totalAmount: pickFirst(tx?.totalAmount, tx?.total),
+      rawAmount: tx?.amount,
+      platformFee: pickFirst(tx?.platformFee, tx?.fee),
+      rawTx: tx,
     };
   });
 };
@@ -202,6 +210,8 @@ export default function TransactionActivityScreen() {
         response?.data ||
         [];
       setActivity(await mapTransactionsToActivity(raw));
+
+      console.log('TransactionActivityScreen: fetched', raw, 'transactions');
     } catch (e) {
       showToastMessage(toast, 'danger', e?.response?.data?.message || e?.message || t('transactions.loadFailed'));
     } finally {

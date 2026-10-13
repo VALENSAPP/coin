@@ -25,6 +25,7 @@ import {
   getMarketplaceEbookById,
   getMarketPlaceEbookById,
   deleteMarketplaceEbook,
+  getUserCredentials,
 } from '../../services/post';
 import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../displaytoastmessage';
@@ -143,19 +144,68 @@ const EbookDetailScreen = () => {
   const route = useRoute();
   const routeUserData = route?.params?.userData;
   const [ebookData, setEbookData] = useState(route?.params?.ebook || {});
+  const [authorProfile, setAuthorProfile] = useState(null);
+
+  const targetUserId = useMemo(() => (
+    ebookData?.userId ||
+    ebookData?.UserId ||
+    ebookData?.user?.id ||
+    ebookData?.user?._id ||
+    ebookData?.creator?.id ||
+    ebookData?.creator?._id ||
+    ebookData?.creatorId ||
+    ebookData?.authorId ||
+    ebookData?.ownerId ||
+    routeUserData?.id ||
+    routeUserData?.userId ||
+    route?.params?.userId ||
+    null
+  ), [ebookData, routeUserData, route?.params?.userId]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchAuthorData = async () => {
+      const uid = targetUserId;
+      if (!uid) return;
+      try {
+        const res = await getUserCredentials(uid);
+        const data = res?.data?.data || res?.data?.user || res?.data;
+        if (data && isMounted) {
+          setAuthorProfile(data);
+        }
+      } catch (err) {
+        console.log('Error fetching author profile in EbookDetailScreen:', err);
+      }
+    };
+    fetchAuthorData();
+    return () => {
+      isMounted = false;
+    };
+  }, [targetUserId]);
+
   const ebook = useMemo(() => {
     const profileName =
+      authorProfile?.userName ||
+      authorProfile?.username ||
+      authorProfile?.displayName ||
+      authorProfile?.name ||
       routeUserData?.userName ||
       routeUserData?.displayName ||
       routeUserData?.name ||
       '';
     const profileImage =
+      authorProfile?.profile_image ||
+      authorProfile?.profileImage ||
+      authorProfile?.avatar ||
+      authorProfile?.image ||
+      routeUserData?.profile_image ||
       routeUserData?.profileImage ||
       routeUserData?.avatar ||
       routeUserData?.image ||
       routeUserData?.profilePic ||
+      routeUserData?.profile_pic ||
       '';
-    const profileUserId = routeUserData?.id || routeUserData?.userId || null;
+    const profileUserId = authorProfile?.id || authorProfile?.userId || routeUserData?.id || routeUserData?.userId || null;
     return {
       ...ebookData,
       userName:
@@ -171,10 +221,16 @@ const EbookDetailScreen = () => {
         '',
       userImage:
         ebookData?.userImage ||
+        ebookData?.profile_image ||
+        ebookData?.profileImage ||
         ebookData?.avatar ||
+        ebookData?.image ||
+        ebookData?.creator?.profile_image ||
+        ebookData?.creator?.profileImage ||
         ebookData?.creator?.avatar ||
         ebookData?.creator?.image ||
-        ebookData?.creator?.profileImage ||
+        ebookData?.user?.profile_image ||
+        ebookData?.user?.profileImage ||
         ebookData?.user?.avatar ||
         ebookData?.user?.image ||
         profileImage ||
@@ -190,7 +246,7 @@ const EbookDetailScreen = () => {
         profileUserId ||
         null,
     };
-  }, [ebookData, routeUserData]);
+  }, [ebookData, routeUserData, authorProfile]);
   const fromRootNavigator = route?.params?.fromRootNavigator;
   const fromEbookPublisher = route?.params?.fromEbookPublisher === true;
   const fromMyClosetShopFront = route?.params?.from === 'MyClosetShopFront';
@@ -292,22 +348,57 @@ const EbookDetailScreen = () => {
     routeUserData?.displayName ||
     t('ebookBuyDetails.unknownAuthor', 'Unknown Author')
   );
-  const userAvatarSource = useMemo(() => {
-    const uri =
-      ebook.userImage ||
-      ebook.avatar ||
-      ebook.user?.avatar ||
-      ebook.user?.image ||
-      ebook.creator?.avatar ||
-      ebook.creator?.image ||
+  const normalizeRemoteUrl = useCallback((url) => {
+    if (!url || typeof url !== 'string') return null;
+    const trimmed = url.trim();
+    if (!trimmed) return null;
+    if (
+      trimmed.startsWith('http://') ||
+      trimmed.startsWith('https://') ||
+      trimmed.startsWith('data:') ||
+      trimmed.startsWith('file://')
+    ) {
+      return trimmed;
+    }
+    if (trimmed.startsWith('/')) return `https://api.valens.app${trimmed}`;
+    return `https://api.valens.app/${trimmed}`;
+  }, []);
+
+  const authorAvatarUri = useMemo(() => {
+    const raw =
+      authorProfile?.profile_image ||
+      authorProfile?.profileImage ||
+      authorProfile?.avatar ||
+      authorProfile?.image ||
+      routeUserData?.profile_image ||
       routeUserData?.profileImage ||
       routeUserData?.avatar ||
-      routeUserData?.image;
-    if (uri && typeof uri === 'string' && uri.trim().length > 0) {
-      return { uri: uri.trim() };
+      routeUserData?.image ||
+      routeUserData?.profilePic ||
+      routeUserData?.profile_pic ||
+      ebook.userImage ||
+      ebook.profile_image ||
+      ebook.profileImage ||
+      ebook.avatar ||
+      ebook.image ||
+      ebook.user?.profile_image ||
+      ebook.user?.profileImage ||
+      ebook.user?.avatar ||
+      ebook.user?.image ||
+      ebook.creator?.profile_image ||
+      ebook.creator?.profileImage ||
+      ebook.creator?.avatar ||
+      ebook.creator?.image ||
+      null;
+    return normalizeRemoteUrl(raw);
+  }, [authorProfile, ebook, routeUserData, normalizeRemoteUrl]);
+
+  const userAvatarSource = useMemo(() => {
+    if (authorAvatarUri) {
+      return { uri: authorAvatarUri };
     }
     return require('../../assets/icons/pngicons/blackUser.png');
-  }, [ebook, routeUserData]);
+  }, [authorAvatarUri]);
   const description = getDescription(ebook, t);
 
   const pdfUrl = useMemo(() => {
@@ -707,21 +798,6 @@ const EbookDetailScreen = () => {
     navigation.navigate('HomeMain', { screen: 'UsersProfile', params });
   }, [ebookData, navigation, route?.params, routeUserData]);
 
-  const targetUserId =
-    ebook?.userId ||
-    ebook?.UserId ||
-    ebook?.user?.id ||
-    ebook?.user?._id ||
-    ebook?.creator?.id ||
-    ebook?.creator?._id ||
-    ebook?.creatorId ||
-    ebook?.authorId ||
-    ebook?.ownerId ||
-    routeUserData?.id ||
-    routeUserData?.userId ||
-    route?.params?.userId ||
-    null;
-
   const handleProfilePress = useCallback(() => {
     if (!targetUserId) return;
     const returnParams = {
@@ -944,7 +1020,12 @@ const EbookDetailScreen = () => {
               accessibilityLabel={`View ${userName}'s profile`}
             >
               <View style={styles.avatarStack}>
-                <Image source={userAvatarSource} style={styles.avatar} />
+                <HexAvatar
+                  uri={authorAvatarUri || (typeof userAvatarSource === 'object' ? userAvatarSource?.uri : userAvatarSource)}
+                  size={36}
+                  borderWidth={1.5}
+                  borderColor={brandAccent}
+                />
               </View>
               <View style={styles.authorTextWrap}>
                 <View style={styles.authorTopLine}>

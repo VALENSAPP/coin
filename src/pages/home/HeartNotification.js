@@ -435,6 +435,8 @@ export default function Notifications() {
   const insets = useSafeAreaInsets();
   const listBottomPadding = Math.max(insets.bottom + 16, Platform.OS === 'android' ? 24 : 16);
   const routes = useRoute();
+  const fromSubscriptionPriceChangedRef = useRef(false);
+  const lastFetchedFromSubPriceChangedAtRef = useRef(0);
 
   const tabs = useMemo(
     () => [
@@ -486,11 +488,41 @@ export default function Notifications() {
 
   useFocusEffect(
     useCallback(() => {
-      getNotification(false);
+      const isFromSubscriptionPriceChanged =
+        fromSubscriptionPriceChangedRef.current ||
+        Boolean(routes?.params?.fromSubscriptionPriceChanged);
+
+      if (isFromSubscriptionPriceChanged) {
+        fromSubscriptionPriceChangedRef.current = false;
+        if (routes?.params?.fromSubscriptionPriceChanged) {
+          navigation.setParams({ fromSubscriptionPriceChanged: undefined });
+        }
+        const now = Date.now();
+        if (now - lastFetchedFromSubPriceChangedAtRef.current >= 1000) {
+          lastFetchedFromSubPriceChangedAtRef.current = now;
+          getNotification(false);
+        }
+      }
       getBattleNotifications(false);
       markAllOnFocusRef.current = true;
-    }, []),
+    }, [routes?.params?.fromSubscriptionPriceChanged, navigation]),
   );
+
+  useEffect(() => {
+    const subscription = DeviceEventEmitter.addListener(
+      'COMING_FROM_SUBSCRIPTION_PRICE_CHANGED',
+      () => {
+        fromSubscriptionPriceChangedRef.current = true;
+        const now = Date.now();
+        if (now - lastFetchedFromSubPriceChangedAtRef.current >= 1000) {
+          lastFetchedFromSubPriceChangedAtRef.current = now;
+          getNotification(false);
+        }
+      },
+    );
+
+    return () => subscription.remove();
+  }, []);
 
   useEffect(() => {
     getNotification(true);
@@ -1423,7 +1455,7 @@ export default function Notifications() {
             (item?.isAccepted ? 'ACCEPTED' : item?.isDeclined ? 'DECLINED' : item?.isPending ? 'PENDING' : null) ||
             notifData?.status ||
             item?.status;
-          console.log('Subscription price changed notification:', notifData, 'priceUpdateStatus:', priceUpdateStatus);
+          fromSubscriptionPriceChangedRef.current = true;
           navigation.navigate('SubscriptionPriceChanged', {
             creatorId,
             newPrice,
@@ -1432,6 +1464,7 @@ export default function Notifications() {
             isCancelled,
             priceUpdateStatus,
             notification: item,
+            fromScreen: 'HeartNotification',
           });
           return;
         }

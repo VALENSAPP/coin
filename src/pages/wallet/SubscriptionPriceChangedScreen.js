@@ -10,6 +10,7 @@ import {
   Image,
   Platform,
   Linking,
+  DeviceEventEmitter,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -164,6 +165,7 @@ const SubscriptionPriceChangedScreen = () => {
       }
 
       setStatusState('accepted');
+      DeviceEventEmitter.emit('COMING_FROM_SUBSCRIPTION_PRICE_CHANGED');
       Alert.alert(
         t('subscriptionPriceChangedScreen.title'),
         t('subscriptionPriceChangedScreen.acceptSuccess')
@@ -192,6 +194,7 @@ const SubscriptionPriceChangedScreen = () => {
       await cancelFanSubscription(payload);
 
       setStatusState('declined');
+      DeviceEventEmitter.emit('COMING_FROM_SUBSCRIPTION_PRICE_CHANGED');
       Alert.alert(
         t('subscriptionPriceChangedScreen.title'),
         t('subscriptionPriceChangedScreen.declineSuccess')
@@ -224,11 +227,22 @@ const SubscriptionPriceChangedScreen = () => {
     );
   }, [confirmDecline, t]);
 
+  const handleBack = useCallback(() => {
+    DeviceEventEmitter.emit('COMING_FROM_SUBSCRIPTION_PRICE_CHANGED');
+    navigation.goBack();
+  }, [navigation]);
+
+  useEffect(() => {
+    return () => {
+      DeviceEventEmitter.emit('COMING_FROM_SUBSCRIPTION_PRICE_CHANGED');
+    };
+  }, []);
+
   return (
     <SafeAreaView style={[styles.safe, bgStyle]} edges={['top', 'left', 'right']}>
       <View style={[styles.header, { borderBottomColor: softBorder }]}>
         <TouchableOpacity
-          onPress={() => navigation.goBack()}
+          onPress={handleBack}
           style={styles.headerBtn}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
@@ -399,7 +413,7 @@ const SubscriptionPriceChangedScreen = () => {
           <View style={styles.actionsWrap}>
             <TouchableOpacity
               style={[styles.primaryBtn, { backgroundColor: cta.bg }]}
-              onPress={() => navigation.goBack()}
+              onPress={handleBack}
               activeOpacity={0.8}
             >
               <Text style={[styles.primaryBtnText, { color: cta.fg }]}>

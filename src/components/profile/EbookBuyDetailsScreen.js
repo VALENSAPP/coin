@@ -1,12 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useThemeContext } from '../../theme/ThemeContext';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { getMarketplaceEbookById } from '../../services/post';
+import { getMarketplaceEbookById, getUserCredentials } from '../../services/post';
 import { formSurfaces, themedCard } from '../../utils/closetTheme';
 import { useLanguage } from '../../i18n';
+import HexAvatar from '../home/story.js/HexAvatar';
+import { navigateToUserProfile } from '../../utils/navigateToUserProfile';
 
 const getCoverImage = (item) => {
   if (!item) return null;
@@ -70,9 +72,95 @@ const EbookBuyDetailsScreen = () => {
   const surface = card || surfaces.listSurface;
   const surfaceBorder = border || surfaces.listBorder;
 
+  const targetUserId = useMemo(() => (
+    currentEbook?.userId ||
+    currentEbook?.UserId ||
+    currentEbook?.user?.id ||
+    currentEbook?.user?._id ||
+    currentEbook?.creator?.id ||
+    currentEbook?.creator?._id ||
+    currentEbook?.creatorId ||
+    currentEbook?.authorId ||
+    currentEbook?.ownerId ||
+    userData?.id ||
+    userData?.userId ||
+    route?.params?.userId ||
+    null
+  ), [currentEbook, userData, route?.params?.userId]);
+
+  const [authorProfile, setAuthorProfile] = useState(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchAuthorData = async () => {
+      const uid = targetUserId;
+      if (!uid) return;
+      try {
+        const res = await getUserCredentials(uid);
+        const data = res?.data?.data || res?.data?.user || res?.data;
+        if (data && isMounted) {
+          setAuthorProfile(data);
+        }
+      } catch (err) {
+        console.log('Error fetching author profile in EbookBuyDetailsScreen:', err);
+      }
+    };
+    fetchAuthorData();
+    return () => {
+      isMounted = false;
+    };
+  }, [targetUserId]);
+
+  const normalizeRemoteUrl = (url) => {
+    if (!url || typeof url !== 'string') return null;
+    const trimmed = url.trim();
+    if (!trimmed) return null;
+    if (
+      trimmed.startsWith('http://') ||
+      trimmed.startsWith('https://') ||
+      trimmed.startsWith('data:') ||
+      trimmed.startsWith('file://')
+    ) {
+      return trimmed;
+    }
+    if (trimmed.startsWith('/')) return `https://api.valens.app${trimmed}`;
+    return `https://api.valens.app/${trimmed}`;
+  };
+
+  const authorAvatarUri = normalizeRemoteUrl(
+    authorProfile?.profile_image ||
+    authorProfile?.profileImage ||
+    authorProfile?.avatar ||
+    authorProfile?.image ||
+    userData?.profile_image ||
+    userData?.profileImage ||
+    userData?.avatar ||
+    userData?.image ||
+    userData?.profilePic ||
+    userData?.profile_pic ||
+    currentEbook?.profile_image ||
+    currentEbook?.profileImage ||
+    currentEbook?.userImage ||
+    currentEbook?.avatar ||
+    currentEbook?.image ||
+    currentEbook?.user?.profile_image ||
+    currentEbook?.user?.profileImage ||
+    currentEbook?.user?.avatar ||
+    currentEbook?.user?.image ||
+    currentEbook?.creator?.profile_image ||
+    currentEbook?.creator?.profileImage ||
+    currentEbook?.creator?.avatar ||
+    currentEbook?.creator?.image ||
+    null
+  );
+
   const coverImage = getCoverImage(currentEbook);
   const title = currentEbook?.caption || currentEbook?.title || t('ebookBuyDetails.defaultTitle', 'E-book');
   const author =
+    authorProfile?.userName ||
+    authorProfile?.username ||
+    authorProfile?.displayName ||
+    authorProfile?.name ||
     currentEbook?.purchasedFrom ||
     route?.params?.username ||
     currentEbook?.userName ||
@@ -86,6 +174,19 @@ const EbookBuyDetailsScreen = () => {
     userData?.displayName ||
     t('ebookBuyDetails.unknownAuthor', 'Unknown Author');
   const description = getDescription(currentEbook, t);
+
+  const handleAuthorPress = () => {
+    if (!targetUserId) return;
+    void navigateToUserProfile(navigation, targetUserId, {
+      username: author,
+      user: {
+        id: targetUserId,
+        userName: author,
+        image: authorAvatarUri || undefined,
+      },
+      returnTo: 'EbookBuyDetails',
+    });
+  };
 
   const priceLabel = currentEbook?.amount != null ? `$${parseFloat(currentEbook.amount).toFixed(2)}` : t('ebookBuyDetails.free', 'Free');
   const chapterCount = currentEbook?.tableContent?.length || 4;
@@ -124,7 +225,27 @@ const EbookBuyDetailsScreen = () => {
 
         <View style={styles.infoWrapper}>
           <Text style={[styles.titleText, { color: primaryText }]}>{title}</Text>
-          <Text style={[styles.authorText, { color: muted }]}>{t('ebookBuyDetails.byAuthor', { author }, `by ${author}`)}</Text>
+          <TouchableOpacity
+            style={styles.authorRow}
+            activeOpacity={targetUserId ? 0.7 : 1}
+            onPress={handleAuthorPress}
+            disabled={!targetUserId}
+            accessibilityRole="button"
+            accessibilityLabel={`View ${author}'s profile`}
+          >
+            <HexAvatar
+              uri={authorAvatarUri}
+              size={36}
+              borderWidth={1.5}
+              borderColor={brandAccent}
+            />
+            <View style={styles.authorTextWrap}>
+              <Text style={[styles.authorByPrefix, { color: muted }]}>
+                {t('ebookBuyDetails.byAuthorPrefix', 'by')}{' '}
+                <Text style={[styles.authorNameText, { color: primaryText }]}>{author}</Text>
+              </Text>
+            </View>
+          </TouchableOpacity>
           <Text style={[styles.descriptionText, { color: muted }]}>{description}</Text>
 
           {ebook?.tableContent && ebook.tableContent.length > 0 && (
@@ -245,6 +366,23 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '900',
     marginBottom: 4,
+  },
+  authorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 10,
+    gap: 10,
+  },
+  authorTextWrap: {
+    flex: 1,
+  },
+  authorByPrefix: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  authorNameText: {
+    fontSize: 14,
+    fontWeight: '700',
   },
   authorText: {
     fontSize: 14,

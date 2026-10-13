@@ -27,19 +27,99 @@ export const resolveTransactionDirection = (tx) => {
   return amount < 0 ? 'debit' : 'credit';
 };
 
-export const resolveTransactionAmount = (tx, { formatMoney } = {}) => {
-  const rawAmount = pickFirst(
-    tx?.amountUsd,
-    tx?.amountUSD,
-    tx?.amount_usd,
-    tx?.amount,
-    tx?.usdAmount,
-    tx?.value,
-    0,
+export const resolveTransactionType = (tx) => {
+  const typeField = tx?.type;
+  const typeIsDirection = ['credit', 'debit'].includes(String(typeField || '').toLowerCase());
+  const raw = pickFirst(
+    tx?.typeTransaction,
+    tx?.action,
+    tx?.forPayment,
+    typeIsDirection ? '' : typeField,
+    tx?.transactionType,
+    tx?.category,
+    tx?.source,
+    '',
   );
-  const amountNumber = Math.abs(toNumber(rawAmount));
+  const lowered = String(raw || '').trim().toLowerCase();
+  if (lowered === 'payfollowing' || lowered === 'following' || lowered.includes('follow')) return 'payFollowing';
+  if (lowered === 'tip') return 'tip';
+  if (lowered === 'donation' || lowered === 'missiondonation' || lowered.includes('donation') || lowered.includes('mission')) return 'donation';
+  if (lowered === 'shopebook' || lowered === 'ebook' || lowered.includes('shopebook')) return 'shopEbook';
+  if (lowered === 'marketplace' || lowered.includes('marketplace')) return 'marketplace';
+  return lowered;
+};
+
+export const resolveTransactionAmount = (tx, { formatMoney } = {}) => {
   const direction = resolveTransactionDirection(tx);
-  const sign = direction === 'debit' ? '-' : '+';
+  const normType = resolveTransactionType(tx);
+
+  let rawAmount;
+  let sign = direction === 'debit' ? '-' : '+';
+
+  if (
+    normType === 'payFollowing' ||
+    normType === 'donation' ||
+    normType === 'shopEbook' ||
+    normType === 'marketplace'
+  ) {
+    if (direction === 'credit') {
+      rawAmount = pickFirst(
+        tx?.amount,
+        tx?.amountUsd,
+        tx?.amountUSD,
+        tx?.amount_usd,
+        0,
+      );
+      sign = '+';
+    } else {
+      rawAmount = pickFirst(
+        tx?.totalAmount,
+        tx?.total,
+        tx?.totalAmountUsd,
+        tx?.totalAmountUSD,
+        tx?.amountUsd,
+        tx?.amount,
+        0,
+      );
+      sign = '-';
+    }
+  } else if (normType === 'tip') {
+    if (direction === 'debit') {
+      rawAmount = pickFirst(
+        tx?.totalAmount,
+        tx?.total,
+        tx?.totalAmountUsd,
+        tx?.totalAmountUSD,
+        tx?.amountUsd,
+        tx?.amount,
+        0,
+      );
+      sign = '-';
+    } else {
+      rawAmount = pickFirst(
+        tx?.totalAmount,
+        tx?.total,
+        tx?.totalAmountUsd,
+        tx?.totalAmountUSD,
+        tx?.amountUsd,
+        tx?.amount,
+        0,
+      );
+      sign = '+';
+    }
+  } else {
+    rawAmount = pickFirst(
+      tx?.amountUsd,
+      tx?.amountUSD,
+      tx?.amount_usd,
+      tx?.amount,
+      tx?.usdAmount,
+      tx?.value,
+      0,
+    );
+  }
+
+  const amountNumber = Math.abs(toNumber(rawAmount));
   const currency = String(pickFirst(tx?.currency, 'USD')).toUpperCase();
 
   const formatted = formatMoney
@@ -50,7 +130,9 @@ export const resolveTransactionAmount = (tx, { formatMoney } = {}) => {
 
   return {
     direction,
-    amountTone: direction === 'debit' ? 'negative' : 'positive',
+    amountTone: sign === '-' ? 'negative' : 'positive',
     formatted,
+    amountNumber,
+    sign,
   };
 };

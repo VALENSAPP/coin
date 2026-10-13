@@ -357,6 +357,10 @@ export const getMarketplaceBattleInsights = async battleId => {
   return axiosInstance.get(`/marketplace-battles/${battleId}/insights`);
 };
 
+export const getMarketplaceBattleViews = async battleId => {
+  return axiosInstance.post(`/marketplace-battles/${battleId}/view`);
+};
+
 export const getMarketplaceOverview = async (range) => {
   return axiosInstance.get('/dashboard/marketPlaceOverview', { params: { range } });
 };

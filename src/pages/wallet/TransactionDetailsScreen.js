@@ -23,7 +23,7 @@ import { getTransactionDetails } from '../../services/wallet';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useLanguage } from '../../i18n';
 import { formatDisplayCurrency } from '../../utils/displayLocale';
-import { resolveTransactionDirection } from '../../utils/transactionAmount';
+import { resolveTransactionDirection, resolveTransactionType } from '../../utils/transactionAmount';
 import { Dragonfly } from '../../assets/icons';
 import { navigateToUserProfile } from '../../utils/navigateToUserProfile';
 
@@ -89,6 +89,8 @@ const formatTypeLabel = (raw, t) => {
   }
   if (lowered === 'tip') return t('transactionDetails.typeTip');
   if (lowered === 'donation' || lowered.includes('mission')) return t('transactionDetails.typeDonation');
+  if (lowered === 'shopebook' || lowered.includes('ebook')) return 'Shop Ebook';
+  if (lowered === 'marketplace' || lowered.includes('market')) return 'Marketplace';
   return titleCase(raw);
 };
 
@@ -119,23 +121,58 @@ const unwrapPayload = payload => {
 const normalizeDetails = (payload, preview = {}, t, language) => {
   const data = unwrapPayload(payload);
   const previewSafe = preview && typeof preview === 'object' ? preview : {};
-  const fromParty = partyFrom(data.from || {});
-  const toParty = partyFrom(data.to || {});
+  const previewTx = previewSafe.rawTx || {};
+  const merged = { ...previewSafe, ...previewTx, ...data };
+
+  const fromParty = partyFrom(data.from || previewTx.from || {});
+  const toParty = partyFrom(data.to || previewTx.to || {});
   const directionRaw = String(pickFirst(data.direction, previewSafe.direction, '')).toUpperCase();
   const direction = resolveTransactionDirection({
-    ...previewSafe,
-    ...data,
+    ...merged,
     direction: data.direction || previewSafe.direction,
   });
   const isReceived = direction === 'credit' || directionRaw === 'RECEIVED';
+  const normType = resolveTransactionType(merged);
   const typeLabel = formatTypeLabel(
-    pickFirst(data.type, data.source, previewSafe.typeLabel, previewSafe.type),
+    pickFirst(
+      data.typeTransaction,
+      previewSafe.typeTransaction,
+      previewTx.typeTransaction,
+      ['credit', 'debit'].includes(String(data.type || '').toLowerCase()) ? '' : data.type,
+      data.source,
+      previewSafe.typeLabel,
+      previewSafe.type,
+    ),
     t,
   );
   const statusRaw = String(pickFirst(data.status, previewSafe.status, 'succeeded')).toLowerCase();
-  const amountValue = pickFirst(data.amount, data.amountUsd, previewSafe.amountValue, 0);
-  const feeValue = pickFirst(data.fee, 0);
-  const totalValue = pickFirst(data.total, toNumber(amountValue) + toNumber(feeValue));
+
+  const rawAmountValue = pickFirst(
+    data.amount,
+    previewSafe.rawAmount,
+    previewTx.amount,
+    data.amountUsd,
+    previewSafe.amountUsd,
+    0,
+  );
+  const rawTotalValue = pickFirst(
+    data.totalAmount,
+    previewSafe.totalAmount,
+    previewTx.totalAmount,
+    data.total,
+    previewSafe.total,
+    toNumber(rawAmountValue),
+  );
+  const rawPlatformFeeValue = pickFirst(
+    data.platformFee,
+    data.platformFees,
+    previewSafe.platformFee,
+    previewTx.platformFee,
+    data.fee,
+    previewSafe.fee,
+    0,
+  );
+
   const amountTone = isReceived ? 'positive' : 'negative';
   const counterpart = isReceived ? fromParty : toParty;
   const headerName = pickFirst(
@@ -151,15 +188,45 @@ const normalizeDetails = (payload, preview = {}, t, language) => {
       ? `${formatDetailDate(data.periodStart, t, language)} – ${formatDetailDate(data.periodEnd, t, language)}`
       : '';
 
+  const isCreditWithFee =
+    (normType === 'payFollowing' ||
+      normType === 'donation' ||
+      normType === 'shopEbook' ||
+      normType === 'marketplace') &&
+    direction === 'credit';
+  const isSingleAmountSent =
+    ((normType === 'payFollowing' ||
+      normType === 'donation' ||
+      normType === 'shopEbook' ||
+      normType === 'marketplace') &&
+      direction === 'debit') ||
+    normType === 'tip';
+
+  const formattedAmount = formatMoney(rawAmountValue, language, {
+    signed: true,
+    tone: amountTone,
+  });
+  const formattedTotal = formatMoney(rawTotalValue, language, {
+    signed: true,
+    tone: amountTone,
+  });
+  const formattedPlatformFee = formatDisplayCurrency(
+    Math.abs(toNumber(rawPlatformFeeValue)),
+    language,
+  );
+
   return {
     displayName: headerName,
     handle: headerHandle,
     typeLabel,
     status: statusRaw,
     isReceived,
-    amount: formatMoney(amountValue, language, { signed: true, tone: amountTone }),
-    fee: formatMoney(feeValue, language, { signed: true, tone: 'negative' }),
-    total: formatMoney(totalValue, language, { signed: true, tone: amountTone }),
+    amount: formattedAmount,
+    fee: formatMoney(rawPlatformFeeValue, language, { signed: false }),
+    total: formattedTotal,
+    platformFee: formattedPlatformFee,
+    isCreditWithFee,
+    isSingleAmountSent,
     amountTone,
     date: formatDetailDate(pickFirst(data.createdAt, previewSafe.createdAt), t, language) || previewSafe.date || '',
     period,
@@ -451,9 +518,39 @@ export default function TransactionDetailsScreen() {
             {/* Details List */}
             <View style={styles.detailsList}>
               {row('heart-outline', t('transactionDetails.type'), details.typeLabel, accent || text, styles.boldValue)}
-              {row('calendar-outline', t('transactionDetails.totalReceived'), details.total, amountColor, styles.totalValue, styles.totalLabel)}
-              {row('time-outline', t('transactionDetails.amount'), details.amount, amountColor, styles.boldValue)}
-              {/* {row('pie-chart-outline', 'Valens Fee (5%)', details.fee, text, styles.boldValue)} */}
+              {details.isCreditWithFee ? (
+                <>
+                  {row(
+                    'calendar-outline',
+                    t('transactionDetails.totalAmountReceived') || 'Total Amount Received',
+                    details.amount,
+                    amountColor,
+                    styles.totalValue,
+                    styles.totalLabel,
+                  )}
+                  {row(
+                    'pie-chart-outline',
+                    t('transactionDetails.platformFee') || 'Platform Fee',
+                    details.platformFee,
+                    accent || text,
+                    styles.boldValue,
+                  )}
+                </>
+              ) : details.isSingleAmountSent ? (
+                row(
+                  'calendar-outline',
+                  t('transactionDetails.amountSent') || t('transactionDetails.totalReceived') || 'Amount Sent',
+                  details.total,
+                  amountColor,
+                  styles.totalValue,
+                  styles.totalLabel,
+                )
+              ) : (
+                <>
+                  {row('calendar-outline', t('transactionDetails.totalReceived'), details.total, amountColor, styles.totalValue, styles.totalLabel)}
+                  {row('time-outline', t('transactionDetails.amount'), details.amount, amountColor, styles.boldValue)}
+                </>
+              )}
               {row('card-outline', t('transactionDetails.paymentMethod'), details.paymentMethod, accent || text, styles.boldValue)}
               {row('calendar-outline', t('transactionDetails.dateTime'), details.date, text, styles.boldValue)}
               

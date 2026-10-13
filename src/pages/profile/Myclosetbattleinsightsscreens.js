@@ -172,7 +172,7 @@ export const navigateToClosetShopFront = (navigation, extraParams = {}) => {
       params: targetParams,
     });
     return;
-  } catch (_e) {}
+  } catch (_e) { }
 
   try {
     const parent = navigation.getParent?.();
@@ -183,12 +183,12 @@ export const navigateToClosetShopFront = (navigation, extraParams = {}) => {
       });
       return;
     }
-  } catch (_e) {}
+  } catch (_e) { }
 
   try {
     navigation.navigate('Profile', targetParams);
     return;
-  } catch (_e) {}
+  } catch (_e) { }
 
   if (navigation.canGoBack?.()) {
     navigation.goBack();
@@ -492,9 +492,9 @@ export function PromotionExpiredScreen({ navigation, winnerItem, battleId }) {
               fromRoute: 'PromotionExpired',
             })
           }
-          style={{width: '100%'}}
+          style={{ width: '100%' }}
         >
-          <LinearGradient colors={themeGradient(accent)} style={[styles.primaryButton, {flexDirection: 'row'}]}>
+          <LinearGradient colors={themeGradient(accent)} style={[styles.primaryButton, { flexDirection: 'row' }]}>
             <Ionicons name="flash-outline" size={16} color="#fff" style={{ marginRight: 8 }} />
             <Text style={styles.primaryButtonText}>
               {t('battleInsights.createNewBattle') || 'Create New Battle'}
@@ -927,10 +927,10 @@ export function PromotionDetailsScreen({ navigation, route }) {
         const rawItems = Array.isArray(pkgRes?.data?.data)
           ? pkgRes.data.data
           : Array.isArray(pkgRes?.data)
-          ? pkgRes.data
-          : Array.isArray(pkgRes)
-          ? pkgRes
-          : [];
+            ? pkgRes.data
+            : Array.isArray(pkgRes)
+              ? pkgRes
+              : [];
 
         const isPkgFreeShipping = item => {
           const desc = String(item?.description || '').toUpperCase();
@@ -948,11 +948,11 @@ export function PromotionDetailsScreen({ navigation, route }) {
               durationHours === 24
                 ? 1
                 : durationHours === 72
-                ? 3
-                : durationHours === 168
-                ? 7
-                : Number(item?.days ?? item?.durationDays ?? 0) ||
-                  (durationHours > 0 ? Math.max(1, Math.round(durationHours / 24)) : (idx === 0 ? 1 : idx === 1 ? 3 : 7));
+                  ? 3
+                  : durationHours === 168
+                    ? 7
+                    : Number(item?.days ?? item?.durationDays ?? 0) ||
+                    (durationHours > 0 ? Math.max(1, Math.round(durationHours / 24)) : (idx === 0 ? 1 : idx === 1 ? 3 : 7));
             const priceValue = item?.price != null ? Number(item.price) : 0;
             const pkgDurationLabel = days === 1 ? '24 Hours' : `${days} Days`;
             return {
@@ -967,8 +967,8 @@ export function PromotionDetailsScreen({ navigation, route }) {
                 item?.currency && priceValue
                   ? `${item.currency === 'USD' ? '$' : item.currency}${priceValue.toFixed(2)}`
                   : item?.price
-                  ? `$${Number(item.price).toFixed(2)}`
-                  : '',
+                    ? `$${Number(item.price).toFixed(2)}`
+                    : '',
             };
           });
           setPackages(mapped);
@@ -1060,14 +1060,14 @@ export function PromotionDetailsScreen({ navigation, route }) {
       if (!promotionId || (checkStatus !== 'pending_payment' && checkStatus !== 'pending')) {
         const payload = isFreeShipping
           ? {
-              packageId: selectedPackageId,
-              message: message?.trim() || getDefaultWinnerPromotionMessage(currentPackage, discount, true),
-            }
+            packageId: selectedPackageId,
+            message: message?.trim() || getDefaultWinnerPromotionMessage(currentPackage, discount, true),
+          }
           : {
-              packageId: selectedPackageId,
-              discount: Number(String(discount).replace(/[^0-9.]/g, '')) || 20,
-              message: message?.trim() || getDefaultWinnerPromotionMessage(currentPackage, discount, false),
-            };
+            packageId: selectedPackageId,
+            discount: Number(String(discount).replace(/[^0-9.]/g, '')) || 20,
+            message: message?.trim() || getDefaultWinnerPromotionMessage(currentPackage, discount, false),
+          };
 
         const intentRes = await createMarketplaceBattleWinnerPromotion(battleId, payload);
         const intentStatus = intentRes?.status || intentRes?.statusCode;
@@ -1207,18 +1207,49 @@ export function PromotionDetailsScreen({ navigation, route }) {
           </View>
         ) : null}
 
+
         {!isFreeShipping ? (
           <View style={styles.field}>
-            <Text style={[styles.fieldLabel, { color: text || TEXT }]}>{t('promotion.discountLabel')}</Text>
-            <View style={[styles.inputCard, { backgroundColor: idleSurface, borderColor: border || surfaces.listBorder }]}>
+            <Text style={[styles.fieldLabel, { color: text || TEXT }]}>
+              {t('promotion.discountLabel')}
+            </Text>
+
+            <View
+              style={[
+                styles.inputCard,
+                {
+                  backgroundColor: idleSurface,
+                  borderColor: border || surfaces.listBorder,
+                },
+              ]}
+            >
               <TextInput
                 value={discount}
-                onChangeText={setDiscount}
+                onChangeText={(value) => {
+                  const numericValue = value.replace(/[^0-9]/g, '').slice(0, 2);
+
+                  if (numericValue === '') {
+                    setDiscount('');
+                    return;
+                  }
+
+                  if (Number(numericValue) <= 90) {
+                    setDiscount(numericValue);
+                  }
+                }}
                 keyboardType="number-pad"
+                maxLength={2}
                 placeholderTextColor={surfaces.placeholderColor}
                 style={[styles.inputText, { color: surfaces.inputText }]}
               />
             </View>
+
+            {/* Helper message below the input */}
+            <Text
+              style={{ color: accent, fontWeight: '700', fontSize: 14 }}
+            >
+              Please enter a discount between 1% and 90%.
+            </Text>
           </View>
         ) : null}
 
@@ -1284,8 +1315,8 @@ export function PromotionDetailsScreen({ navigation, route }) {
                 {isAlreadyPromoted
                   ? 'Already Promoted'
                   : currentPackage?.priceLabel
-                  ? `Pay ${currentPackage.priceLabel} & Launch`
-                  : t('promotion.launch') || 'Launch Promotion'}
+                    ? `Pay ${currentPackage.priceLabel} & Launch`
+                    : t('promotion.launch') || 'Launch Promotion'}
               </Text>
             )}
           </LinearGradient>
@@ -1381,14 +1412,14 @@ export function PreviewPromotionScreen({ navigation, route }) {
       if (!promotionId || (checkStatus !== 'pending_payment' && checkStatus !== 'pending')) {
         const payload = isFreeShipping
           ? {
-              packageId: resolvedPackageId,
-              message: message || (t('promotion.defaultFreeShippingMessage') || 'Enjoy free shipping on our winner!'),
-            }
+            packageId: resolvedPackageId,
+            message: message || (t('promotion.defaultFreeShippingMessage') || 'Enjoy free shipping on our winner!'),
+          }
           : {
-              packageId: resolvedPackageId,
-              discount: Number(String(discount).replace(/[^0-9.]/g, '')) || 20,
-              message: message || t('promotion.defaultMessage'),
-            };
+            packageId: resolvedPackageId,
+            discount: Number(String(discount).replace(/[^0-9.]/g, '')) || 20,
+            message: message || t('promotion.defaultMessage'),
+          };
 
         const response = await createMarketplaceBattleWinnerPromotion(battleId, payload);
         const status = response?.status || response?.statusCode;
@@ -1574,7 +1605,7 @@ const styles = StyleSheet.create({
   packageViews: { fontSize: 10, color: MUTED, fontWeight: '700', textAlign: 'center' },
 
   primaryButton: { height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
-  primaryButtonText: { color: '#fff', fontSize: 15, fontWeight: '900',textAlign:'center' },
+  primaryButtonText: { color: '#fff', fontSize: 15, fontWeight: '900', textAlign: 'center' },
 
   reviewItemCard: { flexDirection: 'row', gap: 12, alignItems: 'center', borderRadius: 18, borderWidth: 1, borderColor: BORDER, padding: 12 },
   reviewBlock: { gap: 4, borderRadius: 18, borderWidth: 1, borderColor: BORDER, padding: 14 },
