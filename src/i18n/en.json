@@ -114,7 +114,10 @@
     "usernameRequired": "Username is required",
     "passwordRequired": "Password is required",
     "passwordMinLength": "Password must be at least 8 characters",
-    "passwordRules": "Password must include uppercase, lowercase, number & special character"
+    "passwordRules": "Password must include uppercase, lowercase, number & special character",
+    "countryLabel": "Select your country",
+    "countryPlaceholder": "Select your country",
+    "countryRequired": "Please select your country"
   },
   "kyc": {
     "title": "KYC Verification",

@@ -8,6 +8,8 @@ const initialState = {
   userName: '',
   password: '',
   referralCode: '',
+  country: '',
+  countryName: '',
 };
 
 const signupFormReducer = (state = initialState, action) => {

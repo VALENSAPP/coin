@@ -299,6 +299,9 @@ const useSignupStyles = () => {
       fontWeight: '400',
       color: text,
     },
+    countryPickerHidden: {
+      display: 'none',
+    },
 
   });
   return styles;

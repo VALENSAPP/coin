@@ -114,7 +114,10 @@
     "usernameRequired": "Nom d'utilisateur requis",
     "passwordRequired": "Mot de passe requis",
     "passwordMinLength": "Minimum 8 caractères",
-    "passwordRules": "Inclure majuscules, minuscules, chiffres et caractères spéciaux"
+    "passwordRules": "Inclure majuscules, minuscules, chiffres et caractères spéciaux",
+    "countryLabel": "Sélectionnez votre pays",
+    "countryPlaceholder": "Sélectionnez votre pays",
+    "countryRequired": "Veuillez sélectionner votre pays"
   },
   "kyc": {
     "title": "Vérification KYC",

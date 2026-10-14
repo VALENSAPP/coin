@@ -22,6 +22,7 @@ import {
   twitterOAuthLogin,
 } from '../socialLogin';
 import { signup } from '../../../services/authentication';
+import CountryPicker from 'react-native-country-picker-modal';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { AuthHeader } from '../../../components/auth';
 import DeviceInfo from 'react-native-device-info';
@@ -42,6 +43,9 @@ export default function SignupScreen() {
 
   const [email, setEmail] = useState('');
   const [userName, setUsername] = useState('');
+  const [country, setCountry] = useState('');
+  const [countryName, setCountryName] = useState('');
+  const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [password, setPassword] = useState('');
   const [referralCode, setReferralCode] = useState('');
   const [errors, setErrors] = useState({});
@@ -58,6 +62,8 @@ export default function SignupScreen() {
       setUsername(savedFormData?.userName || '');
       setPassword(savedFormData?.password || '');
       setReferralCode(savedFormData?.referralCode || '');
+      setCountry(savedFormData?.country || '');
+      setCountryName(savedFormData?.countryName || '');
     }, [savedFormData])
   );
 
@@ -83,6 +89,10 @@ export default function SignupScreen() {
 
     const userNameError = validateUsername(userName, t);
     if (userNameError) errs.userName = userNameError;
+
+    if (!country) {
+      errs.country = t('signup.countryRequired');
+    }
 
     if (!password) {
       errs.password = t('signup.passwordRequired');
@@ -116,6 +126,7 @@ export default function SignupScreen() {
         password,
         registrationType: 'NORMAL',
         userName: normalizedUserName,
+        country,
         profile,
       };
 
@@ -134,6 +145,8 @@ export default function SignupScreen() {
           userName: normalizedUserName,
           password,
           referralCode: normalizedReferralCode,
+          country,
+          countryName,
         }));
         navigation.navigate('OTPScreen', {
           email: normalizedEmail,
@@ -271,6 +284,56 @@ export default function SignupScreen() {
                 </View>
                 <Text style={styles.helperText}>{t('signup.usernameHelper')}</Text>
                 {errors.userName && <Text style={styles.errorText}>{errors.userName}</Text>}
+              </View>
+
+              {/* Country */}
+              <View style={styles.inputWrapper}>
+                <Text style={styles.inputLabel}>{t('signup.countryLabel')}</Text>
+                <TouchableOpacity
+                  style={[styles.inputGroup, errors.country && styles.inputError]}
+                  onPress={() => setShowCountryPicker(true)}
+                  activeOpacity={0.8}
+                >
+                  <View style={[styles.inputIconContainer, bgStyle]}>
+                    <Icon name="earth-outline" size={22} color={text} />
+                  </View>
+                  <Text
+                    style={[
+                      styles.textInput,
+                      !country && { color: mutedText },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {countryName || country || t('signup.countryPlaceholder')}
+                  </Text>
+                  <Icon name="chevron-down" size={20} color={mutedText} />
+                </TouchableOpacity>
+                {errors.country && <Text style={styles.errorText}>{errors.country}</Text>}
+                <CountryPicker
+                  countryCode={country || 'BR'}
+                  withFilter
+                  withFlag
+                  withEmoji
+                  withAlphaFilter
+                  visible={showCountryPicker}
+                  onClose={() => setShowCountryPicker(false)}
+                  onSelect={selected => {
+                    const nextCode = selected?.cca2 || '';
+                    const nextName =
+                      typeof selected?.name === 'string'
+                        ? selected.name
+                        : selected?.name?.common || nextCode;
+                    setCountry(nextCode);
+                    setCountryName(nextName);
+                    setShowCountryPicker(false);
+                    setErrors(prev => {
+                      const next = { ...prev };
+                      delete next.country;
+                      return next;
+                    });
+                  }}
+                  containerButtonStyle={styles.countryPickerHidden}
+                />
               </View>
 
               {/* Password */}

@@ -114,7 +114,10 @@
     "usernameRequired": "O nome de usuário é obrigatório",
     "passwordRequired": "A senha é obrigatória",
     "passwordMinLength": "São necessários 8 caracteres, no mínimo",
-    "passwordRules": "Inclua maiúsculas, minúsculas, números e caracteres especiais"
+    "passwordRules": "Inclua maiúsculas, minúsculas, números e caracteres especiais",
+    "countryLabel": "Selecione seu país",
+    "countryPlaceholder": "Selecione seu país",
+    "countryRequired": "Por favor, selecione seu país"
   },
   "kyc": {
     "title": "Verificação KYC",
