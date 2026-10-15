@@ -1745,6 +1745,8 @@
       "periodWeekly": "Weekly",
       "noDataTitle": "No data available",
       "noDataSubtitle": "Check back later for activity updates",
+      "emptyChartTitle": "No chart data yet",
+      "emptyChartSubtitle": "Pull to refresh after activity builds up",
       "chartFootnote": "Lines use separate scales. Swipe the chart sideways when points are crowded."
     },
     "dragonflyModal": {
@@ -5585,6 +5587,8 @@
     "paymentFailedMsg": "Failed to create payment session. Please try again.",
     "paymentError": "Payment Error",
     "paymentErrorMsg": "An error occurred during payment processing. Please try again.",
+    "paymentNotCompleted": "Payment not completed",
+    "paymentNotCompletedMsg": "This e-book was not purchased. Complete checkout to continue.",
     "price": "Price",
     "total": "Total",
     "paymentMethod": "Payment Method",

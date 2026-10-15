@@ -1745,6 +1745,8 @@
       "periodWeekly": "Settimanale",
       "noDataTitle": "Nessun dato disponibile",
       "noDataSubtitle": "Torna più tardi per aggiornamenti sull'attività",
+      "emptyChartTitle": "Ancora nessun dato nel grafico",
+      "emptyChartSubtitle": "Scorri per aggiornare quando ci sarà attività",
       "chartFootnote": "Le linee usano scale separate. Scorri il grafico di lato quando i punti sono troppo ravvicinati."
     },
     "dragonflyModal": {
@@ -5585,6 +5587,8 @@
     "paymentFailedMsg": "Impossibile creare la sessione di pagamento. Per favore riprova.",
     "paymentError": "Errore di pagamento",
     "paymentErrorMsg": "Si è verificato un errore durante l'elaborazione del pagamento. Per favore riprova.",
+    "paymentNotCompleted": "Pagamento non completato",
+    "paymentNotCompletedMsg": "Questo e-book non è stato acquistato. Completa il pagamento per continuare.",
     "price": "Prezzo",
     "total": "Totale",
     "paymentMethod": "Metodo di pagamento",

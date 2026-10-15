@@ -1227,14 +1227,15 @@ export function PromotionDetailsScreen({ navigation, route }) {
                 value={discount}
                 onChangeText={(value) => {
                   const numericValue = value.replace(/[^0-9]/g, '').slice(0, 2);
+                  const amount = Number(numericValue);
 
-                  if (numericValue === '') {
+                  if (numericValue === '' || amount === 0) {
                     setDiscount('');
                     return;
                   }
 
-                  if (Number(numericValue) <= 90) {
-                    setDiscount(numericValue);
+                  if (amount >= 1 && amount <= 90) {
+                    setDiscount(String(amount));
                   }
                 }}
                 keyboardType="number-pad"
