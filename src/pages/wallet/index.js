@@ -2295,8 +2295,8 @@ export const WalletDashboardScreen = ({ navigation }) => {
             ) : (
               <View style={styles.emptyChart}>
                 <Ionicons name="bar-chart-outline" size={48} color={mutedText} />
-                <Text style={styles.emptyChartText}>No chart data yet</Text>
-                <Text style={styles.emptyChartSubtext}>Pull to refresh after activity builds up</Text>
+                <Text style={styles.emptyChartText}>{t('walletDashboard.activityOverview.emptyChartTitle')}</Text>
+                <Text style={styles.emptyChartSubtext}>{t('walletDashboard.activityOverview.emptyChartSubtitle')}</Text>
               </View>
             )}
           </View>
