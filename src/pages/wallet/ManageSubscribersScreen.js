@@ -89,6 +89,7 @@ const transformSubscriber = (item, language) => {
       return hint;
     })(),
     joined: formatDate(item.startDate),
+    startDateRaw: item.startDate || item.createdAt || null,
     totalEarned: item.totalEarnedFromSubscriber || 0,
     totalPaid: item.totalPaidBySubscriber || 0,
     paymentsCount: item.paymentsCount || 0,
@@ -147,6 +148,7 @@ const transformSubscription = (item, language) => {
       return hint;
     })(),
     joined: formatDate(item.startDate),
+    startDateRaw: item.startDate || item.createdAt || null,
     totalEarned: item.totalEarnedFromSubscriber || 0,
     totalPaid: item.totalPaidBySubscriber || 0,
     paymentsCount: item.paymentsCount || 0,
@@ -263,10 +265,12 @@ const ManageSubscribersScreen = () => {
     });
 
     next = [...next].sort((a, b) => {
-      if (sortBy === 'oldest') return String(a.joined).localeCompare(String(b.joined));
+      const timeA = new Date(a.startDateRaw || a.joined || 0).getTime() || 0;
+      const timeB = new Date(b.startDateRaw || b.joined || 0).getTime() || 0;
+      if (sortBy === 'oldest') return timeA - timeB;
       if (sortBy === 'priceHigh') return b.price - a.price;
       if (sortBy === 'priceLow') return a.price - b.price;
-      return String(b.joined).localeCompare(String(a.joined));
+      return timeB - timeA;
     });
     return next;
   }, [query, sourceList, statusFilter, sortBy]);
