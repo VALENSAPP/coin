@@ -235,6 +235,8 @@ export const ActivityScreen = ({ navigation }) => {
     }
   };
 
+  console.log('Activities:', activities);
+
   const getSectionTitle = () => {
     if (activeFilter === 'following') return t('activity.followingActivity', 'Following Activity');
     if (activeFilter === 'unfollowing') return t('activity.unfollowingActivity', 'Unfollowing Activity');
