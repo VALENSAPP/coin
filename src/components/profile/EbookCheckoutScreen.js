@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image, ActivityIndicator, Linking, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image, ActivityIndicator, Linking, Alert, AppState } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useThemeContext } from '../../theme/ThemeContext';
@@ -8,8 +8,124 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { InAppBrowser } from 'react-native-inappbrowser-reborn';
 import { getPaymentSessionUrl, STRIPE_BROWSER_OPTIONS } from '../../utils/stripeOnboarding';
 import { payMarketplaceEbook } from '../../services/stirpe';
+import { getMarketplaceEbookById, getMarketplaceEbooksByClosetId, getPurchasedEbooks } from '../../services/post';
 import { formSurfaces, selectedSurface, themedCard } from '../../utils/closetTheme';
 import { useLanguage } from '../../i18n';
+
+const PURCHASE_CHECK_ATTEMPTS = 5;
+const PURCHASE_CHECK_DELAY_MS = 1500;
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const extractEbookRecord = (res) => {
+  const candidates = [
+    res?.data?.ebook,
+    res?.data?.data?.ebook,
+    res?.ebook,
+    res?.data?.post,
+    res?.data?.data?.post,
+    res?.post,
+  ];
+  return candidates.find((item) => item && typeof item === 'object' && !Array.isArray(item)) || null;
+};
+
+const extractEbookList = (res) => {
+  const payload =
+    res?.data?.ebooks ??
+    res?.ebooks ??
+    res?.data?.posts ??
+    res?.data?.data?.posts ??
+    res?.data?.data ??
+    res?.data ??
+    res;
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.posts)) return payload.posts;
+  if (Array.isArray(payload?.ebooks)) return payload.ebooks;
+  if (Array.isArray(payload?.data)) return payload.data;
+  return [];
+};
+
+const isExplicitlyPurchased = (item) =>
+  item?.isPurchased === true ||
+  item?.isPurchased === 'true' ||
+  item?.isPurchased === 1 ||
+  item?.isPurchased === '1';
+
+const matchesEbookId = (item, itemId) => {
+  const ids = [
+    item?.id,
+    item?._id,
+    item?.ebookId,
+    item?.ebook?.id,
+    item?.ebook?._id,
+  ];
+  return ids.some((id) => id != null && String(id) === String(itemId));
+};
+
+const waitForReturnToApp = () => new Promise((resolve) => {
+  if (AppState.currentState !== 'active') {
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        subscription.remove();
+        resolve();
+      }
+    });
+    return;
+  }
+
+  let leftApp = false;
+  const subscription = AppState.addEventListener('change', (state) => {
+    if (state === 'background' || state === 'inactive') leftApp = true;
+    if (state === 'active' && leftApp) {
+      subscription.remove();
+      resolve();
+    }
+  });
+});
+
+const confirmEbookPurchased = async (itemId, closetId) => {
+  let latestEbook = null;
+
+  for (let attempt = 0; attempt < PURCHASE_CHECK_ATTEMPTS; attempt += 1) {
+    if (attempt > 0) await sleep(PURCHASE_CHECK_DELAY_MS);
+
+    if (closetId) {
+      try {
+        const closetRes = await getMarketplaceEbooksByClosetId(closetId);
+        const closetEbook = extractEbookList(closetRes).find((item) => matchesEbookId(item, itemId));
+        if (closetEbook) latestEbook = { ...(latestEbook || {}), ...closetEbook };
+        if (isExplicitlyPurchased(closetEbook)) {
+          return { purchased: true, ebook: latestEbook };
+        }
+      } catch (err) {
+        console.log('Ebook purchase check by closet failed:', err);
+      }
+    }
+
+    try {
+      const byIdRes = await getMarketplaceEbookById(itemId);
+      const byIdEbook = extractEbookRecord(byIdRes);
+      if (byIdEbook) latestEbook = { ...(latestEbook || {}), ...byIdEbook };
+      if (isExplicitlyPurchased(byIdEbook)) {
+        return { purchased: true, ebook: latestEbook };
+      }
+    } catch (err) {
+      console.log('Ebook purchase check by id failed:', err);
+    }
+
+    try {
+      const purchasedRes = await getPurchasedEbooks();
+      const purchasedEbook = extractEbookList(purchasedRes).find((item) => matchesEbookId(item, itemId));
+      if (isExplicitlyPurchased(purchasedEbook)) {
+        return { purchased: true, ebook: { ...(latestEbook || {}), ...purchasedEbook } };
+      }
+    } catch (err) {
+      console.log('Purchased ebook list check failed:', err);
+    }
+  }
+
+  return { purchased: false, ebook: latestEbook };
+};
 
 const getCoverImage = (item) => {
   if (!item) return null;
@@ -64,14 +180,28 @@ const EbookCheckoutScreen = () => {
         await InAppBrowser.open(url, { ...STRIPE_BROWSER_OPTIONS, forceCloseOnRedirection: true });
       } else {
         await Linking.openURL(url);
+        await waitForReturnToApp();
       }
 
       const itemId = ebook.id || ebook._id;
+      const closetId = payload.closetId;
+      const { purchased, ebook: confirmedEbook } = await confirmEbookPurchased(itemId, closetId);
+
+      if (!purchased) {
+        await AsyncStorage.removeItem(`purchased_ebook_${itemId}`);
+        setPaying(false);
+        Alert.alert(
+          t('ebookCheckout.paymentNotCompleted', 'Payment not completed'),
+          t('ebookCheckout.paymentNotCompletedMsg', 'This e-book was not purchased. Complete checkout to continue.'),
+        );
+        return;
+      }
+
       await AsyncStorage.setItem(`purchased_ebook_${itemId}`, 'true');
 
       setPaying(false);
       navigation.navigate('EbookPaymentSuccess', {
-        ebook,
+        ebook: { ...ebook, ...(confirmedEbook || {}), isPurchased: true },
         userData,
         loggedInUserId,
       });

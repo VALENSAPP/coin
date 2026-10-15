@@ -295,6 +295,9 @@ const UserChat = ({ route, navigation }) => {
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const sheetRef = useRef(null);
   const flatListRef = useRef(null);
+  const stickToLatestRef = useRef(true);
+  const programmaticScrollRef = useRef(false);
+  const scrollRetryTimersRef = useRef([]);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const inputAnim = useRef(new Animated.Value(0)).current;
   const typingAnim = useRef(new Animated.Value(0)).current;
@@ -555,13 +558,17 @@ const UserChat = ({ route, navigation }) => {
   // Re-emit on screen focus
   useFocusEffect(
     useCallback(() => {
+      // Skip reload if returning from the subscription screen.
+      if (isNavigatingToSubscribeRef.current) {
+        isNavigatingToSubscribeRef.current = false;
+        return;
+      }
+
+      // Opening the chat should land on the newest message, not the history above it.
+      stickToLatestRef.current = true;
+
       if (currentUserId && targetUserId) {
         fetchConversation(currentUserId, targetUserId);
-      }
-      // 👇 skip reload if returning from subscription screen
-      if (isNavigatingToSubscribeRef.current) {
-        isNavigatingToSubscribeRef.current = false; // reset for next time
-        return;
       }
 
       const socket = getSocket();
@@ -641,7 +648,7 @@ const UserChat = ({ route, navigation }) => {
       next.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
       return next;
     });
-    if (isNearBottom) setTimeout(() => scrollToBottom(false), 100);
+    if (stickToLatestRef.current) pinToLatest(true);
   }, [currentUserId, targetUserId]);
 
   // Socket: messageSent
@@ -782,7 +789,7 @@ const UserChat = ({ route, navigation }) => {
     validMessages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
     setMessages(validMessages);
     setIsLoading(false);
-    setTimeout(() => { if (!isUserScrolling) flatListRef.current?.scrollToEnd({ animated: true }); }, 100);
+    if (stickToLatestRef.current) pinToLatest(false);
   };
 
   const isVideoUrl = url => {
@@ -835,10 +842,47 @@ const UserChat = ({ route, navigation }) => {
     }
   }, [isLoading]);
 
+  const clearScrollRetries = () => {
+    scrollRetryTimersRef.current.forEach(clearTimeout);
+    scrollRetryTimersRef.current = [];
+  };
+
+  const pinToLatest = (animated = false) => {
+    stickToLatestRef.current = true;
+    setIsNearBottom(true);
+    clearScrollRetries();
+    // Message bubbles are variable height, so the first scroll often lands
+    // before the newest row has been measured. Retry until layout catches up.
+    [16, 80, 200, 450, 800].forEach((delay, index) => {
+      const timer = setTimeout(() => {
+        if (!stickToLatestRef.current) return;
+        programmaticScrollRef.current = true;
+        flatListRef.current?.scrollToEnd({ animated: animated && index === 0 });
+        const clearFlag = setTimeout(() => {
+          programmaticScrollRef.current = false;
+        }, animated && index === 0 ? 400 : 80);
+        scrollRetryTimersRef.current.push(clearFlag);
+      }, delay);
+      scrollRetryTimersRef.current.push(timer);
+    });
+  };
+
   const scrollToBottom = (force = false) => {
-    if (force || isNearBottom) {
-      setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+    if (force) {
+      pinToLatest(true);
+      return;
     }
+    if (stickToLatestRef.current) pinToLatest(false);
+  };
+
+  const releaseStickIfScrolledAway = (event) => {
+    if (programmaticScrollRef.current) return;
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    const distanceFromBottom =
+      contentSize.height - layoutMeasurement.height - contentOffset.y;
+    const nearBottom = distanceFromBottom < 80;
+    stickToLatestRef.current = nearBottom;
+    setIsNearBottom(nearBottom);
   };
 
   // Mark messages seen
@@ -869,9 +913,20 @@ const UserChat = ({ route, navigation }) => {
   };
 
   const handleContentSizeChange = () => {
-    if (!isUserScrolling && isNearBottom) {
-      setTimeout(() => flatListRef.current?.scrollToEnd({ animated: false }), 50);
-    }
+    if (!stickToLatestRef.current) return;
+    requestAnimationFrame(() => {
+      if (!stickToLatestRef.current) return;
+      programmaticScrollRef.current = true;
+      flatListRef.current?.scrollToEnd({ animated: false });
+      setTimeout(() => {
+        programmaticScrollRef.current = false;
+      }, 80);
+    });
+  };
+
+  const handleScrollBeginDrag = () => {
+    stickToLatestRef.current = false;
+    clearScrollRetries();
   };
 
   const handleTyping = () => {
@@ -1768,6 +1823,7 @@ const UserChat = ({ route, navigation }) => {
     return () => {
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
       if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
+      clearScrollRetries();
       const socket = getSocket();
       if (socket?.connected && targetUserId) emitStopTyping(targetUserId);
     };
@@ -1834,6 +1890,11 @@ const UserChat = ({ route, navigation }) => {
                     contentContainerStyle={[styles.messagesList, { flexGrow: 1, paddingBottom: 10 }]}
                     showsVerticalScrollIndicator={false}
                     onScroll={handleScroll}
+                    onContentSizeChange={handleContentSizeChange}
+                    onLayout={handleContentSizeChange}
+                    onScrollBeginDrag={handleScrollBeginDrag}
+                    onScrollEndDrag={releaseStickIfScrolledAway}
+                    onMomentumScrollEnd={releaseStickIfScrolledAway}
                     scrollEnabled
                     scrollEventThrottle={16}
                     keyboardShouldPersistTaps="handled"
@@ -1895,7 +1956,7 @@ const UserChat = ({ route, navigation }) => {
                       textAlignVertical="top"
                       maxLength={2000}
                       editable={!isSending}
-                      onFocus={() => setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 300)}
+                      onFocus={() => pinToLatest(true)}
                     />
                   </View>
                   <TouchableOpacity

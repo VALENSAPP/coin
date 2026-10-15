@@ -380,15 +380,15 @@ const SubscriptionPriceChangedScreen = () => {
         {statusState === 'pending' ? (
           <View style={styles.actionsWrap}>
             <TouchableOpacity
-              style={[styles.primaryBtn, { backgroundColor: cta.bg }]}
+              style={[styles.primaryBtn, { backgroundColor: cta.backgroundColor }]}
               onPress={handleAccept}
               disabled={submittingAccept || submittingDecline}
               activeOpacity={0.8}
             >
               {submittingAccept ? (
-                <ActivityIndicator color={cta.fg} />
+                <ActivityIndicator color={cta.color} />
               ) : (
-                <Text style={[styles.primaryBtnText, { color: cta.fg }]}>
+                <Text style={[styles.primaryBtnText, { color: cta.color }]}>
                   {t('subscriptionPriceChangedScreen.acceptButton')}
                 </Text>
               )}
@@ -412,11 +412,11 @@ const SubscriptionPriceChangedScreen = () => {
         ) : (
           <View style={styles.actionsWrap}>
             <TouchableOpacity
-              style={[styles.primaryBtn, { backgroundColor: cta.bg }]}
+              style={[styles.primaryBtn, { backgroundColor: cta.backgroundColor }]}
               onPress={handleBack}
               activeOpacity={0.8}
             >
-              <Text style={[styles.primaryBtnText, { color: cta.fg }]}>
+              <Text style={[styles.primaryBtnText, { color: cta.color }]}>
                 {t('subscriptionPriceChangedScreen.done')}
               </Text>
             </TouchableOpacity>
