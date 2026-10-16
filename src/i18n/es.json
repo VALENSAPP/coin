@@ -2544,6 +2544,8 @@
     "totalValueHoldings": "Valor total de las tenencias",
     "postCredits": "Publicaciones de misión",
     "creditsRemaining": "{{count}} / 5 restantes",
+    "subscriptionHits": "Créditos de suscripción",
+    "purchasedHits": "Créditos comprados",
     "buyCredits": "Obtener publicación de misión ($1.99 cada una)",
     "referralPoints": "Puntos de referencia",
     "referralPts": "{{count}} pts",

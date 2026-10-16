@@ -67,61 +67,66 @@ export const ActivityScreen = ({ navigation }) => {
     }
   }, [t]);
 
-  // Fallback initial items matching the screenshot
-  const initialMockActivities = [
-    { id: 'mock_1', userName: 'Megha Walia', actionText: t('activity.actions.followedYou', 'followed you'), time: '2 days ago', type: 'follow', userId: 'user_megha' },
-    { id: 'mock_2', userName: 'Viren', actionText: t('activity.actions.unfollowedYou', 'unfollowed you'), time: '5 days ago', type: 'unfollow', userId: 'user_viren' },
-    { id: 'mock_3', userName: 'Akash kumar', actionText: t('activity.actions.sawYourDrop', 'saw your drop'), time: '7 days ago', type: 'drop', userId: 'user_akash' },
-    { id: 'mock_4', userName: 'Rahul', actionText: t('activity.actions.likedYourPhoto', 'liked your photo'), time: '9 days ago', type: 'like', userId: 'user_rahul' },
-    { id: 'mock_5', userName: 'Gustavo Foly', actionText: t('activity.actions.watchedYourFlips', 'watched your flips'), subtitle: '8 flips', time: '12 days ago', type: 'flip', userId: 'user_gustavo' },
-    { id: 'mock_6', userName: 'Vanclei dos Santos', actionText: t('activity.actions.followedYou', 'followed you'), time: '18 days ago', type: 'follow', userId: 'user_vanclei' },
-    { id: 'mock_7', userName: 'Akash kumar', actionText: t('activity.actions.followedYou', 'followed you'), time: '21 days ago', type: 'follow', userId: 'user_akash' },
-    { id: 'mock_8', userName: 'Rahul', actionText: t('activity.actions.followedYou', 'followed you'), time: '26 days ago', type: 'follow', userId: 'user_rahul' },
-    { id: 'mock_9', userName: 'Valens app', actionText: t('activity.actions.sawYourDrop', 'saw your drop'), time: '54 days ago', type: 'drop', userId: 'user_valens' },
-    { id: 'mock_10', userName: 'Valens app', actionText: t('activity.actions.followedYou', 'followed you'), time: '54 days ago', type: 'follow', userId: 'user_valens' },
-    { id: 'mock_11', userName: 'Yashuu', actionText: t('activity.actions.followedYou', 'followed you'), time: '58 days ago', type: 'follow', userId: 'user_yashuu' },
-    { id: 'mock_12', userName: 'Megha Walia', actionText: t('activity.actions.likedYourPhoto', 'liked your photo'), time: '62 days ago', type: 'like', userId: 'user_megha' },
-  ];
-
   const parseActivityItem = useCallback((item, index) => {
-    const activityType = String(item.activityType || item.type || 'following').toLowerCase();
+    const activityType = String(item.activityType || item.type || '').toLowerCase();
+    const interactionType = String(item.interactionType || '').toLowerCase();
 
     let type = 'follow';
-    let actionText = t('activity.actions.followedYou', 'followed you');
-
-    if (activityType.includes('unfollow')) {
+    if (activityType.includes('unfollow') || interactionType.includes('unfollow')) {
       type = 'unfollow';
-      actionText = t('activity.actions.unfollowedYou', 'unfollowed you');
-    } else if (activityType.includes('drop')) {
+    } else if (activityType.includes('drop') || interactionType.includes('story')) {
       type = 'drop';
-      actionText = t('activity.actions.sawYourDrop', 'saw your drop');
-    } else if (activityType.includes('flip')) {
-      type = 'flip';
-      actionText = t('activity.actions.watchedYourFlips', 'watched your flips');
-    } else if (activityType.includes('like')) {
+    } else if (interactionType.includes('comment')) {
+      type = 'comment';
+    } else if (interactionType.includes('like') || activityType.includes('like')) {
       type = 'like';
-      actionText = t('activity.actions.likedYourPhoto', 'liked your photo');
+    } else if (activityType.includes('flip') || interactionType.includes('flip')) {
+      type = 'flip';
     }
 
+    const userName = String(
+      item.actorName || item.followerName || item.username || item.name || '',
+    ).trim();
+    const apiSentence = String(item.body || item.message || '').trim();
+    let actionText = apiSentence;
+    if (userName && apiSentence.toLowerCase().startsWith(userName.toLowerCase())) {
+      actionText = apiSentence
+        .slice(userName.length)
+        .replace(/^[\s,.:;\-–—]+/, '')
+        .trim();
+    }
+    if (!actionText) {
+      actionText = String(item.title || apiSentence).trim();
+    }
+
+    const subtitle = item.subtitle || item.postCaption || item.storyCaption || undefined;
+
     return {
-      id: item.id || item.activityId || `act_${index}_${item.createdAt || Date.now()}`,
-      userName: item.actorName || item.followerName || item.username || item.name || 'Someone',
+      id: item.id || item.activityId || [
+        activityType || 'activity',
+        interactionType,
+        item.actorId || item.followerId,
+        item.postId || item.storyId || item.followingId,
+        item.createdAt,
+        index,
+      ].filter(Boolean).join('_'),
+      userName,
       actionText,
-      subtitle: item.subtitle || (item.count ? `${item.count} flips` : undefined),
+      subtitle,
       actorImage: item.actorImage || null,
       userId: item.actorId || item.followerId || item.userId || item.id,
       time: formatTime(item.createdAt),
       type,
       createdAt: new Date(item.createdAt || Date.now()).getTime(),
     };
-  }, [t, formatTime]);
+  }, [formatTime]);
 
   const fetchActivities = async (filterKey) => {
     try {
       dispatch(showLoader());
       const apiTypeParam = filterKey === 'all' ? null : filterKey;
       const response = await getRecentActivities(apiTypeParam);
-      console.log(response, 'data in activity response');
+      console.log(response.data, 'data in activity response');
 
       if (response?.statusCode === 200 || response?.status === 200 || response?.data) {
         const rawData =
@@ -134,7 +139,9 @@ export const ActivityScreen = ({ navigation }) => {
         let listToProcess = [];
 
         if (filterKey === 'all') {
-          if (rawData.activities?.length) {
+          if (Array.isArray(rawData)) {
+            listToProcess = rawData;
+          } else if (rawData.activities?.length) {
             listToProcess = rawData.activities;
           } else {
             listToProcess = [
@@ -156,48 +163,17 @@ export const ActivityScreen = ({ navigation }) => {
         } else if (Array.isArray(rawData) && rawData.length) {
           listToProcess = rawData;
         }
+        console.log('listToProcess:', listToProcess);
 
-        if (listToProcess.length > 0) {
-          const parsed = listToProcess.map((item, idx) => parseActivityItem(item, idx));
-          parsed.sort((a, b) => b.createdAt - a.createdAt);
-          setActivities(parsed);
-        } else {
-          // Fallback mock items filtered by key
-          const filteredMock = filterKey === 'all'
-            ? initialMockActivities
-            : initialMockActivities.filter(item => {
-              if (filterKey === 'following') return item.type === 'follow';
-              if (filterKey === 'unfollowing') return item.type === 'unfollow';
-              if (filterKey === 'drops') return item.type === 'drop';
-              if (filterKey === 'flips') return item.type === 'flip';
-              return true;
-            });
-          setActivities(filteredMock);
-        }
+        const parsed = listToProcess.map((item, idx) => parseActivityItem(item, idx));
+        parsed.sort((a, b) => b.createdAt - a.createdAt);
+        setActivities(parsed);
       } else {
-        const filteredMock = filterKey === 'all'
-          ? initialMockActivities
-          : initialMockActivities.filter(item => {
-            if (filterKey === 'following') return item.type === 'follow';
-            if (filterKey === 'unfollowing') return item.type === 'unfollow';
-            if (filterKey === 'drops') return item.type === 'drop';
-            if (filterKey === 'flips') return item.type === 'flip';
-            return true;
-          });
-        setActivities(filteredMock);
+        setActivities([]);
       }
     } catch (error) {
       console.log('Error fetching activities', error);
-      const filteredMock = filterKey === 'all'
-        ? initialMockActivities
-        : initialMockActivities.filter(item => {
-          if (filterKey === 'following') return item.type === 'follow';
-          if (filterKey === 'unfollowing') return item.type === 'unfollow';
-          if (filterKey === 'drops') return item.type === 'drop';
-          if (filterKey === 'flips') return item.type === 'flip';
-          return true;
-        });
-      setActivities(filteredMock);
+      setActivities([]);
     } finally {
       dispatch(hideLoader());
     }
@@ -227,6 +203,8 @@ export const ActivityScreen = ({ navigation }) => {
         return { bg: '#EC4899', icon: 'eye' };
       case 'like':
         return { bg: '#8B5CF6', icon: 'heart' };
+      case 'comment':
+        return { bg: '#14B8A6', icon: 'chatbubble-ellipses' };
       case 'flip':
         return { bg: '#F59E0B', icon: 'videocam' };
       case 'follow':
@@ -282,9 +260,11 @@ export const ActivityScreen = ({ navigation }) => {
         {/* Middle Text Content */}
         <View style={styles.activityContentBox}>
           <Text style={styles.activityActionText} numberOfLines={2}>
-            <Text style={[styles.userNameBold, { color: text }]}>
-              {item.userName}{' '}
-            </Text>
+            {item.userName ? (
+              <Text style={[styles.userNameBold, { color: text }]}>
+                {item.userName}{' '}
+              </Text>
+            ) : null}
             <Text style={[styles.actionNormalText, { color: isDarkMode ? '#D1D5DB' : '#374151' }]}>
               {item.actionText}
             </Text>

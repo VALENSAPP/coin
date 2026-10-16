@@ -13,7 +13,9 @@ import {
     Keyboard,
     Linking,
     Platform,
+    useWindowDimensions,
 } from "react-native";
+import LinearGradient from "react-native-linear-gradient";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
 import Clipboard from "@react-native-clipboard/clipboard";
@@ -38,6 +40,7 @@ import { Dragonfly } from "../../assets/icons";
 import { useLanguage } from "../../i18n";
 import { getDragonflyIcon } from "../../components/profile/ProfilePersonalData";
 import { BASE_URL } from "../../config/urls";
+import { primaryCtaColors } from "../../utils/ctaContrast";
 
 const WalletAddress = '0xf8652b01';
 const userCredits = { current: 3, total: 5, renewal: "Oct 1" };
@@ -48,7 +51,10 @@ export default function WalletComponent() {
     const [selectedCreator, setSelectedCreator] = useState(null);
     const [portfolioValue, setPortfolioValue] = useState();
     const [purchaseAutoFocus, setPurchaseAutoFocus] = useState(false);
-    const [creditsLeft, setCreditsLeft] = useState(0);
+    const [subscriptionHitsLeft, setSubscriptionHitsLeft] = useState(0);
+    const [purchasedHitsLeft, setPurchasedHitsLeft] = useState(0);
+    const [maxPurchasedHits, setMaxPurchasedHits] = useState(5);
+    const [canBuyHits, setCanBuyHits] = useState(true);
     const [postCounts, setPostCounts] = useState(0);
     const [topCreators, setTopCreators] = useState([]);
     const [holdingsData, setHoldingsData] = useState([]);
@@ -64,12 +70,29 @@ export default function WalletComponent() {
     const profileImage = useSelector(state => state.profileImage?.profileImg);
     const { isBusinessProfile, bgStyle, textStyle, bg, text, cardStyle, accent, mutedText, border, card } = useBusinessProfileTheme();
     const { isDarkMode } = useThemeContext();
+    const { width: screenWidth } = useWindowDimensions();
     const labelStyle = isDarkMode ? textStyle : { color: '#111827' };
     const accentTextStyle = { color: accent };
     const { t } = useLanguage();
+    const isCompactCredits = screenWidth < 360;
+    const missionMascotSize = Math.min(
+        124,
+        Math.max(96, Math.round(screenWidth * (isCompactCredits ? 0.3 : 0.32))),
+    );
+    const creditsButtonBg = isDarkMode
+        ? (isBusinessProfile ? '#D4B06A' : '#3A2158')
+        : accent;
+    const creditsCta = primaryCtaColors(creditsButtonBg);
+    const creditsLabelColor = isDarkMode
+        ? (isBusinessProfile ? '#F3E2B8' : '#F4ECFF')
+        : accent;
+    const creditsGradient = isBusinessProfile
+        ? (isDarkMode ? ['#2A2318', '#3A2E18', '#241E14'] : ['#FFF9F0', '#F4DDB4', '#FFF6E8'])
+        : (isDarkMode ? ['#241433', '#3A2158', '#1C1028'] : ['#F7F1FF', '#E3CCFF', '#F4E9FF']);
 
-    const MAX_CREDITS = 5;
-    const maxPurchasable = MAX_CREDITS - creditsLeft;
+    const MissionImage = isBusinessProfile
+        ? require('../../assets/icons/pngicons/GoldenBeee.png')
+        : require('../../assets/icons/pngicons/mission.png');
 
     const userVerificationStatus = useMemo(() => {
         const verified = userData?.kyc === true;
@@ -160,11 +183,18 @@ export default function WalletComponent() {
         try {
             dispatch(showLoader());
             const response = await getCreditsLeft();
+            console.log('Credits Left Response:', response);
             if (response?.statusCode === 200) {
-                const hitLeft = Number(response?.data?.hitLeft);
-                const cappedHitLeft = Number.isFinite(hitLeft) ? Math.min(Math.max(hitLeft, 0), 5) : 0;
-                setCreditsLeft(response?.data?.hitLeft);
-                setPostCounts(response.data.postCount);
+                const toCount = (value, fallback = 0) => {
+                    const parsed = Number(value);
+                    return Number.isFinite(parsed) ? Math.max(0, parsed) : fallback;
+                };
+                const data = response?.data || {};
+                setSubscriptionHitsLeft(toCount(data.subscriptionHitsLeft));
+                setPurchasedHitsLeft(toCount(data.purchasedHitsLeft));
+                setMaxPurchasedHits(toCount(data.maxPurchasedHits, 5) || 5);
+                setCanBuyHits(data.canBuyHits !== false);
+                setPostCounts(data.postCount);
             } else {
                 showToastMessage(toast, 'danger', response.data.message);
             }
@@ -246,8 +276,7 @@ export default function WalletComponent() {
     }, [fetchCreditsLeft, fetchDashboardData, fetchTopCreators, fetchUserCreds, toast]);
 
     const handleBuyCredits = () => {
-        const safeCredits = Number(creditsLeft) || 0;
-        if (safeCredits >= MAX_CREDITS) {
+        if (!canBuyHits || purchasedHitsLeft >= maxPurchasedHits) {
             showToastMessage(toast, 'danger', t('walletScreen.maxCreditsReached'));
             return;
         }
@@ -430,49 +459,118 @@ export default function WalletComponent() {
                     </View>
 
                     {/* Credits Section */}
-                    <View style={[styles.creditsBox, cardStyle, { shadowColor: accent, borderColor: border, borderWidth: StyleSheet.hairlineWidth }]}>
-                        <View style={styles.creditsInfo}>
-                            <MaterialCommunityIcons name="credit-card-outline" size={24} color={accent} />
-                            <View style={{ flex: 1, marginLeft: 10 }}>
-                                <Text style={[styles.creditsTitle, labelStyle]}>
-                                    {t('walletScreen.postCredits')}
-                                </Text>
-                                <Text style={[styles.creditsCount, accentTextStyle]}>
-                                    {t('walletScreen.creditsRemaining', { count: creditsLeft })}
-                                </Text>
+                    <View
+                        style={[
+                            styles.creditsCard,
+                            {
+                                shadowColor: accent,
+                                borderColor: isDarkMode ? 'rgba(255,255,255,0.14)' : 'transparent',
+                            },
+                        ]}
+                    >
+                        <LinearGradient
+                            pointerEvents="none"
+                            colors={creditsGradient}
+                            start={{ x: 0, y: 0.5 }}
+                            end={{ x: 1, y: 0.5 }}
+                            style={StyleSheet.absoluteFill}
+                        />
+                        <View style={styles.creditsTop}>
+                            <View style={styles.creditsCopy}>
+                                <View style={styles.creditsInfo}>
+                                    <View
+                                        style={[
+                                            styles.creditsIconWrap,
+                                            {
+                                                width: isCompactCredits ? 32 : 36,
+                                                height: isCompactCredits ? 32 : 36,
+                                                backgroundColor: isDarkMode ? 'rgba(255,255,255,0.14)' : '#FFFFFF',
+                                            },
+                                        ]}
+                                    >
+                                        <MaterialCommunityIcons
+                                            name="credit-card-outline"
+                                            size={isCompactCredits ? 16 : 18}
+                                            color={creditsLabelColor}
+                                        />
+                                    </View>
+                                    <Text
+                                        style={[
+                                            styles.creditsTitle,
+                                            { color: creditsLabelColor, fontSize: isCompactCredits ? 14 : 15 },
+                                        ]}
+                                        numberOfLines={2}
+                                    >
+                                        {t('walletScreen.postCredits')}
+                                    </Text>
+                                </View>
+                                <View style={styles.creditsStats}>
+                                    <View
+                                        style={[
+                                            styles.creditsStat,
+                                            { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.72)' },
+                                        ]}
+                                    >
+                                        <Text
+                                            style={[styles.creditsStatLabel, { color: creditsLabelColor }]}
+                                            numberOfLines={2}
+                                        >
+                                            {t('walletScreen.subscriptionHits')}
+                                        </Text>
+                                        <Text style={[styles.creditsStatValue, { color: creditsLabelColor }]}>
+                                            {subscriptionHitsLeft}
+                                        </Text>
+                                    </View>
+                                    <View
+                                        style={[
+                                            styles.creditsStat,
+                                            { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.72)' },
+                                        ]}
+                                    >
+                                        <Text
+                                            style={[styles.creditsStatLabel, { color: creditsLabelColor }]}
+                                            numberOfLines={2}
+                                        >
+                                            {t('walletScreen.purchasedHits')}
+                                        </Text>
+                                        <Text style={[styles.creditsStatValue, { color: creditsLabelColor }]}>
+                                            {purchasedHitsLeft}
+                                        </Text>
+                                    </View>
+                                </View>
                             </View>
+                            <Image
+                                source={MissionImage}
+                                style={{
+                                    width: missionMascotSize,
+                                    height: missionMascotSize,
+                                    flexShrink: 0,
+                                }}
+                                resizeMode="contain"
+                            />
                         </View>
                         <TouchableOpacity
-                            style={[styles.buyCreditsBtn, { backgroundColor: accent }]}
+                            style={[
+                                styles.buyCreditsBtn,
+                                { backgroundColor: creditsCta.backgroundColor },
+                                (!canBuyHits || purchasedHitsLeft >= maxPurchasedHits) && styles.buyCreditsBtnDisabled,
+                            ]}
                             onPress={handleBuyCredits}
-                            disabled={creditsLeft >= 5}
+                            disabled={!canBuyHits || purchasedHitsLeft >= maxPurchasedHits}
+                            activeOpacity={0.85}
                         >
-                            <Text style={styles.buyCreditsText}>
+                            <Text
+                                style={[
+                                    styles.buyCreditsText,
+                                    { color: creditsCta.color, fontSize: isCompactCredits ? 13 : 15 },
+                                ]}
+                                numberOfLines={2}
+                                adjustsFontSizeToFit
+                                minimumFontScale={0.8}
+                            >
                                 {t('walletScreen.buyCredits')}
                             </Text>
                         </TouchableOpacity>
-                        {/* <View
-                            style={[
-                                styles.creditsInfo,
-                                {
-                                    marginBottom: 0,
-                                    marginTop: 10,
-                                    paddingTop: 10,
-                                    borderTopWidth: 1,
-                                    borderTopColor: border,
-                                },
-                            ]}
-                        >
-                            <MaterialCommunityIcons name="gift-outline" size={24} color={accent} />
-                            <View style={{ flex: 1, marginLeft: 10 }}>
-                                <Text style={[styles.creditsTitle, labelStyle]}>
-                                    {t('walletScreen.referralPoints')}
-                                </Text>
-                                <Text style={[styles.creditsCount, accentTextStyle]}>
-                                    {t('walletScreen.referralPts', { count: referPoints })}
-                                </Text>
-                            </View>
-                        </View> */}
                     </View>
 
                     <View style={styles.infoBoxesRow}>
@@ -593,8 +691,8 @@ export default function WalletComponent() {
                     fetchCreditsLeft();
                     setShowCreditModal(false);
                 }}
-                currentCredits={creditsLeft}
-                maxPurchasable={MAX_CREDITS - creditsLeft}
+                currentCredits={purchasedHitsLeft}
+                maxPurchasable={Math.max(0, maxPurchasedHits - purchasedHitsLeft)}
                 isBusinessProfile={isBusinessProfile}
             />
         </SafeAreaView>
@@ -668,40 +766,100 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         textAlign: 'center'
     },
-    creditsBox: {
-        padding: 10,
-        borderRadius: 16,
-        marginHorizontal: 8,
-        shadowOpacity: 0.06,
-        shadowRadius: 6,
-        elevation: 2,
+    creditsCard: {
+        marginTop: 12,
+        borderRadius: 22,
+        borderWidth: StyleSheet.hairlineWidth,
+        paddingHorizontal: 14,
+        paddingTop: 12,
+        paddingBottom: 14,
+        overflow: 'hidden',
+        shadowOpacity: 0.12,
+        shadowRadius: 14,
+        shadowOffset: { width: 0, height: 6 },
+        elevation: 3,
+    },
+    creditsTop: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    creditsCopy: {
+        flex: 1,
+        minWidth: 0,
+        justifyContent: 'center',
+        paddingRight: 4,
     },
     creditsInfo: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 10,
+    },
+    creditsIconWrap: {
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     creditsTitle: {
-        fontSize: 16,
+        flex: 1,
+        flexShrink: 1,
+        marginLeft: 10,
+        fontSize: 15,
         fontWeight: '600',
     },
     creditsCount: {
-        fontSize: 20,
-        fontWeight: '700',
+        marginTop: 8,
+        fontSize: 24,
+        fontWeight: '800',
+        letterSpacing: -0.3,
+    },
+    creditsStats: {
+        flexDirection: 'row',
+        marginTop: 12,
+        gap: 8,
+    },
+    creditsStat: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: 12,
+        paddingVertical: 8,
+        paddingHorizontal: 6,
+        minHeight: 64,
+    },
+    creditsStatLabel: {
+        fontSize: 12,
+        fontWeight: '600',
+        textAlign: 'center',
+        lineHeight: 16,
+    },
+    creditsStatValue: {
+        marginTop: 4,
+        fontSize: 22,
+        fontWeight: '800',
+        textAlign: 'center',
     },
     creditsRenewal: {
         fontSize: 12,
         color: '#666',
     },
     buyCreditsBtn: {
-        paddingVertical: 10,
-        borderRadius: 8,
+        marginTop: 12,
+        minHeight: 48,
+        paddingVertical: 13,
+        paddingHorizontal: 12,
+        borderRadius: 14,
         alignItems: 'center',
+        justifyContent: 'center',
+        alignSelf: 'stretch',
+    },
+    buyCreditsBtnDisabled: {
+        opacity: 0.45,
     },
     buyCreditsText: {
         color: '#fff',
-        fontWeight: '600',
-        fontSize: 14,
+        fontWeight: '700',
+        fontSize: 15,
+        textAlign: 'center',
+        width: '100%',
     },
     infoBoxesRow: {
         flexDirection: 'column',

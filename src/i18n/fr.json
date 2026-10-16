@@ -2544,6 +2544,8 @@
     "totalValueHoldings": "Valeur totale des avoirs",
     "postCredits": "Publications Mission",
     "creditsRemaining": "{{count}} / 5 restants",
+    "subscriptionHits": "Crédits d'abonnement",
+    "purchasedHits": "Crédits achetés",
     "buyCredits": "Obtenir une publication Mission (1,99 $ chacune)",
     "referralPoints": "Points de parrainage",
     "referralPts": "{{count}} pts",
