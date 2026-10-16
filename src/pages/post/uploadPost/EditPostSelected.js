@@ -87,6 +87,11 @@ import {
   normalizeOverlayFontFamily,
   getOverlayFontTextStyle,
 } from '../../../utils/postOverlayFonts';
+import StickerPickerModal from '../../../components/stickers/StickerPickerModal';
+import {
+  VALENS_STICKERS_MAP,
+  DRALENS_STICKERS_MAP,
+} from '../../../constants/valensStickers';
 
 const colors = [
   '#fff', '#ff0000', '#00ff00', '#0000ff', '#ffff00',
@@ -1652,6 +1657,33 @@ const InstagramPostCreator = () => {
     showToastMessage(toast, 'success', t('selectedPost.stickerAdded'), 1500);
   };
 
+  const addStickerItem = sticker => {
+    if (sticker.type === 'emoji' || (!sticker.type && typeof sticker === 'string')) {
+      const emojiChar = typeof sticker === 'string' ? sticker : (sticker.emoji || '✨');
+      addStickerEmoji(emojiChar);
+      return;
+    }
+    const id = `${Date.now()}_${Math.random()}`;
+    const ch = currentContentLayout.height || editorCanvasHeight || IMAGE_SIZE;
+    const cw = currentContentLayout.width || IMAGE_SIZE;
+    const isSvg = sticker.type === 'svg';
+    const stickerId = sticker.stickerId || sticker.id;
+    const newOverlay = {
+      id,
+      stickerId,
+      source: sticker.source || null,
+      isSvg,
+      position: { x: Math.max(16, cw / 2 - 50), y: Math.max(16, ch / 2 - 50) },
+      scale: 1,
+      rotation: 0,
+      baseSize: 100,
+    };
+    const cur = getCurrentImageEdits();
+    updateCurrentImageEdits({ overlayImages: [...(cur.overlayImages || []), newOverlay] });
+    setFlipStickerModal(false);
+    showToastMessage(toast, 'success', t('selectedPost.stickerAdded'), 1500);
+  };
+
   const setFlipVolumeForCurrent = vol => { const v = Math.min(1, Math.max(0, vol)); setFlipVolumeByIndex(prev => ({ ...prev, [currentImageIndex]: v })); };
 
   const removeOverlay = (id) => {
@@ -2098,7 +2130,13 @@ const InstagramPostCreator = () => {
                               const overlayRotationAnim = getAnimatedOverlayImageRotation(currentImageIndex, img.id, img.rotation ?? 0);
                               return (
                                 <Animated.View key={img.id} {...overlayPanResponder.panHandlers} testID="overlay-element" style={[styles.overlayImageWrapper, { width: img.baseSize || 100, height: img.baseSize || 100, transform: [...animatedPosition.getTranslateTransform(), { scale: overlayScaleAnim }, { rotate: overlayRotationAnim.rotate }] }]}>
-                                  <View style={styles.overlayTouchTarget}><Image source={{ uri: img.uri }} style={styles.overlayImage} /></View>
+                                  <View style={styles.overlayTouchTarget}>
+                                    {img.isSvg && img.stickerId && DRALENS_STICKERS_MAP[img.stickerId] ? (
+                                      React.createElement(DRALENS_STICKERS_MAP[img.stickerId].SvgComp, { width: '100%', height: '100%' })
+                                    ) : (
+                                      <Image source={img.source || (img.stickerId && VALENS_STICKERS_MAP[img.stickerId]?.source) || { uri: img.uri }} style={styles.overlayImage} resizeMode="contain" fadeDuration={0} />
+                                    )}
+                                  </View>
                                 </Animated.View>
                               );
                             })}
@@ -2204,7 +2242,11 @@ const InstagramPostCreator = () => {
                           <>
                             {imageEdits[index].overlayImages?.map(img => (
                               <View key={`saved-overlay-${img.id}`} style={[styles.overlayImageWrapper, { width: img.baseSize || 100, height: img.baseSize || 100, left: img.position?.x || 0, top: img.position?.y || 0, transform: [{ scale: img.scale || 1 }, { rotate: `${img.rotation || 0}rad` }] }]}>
-                                <Image source={{ uri: img.uri }} style={styles.savedOverlayImage} />
+                                {img.isSvg && img.stickerId && DRALENS_STICKERS_MAP[img.stickerId] ? (
+                                  React.createElement(DRALENS_STICKERS_MAP[img.stickerId].SvgComp, { width: '100%', height: '100%' })
+                                ) : (
+                                  <Image source={img.source || (img.stickerId && VALENS_STICKERS_MAP[img.stickerId]?.source) || { uri: img.uri }} style={styles.savedOverlayImage} resizeMode="contain" fadeDuration={0} />
+                                )}
                               </View>
                             ))}
                             {imageEdits[index].textOverlays?.map(overlay => {
@@ -2484,7 +2526,13 @@ const InstagramPostCreator = () => {
               <ScrollView horizontal>
                 {getCurrentImageEdits().overlayImages.map(img => (
                   <View key={img.id} style={{ margin: 8 }}>
-                    <Image source={{ uri: img.uri }} style={{ width: 60, height: 60, borderRadius: 8 }} />
+                    {img.isSvg && img.stickerId && DRALENS_STICKERS_MAP[img.stickerId] ? (
+                      <View style={{ width: 60, height: 60, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.08)' }}>
+                        {React.createElement(DRALENS_STICKERS_MAP[img.stickerId].SvgComp, { width: 44, height: 44 })}
+                      </View>
+                    ) : (
+                      <Image source={img.source || (img.stickerId && VALENS_STICKERS_MAP[img.stickerId]?.source) || { uri: img.uri }} style={{ width: 60, height: 60, borderRadius: 8 }} resizeMode="contain" fadeDuration={0} />
+                    )}
                     <TouchableOpacity onPress={() => removeOverlay(img.id)}>
                       <Text style={{ color: 'red', fontSize: 12, textAlign: 'center' }}>{t('selectedPost.remove')}</Text>
                     </TouchableOpacity>
@@ -2557,20 +2605,13 @@ const InstagramPostCreator = () => {
         </View>
       </RBSheet>
 
-      <Modal visible={flipStickerModal} transparent animationType="fade" onRequestClose={() => setFlipStickerModal(false)}>
-        <View style={styles.flipStickerModalRoot}>
-          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setFlipStickerModal(false)} />
-          <View style={[styles.flipModalCard, { backgroundColor: cardStyle?.backgroundColor || '#1a1a1a' }]}>
-            <Text style={[styles.flipModalTitle, textStyle]}>{t('selectedPost.toolSticker')}</Text>
-            <View style={styles.flipEmojiGrid}>
-              {FLIP_EMOJI_STICKERS.map(emoji => <TouchableOpacity key={emoji} style={styles.flipEmojiCell} onPress={() => addStickerEmoji(emoji)}><Text style={styles.flipEmojiText}>{emoji}</Text></TouchableOpacity>)}
-            </View>
-            <TouchableOpacity onPress={() => setFlipStickerModal(false)} style={styles.flipModalClose}>
-              <Text style={{ color: themeText, fontWeight: '600' }}>{t('selectedPost.close')}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+      <StickerPickerModal
+        visible={flipStickerModal}
+        onClose={() => setFlipStickerModal(false)}
+        onSelectSticker={addStickerItem}
+        isDarkMode={isDarkMode}
+        accentColor="#5a2d82"
+      />
 
       <PostMusicGalleryModal
         visible={flipAudioModal}

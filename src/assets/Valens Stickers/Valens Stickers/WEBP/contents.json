@@ -1,0 +1,420 @@
+{
+  "android_play_store_link": "",
+  "ios_app_store_link": "",
+  "sticker_packs": [
+    {
+      "identifier": "valens_1",
+      "name": "Valens Reactions",
+      "publisher": "Valens",
+      "tray_image_file": "tray.png",
+      "image_data_version": "1",
+      "avoid_cache": false,
+      "publisher_email": "",
+      "publisher_website": "",
+      "privacy_policy_website": "",
+      "license_agreement_website": "",
+      "stickers": [
+        {
+          "image_file": "thinking.webp",
+          "emojis": [
+            "🤔"
+          ]
+        },
+        {
+          "image_file": "idea.webp",
+          "emojis": [
+            "💡"
+          ]
+        },
+        {
+          "image_file": "nervous.webp",
+          "emojis": [
+            "😰"
+          ]
+        },
+        {
+          "image_file": "wondering.webp",
+          "emojis": [
+            "🤨"
+          ]
+        },
+        {
+          "image_file": "welcome.webp",
+          "emojis": [
+            "🤗"
+          ]
+        },
+        {
+          "image_file": "champion.webp",
+          "emojis": [
+            "🥊"
+          ]
+        },
+        {
+          "image_file": "love.webp",
+          "emojis": [
+            "❤️"
+          ]
+        },
+        {
+          "image_file": "surprised.webp",
+          "emojis": [
+            "😮"
+          ]
+        },
+        {
+          "image_file": "shocked.webp",
+          "emojis": [
+            "😱"
+          ]
+        },
+        {
+          "image_file": "trophy.webp",
+          "emojis": [
+            "🏆"
+          ]
+        },
+        {
+          "image_file": "zen.webp",
+          "emojis": [
+            "🧘"
+          ]
+        },
+        {
+          "image_file": "no.webp",
+          "emojis": [
+            "❌"
+          ]
+        },
+        {
+          "image_file": "late.webp",
+          "emojis": [
+            "⏰"
+          ]
+        },
+        {
+          "image_file": "celebrate.webp",
+          "emojis": [
+            "🎉"
+          ]
+        },
+        {
+          "image_file": "thumbsup.webp",
+          "emojis": [
+            "👍"
+          ]
+        },
+        {
+          "image_file": "hug.webp",
+          "emojis": [
+            "🫂"
+          ]
+        },
+        {
+          "image_file": "lightbulb.webp",
+          "emojis": [
+            "💡"
+          ]
+        },
+        {
+          "image_file": "wave.webp",
+          "emojis": [
+            "👋"
+          ]
+        },
+        {
+          "image_file": "joy.webp",
+          "emojis": [
+            "😄"
+          ]
+        },
+        {
+          "image_file": "victory.webp",
+          "emojis": [
+            "🏆"
+          ]
+        },
+        {
+          "image_file": "star.webp",
+          "emojis": [
+            "⭐"
+          ]
+        },
+        {
+          "image_file": "notification.webp",
+          "emojis": [
+            "🔔"
+          ]
+        },
+        {
+          "image_file": "thanks.webp",
+          "emojis": [
+            "🙏"
+          ]
+        },
+        {
+          "image_file": "goodjob.webp",
+          "emojis": [
+            "👏"
+          ]
+        },
+        {
+          "image_file": "ok.webp",
+          "emojis": [
+            "👌"
+          ]
+        },
+        {
+          "image_file": "grumpy.webp",
+          "emojis": [
+            "😒"
+          ]
+        }
+      ]
+    },
+    {
+      "identifier": "valens_2",
+      "name": "Valens Actions",
+      "publisher": "Valens",
+      "tray_image_file": "tray.png",
+      "image_data_version": "1",
+      "avoid_cache": false,
+      "publisher_email": "",
+      "publisher_website": "",
+      "privacy_policy_website": "",
+      "license_agreement_website": "",
+      "stickers": [
+        {
+          "image_file": "explorer.webp",
+          "emojis": [
+            "🗺️"
+          ]
+        },
+        {
+          "image_file": "rocket.webp",
+          "emojis": [
+            "🚀"
+          ]
+        },
+        {
+          "image_file": "fighting.webp",
+          "emojis": [
+            "🥊"
+          ]
+        },
+        {
+          "image_file": "cheering.webp",
+          "emojis": [
+            "📣"
+          ]
+        },
+        {
+          "image_file": "hello.webp",
+          "emojis": [
+            "👋"
+          ]
+        },
+        {
+          "image_file": "flying.webp",
+          "emojis": [
+            "✈️"
+          ]
+        },
+        {
+          "image_file": "training.webp",
+          "emojis": [
+            "💪"
+          ]
+        },
+        {
+          "image_file": "levelup.webp",
+          "emojis": [
+            "⬆️"
+          ]
+        },
+        {
+          "image_file": "analyzing.webp",
+          "emojis": [
+            "🔍"
+          ]
+        },
+        {
+          "image_file": "megaphone.webp",
+          "emojis": [
+            "📢"
+          ]
+        },
+        {
+          "image_file": "working.webp",
+          "emojis": [
+            "💻"
+          ]
+        },
+        {
+          "image_file": "app.webp",
+          "emojis": [
+            "📱"
+          ]
+        },
+        {
+          "image_file": "messaging.webp",
+          "emojis": [
+            "💬"
+          ]
+        },
+        {
+          "image_file": "shopping.webp",
+          "emojis": [
+            "🛒"
+          ]
+        },
+        {
+          "image_file": "videocall.webp",
+          "emojis": [
+            "📹"
+          ]
+        },
+        {
+          "image_file": "gliding.webp",
+          "emojis": [
+            "🪽"
+          ]
+        },
+        {
+          "image_file": "searching.webp",
+          "emojis": [
+            "🔎"
+          ]
+        },
+        {
+          "image_file": "networking.webp",
+          "emojis": [
+            "🌐"
+          ]
+        },
+        {
+          "image_file": "guiding.webp",
+          "emojis": [
+            "📍"
+          ]
+        },
+        {
+          "image_file": "helpdesk.webp",
+          "emojis": [
+            "🎧"
+          ]
+        },
+        {
+          "image_file": "zoom.webp",
+          "emojis": [
+            "💨"
+          ]
+        },
+        {
+          "image_file": "reading.webp",
+          "emojis": [
+            "📖"
+          ]
+        },
+        {
+          "image_file": "phone.webp",
+          "emojis": [
+            "📱"
+          ]
+        },
+        {
+          "image_file": "friends.webp",
+          "emojis": [
+            "👯"
+          ]
+        },
+        {
+          "image_file": "handshake.webp",
+          "emojis": [
+            "🤝"
+          ]
+        },
+        {
+          "image_file": "highfive.webp",
+          "emojis": [
+            "🙌"
+          ]
+        }
+      ]
+    },
+    {
+      "identifier": "valens_3",
+      "name": "Valens Brand",
+      "publisher": "Valens",
+      "tray_image_file": "tray.png",
+      "image_data_version": "1",
+      "avoid_cache": false,
+      "publisher_email": "",
+      "publisher_website": "",
+      "privacy_policy_website": "",
+      "license_agreement_website": "",
+      "stickers": [
+        {
+          "image_file": "mission.webp",
+          "emojis": [
+            "📋"
+          ]
+        },
+        {
+          "image_file": "launch.webp",
+          "emojis": [
+            "🚀"
+          ]
+        },
+        {
+          "image_file": "private.webp",
+          "emojis": [
+            "🔒"
+          ]
+        },
+        {
+          "image_file": "secure.webp",
+          "emojis": [
+            "🛡️"
+          ]
+        },
+        {
+          "image_file": "leading.webp",
+          "emojis": [
+            "🚩"
+          ]
+        },
+        {
+          "image_file": "lock.webp",
+          "emojis": [
+            "🔐"
+          ]
+        },
+        {
+          "image_file": "protect.webp",
+          "emojis": [
+            "🛡️"
+          ]
+        },
+        {
+          "image_file": "invite.webp",
+          "emojis": [
+            "✉️"
+          ]
+        },
+        {
+          "image_file": "achievement.webp",
+          "emojis": [
+            "🏔️"
+          ]
+        },
+        {
+          "image_file": "shield.webp",
+          "emojis": [
+            "🛡️"
+          ]
+        }
+      ]
+    }
+  ]
+}

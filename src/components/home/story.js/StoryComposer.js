@@ -30,6 +30,12 @@ import { useAppTheme } from '../../../theme/useApptheme';
 import { useThemeContext } from '../../../theme/ThemeContext';
 import PostMusicGalleryModal from '../../post/PostMusicGalleryModal';
 import PostStoryMusicTrimModal from '../../post/PostStoryMusicTrimModal';
+import StickerPickerModal from '../../stickers/StickerPickerModal';
+import {
+  VALENS_STICKERS_MAP,
+  DRALENS_STICKERS_MAP,
+  VALENS_STICKERS,
+} from '../../../constants/valensStickers';
 import ImagePicker from 'react-native-image-crop-picker';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -308,6 +314,7 @@ export default function StoryComposer({
   const [showTrimModal, setShowTrimModal] = useState(false);
   const [showVolumeModal, setShowVolumeModal] = useState(false);
   const [showAudioTrimModal, setShowAudioTrimModal] = useState(false);
+  const [showStickerModal, setShowStickerModal] = useState(false);
   const [trimStartDraft, setTrimStartDraft] = useState('0');
   const [trimEndDraft, setTrimEndDraft] = useState('');
   const [audioTrimStartDraft, setAudioTrimStartDraft] = useState('0');
@@ -389,6 +396,7 @@ export default function StoryComposer({
     setShowTrimModal(false);
     setShowVolumeModal(false);
     setShowAudioTrimModal(false);
+    setShowStickerModal(false);
     setActiveTab(prev => (prev === 'text' ? 'none' : prev));
     Keyboard.dismiss();
   };
@@ -403,6 +411,7 @@ export default function StoryComposer({
       setShowTrimModal(false);
       setShowVolumeModal(false);
       setShowAudioTrimModal(false);
+      setShowStickerModal(false);
       return;
     }
     const justOpened = !storyModalWasOpenRef.current;
@@ -754,15 +763,56 @@ export default function StoryComposer({
     setFilterPerIndex(prev => ({ ...prev, [index]: filterKey }));
   };
 
-  const addSticker = emoji => {
+  const addSticker = stickerItem => {
+    const id = `${Date.now()}_${Math.random()}`;
+    const isString = typeof stickerItem === 'string';
+    const isEmoji = isString || stickerItem.type === 'emoji';
+    const emoji = isString ? stickerItem : (stickerItem.emoji || null);
+    const stickerType = isEmoji ? 'emoji' : (stickerItem.type || 'image');
+    const stickerId = stickerItem.stickerId || stickerItem.id || null;
+
     setStickersPerIndex(prev => {
       const next = { ...prev };
       next[index] = [
         ...(next[index] || []),
-        { id: `${Date.now()}_${Math.random()}`, emoji, x: 50, y: 50, scale: 1, rotation: 0 },
+        {
+          id,
+          type: stickerType,
+          stickerId,
+          emoji,
+          x: Math.max(20, (canvasLayout.width || 360) / 2 - 50),
+          y: Math.max(20, (canvasLayout.height || 640) / 2 - 50),
+          scale: 1,
+          rotation: 0,
+        },
       ];
       return next;
     });
+  };
+
+  const renderStoryStickerContent = s => {
+    if (s.type === 'image' || (s.stickerId && VALENS_STICKERS_MAP[s.stickerId])) {
+      const item = VALENS_STICKERS_MAP[s.stickerId];
+      const source = s.source || item?.source;
+      if (source) {
+        return (
+          <Image
+            source={source}
+            style={styles.stickerValensImg}
+            resizeMode="contain"
+            fadeDuration={0}
+          />
+        );
+      }
+    }
+    if (s.type === 'svg' || (s.stickerId && DRALENS_STICKERS_MAP[s.stickerId])) {
+      const item = DRALENS_STICKERS_MAP[s.stickerId];
+      const SvgComp = item?.SvgComp;
+      if (SvgComp) {
+        return <SvgComp width={85} height={85} />;
+      }
+    }
+    return <GestureText style={styles.sticker}>{s.emoji || '✨'}</GestureText>;
   };
 
   const addText = () => {
@@ -1097,6 +1147,11 @@ export default function StoryComposer({
       return;
     }
     closeSheets();
+    if (key === 'stickers') {
+      setActiveTab('stickers');
+      setShowStickerModal(true);
+      return;
+    }
     if (key === 'overlay') {
       setActiveTab('overlay');
       return;
@@ -1505,7 +1560,7 @@ export default function StoryComposer({
                   boundsBleed={STORY_OVERLAY_EDGE_BLEED}
                 >
                   <View style={styles.stickerHitArea} collapsable={false}>
-                    <GestureText style={styles.sticker}>{s.emoji}</GestureText>
+                    {renderStoryStickerContent(s)}
                   </View>
                 </StoryInteractiveOverlay>
               ))}
@@ -1644,6 +1699,24 @@ export default function StoryComposer({
                   showsHorizontalScrollIndicator={false}
                   contentContainerStyle={styles.stickerScrollContent}
                 >
+                  <TouchableOpacity
+                    onPress={() => setShowStickerModal(true)}
+                    style={styles.stickerSearchPick}
+                    activeOpacity={0.7}
+                  >
+                    <Icon name="search" size={17} color="#fff" />
+                    <Text style={styles.stickerSearchPickText}>Search</Text>
+                  </TouchableOpacity>
+                  {VALENS_STICKERS.slice(0, 10).map(item => (
+                    <TouchableOpacity
+                      key={item.id}
+                      onPress={() => addSticker(item)}
+                      style={styles.stickerPickValens}
+                      activeOpacity={0.7}
+                    >
+                      <Image source={item.source} style={styles.stickerThumb} resizeMode="contain" fadeDuration={0} />
+                    </TouchableOpacity>
+                  ))}
                   {['😀','😂','😍','🔥','👍','👏','😮','😎','🥳','🤍','💙','✨','🌈','💥','🍕','🎉'].map(e => (
                     <TouchableOpacity
                       key={e}
@@ -1887,6 +1960,14 @@ export default function StoryComposer({
           textColor={themeText || '#111'}
           accentColor={themeText || '#5a2d82'}
           isDark={isDarkMode}
+        />
+
+        <StickerPickerModal
+          visible={showStickerModal}
+          onClose={() => setShowStickerModal(false)}
+          onSelectSticker={addSticker}
+          isDarkMode={isDarkMode}
+          accentColor={themeText || '#5a2d82'}
         />
 
         <PostStoryMusicTrimModal
@@ -3108,6 +3189,39 @@ const styles = StyleSheet.create({
   stickerScrollContent: {
     paddingHorizontal: 12,
     alignItems: 'center',
+  },
+  stickerSearchPick: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    height: 48,
+    borderRadius: 24,
+    marginRight: 10,
+    backgroundColor: '#5a2d82',
+    gap: 6,
+  },
+  stickerSearchPickText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  stickerPickValens: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    marginRight: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(128,128,128,0.18)',
+    padding: 4,
+  },
+  stickerThumb: {
+    width: 38,
+    height: 38,
+  },
+  stickerValensImg: {
+    width: 105,
+    height: 105,
   },
   stickerPick: {
     width: 48,
