@@ -2544,6 +2544,8 @@
     "totalValueHoldings": "Valore totale delle partecipazioni",
     "postCredits": "Mission Post",
     "creditsRemaining": "{{count}} / 5 rimanenti",
+    "subscriptionHits": "Crediti abbonamento",
+    "purchasedHits": "Crediti acquistati",
     "buyCredits": "Ottieni Mission Post ($1,99 ciascuno)",
     "referralPoints": "Punti referral",
     "referralPts": "{{count}} pts",

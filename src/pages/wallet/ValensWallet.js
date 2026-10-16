@@ -39,6 +39,7 @@ import { appKit } from '../../config/AppKitConfig';
 import { useLanguage } from '../../i18n';
 import { resolveTransactionAmount } from '../../utils/transactionAmount';
 import { formatLocalizedActivityDate } from '../../utils/dateTimeFormatter';
+import { formatDisplayCurrency } from '../../utils/displayLocale';
 
 
 const WALLET_ICON_BY_TYPE = {
@@ -120,7 +121,7 @@ const ValensWallet = ({ navigation }) => {
                         0;
                     const totalValue = Number(rawValue) || 0;
                     setPortfolioValueNumber(totalValue);
-                    setPortfolioValue(`$${totalValue.toFixed(2)}`);
+                    setPortfolioValue(formatDisplayCurrency(totalValue, currentLanguage));
                 } else if (response?.message) {
                     showToastMessage(toast, 'danger', response.message);
                 }
@@ -274,7 +275,7 @@ const ValensWallet = ({ navigation }) => {
                     const userProfile = transactionUserId ? profileMap[String(transactionUserId)] : null;
                     const typeLabel = resolveTypeLabel(tx);
                     const status = pickFirst(tx?.status, tx?.paymentStatus, tx?.state, '');
-                    const { formatted: amount, amountTone } = resolveTransactionAmount(tx, { formatMoney });
+                    const { formatted: amount, amountTone, amountNumber } = resolveTransactionAmount(tx, { formatMoney });
 
                     const profileName = pickFirst(
                         userProfile?.displayName,
@@ -304,6 +305,7 @@ const ValensWallet = ({ navigation }) => {
                         title: String(title),
                         subtitle: subtitle ? String(subtitle) : [typeLabel, status].filter(Boolean).join(' • ') || '—',
                         amount,
+                        amountNumber,
                         amountTone,
                         date: createdAt,
                         typeLabel,
@@ -336,26 +338,14 @@ const ValensWallet = ({ navigation }) => {
     };
 
     const formatMoney = (value) => {
-        if (typeof value !== 'number' || Number.isNaN(value)) return '$0.00';
-
-        return `$${value.toLocaleString(undefined, {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-        })}`;
+        const amount = Number(value);
+        return formatDisplayCurrency(Number.isFinite(amount) ? amount : 0, currentLanguage);
     };
 
-    const getNumericActivityAmount = (value) => {
-        const cleaned = String(value ?? '').replace(/[^0-9.-]/g, '');
-        const parsed = Number(cleaned);
-
-        return Number.isFinite(parsed) ? Math.abs(parsed) : 0;
-    };
-
-    const maskMoney = (formattedMoney) => {
-        if (!formattedMoney) return '$••••';
-        const normalized = String(formattedMoney).trim();
-        if (!normalized.startsWith('$')) return '••••';
-        return '$••••';
+    const maskMoney = () => {
+        const sample = formatDisplayCurrency(0, currentLanguage);
+        const symbol = sample.replace(/[0-9\s.,\u00a0]+/g, '').trim();
+        return symbol ? `${symbol} ••••` : '••••';
     };
 
     const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
@@ -364,8 +354,8 @@ const ValensWallet = ({ navigation }) => {
     const balanceFontSize = clamp(Math.round(40 * scale), 30, 44);
 
     const displayPortfolioValue = showTotalBalance
-        ? (portfolioValue ?? '$0.00')
-        : maskMoney(portfolioValue);
+        ? formatDisplayCurrency(portfolioValueNumber, currentLanguage)
+        : maskMoney();
 
     const walletScreenGradient = useMemo(
         () => getWalletScreenGradient(isBusinessProfile, isDarkMode, accent, card),
@@ -444,7 +434,7 @@ const ValensWallet = ({ navigation }) => {
                 tone: isMetaMaskConnected ? 'success' : 'muted',
             },
             meta: isMetaMaskConnected ? metaMaskPreview : t('valensWallet.tapToConnect'),
-            amount: `$ ${Number(metaMaskReceivedUsd || 0).toFixed(2)}`,
+            amount: formatMoney(metaMaskReceivedUsd),
             approx: '',
             cta: isMetaMaskConnected ? t('valensWallet.disconnectMetaMask') : t('valensWallet.connectMetaMask'),
             onPress: handleMetaMaskCardPress,
@@ -701,10 +691,10 @@ const ValensWallet = ({ navigation }) => {
                                     <View style={styles.activityRight}>
                                         <Text style={[styles.activityAmount, { color: amountColor }]}>
                                             {activity.amountTone === 'positive' ? '+' : '-'}
-                                            <Text style={styles.currencySymbol}>
-                                                {t('subscription.SCurrency')}
-                                            </Text>
-                                            {getNumericActivityAmount(activity.amount).toFixed(2)}
+                                            {formatDisplayCurrency(
+                                                Number.isFinite(activity.amountNumber) ? activity.amountNumber : 0,
+                                                currentLanguage,
+                                            )}
                                         </Text>
                                     </View>
                                     <Ionicons name="chevron-forward" size={18} color={`${text}66`} style={styles.activityChevron} />

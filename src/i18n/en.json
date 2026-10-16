@@ -2544,6 +2544,8 @@
     "totalValueHoldings": "Total value of holdings",
     "postCredits": "Mission Posts",
     "creditsRemaining": "{{count}} / 5 remaining",
+    "subscriptionHits": "Subscription credits",
+    "purchasedHits": "Purchased credits",
     "buyCredits": "Get Mission Post ($1.99 each)",
     "referralPoints": "Referral Points",
     "referralPts": "{{count}} pts",

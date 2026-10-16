@@ -2544,6 +2544,8 @@
     "totalValueHoldings": "Valor total das participações",
     "postCredits": "Posts de missão",
     "creditsRemaining": "{{count}} / 5 restantes",
+    "subscriptionHits": "Créditos de assinatura",
+    "purchasedHits": "Créditos comprados",
     "buyCredits": "Adquirir Post de Missão (R$ 1,99 cada)",
     "referralPoints": "Pontos de indicação",
     "referralPts": "{{count}} pts",
